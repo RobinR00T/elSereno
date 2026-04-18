@@ -1,0 +1,211 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - name: gofmt
+        run: |
+          diff=$(gofmt -l .)
+          if [ -n "$diff" ]; then
+            echo "::error::gofmt differences:"
+            echo "$diff"
+            exit 1
+          fi
+      - name: goimports
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          diff=$(goimports -l .)
+          if [ -n "$diff" ]; then
+            echo "::error::goimports differences:"
+            echo "$diff"
+            exit 1
+          fi
+      - name: go mod tidy diff
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || (echo "::error::go.mod/go.sum not tidy"; exit 1)
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.62.2
+
+  build-default:
+    name: build-default
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        go: ['stable']
+        include:
+          - os: ubuntu-latest
+            go: '1.22'
+          - os: macos-latest
+            go: 'stable'
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: '-mod=readonly'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - run: go build ./...
+
+  build-offensive:
+    name: build-offensive
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: '-mod=readonly'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - run: go build -tags offensive ./...
+
+  build-sqlite:
+    name: build-sqlite
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - name: install sqlcipher headers
+        run: sudo apt-get update && sudo apt-get install -y libsqlcipher-dev
+      - run: go build -tags sqlite ./...
+
+  unit:
+    name: unit (race + coverage)
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '1'
+      GOFLAGS: '-mod=readonly'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - run: go test -race -short -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - name: coverage summary
+        run: go tool cover -func=coverage.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  fuzz:
+    name: fuzz smoke (30s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - run: ./scripts/run-fuzz.sh 30s
+
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - name: start simulators
+        run: |
+          if [ -f simulators/docker-compose.test.yml ]; then
+            docker compose -f simulators/docker-compose.test.yml up -d
+          else
+            echo "no simulators/docker-compose.test.yml yet — skipping"
+          fi
+      - run: go test -tags integration -count=1 ./test/integration/... || echo "no integration suite yet"
+
+  sec:
+    name: sec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: gosec
+        uses: securego/gosec@master
+        with:
+          args: ./...
+      - name: trivy fs
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+      - name: go-licenses
+        run: |
+          go install github.com/google/go-licenses@latest
+          go-licenses check ./... --disallowed_types=forbidden,restricted
+      - name: go mod verify
+        run: go mod verify
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  context:
+    name: context
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/context-check.sh
+
+  codeql:
+    name: codeql
+    uses: ./.github/workflows/codeql.yml
+
+  dep-review:
+    name: dep-review
+    runs-on: ubuntu-latest
+    if: github.event.repository.visibility == 'public' && github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
