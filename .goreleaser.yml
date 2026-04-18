@@ -1,0 +1,129 @@
+version: 2
+
+project_name: elsereno
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: elsereno-default
+    main: ./cmd/elsereno
+    binary: elsereno
+    env:
+      - CGO_ENABLED=0
+      - GOFLAGS=-mod=readonly
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+  - id: elsereno-offensive
+    main: ./cmd/elsereno
+    binary: elsereno-offensive
+    env:
+      - CGO_ENABLED=0
+      - GOFLAGS=-mod=readonly
+    flags:
+      - -trimpath
+      - -buildvcs=false
+      - -tags=offensive
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+  - id: elsereno-sqlite
+    main: ./cmd/elsereno
+    binary: elsereno-sqlite
+    env:
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+      - -buildvcs=false
+      - -tags=sqlite
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    # SQLite variant is CGO; only ship the runner's native arch (ADR-012, PITF-006).
+    goos: [linux]
+    goarch: [amd64]
+
+archives:
+  - id: default
+    builds:
+      - elsereno-default
+      - elsereno-offensive
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - SECURITY.md
+      - LEGAL.md
+      - NON-GOALS.md
+      - man/man1/*.1
+      - man/man5/*.5
+      - man/man7/*.7
+      - completions/*
+
+  - id: sqlite
+    builds:
+      - elsereno-sqlite
+    name_template: "{{ .ProjectName }}_{{ .Version }}_sqlite_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^chore:"
+      - "^docs:"
+      - "^test:"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/elsereno/elsereno:{{ .Version }}"
+      - "ghcr.io/elsereno/elsereno:latest"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+
+sboms:
+  - artifacts: archive
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_sbom.cyclonedx.json"
+    cmd: cyclonedx-gomod
+    args: ["mod", "-licenses", "-json", "-output", "$document"]
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    args:
+      - "sign-blob"
+      - "--yes"
+      - "--output-signature=${signature}"
+      - "${artifact}"

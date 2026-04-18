@@ -1,0 +1,19 @@
+pre-commit:
+  commands:
+    gofmt:
+      run: gofmt -l {staged_files}
+      glob: "*.go"
+    goimports:
+      run: goimports -l {staged_files}
+      glob: "*.go"
+    lint:
+      run: golangci-lint run --new-from-rev=HEAD~1
+    test-short:
+      run: go test -short -race ./...
+    gitleaks:
+      run: gitleaks protect --staged
+
+commit-msg:
+  commands:
+    dco:
+      run: grep -qE '^Signed-off-by: .+ <.+@.+>' "{1}"

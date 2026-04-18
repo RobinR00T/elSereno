@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.7
+# SQLite variant — CGO + SQLCipher. Runner-native arch only (PITF-006, ADR-012).
+ARG GO_VERSION=1.23.4
+FROM golang:${GO_VERSION}-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      gcc \
+      libc6-dev \
+      libsqlcipher-dev \
+      pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+ENV CGO_ENABLED=1
+
+COPY go.mod go.sum* ./
+RUN go mod download
+
+COPY . .
+
+ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
+
+RUN go build -trimpath -buildvcs=false -tags sqlite \
+    -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
+    -o /out/elsereno ./cmd/elsereno
+
+# Runtime — distroless base with glibc for CGO.
+FROM gcr.io/distroless/base-nodebug-debian12:nonroot
+COPY --from=builder /out/elsereno /usr/local/bin/elsereno
+COPY --from=builder /usr/lib/*/libsqlcipher.so.* /usr/lib/
+USER nonroot:nonroot
+EXPOSE 8787
+ENTRYPOINT ["/usr/local/bin/elsereno"]
+CMD ["serve"]

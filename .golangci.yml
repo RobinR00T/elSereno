@@ -1,0 +1,116 @@
+run:
+  timeout: 10m
+  build-tags:
+    - offensive
+    - sqlite
+    - integration
+    - e2e
+    - chaos
+  modules-download-mode: readonly
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+
+linters:
+  disable-all: true
+  enable:
+    # Correctness
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    # Security
+    - gosec
+    - forcetypeassert
+    # Style & complexity
+    - gocritic
+    - revive
+    - gocyclo
+    - funlen
+    - dupl
+    - misspell
+    - goconst
+    - unconvert
+    - unparam
+    - tagalign
+    # Error handling
+    - nilerr
+    - errorlint
+    - exhaustive
+    - wastedassign
+    # Context & concurrency
+    - contextcheck
+    - containedctx
+    - noctx
+    - tparallel
+    # Resource leaks
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+    # Formatting
+    - goimports
+    - whitespace
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  funlen:
+    lines: 60
+    statements: 40
+  gosec:
+    excludes:
+      # G204: subprocess with variable. We isolate this to internal/exec.SafeCommand
+      # with an explicit localised `//nolint:gosec G204` + rationale (ADR-024).
+      # Global exclude would mask callers; we rely on the local comment instead.
+    config:
+      global:
+        audit: "true"
+  exhaustive:
+    default-signifies-exhaustive: true
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+  goimports:
+    local-prefixes: local/elsereno
+  misspell:
+    locale: UK
+  revive:
+    rules:
+      - name: exported
+      - name: indent-error-flow
+      - name: unused-parameter
+      - name: var-naming
+      - name: context-as-argument
+      - name: context-keys-type
+
+issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+    - bin
+    - dist
+  exclude-rules:
+    # Tests: funlen / dupl / gocyclo relaxed to 120/80 equivalents.
+    - path: _test\.go
+      linters:
+        - funlen
+        - dupl
+        - gocyclo
+        - errcheck
+        - goconst
+    # Generated files.
+    - path: /mocks/
+      linters:
+        - revive
+        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+severity:
+  default-severity: error

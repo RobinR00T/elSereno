@@ -1,0 +1,76 @@
+title = "ElSereno gitleaks configuration"
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''vendor/''',
+  '''testdata/''',
+  '''node_modules/''',
+  '''\.git/''',
+]
+
+[[rules]]
+id = "elsereno-shodan-key"
+description = "Shodan API key"
+regex = '''(?i)(?:SHODAN[_\-]?API[_\-]?KEY|shodan_api_key)\s*[:=]\s*['"]?[A-Za-z0-9]{32}['"]?'''
+tags = ["key", "shodan"]
+
+[[rules]]
+id = "elsereno-censys-id"
+description = "Censys API ID"
+regex = '''(?i)(?:CENSYS_API_ID)\s*[:=]\s*['"]?[0-9a-f-]{36}['"]?'''
+tags = ["key", "censys"]
+
+[[rules]]
+id = "elsereno-censys-secret"
+description = "Censys API secret"
+regex = '''(?i)(?:CENSYS_API_SECRET)\s*[:=]\s*['"]?[A-Za-z0-9]{20,}['"]?'''
+tags = ["key", "censys"]
+
+[[rules]]
+id = "elsereno-vault-passphrase"
+description = "ElSereno vault passphrase"
+regex = '''(?i)(?:ELSERENO_VAULT_PASSPHRASE)\s*[:=]\s*['"]?.+?['"]?'''
+tags = ["key", "vault"]
+
+[[rules]]
+id = "elsereno-bearer"
+description = "ElSereno web bearer token"
+regex = '''(?i)Bearer\s+[A-Za-z0-9_\-]{32,}'''
+tags = ["token", "web"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS access key"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["key", "aws"]
+
+[[rules]]
+id = "aws-secret"
+description = "AWS secret access key"
+regex = '''(?i)aws_secret_access_key\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?'''
+tags = ["key", "aws"]
+
+[[rules]]
+id = "gcp-service-account"
+description = "GCP service account JSON"
+regex = '''"type":\s*"service_account",\s*"project_id"'''
+tags = ["key", "gcp"]
+
+[[rules]]
+id = "private-ssh-key"
+description = "SSH private key"
+regex = '''-----BEGIN (?:OPENSSH|RSA|DSA|EC|PGP) PRIVATE KEY-----'''
+tags = ["key", "ssh"]
+
+[[rules]]
+id = "pgp-private-key"
+description = "PGP private key block"
+regex = '''-----BEGIN PGP PRIVATE KEY BLOCK-----'''
+tags = ["key", "pgp"]
+
+[[rules]]
+id = "jwt"
+description = "JWT token"
+regex = '''eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}'''
+tags = ["token", "jwt"]

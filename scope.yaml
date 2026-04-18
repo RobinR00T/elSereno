@@ -1,0 +1,24 @@
+version: 1
+ranges:
+  - cidr: 192.168.0.0/16
+    note: "internal lab"
+  - cidr: 2001:db8::/32
+    note: "ipv6 lab"
+ports:
+  allow: [502, 102, 44818, 47808, 2404, 20000, 1998, 9999]
+  deny: []
+protocols:
+  allow: [modbus, s7, enip, bacnet, dnp3, iec104, xot, atmodem, banner]
+  deny: []
+binds:
+  allow:
+    - 127.0.0.1:8787
+    - "[::1]:8787"
+dial:
+  # Además de la blacklist hardcoded de ≤3 dígitos (siempre activa).
+  blocked_numbers:
+    - "+34112"
+    - "+34062"
+canary:
+  enabled: false
+  alert_webhook: ""

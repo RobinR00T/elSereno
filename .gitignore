@@ -1,0 +1,16 @@
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+.idea/
+.vscode/*
+!.vscode/settings.json
+.env
+.env.local
+.env.*.local
+!.env.example
+.elsereno/
+.DS_Store
+*.swp
