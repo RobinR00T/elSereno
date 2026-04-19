@@ -22,6 +22,28 @@ var ErrInvalidFlag = errors.New("exec: invalid flag")
 // validator rejects a positional argument.
 var ErrInvalidPositional = errors.New("exec: invalid positional")
 
+// ErrBypassAuditRequired is returned when CommandSpec.AllowAnyPath is
+// set but no BypassAuditor was supplied. The bypass never runs
+// unaudited.
+var ErrBypassAuditRequired = errors.New("exec: --no-allowlist bypass requires an auditor")
+
+// BypassEvent is recorded by a BypassAuditor whenever CommandSpec
+// has AllowAnyPath=true.
+type BypassEvent struct {
+	Binary  string
+	Reason  string
+	Actor   string
+	Flags   []string
+	PosArgs []string
+}
+
+// BypassAuditor receives a BypassEvent whenever the path allowlist is
+// bypassed. Returning an error aborts the spawn — the bypass never
+// runs on a broken audit chain.
+type BypassAuditor interface {
+	RecordBypass(ev BypassEvent) error
+}
+
 // PositionalValidator validates a single positional argument. It
 // returns nil if the argument is acceptable for the bound command.
 type PositionalValidator func(arg string) error
@@ -50,6 +72,26 @@ type CommandSpec struct {
 	// ValidatePositional is invoked per positional argument; if nil, a
 	// conservative default rejects shell metacharacters only.
 	ValidatePositional PositionalValidator
+
+	// AllowAnyPath, when true, lets SafeCommand resolve Name outside
+	// AllowedPaths. This is the `--no-allowlist` escape hatch and is
+	// gated by a mandatory BypassAuditor — SafeCommand refuses the
+	// spawn when AllowAnyPath is true AND BypassAuditor is nil OR
+	// the auditor's RecordBypass returns an error.
+	AllowAnyPath bool
+
+	// BypassReason documents why the operator requested the bypass.
+	// Emitted into the BypassEvent; empty values are allowed but the
+	// audit entry will flag "reason=unspecified".
+	BypassReason string
+
+	// Actor identifies the operator (CLI: os.Getenv("USER")); emitted
+	// into the BypassEvent.
+	Actor string
+
+	// BypassAuditor is the record sink for the bypass. Required when
+	// AllowAnyPath is true.
+	BypassAuditor BypassAuditor
 }
 
 // flagPattern is deliberately strict: leading "-", no metachars, no nul,
@@ -93,6 +135,20 @@ func resolveBinary(name string, allowed []string) (string, error) {
 	return "", fmt.Errorf("%w: %q not in %v", ErrDisallowedPath, abs, allowed)
 }
 
+// resolveBinaryAnyPath is the --no-allowlist escape hatch. It resolves
+// the binary on PATH without the allowlist check.
+func resolveBinaryAnyPath(name string) (string, error) {
+	full, err := exec.LookPath(name)
+	if err != nil {
+		return "", fmt.Errorf("exec: LookPath(%s): %w", name, err)
+	}
+	abs, err := filepath.Abs(full)
+	if err != nil {
+		return "", fmt.Errorf("exec: Abs(%s): %w", full, err)
+	}
+	return abs, nil
+}
+
 // SafeCommand builds the validated *exec.Cmd per CommandSpec. Callers
 // are expected to wire Stdin/Stdout/Stderr and invoke Run or Start
 // themselves.
@@ -107,9 +163,35 @@ func SafeCommand(ctx context.Context, spec CommandSpec) (*exec.Cmd, error) {
 		allowed = []string{"/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"}
 	}
 
-	binary, err := resolveBinary(spec.Name, allowed)
-	if err != nil {
-		return nil, err
+	var binary string
+	if spec.AllowAnyPath {
+		if spec.BypassAuditor == nil {
+			return nil, ErrBypassAuditRequired
+		}
+		var err error
+		binary, err = resolveBinaryAnyPath(spec.Name)
+		if err != nil {
+			return nil, err
+		}
+		reason := spec.BypassReason
+		if reason == "" {
+			reason = "unspecified"
+		}
+		if err := spec.BypassAuditor.RecordBypass(BypassEvent{
+			Binary:  binary,
+			Reason:  reason,
+			Actor:   spec.Actor,
+			Flags:   append([]string(nil), spec.Flags...),
+			PosArgs: append([]string(nil), spec.Positional...),
+		}); err != nil {
+			return nil, fmt.Errorf("exec: bypass audit: %w", err)
+		}
+	} else {
+		var err error
+		binary, err = resolveBinary(spec.Name, allowed)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := validateFlags(spec.Flags); err != nil {

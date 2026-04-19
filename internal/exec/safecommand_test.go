@@ -88,3 +88,95 @@ func TestSeparatorIsAlwaysPresent(t *testing.T) {
 		t.Fatalf("-- separator missing in %v", cmd.Args)
 	}
 }
+
+// --- --no-allowlist bypass (ADR-039 escape hatch, F5) ---
+
+type captureBypass struct {
+	events []exec.BypassEvent
+	fail   error
+}
+
+func (c *captureBypass) RecordBypass(ev exec.BypassEvent) error {
+	if c.fail != nil {
+		return c.fail
+	}
+	c.events = append(c.events, ev)
+	return nil
+}
+
+func TestBypass_RequiresAuditor(t *testing.T) {
+	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
+		Name:         "sh", // most systems have this somewhere
+		AllowAnyPath: true,
+	})
+	if !errors.Is(err, exec.ErrBypassAuditRequired) {
+		t.Fatalf("want ErrBypassAuditRequired, got %v", err)
+	}
+}
+
+//nolint:gosec // G101 false positive — test struct literal with no secrets
+func TestBypass_RecordsEvent(t *testing.T) {
+	cb := &captureBypass{}
+	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
+		Name:          "sh",
+		AllowAnyPath:  true,
+		BypassReason:  "operator-run test helper",
+		Actor:         "test-actor",
+		BypassAuditor: cb,
+	})
+	if err != nil {
+		t.Fatalf("SafeCommand: %v", err)
+	}
+	if len(cb.events) != 1 {
+		t.Fatalf("events: %+v", cb.events)
+	}
+	ev := cb.events[0]
+	if ev.Actor != "test-actor" || ev.Reason != "operator-run test helper" {
+		t.Fatalf("event fields: %+v", ev)
+	}
+	if !strings.HasSuffix(ev.Binary, "/sh") {
+		t.Fatalf("binary = %q", ev.Binary)
+	}
+}
+
+func TestBypass_DefaultReasonUnspecified(t *testing.T) {
+	cb := &captureBypass{}
+	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
+		Name:          "sh",
+		AllowAnyPath:  true,
+		BypassAuditor: cb,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cb.events[0].Reason != "unspecified" {
+		t.Fatalf("reason = %q", cb.events[0].Reason)
+	}
+}
+
+func TestBypass_AuditFailureAborts(t *testing.T) {
+	cb := &captureBypass{fail: errors.New("chain broken")}
+	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
+		Name:          "sh",
+		AllowAnyPath:  true,
+		BypassAuditor: cb,
+	})
+	if err == nil {
+		t.Fatal("expected error when auditor fails")
+	}
+	if !strings.Contains(err.Error(), "chain broken") {
+		t.Fatalf("err should wrap auditor error: %v", err)
+	}
+}
+
+func TestBypass_NormalPathStillAllowlisted(t *testing.T) {
+	// Without AllowAnyPath, a binary outside allowed paths must fail
+	// with ErrDisallowedPath — bypass is strictly opt-in.
+	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
+		Name:         "sh",
+		AllowedPaths: []string{"/does-not-exist"},
+	})
+	if !errors.Is(err, exec.ErrDisallowedPath) {
+		t.Fatalf("want ErrDisallowedPath, got %v", err)
+	}
+}
