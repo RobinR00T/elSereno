@@ -85,3 +85,29 @@ func TestCheckNoScopeAlwaysOK(t *testing.T) {
 		t.Fatalf("nil scope: %v", err)
 	}
 }
+
+func TestCheckDial(t *testing.T) {
+	t.Parallel()
+	s := &scope.Scope{Dial: scope.DialDecl{BlockedNumbers: []string{"44", "901", "91234567"}}}
+
+	// Prefix match.
+	if err := s.CheckDial("442071234567"); err == nil {
+		t.Fatal("expected prefix block for 44…")
+	}
+	// Exact match.
+	if err := s.CheckDial("91234567"); err == nil {
+		t.Fatal("expected exact block for 91234567")
+	}
+	// No match.
+	if err := s.CheckDial("34911234567"); err != nil {
+		t.Fatalf("unblocked number should pass: %v", err)
+	}
+}
+
+func TestCheckDialNilScope(t *testing.T) {
+	t.Parallel()
+	var s *scope.Scope
+	if err := s.CheckDial("112"); err != nil {
+		t.Fatalf("nil scope: %v", err)
+	}
+}

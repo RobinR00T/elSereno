@@ -127,6 +127,32 @@ func (s *Scope) CheckProtocol(proto string) error {
 	return nil
 }
 
+// CheckDial returns nil if `normalisedNumber` is not in the scope's
+// blocked_numbers list. Entries match if they are a prefix or an
+// exact match of the normalised number (operators typically paste
+// country-code prefixes like "0090" to block whole regions).
+//
+// This method is the *scope half* of the dial guard (ADR-041 gate
+// 2). The ≤3-digit hard block lives in offensive/dial/validate.go
+// where it cannot be bypassed by an absent scope file.
+func (s *Scope) CheckDial(normalisedNumber string) error {
+	if s == nil {
+		return nil
+	}
+	for _, e := range s.Dial.BlockedNumbers {
+		if e == "" {
+			continue
+		}
+		if normalisedNumber == e {
+			return fmt.Errorf("%w: dial number matches blocked entry %q", ErrOutOfScope, e)
+		}
+		if len(normalisedNumber) > len(e) && normalisedNumber[:len(e)] == e {
+			return fmt.Errorf("%w: dial number prefix matches blocked entry %q", ErrOutOfScope, e)
+		}
+	}
+	return nil
+}
+
 func (s *Scope) checkPort(p int) error {
 	for _, d := range s.Ports.Deny {
 		if d == p {
