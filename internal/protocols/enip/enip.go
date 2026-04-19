@@ -74,21 +74,56 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("enip: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns a read-only pass-through. Writes (CIP SendRRData
-// services that mutate) get gated in F5.
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default ENIP proxy, which refuses
+// SendRRData / SendUnitData (the envelopes carrying CIP service
+// requests — and therefore the vector for writes) with an
+// encapsulation reply status=0x0001 ("Invalid or unsupported
+// command"). Listing and session-management commands forward as-is.
+// The offensive build substitutes a CIP-service-aware handler that
+// routes mutating services through the triple-confirm wrapper.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
-type passThrough struct{}
+type writeBanHandler struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
+func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- forwardFiltered(client, upstream, client) }()
+	go func() {
+		_, err := io.Copy(client, upstream)
+		errs <- err
+	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
+	}
+}
+
+// forwardFiltered reads one EIP packet at a time. CategoryRead
+// commands forward; everything else is short-circuited with a
+// protocol-native refusal.
+func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
+	for {
+		hdr, body, err := wire.ReadPacket(client)
+		if err != nil {
+			return err
+		}
+		if wire.Classify(hdr.Command) == wire.CategoryRead {
+			buf := wire.MarshalHeader(hdr)
+			if _, werr := upstream.Write(buf[:]); werr != nil {
+				return werr
+			}
+			if len(body) > 0 {
+				if _, werr := upstream.Write(body); werr != nil {
+					return werr
+				}
+			}
+			continue
+		}
+		if _, werr := clientWriter.Write(wire.BuildRefusal(hdr)); werr != nil {
+			return werr
+		}
 	}
 }
 

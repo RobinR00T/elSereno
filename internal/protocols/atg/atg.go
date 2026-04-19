@@ -80,21 +80,83 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("atg: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns a read-only pass-through (write-gating in F5).
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default ATG proxy, which reads one
+// command line from the client, refuses everything that is not an
+// `I`-family (Info) command, and replies with the Veeder-Root
+// `9999FF1B` Data-Error sequence (ADR-040). ATG is a line-oriented
+// ASCII protocol; the only read-class commands start with `I`
+// (I20100, I10200, I20200, …). Any other command — V (setpoint),
+// S (set configuration), T (tank calibration) — mutates state. The
+// offensive build substitutes a handler that allows the full
+// command set behind triple confirm.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
-type passThrough struct{}
+type writeBanHandler struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
+func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- forwardFiltered(client, upstream, client) }()
+	go func() {
+		_, err := io.Copy(client, upstream)
+		errs <- err
+	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
 	}
+}
+
+// forwardFiltered reads one ATG command line at a time (up to 4 KiB
+// or CR, whichever first). Lines beginning with SOH + 'I' forward;
+// everything else is refused with the Data-Error sequence.
+func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
+	buf := make([]byte, 0, 256)
+	readBuf := make([]byte, 1)
+	for {
+		// Read a byte at a time until CR (0x0D) or ~4 KiB cap.
+		n, err := client.Read(readBuf)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			continue
+		}
+		buf = append(buf, readBuf[0])
+		if readBuf[0] == 0x0D || len(buf) >= 4096 {
+			line := buf
+			buf = buf[:0]
+			if isATGReadCommand(line) {
+				if _, werr := upstream.Write(line); werr != nil {
+					return werr
+				}
+				continue
+			}
+			if _, werr := clientWriter.Write([]byte("9999FF1B\r\n")); werr != nil {
+				return werr
+			}
+		}
+	}
+}
+
+// isATGReadCommand returns true when the line is a Veeder-Root
+// Info-family (`I…`) command wrapped in the usual SOH framing.
+func isATGReadCommand(line []byte) bool {
+	// Canonical framing: SOH (0x01) + command + CR.
+	if len(line) < 3 {
+		return false
+	}
+	// Skip leading SOH if present.
+	start := 0
+	if line[0] == 0x01 {
+		start = 1
+	}
+	if start >= len(line) {
+		return false
+	}
+	c := line[start]
+	return c == 'I' || c == 'i'
 }
 
 func buildFinding(target core.Target, note string, isATG bool) *core.Finding {

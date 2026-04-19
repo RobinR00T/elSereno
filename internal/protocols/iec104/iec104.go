@@ -70,20 +70,67 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("iec104: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns a read-only pass-through (write-gating in F5).
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default IEC-104 proxy, which refuses
+// I-format APDUs (the only frame type carrying ASDUs, including
+// Control-family commands that can mutate grid state) by replying
+// with a STOPDT_act U-frame (ADR-040). S-format and U-format frames
+// forward untouched so the data-transfer lifecycle completes. The
+// offensive build substitutes an ASDU-aware handler that routes
+// Control ASDUs through the triple-confirm wrapper.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
-type passThrough struct{}
+type writeBanHandler struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
+func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- forwardFiltered(client, upstream, client) }()
+	go func() {
+		_, err := io.Copy(client, upstream)
+		errs <- err
+	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
+	}
+}
+
+// forwardFiltered reads one APDU at a time. Non-I frames forward;
+// I frames are short-circuited with a STOPDT_act refusal.
+func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
+	apci := make([]byte, wire.APCILen)
+	for {
+		if _, err := io.ReadFull(client, apci); err != nil {
+			return err
+		}
+		a, err := wire.ParseAPCI(apci)
+		if err != nil {
+			return err
+		}
+		// APDU total = 2 start+length bytes + Length. The 4 control
+		// bytes are part of Length, so payload size = Length - 4.
+		payloadLen := int(a.Length) - 4
+		payload := make([]byte, payloadLen)
+		if payloadLen > 0 {
+			if _, err := io.ReadFull(client, payload); err != nil {
+				return err
+			}
+		}
+		if wire.Classify(a) == wire.CategoryRead {
+			if _, werr := upstream.Write(apci); werr != nil {
+				return werr
+			}
+			if payloadLen > 0 {
+				if _, werr := upstream.Write(payload); werr != nil {
+					return werr
+				}
+			}
+			continue
+		}
+		if _, werr := clientWriter.Write(wire.BuildRefusal()); werr != nil {
+			return werr
+		}
 	}
 }
 

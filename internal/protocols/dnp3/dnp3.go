@@ -65,20 +65,70 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("dnp3: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns a read-only pass-through (write-gating in F5).
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default DNP3 proxy, which refuses every
+// primary (PRM=1) frame except Test Link States (FC 1) and Request
+// Link Status (FC 9); user-data frames (FC 3/4) and Reset Link
+// States (FC 0) can carry mutating application-layer requests and
+// are short-circuited with a secondary "Not Supported" (FC 15)
+// reply (ADR-040). The offensive build substitutes a handler that
+// parses the application layer and routes writes through the
+// triple-confirm wrapper.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
-type passThrough struct{}
+type writeBanHandler struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
+func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- forwardFiltered(client, upstream, client) }()
+	go func() {
+		_, err := io.Copy(client, upstream)
+		errs <- err
+	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
+	}
+}
+
+// forwardFiltered reads one DNP3 link-layer frame at a time. Frames
+// classified as Read forward; every other frame is short-circuited
+// with a protocol-native refusal reply.
+func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
+	buf := make([]byte, wire.HeaderLen)
+	for {
+		if _, err := io.ReadFull(client, buf); err != nil {
+			return err
+		}
+		h, err := wire.ParseHeader(buf)
+		if err != nil {
+			return err
+		}
+		bodyLen := 0
+		if h.Length > 5 {
+			bodyLen = int(h.Length) - 5
+		}
+		body := make([]byte, bodyLen)
+		if bodyLen > 0 {
+			if _, err := io.ReadFull(client, body); err != nil {
+				return err
+			}
+		}
+		if wire.ClassifyControl(h.Control) == wire.CategoryRead {
+			if _, werr := upstream.Write(buf); werr != nil {
+				return werr
+			}
+			if bodyLen > 0 {
+				if _, werr := upstream.Write(body); werr != nil {
+					return werr
+				}
+			}
+			continue
+		}
+		if _, werr := clientWriter.Write(wire.BuildRefusal(h)); werr != nil {
+			return werr
+		}
 	}
 }
 

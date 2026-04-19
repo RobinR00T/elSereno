@@ -76,21 +76,20 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("fox: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns a read-only pass-through (write-gating in F5).
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default Fox proxy, which refuses every
+// client→upstream byte with a "fox a 0 -1 fox denied\n" line and
+// closes the connection (ADR-040). Niagara Fox is a line-oriented
+// administrative protocol — any client input can mutate state, so
+// the default build offers no legitimate proxy use. The offensive
+// build substitutes a handler that allows `fox a 0 -1 fox hello`
+// handshake and routes everything else through triple confirm.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &denyAll{} }
 
-type passThrough struct{}
+type denyAll struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
-	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errs:
-		return err
-	}
+func (denyAll) Handle(_ context.Context, client, _ io.ReadWriter) error {
+	_, _ = client.Write([]byte("fox a 0 -1 fox denied\n"))
+	return fmt.Errorf("fox: proxy refuses client input by default (use -tags offensive + triple confirm)")
 }
 
 func buildFinding(target core.Target, note string, isFox bool) *core.Finding {

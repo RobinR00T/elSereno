@@ -78,21 +78,18 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("bacnet: REPL arrives with the generic framework")
 }
 
-// ProxyHandler is a UDP pass-through. F5 adds per-service gating.
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns a fail-closed handler. BACnet/IP is UDP; the
+// generic TCP proxy framework in internal/proxy cannot legitimately
+// relay BACnet traffic. Rather than silently shuttle bytes that are
+// not BACnet frames, the handler refuses the session immediately.
+// A dedicated UDP relay arrives with the BACnet write plugin in the
+// offensive build (ADR-040).
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 
-type passThrough struct{}
+type failClosed struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
-	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errs:
-		return err
-	}
+func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
+	return fmt.Errorf("bacnet: TCP proxy framework does not support UDP BACnet/IP; use -tags offensive for the dedicated UDP relay")
 }
 
 func buildFinding(target core.Target, note string, isIAm bool) *core.Finding {

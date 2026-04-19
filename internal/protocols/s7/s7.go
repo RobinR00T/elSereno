@@ -72,22 +72,101 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("s7: REPL arrives with the generic REPL framework")
 }
 
-// ProxyHandler returns a read-only pass-through. S7-level write
-// commands will be filtered when the offensive build adds them (F5).
-func (p *Plugin) ProxyHandler() core.ProxyHandler { return &passThrough{} }
+// ProxyHandler returns the default S7 proxy, which refuses writes
+// at the wire layer (ADR-040). Every TPKT envelope from the client
+// is parsed; the COTP/S7 function code is classified, and any
+// CategoryWrite or CategoryUnknown frame is short-circuited with an
+// S7 AckData carrying error class 0x85 (Function not allowed). The
+// offensive build substitutes WriteGatedHandler for this one to
+// route Writes through the triple-confirm wrapper.
+func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
-type passThrough struct{}
+type writeBanHandler struct{}
 
-func (passThrough) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
+func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	errs := make(chan error, 2)
-	go func() { _, err := io.Copy(upstream, client); errs <- err }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- forwardFiltered(client, upstream, client) }()
+	go func() {
+		_, err := io.Copy(client, upstream)
+		errs <- err
+	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
 	}
+}
+
+// forwardFiltered reads client TPKT envelopes one at a time. If the
+// frame is a COTP Data PDU carrying an S7 Job with a CategoryRead
+// function, it is forwarded to upstream; otherwise a refusal reply
+// is sent straight back to the client (clientWriter) and upstream
+// never sees the bytes.
+func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
+	for {
+		tpkt, err := wire.ReadTPKT(client)
+		if err != nil {
+			return err
+		}
+		if shouldBlock(tpkt.Payload) {
+			if err := wire.WriteTPKT(clientWriter, wire.BuildRefusalPayload(cotpDataPayload(tpkt.Payload))); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := wire.WriteTPKT(upstream, tpkt.Payload); err != nil {
+			return err
+		}
+	}
+}
+
+// shouldBlock returns true when the client TPKT carries a COTP Data
+// PDU classified as Write or Unknown. Non-Data COTP PDUs (CR, CC,
+// DR) are forwarded unchanged so the handshake completes.
+func shouldBlock(payload []byte) bool {
+	t, ok := wire.COTPType(payload)
+	if !ok {
+		return true
+	}
+	if t != wire.COTPData {
+		return false
+	}
+	// S7 PDU starts after COTP header. COTP DT header is 3 bytes
+	// (LI + type + TPDU-nr). LI is in payload[0].
+	if len(payload) < 3 {
+		return true
+	}
+	li := int(payload[0])
+	// LI excludes itself; total COTP header is li + 1.
+	s7Start := li + 1
+	if s7Start >= len(payload) {
+		return true
+	}
+	fc, ok := wire.ExtractFunctionCode(payload[s7Start:])
+	if !ok {
+		return true
+	}
+	switch wire.Classify(fc) {
+	case wire.CategoryRead:
+		return false
+	default:
+		return true
+	}
+}
+
+// cotpDataPayload slices the S7 PDU portion out of a COTP DT TPKT
+// payload so the refusal builder can read the request's pduRef.
+func cotpDataPayload(payload []byte) []byte {
+	if len(payload) < 3 {
+		return payload
+	}
+	li := int(payload[0])
+	s7Start := li + 1
+	if s7Start >= len(payload) {
+		return payload
+	}
+	return payload[s7Start:]
 }
 
 func classify(payload []byte) string {
