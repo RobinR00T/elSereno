@@ -1,23 +1,29 @@
 ---
-phase: F0
-status: closed
+phase: F1
+status: in-progress
 last-updated: 2026-04-19
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: F0 — Scaffolding
-**Last closed**: **F0 on 2026-04-19**. `make ci` green end-to-end on
-  the operator's machine: lint (golangci-lint v2.11.4, 0 issues), build
-  (default + offensive + sqlite), test-race + test-cover, test-fuzz
-  (smoke), sec (gosec + govulncheck + trivy + go-licenses + gitleaks,
-  0 findings each), context-check.
-**In progress**: nothing. Awaiting operator validation to open F1.
-**Next**: F1 — inputs (Shodan/Censys/nmap XML/list/stdin), scanner,
-  scoring engine v1, triage, outputs (NDJSON/CSV/HTML minimal),
-  Prometheus populated + label sanitiser, retention keep-if-referenced,
-  outbox with dead letter, IPv6 integration tests.
+**Phase**: F1 — Inputs, scanner, scoring, triage, observability (in progress).
+**Last closed**: **F0 on 2026-04-19**. `make ci` green end-to-end.
+**In progress**: F1 chunk 1 landed (cobra rewire; koanf loader with
+  unknown-field rejector; zerolog+redaction with UUID exclusion; pgx
+  pool with TLS policy; goose migration runner stub; non-network inputs
+  list/stdin/nmapxml; outputs NDJSON/CSV; scoring engine v1 with
+  embedded YAML; `config show|lint` and `scoring show|example` real
+  CLI verbs; doctor with Go/platform/CAP_NET_RAW or root/nmap/IPv6/disk
+  checks; `make ci` green).
+**Next**: F1 chunk 2 — Shodan + Censys HTTP clients with rate limiting;
+  scanner (resolve A+AAAA+IDN, dedupe, rate limits, jitter, retries,
+  circuit breaker, resume snapshots, temporal dedup 5min); triage
+  grouping; HTML output; progress bars with NO_COLOR; Prometheus
+  populated + label sanitiser; vault real (memguard + Argon2id +
+  HKDF); retention keep-if-referenced; outbox with dead letter;
+  IPv6 integration tests; pgx stdlib bridge to activate the goose
+  migration runner.
 **Blockers**: none.
 
 ## Open questions
