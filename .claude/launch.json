@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/elsereno", "serve", "--addr=127.0.0.1:8787"],
+      "port": 8787
+    },
+    {
+      "name": "dev-db (Postgres 16 + Adminer)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "docker-compose.dev.yml", "up"],
+      "port": 5433
+    },
+    {
+      "name": "dev-adminer",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "docker-compose.dev.yml", "up", "adminer"],
+      "port": 8080
+    },
+    {
+      "name": "test-simulators (Postgres + banner sim)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "simulators/docker-compose.test.yml", "up"],
+      "port": 5434
+    },
+    {
+      "name": "banner-sim only",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "-f", "simulators/docker-compose.test.yml", "up", "banner-sim"],
+      "port": 9999
+    }
+  ]
+}

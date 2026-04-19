@@ -1,0 +1,2 @@
+AT+CPIN?
++CME ERROR: 11

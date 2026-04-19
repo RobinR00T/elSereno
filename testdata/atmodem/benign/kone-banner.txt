@@ -1,0 +1,6 @@
+KONE KCE-5500 lift-interphone
+AT
+OK
+ATI
+KONE KCE-5500 rev 1.2
+OK
