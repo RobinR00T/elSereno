@@ -26,7 +26,32 @@
       "Bash(mkdir -p:*)",
       "Bash(chmod +x:*)",
       "Bash(chmod 644:*)",
-      "Bash(chmod 600:*)"
+      "Bash(chmod 600:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(make ci)",
+      "Bash(make ci-all)",
+      "Bash(make sec)",
+      "Bash(make fuzz)",
+      "Bash(make cover)",
+      "Bash(make man)",
+      "Bash(bash scripts/context-check.sh)",
+      "Bash(bash scripts/install-hooks.sh)",
+      "Bash(bash scripts/run-fuzz.sh)",
+      "Bash(bash scripts/gen-manpages.sh)",
+      "Bash(gofmt -w:*)",
+      "Bash(gofmt -l:*)",
+      "Bash(goimports -w:*)",
+      "Bash(goimports -l:*)",
+      "Bash(go generate:*)",
+      "Bash(go fmt:*)",
+      "Bash(go install:*)",
+      "Bash(govulncheck:*)",
+      "Bash(gosec:*)",
+      "Bash(gitleaks detect:*)",
+      "Bash(go-licenses:*)",
+      "Bash(touch:*)",
+      "Bash(rm -f:*)",
+      "Bash(rmdir:*)"
     ]
   }
 }
