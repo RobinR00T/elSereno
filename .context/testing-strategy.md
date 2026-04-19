@@ -44,6 +44,22 @@ Enforced in CI. Local `make test-cover` prints the per-function report.
 - `scripts/run-fuzz.sh` discovers all `Fuzz*` functions in `*_test.go`
   and runs each for `$DURATION` (default 30 s). Invoked by `make test-fuzz`
   and by the nightly CI job at 30 min per target.
+- F4 close: **18 fuzz targets** across SafeBytes, SafeCommand,
+  scoping, XOT (3), atmodem (2), Modbus (3), S7, ENIP (2), BACnet,
+  DNP3, IEC-104, HART-IP. `testdata/fuzz/*` corpora are committed
+  as regression guards whenever `make test-fuzz` finds a failing
+  input (e.g. `FuzzParseListIdentity/698ccfef81bd5cea` from the F4
+  ENIP parser fix).
+
+## Chaos (`-tags chaos`)
+
+`test/chaos/` provides deterministic fault-injection helpers:
+`RandomDropReader`, `LatencyReader`, `FlipBitsWriter`, `EarlyCloser`.
+Seeded through `math/rand/v2` PCG so CI reproduces failures. Tests
+wrap transport with these before driving a protocol plugin or the
+proxy framework. Not run by default; the F4 proxy framework work
+binds them into integration-level tests as each plugin's write-ban
+matrix matures.
 
 ## Network policy
 

@@ -79,3 +79,23 @@ One-liner per significant change to `.context/` or the codebase.
   `test/integration/modbus_integration_test.go` end-to-end through
   the framework. `make ci` green (ten fuzz targets, ~9 min wall-clock
   with trivy DB refresh).
+- 2026-04-19 — F4 — **F4 closed.** Eight new ICS plugins land in one
+  pass, all with from-scratch wire parsers + probe + fuzz target +
+  ADR + protocol doc:
+  s7 (TPKT/COTP port 102), enip (EtherNet/IP CIP ListIdentity port
+  44818), bacnet (BVLC Who-Is UDP/47808), dnp3 (IEEE 1815 link
+  frame port 20000), iec104 (APCI TESTFR port 2404), hartip
+  (session initiate port 5094), fox (Niagara Fox banner 1911/4911),
+  atg (Veeder-Root I20100 port 10001). banner plugin grows a
+  DetectVendor() helper with Moxa/Lantronix/Digi/NetBurner/KONE/
+  Otis/Schindler/OpenSSH rules. 12 plugins total registered.
+  Dashboard MVP at `/` (inline HTMX-ready HTML listing plugins) +
+  JSON API at `/api/v1/{plugins,scoring,health}` with
+  `{schema: "api:v1", data: …}` envelope. OpenAPI 3.1 spec at
+  `docs/openapi.yaml`. Conpot honeypot added to
+  `simulators/docker-compose.test.yml` with mapped ports for all 8
+  new plugins. ADRs 031..038. A fuzz-found panic in enip ListIdentity
+  parser (truncated body) was fixed with stricter bounds checks;
+  corpus entry retained as regression guard. `make ci` green (18
+  fuzz targets). REPL bindings + Bearer-auth on /api/v1 + full
+  dashboard UI land in F4 chunk 2 / F5.

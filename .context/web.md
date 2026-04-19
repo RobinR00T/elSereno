@@ -58,14 +58,23 @@ rotation, cookies expire within that TTL.
 - Per-token `rate_limit_per_min_token = 300`.
 - More restrictive limit wins.
 
-## Endpoints (F0)
+## Endpoints (F4 close)
 - `GET /healthz` — liveness.
 - `GET /readyz` — DB ping + migrations status + disk check + audit chain
-  tail verification (`readyz.audit_tail_entries = 100`).
-- `GET /metrics` — Prometheus.
-- `POST /login`, `POST /logout`.
-- `GET /` — authenticated placeholder.
-- `*` under `/api/v1/` — bearer-authenticated.
+  tail verification (`readyz.audit_tail_entries = 100`). Degraded
+  without DB wiring; returns 200 with `"db":"skipped"`.
+- `GET /metrics` — Prometheus (wiring lands with the findings sink).
+- `POST /login`, `POST /logout` (planned F4 chunk 2).
+- `GET /` — dashboard overview page (inline HTML listing 12
+  registered plugins). HTMX + Alpine move in for chunk 2 polish.
+- `GET /api/v1/plugins` — plugin list (read-only).
+- `GET /api/v1/scoring` — ADR-006 weights + severity thresholds.
+- `GET /api/v1/health` — API-level health.
+
+All `/api/v1/*` responses carry `{"schema":"api:v1","data":…}`. The
+contract lives in `docs/openapi.yaml` (OpenAPI 3.1). Bearer-token
+auth on `/api/v1/*` and the full findings/runs/targets endpoints
+wire in alongside the DB-backed audit writer.
 
 ## Cookie flags
 - `HttpOnly`, `SameSite=Strict`.

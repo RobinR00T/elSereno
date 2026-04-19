@@ -19,10 +19,6 @@ services:
       retries: 30
 
   banner-sim:
-    # Tiny TCP echo-ish server that emits a fixed banner on connect.
-    # Useful for exercising the banner plugin end-to-end without
-    # shelling out to ncat. Swap the command once real per-protocol
-    # simulators (XOT, atmodem, modbus) are added in F2+.
     image: alpine:3.20.3
     command: >
       sh -c "apk add --no-cache socat >/dev/null 2>&1 &&
@@ -30,6 +26,26 @@ services:
              socat -u - TCP-LISTEN:9999,fork,reuseaddr,bind=0.0.0.0"
     ports:
       - "127.0.0.1:9999:9999"
+
+  # Conpot is a low-interaction ICS honeypot that serves a broad set of
+  # protocols out of the box (Modbus, S7, BACnet, IPMI, HTTP). We use
+  # it so the F4 integration suite can drive every protocol plugin
+  # against a deterministic peer without wiring nine separate
+  # simulators.
+  conpot:
+    image: honeynet/conpot:latest
+    environment:
+      # Disable the template selection prompt.
+      CONPOT_TEMPLATE: default
+    ports:
+      - "127.0.0.1:1502:502"      # Modbus/TCP
+      - "127.0.0.1:10002:102"     # S7comm (TPKT/COTP)
+      - "127.0.0.1:44819:44818"   # EtherNet/IP CIP
+      - "127.0.0.1:47809:47808/udp" # BACnet/IP (UDP)
+      - "127.0.0.1:50794:5094"    # HART-IP
+      - "127.0.0.1:60870:2404"    # IEC 60870-5-104
+      - "127.0.0.1:11911:1911"    # Niagara Fox
+      - "127.0.0.1:20001:10001"   # Veeder-Root ATG (via conpot's guardian-ast emulation)
 
 volumes:
   pgdata-test:

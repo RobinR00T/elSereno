@@ -11,6 +11,7 @@ import (
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/creds"
+	"local/elsereno/internal/web/handlers"
 )
 
 // Options configures the HTTP server. Nil fields fall back to defaults.
@@ -65,7 +66,8 @@ func NewServer(opts Options) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
-	mux.HandleFunc("/", s.root)
+	mux.Handle("/api/v1/", handlers.APIV1())
+	mux.Handle("/", handlers.Dashboard())
 
 	// #nosec G112 -- all timeouts are set explicitly below.
 	s.server = &http.Server{
@@ -124,11 +126,6 @@ func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprint(w, `{"status":"ready","db":"skipped","audit":"skipped"}`)
-}
-
-func (s *Server) root(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = fmt.Fprint(w, "ElSereno. The dashboard arrives in F4.\n")
 }
 
 // securityHeaders adds the default header set (HSTS only under TLS so

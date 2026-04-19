@@ -1,51 +1,46 @@
 ---
-phase: F2-F4 (planned)
-status: draft
+phase: F4
+status: implemented
 last-updated: 2026-04-19
-token-budget: 1500
+token-budget: 1000
 protocol-name: atg
 default-port: 10001/tcp
 ---
 
-# ATG Veeder-Root TLS-350/4
+# ATG Veeder-Root (TLS-350/4)
 
 ## TL;DR
-Placeholder for F0. Fingerprint, REPL, proxy, and scoring details are
-filled in when the plugin is implemented. See the project brief (sections
-4, 7) and the scoring document for the factors this protocol contributes.
+ElSereno's `atg` plugin sends a minimal read-only probe on port 10001/tcp
+and classifies the response. Full REPL + per-field decoding land
+alongside the generic REPL framework; write operations stay behind
+`-tags offensive` (F5).
 
 ## Spec references
-- Primary: Veeder-Root vendor spec (ATG TLS-3xx)
-- Secondary: TBD.
+- Veeder-Root ATG protocol (proprietary)
 
 ## Wire format (summary)
-TBD — implementation will include a dedicated `wire/` package under
-`internal/protocols/atg/`.
+See `internal/protocols/atg/wire/` for the from-scratch parser.
 
 ## Fingerprint strategy
-TBD.
+One-shot probe: send the smallest valid request the protocol accepts;
+classify the response header and record a vendor/product hint when
+available.
 
 ## Read operations (default build)
-- TBD.
+- `probe`: what `scan` invokes.
 
 ## Write / dial operations (offensive build tag)
-- TBD.
+Deferred to F5.
 
-## REPL commands
-- TBD.
+## REPL commands (planned F4 chunk 2)
+- See the generic REPL framework.
 
 ## Proxy hooks
-TBD.
-
-## Known quirks / vendor deltas
-- TBD.
-
-## Test vectors
-- `testdata/atg/benign/`
-- `testdata/atg/malicious/` (CVE if any)
+Default pass-through. Write-gating (where it applies) lands in F5 with
+the per-FC / per-command matrix.
 
 ## Scoring contribution
-TBD.
-
-## Open questions
-- TBD.
+See `internal/protocols/atg/atg.go` for the factor defaults.
+Generic pattern: protocol_risk 80-90 (ICS control plane),
+auth_state 80-95 (most have no native auth), impact_class 60-90
+depending on the physical process affected.

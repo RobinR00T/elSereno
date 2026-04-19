@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info:
+  title: ElSereno HTTP API
+  version: "1.0.0"
+  description: >
+    Read-only HTTP API for ElSereno's dashboard. All endpoints return
+    JSON with a `schema` discriminator so downstream tools can version
+    against a concrete contract. CSRF is not required for /api/v1/*;
+    Bearer token auth (ADR-014) gates it when auth is wired in F4
+    chunk 2.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Loopback default bind
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe.
+      responses:
+        "200":
+          description: Process is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  started_at: { type: string, format: date-time }
+  /readyz:
+    get:
+      summary: Readiness probe.
+      responses:
+        "200":
+          description: Ready to serve traffic (degraded without DB).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  db: { type: string }
+                  audit: { type: string }
+  /api/v1/plugins:
+    get:
+      summary: List plugins registered in this build.
+      responses:
+        "200":
+          description: Plugin list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+  /api/v1/scoring:
+    get:
+      summary: Default scoring weights + severity thresholds.
+      responses:
+        "200":
+          description: Scoring contract.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+  /api/v1/health:
+    get:
+      summary: API-level health.
+      responses:
+        "200":
+          description: Timestamp + status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+components:
+  schemas:
+    Envelope:
+      type: object
+      required: [schema, data]
+      properties:
+        schema:
+          type: string
+          example: api:v1
+        data: {}

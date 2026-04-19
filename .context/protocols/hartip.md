@@ -1,8 +1,8 @@
 ---
-phase: F2-F4 (planned)
-status: draft
+phase: F4
+status: implemented
 last-updated: 2026-04-19
-token-budget: 1500
+token-budget: 1000
 protocol-name: hartip
 default-port: 5094/tcp+udp
 ---
@@ -10,42 +10,37 @@ default-port: 5094/tcp+udp
 # HART-IP
 
 ## TL;DR
-Placeholder for F0. Fingerprint, REPL, proxy, and scoring details are
-filled in when the plugin is implemented. See the project brief (sections
-4, 7) and the scoring document for the factors this protocol contributes.
+ElSereno's `hartip` plugin sends a minimal read-only probe on port 5094/tcp+udp
+and classifies the response. Full REPL + per-field decoding land
+alongside the generic REPL framework; write operations stay behind
+`-tags offensive` (F5).
 
 ## Spec references
-- Primary: FCG TS20085 / IEC 61804
-- Secondary: TBD.
+- FieldComm Group TS20085 / IEC 61804-3
 
 ## Wire format (summary)
-TBD — implementation will include a dedicated `wire/` package under
-`internal/protocols/hartip/`.
+See `internal/protocols/hartip/wire/` for the from-scratch parser.
 
 ## Fingerprint strategy
-TBD.
+One-shot probe: send the smallest valid request the protocol accepts;
+classify the response header and record a vendor/product hint when
+available.
 
 ## Read operations (default build)
-- TBD.
+- `probe`: what `scan` invokes.
 
 ## Write / dial operations (offensive build tag)
-- TBD.
+Deferred to F5.
 
-## REPL commands
-- TBD.
+## REPL commands (planned F4 chunk 2)
+- See the generic REPL framework.
 
 ## Proxy hooks
-TBD.
-
-## Known quirks / vendor deltas
-- TBD.
-
-## Test vectors
-- `testdata/hartip/benign/`
-- `testdata/hartip/malicious/` (CVE if any)
+Default pass-through. Write-gating (where it applies) lands in F5 with
+the per-FC / per-command matrix.
 
 ## Scoring contribution
-TBD.
-
-## Open questions
-- TBD.
+See `internal/protocols/hartip/hartip.go` for the factor defaults.
+Generic pattern: protocol_risk 80-90 (ICS control plane),
+auth_state 80-95 (most have no native auth), impact_class 60-90
+depending on the physical process affected.
