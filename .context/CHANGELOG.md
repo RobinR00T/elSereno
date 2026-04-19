@@ -30,3 +30,15 @@ One-liner per significant change to `.context/` or the codebase.
   v1 with embedded defaults/weights.yaml (ADR-006). Doctor checks go
   runtime, platform, CAP_NET_RAW / root, nmap presence, IPv6, and disk.
   `make ci` green again.
+- 2026-04-19 — F1 (chunk 2) — vault (AES-GCM + Argon2id + HKDF +
+  memguard) with unlock-once, Lock zeroisation, Init refuses silent
+  re-init; goose migrations runnable via pgx stdlib bridge
+  (OpenDBFromPool); Prometheus metrics (findings_total,
+  scan_duration_seconds, persistence_lag_seconds, audit_entries_total,
+  outbox_inflight) + label sanitiser (protocol / severity to a fixed
+  set; ASN numeric; country ISO 3166-1 alpha-2; else "unknown");
+  scanner core with resolve (A+AAAA+IDN), Dedupe, concurrent probes
+  with per-host + global semaphores, token-bucket rate limiting,
+  exponential backoff+jitter retries; triage grouping
+  (quick_win/strategic/routine); HTML output (html:v1); Shodan REST
+  client. `make ci` green. F1 snapshot written.

@@ -85,6 +85,12 @@ linters:
       - path: doc\.go
         linters:
           - dupl
+      # HTML templates use CSS property names (color, center, …) that
+      # are invariant across locales; misspell's UK dictionary fights
+      # them. Exempt the HTML output package.
+      - path: internal/outputs/html/
+        linters:
+          - misspell
 
 formatters:
   enable:
