@@ -19,17 +19,11 @@ func newStubCmds() []*cobra.Command {
 	}{
 		{"init", "Interactive first-run wizard (planned)"},
 		{"token", "Web-token operations: rotate, show (planned — requires live DB)"},
-		{"scan", "Run a scan against targets (planned)"},
 		{"repl", "Interactive protocol REPL (planned)"},
 		{"proxy", "Protocol-aware interception proxy (planned)"},
-		{"triage", "Group findings into quick-wins and strategic buckets (planned)"},
 		{"diff", "Compare two runs (planned)"},
-		{"explain", "Explain a finding's score factors (planned)"},
-		{"why", "Explain why a target was scored as it was (planned)"},
-		{"lint", "Validate elsereno.yaml and scope.yaml (planned)"},
-		{"fmt", "Reformat elsereno.yaml and scope.yaml (planned)"},
-		{"completion", "Generate shell completions (built-in via cobra in chunk 3)"},
-		{"gen-man", "Generate man1 pages via cobra/doc (chunk 3)"},
+		{"completion", "Generate shell completions (use `elsereno --help` until cobra's generator is wired)"},
+		{"gen-man", "Generate man1 pages via cobra/doc (chunk 3+)"},
 	}
 	out := make([]*cobra.Command, 0, len(stubs))
 	for _, s := range stubs {

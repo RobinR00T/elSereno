@@ -1,0 +1,35 @@
+services:
+  db:
+    # Pin exact tag (PITF-035). Matches docker-compose.dev.yml but
+    # runs on a distinct port so the integration suite never collides
+    # with an operator's dev DB.
+    image: postgres:16.3-alpine3.20
+    environment:
+      POSTGRES_DB: elsereno
+      POSTGRES_USER: elsereno
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata-test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elsereno -d elsereno"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  banner-sim:
+    # Tiny TCP echo-ish server that emits a fixed banner on connect.
+    # Useful for exercising the banner plugin end-to-end without
+    # shelling out to ncat. Swap the command once real per-protocol
+    # simulators (XOT, atmodem, modbus) are added in F2+.
+    image: alpine:3.20.3
+    command: >
+      sh -c "apk add --no-cache socat >/dev/null 2>&1 &&
+             printf 'ELSERENO-SIM-BANNER\\r\\n' |
+             socat -u - TCP-LISTEN:9999,fork,reuseaddr,bind=0.0.0.0"
+    ports:
+      - "127.0.0.1:9999:9999"
+
+volumes:
+  pgdata-test:

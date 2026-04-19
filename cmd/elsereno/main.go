@@ -137,6 +137,12 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newDbCmd())
 	root.AddCommand(newAuditCmd())
 	root.AddCommand(newServeCmd())
+	root.AddCommand(newScanCmd())
+	root.AddCommand(newExplainCmd())
+	root.AddCommand(newWhyCmd())
+	root.AddCommand(newTriageCmd())
+	root.AddCommand(newLintCmd())
+	root.AddCommand(newFmtCmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)
