@@ -32,6 +32,12 @@ func exitCodeForSignal(sig os.Signal) int {
 }
 
 func main() {
+	os.Exit(entrypoint(os.Args[1:]))
+}
+
+// entrypoint wires signal handling and dispatches; kept separate from
+// main() so deferred cleanup runs before os.Exit.
+func entrypoint(args []string) int {
 	// Root context cancelled on SIGINT or SIGTERM. A second signal during
 	// drain triggers immediate exit with the same 128+signum code.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -47,17 +53,14 @@ func main() {
 		os.Exit(exitCodeForSignal(second))
 	}()
 
-	code := run(ctx, os.Args[1:])
-	if err := ctx.Err(); err != nil {
-		// Context was cancelled by a signal; honour 128+signum if we have
-		// a clean (0) exit. Otherwise the verb's own code stands.
-		if code == 0 {
-			// We cannot recover the specific signal here, so default to
-			// SIGTERM (143) which matches the most common termination.
-			code = 143
-		}
+	code := run(ctx, args)
+	if err := ctx.Err(); err != nil && code == 0 {
+		// Context was cancelled by a signal; honour 128+signum if we
+		// have a clean (0) exit. Default to SIGTERM (143) since we
+		// cannot recover the specific signal here.
+		code = 143
 	}
-	os.Exit(code)
+	return code
 }
 
 // run dispatches the top-level verb. F0 wires a handful of working verbs
@@ -139,19 +142,22 @@ func cmdPlugins(_ context.Context, args []string) int {
 	return 0
 }
 
+const usageText = `elsereno — ICS/OT legacy exposure auditor
+
+Usage:
+  elsereno <command> [options]
+
+Commands (F0 functional):
+  version, help, doctor, legal, plugins
+
+Commands (F0 stub → implemented in later phases):
+  init, serve, db, audit, vault, creds, token, config,
+  scan, repl, proxy, triage, diff, explain, why,
+  lint, fmt, completion, gen-man
+
+See ` + "`elsereno legal`" + ` and LEGAL.md before first use.
+`
+
 func usage(w *os.File) {
-	fmt.Fprintln(w, "elsereno — ICS/OT legacy exposure auditor")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  elsereno <command> [options]")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands (F0 functional):")
-	fmt.Fprintln(w, "  version, help, doctor, legal, plugins")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands (F0 stub → implemented in later phases):")
-	fmt.Fprintln(w, "  init, serve, db, audit, vault, creds, token, config,")
-	fmt.Fprintln(w, "  scan, repl, proxy, triage, diff, explain, why,")
-	fmt.Fprintln(w, "  lint, fmt, completion, gen-man")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "See `elsereno legal` and LEGAL.md before first use.")
+	_, _ = fmt.Fprint(w, usageText)
 }

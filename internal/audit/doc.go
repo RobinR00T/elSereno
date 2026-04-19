@@ -10,11 +10,11 @@
 //   - audit purge:   tombstone; payload cleared, row and hashes kept.
 //     Writes a purge_event entry and a row in audit_purge_markers.
 //   - audit compact: hard-delete with an auditable chain_rebase marker.
-//                    Never removes entries with event_type in
-//                    {genesis, chain_rebase, purge_event}; that rule
-//                    makes ON DELETE RESTRICT on
-//                    audit_purge_markers.audit_entry_id safe
-//                    (ADR-025, PITF-033).
+//     Never removes entries with event_type in
+//     {genesis, chain_rebase, purge_event}; that rule
+//     makes ON DELETE RESTRICT on
+//     audit_purge_markers.audit_entry_id safe
+//     (ADR-025, PITF-033).
 //
 // The set of allowed event_type values is enumerated in both the SQL
 // CHECK constraint (source of truth, migration 00001) and the Go

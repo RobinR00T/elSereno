@@ -7,6 +7,8 @@ paths = [
   '''testdata/''',
   '''node_modules/''',
   '''\.git/''',
+  # .env.example ships empty-value placeholders by design (PITF-010).
+  '''\.env\.example''',
 ]
 
 [[rules]]
@@ -30,7 +32,9 @@ tags = ["key", "censys"]
 [[rules]]
 id = "elsereno-vault-passphrase"
 description = "ElSereno vault passphrase"
-regex = '''(?i)(?:ELSERENO_VAULT_PASSPHRASE)\s*[:=]\s*['"]?.+?['"]?'''
+# Require non-empty non-space value. Empty placeholders in .env.example
+# must not trigger (PITF-010).
+regex = '''(?i)(?:ELSERENO_VAULT_PASSPHRASE)\s*[:=]\s*['"]?\S+'''
 tags = ["key", "vault"]
 
 [[rules]]

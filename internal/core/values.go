@@ -17,11 +17,17 @@ func NewPort(p int) (Port, error) {
 // thresholds live in internal/scoring (ADR-006).
 type Severity string
 
+// Severity values derived from the score via SeverityFromScore.
 const (
-	SeverityInfo     Severity = "info"
-	SeverityLow      Severity = "low"
-	SeverityMedium   Severity = "medium"
-	SeverityHigh     Severity = "high"
+	// SeverityInfo is assigned when score < 20.
+	SeverityInfo Severity = "info"
+	// SeverityLow is assigned when 20 <= score < 40.
+	SeverityLow Severity = "low"
+	// SeverityMedium is assigned when 40 <= score < 60.
+	SeverityMedium Severity = "medium"
+	// SeverityHigh is assigned when 60 <= score < 80.
+	SeverityHigh Severity = "high"
+	// SeverityCritical is assigned when score >= 80.
 	SeverityCritical Severity = "critical"
 )
 
@@ -57,25 +63,44 @@ func NewConfidence(c int) Confidence {
 }
 
 // ExitCode is the conventional Unix exit code subset we use. See
-// sysexits(3) and ADR-PITF-003 for signals.
+// sysexits(3) and PITF-003 for signal-based exit codes.
 type ExitCode int
 
+// Exit codes follow sysexits(3) for the subset relevant to ElSereno.
+// Signal exits are handled separately (128+signum) in cmd/elsereno.
 const (
-	ExitOK       ExitCode = 0
-	ExitError    ExitCode = 1
-	ExitUsage    ExitCode = 64 // EX_USAGE
-	ExitDataErr  ExitCode = 65 // EX_DATAERR
-	ExitNoInput  ExitCode = 66 // EX_NOINPUT
-	ExitNoUser   ExitCode = 67 // EX_NOUSER
-	ExitNoHost   ExitCode = 68 // EX_NOHOST
-	ExitUnavail  ExitCode = 69 // EX_UNAVAILABLE
-	ExitSoftware ExitCode = 70 // EX_SOFTWARE
-	ExitOSErr    ExitCode = 71 // EX_OSERR
-	ExitOSFile   ExitCode = 72 // EX_OSFILE
-	ExitCantOpen ExitCode = 73 // EX_CANTCREAT
-	ExitIOErr    ExitCode = 74 // EX_IOERR
-	ExitTempFail ExitCode = 75 // EX_TEMPFAIL
-	ExitProtocol ExitCode = 76 // EX_PROTOCOL
-	ExitNoPerm   ExitCode = 77 // EX_NOPERM
-	ExitConfig   ExitCode = 78 // EX_CONFIG
+	// ExitOK indicates successful completion.
+	ExitOK ExitCode = 0
+	// ExitError is the generic failure code.
+	ExitError ExitCode = 1
+	// ExitUsage (EX_USAGE) indicates a command-line usage error.
+	ExitUsage ExitCode = 64
+	// ExitDataErr (EX_DATAERR) indicates bad input data.
+	ExitDataErr ExitCode = 65
+	// ExitNoInput (EX_NOINPUT) indicates missing input.
+	ExitNoInput ExitCode = 66
+	// ExitNoUser (EX_NOUSER) indicates an unknown user.
+	ExitNoUser ExitCode = 67
+	// ExitNoHost (EX_NOHOST) indicates an unknown host.
+	ExitNoHost ExitCode = 68
+	// ExitUnavail (EX_UNAVAILABLE) indicates a required service is unavailable.
+	ExitUnavail ExitCode = 69
+	// ExitSoftware (EX_SOFTWARE) indicates an internal software error.
+	ExitSoftware ExitCode = 70
+	// ExitOSErr (EX_OSERR) indicates an operating-system error.
+	ExitOSErr ExitCode = 71
+	// ExitOSFile (EX_OSFILE) indicates a critical OS file is missing.
+	ExitOSFile ExitCode = 72
+	// ExitCantOpen (EX_CANTCREAT) indicates a file cannot be created.
+	ExitCantOpen ExitCode = 73
+	// ExitIOErr (EX_IOERR) indicates an I/O error.
+	ExitIOErr ExitCode = 74
+	// ExitTempFail (EX_TEMPFAIL) indicates a transient failure; retry later.
+	ExitTempFail ExitCode = 75
+	// ExitProtocol (EX_PROTOCOL) indicates a protocol error with a remote host.
+	ExitProtocol ExitCode = 76
+	// ExitNoPerm (EX_NOPERM) indicates insufficient permissions.
+	ExitNoPerm ExitCode = 77
+	// ExitConfig (EX_CONFIG) indicates a configuration error.
+	ExitConfig ExitCode = 78
 )

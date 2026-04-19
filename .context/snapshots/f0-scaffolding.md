@@ -75,13 +75,13 @@ None beyond the initial PITF-001..036 already captured in the brief.
 
 ## Debt accepted
 
-- Full `make ci` green (including `build-sqlite`, `sec` with gosec +
-  govulncheck + trivy + go-licenses + gitleaks, `test-fuzz`) is **not**
-  achieved in this session: the required tooling is not installed on the
-  operator's machine. Acceptance criteria for closing F0 is local `make
-  ci` green after the operator installs the tooling (golangci-lint,
-  gosec, govulncheck, trivy, gitleaks, go-licenses, pandoc, docker,
-  `lefthook`).
+- `make ci` closed green on 2026-04-19 after installing golangci-lint
+  v2.11.4, gosec, govulncheck, go-licenses, trivy 0.70, gitleaks 8.30,
+  pandoc, sqlcipher. `.golangci.yml` had to be rewritten for v2 config
+  schema (v1 format was rejected). `.gitleaks.toml` tightened so the
+  empty-value placeholders in `.env.example` no longer self-match
+  (regression guard for PITF-010 — rule required `\S+` after `=`; paths
+  allowlist also skips the file).
 - Cobra is not wired: F0 uses a hand-rolled dispatcher. Cobra replaces it
   in F1 together with `cobra/doc`-generated man1 pages.
 - Koanf loader is not wired; `internal/config` ships the type surface

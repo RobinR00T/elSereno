@@ -131,8 +131,10 @@ func SafeCommand(ctx context.Context, spec CommandSpec) (*exec.Cmd, error) {
 	argv = append(argv, "--")
 	argv = append(argv, spec.Positional...)
 
-	// The single authorised subprocess-spawn site in ElSereno.
-	//nolint:gosec // G204: caller-validated via CommandSpec; deterministic "--".
-	cmd := exec.CommandContext(ctx, binary, argv...)
+	// The single authorised subprocess-spawn site in ElSereno. Arguments
+	// are caller-validated via CommandSpec (flag regex, path allowlist,
+	// typed positional validator) and the "--" separator is inserted
+	// deterministically above. See ADR-024.
+	cmd := exec.CommandContext(ctx, binary, argv...) // #nosec G204 -- validated CommandSpec
 	return cmd, nil
 }

@@ -6,19 +6,24 @@ package audit
 // test time.
 type EventType string
 
+// Event-type constants mirror the SQL CHECK enumeration in migration
+// 00001. Values contain words like "reveal" and "token" because that is
+// the on-wire audit schema; gosec G101 is disarmed locally because these
+// are event-name literals, not credentials.
 const (
+	// EventGenesis is the first entry in a fresh audit chain; prev_hash is zeros.
 	EventGenesis      EventType = "genesis"
 	EventChainRebase  EventType = "chain_rebase"
 	EventPurge        EventType = "purge_event"
-	EventTokenRotate  EventType = "token_rotate"
-	EventTokenReveal  EventType = "token_reveal"
+	EventTokenRotate  EventType = "token_rotate" // #nosec G101 -- event name
+	EventTokenReveal  EventType = "token_reveal" // #nosec G101 -- event name
 	EventVaultInit    EventType = "vault_init"
 	EventVaultUnlock  EventType = "vault_unlock"
 	EventVaultLock    EventType = "vault_lock"
-	EventCredsStore   EventType = "creds_store"
-	EventCredsReveal  EventType = "creds_show_reveal"
-	EventCredsRotate  EventType = "creds_rotate"
-	EventCredsPurge   EventType = "creds_purge"
+	EventCredsStore   EventType = "creds_store"       // #nosec G101 -- event name
+	EventCredsReveal  EventType = "creds_show_reveal" // #nosec G101 -- event name
+	EventCredsRotate  EventType = "creds_rotate"      // #nosec G101 -- event name
+	EventCredsPurge   EventType = "creds_purge"       // #nosec G101 -- event name
 	EventScopeApplied EventType = "scope_applied"
 	EventServeStart   EventType = "serve_start"
 	EventServeStop    EventType = "serve_stop"

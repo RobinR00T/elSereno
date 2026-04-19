@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod verify)",
+      "Bash(go mod download:*)",
+      "Bash(go version)",
+      "Bash(make build)",
+      "Bash(make build-offensive)",
+      "Bash(make build-sqlite)",
+      "Bash(make test)",
+      "Bash(make test-race)",
+      "Bash(make test-cover)",
+      "Bash(make test-fuzz)",
+      "Bash(make lint)",
+      "Bash(make fmt)",
+      "Bash(make tidy)",
+      "Bash(make context-check)",
+      "Bash(make clean)",
+      "Bash(mkdir -p:*)",
+      "Bash(chmod +x:*)",
+      "Bash(chmod 644:*)",
+      "Bash(chmod 600:*)"
+    ]
+  }
+}
