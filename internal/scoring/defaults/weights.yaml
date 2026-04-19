@@ -1,0 +1,11 @@
+# ElSereno default scoring weights (ADR-006).
+# Weights must sum to 1.0 (±1e-9). Severities derive from the score:
+#   critical >= 80, high >= 60, medium >= 40, low >= 20, else info.
+version: v1
+weights:
+  protocol_risk: 0.25
+  exposure:     0.20
+  auth_state:   0.20
+  capability:   0.15
+  impact_class: 0.10
+  cve_exposure: 0.10
