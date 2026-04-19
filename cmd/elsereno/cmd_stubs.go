@@ -18,12 +18,7 @@ func newStubCmds() []*cobra.Command {
 		name, short string
 	}{
 		{"init", "Interactive first-run wizard (planned)"},
-		{"db", "Database operations: migrate, status, verify, backup, reset (planned)"},
-		{"audit", "Audit-log operations: verify, purge, compact (planned)"},
-		{"vault", "Vault operations: init, unlock, lock, status (planned)"},
-		{"creds", "Credential operations: store, list, show, rotate, purge (planned)"},
-		{"token", "Web-token operations: rotate, show (planned)"},
-		{"serve", "Start the HTTP dashboard (planned)"},
+		{"token", "Web-token operations: rotate, show (planned — requires live DB)"},
 		{"scan", "Run a scan against targets (planned)"},
 		{"repl", "Interactive protocol REPL (planned)"},
 		{"proxy", "Protocol-aware interception proxy (planned)"},
@@ -33,8 +28,8 @@ func newStubCmds() []*cobra.Command {
 		{"why", "Explain why a target was scored as it was (planned)"},
 		{"lint", "Validate elsereno.yaml and scope.yaml (planned)"},
 		{"fmt", "Reformat elsereno.yaml and scope.yaml (planned)"},
-		{"completion", "Generate shell completions (built-in via cobra in chunk 2)"},
-		{"gen-man", "Generate man1 pages via cobra/doc (chunk 2)"},
+		{"completion", "Generate shell completions (built-in via cobra in chunk 3)"},
+		{"gen-man", "Generate man1 pages via cobra/doc (chunk 3)"},
 	}
 	out := make([]*cobra.Command, 0, len(stubs))
 	for _, s := range stubs {

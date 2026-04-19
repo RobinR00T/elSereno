@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/awnumar/memguard v0.23.0
 	github.com/go-playground/validator/v10 v10.30.2
+	github.com/gowebpki/jcs v1.0.1
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/knadh/koanf/parsers/yaml v1.1.0
 	github.com/knadh/koanf/providers/confmap v1.0.0
@@ -18,6 +19,7 @@ require (
 	golang.org/x/crypto v0.50.0
 	golang.org/x/net v0.53.0
 	golang.org/x/sync v0.20.0
+	golang.org/x/term v0.42.0
 	golang.org/x/time v0.15.0
 )
 
