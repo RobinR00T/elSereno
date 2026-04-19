@@ -2,10 +2,11 @@
 
 package main
 
-// Blank imports below register offensive plugins. Compiled only with
-// -tags offensive (ADR-004, ADR-009). Empty in F0; populated from F5.
-//
-// Example:
-//
-//  import _ "local/elsereno/offensive/write/modbus"
-//  import _ "local/elsereno/offensive/dial"
+// Blank imports register offensive exploit modules. The module's
+// init() calls exploits.Register(). The CLI's `elsereno exploit
+// list` walks the registry so every CVE that needs to be visible
+// must be imported here.
+import (
+	_ "local/elsereno/offensive/exploits/cve_2015_5374"
+	_ "local/elsereno/offensive/exploits/cve_2019_10953"
+)

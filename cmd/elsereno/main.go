@@ -148,5 +148,10 @@ func newRootCmd() *cobra.Command {
 		root.AddCommand(c)
 	}
 
+	// offensive subcommands (-tags offensive): write, exploit,
+	// harvest, dial. The stub in cmd_offensive_stub.go is a no-op
+	// in the default build.
+	registerOffensiveCmds(root)
+
 	return root
 }
