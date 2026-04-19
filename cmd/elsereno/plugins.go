@@ -4,6 +4,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/protocols/atmodem"
 	"local/elsereno/internal/protocols/banner"
+	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/xot"
 )
 
@@ -22,5 +23,9 @@ func init() {
 	core.Register(core.Plugin{
 		PluginMetadata: atmodem.Default().Metadata(),
 		Factory:        func() core.Protocol { return atmodem.Default() },
+	})
+	core.Register(core.Plugin{
+		PluginMetadata: modbus.Default().Metadata(),
+		Factory:        func() core.Protocol { return modbus.Default() },
 	})
 }

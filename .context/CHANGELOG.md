@@ -63,3 +63,19 @@ One-liner per significant change to `.context/` or the codebase.
   ADR-027, ADR-028. `make ci` green end-to-end (seven fuzz targets,
   ~4 min wall-clock). F2 snapshot written. Repo is at the brief's
   F2 milestone — ready for `git push` to a private GitHub remote.
+- 2026-04-19 — F3 — **F3 closed.** Proxy framework under
+  `internal/proxy` (TCP listener, Accept loop, IdleTimeout-driven
+  deadlines, graceful ctx-cancel shutdown, `Hook` interface with
+  optional rewrite semantics, LoggingHook over SafeBytes). Modbus/TCP
+  plugin: from-scratch wire parser (MBAP + PDU + FC classifier +
+  exception helper + FC 43/14 Device ID decoder + 3 fuzz targets),
+  Probe (FC 1 + opportunistic FC 43/14 vendor strings), and proxy
+  that short-circuits every CategoryWrite / non-14 MEI / unknown FC
+  with IllegalFunction — upstream never sees a write. Modbus
+  simulator (`simulators/modbus/`) on Go, plus a pymodbus runtime
+  pointer. Chaos helpers under `test/chaos/` (RandomDropReader,
+  LatencyReader, FlipBitsWriter, EarlyCloser — build tag `chaos`).
+  ADR-029, ADR-030. Integration test
+  `test/integration/modbus_integration_test.go` end-to-end through
+  the framework. `make ci` green (ten fuzz targets, ~9 min wall-clock
+  with trivy DB refresh).
