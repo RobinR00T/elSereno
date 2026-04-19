@@ -42,6 +42,13 @@ collaboration is vNext.
   entropy heuristic with UUID-v1..v5 exclusion (PITF-004).
 - **CSP nonces** per request; full security header set.
 - **Rate limits** per-IP (loopback exempt) AND per-token.
+- **Wire-layer write-ban in proxy plugins**: Modbus and atmodem enforce
+  the read-only policy at frame parse time, not at config. A misconfig
+  cannot turn the proxy into a write proxy (ADR-030 for Modbus;
+  atmodem `ForbiddenPrefixes` list for AT commands). The seven F4
+  plugins (s7, enip, bacnet, dnp3, iec104, hartip, fox, atg) ship
+  pass-through proxies; their per-service write-ban matrices land in F5
+  with triple-confirm wrappers.
 - **Sandbox**: offensive subprocesses on Linux under seccomp-bpf (F5; library
   decision deferred — ADR-010).
 - **Secrets transport**: never argv, never herestring; env vars accepted

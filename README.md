@@ -38,22 +38,26 @@ elsereno serve
 
 ## Supported protocols
 
-| Protocol      | Port(s)            | Status (F0) |
-|---------------|--------------------|-------------|
-| Modbus/TCP    | 502                | planned     |
-| S7comm        | 102                | planned     |
-| EtherNet/IP   | 44818              | planned     |
-| BACnet/IP     | 47808              | planned     |
-| DNP3          | 20000              | planned     |
-| IEC 60870-5-104 | 2404             | planned     |
-| HART-IP       | 5094               | planned     |
-| Niagara Fox   | 1911, 4911         | planned     |
-| ATG Veeder-Root | 10001            | planned     |
-| XOT (X.25 over TCP) | 1998         | planned     |
-| AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | planned |
-| banner/dictionary | many           | planned     |
+As of F4 (2026-04-19) the default build registers 12 plugins. Writes and
+exploits remain gated behind `-tags offensive` and land in F5.
 
-See `.context/protocols/` for per-protocol notes as they are added.
+| Protocol      | Port(s)            | Status      |
+|---------------|--------------------|-------------|
+| Modbus/TCP    | 502                | implemented (read-only proxy write-ban) |
+| S7comm        | 102                | implemented (probe + pass-through proxy) |
+| EtherNet/IP   | 44818              | implemented (probe + pass-through proxy) |
+| BACnet/IP     | 47808/udp          | implemented (Who-Is probe)              |
+| DNP3          | 20000              | implemented (probe + pass-through proxy) |
+| IEC 60870-5-104 | 2404             | implemented (TESTFR probe)              |
+| HART-IP       | 5094               | implemented (session-initiate probe)    |
+| Niagara Fox   | 1911, 4911         | implemented (banner probe)              |
+| ATG Veeder-Root | 10001            | implemented (I20100 probe)              |
+| XOT (X.25 over TCP) | 1998         | implemented (probe + pass-through proxy) |
+| AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | implemented (probe + write-ban proxy) |
+| banner/dictionary | many           | implemented (Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH) |
+
+See `.context/protocols/` for per-protocol notes and `.context/STATE.md` for
+the authoritative live state.
 
 ## Target acquisition
 

@@ -39,3 +39,13 @@ token-budget: 900
 **Before touching code**: read `pitfalls.md`.
 
 **First command when in doubt**: `elsereno doctor`.
+
+**Current phase (2026-04-19)**: F0–F4 closed. 20 commits on `main` (no
+remote). 12 protocol plugins registered (atg, atmodem, bacnet, banner,
+dnp3, enip, fox, hartip, iec104, modbus, s7, xot). Dashboard MVP at
+`/` + read-only `/api/v1/{plugins,scoring,health}` with OpenAPI 3.1 at
+`docs/openapi.yaml`. Proxy framework live (modbus + atmodem enforce
+write-ban at wire layer; other plugins pass-through until F5).
+`make ci` green end-to-end (18 fuzz targets, ~9 min wall-clock).
+Next up: **F5 offensive** (`-tags offensive` writes / exploits /
+harvest / dial with triple confirm + seccomp-bpf sandbox).
