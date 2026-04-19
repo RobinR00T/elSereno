@@ -40,12 +40,16 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-19)**: F0–F4 closed. 20 commits on `main` (no
-remote). 12 protocol plugins registered (atg, atmodem, bacnet, banner,
-dnp3, enip, fox, hartip, iec104, modbus, s7, xot). Dashboard MVP at
-`/` + read-only `/api/v1/{plugins,scoring,health}` with OpenAPI 3.1 at
-`docs/openapi.yaml`. Proxy framework live (modbus + atmodem enforce
-write-ban at wire layer; other plugins pass-through until F5).
-`make ci` green end-to-end (18 fuzz targets, ~9 min wall-clock).
-Next up: **F5 offensive** (`-tags offensive` writes / exploits /
-harvest / dial with triple confirm + seccomp-bpf sandbox).
+**Current phase (2026-04-19)**: F0–F5 closed. 29 commits on `main` (no
+remote). 12 protocol plugins registered; every TCP-based plugin
+enforces a wire-layer write-ban in the default build. F5 adds 4
+offensive write modules (modbus/s7/enip/bacnet), 4 harvest probers
+(telnet/ftp/http-basic/snmp), 2 CVE DoS exploits (CVE-2015-5374
+Siemens SIPROTEC, CVE-2019-10953 CIP), the dial guard with
+unbypassable ≤3-digit hard block, the triple-confirm wrapper
+(HMAC-SHA256 token derived from vault via HKDF), the canary webhook
+sender, and the --no-allowlist exec bypass with mandatory
+BypassAuditor. `make ci` green on default + offensive build variants.
+Next up: **F6 reporting + release** (HTML pulido, CEF/Syslog/JIRA/
+GitHub Issues, webhooks from outbox, dashboard polish + vault UI,
+`docs/protocols/*`, signed 0.1.0 release, repo público).

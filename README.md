@@ -38,8 +38,9 @@ elsereno serve
 
 ## Supported protocols
 
-As of F4 (2026-04-19) the default build registers 12 plugins. Writes and
-exploits remain gated behind `-tags offensive` and land in F5.
+As of F5 (2026-04-19) the default build registers 12 plugins. Writes,
+exploits, credential harvest, and dial ship behind `-tags offensive`
+with the ADR-039 triple-confirm wrapper.
 
 | Protocol      | Port(s)            | Status      |
 |---------------|--------------------|-------------|

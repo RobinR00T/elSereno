@@ -92,15 +92,15 @@ so the delta between planned and shipped stays visible.
 - [ ] TUI bubbletea (F4 chunk 2)
 - [x] API /api/v1 (plugins/scoring/health read-only) + OpenAPI 3.1 in docs/
 
-## Phase 5 — Offensive (build tag) — 🟡 NEXT
-- [ ] Writes Modbus/S7/CIP/BACnet triple confirm
-- [ ] Exploits arch + 2 CVE público estable
-- [ ] Harvest Telnet/FTP/HTTP-Basic/SNMPv1-2c → vault
-- [ ] Dial individual + blacklist ≤3 dígitos hard + scope.yaml.blocked_numbers
-- [ ] Sandbox seccomp-bpf Linux (verificar lib + ADR suplementario)
-- [ ] --no-allowlist bypass con audit trail
-- [ ] Canary scope.yaml webhook
-- [ ] Per-plugin proxy write-gating for the 7 F4 plugins (s7, enip, bacnet, dnp3, iec104, hartip, fox, atg)
+## Phase 5 — Offensive (build tag) — ✅ closed 2026-04-19
+- [x] Writes Modbus/S7/CIP/BACnet triple confirm
+- [x] Exploits arch + 2 CVE público estable (CVE-2015-5374, CVE-2019-10953)
+- [x] Harvest Telnet/FTP/HTTP-Basic/SNMPv1-2c → vault (prober interface + 4 impls; CLI lands F6)
+- [x] Dial individual + blacklist ≤3 dígitos hard + scope.yaml.blocked_numbers
+- [x] Sandbox seccomp-bpf Linux (ADR-042; PR_SET_NO_NEW_PRIVS; BPF filter instruction sequences ship F6)
+- [x] --no-allowlist bypass con audit trail (internal/exec.CommandSpec.AllowAnyPath + BypassAuditor)
+- [x] Canary scope.yaml webhook (internal/canary; HMAC-SHA256 signed)
+- [x] Per-plugin proxy write-gating for the 7 F4 plugins (s7, enip, bacnet, dnp3, iec104, hartip, fox, atg)
 
 ## Phase 6 — Reporting + release
 - [ ] HTML pulido

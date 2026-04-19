@@ -102,8 +102,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fuzz-found panic in ENIP ListIdentity parser (truncated body)
   fixed with tighter bounds + corpus regression guard.
 
+### Added — F5 Offensive build (closed 2026-04-19)
+- ADR-039 triple-confirm wrapper (build tag + `--accept-writes` +
+  `--confirm-target` + HMAC-SHA256 token derived via HKDF from the
+  vault master key). Every Authorize call emits an audit event —
+  allowed, denied, or failed — with payload hash but never the
+  plaintext payload.
+- ADR-040 per-plugin proxy write-gating. Every TCP-based plugin
+  now refuses non-read frames at the wire layer in the default
+  build with a protocol-native refusal response (S7 AckData
+  err-class 0x85, ENIP status 0x0001, DNP3 FC 15 "Not Supported",
+  IEC-104 STOPDT_act, HART-IP session-close status 0x04, ATG
+  `9999FF1B` Data-Error). Fox is fail-closed; BACnet (UDP) errors
+  immediately under the TCP proxy framework.
+- ADR-041 dial guard. Unbypassable ≤3-digit hard block, plus
+  scope.yaml `blocked_numbers` prefix/exact match. Wardialing
+  batch stays vNext.
+- ADR-042 Linux seccomp-bpf sandbox scaffold via pure-Go
+  `golang.org/x/sys/unix.Prctl` (`PR_SET_NO_NEW_PRIVS`); BPF
+  filter sequences land with F6 subprocess integrations.
+- `offensive/write/{modbus,s7,enip,bacnet}` — write plugins with
+  deterministic SHA-256 payload hashes. Modbus FC 5/6/15/16; S7
+  WriteVar / PLC Stop / PLC Restart; ENIP Set Attribute Single /
+  Reset; BACnet WriteProperty (UDP BVLC).
+- `offensive/dial/Validate` — three-gate validator (normalise →
+  hard ≤3-digit → scope blocked-numbers).
+- `offensive/harvest` — Prober interface + four implementations:
+  telnet (IAC negotiation + login state machine), ftp (RFC 959),
+  http-basic (RFC 7617 with challenge-first), snmp (SNMPv2c
+  GetRequest for sysDescr.0 with hand-crafted ASN.1 BER).
+- `offensive/exploits` — registry-based harness + two public,
+  stable DoS modules: **CVE-2015-5374** (Siemens SIPROTEC 4 /
+  Compact EN100 UDP DoS) and **CVE-2019-10953** (Schneider /
+  Allen-Bradley / Phoenix Contact CIP ListIdentity DoS).
+- `internal/canary` — Sender interface + HTTP sender that POSTs
+  `canary:v1` JSON envelopes with optional HMAC-SHA256 signature.
+- `internal/scope.(*Scope).CheckDial` — scope side of the dial
+  guard.
+- `internal/exec.CommandSpec.AllowAnyPath` + `BypassAuditor` —
+  `--no-allowlist` escape hatch; refuses to spawn when the
+  audit auditor is missing or errors.
+
 ### Current phase
-**F5 offensive** is the next scheduled phase. See
+**F6 reporting + release** is the next scheduled phase. See
 `.context/STATE.md` for authoritative live state,
-`.context/snapshots/f4-ics-plugins-dashboard.md` for the last
-retrospective.
+`.context/snapshots/f5-offensive.md` for the last retrospective.

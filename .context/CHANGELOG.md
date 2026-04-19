@@ -99,3 +99,23 @@ One-liner per significant change to `.context/` or the codebase.
   corpus entry retained as regression guard. `make ci` green (18
   fuzz targets). REPL bindings + Bearer-auth on /api/v1 + full
   dashboard UI land in F4 chunk 2 / F5.
+- 2026-04-19 — F5 — **Closed.** Offensive build behind `-tags offensive`.
+  ADR-039 triple-confirm wrapper (build tag + --accept-writes +
+  --confirm-target + HMAC-SHA256 token via HKDF
+  `info="elsereno/offensive/confirm/v1"`). ADR-040 per-plugin proxy
+  write-gating for the 7 F4 pass-through plugins plus atg/fox/bacnet.
+  ADR-041 dial guard with unbypassable ≤3-digit hard block. ADR-042
+  seccomp-bpf scaffold (Linux PR_SET_NO_NEW_PRIVS; BPF filters land
+  with F6 subprocess integrations). `offensive/write/{modbus,s7,enip,
+  bacnet}` writers with deterministic SHA-256 payload hashes.
+  `offensive/dial/Validate` three-gate validator. `offensive/harvest`
+  probers for Telnet / FTP / HTTP-Basic / SNMPv2c. `offensive/exploits`
+  registry + 2 public-stable DoS modules (CVE-2015-5374 Siemens
+  SIPROTEC, CVE-2019-10953 CIP ListIdentity). `internal/canary`
+  webhook sender with optional HMAC signature.
+  `internal/exec.CommandSpec.AllowAnyPath` bypass with mandatory
+  BypassAuditor. Default build remains read-only end-to-end; no
+  offensive code path is reachable without the build tag.
+  `make ci` green on both build variants. CLI wiring for
+  `elsereno write|exploit|harvest|dial` lands with the DB-backed
+  audit writer in F6.
