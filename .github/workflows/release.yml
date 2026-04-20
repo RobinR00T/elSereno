@@ -30,8 +30,19 @@ jobs:
         run: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
       - name: install pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
-      - name: generate man pages
-        run: ./scripts/gen-manpages.sh
+      - name: verify man pages are in sync
+        # The generated man/man{5,7}/*.{5,7} pages live in the repo
+        # so the release workflow never mutates the tree (goreleaser
+        # refuses to release a dirty working tree). Operators run
+        # `make man` locally after editing man/src/**.md. This step
+        # regenerates and diffs to catch drift.
+        run: |
+          ./scripts/gen-manpages.sh
+          if [ -n "$(git status --porcelain man/)" ]; then
+            echo "::error::man pages out of sync; run \`bash scripts/gen-manpages.sh\` locally and commit"
+            git --no-pager diff man/
+            exit 1
+          fi
       - name: docker login ghcr
         uses: docker/login-action@v3
         with:

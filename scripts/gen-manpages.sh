@@ -27,6 +27,12 @@ else
 fi
 
 # man5 / man7 — pandoc from sources.
+# Source files are named `<name>.<section>.md` (e.g.
+# elsereno-scope.5.md). Output drops `.md` and keeps the name
+# so the result is `<name>.<section>`. An earlier version
+# appended `.${section}` on top of the source-embedded section
+# number, producing bogus `.5.5` / `.7.7` filenames that made
+# the release workflow fail with "git is in a dirty state".
 for section in 5 7; do
   src_dir="man/src/man${section}"
   out_dir="man/man${section}"
@@ -34,8 +40,9 @@ for section in 5 7; do
     for src in "$src_dir"/*.md; do
       [ -e "$src" ] || continue
       base=$(basename "$src" .md)
-      pandoc -s -t man "$src" -o "${out_dir}/${base}.${section}"
-      echo "generated ${out_dir}/${base}.${section}"
+      out="${out_dir}/${base}"
+      pandoc -s -t man "$src" -o "$out"
+      echo "generated $out"
     done
   fi
 done
