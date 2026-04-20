@@ -63,7 +63,8 @@ builds:
 
 archives:
   - id: default
-    builds:
+    # goreleaser v2: `builds` was renamed to `ids` for archive filters.
+    ids:
       - elsereno-default
       - elsereno-offensive
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -79,7 +80,7 @@ archives:
       - completions/*
 
   - id: sqlite
-    builds:
+    ids:
       - elsereno-sqlite
     name_template: "{{ .ProjectName }}_{{ .Version }}_sqlite_{{ .Os }}_{{ .Arch }}"
     files:
