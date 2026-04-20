@@ -119,3 +119,21 @@ One-liner per significant change to `.context/` or the codebase.
   `make ci` green on both build variants. CLI wiring for
   `elsereno write|exploit|harvest|dial` lands with the DB-backed
   audit writer in F6.
+- 2026-04-20 — F6 — **Closed.** Reporting + release. Five new output
+  sinks: CEF 0.1 + RFC 5424 syslog + JIRA Cloud REST v3 + GitHub
+  Issues REST + generic HMAC-signed webhook. HTML report polish
+  (dark-mode, per-protocol sections with count/max/avg, top-5
+  factor histogram). OpenAPI 3.1 autogen: code-sourced
+  `internal/web/openapi.Spec()` + live `/api/v1/openapi.yaml` +
+  `elsereno api openapi` CLI. Offensive CLI verbs (`write|exploit|
+  harvest|dial`) land behind `-tags offensive`; all four are
+  operator-usable today (delivery wiring carries over to F7 with
+  the DB-backed audit writer). `--vault-passphrase-file <0600
+  path>` unblocks non-interactive startup; mode + symlink + empty-
+  file validation. 13 operator docs (`docs/protocols/*.md` + README
+  + RELEASING.md). Dashboard polish with dark-mode palette, plugin
+  grouping default vs offensive, scoring sidebar, severity chips.
+  `.goreleaser.yml` migrated to v2 archives.ids; dry-run validated
+  8 binaries × SBOM × SHA-256 checksums. F7 open carry-overs:
+  dockers_v2 migration, offensive network delivery, seccomp-bpf
+  filter sequences, SSE + findings/triage/runs DB panels.

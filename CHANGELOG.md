@@ -143,7 +143,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-allowlist` escape hatch; refuses to spawn when the
   audit auditor is missing or errors.
 
+### Added — F6 Reporting + release (closed 2026-04-20)
+- Five new output sinks: CEF 0.1 (ArcSight; 1..10 severity,
+  sorted extensions), RFC 5424 syslog (facility local1 with
+  `elsereno@32473` SD-ID), JIRA Cloud REST v3 (ADF description,
+  severity→priority mapping), GitHub Issues REST (Bearer PAT +
+  2022-11-28 API pin + markdown factor table), and a generic
+  HMAC-SHA256-signed webhook.
+- HTML report polish: dark-mode palette, per-protocol sections
+  with count / max / avg, top-5 factor histogram, severity chips
+  with level-specific colours.
+- OpenAPI 3.1 autogenerada: `internal/web/openapi.Spec()` is the
+  single source of truth; `GET /api/v1/openapi.yaml` serves it
+  live; `elsereno api openapi [-o <path>]` refreshes the on-disk
+  snapshot.
+- Offensive CLI verbs behind `-tags offensive`:
+  `elsereno write modbus` (dry-run PDU + payload hash),
+  `elsereno exploit list|show|dry-run`,
+  `elsereno harvest {telnet,ftp,http-basic,snmp}`,
+  `elsereno dial --number <E.164>` with the three-gate
+  validator in isolation. Default build unchanged (stub).
+- `--vault-passphrase-file <0600 path>` on `vault init`,
+  `vault unlock`, `serve`. `os.Lstat` rejects symlinks / pipes /
+  devices; mode `perm &^ 0o600 != 0` rejects lax permissions;
+  empty-file rejection; CRLF stripping. ADR-026 / PITF-016.
+- Operator docs at `docs/protocols/` (12 per-plugin pages +
+  README) covering probe bytes, proxy default policy, writes
+  behind offensive build, scope + impact, public references.
+- Dashboard polish (`/`): dark-mode, plugin grouping (default
+  vs offensive), scoring sidebar (ADR-006 weights + severity
+  thresholds), auto-refresh pending SSE.
+- `RELEASING.md` operator runbook: goreleaser v2 dry-run
+  recipe, SBOM via syft (CycloneDX 1.6), cosign keyless
+  Sigstore signing + receiver verification, tagging /
+  rollback.
+- `.goreleaser.yml` migrated `archives.builds` →
+  `archives.ids` (goreleaser v2).
+
 ### Current phase
-**F6 reporting + release** is the next scheduled phase. See
+**F7 hardening + 1.0** is the next scheduled phase. See
 `.context/STATE.md` for authoritative live state,
-`.context/snapshots/f5-offensive.md` for the last retrospective.
+`.context/snapshots/f6-reporting-release.md` for the last
+retrospective.

@@ -102,15 +102,18 @@ so the delta between planned and shipped stays visible.
 - [x] Canary scope.yaml webhook (internal/canary; HMAC-SHA256 signed)
 - [x] Per-plugin proxy write-gating for the 7 F4 plugins (s7, enip, bacnet, dnp3, iec104, hartip, fox, atg)
 
-## Phase 6 — Reporting + release
-- [ ] HTML pulido
-- [ ] CEF/Syslog/JIRA/GitHub Issues
-- [ ] OpenAPI autogenerada
-- [ ] Webhooks outbox
-- [ ] Dashboard pulido + vault UI
-- [ ] docs/protocols/*
-- [ ] Release 0.1.0 firmada
-- [ ] Repo público
+## Phase 6 — Reporting + release — ✅ closed 2026-04-20
+- [x] HTML pulido (dark-mode, per-protocol sections, factor histogram)
+- [x] CEF/Syslog/JIRA/GitHub Issues output sinks
+- [x] OpenAPI autogenerada (`internal/web/openapi.Spec()` + `elsereno api openapi` + live `/api/v1/openapi.yaml`)
+- [x] Webhooks genéricos con firma HMAC-SHA256
+- [x] Dashboard pulido (grouped plugins, scoring sidebar, severity chips, dark-mode)
+- [x] `docs/protocols/*` (12 plugins + README)
+- [x] `--vault-passphrase-file` (ADR-026 / PITF-016) para non-interactive startup
+- [x] Offensive CLI wiring: `elsereno write|exploit|harvest|dial` behind `-tags offensive`
+- [x] RELEASING.md runbook + goreleaser v2 dry-run validado (8 binaries + SBOM + checksums)
+- [ ] Release 0.1.0 firmada (tag + cosign + publish — operator task)
+- [ ] Repo público (operator push)
 
 ## Phase 7 — Hardening + 1.0
 - [ ] Fuzz exhaustivo nightly

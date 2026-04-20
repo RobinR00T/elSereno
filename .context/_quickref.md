@@ -40,16 +40,23 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-19)**: F0–F5 closed. 29 commits on `main` (no
-remote). 12 protocol plugins registered; every TCP-based plugin
-enforces a wire-layer write-ban in the default build. F5 adds 4
-offensive write modules (modbus/s7/enip/bacnet), 4 harvest probers
-(telnet/ftp/http-basic/snmp), 2 CVE DoS exploits (CVE-2015-5374
-Siemens SIPROTEC, CVE-2019-10953 CIP), the dial guard with
-unbypassable ≤3-digit hard block, the triple-confirm wrapper
-(HMAC-SHA256 token derived from vault via HKDF), the canary webhook
-sender, and the --no-allowlist exec bypass with mandatory
-BypassAuditor. `make ci` green on default + offensive build variants.
-Next up: **F6 reporting + release** (HTML pulido, CEF/Syslog/JIRA/
-GitHub Issues, webhooks from outbox, dashboard polish + vault UI,
-`docs/protocols/*`, signed 0.1.0 release, repo público).
+**Current phase (2026-04-20)**: F0–F6 closed. 39 commits on `main`.
+12 protocol plugins in the default build; every TCP-based plugin
+enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
+HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
+(JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
+is now code-sourced (`internal/web/openapi.Spec`) and served live
+on `/api/v1/openapi.yaml`; `elsereno api openapi -o docs/openapi.yaml`
+refreshes the snapshot. The offensive CLI (`write|exploit|harvest|
+dial`) is operator-usable behind `-tags offensive`; network delivery
+carries over to F7 once the DB-backed audit writer ships.
+`--vault-passphrase-file <0600 path>` unblocks CI/preview.
+Dashboard at `/` is polished (dark-mode, plugin grouping, scoring
+sidebar, severity thresholds). `RELEASING.md` ships the operator
+runbook for a signed 0.1.0 tag; dry-run produces 8 binaries
+(darwin + linux × amd64 + arm64 × default + offensive) with SBOM
+(CycloneDX 1.6, 48 components) and SHA-256 checksums.
+`make ci` green on both build variants.
+Next up: **F7 hardening + 1.0** (nightly fuzz, Gremlins mutation,
+STRIDE per module, supply-chain audit, OTel tracing, backup
+automation, regression benchmarks, release 1.0.0).
