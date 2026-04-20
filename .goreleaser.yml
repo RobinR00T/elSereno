@@ -122,10 +122,15 @@ dockers_v2:
 
 sboms:
   - artifacts: archive
+    # `cyclonedx-gomod mod` expects a Go module directory, not the
+    # packaged archive — it errors "not a go module" when pointed
+    # at the .tar.gz. syft walks the archive contents and emits
+    # CycloneDX directly. Both tools are installed by the release
+    # workflow (`anchore/sbom-action/download-syft@v0`).
     documents:
-      - "{{ .ProjectName }}_{{ .Version }}_sbom.cyclonedx.json"
-    cmd: cyclonedx-gomod
-    args: ["mod", "-licenses", "-json", "-output", "$document"]
+      - "{{ .ArtifactName }}.cyclonedx.json"
+    cmd: syft
+    args: ["scan", "$artifact", "-o", "cyclonedx-json=$document"]
 
 signs:
   - cmd: cosign
