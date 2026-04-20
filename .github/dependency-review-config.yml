@@ -1,0 +1,38 @@
+# Policy consumed by actions/dependency-review-action@v4.
+#
+# Any PR that adds a dependency violating this policy fails the
+# supply-chain workflow's dep-review job. Severity threshold
+# additionally fails the job when a transitive dep has a HIGH/
+# CRITICAL advisory.
+
+# Block GPL-style copyleft + commercial-restrictive licences. MIT,
+# BSD-*, Apache-2.0, ISC, MPL-2.0 remain allowed by omission.
+deny-licenses:
+  - AGPL-1.0
+  - AGPL-1.0-only
+  - AGPL-1.0-or-later
+  - AGPL-3.0
+  - AGPL-3.0-only
+  - AGPL-3.0-or-later
+  - GPL-2.0
+  - GPL-2.0-only
+  - GPL-2.0-or-later
+  - GPL-3.0
+  - GPL-3.0-only
+  - GPL-3.0-or-later
+  - LGPL-2.0
+  - LGPL-2.1
+  - LGPL-3.0
+  - SSPL-1.0
+  - Commons-Clause
+  - Elastic-2.0
+
+# Fail the PR for any advisory at or above this severity.
+fail-on-severity: high
+
+# Allow dependency-review to comment on the PR when it blocks a
+# merge so the operator gets actionable feedback.
+comment-summary-in-pr: on-failure
+
+# Explicit allow-list for specific dep ecosystems we ship.
+allow-ghsas: []

@@ -135,3 +135,29 @@ signs:
       - "--yes"
       - "--output-signature=${signature}"
       - "${artifact}"
+
+# SLSA L3 provenance generation. The release workflow
+# (.github/workflows/release.yml) wraps goreleaser with
+# slsa-framework/slsa-github-generator so every archive has a
+# signed in-toto v1 attestation at
+# `<artefact>.intoto.jsonl`. The supply-chain workflow's
+# `provenance-verify` job runs `slsa-verifier verify-artifact`
+# on every tag push to prove the attestation chain is intact.
+release:
+  draft: false
+  replace_existing_artifacts: true
+  footer: |
+    ## Supply-chain verification
+
+    ```
+    cosign verify-blob \
+      --certificate-identity-regexp 'https://github.com/{{ .Env.GITHUB_REPOSITORY }}/.*' \
+      --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+      --signature checksums.txt.sig \
+      checksums.txt
+
+    slsa-verifier verify-artifact <artefact> \
+      --provenance-path <artefact>.intoto.jsonl \
+      --source-uri github.com/{{ .Env.GITHUB_REPOSITORY }} \
+      --source-tag {{ .Tag }}
+    ```

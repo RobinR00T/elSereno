@@ -12,6 +12,8 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hashes.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +45,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Emit the base64-encoded SHA256 SUBJECTS the SLSA generator
+      # expects. goreleaser writes dist/checksums.txt in the
+      # "<sha256>  <filename>" shasum(1) format; the generator needs
+      # the whole file base64-encoded.
+      - id: hashes
+        run: |
+          if [ -f dist/checksums.txt ]; then
+            echo "hashes=$(base64 -w0 < dist/checksums.txt)" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::dist/checksums.txt missing — goreleaser did not emit it"
+            exit 1
+          fi
+
   slsa-provenance:
     needs: goreleaser
     permissions:
@@ -51,4 +66,7 @@ jobs:
       actions: read
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
-      base64-subjects: "placeholder"
+      base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
+      # Attach the .intoto.jsonl attestation to the same release
+      # the goreleaser job just created.
+      upload-assets: true
