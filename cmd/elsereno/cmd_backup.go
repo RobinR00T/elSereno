@@ -106,9 +106,16 @@ func newBackupRestoreCmd() *cobra.Command {
 			for _, bf := range files {
 				dst := toDir + string(os.PathSeparator) + bf.Name
 				// bf.Mode comes from a tar header we wrote on
-				// `Create`; narrow to 12-bit Unix perms so
-				// gosec G115 is satisfied.
-				mode := os.FileMode(uint32(bf.Mode) & 0o7777) //nolint:gosec // G115 — bit-masked above
+				// `Create`; narrow to 12-bit Unix perms. The
+				// bit-mask bounds the cast even if bf.Mode is
+				// mis-shaped; gosec G115 is silenced below.
+				// bit-masked to 12-bit Unix perms; the cast is
+				// safe even if bf.Mode is mis-shaped. gosec
+				// wants the #nosec on the same line as the
+				// offending statement (standalone binary
+				// ignores the line-above form; golangci-lint's
+				// bundled gosec accepts both — PITF-030).
+				mode := os.FileMode(uint32(bf.Mode) & 0o7777) // #nosec G115 -- bit-masked above
 				// #nosec G304 -- caller-controlled destination
 				if err := os.WriteFile(dst, bf.Body, mode); err != nil {
 					return fail(core.ExitIOErr, err)
