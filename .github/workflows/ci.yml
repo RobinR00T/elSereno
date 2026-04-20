@@ -198,9 +198,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/context-check.sh
 
-  codeql:
-    name: codeql
-    uses: ./.github/workflows/codeql.yml
+  # codeql runs as an independent workflow on the same push/PR
+  # trigger via .github/workflows/codeql.yml. Calling it as a
+  # reusable workflow from here caused `startup_failure` on
+  # private personal repos because the calling job did not
+  # forward security-events:write explicitly and the nested
+  # permission resolution tripped GitHub's validator.
 
   dep-review:
     name: dep-review

@@ -22,6 +22,11 @@ jobs:
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
+    # Scorecard's SARIF upload into the Security tab requires
+    # GitHub Advanced Security, which is free on public repos
+    # but paid for private personal repos. Gate on public to
+    # avoid noise on the private pre-1.0 period.
+    if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch'
     permissions:
       security-events: write
       id-token: write
@@ -91,6 +96,10 @@ jobs:
 
   osv-scanner:
     name: osv-scanner
+    # osv-scanner-action uploads SARIF which needs GHAS on
+    # private repos. Gate to public; govulncheck in ci.yml
+    # covers the CVE surface for the private period.
+    if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +124,11 @@ jobs:
       - name: deny forbidden + restricted
         run: go-licenses check ./... --disallowed_types=forbidden,restricted
       - name: emit report artifact
-        run: go-licenses report ./... --template '{{ range . }}{{ .Name }},{{ .LicenseName }},{{ .LicenseURL }}\n{{ end }}' > licenses.csv
+        # go-licenses csv emits a three-column CSV (module,
+        # license type, license url) natively — avoids the
+        # template-literal "\n" YAML-escaping footgun that made
+        # the previous `--template` variant fail silently.
+        run: go-licenses csv ./... > licenses.csv
       - uses: actions/upload-artifact@v4
         with:
           name: licenses-report
