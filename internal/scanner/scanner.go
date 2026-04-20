@@ -7,11 +7,14 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/telemetry"
 )
 
 // ErrNoTargets is returned by Run when called with an empty slice. It
@@ -146,14 +149,25 @@ func (s *Scanner) runAll(ctx context.Context, targets []core.Target, probe Probe
 }
 
 // withRetries invokes probe up to MaxRetries+1 times with exponential
-// backoff + jitter, unless the context is cancelled.
+// backoff + jitter, unless the context is cancelled. Each attempt is
+// wrapped in an OpenTelemetry span so operators running with
+// OTEL_TRACES_EXPORTER=otlp (or stdout) see per-target latency +
+// retry history without any code change.
 func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (*core.Finding, error) {
+	ctx, span := telemetry.Tracer().Start(ctx, "scanner.probe")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("target.address", t.Address.String()),
+		attribute.Int("target.port", int(t.Port)),
+	)
+
 	var lastErr error
 	delay := s.opts.BaseBackoff
 
 	for attempt := 0; attempt <= s.opts.MaxRetries; attempt++ {
 		f, err := probe(ctx, t)
 		if err == nil {
+			span.SetAttributes(attribute.Int("scanner.attempts", attempt+1))
 			return f, nil
 		}
 		lastErr = err
@@ -167,11 +181,13 @@ func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (
 		wait := jittered(delay, s.opts.JitterFraction)
 		select {
 		case <-ctx.Done():
+			span.SetStatus(codes.Error, "context cancelled")
 			return nil, ctx.Err()
 		case <-time.After(wait):
 		}
 		delay *= 2
 	}
+	span.SetStatus(codes.Error, lastErr.Error())
 	return nil, fmt.Errorf("scanner: target %s:%d: %w", t.Address, t.Port, lastErr)
 }
 
