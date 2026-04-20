@@ -2,7 +2,7 @@
         test test-race test-cover test-fuzz test-integration test-e2e test-all \
         bench sec lint fmt tidy clean run docker docker-sqlite \
         db-up db-down db-migrate db-reset \
-        gen-manpages context-check ci
+        gen-manpages context-check ci release-gate
 
 PREFIX ?= /usr/local
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
@@ -131,3 +131,10 @@ context-check:
 # before push (PITF-031). Includes all three build variants, test-race,
 # test-cover, test-fuzz smoke, sec (including go-licenses), and context.
 ci: lint build build-offensive build-sqlite test-race test-cover test-fuzz sec context-check
+
+# release-gate runs the 1.0 preconditions (scripts/release-gate.sh):
+# tests + lint × 2 build variants, sec-suite, context-check, docs
+# presence, goreleaser snapshot build, benchmarks baseline. Does NOT
+# touch the remote; this is a local green-light before `git tag -s`.
+release-gate:
+	bash scripts/release-gate.sh

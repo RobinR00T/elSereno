@@ -105,6 +105,41 @@ docker + sbom + sign + publish).
 3. Draft the GitHub release body from the CHANGELOG entry.
 4. Announce on relevant channels.
 
+## 1.0.0 gate
+
+The 1.0 tag is the first release where operator field-use is
+officially supported. Additional preconditions on top of the
+pre-release checklist:
+
+1. **Every residual risk** in `.context/threat-model/*.md` is
+   either resolved or tracked in a GitHub issue with a target
+   version.
+2. **STRIDE coverage**: no `internal/` or `offensive/` package
+   is missing from the threat-model index.
+3. **Supply-chain**: OpenSSF Scorecard ≥ 8.0; SLSA L3 provenance
+   verifies on a `--snapshot` release produced by the release
+   workflow; `osv-scanner` clean.
+4. **Benchmarks**: `benchmarks/baseline.txt` captured over ≥ 6
+   samples; `benchstat` reports no regression ≥ 10 % vs the
+   0.1.0 baseline.
+5. **Docs**: every CLI verb has a man page under `man/man1/`;
+   `elsereno api openapi -o docs/openapi.yaml` emits zero diff.
+6. **Sec panel**: `/admin/security` renders with every control
+   in the green/info state when compiled without
+   `-tags offensive`.
+7. **Release-gate**: `make release-gate` exits 0 on a clean
+   working tree.
+
+Run the gate locally:
+
+```sh
+make release-gate
+```
+
+Any FAIL line blocks the tag. Skipped lines (tools missing
+locally) still require the CI workflow's equivalent job to be
+green.
+
 ## Rollback
 
 1. `gh release delete v0.1.0 --yes` to remove the release entry.
