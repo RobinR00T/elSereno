@@ -180,8 +180,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.goreleaser.yml` migrated `archives.builds` →
   `archives.ids` (goreleaser v2).
 
+### Added — F7 Hardening + 1.0 (closed 2026-04-20)
+- Dockers_v2 migration (final goreleaser v2 deprecation cleared)
+  + nightly per-target fuzz matrix (30 min per `Fuzz*` target)
+  with artefact-uploaded corpora.
+- Regression benchmarks: `benchmarks/baseline.txt` checked in;
+  benchstat CI comments on every PR with the delta vs base;
+  strict mode turns ≥ 10 % regressions into failures.
+- OpenTelemetry tracing scaffolding: env-driven exporter
+  (`none`/`stdout`/`otlp`), scanner retry/attempt loop emits
+  spans with target/port/attempt/plugin attributes.
+- 6 STRIDE threat-model docs under `.context/threat-model/`
+  (vault-audit, web, scanner-proxy, exec-scope, offensive,
+  telemetry-canary) with per-surface residual-risk policy.
+- Supply-chain automation at `.github/workflows/supply-chain.
+  yml`: OpenSSF Scorecard nightly, SLSA L3 provenance verify
+  on tag, dependency-review with licence deny-list (GPL/AGPL/
+  LGPL/SSPL/Commons-Clause/Elastic-2.0), osv-scanner,
+  licenses-audit artefact.
+- `internal/backup`: AES-256-GCM envelope (magic + version +
+  salt + nonce + ciphertext) with two-stage HKDF key
+  derivation. Salt bound into AEAD AAD so salt-swap attacks
+  fail closed. 10 unit tests cover every tamper mode.
+- `elsereno backup {create,restore,inspect}` CLI verbs
+  honouring `--vault-passphrase-file` for non-interactive
+  startup.
+- Pentest dashboard panel at `/admin/security`: 11 in-process
+  controls with status pills, code-path + ADR references, and
+  links to all 6 threat-model docs + every external sec-suite
+  job.
+- `scripts/release-gate.sh` + `make release-gate`: 11 local
+  checks (tests, lint, context, docs, goreleaser snapshot,
+  sec-suite, benchmarks baseline) gate the v1.0 tag locally.
+- `RELEASING.md` 1.0 section + new `SUPPLY-CHAIN.md` root doc
+  with SLSA mapping + dep policy + SBOM diff recipe +
+  secrets-rotation table.
+
 ### Current phase
-**F7 hardening + 1.0** is the next scheduled phase. See
-`.context/STATE.md` for authoritative live state,
-`.context/snapshots/f6-reporting-release.md` for the last
+**v1.0.0 signed release** is the next milestone (operator
+task; `make release-gate` must be green on a clean tree).
+See `.context/STATE.md` for authoritative live state,
+`.context/snapshots/f7-hardening-1.0.md` for the last
 retrospective.

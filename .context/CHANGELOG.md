@@ -137,3 +137,19 @@ One-liner per significant change to `.context/` or the codebase.
   8 binaries × SBOM × SHA-256 checksums. F7 open carry-overs:
   dockers_v2 migration, offensive network delivery, seccomp-bpf
   filter sequences, SSE + findings/triage/runs DB panels.
+- 2026-04-20 — F7 — **Closed.** Hardening + 1.0. Dockers_v2 migration +
+  nightly per-target fuzz matrix. Regression benchmarks with benchstat
+  CI comment. OpenTelemetry tracing scaffold + scanner spans. 6 STRIDE
+  threat-model docs under `.context/threat-model/` (vault-audit, web,
+  scanner-proxy, exec-scope, offensive, telemetry-canary). Supply-
+  chain automation: OpenSSF Scorecard nightly, SLSA L3 provenance on
+  tag, dependency-review with licence deny-list, osv-scanner,
+  licenses-audit artefact. `internal/backup`: AES-256-GCM + two-stage
+  HKDF + tar/gzip payload + 10 unit tests. `elsereno backup
+  create|restore|inspect` CLI verbs honouring
+  --vault-passphrase-file. Pentest dashboard panel at /admin/security
+  showing 11 in-process controls + threat-model links + external
+  sec-suite references. `scripts/release-gate.sh` + `make release-
+  gate` + RELEASING.md 1.0 section. `SUPPLY-CHAIN.md` documents SLSA
+  mapping + dep policy + SBOM diff recipe + secrets rotation table.
+  Feature-complete for v1.0.0; tag is an operator task.

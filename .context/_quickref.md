@@ -40,7 +40,8 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-20)**: F0–F6 closed. 39 commits on `main`.
+**Current phase (2026-04-20)**: F0–F7 closed (feature-complete for
+v1.0.0). 48 commits on `main`.
 12 protocol plugins in the default build; every TCP-based plugin
 enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
@@ -57,6 +58,10 @@ runbook for a signed 0.1.0 tag; dry-run produces 8 binaries
 (darwin + linux × amd64 + arm64 × default + offensive) with SBOM
 (CycloneDX 1.6, 48 components) and SHA-256 checksums.
 `make ci` green on both build variants.
-Next up: **F7 hardening + 1.0** (nightly fuzz, Gremlins mutation,
-STRIDE per module, supply-chain audit, OTel tracing, backup
-automation, regression benchmarks, release 1.0.0).
+F7 adds: dockers_v2, nightly per-target fuzz matrix, regression
+benchmarks with benchstat, OpenTelemetry tracing, 6 STRIDE
+threat-model docs, supply-chain automation (scorecard + SLSA L3 +
+dep-review + osv-scanner), encrypted backup package + CLI verbs,
+pentest self-audit panel at `/admin/security`, and
+`make release-gate` local green-light. Next up: **v1.0.0 signed
+tag** (operator task; prerequisites in `RELEASING.md`).

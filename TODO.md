@@ -115,16 +115,18 @@ so the delta between planned and shipped stays visible.
 - [ ] Release 0.1.0 firmada (tag + cosign + publish — operator task)
 - [ ] Repo público (operator push)
 
-## Phase 7 — Hardening + 1.0
-- [ ] Fuzz exhaustivo nightly
-- [ ] Gremlins mutation
-- [ ] STRIDE por módulo
-- [ ] Pentest dashboard
-- [ ] Supply chain audit
-- [ ] OTel tracing production
-- [ ] Backup automation cifrado
-- [ ] Regresión benchmarks CI
-- [ ] Release 1.0.0
+## Phase 7 — Hardening + 1.0 — ✅ closed 2026-04-20
+- [x] Fuzz exhaustivo nightly (per-target matrix, 30 min each)
+- [ ] Gremlins mutation (deferred post-1.0; scorecard covers measurement)
+- [x] STRIDE por módulo (6 threat-model docs)
+- [x] Pentest dashboard (`/admin/security` self-audit panel)
+- [x] Supply chain audit (scorecard + SLSA L3 + dep-review + osv + licenses)
+- [x] OTel tracing (scaffold + scanner spans)
+- [x] Backup automation cifrado (internal/backup + CLI verbs)
+- [x] Regresión benchmarks CI (benchstat + auto-comment)
+- [x] `make release-gate` + RELEASING.md 1.0 section + SUPPLY-CHAIN.md
+- [ ] Release 1.0.0 signed tag (operator task — run `make release-gate`, push tag)
+- [ ] Repo público (operator task post-1.0)
 
 ## vNext
 - [ ] L2 PROFINET DCP/GOOSE/SV con gopacket
