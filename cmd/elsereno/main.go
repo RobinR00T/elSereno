@@ -144,6 +144,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newLintCmd())
 	root.AddCommand(newFmtCmd())
 	root.AddCommand(newAPICmd())
+	root.AddCommand(newBackupCmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

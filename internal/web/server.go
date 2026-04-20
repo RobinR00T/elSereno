@@ -67,6 +67,7 @@ func NewServer(opts Options) (*Server, error) {
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
 	mux.Handle("/api/v1/", handlers.APIV1())
+	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
 
 	// #nosec G112 -- all timeouts are set explicitly below.

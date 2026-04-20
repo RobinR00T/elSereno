@@ -223,6 +223,7 @@ const overviewHTML = `<!doctype html>
 
 <nav>
   <a href="/">Overview</a>
+  <a href="/admin/security">Security self-audit</a>
   <a href="/api/v1/plugins">API · plugins</a>
   <a href="/api/v1/scoring">API · scoring</a>
   <a href="/api/v1/health">API · health</a>
