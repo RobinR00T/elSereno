@@ -46,7 +46,10 @@ jobs:
           git diff --exit-code go.mod go.sum || (echo "::error::go.mod/go.sum not tidy"; exit 1)
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.62.2
+          # v2.x matches the config schema in .golangci.yml (v2).
+          # golangci-lint-action@v7+ dropped v1 support; pin to the
+          # latest v2 tag our local toolchain has been validated on.
+          version: v2.11.4
 
   build-default:
     name: build-default
