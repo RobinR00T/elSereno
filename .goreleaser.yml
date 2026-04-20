@@ -102,23 +102,17 @@ changelog:
       - "^docs:"
       - "^test:"
 
-dockers_v2:
-  - id: elsereno
-    images:
-      - "ghcr.io/elsereno/elsereno"
-    tags:
-      - "{{ .Version }}"
-      - latest
-    dockerfile: Dockerfile
-    platforms:
-      - linux/amd64
-    labels:
-      org.opencontainers.image.version: "{{ .Version }}"
-      org.opencontainers.image.revision: "{{ .Commit }}"
-      org.opencontainers.image.source: "https://github.com/elsereno/elsereno"
-      org.opencontainers.image.licenses: MIT
-      org.opencontainers.image.title: elsereno
-      org.opencontainers.image.description: "ICS/OT exposure auditor"
+# GHCR image publishing deferred to post-1.0 (needs buildx driver
+# setup for --attest SBOM + org/repo rewrite to match the actual
+# RobinR00T/elSereno slug). v1.0.0 ships archives + SBOM + cosign +
+# SLSA; the docker image lands in the first v1.1 release.
+#
+# dockers_v2:
+#   - id: elsereno
+#     images: ["ghcr.io/robinr00t/elsereno"]
+#     tags: ["{{ .Version }}", latest]
+#     dockerfile: Dockerfile
+#     platforms: [linux/amd64]
 
 sboms:
   - artifacts: archive
