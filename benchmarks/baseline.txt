@@ -1,0 +1,161 @@
+PASS
+ok  	local/elsereno/cmd/elsereno	1.181s
+goos: darwin
+goarch: arm64
+pkg: local/elsereno/internal/audit
+cpu: Apple M4 Pro
+BenchmarkCanonicalise-12    	   84243	      7185 ns/op	    8878 B/op	     235 allocs/op
+BenchmarkCanonicalise-12    	   81075	      7552 ns/op	    8878 B/op	     235 allocs/op
+BenchmarkCanonicalise-12    	   81910	      7203 ns/op	    8878 B/op	     235 allocs/op
+BenchmarkComputeHash-12     	  141336	      4191 ns/op	    5091 B/op	     140 allocs/op
+BenchmarkComputeHash-12     	  146593	      4210 ns/op	    5091 B/op	     140 allocs/op
+BenchmarkComputeHash-12     	  136278	      4421 ns/op	    5091 B/op	     140 allocs/op
+PASS
+ok  	local/elsereno/internal/audit	4.686s
+?   	local/elsereno/internal/bus	[no test files]
+PASS
+ok  	local/elsereno/internal/canary	0.372s
+PASS
+ok  	local/elsereno/internal/config	0.383s
+PASS
+ok  	local/elsereno/internal/core	0.369s
+PASS
+ok  	local/elsereno/internal/creds	0.465s
+?   	local/elsereno/internal/db	[no test files]
+?   	local/elsereno/internal/doctor	[no test files]
+PASS
+ok  	local/elsereno/internal/exec	0.349s
+?   	local/elsereno/internal/inputs	[no test files]
+PASS
+ok  	local/elsereno/internal/inputs/censys	0.376s
+PASS
+ok  	local/elsereno/internal/inputs/list	0.350s
+PASS
+ok  	local/elsereno/internal/inputs/nmapxml	0.350s
+PASS
+ok  	local/elsereno/internal/inputs/shodan	0.392s
+?   	local/elsereno/internal/inputs/stdin	[no test files]
+PASS
+ok  	local/elsereno/internal/outbox	0.370s
+?   	local/elsereno/internal/outputs	[no test files]
+PASS
+ok  	local/elsereno/internal/outputs/cef	0.517s
+PASS
+ok  	local/elsereno/internal/outputs/csv	0.514s
+PASS
+ok  	local/elsereno/internal/outputs/githubissues	0.519s
+PASS
+ok  	local/elsereno/internal/outputs/html	0.462s
+PASS
+ok  	local/elsereno/internal/outputs/jira	0.493s
+PASS
+ok  	local/elsereno/internal/outputs/ndjson	0.426s
+PASS
+ok  	local/elsereno/internal/outputs/syslog	0.353s
+PASS
+ok  	local/elsereno/internal/outputs/webhook	0.361s
+?   	local/elsereno/internal/protocols	[no test files]
+PASS
+ok  	local/elsereno/internal/protocols/atg	0.343s
+PASS
+ok  	local/elsereno/internal/protocols/atmodem	0.339s
+PASS
+ok  	local/elsereno/internal/protocols/atmodem/wire	0.351s
+?   	local/elsereno/internal/protocols/bacnet	[no test files]
+PASS
+ok  	local/elsereno/internal/protocols/bacnet/wire	0.356s
+PASS
+ok  	local/elsereno/internal/protocols/banner	0.363s
+PASS
+ok  	local/elsereno/internal/protocols/dnp3	0.361s
+PASS
+ok  	local/elsereno/internal/protocols/dnp3/wire	0.354s
+PASS
+ok  	local/elsereno/internal/protocols/enip	0.354s
+PASS
+ok  	local/elsereno/internal/protocols/enip/wire	0.346s
+PASS
+ok  	local/elsereno/internal/protocols/fox	0.350s
+PASS
+ok  	local/elsereno/internal/protocols/hartip	0.415s
+PASS
+ok  	local/elsereno/internal/protocols/hartip/wire	0.422s
+PASS
+ok  	local/elsereno/internal/protocols/iec104	0.522s
+PASS
+ok  	local/elsereno/internal/protocols/iec104/wire	0.521s
+PASS
+ok  	local/elsereno/internal/protocols/modbus	0.494s
+goos: darwin
+goarch: arm64
+pkg: local/elsereno/internal/protocols/modbus/wire
+cpu: Apple M4 Pro
+BenchmarkReadFrame-12     	16992982	        34.35 ns/op	 349.34 MB/s	      64 B/op	       3 allocs/op
+BenchmarkReadFrame-12     	16340053	        34.96 ns/op	 343.25 MB/s	      64 B/op	       3 allocs/op
+BenchmarkReadFrame-12     	16481194	        34.77 ns/op	 345.15 MB/s	      64 B/op	       3 allocs/op
+BenchmarkWriteFrame-12    	45986409	        12.24 ns/op	       8 B/op	       1 allocs/op
+BenchmarkWriteFrame-12    	49540032	        12.42 ns/op	       8 B/op	       1 allocs/op
+BenchmarkWriteFrame-12    	45194900	        12.33 ns/op	       8 B/op	       1 allocs/op
+BenchmarkClassify-12      	1000000000	         0.4867 ns/op	       0 B/op	       0 allocs/op
+BenchmarkClassify-12      	1000000000	         0.4764 ns/op	       0 B/op	       0 allocs/op
+BenchmarkClassify-12      	1000000000	         0.4792 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	local/elsereno/internal/protocols/modbus/wire	5.846s
+PASS
+ok  	local/elsereno/internal/protocols/s7	0.605s
+PASS
+ok  	local/elsereno/internal/protocols/s7/wire	0.630s
+PASS
+ok  	local/elsereno/internal/protocols/xot	1.301s
+PASS
+ok  	local/elsereno/internal/protocols/xot/wire	0.390s
+PASS
+ok  	local/elsereno/internal/proxy	0.341s
+goos: darwin
+goarch: arm64
+pkg: local/elsereno/internal/render
+cpu: Apple M4 Pro
+BenchmarkSafeBytes_ASCII-12     	  203170	      2948 ns/op	 347.36 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkSafeBytes_ASCII-12     	  208881	      2997 ns/op	 341.72 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkSafeBytes_ASCII-12     	  206949	      2923 ns/op	 350.28 MB/s	    1024 B/op	       1 allocs/op
+BenchmarkSafeBytes_Binary-12    	  135361	      4224 ns/op	 242.45 MB/s	    4864 B/op	       3 allocs/op
+BenchmarkSafeBytes_Binary-12    	  143018	      4172 ns/op	 245.46 MB/s	    4864 B/op	       3 allocs/op
+BenchmarkSafeBytes_Binary-12    	  149766	      4081 ns/op	 250.92 MB/s	    4864 B/op	       3 allocs/op
+PASS
+ok  	local/elsereno/internal/render	4.462s
+?   	local/elsereno/internal/repl	[no test files]
+PASS
+ok  	local/elsereno/internal/retention	0.369s
+PASS
+ok  	local/elsereno/internal/scanner	0.359s
+PASS
+ok  	local/elsereno/internal/scope	0.420s
+goos: darwin
+goarch: arm64
+pkg: local/elsereno/internal/scoring
+cpu: Apple M4 Pro
+BenchmarkScore-12           	 2258786	       249.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScore-12           	 2373238	       256.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkScore-12           	 2388990	       247.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLoadDefaults-12    	   55605	     10912 ns/op	   13575 B/op	     193 allocs/op
+BenchmarkLoadDefaults-12    	   54894	     11321 ns/op	   13575 B/op	     193 allocs/op
+BenchmarkLoadDefaults-12    	   52790	     11395 ns/op	   13575 B/op	     193 allocs/op
+PASS
+ok  	local/elsereno/internal/scoring	5.114s
+PASS
+ok  	local/elsereno/internal/telemetry	0.437s
+PASS
+ok  	local/elsereno/internal/triage	0.906s
+?   	local/elsereno/internal/web	[no test files]
+?   	local/elsereno/internal/web/handlers	[no test files]
+?   	local/elsereno/internal/web/middleware	[no test files]
+PASS
+ok  	local/elsereno/internal/web/openapi	0.891s
+?   	local/elsereno/internal/web/static	[no test files]
+?   	local/elsereno/internal/web/templates	[no test files]
+?   	local/elsereno/internal/wizard	[no test files]
+?   	local/elsereno/pkg	[no test files]
+?   	local/elsereno/simulators/atmodem	[no test files]
+?   	local/elsereno/simulators/modbus	[no test files]
+?   	local/elsereno/simulators/xot	[no test files]
+?   	local/elsereno/test/chaos	[no test files]

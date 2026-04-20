@@ -57,7 +57,25 @@ test-e2e:
 test-all: test-race test-cover test-integration test-e2e
 
 bench:
-	go test -bench=. -benchmem -run=^$$ ./...
+	go test -bench=. -benchmem -run=^$$ -benchtime=1s ./...
+
+# bench-baseline runs the benchmarks three times and writes the
+# result to benchmarks/baseline.txt. Regression detection on PRs
+# compares the new run against this file via benchstat.
+bench-baseline:
+	@mkdir -p benchmarks
+	go test -bench=. -benchmem -run=^$$ -count=3 -benchtime=500ms ./... \
+		| tee benchmarks/baseline.txt
+
+# bench-regression runs the current benchmarks and diffs against
+# the checked-in baseline. Requires benchstat
+# (go install golang.org/x/perf/cmd/benchstat@latest).
+bench-regression:
+	@mkdir -p benchmarks
+	@[ -f benchmarks/baseline.txt ] || (echo "missing benchmarks/baseline.txt — run 'make bench-baseline'"; exit 1)
+	go test -bench=. -benchmem -run=^$$ -count=3 -benchtime=500ms ./... \
+		| tee benchmarks/current.txt
+	benchstat benchmarks/baseline.txt benchmarks/current.txt
 
 sec:
 	gosec ./...
