@@ -9,19 +9,58 @@ permissions:
   contents: read
 
 jobs:
-  fuzz-long:
+  # discover-fuzz emits the matrix of (pkg, target) pairs the
+  # fuzz-long job consumes. Keeping discovery server-side means new
+  # targets show up in nightly the minute they are committed.
+  discover-fuzz:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          pairs=$(
+            grep -rhEo 'func (Fuzz[A-Za-z0-9_]+)' --include='*_test.go' . \
+              | awk '{print $2}' | sort -u \
+              | while read -r fn; do
+                  for p in $(grep -rlE "func ${fn}\\b" --include='*_test.go' . \
+                       | xargs -n1 dirname | sort -u); do
+                    printf '{"pkg":"./%s","target":"%s"}\n' "${p#./}" "$fn"
+                  done
+                done \
+              | jq -s -c '.'
+          )
+          echo "matrix=${pairs:-[]}" >> "$GITHUB_OUTPUT"
+
+  fuzz-long:
+    needs: discover-fuzz
+    if: ${{ needs.discover-fuzz.outputs.matrix != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.discover-fuzz.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
           cache: true
-      - run: ./scripts/run-fuzz.sh 30m
+      - name: fuzz ${{ matrix.target.target }} (30 m)
+        run: go test -run=^$ -fuzz="^${{ matrix.target.target }}$" -fuzztime=30m ${{ matrix.target.pkg }}
+      - name: upload crash corpus
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus-${{ matrix.target.target }}
+          path: ${{ matrix.target.pkg }}/testdata/fuzz/${{ matrix.target.target }}
+          if-no-files-found: ignore
 
   mutation:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -30,7 +69,15 @@ jobs:
           cache: true
       - name: install gremlins
         run: go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
-      - run: gremlins unleash ./... || true
+      # Config lives in .gremlins.yaml. Kept report-only for F7
+      # (surface mutation kill-rate without blocking main) — F8 will
+      # tighten to `--threshold-efficacy 70`.
+      - run: gremlins unleash ./... | tee mutation-report.txt || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gremlins-report
+          path: mutation-report.txt
+          if-no-files-found: warn
 
   trufflehog:
     runs-on: ubuntu-latest
