@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,67 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/creds"
 )
+
+// ErrPassphraseFileMode is returned when --vault-passphrase-file
+// points at a file readable by group or other. ADR-026 + PITF-016
+// require 0600 at most — laxer bits risk leakage via a multi-user
+// system's process inspection surface.
+var ErrPassphraseFileMode = errors.New("vault: passphrase file must be mode 0600 or stricter")
+
+// ErrPassphraseFileNotRegular rejects symlinks, device nodes, pipes,
+// etc. — attacks on the resolve path would otherwise let an
+// attacker coerce the loader to read /dev/stdin or an arbitrary
+// file.
+var ErrPassphraseFileNotRegular = errors.New("vault: passphrase file must be a regular file")
+
+// loadPassphraseFile reads a vault passphrase from `path`. The
+// loader rejects non-regular files and modes looser than 0600 so a
+// misconfigured operator is told before the secret leaks. Trailing
+// CR/LF is stripped to tolerate editor line endings.
+func loadPassphraseFile(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, fmt.Errorf("vault: stat %s: %w", path, err)
+	}
+	if info.Mode().Type() != 0 {
+		// Mode.Type() returns the type bits (symlink, device, pipe,
+		// socket); zero means regular file.
+		return nil, fmt.Errorf("%w: %s (mode=%s)", ErrPassphraseFileNotRegular, path, info.Mode())
+	}
+	if info.Mode().Perm()&^0o600 != 0 {
+		return nil, fmt.Errorf("%w: %s (got %#o)", ErrPassphraseFileMode, path, info.Mode().Perm())
+	}
+	// #nosec G304 -- operator-supplied path validated above
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("vault: read %s: %w", path, err)
+	}
+	data = bytes.TrimRight(data, "\r\n")
+	if len(data) == 0 {
+		return nil, fmt.Errorf("vault: passphrase file %s is empty", path)
+	}
+	return data, nil
+}
+
+// readPassphraseFromFileOrPrompt returns the passphrase from `path`
+// (if non-empty) after validating mode, else falls back to the
+// interactive-or-piped readPassphrase. Callers that only want the
+// file path should check `path != ""` first.
+func readPassphraseFromFileOrPrompt(cmd *cobra.Command, path, prompt string) ([]byte, error) {
+	if path != "" {
+		return loadPassphraseFile(path)
+	}
+	return readPassphrase(cmd, prompt)
+}
+
+// addPassphraseFileFlag registers the common --vault-passphrase-file
+// flag on a cobra command. `target` is the string the flag value is
+// bound to — each command keeps its own variable so the persistent
+// flag boundary doesn't leak across subcommands.
+func addPassphraseFileFlag(cmd *cobra.Command, target *string) {
+	cmd.Flags().StringVar(target, "vault-passphrase-file", "",
+		"read the vault passphrase from a 0600 file instead of prompting (ADR-026 / PITF-016)")
+}
 
 func newVaultCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -26,7 +88,8 @@ func newVaultCmd() *cobra.Command {
 }
 
 func newVaultInitCmd() *cobra.Command {
-	return &cobra.Command{
+	var ppFile string
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create a new encrypted vault",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -34,16 +97,20 @@ func newVaultInitCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitOSErr, err)
 			}
-			pp, err := readPassphrase(cmd, "Vault passphrase (not echoed): ")
+			pp, err := readPassphraseFromFileOrPrompt(cmd, ppFile, "Vault passphrase (not echoed): ")
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			confirm, err := readPassphrase(cmd, "Confirm passphrase: ")
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-			if string(pp) != string(confirm) {
-				return fail(core.ExitUsage, fmt.Errorf("passphrases do not match"))
+			// Confirmation prompt only makes sense when the operator
+			// typed the passphrase; the file IS the confirmation.
+			if ppFile == "" {
+				confirm, err := readPassphrase(cmd, "Confirm passphrase: ")
+				if err != nil {
+					return fail(core.ExitUsage, err)
+				}
+				if string(pp) != string(confirm) {
+					return fail(core.ExitUsage, fmt.Errorf("passphrases do not match"))
+				}
 			}
 			v := creds.New()
 			if err := v.InitToFile(cmd.Context(), pp, path); err != nil {
@@ -56,10 +123,13 @@ func newVaultInitCmd() *cobra.Command {
 			return nil
 		},
 	}
+	addPassphraseFileFlag(cmd, &ppFile)
+	return cmd
 }
 
 func newVaultUnlockCmd() *cobra.Command {
-	return &cobra.Command{
+	var ppFile string
+	cmd := &cobra.Command{
 		Use:   "unlock",
 		Short: "Decrypt the vault for subsequent operations (best-effort in CLI context)",
 		Long: "unlock is conceptually a long-lived server operation (see " +
@@ -71,7 +141,7 @@ func newVaultUnlockCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pp, err := readPassphrase(cmd, "Vault passphrase: ")
+			pp, err := readPassphraseFromFileOrPrompt(cmd, ppFile, "Vault passphrase: ")
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
@@ -82,6 +152,8 @@ func newVaultUnlockCmd() *cobra.Command {
 			return nil
 		},
 	}
+	addPassphraseFileFlag(cmd, &ppFile)
+	return cmd
 }
 
 func newVaultLockCmd() *cobra.Command {

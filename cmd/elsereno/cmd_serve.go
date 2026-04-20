@@ -31,6 +31,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.tlsCert, "tls-cert", "", "TLS certificate (required for non-loopback)")
 	cmd.Flags().StringVar(&opts.tlsKey, "tls-key", "", "TLS key (required for non-loopback)")
 	cmd.Flags().BoolVar(&opts.iKnow, "i-know-what-im-doing", false, "acknowledge a non-loopback bind")
+	addPassphraseFileFlag(cmd, &opts.passphraseFile)
 	return cmd
 }
 
@@ -38,6 +39,7 @@ type serveOpts struct {
 	addr            string
 	tlsCert, tlsKey string
 	iKnow           bool
+	passphraseFile  string
 }
 
 func runServe(cmd *cobra.Command, opts serveOpts) error {
@@ -45,7 +47,7 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	if err != nil {
 		return fail(core.ExitConfig, err)
 	}
-	v, err := unlockVaultInteractive(cmd)
+	v, err := unlockVault(cmd, opts.passphraseFile)
 	if err != nil {
 		return err
 	}
@@ -76,14 +78,15 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	return nil
 }
 
-// unlockVaultInteractive loads the file-backed vault and prompts for
-// the passphrase. Returns the unlocked Vault on success.
-func unlockVaultInteractive(cmd *cobra.Command) (*creds.Vault, error) {
+// unlockVault loads the file-backed vault and sources the
+// passphrase either from passphraseFile (when non-empty; ADR-026 /
+// PITF-016) or by prompting. Returns the unlocked Vault on success.
+func unlockVault(cmd *cobra.Command, passphraseFile string) (*creds.Vault, error) {
 	v, _, err := loadVault(cmd.Context())
 	if err != nil {
 		return nil, err
 	}
-	pp, err := readPassphrase(cmd, "Vault passphrase: ")
+	pp, err := readPassphraseFromFileOrPrompt(cmd, passphraseFile, "Vault passphrase: ")
 	if err != nil {
 		return nil, fail(core.ExitUsage, err)
 	}
