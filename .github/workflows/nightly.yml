@@ -52,7 +52,7 @@ jobs:
         run: go test -run=^$ -fuzz="^${{ matrix.target.target }}$" -fuzztime=30m ${{ matrix.target.pkg }}
       - name: upload crash corpus
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-corpus-${{ matrix.target.target }}
           path: ${{ matrix.target.pkg }}/testdata/fuzz/${{ matrix.target.target }}
@@ -73,7 +73,7 @@ jobs:
       # (surface mutation kill-rate without blocking main) — F8 will
       # tighten to `--threshold-efficacy 70`.
       - run: gremlins unleash ./... | tee mutation-report.txt || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gremlins-report
           path: mutation-report.txt

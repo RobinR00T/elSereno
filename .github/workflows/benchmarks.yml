@@ -46,7 +46,7 @@ jobs:
           if [ "${BENCH_STRICT:-0}" = "1" ] && [ "$rc" != "0" ]; then
             exit "$rc"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: benchstat-report
           path: |
