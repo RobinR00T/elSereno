@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/web/openapi"
 )
 
 // APIV1 returns the /api/v1 sub-router. The endpoints surface
@@ -17,7 +18,21 @@ func APIV1() http.Handler {
 	mux.HandleFunc("GET /api/v1/plugins", listPlugins)
 	mux.HandleFunc("GET /api/v1/scoring", getScoring)
 	mux.HandleFunc("GET /api/v1/health", getHealth)
+	mux.HandleFunc("GET /api/v1/openapi.yaml", getOpenAPI)
 	return mux
+}
+
+// getOpenAPI serves the code-sourced OpenAPI 3.1 YAML. The same
+// spec is snapshot to docs/openapi.yaml on release.
+func getOpenAPI(w http.ResponseWriter, _ *http.Request) {
+	body, err := openapi.Marshal(openapi.Spec(""))
+	if err != nil {
+		http.Error(w, "openapi: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/yaml")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(body)
 }
 
 // APIVersion is the contract version surfaced in responses.

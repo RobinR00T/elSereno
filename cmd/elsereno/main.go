@@ -143,6 +143,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTriageCmd())
 	root.AddCommand(newLintCmd())
 	root.AddCommand(newFmtCmd())
+	root.AddCommand(newAPICmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)
