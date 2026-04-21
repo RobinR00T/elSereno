@@ -142,14 +142,41 @@ func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"ok","started_at":%q}`, s.startedAt.UTC().Format(time.RFC3339))
 }
 
-func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
-	// The real /readyz verifies DB + migrations + disk + audit tail
-	// (ADR-022). Without a DB connection in-process we return a 200
-	// with a "degraded" note; the CLI `elsereno doctor` covers
-	// operator-level checks.
+func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
+	// ADR-022 shape: /readyz returns 200 with a JSON status
+	// when the server is ready to take traffic, 503 when a
+	// critical dependency is down. "Critical" in v1.2 is the
+	// DB pool IF configured — an unconfigured pool is NOT a
+	// failure (the file-backed audit + SSE still work).
+	//
+	// Audit readiness is reported separately: if the Querier is
+	// wired we assume the caller's `serve` wire-up also opened
+	// the audit writer; verifying the writer directly would
+	// require plumbing it through to the Server, which is a
+	// v1.3 scope expansion.
+	ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
+	defer cancel()
+
+	db := "skipped"
+	overall := "ready"
+	httpStatus := http.StatusOK
+	if s.opts.Querier != nil {
+		var one int
+		err := s.opts.Querier.QueryRow(ctx, `SELECT 1`).Scan(&one)
+		switch {
+		case err == nil && one == 1:
+			db = "ok"
+		default:
+			db = "down"
+			overall = "degraded"
+			httpStatus = http.StatusServiceUnavailable
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = fmt.Fprint(w, `{"status":"ready","db":"skipped","audit":"skipped"}`)
+	w.WriteHeader(httpStatus)
+	_, _ = fmt.Fprintf(w, `{"status":%q,"db":%q,"audit":"skipped","uptime_s":%d}`,
+		overall, db, int(time.Since(s.startedAt).Seconds()))
 }
 
 // securityHeaders adds the default header set (HSTS only under TLS so

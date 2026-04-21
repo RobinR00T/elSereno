@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/web/httpctx"
 )
 
 // Security returns the `/admin/security` handler — the pentest /
@@ -21,10 +22,12 @@ import (
 // an F8 carry-over because it needs the GH API.
 func Security() http.Handler {
 	t := template.Must(template.New("security").Parse(securityHTML))
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		_ = t.Execute(w, securityData())
+		data := securityData()
+		data.CSPNonce = httpctx.CSPNonce(r.Context())
+		_ = t.Execute(w, data)
 	})
 }
 
@@ -44,6 +47,10 @@ type securityModel struct {
 	GoRuntime   string
 	OffensiveOn bool
 	ThreatDocs  []string
+	// CSPNonce threads the per-request Content-Security-Policy
+	// nonce through so the inline <style> tag isn't blocked by
+	// the default-src 'self' policy set in `web.securityHeaders`.
+	CSPNonce string
 }
 
 func securityData() securityModel {
@@ -140,7 +147,7 @@ const securityHTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}}</title>
-<style>
+<style nonce="{{.CSPNonce}}">
   :root {
     --bg: #f7f8fa; --panel: #ffffff; --ink: #111418;
     --muted: #6b7280; --border: #e5e7eb;
