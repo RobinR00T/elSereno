@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-21
+
+### Added — new features
+
+- **Per-plugin offensive `WriteGatedHandler`** (ADR-040 close).
+  `offensive/write/<proto>/gatedproxy.go` for modbus / s7 / enip
+  with full wire-level Handle and protocol-native refusal frames
+  (IllegalFunction, S7 AckData err-class 0x85, ENIP encapsulation
+  status 0x0001). Session primitives (`AllowlistHash` +
+  `SessionMutation`) for bacnet / dnp3 / iec104 / hartip / atg /
+  fox; full Handle loops for those six ship in v1.2.
+- **File-backed audit writer** at `~/.elsereno/audit.jsonl`
+  (mode 0600, parent dir 0700). Chain-resumable across process
+  restarts; `audit.VerifyFile` walks the chain end-to-end.
+  `offensive/confirm/adapter.go` maps `confirm.AuditEvent` to
+  `audit.Entry` without a schema migration.
+- **Offensive CLI network delivery**: `elsereno write modbus
+  send`, `elsereno exploit run`, `elsereno audit verify-file`
+  tied together by `cmd/elsereno/offensive_runtime.go` (vault +
+  writer + actor helper).
+- **Server-Sent Events** at `GET /api/v1/stream`: process-local
+  `internal/web/stream.Broadcaster` with channel-per-subscriber
+  fan-out, `audit.FileWriter.SetObserver` hook, and
+  `stream.TailAudit` cross-process file tailer so offensive
+  verbs running in separate processes light up the dashboard.
+  The dashboard inline template now carries a live-feed panel
+  (EventSource, CSP-nonce whitelisted).
+- **GHCR docker image** via goreleaser's `dockers_v2` block —
+  multi-arch (linux/amd64 + linux/arm64) at
+  `ghcr.io/robinr00t/elsereno:<tag>` + `:latest`, with
+  `sbom: true` (CycloneDX) + `--attest=type=provenance,mode=max`
+  attestations and cosign-keyless manifest signatures.
+  `docker/setup-buildx-action@v3` + `docker/setup-qemu-action@v3`
+  added to `release.yml` so the multi-arch + attestation
+  pipeline works end-to-end.
+- **Seccomp-bpf sandbox** for offensive subprocesses
+  (ADR-042). `offensive/sandbox/bpf_linux.go` compiles
+  per-profile denylist BPF programs; `installFilter` installs
+  via `seccomp(SECCOMP_SET_MODE_FILTER, TSYNC)` so every
+  goroutine-backing thread is covered. Profiles: `exploit`
+  (base blocklist), `harvest` (+ file mutators), `dial` (+
+  network openers). Wired into `write modbus send`,
+  `exploit run`, `harvest *`, and `dial batch`. Integration
+  tests fork a child and verify ptrace + socket return EPERM
+  on native Linux.
+- **OPC UA plugin** on port 4840. `internal/protocols/opcua/
+  wire/` parses UA-TCP Part 6 §7.1 Hello/Acknowledge/Error
+  frames; the probe classifies ACK / ERR / non-UA bytes.
+  Default `ProxyHandler` refuses with a UA-native ERR frame
+  (Bad_ResourceLimitsExceeded + "denied"). Write-gating
+  (SecureChannel + Session + Write service) deferred to v1.2.
+- **Wardialing batch** via `elsereno dial batch --numbers-file
+  <path> --scope <scope.yaml>` — reads one number per line,
+  classifies each against the ADR-041 dial guard, and appends
+  one `offensive_dial` audit entry per decision. The seccomp
+  `dial` profile is installed before classification. Default
+  disposition is "preview" (audit-only dry-run); actual modem /
+  VoIP delivery is a v1.2 carry-over.
+
+### Changed
+
+- `Dockerfile` + `Dockerfile.sqlite` pin Go 1.25.4 to match
+  `go.mod`'s `go 1.25.0` requirement (previous 1.23.4 pin no
+  longer passed `go mod download`).
+- `elsereno dial` is now an umbrella verb with `validate`
+  (single-number check, former top-level body) and `batch`
+  (wardialing batch) subcommands.
+- Dashboard auto-refresh interval extended from 30 s → 120 s
+  because the SSE live feed replaces the need for frequent
+  full-page reloads.
+
+### Fixed
+
+- CSP nonce is now threaded through request context via
+  `internal/web/httpctx`; the dashboard's inline `<script>` and
+  `<style>` tags carry matching `nonce` attributes. Inline
+  styles were previously blocked by the Content-Security-Policy
+  in most browsers (silent degradation to unstyled output).
+- Legacy top-level `migrations/` directory removed; the
+  `internal/db/migrations/` embed used by goose is the single
+  source of truth. The audit-events-vs-SQL sync test walks
+  every migration in order.
+
 ## [1.0.1] — 2026-04-21
 
 ### Fixed — release surface polish
