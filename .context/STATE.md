@@ -1,34 +1,44 @@
 ---
-phase: F7
-status: closed
-last-updated: 2026-04-20
+phase: post-1.0
+status: v1.0.0 released, v1.0.1 polish queued
+last-updated: 2026-04-21
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: F7 — Hardening + 1.0.
-**Last closed**: **F7 on 2026-04-20**. `make release-gate` green on a
-  clean tree. See `.context/snapshots/f7-hardening-1.0.md`.
-**In progress**: nothing. Project is feature-complete for
-  **v1.0.0**; tag + signed release is an operator task documented
-  in `RELEASING.md`.
-**Next**: **v1.0.0 signed release** — operator runs
-  `make release-gate`, pushes the tag, the release workflow
-  emits cosign-signed archives + `.intoto.jsonl` SLSA provenance
-  + CycloneDX SBOM + GHCR image. Post-1.0 carry-overs listed in
-  the F7 snapshot.
+**Phase**: Post-1.0 polish.
+**Last tagged release**: **v1.0.0 on 2026-04-20**
+  (https://github.com/RobinR00T/elSereno/releases/tag/v1.0.0).
+  12 assets: 5 archives (darwin/linux × amd64/arm64 + sqlite
+  linux-amd64) × SHA-256 checksums + 6 CycloneDX SBOMs +
+  cosign-signed `checksums.txt.sig`. Tag signed with GPG
+  ACE3B86BACACE7D6.
+**v1.0.1 queued**: cosign `--bundle` + SLSA generator v2.1.0 +
+  pandoc 3.9.0.2 pin + README badges. Source-level code
+  unchanged between 1.0.0 and 1.0.1; only release-surface
+  polish. Tag pending re-cut after the pandoc version-tag fix
+  (`cab26e4`).
+**Repo**: `RobinR00T/elSereno`, **private**. Pending operator
+  decision to flip to public.
+**In progress**: nothing.
 **Blockers**: none.
 
-## Post-1.0 carry-overs
-- seccomp-bpf BPF filter instruction sequences per profile.
-- Offensive CLI network delivery (currently dry-run) + DB-
-  backed audit writer.
-- SSE live feed on `/api/v1/stream`; findings/triage/runs DB
-  panels + tables.
-- Gremlins mutation testing CI job (optional enhancement).
-- `BENCH_STRICT=1` flip after baseline accumulates ≥ 9 samples.
-- GitHub Security tab ingestion in `/admin/security`.
+## Known release carry-overs (post-1.0.1)
+- GHCR docker image publishing (buildx driver + owner-slug
+  rewrite + `--attest=type=sbom`); disabled in v1.0.0.
+- `.intoto.jsonl` SLSA provenance assets on the release (fixed
+  by v2.1.0 generator bump; validates on the v1.0.1 tag push).
+- Docs ingestion into `/admin/security` from the GH Security
+  tab (needs the public-repo flip first).
+
+## Live services (preview-start)
+- dashboard         127.0.0.1:8787
+- dev-db (pg 16)    127.0.0.1:5433
+- dev-adminer       127.0.0.1:8080
+- test-simulators   127.0.0.1:5434
+- banner-sim        127.0.0.1:9999
 
 ## Open questions
-(none)
+- Flip repo to public before cutting v1.1? (affects Scorecard +
+  CodeQL + OSV visibility).

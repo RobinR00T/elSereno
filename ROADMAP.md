@@ -1,0 +1,329 @@
+# ElSereno — Roadmap
+
+State as of **2026-04-21**. v1.0.0 released with F0–F7 closed.
+This document lists everything that is NOT yet in `main` — the
+carry-overs that were deliberately deferred and the features I
+propose adding based on the security + operator surface the tool
+currently exposes.
+
+## Legend
+
+- 🔴 — **v1.0.1 release-surface** fixes, queued on main.
+- 🟠 — **v1.1 carry-overs** already tracked in snapshots / ADRs.
+- 🟡 — **v1.2 expansions** — natural next step, still within the
+  brief's scope.
+- 🟢 — **vNext proposals** — new features not in the original
+  brief but high-leverage.
+- ⚪ — **research / speculative** — needs a design doc before
+  implementation.
+
+---
+
+## 🔴 v1.0.1 — release-surface polish (queued)
+
+- **cosign bundle publishing**
+  (`checksums.txt.bundle` shipped alongside `.sig` so operators
+  can run `cosign verify-blob --bundle checksums.txt.bundle`
+  without fetching the signing cert out-of-band). Configured in
+  `.goreleaser.yml`; validates on next tag push.
+- **SLSA provenance generator v2.1.0**. v2.0.0 had a finaliser
+  bug that emitted exit 27 after a successful upload. v1.0.0
+  shipped without `.intoto.jsonl` assets because of it.
+- **Pandoc 3.9.0.2 pin** from the upstream `.deb` instead of
+  distro apt-get. Byte-reproducible man-page generation lets us
+  re-enable the strict "man pages in sync" release-gate step.
+- **README badges + signed-install snippet**. Release shield,
+  CI shield, licence, Go version, SLSA-3 badge. Quick-install
+  recipe with `curl + shasum -c` + optional cosign verify.
+
+Tag re-cut blocked on a local `make release-gate` pass + a clean
+CI run on `main`. Zero source-level changes between 1.0.0 and
+1.0.1.
+
+---
+
+## 🟠 v1.1 carry-overs (already tracked)
+
+### Offensive build — network delivery
+
+Dry-run CLI verbs are in `main` since F5 chunk 5 but don't emit
+real traffic yet. The mutating I/O half of `elsereno
+write|exploit|harvest|dial` lands when the DB-backed audit writer
+ships (so every `offensive_allowed` event lands on a tamper-
+evident chain row, not just stdout).
+
+**Work to land**:
+1. `internal/audit.Writer` (pgx-backed, single-goroutine
+   INSERT). Carry-over from F1.
+2. `offensive/confirm.AuditorWriter` adapter.
+3. Network send wrapper for every existing Build — reuse
+   `offensive/write/modbus.Execute()` pattern for S7 / ENIP /
+   BACnet / exploits / dial.
+4. `elsereno audit verify --tail 100` operator verb so the
+   audit chain can be checked post-run.
+
+### Per-plugin offensive proxy mode
+
+Each of the 8 plugins that currently ships a default-build
+write-ban handler gets a `WriteGatedHandler` under
+`-tags offensive` that, instead of refusing, routes mutating
+frames through `offensive/confirm.Authorize`. ADR-040 already
+declares the contract.
+
+**Work to land**: 8 × 50 LOC per plugin (Modbus / S7 / ENIP /
+DNP3 / IEC-104 / HART-IP / ATG / BACnet), 8 matching
+integration tests.
+
+### seccomp-bpf filter bytecode
+
+F5 chunk 5 ships the scaffolding (`offensive/sandbox.Load` with
+profile enum + `PR_SET_NO_NEW_PRIVS`); the actual BPF filter
+instruction sequences per profile (exploit / harvest / dial) land
+when the first offensive subprocess needs them.
+
+Library: `github.com/elastic/go-seccomp-bpf` — already pinned in
+ADR-042.
+
+### SSE `/api/v1/stream` + DB-backed dashboard panels
+
+Dashboard at `/` currently meta-refreshes every 30 s; the
+findings / triage / runs panels show placeholders. The SSE
+stream + the DB tables (findings, triage, runs) come together:
+
+- `internal/web/handlers/stream.go` — server-sent events wired
+  to the pgx `LISTEN/NOTIFY` channel.
+- Migration 00002: findings / triage / runs tables per the
+  scanner's existing types.
+- Dashboard's placeholder section becomes a live feed with
+  per-protocol colours and severity chips.
+
+### GHCR docker image
+
+Disabled in v1.0.0 (buildx driver issue + wrong slug). Fixes:
+- `dockers_v2` block with `ghcr.io/robinr00t/elsereno`.
+- Release workflow adds a `docker/setup-buildx-action@v3` step
+  so `--attest=type=sbom` works.
+- OCI annotations populated from goreleaser's templates.
+
+### Advanced-Security-aware workflows on public repos
+
+Scorecard, CodeQL analyze, and osv-scanner-action are gated on
+`github.event.repository.visibility == 'public'` because they
+upload SARIF to the Security tab (requires GHAS — free only on
+public repos). When the repo flips to public the workflows
+activate automatically; no code change needed.
+
+### BENCH_STRICT flip
+
+Benchmarks CI comments the delta today. Post-1.0, once the
+baseline accumulates ≥ 6 samples from the hosted runner, flip
+`BENCH_STRICT=1` so a ≥ 10 % regression becomes a PR-blocking
+failure.
+
+---
+
+## 🟡 v1.2 expansions
+
+### Per-protocol offensive tests + fuzz
+
+Every offensive `write/<proto>/Build` function needs a dedicated
+fuzz target. Today only the default-build wire parsers have
+them; offensive write builders are unit-tested but not fuzzed.
+
+### Outbox → webhook delivery
+
+F5 chunk 5 shipped `internal/canary/canary.go` (direct POST).
+The outbox (`internal/outbox`) already has retry + dead-letter
+semantics but the canary sender still posts inline. Move the
+webhook dispatch behind the outbox so a webhook outage doesn't
+cascade into scanner slowdown.
+
+### gen-man roundtrip via cobra
+
+`scripts/gen-manpages.sh` currently skips `man1` because the
+binary doesn't expose a `gen-man` subcommand. Add it using
+`github.com/spf13/cobra/doc` so `elsereno gen-man --output
+man/man1` emits one page per CLI verb. Then the man pages are
+fully reproducible from `go build`.
+
+### Audit export verbs
+
+`elsereno audit export --format {cef,syslog,ndjson} --since
+<time>` — read from the chain, emit through the F6 sinks. Pair
+with `elsereno audit verify --since <time>` for forensic
+workflows.
+
+### Gremlins mutation testing
+
+F7 chunk 4 scored Gremlins as "deferred post-1.0; scorecard
+covers the measurement". Bring it in as a nightly job under a
+separate workflow (`mutation.yml`); the scorecard job and the
+Gremlins job complement each other.
+
+### TUI (bubbletea) for offensive flows
+
+Brief §16 mentioned a bubbletea TUI as F4 chunk 2 carry-over.
+Never landed. A minimal `elsereno tui` that:
+- Shows live findings during a scan.
+- Lets the operator drill into a finding, see factor
+  breakdown, trigger an `explain` run.
+- Exposes the offensive triple-confirm flow as a step-by-step
+  wizard (dry-run → review token → paste token → confirm).
+
+---
+
+## 🟢 vNext proposals (high leverage)
+
+### 1. Wardialing batch mode
+
+Brief documented "wardialing batch con scope file" as vNext.
+With the dial-guard from ADR-041 already hardened, batch mode
+is a matter of:
+- `elsereno dial batch --scope scope.yaml --from 34912000000
+  --to 34919999999 --max-per-minute 1`
+- Reuses `offensive/dial.Validate` per number.
+- Rate limiter per CID prefix so nobody gets mass-hit in a
+  short window.
+
+Legal caveat: the operator signs an additional batch-
+acknowledgement written into the audit chain with an explicit
+"I am the end-to-end responsible" claim.
+
+### 2. STIX 2.1 export
+
+Brief mentioned; never scoped. Findings → STIX Indicator +
+Observed-Data with an `elsereno-audit` TLP:AMBER bundle. Makes
+ElSereno feed into MISP, OpenCTI, ThreatBus.
+
+### 3. Record & replay for sessions
+
+Proxy framework already has the Hook interface. Add a
+`RecordHook` that serialises every frame + timing + direction
+to a compressed file, and a `ReplayRunner` that re-drives the
+proxy from that file. Useful for:
+- Regression suites on protocol bug fixes.
+- Evidence for incident response (" the PLC replied this exact
+  byte sequence ").
+- Offline fuzz corpus generation.
+
+### 4. OIDC + roles
+
+Single-operator assumption is the biggest limitation. Add:
+- OIDC login via any provider (Auth0, Keycloak, Microsoft
+  Entra). `gorilla/sessions` backend.
+- Roles: `viewer`, `operator`, `admin`. Operator can run
+  scans; admin can issue offensive flows + rotate vault keys.
+- Per-operator audit attribution.
+
+### 5. L2 PROFINET / GOOSE / SV (gopacket)
+
+Brief mentioned. Requires `CAP_NET_RAW` + raw sockets (we have
+the doctor check). Build on top of `github.com/google/gopacket`
+so ElSereno can fingerprint PROFINET DCP announcements and
+monitor IEC 61850 GOOSE / SV multicast without ever sending a
+frame (pure passive).
+
+### 6. Additional protocols (already in brief)
+
+- **OPC UA** (port 4840) — the modern ICS protocol; important
+  for Industry-4.0 deployments.
+- **CoDeSys** (port 1200/11740) — many European PLC brands.
+- **Omron FINS** (port 9600/UDP).
+- **MELSEC SLMP** (Mitsubishi).
+- **PCWorx / ProConOS** (Phoenix Contact, some Siemens).
+- **Red Lion Crimson** (port 789).
+- **GE-SRTP** (port 18245).
+- **IEC 61850 MMS** (port 102 — coexists with S7!).
+- **KNX** (port 3671/UDP).
+- **M-Bus** (port 10001/TCP — legacy).
+
+Each needs its own `internal/protocols/<proto>/` with a
+from-scratch wire parser + fuzz target + write-ban proxy per
+the F4 template.
+
+### 7. Multiple additional input sources
+
+- **ONYPHE** (EU alternative to Shodan).
+- **Fofa** (cn).
+- **Zoomeye**.
+- **Shodan InternetDB** (free tier, no API key).
+- **BinaryEdge**.
+- Merge sources with scope-level deduplication.
+
+---
+
+## ⚪ Research / speculative
+
+### A. Deep-learning-based protocol fingerprint
+
+Today every plugin has a hand-crafted wire parser. A lightweight
+ML classifier trained on the corpus of captured banners could
+help in the "unknown banner" case, falling back to a learned
+classifier when the substring rules miss.
+
+Risk: false positives on legitimate admin panels. Design doc
+needed before implementation.
+
+### B. Active-Directory-style finding chain
+
+Today findings are independent rows. Some operators want to
+visualise "Device A at 10.0.0.1 exposes Modbus, which points at
+Device B via TCPdump evidence at 10.0.0.2…". A graph-backed
+view where edges are SNMP/ARP/ICMP relationships. Neo4j or
+AGE on Postgres.
+
+### C. Canary-mode offensive dry-run
+
+Before hitting a real target, run the payload against the
+`simulators/` honeypot (Conpot). ElSereno can tell the operator
+"your WriteVar frame, when applied to a S7-1200 Conpot image,
+caused a write to memory at DB1.DBB0 and produced this audit
+trace" — a canary that catches regressions in the operator's
+intent vs. the actual bytes.
+
+### D. Mobile companion app
+
+A read-only phone app that shows the dashboard + triggers an
+audit verify after the operator leaves the site. Uses the live
+`/api/v1/*` endpoints + server-side push for alerts.
+
+---
+
+## Not in scope (documented NON-GOALS)
+
+Still apply from `NON-GOALS.md`:
+- Cloud-only SaaS deployment.
+- Windows server support.
+- Auto-exploitation cascade (ElSereno always requires explicit
+  operator confirmation per mutation).
+- Offensive flows without legal scope (`scope.yaml` required).
+
+---
+
+## Priority matrix for the next 90 days
+
+| Priority | Item | Category | Rough effort |
+|----------|------|----------|--------------|
+| P0 | Cut v1.0.1 | 🔴 | 1 hr |
+| P0 | Repo flip to public | operator | 5 min |
+| P1 | DB-backed audit writer + network delivery wiring | 🟠 v1.1 | ~4 days |
+| P1 | Per-plugin offensive WriteGatedHandler (×8) | 🟠 v1.1 | ~2 days |
+| P1 | SSE feed + findings/triage DB panels | 🟠 v1.1 | ~3 days |
+| P2 | GHCR image + buildx | 🟠 v1.1 | 1 day |
+| P2 | seccomp BPF filter bytecode | 🟠 v1.1 | ~2 days |
+| P2 | OPC UA plugin (most-asked next protocol) | 🟢 vNext | ~3 days |
+| P2 | Wardialing batch | 🟢 vNext | ~2 days |
+| P3 | Gremlins mutation | 🟡 v1.2 | 1 day |
+| P3 | STIX 2.1 export | 🟢 vNext | ~3 days |
+| P3 | OIDC + roles | 🟢 vNext | ~1 week |
+| P4 | TUI bubbletea | 🟡 v1.2 | ~1 week |
+| P4 | Record & replay | 🟢 vNext | ~3 days |
+| P4 | L2 PROFINET / GOOSE / SV | 🟢 vNext | ~2 weeks |
+
+Best order: **P0 (release-polish + public flip) → P1 (offensive
+delivery + dashboard live) → P2 (image + sandbox + OPC UA)**.
+That produces a v1.1 that feels like the brief's promise fully
+realised.
+
+The P3/P4 band is operator-driven — prioritise whichever pops
+up first as a real pentest need.

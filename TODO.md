@@ -1,8 +1,38 @@
 # ElSereno Roadmap
 
 Live state is in `.context/STATE.md`; per-phase retrospectives in
-`.context/snapshots/`. This file tracks the brief's original checklist
-so the delta between planned and shipped stays visible.
+`.context/snapshots/`. Forward-looking roadmap (post-1.0 features
++ what's missing from the brief) lives in [`ROADMAP.md`](ROADMAP.md).
+This file tracks the brief's original checklist so the delta
+between planned and shipped stays visible.
+
+## v1.0 — released 2026-04-20
+
+- [x] **v1.0.0 signed tag** — 12 release assets at
+  `RobinR00T/elSereno` (private). GPG signature
+  ACE3B86BACACE7D6.
+- [ ] **v1.0.1 polish** — cosign bundle + SLSA v2.1.0 + pandoc
+  3.9.0.2 pin + README badges. Queued on `main`; re-cut after
+  CI green.
+- [ ] **Flip repo to public** — operator decision.
+- [ ] **Revoke the bootstrap PAT** — operator task at
+  https://github.com/settings/personal-access-tokens.
+
+## Post-1.0 roadmap
+
+Top priorities (full detail + effort estimates in `ROADMAP.md`):
+
+- **P1** — DB-backed audit writer + `elsereno write|exploit|
+  harvest|dial` network delivery wiring.
+- **P1** — Per-plugin offensive `WriteGatedHandler` substitution
+  for 8 protocols (ADR-040 carry-over).
+- **P1** — SSE `/api/v1/stream` + findings/triage/runs DB
+  panels replacing the dashboard placeholder.
+- **P2** — GHCR docker image (buildx + correct slug +
+  `--attest=type=sbom`).
+- **P2** — seccomp-bpf filter bytecode per profile.
+- **P2** — OPC UA plugin (most-asked next protocol).
+- **P2** — Wardialing batch mode.
 
 ## Phase 0 — Scaffolding — ✅ closed 2026-04-19
 - [x] Estructura de repo sección 6

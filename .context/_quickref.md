@@ -40,8 +40,10 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-20)**: F0–F7 closed (feature-complete for
-v1.0.0). 48 commits on `main`.
+**Current phase (2026-04-21)**: v1.0.0 tagged + signed release
+published at RobinR00T/elSereno (private). v1.0.1 polish queued
+(cosign bundle, SLSA v2.1.0 generator, pandoc 3.9.0.2 pin, README
+badges). F0–F7 closed; ~60 commits on `main`.
 12 protocol plugins in the default build; every TCP-based plugin
 enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks

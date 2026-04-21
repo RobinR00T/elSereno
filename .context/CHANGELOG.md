@@ -153,3 +153,16 @@ One-liner per significant change to `.context/` or the codebase.
   gate` + RELEASING.md 1.0 section. `SUPPLY-CHAIN.md` documents SLSA
   mapping + dep policy + SBOM diff recipe + secrets rotation table.
   Feature-complete for v1.0.0; tag is an operator task.
+- 2026-04-20 — **Release v1.0.0** pushed to private repo
+  RobinR00T/elSereno. 12 release assets: 5 archives (darwin/linux
+  × amd64/arm64 + sqlite linux-amd64) + 6 CycloneDX SBOMs +
+  cosign-signed checksums. Tag signed with GPG
+  ACE3B86BACACE7D6. Known issues: `.intoto.jsonl` SLSA provenance
+  missing (v2.0.0 generator finaliser bug; v1.0.1 fixes via
+  v2.1.0), cosign `.sig` without `.bundle` (v1.0.1 adds bundle),
+  GHCR image disabled (v1.1 carry-over).
+- 2026-04-21 — **Release v1.0.1 polish** queued on main: cosign
+  `--bundle`, SLSA generator bumped v2.0.0 → v2.1.0, pandoc
+  pinned to upstream 3.9.0.2 .deb for determinism, README
+  badges + signed-install recipe. Source code unchanged; config
+  + docs only.
