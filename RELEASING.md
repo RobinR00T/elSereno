@@ -120,8 +120,14 @@ keyless signature on the manifest digest (`docker_signs` block).
      --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
    cosign download sbom ghcr.io/robinr00t/elsereno:v1.1.0 | jq '.components | length'
    ```
-4. Draft the GitHub release body from the CHANGELOG entry.
-5. Announce on relevant channels.
+4. Run the post-push smoke: `scripts/release-smoke.sh <tag>` —
+   downloads checksums + bundle, runs `cosign verify-blob`,
+   pulls the GHCR manifest, runs `cosign verify` on it,
+   downloads the CycloneDX SBOM, and executes `docker run
+   <tag> version` + `plugins list` as a runtime sanity check.
+   Exits 0 on success; any failure prints a red `[fail]` line.
+5. Draft the GitHub release body from the CHANGELOG entry.
+6. Announce on relevant channels.
 
 ## 1.0.0 gate
 

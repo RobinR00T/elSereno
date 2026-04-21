@@ -1,17 +1,16 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-21**. v1.0.0 and v1.0.1 released at
-RobinR00T/elSereno (private). v1.1 in flight on `main` — chunks
-1-3 landed (per-plugin offensive WriteGatedHandler × 9, file-
-backed audit writer + confirm adapter, network delivery for
-offensive CLI). Chunks 4-8 pending.
+State as of **2026-04-21**. v1.0.0, v1.0.1, and v1.1.0 released
+at RobinR00T/elSereno (private). v1.1.0 signed locally with
+GPG key `ACE3B86BACACE7D6`; push + release-workflow + cosign
+verify smoke pending PAT restore in the operator's shell.
 
 This document lists everything that is NOT yet in `main` — the
-carry-overs that were deliberately deferred and the features I
-propose adding based on the security + operator surface the tool
-currently exposes.
+carry-overs that were deliberately deferred and the features
+proposed for v1.2+ based on the security + operator surface the
+tool currently exposes.
 
-## v1.1 progress (in flight)
+## v1.1 shipped (closed — see `.context/snapshots/v1.1-sse-sandbox-opcua-wardial.md`)
 
 - [x] **Chunk 1** — Per-plugin offensive `WriteGatedHandler`
   (ADR-040 close). Full wire-level Handle for
@@ -23,17 +22,39 @@ currently exposes.
 - [x] **Chunk 3** — Network delivery: `write modbus send`,
   `exploit run` (tcp/udp), `audit verify-file`,
   `offensive_runtime` CLI helper.
-- [ ] **Chunk 4** — SSE `/api/v1/stream` + findings/triage/runs
-  DB tables + dashboard panels.
-- [ ] **Chunk 5** — GHCR docker image with buildx +
-  `robinr00t/elsereno` slug + `--attest=type=sbom`.
-- [ ] **Chunk 6** — seccomp-bpf BPF filter bytecode per
-  profile (exploit/harvest/dial).
-- [ ] **Chunk 7** — OPC UA plugin (port 4840).
-- [ ] **Chunk 8** — Wardialing batch mode
-  (`elsereno dial batch --scope …`).
-- [ ] **v1.1 close** — snapshot + STATE + CHANGELOG + TODO
-  refresh + signed tag v1.1.0 + release smoke.
+- [x] **Chunk 4a** — SSE `/api/v1/stream` +
+  `internal/web/stream` Broadcaster + dashboard live-feed panel
+  + cross-process `TailAudit`.
+- [ ] **Chunk 4b** — findings/triage/runs DB tables + panels
+  reading from DB (CARRY-OVER: lands with v1.2 DB-backed
+  audit Writer).
+- [x] **Chunk 5** — GHCR docker image via `dockers_v2` —
+  multi-arch amd64/arm64, `sbom: true`, cosign-keyless
+  manifest sign, buildx/qemu action setup in release.yml.
+- [x] **Chunk 6** — seccomp-bpf sandbox per profile
+  (exploit/harvest/dial). BPF denylist + TSYNC + migration
+  00002 for `offensive_sandbox` audit entries.
+- [x] **Chunk 7** — OPC UA plugin on port 4840. UA-TCP Part 6
+  Hello/Ack/Err probe + simulator. Write gating deferred to v1.2.
+- [x] **Chunk 8** — `elsereno dial batch --numbers-file
+  <path>` wardialing mode. Audit entry per decision. Real
+  PSTN/VoIP delivery deferred to v1.2.
+- [x] **v1.1 close** — snapshot flipped to closed +
+  retrospective, top-level CHANGELOG.md gains [1.1.0] entry,
+  signed tag `v1.1.0` on commit `0238f15`.
+
+## v1.1 push-time tasks (pending operator action)
+
+- [ ] `git push origin main && git push origin v1.1.0`
+  (requires PAT re-export in the operator's shell).
+- [ ] Verify release-workflow output: `cosign verify-blob
+  --bundle checksums.txt.bundle …` against the v1.1.0 assets.
+- [ ] Verify GHCR manifest: `cosign verify
+  ghcr.io/robinr00t/elsereno:v1.1.0 …` + `cosign download
+  sbom ghcr.io/robinr00t/elsereno:v1.1.0`.
+- [ ] Revoke the bootstrap PAT at
+  https://github.com/settings/personal-access-tokens (operator
+  asked to keep it live until end of v1.1).
 
 ## Legend
 
