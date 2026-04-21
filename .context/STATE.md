@@ -1,44 +1,82 @@
 ---
-phase: post-1.0
-status: v1.0.0 released, v1.0.1 polish queued
+phase: v1.1-in-flight
+status: v1.0.1 released; v1.1 chunks 1-3 landed on main; 5 chunks pending
 last-updated: 2026-04-21
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: Post-1.0 polish.
-**Last tagged release**: **v1.0.0 on 2026-04-20**
-  (https://github.com/RobinR00T/elSereno/releases/tag/v1.0.0).
-  12 assets: 5 archives (darwin/linux × amd64/arm64 + sqlite
-  linux-amd64) × SHA-256 checksums + 6 CycloneDX SBOMs +
-  cosign-signed `checksums.txt.sig`. Tag signed with GPG
-  ACE3B86BACACE7D6.
-**v1.0.1 queued**: cosign `--bundle` + SLSA generator v2.1.0 +
-  pandoc 3.9.0.2 pin + README badges. Source-level code
-  unchanged between 1.0.0 and 1.0.1; only release-surface
-  polish. Tag pending re-cut after the pandoc version-tag fix
-  (`cab26e4`).
+**Phase**: v1.1 implementation in flight on `main`
+(RobinR00T/elSereno, private).
+
+**Shipped releases**:
+- **v1.0.0** (2026-04-20) — 12 assets, GPG-signed tag
+  ACE3B86BACACE7D6, missing SLSA `.intoto.jsonl`.
+- **v1.0.1** (2026-04-21) — release-polish: cosign bundle
+  (verified end-to-end with `cosign verify-blob --bundle
+  checksums.txt.bundle` → OK), pandoc 3.9.0.2 pin, SLSA
+  v2.1.0 generator (final step still hits upstream bug
+  exit-27; wrapped non-blocking in release.yml).
+
+**v1.1 chunks landed on `main`**:
+- **Chunk 1** ✅ Per-plugin offensive `WriteGatedHandler`.
+  Full wire-level Handle for modbus/s7/enip; session-auth
+  primitives (AllowlistHash + SessionMutation) for
+  bacnet/dnp3/iec104/hartip/atg/fox. Closes ADR-040 offensive
+  side; default-build write-ban preserved intact.
+- **Chunk 2** ✅ File-backed audit writer at
+  `internal/audit/writer.go` (FileWriter + VerifyFile) +
+  `offensive/confirm/adapter.go` mapping
+  `confirm.AuditEvent` onto the existing `audit_log`
+  event_type enum. JSONL at `~/.elsereno/audit.jsonl` mode
+  0600. Chain-resumable across process restarts.
+- **Chunk 3** ✅ Network delivery wiring:
+  `cmd/elsereno/offensive_runtime.go` (vault + writer + actor
+  helper), `write modbus send` (real Execute call with
+  triple-confirm + audit), `exploit run` (tcp/udp dial +
+  audit), `audit verify-file` walks the JSONL chain.
+
+**Pending v1.1 chunks**:
+- **Chunk 4** — SSE `/api/v1/stream` + findings/triage/runs
+  DB tables + dashboard panels replacing the placeholder.
+- **Chunk 5** — GHCR docker image: dockers_v2 restored with
+  `robinr00t/elsereno` slug, buildx driver,
+  `--attest=type=sbom`.
+- **Chunk 6** — seccomp-bpf BPF filter bytecode per profile
+  (exploit / harvest / dial) on Linux.
+- **Chunk 7** — OPC UA plugin (port 4840) as next ICS
+  protocol.
+- **Chunk 8** — Wardialing batch (`elsereno dial batch --scope
+  …`) reusing ADR-041 dial-guard.
+- **v1.1 close** — snapshot + STATE + CHANGELOG + TODO + tag
+  + release smoke.
+
+**Bootstrap PAT** (`elsereno` fine-grained) still live. User
+wants it live until end of v1.1; revoke manually at
+https://github.com/settings/personal-access-tokens when done.
+
 **Repo**: `RobinR00T/elSereno`, **private**. Pending operator
-  decision to flip to public.
-**In progress**: nothing.
-**Blockers**: none.
+decision to flip to public.
 
-## Known release carry-overs (post-1.0.1)
-- GHCR docker image publishing (buildx driver + owner-slug
-  rewrite + `--attest=type=sbom`); disabled in v1.0.0.
-- `.intoto.jsonl` SLSA provenance assets on the release (fixed
-  by v2.1.0 generator bump; validates on the v1.0.1 tag push).
-- Docs ingestion into `/admin/security` from the GH Security
-  tab (needs the public-repo flip first).
+**Live services** (preview-start):
+- dashboard 127.0.0.1:8787
+- dev-db (pg 16) 127.0.0.1:5433
+- dev-adminer 127.0.0.1:8080
+- test-simulators 127.0.0.1:5434
+- banner-sim 127.0.0.1:9999
 
-## Live services (preview-start)
-- dashboard         127.0.0.1:8787
-- dev-db (pg 16)    127.0.0.1:5433
-- dev-adminer       127.0.0.1:8080
-- test-simulators   127.0.0.1:5434
-- banner-sim        127.0.0.1:9999
+## Known release carry-overs (post-1.1)
+- DB-backed audit writer (FileWriter ships v1.1; DB writer
+  v1.2).
+- Full wire-level WriteGatedHandler for bacnet/dnp3/iec104/
+  hartip/atg/fox (session primitives in v1.1; full handler
+  v1.2).
+- SLSA `.intoto.jsonl` assets on the release (known upstream
+  bug; tracked for v1.2).
+- Scorecard / CodeQL / OSV full suite runs only after repo
+  flips to public (GHAS-gate).
 
 ## Open questions
-- Flip repo to public before cutting v1.1? (affects Scorecard +
-  CodeQL + OSV visibility).
+- Flip repo to public after v1.1? (unlocks Scorecard,
+  CodeQL, OSV).

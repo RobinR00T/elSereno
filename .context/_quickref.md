@@ -40,10 +40,14 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-21)**: v1.0.0 tagged + signed release
-published at RobinR00T/elSereno (private). v1.0.1 polish queued
-(cosign bundle, SLSA v2.1.0 generator, pandoc 3.9.0.2 pin, README
-badges). F0–F7 closed; ~60 commits on `main`.
+**Current phase (2026-04-21)**: v1.0.1 released (RobinR00T/elSereno,
+private) with verified cosign bundle. **v1.1 in flight** on main —
+chunks 1-3 landed (per-plugin offensive WriteGatedHandler × 9,
+file-backed audit writer at `~/.elsereno/audit.jsonl` + confirm
+adapter, network delivery for `write modbus send` + `exploit run` +
+`audit verify-file`). Chunks 4-8 pending: SSE `/api/v1/stream` + DB
+panels, GHCR image, BPF filter bytecode, OPC UA plugin, wardialing
+batch. F0–F7 closed; ~70 commits on `main`.
 12 protocol plugins in the default build; every TCP-based plugin
 enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks

@@ -1,10 +1,39 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-21**. v1.0.0 released with F0–F7 closed.
+State as of **2026-04-21**. v1.0.0 and v1.0.1 released at
+RobinR00T/elSereno (private). v1.1 in flight on `main` — chunks
+1-3 landed (per-plugin offensive WriteGatedHandler × 9, file-
+backed audit writer + confirm adapter, network delivery for
+offensive CLI). Chunks 4-8 pending.
+
 This document lists everything that is NOT yet in `main` — the
 carry-overs that were deliberately deferred and the features I
 propose adding based on the security + operator surface the tool
 currently exposes.
+
+## v1.1 progress (in flight)
+
+- [x] **Chunk 1** — Per-plugin offensive `WriteGatedHandler`
+  (ADR-040 close). Full wire-level Handle for
+  modbus/s7/enip + session-auth primitives for
+  bacnet/dnp3/iec104/hartip/atg/fox.
+- [x] **Chunk 2** — File-backed audit writer
+  (`internal/audit/FileWriter`) + `offensive/confirm/adapter`.
+  Chain-resumable JSONL at `~/.elsereno/audit.jsonl` 0600.
+- [x] **Chunk 3** — Network delivery: `write modbus send`,
+  `exploit run` (tcp/udp), `audit verify-file`,
+  `offensive_runtime` CLI helper.
+- [ ] **Chunk 4** — SSE `/api/v1/stream` + findings/triage/runs
+  DB tables + dashboard panels.
+- [ ] **Chunk 5** — GHCR docker image with buildx +
+  `robinr00t/elsereno` slug + `--attest=type=sbom`.
+- [ ] **Chunk 6** — seccomp-bpf BPF filter bytecode per
+  profile (exploit/harvest/dial).
+- [ ] **Chunk 7** — OPC UA plugin (port 4840).
+- [ ] **Chunk 8** — Wardialing batch mode
+  (`elsereno dial batch --scope …`).
+- [ ] **v1.1 close** — snapshot + STATE + CHANGELOG + TODO
+  refresh + signed tag v1.1.0 + release smoke.
 
 ## Legend
 

@@ -166,3 +166,13 @@ One-liner per significant change to `.context/` or the codebase.
   pinned to upstream 3.9.0.2 .deb for determinism, README
   badges + signed-install recipe. Source code unchanged; config
   + docs only.
+- 2026-04-21 — **v1.0.1** released. checksums.txt.bundle
+  shipped; end-to-end cosign-verify-blob confirmed. SLSA
+  `final` step still fails upstream (wrapped non-blocking in
+  release.yml); `.intoto.jsonl` not on release yet.
+- 2026-04-21 — **v1.1 chunks 1-3** landed on main: per-plugin
+  offensive WriteGatedHandler (modbus/s7/enip full + 6 session
+  primitives), file-backed audit writer + confirm adapter,
+  network delivery wiring for `write modbus send` / `exploit
+  run` / `audit verify-file`. 4 chunks pending: SSE + DB
+  panels, GHCR image, BPF filters, OPC UA, wardialing batch.

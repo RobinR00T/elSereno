@@ -6,17 +6,36 @@ Live state is in `.context/STATE.md`; per-phase retrospectives in
 This file tracks the brief's original checklist so the delta
 between planned and shipped stays visible.
 
-## v1.0 — released 2026-04-20
+## v1.0 — released 2026-04-20 + 2026-04-21
 
 - [x] **v1.0.0 signed tag** — 12 release assets at
   `RobinR00T/elSereno` (private). GPG signature
   ACE3B86BACACE7D6.
-- [ ] **v1.0.1 polish** — cosign bundle + SLSA v2.1.0 + pandoc
-  3.9.0.2 pin + README badges. Queued on `main`; re-cut after
-  CI green.
-- [ ] **Flip repo to public** — operator decision.
+- [x] **v1.0.1 polish** — cosign bundle (verified end-to-end
+  with `cosign verify-blob --bundle`) + SLSA v2.1.0 + pandoc
+  3.9.0.2 pin + README badges.
+- [ ] **Flip repo to public** — operator decision; unlocks
+  Scorecard + CodeQL + OSV full suite.
 - [ ] **Revoke the bootstrap PAT** — operator task at
-  https://github.com/settings/personal-access-tokens.
+  https://github.com/settings/personal-access-tokens. User
+  asked to keep it live until end of v1.1.
+
+## v1.1 — in flight on `main`
+
+- [x] Chunk 1: per-plugin offensive `WriteGatedHandler` ×9
+  (ADR-040 close).
+- [x] Chunk 2: file-backed audit writer
+  (`internal/audit/FileWriter`) + `offensive/confirm/adapter`.
+- [x] Chunk 3: network delivery for `write modbus send` /
+  `exploit run` / `audit verify-file`.
+- [ ] Chunk 4: SSE `/api/v1/stream` + findings/triage/runs DB
+  panels.
+- [ ] Chunk 5: GHCR docker image (buildx + `robinr00t/elsereno`
+  slug + `--attest=type=sbom`).
+- [ ] Chunk 6: seccomp-bpf BPF filter bytecode per profile.
+- [ ] Chunk 7: OPC UA plugin (port 4840).
+- [ ] Chunk 8: Wardialing batch mode.
+- [ ] v1.1 close + signed tag v1.1.0.
 
 ## Post-1.0 roadmap
 
