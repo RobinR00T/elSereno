@@ -12,6 +12,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/offensive/harvest"
+	"local/elsereno/offensive/sandbox"
 )
 
 func newHarvestCmd() *cobra.Command {
@@ -46,6 +47,21 @@ func newHarvestRunCmd(name string, p prober) *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
+
+			// Install the harvest seccomp profile before any
+			// network I/O. ADR-042: harvest probes must not be
+			// allowed to mutate the filesystem, so the `harvest`
+			// profile blocks truncate/unlink/chmod/rename family
+			// syscalls (see offensive/sandbox/syscalls_linux.go).
+			rt, err := newAuditOnlyRuntime()
+			if err != nil {
+				return err
+			}
+			defer rt.Close()
+			if err := rt.ApplySandbox(ctx, sandbox.ProfileHarvest); err != nil {
+				return fail(core.ExitSoftware, fmt.Errorf("sandbox: %w", err))
+			}
+
 			res, err := p.Probe(ctx, target, harvest.DefaultCredentials())
 			switch {
 			case errors.Is(err, harvest.ErrNoHit):

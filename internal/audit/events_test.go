@@ -2,6 +2,7 @@ package audit_test
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -11,24 +12,48 @@ import (
 )
 
 // TestEventTypesMatchMigration asserts that the Go event-type constants
-// stay in sync with the SQL CHECK enumeration in the 00001 migration.
-// The migration is the source of truth (ADR-023, PITF-030).
+// stay in sync with the SQL CHECK enumeration walked across all
+// migrations in order (00001, 00002, …). Each migration may
+// replace the CHECK; the LAST one wins. This is the source of
+// truth per ADR-023 / PITF-030.
 func TestEventTypesMatchMigration(t *testing.T) {
-	b, err := os.ReadFile("../../migrations/00001_initial.sql")
+	// Authoritative path: goose embeds `internal/db/migrations/*.sql`
+	// (see internal/db/migrations.go). The repo-root `migrations/`
+	// directory is a legacy scaffold kept around for dev-time
+	// tooling but is NOT what runs in production.
+	matches, err := filepath.Glob("../db/migrations/*.sql")
 	if err != nil {
-		t.Fatalf("read migration: %v", err)
+		t.Fatalf("glob migrations: %v", err)
 	}
-	sql := string(b)
+	sort.Strings(matches) // numeric prefix keeps lexicographic order == apply order
 
-	// Extract the CHECK enumeration — the single-quoted strings inside
-	// the event_type CHECK block.
-	re := regexp.MustCompile(`(?s)event_type\s+TEXT\s+NOT\s+NULL\s+CHECK\s*\(event_type\s+IN\s*\(([^)]*)\)`)
-	m := re.FindStringSubmatch(sql)
-	if len(m) != 2 {
-		t.Fatalf("could not locate event_type CHECK block in migration")
+	// Matches both:
+	//   event_type TEXT NOT NULL CHECK (event_type IN ('a','b'))          -- inline (00001)
+	//   ADD CONSTRAINT audit_log_event_type_check CHECK (event_type IN …) -- altered (00002+)
+	re := regexp.MustCompile(`(?s)CHECK\s*\(event_type\s+IN\s*\(([^)]*)\)`)
+	// Track the most recent Up-side CHECK block we found. The Down
+	// side deliberately restores the pre-change enumeration and
+	// would give a false "old" answer if we took the wrong half.
+	var lastCheckBody string
+	for _, path := range matches {
+		b, err := os.ReadFile(path) //nolint:gosec // G304 — path under ../../migrations/
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		up := extractUpBlock(string(b))
+		// Each migration may contain multiple CHECK blocks (e.g. a
+		// DROP-then-ADD pair). Take the LAST match — that's the
+		// final enumeration after the migration finishes.
+		all := re.FindAllStringSubmatch(up, -1)
+		if len(all) > 0 {
+			lastCheckBody = all[len(all)-1][1]
+		}
+	}
+	if lastCheckBody == "" {
+		t.Fatal("no migration defines an audit_log event_type CHECK")
 	}
 
-	rawNames := regexp.MustCompile(`'([^']+)'`).FindAllStringSubmatch(m[1], -1)
+	rawNames := regexp.MustCompile(`'([^']+)'`).FindAllStringSubmatch(lastCheckBody, -1)
 	got := make([]string, 0, len(rawNames))
 	for _, n := range rawNames {
 		got = append(got, n[1])
@@ -45,6 +70,24 @@ func TestEventTypesMatchMigration(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("drift between Go AllEventTypes and SQL CHECK:\n  go:  %v\n  sql: %v", want, got)
 	}
+}
+
+// extractUpBlock returns the text between `-- +goose Up` and the
+// first `-- +goose Down` marker so we don't accidentally read
+// CHECK rewrites from the Down half.
+func extractUpBlock(sql string) string {
+	const upMarker = "-- +goose Up"
+	const downMarker = "-- +goose Down"
+	up := strings.Index(sql, upMarker)
+	if up < 0 {
+		return sql
+	}
+	tail := sql[up:]
+	down := strings.Index(tail, downMarker)
+	if down < 0 {
+		return tail
+	}
+	return tail[:down]
 }
 
 func TestIsProtectedMetadata(t *testing.T) {

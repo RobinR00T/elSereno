@@ -1,6 +1,6 @@
 ---
 phase: v1.1-in-flight
-status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 landed on main; 3 chunks + 4b carry-over pending
+status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 + 6 landed on main; 2 chunks + 4b carry-over pending
 last-updated: 2026-04-21
 token-budget: 300
 ---
@@ -49,13 +49,19 @@ token-budget: 300
   `docker_signs` on the manifest). `release.yml` adds
   buildx + QEMU setup steps. `Dockerfile` + `Dockerfile.sqlite`
   pin Go 1.25.4 (alpine3.22 / bookworm) matching go.mod.
+- **Chunk 6** ✅ seccomp-bpf sandbox: per-profile denylist BPF
+  programs (exploit/harvest/dial) compiled in
+  `offensive/sandbox/bpf_linux.go`, installed via
+  `seccomp(SET_MODE_FILTER, TSYNC)`. Syscall tables for x86_64
+  + aarch64. New `audit.EventOffSandbox` + migration 00002.
+  `offensiveRuntime.ApplySandbox` wires the load before every
+  offensive network I/O (write/exploit/harvest). Integration
+  tests verify ptrace + socket return EPERM on native Linux.
 
 **Pending v1.1 chunks**:
 - **Chunk 4b** (carry-over to v1.2) — findings / triage /
   runs DB tables + panels reading from DB. Landing with
   the DB-backed audit Writer.
-- **Chunk 6** — seccomp-bpf BPF filter bytecode per profile
-  (exploit / harvest / dial) on Linux.
 - **Chunk 7** — OPC UA plugin (port 4840) as next ICS
   protocol.
 - **Chunk 8** — Wardialing batch (`elsereno dial batch --scope

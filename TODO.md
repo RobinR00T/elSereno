@@ -35,7 +35,12 @@ between planned and shipped stays visible.
 - [x] Chunk 5: GHCR docker image (buildx + `robinr00t/elsereno`
   slug + `--attest=type=sbom` via `dockers_v2 sbom: true` +
   cosign keyless `docker_signs`, go 1.25.4 Dockerfile pin).
-- [ ] Chunk 6: seccomp-bpf BPF filter bytecode per profile.
+- [x] Chunk 6: seccomp-bpf BPF filter bytecode per profile
+  (exploit/harvest/dial). `offensive/sandbox` compiles denylist
+  BPF programs for x86_64 + arm64, installs via
+  `seccomp(SET_MODE_FILTER, TSYNC)`, records `offensive_sandbox`
+  audit entries via new migration 00002. Wired into
+  write/exploit/harvest CLI verbs.
 - [ ] Chunk 7: OPC UA plugin (port 4840).
 - [ ] Chunk 8: Wardialing batch mode.
 - [ ] v1.1 close + signed tag v1.1.0.

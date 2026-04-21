@@ -33,7 +33,15 @@ const (
 	EventOffDial      EventType = "offensive_dial"
 	EventOffSMS       EventType = "offensive_sms"
 	EventOffHarvest   EventType = "offensive_harvest"
-	EventAdmin        EventType = "admin_action"
+	// EventOffSandbox captures a seccomp-bpf profile load attempt
+	// (see ADR-042). One entry per `ApplySandbox` call — whether
+	// the install succeeded, degraded (non-Linux), or errored.
+	// The chronological position in the chain (immediately before
+	// the matching EventOff<Write|Dial|Harvest>) lets operators
+	// reason about what was filtered at the moment of delivery.
+	// Requires migration 00002.
+	EventOffSandbox EventType = "offensive_sandbox"
+	EventAdmin      EventType = "admin_action"
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -48,6 +56,7 @@ var AllEventTypes = []EventType{
 	EventServeStart, EventServeStop,
 	EventProtoProbe, EventProtoREPL,
 	EventOffWrite, EventOffDial, EventOffSMS, EventOffHarvest,
+	EventOffSandbox,
 	EventAdmin,
 }
 

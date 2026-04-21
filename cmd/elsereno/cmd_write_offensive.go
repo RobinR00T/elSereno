@@ -12,6 +12,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/sandbox"
 	modwrite "local/elsereno/offensive/write/modbus"
 )
 
@@ -140,6 +141,12 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 				return err
 			}
 			defer rt.Close()
+			// Exploit-class profile: the modbus write path needs
+			// network I/O (the whole point) but no fs-mutation or
+			// spawn. ADR-042.
+			if err := rt.ApplySandbox(cmd.Context(), sandbox.ProfileExploit); err != nil {
+				return fail(core.ExitSoftware, fmt.Errorf("sandbox: %w", err))
+			}
 			c := confirm.Confirm{
 				AcceptsWrites: acceptWrites,
 				ConfirmTarget: confirmTarget,

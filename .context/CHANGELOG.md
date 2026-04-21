@@ -197,3 +197,21 @@ One-liner per significant change to `.context/` or the codebase.
   `Dockerfile` + `Dockerfile.sqlite` pin Go 1.25.4 (matching
   go.mod) on Alpine 3.22 / Debian bookworm. README + RELEASING
   documented with pull + cosign-verify recipes.
+- 2026-04-21 — **v1.1 chunk 6 (seccomp-bpf sandbox)** landed on
+  main: `offensive/sandbox/bpf_linux.go` compiles per-profile
+  denylist BPF programs (prologue: LD arch / JEQ / LD nr;
+  body: one JEQ per blocked syscall; tail: RET ALLOW / RET
+  ERRNO|EPERM). `syscalls_linux.go` ships syscall-number tables
+  for x86_64 + aarch64 (generic ABI, zero-entries dropped so
+  unsupported syscalls don't accidentally match `read` at nr=0).
+  `sandbox.Load` installs via `seccomp(SECCOMP_SET_MODE_FILTER,
+  TSYNC)` so the filter covers every goroutine-backing thread.
+  `offensiveRuntime.ApplySandbox` records an `offensive_sandbox`
+  audit entry (new `audit.EventOffSandbox` + migration 00002)
+  capturing profile + availability + kind. Wired into `write
+  modbus send`, `exploit run`, and `harvest *` so they install
+  the profile before any network I/O. Integration tests under
+  the `sandbox_integration` build tag fork a child + verify
+  ptrace (exploit) and socket (dial) return EPERM on native
+  Linux. Legacy top-level `migrations/` dir removed — the
+  `internal/db/migrations/` embed is the single source of truth.
