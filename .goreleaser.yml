@@ -127,18 +127,32 @@ sboms:
     args: ["scan", "$artifact", "-o", "cyclonedx-json=$document"]
 
 signs:
+  # Bundle-only sign: goreleaser v2 uploads exactly one file per
+  # signs block (whatever `signature:` declares), so we use the
+  # cosign bundle file as the primary signature artefact. That
+  # bundle packs signature + transparency-log entry + signing
+  # certificate in one JSON, letting receivers run
+  # `cosign verify-blob --bundle <path> …` without a second
+  # round-trip for the certificate.
   - cmd: cosign
     artifacts: checksum
-    # The --bundle output packages the signature + transparency-log
-    # entry + signing certificate into one JSON so verifiers can
-    # run `cosign verify-blob --bundle <path> …` without fetching
-    # the certificate out-of-band. The raw `.sig` is still emitted
-    # for receivers that only want the bare signature.
+    signature: "${artifact}.bundle"
+    args:
+      - "sign-blob"
+      - "--yes"
+      - "--bundle=${signature}"
+      - "${artifact}"
+  # Legacy raw `.sig` for consumers of older cosign releases
+  # (pre-v2) that only read the bare signature. goreleaser keeps
+  # both files in dist/ and uploads both.
+  - id: cosign-sig
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sig"
     args:
       - "sign-blob"
       - "--yes"
       - "--output-signature=${signature}"
-      - "--bundle=${artifact}.bundle"
       - "${artifact}"
 
 # SLSA L3 provenance generation. The release workflow
