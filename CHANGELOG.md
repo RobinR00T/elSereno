@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-04-21
+
+### Fixed — release surface polish
+- **cosign bundle**: goreleaser's `signs:` block now passes
+  `--bundle=${artifact}.bundle` so the release publishes
+  `checksums.txt.bundle` alongside the raw `checksums.txt.sig`.
+  Consumers can run `cosign verify-blob --bundle checksums.txt.bundle
+  …` without fetching the signing cert out-of-band.
+- **SLSA provenance**: bumped `slsa-github-generator` from
+  `v2.0.0` → `v2.1.0`. The v2.0.0 finaliser emitted exit 27
+  (`SUCCESS=false`) even on a successful upload path, which is
+  why v1.0.0 shipped without `.intoto.jsonl` assets. v2.1.0
+  (2025-02-24) fixes the false-negative.
+- **Pandoc pin**: release workflow installs pandoc 3.9.1 from
+  the upstream `.deb` (was distro apt-get). Deterministic man-
+  page output removes the reason we had to strip the strict
+  "verify man pages in sync" step in the workflow.
+
+### Changed — README
+- Badge row (semver release, MIT licence, Go 1.25+, CI status,
+  supply-chain status, SLSA 3).
+- "Quick install (signed release)" section with the curl +
+  shasum -c recipe + optional cosign bundle verification.
+- Non-interactive vault-unlock snippet using
+  `--vault-passphrase-file` pointing at ADR-026.
+
+## [1.0.0] — 2026-04-20
+
 ### Added — F0 Scaffolding (closed 2026-04-19)
 - Hexagonal Go 1.23 skeleton: `internal/core`, `internal/config`,
   `internal/exec` with `SafeCommand` + `CommandSpec`, `internal/audit`
