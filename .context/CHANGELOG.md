@@ -215,3 +215,15 @@ One-liner per significant change to `.context/` or the codebase.
   ptrace (exploit) and socket (dial) return EPERM on native
   Linux. Legacy top-level `migrations/` dir removed — the
   `internal/db/migrations/` embed is the single source of truth.
+- 2026-04-21 — **v1.1 chunk 7 (OPC UA plugin)** landed on main:
+  `internal/protocols/opcua/wire/` parses + encodes UA-TCP Part 6
+  Hello/Acknowledge/Error frames; `internal/protocols/opcua/`
+  registers the plugin on port 4840. Probe sends a minimal HEL
+  and classifies the response (ACK, ERR, or non-UA bytes) into
+  a scored Finding; default ProxyHandler refuses with a UA-native
+  ERR frame (Bad_ResourceLimitsExceeded + "denied") so real
+  clients get a parseable rejection. `simulators/opcua/` ships a
+  minimal Go UA-TCP responder for CI. Write-gating deferred to
+  v1.2 once the SecureChannel + Session + Write surface is
+  modelled (too large for v1.1). E2E verified against the
+  simulator: probe → ua-ack → severity=high score=66.

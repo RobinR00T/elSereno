@@ -12,6 +12,7 @@ import (
 	"local/elsereno/internal/protocols/hartip"
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/modbus"
+	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/xot"
 )
@@ -32,4 +33,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: hartip.Default().Metadata(), Factory: func() core.Protocol { return hartip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: fox.Default().Metadata(), Factory: func() core.Protocol { return fox.Default() }})
 	core.Register(core.Plugin{PluginMetadata: atg.Default().Metadata(), Factory: func() core.Protocol { return atg.Default() }})
+	core.Register(core.Plugin{PluginMetadata: opcua.Default().Metadata(), Factory: func() core.Protocol { return opcua.Default() }})
 }

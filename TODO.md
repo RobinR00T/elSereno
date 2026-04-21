@@ -41,7 +41,9 @@ between planned and shipped stays visible.
   `seccomp(SET_MODE_FILTER, TSYNC)`, records `offensive_sandbox`
   audit entries via new migration 00002. Wired into
   write/exploit/harvest CLI verbs.
-- [ ] Chunk 7: OPC UA plugin (port 4840).
+- [x] Chunk 7: OPC UA plugin (port 4840) — UA-TCP HEL/ACK/ERR
+  parser + probe + simulator + default deny-all proxy with
+  UA-native ERR refusal. Write gating carry-over to v1.2.
 - [ ] Chunk 8: Wardialing batch mode.
 - [ ] v1.1 close + signed tag v1.1.0.
 

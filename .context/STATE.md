@@ -1,6 +1,6 @@
 ---
 phase: v1.1-in-flight
-status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 + 6 landed on main; 2 chunks + 4b carry-over pending
+status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 + 6 + 7 landed on main; 1 chunk + 4b carry-over pending
 last-updated: 2026-04-21
 token-budget: 300
 ---
@@ -57,6 +57,13 @@ token-budget: 300
   `offensiveRuntime.ApplySandbox` wires the load before every
   offensive network I/O (write/exploit/harvest). Integration
   tests verify ptrace + socket return EPERM on native Linux.
+- **Chunk 7** ✅ OPC UA plugin on port 4840. `internal/protocols/
+  opcua/wire/` parses UA-TCP Part 6 Hello/Acknowledge/Error
+  frames; `opcua.go` probes + classifies (ua-ack / ua-err /
+  non-ua-bytes / no-response). Default ProxyHandler refuses
+  with a UA-native ERR frame. `simulators/opcua/` ships the CI
+  test peer. Write gating deferred to v1.2 (full SecureChannel/
+  Session/Write surface is out of scope for v1.1).
 
 **Pending v1.1 chunks**:
 - **Chunk 4b** (carry-over to v1.2) — findings / triage /
