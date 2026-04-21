@@ -197,6 +197,41 @@ func (w *FileWriter) Append(_ context.Context, e Entry) (Entry, error) {
 	return e, nil
 }
 
+// appendVerbatim persists e without running any chain logic or
+// mutating its fields. It is the FileMirror path on a
+// MultiWriter: the primary already owns the chain state, and
+// the mirror just writes the same row to disk. ID / OccurredAt
+// / PrevHash / EntryHash MUST all be set by the caller.
+//
+// The writer mutex still guards file writes so concurrent
+// Mirror calls don't interleave bytes.
+func (w *FileWriter) appendVerbatim(_ context.Context, e Entry) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.f == nil {
+		return errors.New("audit: file writer closed")
+	}
+	if e.ID == 0 || len(e.EntryHash) != 32 || len(e.PrevHash) != 32 {
+		return errors.New("audit: verbatim entry missing id/hashes")
+	}
+	line, err := json.Marshal(e)
+	if err != nil {
+		return fmt.Errorf("audit: verbatim marshal: %w", err)
+	}
+	line = append(line, '\n')
+	if _, err := w.f.Write(line); err != nil {
+		return fmt.Errorf("audit: verbatim write: %w", err)
+	}
+	// Advance local state so a subsequent direct Append (rare
+	// in a MultiWriter setup but legal) continues the chain
+	// from the mirrored row.
+	if e.ID+1 > w.nextID {
+		w.nextID = e.ID + 1
+	}
+	w.prevHash = append([]byte(nil), e.EntryHash...)
+	return nil
+}
+
 // isKnownEventType checks e against the AllEventTypes enum.
 func isKnownEventType(t EventType) bool {
 	for _, v := range AllEventTypes {

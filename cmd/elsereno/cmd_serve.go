@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
+	"local/elsereno/internal/config"
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/web"
@@ -62,13 +64,26 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 			fmt.Errorf("non-loopback bind %q requires --tls-cert, --tls-key and --i-know-what-im-doing", opts.addr))
 	}
 
-	srv, err := web.NewServer(web.Options{
+	// Optional DB pool for the /api/v1/findings, /runs, /triage
+	// endpoints (v1.2 chunk 1b). If DATABASE_URL isn't set, the
+	// pool is nil and those endpoints return 503 — serve still
+	// runs.
+	pool := maybeOpenPool(cmd, cfg)
+	if pool != nil {
+		defer pool.Close()
+	}
+
+	srvOpts := web.Options{
 		Addr:    opts.addr,
 		Web:     cfg.Web,
 		Vault:   v,
 		TLSCert: opts.tlsCert,
 		TLSKey:  opts.tlsKey,
-	})
+	}
+	if pool != nil {
+		srvOpts.Querier = pool
+	}
+	srv, err := web.NewServer(srvOpts)
 	if err != nil {
 		return fail(core.ExitSoftware, err)
 	}
@@ -92,6 +107,23 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		return fail(core.ExitSoftware, err)
 	}
 	return nil
+}
+
+// maybeOpenPool opens the DB pool when DATABASE_URL is set; nil
+// means "serve without DB-backed findings/runs/triage endpoints".
+// Split out of runServe so the gocyclo count on the parent stays
+// under the linter's threshold.
+func maybeOpenPool(cmd *cobra.Command, cfg config.Config) *pgxpool.Pool {
+	if os.Getenv("DATABASE_URL") == "" {
+		return nil
+	}
+	p, perr := openPool(cmd, cfg)
+	if perr != nil {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"elsereno serve: DB pool failed, findings endpoints disabled: %v\n", perr)
+		return nil
+	}
+	return p
 }
 
 // dashboardAuditPath returns the conventional audit-log location

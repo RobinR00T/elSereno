@@ -11,6 +11,7 @@ import (
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/creds"
+	"local/elsereno/internal/repo"
 	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/httpctx"
 	"local/elsereno/internal/web/stream"
@@ -29,6 +30,12 @@ type Options struct {
 
 	// NowSource is the clock used for /readyz timestamps. Nil -> time.Now.
 	NowSource func() time.Time
+
+	// Querier (optional, v1.2+) backs the DB-read endpoints
+	// `/api/v1/findings`, `/runs`, `/triage`. If nil the
+	// endpoints return 503 and the dashboard renders the
+	// skeleton-only panels.
+	Querier repo.Querier
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -74,7 +81,10 @@ func NewServer(opts Options) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
-	mux.Handle("/api/v1/", handlers.APIV1(s.broadcaster))
+	mux.Handle("/api/v1/", handlers.APIV1(handlers.APIV1Deps{
+		Broadcaster: s.broadcaster,
+		Querier:     opts.Querier,
+	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
 

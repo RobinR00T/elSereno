@@ -142,7 +142,7 @@ func TestStream_ClientCancelReleasesSubscription(t *testing.T) {
 }
 
 func TestAPIV1_NilBroadcasterReturns503(t *testing.T) {
-	h := handlers.APIV1(nil)
+	h := handlers.APIV1(handlers.APIV1Deps{})
 	req := httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet, "/api/v1/stream", nil)
 	rec := httptest.NewRecorder()

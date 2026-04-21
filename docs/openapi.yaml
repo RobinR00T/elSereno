@@ -37,6 +37,21 @@ info:
   version: dev
 openapi: 3.1.0
 paths:
+  /api/v1/findings:
+    get:
+      description: 'Query params: severity, protocol, min_score, created_after (RFC3339), limit (clamped 1..500, default 50). Returned order is created_at DESC; paginate by passing the oldest returned row''s created_at back as created_after.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "503":
+          description: DB backend unavailable.
+      summary: List findings (DB-backed, cursor-paginated).
+      tags:
+        - findings
   /api/v1/health:
     get:
       responses:
@@ -69,6 +84,21 @@ paths:
       summary: List plugins registered in this build.
       tags:
         - plugins
+  /api/v1/runs:
+    get:
+      description: 'Query params: status, started_after (RFC3339), limit (1..100, default 20).'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "503":
+          description: DB backend unavailable.
+      summary: List recent scan runs with per-run finding counts.
+      tags:
+        - runs
   /api/v1/scoring:
     get:
       responses:
@@ -92,6 +122,21 @@ paths:
       summary: Server-Sent Events feed (findings / runs / audit).
       tags:
         - stream
+  /api/v1/triage:
+    get:
+      description: Returns an array of {severity, count} objects, ordered critical → info. Empty severities are omitted.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "503":
+          description: DB backend unavailable.
+      summary: Per-severity finding counts for the triage panel.
+      tags:
+        - triage
   /healthz:
     get:
       responses:

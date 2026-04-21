@@ -6,33 +6,52 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/repo"
 	"local/elsereno/internal/web/openapi"
 	"local/elsereno/internal/web/stream"
 )
 
-// APIV1 returns the /api/v1 sub-router. The endpoints surface
-// read-only data: plugins, scoring weights, health, openapi, and
-// the live SSE stream. Data-returning endpoints (findings, runs,
-// targets) fill in once DB-backed writes land alongside the F4
-// proxy framework.
+// APIV1Deps bundles the optional dependencies APIV1 needs. Each
+// field is optional; missing deps downgrade the corresponding
+// endpoint to 503 rather than breaking the whole router. This
+// lets `serve` run without a DB pool (e.g. a quick dashboard
+// preview) while still exposing health + plugins + scoring +
+// OpenAPI.
+type APIV1Deps struct {
+	// Broadcaster backs GET /api/v1/stream. Nil → 503.
+	Broadcaster *stream.Broadcaster
+	// Querier backs GET /api/v1/findings, /runs, /triage. Nil → 503.
+	Querier repo.Querier
+}
+
+// APIV1 returns the /api/v1 sub-router. Endpoints:
 //
-// If broadcaster is non-nil, `GET /api/v1/stream` is served and
-// fans out every Event published by the process (scanner, audit
-// writer, offensive verbs). If nil, the route returns 503 so the
-// dashboard can show "live feed unavailable" without crashing.
-func APIV1(broadcaster *stream.Broadcaster) http.Handler {
+//	GET /api/v1/plugins       read-only registered-plugin list
+//	GET /api/v1/scoring       ADR-006 weights + severity thresholds
+//	GET /api/v1/health        API-level health with server timestamp
+//	GET /api/v1/openapi.yaml  code-sourced OpenAPI 3.1 spec
+//	GET /api/v1/stream        SSE fan-out (findings/runs/audit)
+//	GET /api/v1/findings      DB-backed findings list (v1.2)
+//	GET /api/v1/runs          DB-backed runs list (v1.2)
+//	GET /api/v1/triage        per-severity counts (v1.2)
+//
+// See APIV1Deps for the optional-dependency model.
+func APIV1(deps APIV1Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/plugins", listPlugins)
 	mux.HandleFunc("GET /api/v1/scoring", getScoring)
 	mux.HandleFunc("GET /api/v1/health", getHealth)
 	mux.HandleFunc("GET /api/v1/openapi.yaml", getOpenAPI)
-	if broadcaster != nil {
-		mux.Handle("GET /api/v1/stream", Stream(broadcaster))
+	if deps.Broadcaster != nil {
+		mux.Handle("GET /api/v1/stream", Stream(deps.Broadcaster))
 	} else {
 		mux.HandleFunc("GET /api/v1/stream", func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "live feed unavailable", http.StatusServiceUnavailable)
 		})
 	}
+	mux.Handle("GET /api/v1/findings", Findings(deps.Querier))
+	mux.Handle("GET /api/v1/runs", Runs(deps.Querier))
+	mux.Handle("GET /api/v1/triage", Triage(deps.Querier))
 	return mux
 }
 

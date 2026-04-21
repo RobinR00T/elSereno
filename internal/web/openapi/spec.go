@@ -80,8 +80,24 @@ func specInfo(v string) Info {
 	}
 }
 
+// specPaths concatenates the per-group path builders. Splitting
+// by "meta" (probes + scoring + plugins + openapi), "stream", and
+// "v1.2 DB" keeps each helper under the funlen threshold AND
+// gives a grep-friendly anchor for the v1.2 additions.
 func specPaths() []Path {
-	envelope := map[string]Response{"200": {Description: "Envelope payload.", Ref: "Envelope"}}
+	paths := metaSpecPaths()
+	paths = append(paths, streamSpecPath())
+	paths = append(paths, dbSpecPaths()...)
+	return paths
+}
+
+// envelopeResponses is the shared 200 response map for endpoints
+// that return the `schema+data` envelope from handlers/api.go.
+func envelopeResponses() map[string]Response {
+	return map[string]Response{"200": {Description: "Envelope payload.", Ref: "Envelope"}}
+}
+
+func metaSpecPaths() []Path {
 	return []Path{
 		{URL: "/healthz", Operations: map[string]Operation{"get": {
 			Summary:   "Liveness probe.",
@@ -94,34 +110,67 @@ func specPaths() []Path {
 		{URL: "/api/v1/plugins", Operations: map[string]Operation{"get": {
 			Summary:   "List plugins registered in this build.",
 			Tags:      []string{"plugins"},
-			Responses: envelope,
+			Responses: envelopeResponses(),
 		}}},
 		{URL: "/api/v1/scoring", Operations: map[string]Operation{"get": {
 			Summary:   "Default scoring weights + severity thresholds.",
 			Tags:      []string{"scoring"},
-			Responses: envelope,
+			Responses: envelopeResponses(),
 		}}},
 		{URL: "/api/v1/health", Operations: map[string]Operation{"get": {
 			Summary:   "API-level health with server timestamp.",
 			Tags:      []string{"health"},
-			Responses: envelope,
+			Responses: envelopeResponses(),
 		}}},
 		{URL: "/api/v1/openapi.yaml", Operations: map[string]Operation{"get": {
 			Summary:   "Return this OpenAPI 3.1 spec.",
 			Tags:      []string{"meta"},
 			Responses: map[string]Response{"200": {Description: "OpenAPI 3.1 YAML document."}},
 		}}},
-		{URL: "/api/v1/stream", Operations: map[string]Operation{"get": {
-			Summary: "Server-Sent Events feed (findings / runs / audit).",
-			Description: "text/event-stream with `event:`, `id:`, `data:` lines. " +
-				"Event kinds: `finding`, `run_start`, `run_end`, `audit`. " +
-				"Payloads are JSON objects; schema per-kind is documented " +
-				"in internal/web/stream/findings_bridge.go.",
-			Tags: []string{"stream"},
-			Responses: map[string]Response{
-				"200": {Description: "SSE-framed event stream."},
-				"503": {Description: "Live feed unavailable (broadcaster not wired)."},
-			},
+	}
+}
+
+func streamSpecPath() Path {
+	return Path{URL: "/api/v1/stream", Operations: map[string]Operation{"get": {
+		Summary: "Server-Sent Events feed (findings / runs / audit).",
+		Description: "text/event-stream with `event:`, `id:`, `data:` lines. " +
+			"Event kinds: `finding`, `run_start`, `run_end`, `audit`. " +
+			"Payloads are JSON objects; schema per-kind is documented " +
+			"in internal/web/stream/findings_bridge.go.",
+		Tags: []string{"stream"},
+		Responses: map[string]Response{
+			"200": {Description: "SSE-framed event stream."},
+			"503": {Description: "Live feed unavailable (broadcaster not wired)."},
+		},
+	}}}
+}
+
+func dbSpecPaths() []Path {
+	dbUnavail := map[string]Response{
+		"200": {Description: "Envelope payload.", Ref: "Envelope"},
+		"503": {Description: "DB backend unavailable."},
+	}
+	return []Path{
+		{URL: "/api/v1/findings", Operations: map[string]Operation{"get": {
+			Summary: "List findings (DB-backed, cursor-paginated).",
+			Description: "Query params: severity, protocol, min_score, " +
+				"created_after (RFC3339), limit (clamped 1..500, default 50). " +
+				"Returned order is created_at DESC; paginate by passing the " +
+				"oldest returned row's created_at back as created_after.",
+			Tags:      []string{"findings"},
+			Responses: dbUnavail,
+		}}},
+		{URL: "/api/v1/runs", Operations: map[string]Operation{"get": {
+			Summary:     "List recent scan runs with per-run finding counts.",
+			Description: "Query params: status, started_after (RFC3339), limit (1..100, default 20).",
+			Tags:        []string{"runs"},
+			Responses:   dbUnavail,
+		}}},
+		{URL: "/api/v1/triage", Operations: map[string]Operation{"get": {
+			Summary:     "Per-severity finding counts for the triage panel.",
+			Description: "Returns an array of {severity, count} objects, ordered critical → info. Empty severities are omitted.",
+			Tags:        []string{"triage"},
+			Responses:   dbUnavail,
 		}}},
 	}
 }

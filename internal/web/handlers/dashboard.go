@@ -216,6 +216,41 @@ const overviewHTML = `<!doctype html>
     text-align: center;
     padding: 1.5rem;
   }
+  .triage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+  }
+  .triage .bucket {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .35rem .75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    font-size: .85rem;
+  }
+  .triage .bucket .count {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+  }
+  .triage-empty { color: var(--muted); font-size: .9rem; }
+  table.findings-table, table#findings-table, table#runs-table {
+    font-variant-numeric: tabular-nums;
+  }
+  #findings-table tbody tr.empty td,
+  #runs-table tbody tr.empty td {
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+  }
+  #findings-table td.fid code,
+  #runs-table td.rid code {
+    font-size: .75em;
+  }
   .feed {
     max-height: 300px;
     overflow-y: auto;
@@ -346,10 +381,51 @@ const overviewHTML = `<!doctype html>
       </div>
     </section>
 
-    <section class="panel placeholder">
-      Findings / triage / runs tables load from the DB once the schema migration lands
-      (v1.1 chunk 4, DB-backed half). The live feed above already tails everything the
-      process publishes.
+    <section class="panel">
+      <h2>Triage <span class="sub" id="triage-sub">loading…</span></h2>
+      <div id="triage" class="triage">
+        <div class="triage-empty">No findings yet. Panels populate once the DB pool is wired and findings land.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Recent findings <span class="sub">newest first · top 50</span></h2>
+      <div class="sub">
+        Loaded from <code>/api/v1/findings</code>. Returns 503 if
+        <code>DATABASE_URL</code> isn't set; panel stays empty in that case.
+      </div>
+      <table id="findings-table">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Protocol</th>
+            <th>Score</th>
+            <th>Created</th>
+            <th>Finding</th>
+          </tr>
+        </thead>
+        <tbody id="findings-body">
+          <tr class="empty"><td colspan="5">loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Recent runs <span class="sub">newest first · top 20</span></h2>
+      <table id="runs-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Operator</th>
+            <th>Started</th>
+            <th>Findings</th>
+            <th>Run ID</th>
+          </tr>
+        </thead>
+        <tbody id="runs-body">
+          <tr class="empty"><td colspan="5">loading…</td></tr>
+        </tbody>
+      </table>
     </section>
   </div>
 
@@ -473,6 +549,127 @@ const overviewHTML = `<!doctype html>
   ["finding", "run_start", "run_end", "audit"].forEach(function (kind) {
     es.addEventListener(kind, function (ev) { handle(kind, ev); });
   });
+
+  // --- DB panels: triage / findings / runs -----------------
+  //
+  // Each panel polls its endpoint once on page load + on every
+  // relevant SSE event (finding / run_*). Panels fall back to a
+  // "backend unavailable" message when the endpoint returns 503
+  // (DATABASE_URL not set at serve-start).
+  function fetchJSON(path) {
+    return fetch(path, {credentials: "same-origin"}).then(function (r) {
+      if (r.status === 503) return {unavailable: true};
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+  function escText(s) {
+    var div = document.createElement("div");
+    div.textContent = (s == null ? "" : String(s));
+    return div.innerHTML;
+  }
+  function renderTriage() {
+    fetchJSON("/api/v1/triage").then(function (res) {
+      var host = document.getElementById("triage");
+      var sub = document.getElementById("triage-sub");
+      if (!host) return;
+      host.innerHTML = "";
+      if (res.unavailable) {
+        sub.textContent = "backend unavailable";
+        host.innerHTML = '<div class="triage-empty">DB pool not configured; set <code>DATABASE_URL</code> and restart.</div>';
+        return;
+      }
+      var buckets = (res.data || []);
+      if (buckets.length === 0) {
+        sub.textContent = "no findings";
+        host.innerHTML = '<div class="triage-empty">Run <code>elsereno scan</code> to seed findings.</div>';
+        return;
+      }
+      sub.textContent = "updated " + new Date().toLocaleTimeString();
+      buckets.forEach(function (b) {
+        var el = document.createElement("span");
+        el.className = "bucket";
+        el.innerHTML = '<span class="sev-chip ' + escText(b.severity) + '">' + escText(b.severity) + '</span>' +
+                       '<span class="count">' + escText(b.count) + '</span>';
+        host.appendChild(el);
+      });
+    }).catch(function (e) {
+      var sub = document.getElementById("triage-sub");
+      if (sub) sub.textContent = "error: " + e.message;
+    });
+  }
+  function renderFindings() {
+    fetchJSON("/api/v1/findings?limit=50").then(function (res) {
+      var body = document.getElementById("findings-body");
+      if (!body) return;
+      if (res.unavailable) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">backend unavailable (no DATABASE_URL)</td></tr>';
+        return;
+      }
+      var rows = res.data || [];
+      if (rows.length === 0) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">no findings yet</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function (f) {
+        return '<tr>' +
+          '<td><span class="sev-chip ' + escText(f.severity) + '">' + escText(f.severity) + '</span></td>' +
+          '<td><code>' + escText(f.protocol) + '</code></td>' +
+          '<td>' + escText(f.score) + '</td>' +
+          '<td>' + escText(new Date(f.created_at).toLocaleString()) + '</td>' +
+          '<td class="fid"><code>' + escText((f.id || "").slice(0, 8)) + '</code></td>' +
+        '</tr>';
+      }).join("");
+    }).catch(function (e) {
+      var body = document.getElementById("findings-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="5">error: ' + escText(e.message) + '</td></tr>';
+    });
+  }
+  function renderRuns() {
+    fetchJSON("/api/v1/runs?limit=20").then(function (res) {
+      var body = document.getElementById("runs-body");
+      if (!body) return;
+      if (res.unavailable) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">backend unavailable (no DATABASE_URL)</td></tr>';
+        return;
+      }
+      var rows = res.data || [];
+      if (rows.length === 0) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">no runs yet</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(function (r) {
+        return '<tr>' +
+          '<td>' + escText(r.status) + '</td>' +
+          '<td>' + escText(r.operator || "—") + '</td>' +
+          '<td>' + escText(new Date(r.started_at).toLocaleString()) + '</td>' +
+          '<td>' + escText(r.findings) + '</td>' +
+          '<td class="rid"><code>' + escText((r.id || "").slice(0, 8)) + '</code></td>' +
+        '</tr>';
+      }).join("");
+    }).catch(function (e) {
+      var body = document.getElementById("runs-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="5">error: ' + escText(e.message) + '</td></tr>';
+    });
+  }
+
+  // Initial load.
+  renderTriage(); renderFindings(); renderRuns();
+
+  // Re-fetch the DB-backed panels on SSE signals so the page
+  // reacts to live scans without a full reload. We debounce by
+  // 500ms so a burst of findings doesn't hammer the DB.
+  var refreshTimer = null;
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      renderTriage(); renderFindings(); renderRuns();
+      refreshTimer = null;
+    }, 500);
+  }
+  es.addEventListener("finding", scheduleRefresh);
+  es.addEventListener("run_start", scheduleRefresh);
+  es.addEventListener("run_end", scheduleRefresh);
 })();
 </script>
 </body>

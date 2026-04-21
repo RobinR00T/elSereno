@@ -227,6 +227,33 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-21 — **v1.2 chunk 1 (DB-backed panels)** landed on
+  main. Three layers:
+  1. `internal/audit.DBWriter` persists audit entries to
+     Postgres with the same chain invariant as `FileWriter`.
+     Reserves IDs via `nextval('audit_log_id_seq')` before
+     INSERT so the hash is computed once and never rewritten.
+     `MultiWriter` + `FileMirror` + `DBMirror` let operators
+     fan-out to both sinks while a single Writer owns the
+     chain (append-verbatim path on each mirror).
+  2. New `internal/repo` package holds the read-side data
+     access. `ListFindings` (cursor-paginated, filters on
+     severity/protocol/min_score/created_after, clamped
+     limit), `ListRuns` (status filter + correlated finding
+     counts), `Triage` (per-severity tally). Every function
+     takes a narrow `Querier` interface so unit tests use an
+     in-memory fake instead of a live Postgres.
+  3. Three new HTTP handlers — `GET /api/v1/findings`,
+     `/runs`, `/triage` — rendered through `handlers.APIV1`'s
+     new optional-deps bundle. Unwired endpoints return 503,
+     the dashboard renders "backend unavailable" in that
+     case. `serve` opens an optional pool when
+     `DATABASE_URL` is set; missing DB simply disables the
+     DB-backed endpoints and the rest of the server still
+     runs. Three new dashboard panels (triage chips,
+     findings table, runs table) fetch on page load +
+     every relevant SSE signal (finding / run_start /
+     run_end), debounced 500 ms.
 - 2026-04-21 — **v1.1 chunk 8 (Wardialing batch)** landed on
   main: `offensive/dial/batch.go` classifies a list of numbers
   against the ADR-041 dial guard (normalise → ≤3-digit hard
