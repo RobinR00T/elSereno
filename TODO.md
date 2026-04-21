@@ -44,7 +44,11 @@ between planned and shipped stays visible.
 - [x] Chunk 7: OPC UA plugin (port 4840) — UA-TCP HEL/ACK/ERR
   parser + probe + simulator + default deny-all proxy with
   UA-native ERR refusal. Write gating carry-over to v1.2.
-- [ ] Chunk 8: Wardialing batch mode.
+- [x] Chunk 8: Wardialing batch mode — `elsereno dial batch
+  --numbers-file <path> --scope <scope.yaml>` classifies every
+  number against the ADR-041 guard, installs the seccomp `dial`
+  profile, and appends one audit entry per decision. Real
+  PSTN / VoIP delivery is a v1.2 carry-over.
 - [ ] v1.1 close + signed tag v1.1.0.
 
 ## Post-1.0 roadmap

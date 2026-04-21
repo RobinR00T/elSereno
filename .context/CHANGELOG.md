@@ -227,3 +227,17 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-21 — **v1.1 chunk 8 (Wardialing batch)** landed on
+  main: `offensive/dial/batch.go` classifies a list of numbers
+  against the ADR-041 dial guard (normalise → ≤3-digit hard
+  block → scope.blocked_numbers) and appends one
+  `offensive_dial` audit entry per decision. New
+  `elsereno dial batch --numbers-file <path> --scope
+  <scope.yaml>` CLI verb (stdin when `--numbers-file` is omitted)
+  installs the seccomp `dial` profile before classification and
+  prints a per-decision tally + the audit path. Existing single-
+  number check preserved as `elsereno dial validate`. Default
+  disposition is "preview" (audit-only dry-run); actual PSTN /
+  VoIP delivery lands with v1.2's modem / VoIP backends. E2E
+  verified: 5-number input → 3 allow / 2 short, audit chain
+  verified with `audit verify-file`.

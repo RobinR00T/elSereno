@@ -1,6 +1,6 @@
 ---
 phase: v1.1-in-flight
-status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 + 6 + 7 landed on main; 1 chunk + 4b carry-over pending
+status: v1.0.1 released; all v1.1 feature chunks landed on main (4b DB half carries over to v1.2); ready for close-and-tag
 last-updated: 2026-04-21
 token-budget: 300
 ---
@@ -64,6 +64,14 @@ token-budget: 300
   with a UA-native ERR frame. `simulators/opcua/` ships the CI
   test peer. Write gating deferred to v1.2 (full SecureChannel/
   Session/Write surface is out of scope for v1.1).
+- **Chunk 8** ✅ Wardialing batch. `offensive/dial/batch.go`
+  classifies a list of numbers against the ADR-041 dial guard
+  and appends one `offensive_dial` audit entry per decision.
+  New `elsereno dial batch` CLI verb (stdin or --numbers-file)
+  installs the seccomp `dial` sandbox before classification.
+  Former single-number check preserved as `elsereno dial
+  validate`. Default disposition = "preview" (audit-only dry-
+  run); actual modem / VoIP delivery is a v1.2 carry-over.
 
 **Pending v1.1 chunks**:
 - **Chunk 4b** (carry-over to v1.2) — findings / triage /
