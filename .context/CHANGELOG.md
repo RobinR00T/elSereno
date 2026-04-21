@@ -176,3 +176,13 @@ One-liner per significant change to `.context/` or the codebase.
   network delivery wiring for `write modbus send` / `exploit
   run` / `audit verify-file`. 4 chunks pending: SSE + DB
   panels, GHCR image, BPF filters, OPC UA, wardialing batch.
+- 2026-04-21 — **v1.1 chunk 4 (SSE half)** landed on main: new
+  `internal/web/stream` package with channel-per-subscriber
+  Broadcaster (slow-subscriber-dropped fan-out), `/api/v1/stream`
+  SSE handler with retry + keepalive, dashboard live-feed panel
+  (EventSource, CSP-nonce script), audit.Observer hook +
+  `TailAudit` cross-process file tailer so offensive verbs in
+  separate processes light up the dashboard. OpenAPI spec +
+  `docs/openapi.yaml` snapshot include `/api/v1/stream`. DB
+  tables + findings/triage/runs panels carry over into v1.2
+  alongside the DB-backed audit Writer.

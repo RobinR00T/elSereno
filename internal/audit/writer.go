@@ -20,6 +20,13 @@ type Writer interface {
 	Append(ctx context.Context, e Entry) (Entry, error)
 }
 
+// Observer is a post-append hook called once per successfully
+// persisted Entry. It runs under the writer mutex so observer
+// invocations keep the chain's order; observers MUST be
+// non-blocking and MUST NOT panic. The canonical observer is a
+// non-blocking `Broadcaster.Publish` that drops on backpressure.
+type Observer func(Entry)
+
 // FileWriter persists entries to a JSONL file. One line per entry,
 // with the chain invariant enforced in memory + on write. The file
 // is opened with O_APPEND so operator tooling (grep, jq, tail) can
@@ -36,6 +43,20 @@ type FileWriter struct {
 	f        *os.File
 	nextID   int64
 	prevHash []byte
+
+	// observer, if set, is invoked after every successful Append
+	// with the final persisted Entry. Used to fan-out into the SSE
+	// broadcaster; see `internal/web/stream`.
+	observer Observer
+}
+
+// SetObserver installs the post-append hook. Pass nil to clear.
+// Safe to call before or after Append calls start; the hook is
+// guarded by the writer mutex only for the duration of the swap.
+func (w *FileWriter) SetObserver(o Observer) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.observer = o
 }
 
 // OpenFileWriter opens path for append. If the file is empty, the
@@ -166,6 +187,13 @@ func (w *FileWriter) Append(_ context.Context, e Entry) (Entry, error) {
 	}
 	w.nextID++
 	w.prevHash = hash
+	obs := w.observer
+	if obs != nil {
+		// Run under the lock is fine: the contract is "fast"
+		// observers. The typical hook is a non-blocking
+		// Broadcaster.Publish which drops on backpressure.
+		obs(e)
+	}
 	return e, nil
 }
 

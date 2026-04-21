@@ -26,6 +26,7 @@ func TestSpec_IncludesAllKnownPaths(t *testing.T) {
 		"/api/v1/scoring",
 		"/api/v1/health",
 		"/api/v1/openapi.yaml",
+		"/api/v1/stream",
 	} {
 		if !strings.Contains(body, p+":") {
 			t.Errorf("path %q missing from spec:\n%s", p, body)

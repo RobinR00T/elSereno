@@ -7,18 +7,32 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/web/openapi"
+	"local/elsereno/internal/web/stream"
 )
 
 // APIV1 returns the /api/v1 sub-router. The endpoints surface
-// read-only data: plugins, scoring weights, health. Data-returning
-// endpoints (findings, runs, targets) fill in once DB-backed writes
-// land alongside the F4 proxy framework.
-func APIV1() http.Handler {
+// read-only data: plugins, scoring weights, health, openapi, and
+// the live SSE stream. Data-returning endpoints (findings, runs,
+// targets) fill in once DB-backed writes land alongside the F4
+// proxy framework.
+//
+// If broadcaster is non-nil, `GET /api/v1/stream` is served and
+// fans out every Event published by the process (scanner, audit
+// writer, offensive verbs). If nil, the route returns 503 so the
+// dashboard can show "live feed unavailable" without crashing.
+func APIV1(broadcaster *stream.Broadcaster) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/plugins", listPlugins)
 	mux.HandleFunc("GET /api/v1/scoring", getScoring)
 	mux.HandleFunc("GET /api/v1/health", getHealth)
 	mux.HandleFunc("GET /api/v1/openapi.yaml", getOpenAPI)
+	if broadcaster != nil {
+		mux.Handle("GET /api/v1/stream", Stream(broadcaster))
+	} else {
+		mux.HandleFunc("GET /api/v1/stream", func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "live feed unavailable", http.StatusServiceUnavailable)
+		})
+	}
 	return mux
 }
 

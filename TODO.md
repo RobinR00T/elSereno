@@ -28,8 +28,10 @@ between planned and shipped stays visible.
   (`internal/audit/FileWriter`) + `offensive/confirm/adapter`.
 - [x] Chunk 3: network delivery for `write modbus send` /
   `exploit run` / `audit verify-file`.
-- [ ] Chunk 4: SSE `/api/v1/stream` + findings/triage/runs DB
-  panels.
+- [x] Chunk 4a: SSE `/api/v1/stream` + broadcaster + dashboard
+  live-feed panel + audit file tailer for cross-process feed.
+- [ ] Chunk 4b (carry-over to v1.2): findings/triage/runs DB
+  tables + panels reading from DB (lands with DB-backed Writer).
 - [ ] Chunk 5: GHCR docker image (buildx + `robinr00t/elsereno`
   slug + `--attest=type=sbom`).
 - [ ] Chunk 6: seccomp-bpf BPF filter bytecode per profile.

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/web"
+	"local/elsereno/internal/web/stream"
 )
 
 func newServeCmd() *cobra.Command {
@@ -70,12 +72,38 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	if err != nil {
 		return fail(core.ExitSoftware, err)
 	}
+
+	// Spin up the audit-file tailer so offensive verbs (which run
+	// in a separate process and append to ~/.elsereno/audit.jsonl)
+	// light up the dashboard's live feed. Best-effort: a missing
+	// home dir or unreadable audit path just means the feed stays
+	// quiet for audit events — it does NOT block `serve` startup.
+	tailCtx, cancelTail := context.WithCancel(cmd.Context())
+	defer cancelTail()
+	if path, derr := dashboardAuditPath(); derr == nil {
+		go func() {
+			_ = stream.TailAudit(tailCtx, srv.Broadcaster(), path, 0)
+		}()
+	}
+
 	_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: listening on %s\n", opts.addr)
 	if err := srv.Run(cmd.Context()); err != nil &&
 		!errors.Is(err, http.ErrServerClosed) && !errors.Is(err, context.Canceled) {
 		return fail(core.ExitSoftware, err)
 	}
 	return nil
+}
+
+// dashboardAuditPath returns the conventional audit-log location
+// (~/.elsereno/audit.jsonl). Parent-dir creation is the operator's
+// responsibility; the file itself is created on demand by the
+// first offensive verb to write.
+func dashboardAuditPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".elsereno", "audit.jsonl"), nil
 }
 
 // unlockVault loads the file-backed vault and sources the

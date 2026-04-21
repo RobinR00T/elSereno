@@ -111,6 +111,18 @@ func specPaths() []Path {
 			Tags:      []string{"meta"},
 			Responses: map[string]Response{"200": {Description: "OpenAPI 3.1 YAML document."}},
 		}}},
+		{URL: "/api/v1/stream", Operations: map[string]Operation{"get": {
+			Summary: "Server-Sent Events feed (findings / runs / audit).",
+			Description: "text/event-stream with `event:`, `id:`, `data:` lines. " +
+				"Event kinds: `finding`, `run_start`, `run_end`, `audit`. " +
+				"Payloads are JSON objects; schema per-kind is documented " +
+				"in internal/web/stream/findings_bridge.go.",
+			Tags: []string{"stream"},
+			Responses: map[string]Response{
+				"200": {Description: "SSE-framed event stream."},
+				"503": {Description: "Live feed unavailable (broadcaster not wired)."},
+			},
+		}}},
 	}
 }
 

@@ -1,6 +1,6 @@
 ---
 phase: v1.1-in-flight
-status: v1.0.1 released; v1.1 chunks 1-3 landed on main; 5 chunks pending
+status: v1.0.1 released; v1.1 chunks 1-3 + 4a (SSE half) landed on main; 4 chunks + 4b carry-over pending
 last-updated: 2026-04-21
 token-budget: 300
 ---
@@ -36,10 +36,18 @@ token-budget: 300
   helper), `write modbus send` (real Execute call with
   triple-confirm + audit), `exploit run` (tcp/udp dial +
   audit), `audit verify-file` walks the JSONL chain.
+- **Chunk 4a** ✅ SSE `/api/v1/stream` +
+  `internal/web/stream` Broadcaster (fan-out, slow-sub
+  dropped), audit.Observer hook + cross-process
+  `TailAudit` file tailer, dashboard live-feed panel
+  (EventSource, CSP-nonce script), OpenAPI spec entry.
+  `serve` spins up the tailer so offensive verbs running
+  in separate processes light up the feed.
 
 **Pending v1.1 chunks**:
-- **Chunk 4** — SSE `/api/v1/stream` + findings/triage/runs
-  DB tables + dashboard panels replacing the placeholder.
+- **Chunk 4b** (carry-over to v1.2) — findings / triage /
+  runs DB tables + panels reading from DB. Landing with
+  the DB-backed audit Writer.
 - **Chunk 5** — GHCR docker image: dockers_v2 restored with
   `robinr00t/elsereno` slug, buildx driver,
   `--attest=type=sbom`.

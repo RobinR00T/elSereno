@@ -81,6 +81,17 @@ paths:
       summary: Default scoring weights + severity thresholds.
       tags:
         - scoring
+  /api/v1/stream:
+    get:
+      description: 'text/event-stream with `event:`, `id:`, `data:` lines. Event kinds: `finding`, `run_start`, `run_end`, `audit`. Payloads are JSON objects; schema per-kind is documented in internal/web/stream/findings_bridge.go.'
+      responses:
+        "200":
+          description: SSE-framed event stream.
+        "503":
+          description: Live feed unavailable (broadcaster not wired).
+      summary: Server-Sent Events feed (findings / runs / audit).
+      tags:
+        - stream
   /healthz:
     get:
       responses:

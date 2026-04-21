@@ -7,19 +7,24 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/web/httpctx"
 )
 
 // Dashboard returns the overview page. Single self-contained inline
-// HTML: no external CSS/JS fetches, no framework. Auto-refreshes
-// every 30 s while the DB-backed SSE stream is pending. The
-// template is inline on purpose; moving it to embed.FS is F6+ once
-// the findings / triage / runs panels stop being placeholders.
+// HTML: no external CSS/JS fetches, no framework. The live SSE
+// feed (/api/v1/stream) keeps findings / runs / audit panels
+// up-to-date without a full reload; the <meta refresh> fallback
+// stays in place for clients that drop the EventSource connection.
+// The template is inline on purpose; moving it to embed.FS lands
+// once the findings / triage / runs DB panels stop being MVP.
 func Dashboard() http.Handler {
 	t := template.Must(template.New("overview").Parse(overviewHTML))
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		_ = t.Execute(w, overviewData())
+		data := overviewData()
+		data.CSPNonce = httpctx.CSPNonce(r.Context())
+		_ = t.Execute(w, data)
 	})
 }
 
@@ -34,6 +39,11 @@ type overviewModel struct {
 	// template renders deterministic output.
 	WeightOrder    []string
 	ThresholdOrder []string
+	// CSPNonce carries the per-request Content-Security-Policy
+	// nonce so inline <script> and <style> tags that the template
+	// emits are whitelisted by the CSP header set in
+	// `web.securityHeaders`.
+	CSPNonce string
 }
 
 // scoringDefaults mirrors the ADR-006 weights + thresholds served by
@@ -100,9 +110,9 @@ const overviewHTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="30">
+<meta http-equiv="refresh" content="120">
 <title>{{.Title}} · overview</title>
-<style>
+<style nonce="{{.CSPNonce}}">
   :root {
     --bg: #f7f8fa;
     --panel: #ffffff;
@@ -206,6 +216,60 @@ const overviewHTML = `<!doctype html>
     text-align: center;
     padding: 1.5rem;
   }
+  .feed {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: "JetBrains Mono", Menlo, monospace;
+    font-size: .8rem;
+  }
+  .feed .row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: .5rem;
+    padding: .35rem 0;
+    border-bottom: 1px dashed var(--border);
+    align-items: baseline;
+  }
+  .feed .row:last-child { border-bottom: none; }
+  .feed .ts { color: var(--muted); }
+  .feed .kind {
+    display: inline-block;
+    padding: .05rem .4rem;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: .65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .feed .kind.finding   { background: #fee2e2; color: var(--danger); }
+  .feed .kind.run_start { background: #dcfce7; color: var(--ok); }
+  .feed .kind.run_end   { background: #e0e7ff; color: #4f46e5; }
+  .feed .body {
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .live-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    margin-right: .35rem;
+    animation: pulse 2s infinite;
+  }
+  .live-dot.off { background: var(--muted); animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .feed .kind.finding   { background: #3f1515; color: #f87171; }
+    .feed .kind.run_start { background: #14321f; color: #4ade80; }
+    .feed .kind.run_end   { background: #1a1f4a; color: #a5b4fc; }
+  }
   footer {
     margin-top: 2rem;
     color: var(--muted);
@@ -270,9 +334,22 @@ const overviewHTML = `<!doctype html>
     </section>
     {{end}}
 
+    <section class="panel">
+      <h2>Live feed <span id="live-status"><span class="live-dot off"></span><span id="live-label">connecting…</span></span></h2>
+      <div class="sub">
+        Streaming from <code>/api/v1/stream</code> via EventSource. Shows the last 50 events
+        (findings, scan-run lifecycle, audit appends). Disconnected clients reconnect
+        automatically after 3&nbsp;s.
+      </div>
+      <div id="feed" class="feed">
+        <div class="row"><span class="ts">&mdash;</span><span class="kind">waiting</span><span class="body">No events yet. Run <code>elsereno scan</code> or any offensive verb to light this up.</span></div>
+      </div>
+    </section>
+
     <section class="panel placeholder">
-      Findings / triage / runs panels arrive with the DB-backed writer (F6+).<br>
-      Live SSE feed on <code>/api/v1/stream</code> is queued for the same chunk.
+      Findings / triage / runs tables load from the DB once the schema migration lands
+      (v1.1 chunk 4, DB-backed half). The live feed above already tails everything the
+      process publishes.
     </section>
   </div>
 
@@ -314,8 +391,90 @@ const overviewHTML = `<!doctype html>
 </div>
 
 <footer>
-  ElSereno &mdash; ICS/OT exposure auditor &middot; Page auto-refreshes every 30 s pending live SSE.
+  ElSereno &mdash; ICS/OT exposure auditor &middot; Live SSE connected to <code>/api/v1/stream</code>; full reload every 2 min as fallback.
 </footer>
+
+<script nonce="{{.CSPNonce}}">
+(function () {
+  var feed = document.getElementById("feed");
+  var statusDot = document.querySelector("#live-status .live-dot");
+  var statusLabel = document.getElementById("live-label");
+  var MAX_ROWS = 50;
+  var first = true;
+
+  function setStatus(ok, label) {
+    statusDot.className = "live-dot" + (ok ? "" : " off");
+    statusLabel.textContent = label;
+  }
+
+  function short(s, n) {
+    if (!s) return "";
+    return s.length > n ? s.slice(0, n - 1) + "…" : s;
+  }
+
+  function renderRow(kind, ts, body) {
+    var row = document.createElement("div");
+    row.className = "row";
+    var t = document.createElement("span");
+    t.className = "ts";
+    t.textContent = ts;
+    var k = document.createElement("span");
+    k.className = "kind " + kind;
+    k.textContent = kind;
+    var b = document.createElement("span");
+    b.className = "body";
+    b.textContent = body;
+    row.appendChild(t);
+    row.appendChild(k);
+    row.appendChild(b);
+    if (first) {
+      feed.innerHTML = "";
+      first = false;
+    }
+    feed.insertBefore(row, feed.firstChild);
+    while (feed.childElementCount > MAX_ROWS) {
+      feed.removeChild(feed.lastChild);
+    }
+  }
+
+  function bodyFor(kind, data) {
+    try {
+      if (kind === "finding") {
+        return (data.severity || "?") + " · " + (data.protocol || "?") +
+               " · score=" + (data.score != null ? data.score : "?") +
+               " · id=" + short(data.id || "", 8);
+      }
+      if (kind === "run_start") {
+        return "operator=" + (data.operator || "?") + " · id=" + short(data.run_id || "", 8);
+      }
+      if (kind === "run_end") {
+        var counts = data.counts || {};
+        var parts = Object.keys(counts).map(function (k) { return k + "=" + counts[k]; });
+        return "status=" + (data.status || "?") + " · " + parts.join(" ");
+      }
+      if (kind === "audit") {
+        return (data.event_type || "?") + " · actor=" + (data.actor || "?") +
+               " · id=" + (data.id || "?");
+      }
+    } catch (e) {}
+    return JSON.stringify(data).slice(0, 120);
+  }
+
+  function handle(kind, ev) {
+    var data = {};
+    try { data = JSON.parse(ev.data); } catch (e) {}
+    var ts = new Date().toLocaleTimeString();
+    renderRow(kind, ts, bodyFor(kind, data));
+  }
+
+  var es = new EventSource("/api/v1/stream");
+  es.onopen = function () { setStatus(true, "live"); };
+  es.onerror = function () { setStatus(false, "reconnecting…"); };
+  ["finding", "run_start", "run_end", "audit"].forEach(function (kind) {
+    es.addEventListener(kind, function (ev) { handle(kind, ev); });
+  });
+})();
+</script>
 </body>
 </html>
 `
