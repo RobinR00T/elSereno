@@ -181,37 +181,39 @@ func ExpectedToken(m Mutation, d KeyDeriver) (string, error) {
 // audit write failed; see cmd/elsereno/cmd_write_offensive.go).
 func Authorize(ctx context.Context, m Mutation, c Confirm, d KeyDeriver, a Auditor) error {
 	if err := m.Validate(); err != nil {
-		_ = audit(ctx, a, m, "offensive_failed", err.Error())
+		_ = emitAudit(ctx, a, m, "offensive_failed", err.Error())
 		return err
 	}
 	if !c.AcceptsWrites {
-		_ = audit(ctx, a, m, "offensive_denied", ErrNotAccepted.Error())
+		_ = emitAudit(ctx, a, m, "offensive_denied", ErrNotAccepted.Error())
 		return ErrNotAccepted
 	}
 	if c.ConfirmTarget != m.Target {
-		_ = audit(ctx, a, m, "offensive_denied", ErrTargetMismatch.Error())
+		_ = emitAudit(ctx, a, m, "offensive_denied", ErrTargetMismatch.Error())
 		return ErrTargetMismatch
 	}
 	expected, err := ExpectedToken(m, d)
 	if err != nil {
-		_ = audit(ctx, a, m, "offensive_failed", err.Error())
+		_ = emitAudit(ctx, a, m, "offensive_failed", err.Error())
 		return err
 	}
 	// Constant-time comparison to close a timing-oracle that would let
 	// an attacker brute-force the token one char at a time.
 	if !hmac.Equal([]byte(strings.TrimSpace(c.ConfirmToken)), []byte(expected)) {
-		_ = audit(ctx, a, m, "offensive_denied", ErrTokenMismatch.Error())
+		_ = emitAudit(ctx, a, m, "offensive_denied", ErrTokenMismatch.Error())
 		return ErrTokenMismatch
 	}
-	if err := audit(ctx, a, m, "offensive_allowed", ""); err != nil {
+	if err := emitAudit(ctx, a, m, "offensive_allowed", ""); err != nil {
 		return fmt.Errorf("confirm: audit write: %w", err)
 	}
 	return nil
 }
 
-// audit is the shared emitter. Failures bubble to Authorize so it can
-// refuse to fire on a broken audit chain.
-func audit(ctx context.Context, a Auditor, m Mutation, evType, reason string) error {
+// emitAudit is the shared emitter. Failures bubble to Authorize so
+// it can refuse to fire on a broken audit chain. Renamed from the
+// v1.0 `audit` to avoid colliding with the internal/audit package
+// now imported by adapter.go.
+func emitAudit(ctx context.Context, a Auditor, m Mutation, evType, reason string) error {
 	if a == nil {
 		return nil
 	}
