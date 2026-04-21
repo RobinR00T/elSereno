@@ -14,6 +14,7 @@ func newAuditCmd() *cobra.Command {
 		Short: "Audit-log operations",
 	}
 	cmd.AddCommand(newAuditVerifyCmd())
+	cmd.AddCommand(newAuditVerifyFileCmd())
 	cmd.AddCommand(newAuditDestructiveCmd("purge",
 		"Tombstone-purge audit entries before a cutoff (preserves chain)",
 		"i-understand-this-is-forensic-data",
