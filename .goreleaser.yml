@@ -102,17 +102,67 @@ changelog:
       - "^docs:"
       - "^test:"
 
-# GHCR image publishing deferred to post-1.0 (needs buildx driver
-# setup for --attest SBOM + org/repo rewrite to match the actual
-# RobinR00T/elSereno slug). v1.0.0 ships archives + SBOM + cosign +
-# SLSA; the docker image lands in the first v1.1 release.
+# Docker image publishing (v1.1 chunk 5). Uses buildx so SBOM +
+# provenance attestations attach to the manifest. The repo slug
+# `ghcr.io/robinr00t/elsereno` is lowercase-forced because Docker
+# rejects uppercase in names (GHCR is case-insensitive, but the
+# owner login `RobinR00T` must be lowercased for the docker push).
 #
-# dockers_v2:
-#   - id: elsereno
-#     images: ["ghcr.io/robinr00t/elsereno"]
-#     tags: ["{{ .Version }}", latest]
-#     dockerfile: Dockerfile
-#     platforms: [linux/amd64]
+# Publishing is keyed by GitHub OIDC → ghcr.io login in
+# `.github/workflows/release.yml` (docker/login-action). A
+# post-release step also signs the pushed manifest with cosign
+# keyless so `cosign verify ghcr.io/robinr00t/elsereno:vX.Y.Z`
+# succeeds out of the box.
+dockers_v2:
+  - id: elsereno
+    images:
+      - "ghcr.io/robinr00t/elsereno"
+    tags:
+      - "{{ .Version }}"
+      - latest
+    dockerfile: Dockerfile
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    # OCI image labels. goreleaser v2 fills `.Date`, `.FullCommit`,
+    # `.Version` from the tag + workflow environment; `.Env.GITHUB_REPOSITORY`
+    # (set by GitHub Actions to `<owner>/<repo>`) gives us a working
+    # source/url link even when the repo is renamed.
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "ElSereno ICS/OT exposure auditor"
+      org.opencontainers.image.url: "https://github.com/{{ .Env.GITHUB_REPOSITORY }}"
+      org.opencontainers.image.source: "https://github.com/{{ .Env.GITHUB_REPOSITORY }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.licenses: "Apache-2.0"
+    # dockers_v2's `sbom: true` emits a buildx `--attest=type=sbom`
+    # automatically. The matching cosign-verifiable bundle lands as
+    # an OCI referrer entry so `cosign download sbom ghcr.io/…@digest`
+    # returns the CycloneDX tree.
+    sbom: true
+    # Extra `docker buildx build` flags. `--pull` makes sure the
+    # distroless base is refreshed every tag; provenance
+    # attestation captures the build steps + invocation so SLSA
+    # level 3 still holds end-to-end once we drop the v1.2 rework
+    # of the release workflow.
+    flags:
+      - "--pull"
+      - "--attest=type=provenance,mode=max"
+
+# cosign the pushed manifest so `cosign verify ghcr.io/...` works
+# without extra operator steps. The SBOM attestation added by
+# `--attest=type=sbom` above lives INSIDE the manifest; the
+# docker_signs block below wraps a Sigstore signature around the
+# manifest itself (OCI referrer entry in the registry).
+docker_signs:
+  - cmd: cosign
+    artifacts: manifests
+    args:
+      - "sign"
+      - "--yes"
+      - "${artifact}@${digest}"
 
 sboms:
   - artifacts: archive

@@ -186,3 +186,14 @@ One-liner per significant change to `.context/` or the codebase.
   `docs/openapi.yaml` snapshot include `/api/v1/stream`. DB
   tables + findings/triage/runs panels carry over into v1.2
   alongside the DB-backed audit Writer.
+- 2026-04-21 — **v1.1 chunk 5 (GHCR docker image)** landed on
+  main: `.goreleaser.yml` `dockers_v2` block with `sbom: true`
+  (CycloneDX attestation) + `--attest=type=provenance,mode=max`,
+  multi-arch (linux/amd64 + linux/arm64) under
+  `ghcr.io/robinr00t/elsereno:<tag>` + `:latest`, cosign keyless
+  `docker_signs` on the manifest. `.github/workflows/release.yml`
+  adds `docker/setup-qemu-action@v3` + `docker/setup-buildx-action@v3`
+  so the multi-arch + attestation pipeline works end-to-end.
+  `Dockerfile` + `Dockerfile.sqlite` pin Go 1.25.4 (matching
+  go.mod) on Alpine 3.22 / Debian bookworm. README + RELEASING
+  documented with pull + cosign-verify recipes.

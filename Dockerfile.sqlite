@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # SQLite variant — CGO + SQLCipher. Runner-native arch only (PITF-006, ADR-012).
-ARG GO_VERSION=1.23.4
+# Stay in sync with go.mod's `go` directive.
+ARG GO_VERSION=1.25.4
 FROM golang:${GO_VERSION}-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

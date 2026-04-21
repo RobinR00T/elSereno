@@ -32,8 +32,9 @@ between planned and shipped stays visible.
   live-feed panel + audit file tailer for cross-process feed.
 - [ ] Chunk 4b (carry-over to v1.2): findings/triage/runs DB
   tables + panels reading from DB (lands with DB-backed Writer).
-- [ ] Chunk 5: GHCR docker image (buildx + `robinr00t/elsereno`
-  slug + `--attest=type=sbom`).
+- [x] Chunk 5: GHCR docker image (buildx + `robinr00t/elsereno`
+  slug + `--attest=type=sbom` via `dockers_v2 sbom: true` +
+  cosign keyless `docker_signs`, go 1.25.4 Dockerfile pin).
 - [ ] Chunk 6: seccomp-bpf BPF filter bytecode per profile.
 - [ ] Chunk 7: OPC UA plugin (port 4840).
 - [ ] Chunk 8: Wardialing batch mode.

@@ -64,8 +64,31 @@ curl -fL -o checksums.txt.sig \
 
 ## Quickstart
 
+### Via pre-built OCI image (v1.1+)
+
 ```sh
-# From the repo (dev workflow):
+# Latest release (multi-arch: linux/amd64 + linux/arm64)
+docker pull ghcr.io/robinr00t/elsereno:latest
+docker run --rm -p 8787:8787 \
+  -v "$HOME/.elsereno:/home/nonroot/.elsereno" \
+  ghcr.io/robinr00t/elsereno:latest serve --addr 0.0.0.0:8787
+```
+
+The manifest is cosign-signed (keyless Sigstore) and carries a
+CycloneDX SBOM + SLSA-compatible provenance attestation. Verify end-
+to-end with:
+
+```sh
+cosign verify ghcr.io/robinr00t/elsereno:v1.1.0 \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
+
+cosign download sbom ghcr.io/robinr00t/elsereno:v1.1.0
+```
+
+### From source (dev workflow)
+
+```sh
 docker compose -f docker-compose.dev.yml up -d
 make build
 ./bin/elsereno doctor

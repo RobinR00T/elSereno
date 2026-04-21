@@ -1,6 +1,6 @@
 ---
 phase: v1.1-in-flight
-status: v1.0.1 released; v1.1 chunks 1-3 + 4a (SSE half) landed on main; 4 chunks + 4b carry-over pending
+status: v1.0.1 released; v1.1 chunks 1-3 + 4a + 5 landed on main; 3 chunks + 4b carry-over pending
 last-updated: 2026-04-21
 token-budget: 300
 ---
@@ -43,14 +43,17 @@ token-budget: 300
   (EventSource, CSP-nonce script), OpenAPI spec entry.
   `serve` spins up the tailer so offensive verbs running
   in separate processes light up the feed.
+- **Chunk 5** ✅ `dockers_v2` block in `.goreleaser.yml`
+  (multi-arch amd64/arm64, `sbom: true` CycloneDX
+  attestation, provenance via --attest flag, cosign keyless
+  `docker_signs` on the manifest). `release.yml` adds
+  buildx + QEMU setup steps. `Dockerfile` + `Dockerfile.sqlite`
+  pin Go 1.25.4 (alpine3.22 / bookworm) matching go.mod.
 
 **Pending v1.1 chunks**:
 - **Chunk 4b** (carry-over to v1.2) — findings / triage /
   runs DB tables + panels reading from DB. Landing with
   the DB-backed audit Writer.
-- **Chunk 5** — GHCR docker image: dockers_v2 restored with
-  `robinr00t/elsereno` slug, buildx driver,
-  `--attest=type=sbom`.
 - **Chunk 6** — seccomp-bpf BPF filter bytecode per profile
   (exploit / harvest / dial) on Linux.
 - **Chunk 7** — OPC UA plugin (port 4840) as next ICS

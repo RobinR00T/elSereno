@@ -96,14 +96,32 @@ The `release` workflow picks up the tag and runs
 `goreleaser release --clean` with the full pipeline (archives +
 docker + sbom + sign + publish).
 
+The docker pipeline (v1.1+) uses `dockers_v2` with a buildx
+driver set up by `docker/setup-buildx-action@v3` and QEMU from
+`docker/setup-qemu-action@v3`. Both `linux/amd64` and
+`linux/arm64` images are pushed to
+`ghcr.io/robinr00t/elsereno:<tag>` and combined into a multi-arch
+manifest at `:<tag>` and `:latest`. Each tagged manifest carries
+a CycloneDX SBOM attestation (`--attest=type=sbom` via
+goreleaser's native `sbom: true`), a SLSA-format provenance
+attestation (`--attest=type=provenance,mode=max`), and a cosign
+keyless signature on the manifest digest (`docker_signs` block).
+
 ## Post-release
 
 1. Cross-verify published artefact checksums against the local
    dry-run.
 2. Verify the sigstore transparency log entry
    (`rekor-cli search --sha <checksum>`).
-3. Draft the GitHub release body from the CHANGELOG entry.
-4. Announce on relevant channels.
+3. Verify the docker manifest:
+   ```sh
+   cosign verify ghcr.io/robinr00t/elsereno:v1.1.0 \
+     --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+     --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
+   cosign download sbom ghcr.io/robinr00t/elsereno:v1.1.0 | jq '.components | length'
+   ```
+4. Draft the GitHub release body from the CHANGELOG entry.
+5. Announce on relevant channels.
 
 ## 1.0.0 gate
 
