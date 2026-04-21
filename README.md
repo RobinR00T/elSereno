@@ -9,32 +9,81 @@
   |______|_|_____/ \___|_|  \___|_| |_|\___/
 ```
 
+[![Release](https://img.shields.io/github/v/release/RobinR00T/elSereno?sort=semver&display_name=tag&color=2b6cb0)](https://github.com/RobinR00T/elSereno/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Go version](https://img.shields.io/badge/go-1.25%2B-00ADD8.svg)](go.mod)
+[![CI](https://img.shields.io/github/actions/workflow/status/RobinR00T/elSereno/ci.yml?branch=main&label=ci)](https://github.com/RobinR00T/elSereno/actions/workflows/ci.yml)
+[![Supply chain](https://img.shields.io/github/actions/workflow/status/RobinR00T/elSereno/supply-chain.yml?branch=main&label=supply-chain)](https://github.com/RobinR00T/elSereno/actions/workflows/supply-chain.yml)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+
 > **Legal notice.** ElSereno is a tool for **authorised** security work. Do
 > not run it against systems you do not own or are not explicitly
-> authorised to test. Read `LEGAL.md` before first use. On first launch the
-> binary records an acknowledgement of the acceptable-use policy.
+> authorised to test. Read [`LEGAL.md`](LEGAL.md) before first use. On
+> first launch the binary records an acknowledgement of the acceptable-use
+> policy.
 
 ICS/OT and legacy-network exposure auditor. Combines multi-source ingestion
-(Shodan, Censys, nmap XML, list, stdin), active fingerprinting, a REPL, an
-instrumentable proxy, multi-factor scoring, and a small web + TUI dashboard.
-An opt-in offensive module (`-tags offensive`) adds writes, exploits,
-credential harvesting, and individual dial. Linux and macOS; Windows is
-vNext.
+(Shodan, Censys, nmap XML, list, stdin), active fingerprinting, an
+instrumentable proxy with per-protocol wire-layer write-ban, multi-factor
+scoring, and a small web dashboard. An opt-in offensive module
+(`-tags offensive`) adds writes, exploits, credential harvesting, and
+individual dial gated by the [ADR-039](.context/decisions/039-offensive-architecture-triple-confirm.md)
+triple-confirm wrapper. Linux and macOS; Windows is vNext.
 
 Named after the *sereno*, the Spanish night watchman who carried a keyring
 able to open every portal in the neighbourhood.
 
+## Quick install (signed release)
+
+```sh
+# Pick your platform; darwin/linux × amd64/arm64 available.
+VERSION=1.0.0
+OS=darwin       # or linux
+ARCH=arm64      # or amd64
+URL="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
+
+curl -fL -o "elsereno_${VERSION}.tar.gz" "$URL"
+curl -fL -o checksums.txt  "https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/checksums.txt"
+
+# Integrity check (abort if mismatch).
+shasum -a 256 -c checksums.txt --ignore-missing
+
+tar xzf "elsereno_${VERSION}.tar.gz"
+./elsereno version
+```
+
+Optional keyless-signature verification (requires
+[cosign](https://github.com/sigstore/cosign)):
+
+```sh
+curl -fL -o checksums.txt.sig \
+  "https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/checksums.txt.sig"
+# Bundle-mode verification ships in v1.1; for v1.0.0 the signature is
+# recorded in Sigstore's Rekor transparency log.
+```
+
 ## Quickstart
 
 ```sh
-go install local/elsereno/cmd/elsereno@latest
+# From the repo (dev workflow):
 docker compose -f docker-compose.dev.yml up -d
-elsereno init
-elsereno doctor
-elsereno vault init
-elsereno vault unlock
-elsereno serve
+make build
+./bin/elsereno doctor
+./bin/elsereno vault init
+./bin/elsereno vault unlock
+./bin/elsereno serve                    # dashboard at http://127.0.0.1:8787
 ```
+
+Non-interactive vault unlock (CI / preview runners):
+
+```sh
+umask 077 && printf '%s' "$PASSPHRASE" > ~/.elsereno/dev.pp && chmod 0600 ~/.elsereno/dev.pp
+./bin/elsereno vault init   --vault-passphrase-file ~/.elsereno/dev.pp
+./bin/elsereno serve        --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+See [ADR-026](.context/decisions/026-secret-transport.md) for the secret-
+transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 

@@ -28,8 +28,21 @@ jobs:
       - uses: anchore/sbom-action/download-syft@v0
       - name: install cyclonedx-gomod
         run: go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
-      - name: install pandoc
-        run: sudo apt-get update && sudo apt-get install -y pandoc
+      - name: install pandoc (pinned)
+        # Pinned to a specific version so the generated man pages
+        # are byte-reproducible across releases. Bumping this pin
+        # requires regenerating + committing the pages in
+        # man/man{5,7}/ via `bash scripts/gen-manpages.sh`.
+        env:
+          PANDOC_VERSION: "3.9.1"
+        run: |
+          sudo apt-get update
+          # apt-get pandoc ships an old version that differs from
+          # what operators run locally; download the upstream deb
+          # for deterministic output.
+          curl -fL -o /tmp/pandoc.deb "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-amd64.deb"
+          sudo dpkg -i /tmp/pandoc.deb
+          pandoc --version | head -1
       - name: reset generated man pages (advisory)
         # The man pages in man/man{5,7}/ are committed so the
         # release workflow never mutates the tree (goreleaser
@@ -75,7 +88,11 @@ jobs:
       id-token: write
       contents: write
       actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    # v2.0.0 had a known issue where the `final` step failed with
+    # exit 27 even after a successful upload-assets step when the
+    # generator ran alongside goreleaser. v2.1.0 (2025-02-24) fixes
+    # the SUCCESS=false false-negative in the finaliser.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
       # Attach the .intoto.jsonl attestation to the same release
