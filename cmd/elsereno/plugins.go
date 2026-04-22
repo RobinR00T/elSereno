@@ -14,6 +14,7 @@ import (
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
+	"local/elsereno/internal/protocols/pbxhttp"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
 	"local/elsereno/internal/protocols/xot"
@@ -38,4 +39,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: opcua.Default().Metadata(), Factory: func() core.Protocol { return opcua.Default() }})
 	core.Register(core.Plugin{PluginMetadata: sip.Default().Metadata(), Factory: func() core.Protocol { return sip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: iax2.Default().Metadata(), Factory: func() core.Protocol { return iax2.Default() }})
+	core.Register(core.Plugin{PluginMetadata: pbxhttp.Default().Metadata(), Factory: func() core.Protocol { return pbxhttp.Default() }})
 }
