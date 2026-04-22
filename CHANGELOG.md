@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-22
+
+### Added
+
+- **DB-backed dashboard panels**: new `findings`, `triage`, and
+  `runs` panels on the overview page, plus `/api/v1/findings`,
+  `/api/v1/runs`, `/api/v1/triage` endpoints. Fetch on page
+  load + re-fetch on SSE signals (500 ms debounce). Without
+  `DATABASE_URL` the endpoints return 503 and the panels
+  render a clear "backend unavailable" message.
+- **`internal/audit.DBWriter`** persists the audit chain to
+  Postgres, preserving the same chain invariant as FileWriter.
+  Reserves BIGSERIAL IDs via `nextval` before INSERT so the
+  JCS hash is computed once.
+- **`audit.MultiWriter`** + `FileMirror` + `DBMirror` —
+  fan-out from one primary chain owner to N mirrors. Primary
+  error halts fan-out; mirror error surfaces without
+  reverting the primary insert.
+- **`audit.SyncFromFile(ctx, path, target, existingIDs)`** —
+  bootstrap a fresh DB from an existing JSONL chain. Validates
+  every prev_hash + entry_hash, skips IDs already in target,
+  idempotent + tamper-detecting.
+- **OPC UA write gating** (`offensive/write/opcua/`): service-
+  layer allowlist on Write (TypeID 673) and Call (704)
+  requests. Refusal is a UA ServiceFault with StatusCode
+  BadUserAccessDenied (0x80100000) — parseable by real UA
+  clients.
+- **Full wire-level Handle loops** for DNP3, IEC-104, HART-IP,
+  ATG Veeder-Root, and Fox. Each gate refuses disallowed
+  operations with a protocol-native error frame
+  (DNP3 IIN2 FUNC_NOT_SUPP, IEC-104 I-format COT=47,
+  HART response code 0x40, Veeder-Root NAK 9999FF1B,
+  Fox `fox a 0 -1 fox denied\n`).
+- **Dial backend interface** (`offensive/dial/backend/`):
+  `Backend{Name, Deliver, Close}` + `Disposition` enum.
+  Two backends ship: `Mock` (CI-safe scriptable) and
+  `ATModem` (Hayes AT over any io.ReadWriter).
+- **`/admin/security` CSP-nonce fix**: inline styles on the
+  security self-audit page now honour the per-request CSP
+  nonce (same treatment the overview page got in v1.1).
+- **`/readyz` real DB ping** when a pool is wired, 503 on DB
+  failure, adds `uptime_s` field.
+- **Operator manual pack**: `docs/manual/elsereno-manual.md`
+  (400+ lines, all 13 protocols, Shodan/Censys/nmap input
+  recipes, scoring, offensive verbs, detection signatures,
+  troubleshooting) + `docs/manual/cheatsheet.txt` (terminal-
+  ready) + `docs/manual/elsereno-manual.docx` (pandoc-rendered
+  with TOC). Plus `AUTHORS` + `TODO-vNext.md` (operator-
+  requested forward-looking TODO with PBX discovery called
+  out).
+- **`scripts/dev-db.sh`** helper: up / down / reset / status /
+  env verbs; writes `~/.elsereno/dev-db.env` (0600) with the
+  DATABASE_URL export line.
+
+### Changed
+
+- **SLSA L3 provenance** now minted via GitHub's native
+  `actions/attest-build-provenance@v2` (SLSA v1.0 predicate,
+  Sigstore keyless, transparency log). Replaces
+  `slsa-framework/slsa-github-generator` reusable workflow
+  (exit-27 bug in v2.0.0 + v2.1.0, never fixed upstream).
+  Verify with `gh attestation verify <artifact> --repo` or
+  `cosign verify-attestation --type slsaprovenance1 …`.
+- `handlers.APIV1()` now takes an `APIV1Deps{Broadcaster,
+  Querier}` bundle. Missing deps downgrade individual
+  endpoints to 503 without breaking the router.
+- `.claude/settings.json` permissions allowlist expanded by
+  35 patterns (docker compose / buildx, cosign verify-only,
+  goreleaser snapshot, git tag -s, curl with safe flags).
+
+### Removed
+
+- **`-tags sqlite` portable variant** retired. Dockerfile.sqlite
+  deleted; goreleaser `elsereno-sqlite` build gone;
+  Makefile `build-sqlite` + `docker-sqlite` targets gone;
+  CI `build-sqlite` job gone; `.golangci.yml` sqlite
+  build-tag gone. Postgres is the only supported backend
+  from v1.2. Operators running SQLite: see the migration
+  path at the top of ADR-012 (now `superseded`).
+
+### Fixed
+
+- HART-IP handler now correctly distinguishes long- vs short-
+  frame delimiters via the HIGH bit (0x80) per HART-FSK
+  §9.1.2 — a low-nibble interpretation in the initial draft
+  was wrong.
+- ATModem read path no longer loses read-ahead bytes between
+  phases (shared bufio.Reader cached on the struct).
+- ATModem dialTimeout is now authoritative — `readUntilResult`
+  runs the read in a goroutine + selects on ctx.Done so a
+  stream without deadlines (net.Pipe) still honours the
+  timeout.
+
 ## [1.1.0] — 2026-04-21
 
 ### Added — new features
