@@ -240,6 +240,35 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-22 — **v1.3.0 closed.** PBX-discovery cycle shipped:
+  SIP + IAX2 + pbxhttp plugins (chunks 1a/1b/1c), 15 PBX brand
+  fingerprints across the three, 16 plugins in the default
+  build (up from 13 at v1.2.0). Snapshot at
+  `.context/snapshots/v1.3.0-pbx-discovery.md`. Design patterns
+  established: priority-ordered `{needle, vendor}` matcher
+  tables (canonical template in `sip/vendor.go` +
+  `pbxhttp/vendor.go`); 90/85/80/75/70 risk tiers by vendor
+  class; protocol-native refusals on default proxies (SIP 403,
+  IAX2 silent-UDP, HTTP 403); mini-frame length-sanity guard
+  against HTTP-shaped bytes falsely confirming binary UDP
+  protocols. v1.3.0 tag signed locally.
+- 2026-04-22 — **v1.3 chunk 1c (pbxhttp plugin)** landed on main.
+  HTTP(S) PBX admin-UI fingerprint on port 443 (also 80 / 8080
+  / 8088 / 5001 / 8443 / 411 via Scheme override). 15 known
+  PBX platforms identified via response Server / title / body:
+  FreePBX, PBXact, 3CX, Yeastar (+ Linkus + NeoGate + MyPBX),
+  Cisco UCM, Avaya (IP Office + Aura + Communication Manager),
+  Mitel (+ ShoreTel + MiCollab), Grandstream (+ UCM6 + GXP +
+  GXW), Fanvil, Yealink (+ SIP-T), Asterisk HTTP Manager,
+  Switchvox, Elastix, FreeSWITCH. InsecureSkipVerify defaulted
+  true — PBX default installs universally ship self-signed
+  certs; fingerprinting use-case outweighs MITM risk (gosec
+  waiver documented in code). PBX-likely heuristic: unmatched
+  brand but body mentions pbx / phone system / sip server /
+  voip admin / extension → protocol_risk=70 so the finding
+  still surfaces. 21 tests; 15-vendor IdentifyVendor table;
+  5-tier VendorRisk table. Offensive write-gated variant is a
+  v1.4 candidate.
 - 2026-04-22 — **v1.3 chunk 1b (IAX2 plugin)** landed on main.
   Asterisk's native binary UDP protocol on port 4569.
   `internal/protocols/iax2/wire/` is a minimal RFC 5456 full-

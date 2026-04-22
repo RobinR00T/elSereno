@@ -41,13 +41,14 @@ token-budget: 900
 **First command when in doubt**: `elsereno doctor`.
 
 **Current phase (2026-04-22)**: v1.0.1 published on GitHub
-releases. v1.1.0 + v1.2.0 signed locally, unpushed (19 commits on
-top of origin/main). v1.3 chunk 1 (PBX discovery) in flight —
-SIP + IAX2 plugins landed (~ 21 unpushed commits total). See
-`.context/snapshots/v1.3-in-flight.md` + the closed v1.2
-snapshot for the full picture of what shipped in each cycle.
-15 protocol plugins in the default build; every TCP-based plugin
-enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
+releases. v1.1.0 + v1.2.0 + **v1.3.0** signed locally, unpushed
+(22 commits on top of origin/main). v1.3.0 closed the PBX-
+discovery cycle: SIP (5060/udp+tcp) + IAX2 (4569/udp) + pbxhttp
+(443) plugins, 15 PBX brand fingerprints across the three. See
+`.context/snapshots/v1.3.0-pbx-discovery.md` +
+`.context/snapshots/v1.2-db-panels-opcua-gates-dial.md` for the
+full picture of each cycle. **16 protocol plugins in the default
+build**; every TCP-based plugin enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
 (JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
 is now code-sourced (`internal/web/openapi.Spec`) and served live

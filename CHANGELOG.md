@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-04-22
+
+### Added
+
+- **PBX discovery cycle.** Three new protocol plugins collectively
+  identify 15 PBX brands across the canonical PBX attack surfaces,
+  bringing the default build to **16 protocol plugins**.
+- **`pbxhttp`** plugin — HTTP(S) PBX admin-page fingerprint on
+  443 (also 80 / 8080 / 8088 / 5001 / 8443 via Scheme override).
+  Single GET to `/` with a browser-like User-Agent; classifies
+  response Server / HTML `<title>` / body against a priority-
+  ordered 15-vendor matcher (FreePBX, PBXact, 3CX, Yeastar,
+  Cisco UCM, Avaya, Mitel, Grandstream, Fanvil, Yealink, Asterisk
+  HTTP Manager, Switchvox, Elastix, FreeSWITCH, plus unknown
+  PBX-likely heuristic). `protocol_risk` tiers 70–90 by vendor
+  class (attack-ripe / enterprise / SOHO / gateway / unknown).
+  Self-signed cert tolerance (`InsecureSkipVerify=true` default)
+  for fingerprinting use-case; gosec waiver documented in code.
+- **`iax2`** plugin — Asterisk's native binary UDP protocol on
+  port 4569. Minimal RFC 5456 full-frame parser (12-byte header;
+  FrameType + IAXSubclass enums). Probe sends a random-call
+  number NEW, classifies reply by subclass: ACCEPT / AUTHREQ /
+  REJECT / HANGUP / PING / PONG / REG\* all confirm IAX2 →
+  `protocol_risk=90`. ACCEPT triggers a polite HANGUP so the
+  remote dialogue table doesn't grow. Mini-frame-length-
+  mismatch guard prevents HTTP bytes (0x48 = 'H' has high bit 0
+  → looks like a mini-frame) from falsely confirming IAX2.
+- **`sip`** plugin — SIP OPTIONS probe on 5060 UDP+TCP with a
+  15-vendor matcher: Asterisk, FreePBX, 3CX, Cisco UCM, Cisco
+  SIP Gateway, Mitel (+ ShoreTel), Avaya (+ IP Office), Yeastar,
+  Grandstream, Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH,
+  SER. DenyAll proxy emits a canonical `SIP/2.0 403 Forbidden`
+  with `Server: ElSereno proxy (read-only)`.
+
+### Changed
+
+- Plugin count in the default build: **13 → 16**. Plugin list
+  now includes `iax2`, `sip`, `pbxhttp` alongside the existing
+  atg / atmodem / bacnet / banner / dnp3 / enip / fox / hartip /
+  iec104 / modbus / opcua / s7 / xot.
+
+### Deferred to v1.4
+
+- Offensive write-gated proxies for SIP / IAX2 / pbxhttp (the
+  default variants deny all; INVITE / HANGUP / admin-API
+  allowlist variants are v1.4).
+- TR-069/CWMP fingerprint on 7547/tcp.
+- VoIP-SIP dial backend subprocess (`elsereno-dial-voip-sip`).
+- HTTP paths beyond `/` for pbxhttp (`/admin/config.php`,
+  `/webclient/`, `/ccmadmin/`, etc. for vendor-specific recall).
+
 ## [1.2.0] — 2026-04-22
 
 ### Added
