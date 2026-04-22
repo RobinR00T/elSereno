@@ -1,0 +1,33 @@
+ElSereno — AUTHORS
+==================
+
+This file lists the individuals who have contributed to the
+design, implementation, and documentation of ElSereno.
+
+Primary author + maintainer
+---------------------------
+
+Daniel Solís Agea <daniel.solis@zynap.com>
+    LinkedIn: https://www.linkedin.com/in/danielsolisagea/
+    GPG key : ACE3B86BACACE7D6
+    Role    : project owner, architecture, security review,
+              every signed release tag (v1.0.0, v1.0.1, v1.1.0)
+
+Acknowledgements
+----------------
+
+- The Go, pgx, goreleaser, cosign, SLSA, and Sigstore projects
+  whose reusable supply-chain infrastructure makes this release
+  pipeline auditable end-to-end.
+- The OPC Foundation, IEC TC 57, IEEE Power and Energy Society
+  (1815 DNP3 WG), HART Communication Foundation, ASHRAE SSPC
+  135 (BACnet), Modicon / Schneider, and Rockwell / ODVA for
+  the public protocol specifications that make write-gate
+  enforcement decidable at the wire layer.
+
+Contact for security issues
+---------------------------
+
+Please email daniel.solis@zynap.com with subject line prefix
+`[ElSereno Security]`. See SECURITY.md for the full vulnerability
+disclosure policy.
