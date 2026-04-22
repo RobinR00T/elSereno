@@ -227,6 +227,32 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-22 — **v1.2 chunk 3 (protocol Handle loops)** landed
+  on main: full wire-level `Handle` loops + protocol-native
+  refusal frames for 5 TCP protocols that previously had only
+  session primitives. Each handler parses the wire framing,
+  matches against an allowlist, and either forwards or emits a
+  refusal:
+    * DNP3 (`handle.go`): link-layer primary + app-layer FC
+      gating; refusal = user-data response with IIN2 bit 2
+      FUNC_NOT_SUPP set. Read (FC 0x01) always passes.
+    * IEC-104: APCI I/U/S type split; I-frames consult ASDU
+      Type ID allowlist; refusal = I-format ACT_CON with
+      COT=47 (negative confirm) mirroring the request's type.
+    * HART-IP: SessionInitiate / Close / KeepAlive pass;
+      TokenPassPDU inspects the embedded HART command byte
+      (long or short frame); reads (cmd 0..3) pass; refusal =
+      HART response with "command not implemented" response-
+      code bit 0x40.
+    * ATG Veeder-Root: line-oriented ASCII; 'I' info commands
+      pass; others consult allowlist; refusal = Veeder-Root
+      NAK (`<SOH>9999FF1B<CR><ETX>`).
+    * Fox (Niagara): line-oriented; hello/get/list/a verbs
+      always pass; refusal = `fox a 0 -1 fox denied\n`.
+  BACnet stays at session-primitives-only because it's UDP and
+  the generic TCP proxy doesn't apply; full BACnet relay lands
+  in v1.3 with a dedicated UDP relay. 24+ unit tests total
+  across the 5 packages exercising forward/refuse paths.
 - 2026-04-22 — **v1.2 chunk 2 (OPC UA write gating)** landed
   on main. Extends `internal/protocols/opcua/wire/` with
   service-layer parsing: OPN/MSG/CLO header types,
