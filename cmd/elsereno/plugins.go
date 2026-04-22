@@ -10,6 +10,7 @@ import (
 	"local/elsereno/internal/protocols/enip"
 	"local/elsereno/internal/protocols/fox"
 	"local/elsereno/internal/protocols/hartip"
+	"local/elsereno/internal/protocols/iax2"
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
@@ -36,4 +37,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: atg.Default().Metadata(), Factory: func() core.Protocol { return atg.Default() }})
 	core.Register(core.Plugin{PluginMetadata: opcua.Default().Metadata(), Factory: func() core.Protocol { return opcua.Default() }})
 	core.Register(core.Plugin{PluginMetadata: sip.Default().Metadata(), Factory: func() core.Protocol { return sip.Default() }})
+	core.Register(core.Plugin{PluginMetadata: iax2.Default().Metadata(), Factory: func() core.Protocol { return iax2.Default() }})
 }
