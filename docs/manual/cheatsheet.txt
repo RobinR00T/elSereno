@@ -1,0 +1,194 @@
+===============================================================
+                     ElSereno — Cheatsheet
+===============================================================
+Version  : v1.1.0+ (v1.2 features tagged below)
+Updated  : 2026-04-22
+Binary   : elsereno (default) | elsereno-offensive (write-capable)
+===============================================================
+
+
+------------------------ Flujo diario -------------------------
+elsereno vault init                       # 1a vez
+elsereno vault unlock                     # cada arranque
+elsereno serve --addr 127.0.0.1:8787      # dashboard
+elsereno plugins list                     # 13 protocolos
+
+# Non-interactive (CI / agent):
+umask 077; printf '%s' "$PP" > ~/.elsereno/dev.pp; chmod 0600 $_
+elsereno serve --vault-passphrase-file ~/.elsereno/dev.pp
+
+
+--------------------- Scan: defensive -------------------------
+# stdin
+echo 10.0.0.5:502 | elsereno scan --input stdin --protocol modbus
+
+# Shodan pipe
+shodan search 'port:502 country:ES' --fields ip_str,port \
+  | elsereno scan --input stdin
+
+# Censys JSON
+elsereno scan --input-file censys.json --input-type censys
+
+# nmap XML
+nmap -sS -p 102,502,1911,2404,4840 target -oX out.xml
+elsereno scan --input-file out.xml --input-type nmapxml
+
+# Plain list
+elsereno scan --input-file targets.txt --scope scope.yaml
+
+# Outputs
+elsereno scan --input-file t.txt \
+  --out-ndjson f.ndjson --out-csv f.csv --out-html f.html \
+  --syslog udp://siem:514 \
+  --webhook-url https://hook --webhook-secret-file wh.pp
+
+
+----------------- Protocol fingerprints -----------------------
+  modbus    502         FC 1/3 + Read-Device-ID
+  s7        102         TPKT+COTP+ROSCTR 0x01
+  enip      44818       ListIdentity (CIP UCMM)
+  bacnet    47808/udp   Who-Is broadcast
+  dnp3      20000       Read Class 0
+  iec104    2404        STARTDT/TESTFR
+  hartip    5094        SessionInitiate
+  fox       1911/4911   "fox a" banner + version
+  atg       10001       <SOH>I20100<CR>  Veeder-Root
+  opcua     4840        HEL Hello → ACK/ERR/non-UA
+  xot       1998        X.25 CALL REQUEST
+  atmodem   serial/TCP  AT banner
+  banner    *           generic TCP grab
+
+
+--------------------- Scoring + triage ------------------------
+elsereno explain                 # ADR-006 factors
+elsereno scoring show            # weights + thresholds
+elsereno triage --run <uuid>     # quick-wins / strategic / routine
+
+
+----------------------- API HTTP (v1+) ------------------------
+GET /api/v1/plugins                      # read-only
+GET /api/v1/scoring
+GET /api/v1/health
+GET /api/v1/openapi.yaml
+GET /api/v1/stream                       # SSE live (v1.1)
+GET /api/v1/findings?severity=high       # v1.2 — requires DB
+GET /api/v1/runs?limit=20                # v1.2
+GET /api/v1/triage                       # v1.2
+GET /healthz  /readyz                    # probes
+GET /admin/security                      # self-audit panel
+
+
+-------- Postgres (opcional — panels findings/runs) -----------
+
+# Helper script (recomendado):
+scripts/dev-db.sh up          # start + wait-healthy + migrate
+scripts/dev-db.sh status      # ps + pg_isready
+scripts/dev-db.sh env         # imprime la línea export ...
+scripts/dev-db.sh down        # parar (mantener volumen)
+scripts/dev-db.sh reset       # borrar volumen + re-up + migrate
+
+# Helper escribe ~/.elsereno/dev-db.env con DATABASE_URL=...
+export $(grep -v '^#' ~/.elsereno/dev-db.env | xargs)
+
+# Manual (sin script):
+docker compose -f docker-compose.dev.yml up -d db
+export DATABASE_URL=postgres://elsereno@127.0.0.1:5433/elsereno?sslmode=disable
+elsereno db migrate up
+
+
+------------- ¿Necesita DB?  ElSereno es honest ---------------
+
+NO requieren DB (funcionan con binario+vault solo):
+  - scan → NDJSON/CSV/HTML/CEF/Syslog/Webhook
+  - serve + dashboard overview + plugins + scoring + live SSE
+  - /admin/security (self-audit panel)
+  - audit chain → ~/.elsereno/audit.jsonl (FileWriter)
+  - vault *   (AES-GCM file-backed)
+  - offensive verbs (write, exploit, harvest, dial)
+
+SÍ requieren DB:
+  - Dashboard panels de findings/triage/runs
+  - GET /api/v1/findings | /runs | /triage
+  - /readyz reportando "db":"ok"  (si no hay DB: "skipped")
+
+
+================ OFFENSIVE (build -tags offensive) ============
+
+Siempre requiere:
+  1. binario `elsereno-offensive`
+  2. `--accept-writes`
+  3. `--confirm-target <mismo valor que --target>`
+  4. `--confirm-token <HMAC del dry-run>`
+
+# Modbus write
+elsereno-offensive write modbus dry-run \
+  --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
+elsereno-offensive write modbus send \
+  --target 10.0.0.5:502 --unit 1 --address 100 --value 1234 \
+  --accept-writes --confirm-target 10.0.0.5:502 --confirm-token <tok> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# Exploit
+elsereno-offensive exploit list
+elsereno-offensive exploit dry-run --cve cve-2015-5374 --target 10.0.0.6:102
+elsereno-offensive exploit run \
+  --cve cve-2015-5374 --target 10.0.0.6:102 --proto udp \
+  --accept-writes --confirm-target 10.0.0.6:102 --confirm-token <tok>
+
+# Harvest
+elsereno-offensive harvest --targets list.txt \
+  --probers telnet,ftp,http-basic,snmp --accept-writes \
+  --confirm-target list.txt --confirm-token <tok>
+
+# Dial (wardial batch, v1.1 chunk 8)
+elsereno-offensive dial validate --number "+34 91 123 4567"
+elsereno-offensive dial batch --numbers-file nums.txt \
+  --scope scope.yaml --disposition preview
+
+# Audit
+elsereno audit verify-file
+elsereno audit show --last 10
+
+
+---------------- Detection (blue team — what to alert on) -----
+
+  Modbus FC 5/6/15/16/22/23 desde external  → CRITICAL
+  S7 ROSCTR=0x01 + Fn 0x04 (STOP) from non-HMI → CRITICAL
+  DNP3 app FC 0x05/0x06 DirectOperate desde no-master → HIGH
+  IEC-104 I-frame ASDU 45-51 (C_SC_NA_1…)   → HIGH
+  OPC UA MSG TypeID 673/704 desde external  → HIGH
+  Veeder-Root ATG <SOH>I/S/V... expuesta a Inet → CRITICAL
+
+
+----------------------- Troubleshooting -----------------------
+vault: bad passphrase        → no recovery; vault init limpio
+serve: CSRF key HKDF failed  → vault no desbloqueado
+dashboard sin estilos        → binario viejo; actualiza (v1.1+)
+/readyz → 503                → DB caída; docker compose ps db
+audit: ErrChainBroken        → audit.jsonl tocado; audit rebase
+
+
+------------------------- Files útiles ------------------------
+~/.elsereno/vault.v1.bin     AES-GCM vault
+~/.elsereno/audit.jsonl      audit chain JCS+SHA256 (0600)
+~/.elsereno/dev.pp           passphrase file (0600)
+scope.yaml                   ranges + ports + blocked_numbers
+docs/openapi.yaml            API 3.1 spec snapshot
+
+
+----------- Verificación supply-chain (post release) ----------
+cosign verify-blob --bundle checksums.txt.bundle \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com' \
+  checksums.txt
+
+cosign verify ghcr.io/robinr00t/elsereno:vX.Y.Z \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
+
+cosign download sbom ghcr.io/robinr00t/elsereno:vX.Y.Z | jq '.components|length'
+
+scripts/release-smoke.sh vX.Y.Z    # end-to-end post-push
+
+
+===============================================================
