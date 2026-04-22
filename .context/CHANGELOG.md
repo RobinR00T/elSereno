@@ -227,6 +227,19 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-22 — **v1.2 extra: `audit.SyncFromFile` helper**
+  bootstraps a fresh DB (DBMirror / FileMirror) from an
+  existing JSONL audit chain — typical use case is an operator
+  who ran v1.0→v1.1 with just the FileWriter, spins up a
+  Postgres in v1.2, and wants the history migrated without
+  losing chain continuity. The helper walks the file,
+  re-validates every prev_hash + entry_hash (detects silent
+  tamper), skips IDs already in the target (via an operator-
+  supplied `ExistingIDFunc` — `DBExistingID(conn)` is the
+  pgx-backed default), then calls MirrorWriter.Mirror
+  verbatim. Returns the count of imported entries + a typed
+  error on any chain discrepancy. 3 unit tests cover the
+  happy path, idempotent re-import, and tamper detection.
 - 2026-04-22 — **v1.2 chunk 5 (SLSA .intoto.jsonl fix)** landed
   on main. Dropped the `slsa-framework/slsa-github-generator`
   reusable workflow (upstream exit-27 bug, tracked since
