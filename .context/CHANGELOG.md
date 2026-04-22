@@ -227,6 +227,22 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-22 — **v1.2 chunk 5 (SLSA .intoto.jsonl fix)** landed
+  on main. Dropped the `slsa-framework/slsa-github-generator`
+  reusable workflow (upstream exit-27 bug, tracked since
+  v2.0.0 and still unfixed in v2.1.0 — issue 2610). Replaced
+  with GitHub's native `actions/attest-build-provenance@v2`:
+  the release workflow now attests every `dist/elsereno_*.tar.gz`
+  + `checksums.txt` with a SLSA v1.0 predicate signed via
+  Sigstore keyless (same identity proof, same transparency log,
+  no reusable-workflow dependency). Consumers verify with
+  `gh attestation verify <artifact> --repo RobinR00T/elSereno`
+  or `cosign verify-attestation --type slsaprovenance1 …`.
+  `release.yml` gains `attestations: write` perm; drops the
+  `slsa-provenance` + `slsa-provenance-gate` jobs; the hashes
+  stage is also gone (no longer needed). SUPPLY-CHAIN.md +
+  `.goreleaser.yml` footer + `scripts/release-smoke.sh` all
+  updated with the new verify recipe.
 - 2026-04-22 — **v1.2 chunk 4 (dial backends)** landed on main.
   New package `offensive/dial/backend` with the `Backend`
   interface (`Name` / `Deliver(ctx, normalised) → Result` /

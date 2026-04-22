@@ -15,19 +15,36 @@ Controls that justify L3:
 |-------------|----------|
 | Build integrity — hermetic, reproducible | `CGO_ENABLED=0`, `-trimpath`, `-buildvcs=false`, `GOFLAGS=-mod=readonly` in `.goreleaser.yml` |
 | Isolated build environment | GitHub-hosted `ubuntu-latest` runner (single-use VM) |
-| Provenance exists | `slsa-framework/slsa-github-generator/.../generator_generic_slsa3.yml` attaches `.intoto.jsonl` per archive |
+| Provenance exists | `actions/attest-build-provenance@v2` attests every archive + `checksums.txt` with a SLSA v1.0 predicate (v1.2+) |
 | Provenance is authenticated | GitHub OIDC identity signs the attestation via Sigstore; no long-lived key |
-| Provenance is service-generated | Attestation minted by the SLSA generator action, not from a developer laptop |
+| Provenance is service-generated | Attestation minted by the Attestations API action in the same job, not from a developer laptop |
 | Provenance is non-falsifiable | Sigstore transparency log (Rekor) backs every signature |
 
-Operators verify with:
+Operators verify via GitHub CLI (easiest):
 
+```sh
+gh attestation verify elsereno_v1.2.0_linux_amd64.tar.gz \
+    --repo RobinR00T/elSereno
 ```
-slsa-verifier verify-artifact <artefact> \
-  --provenance-path <artefact>.intoto.jsonl \
-  --source-uri github.com/elsereno/elsereno \
-  --source-tag v0.1.0
+
+Or with cosign against the Sigstore transparency log directly:
+
+```sh
+cosign verify-attestation \
+    --type slsaprovenance1 \
+    --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+    --certificate-oidc-issuer     'https://token.actions.githubusercontent.com' \
+    elsereno_v1.2.0_linux_amd64.tar.gz
 ```
+
+**v1.2 change**: dropped the `slsa-framework/slsa-github-generator`
+reusable workflow. That workflow's `final` step had a long-standing
+exit-27 bug (upstream issue 2610) that forced v1.0.1 and v1.1.0 to
+wrap the job in a non-blocking gate. The GitHub Attestations API
+path is maintained by GitHub itself, produces the same SLSA v1.0
+predicate, and doesn't hit the upstream bug. `slsa-verifier` still
+works against the attestation — you just fetch it via `gh
+attestation download` instead of it being a release asset.
 
 ## Dependency policy
 

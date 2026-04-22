@@ -8,12 +8,11 @@ permissions:
   contents: write
   id-token: write
   packages: write
+  attestations: write   # v1.2: actions/attest-build-provenance@v2
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
-    outputs:
-      hashes: ${{ steps.hashes.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,49 +76,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Emit the base64-encoded SHA256 SUBJECTS the SLSA generator
-      # expects. goreleaser writes dist/checksums.txt in the
-      # "<sha256>  <filename>" shasum(1) format; the generator needs
-      # the whole file base64-encoded.
-      - id: hashes
-        run: |
-          if [ -f dist/checksums.txt ]; then
-            echo "hashes=$(base64 -w0 < dist/checksums.txt)" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::dist/checksums.txt missing — goreleaser did not emit it"
-            exit 1
-          fi
-
-  slsa-provenance:
-    needs: goreleaser
-    permissions:
-      id-token: write
-      contents: write
-      actions: read
-    # slsa-github-generator's internal `final` step fails with
-    # SUCCESS=false + exit 27 when called in chain with an
-    # existing release (a known issue tracked against both v2.0.0
-    # and v2.1.0). The `.intoto.jsonl` provenance is already
-    # uploaded by the preceding `upload-assets` step, so we let
-    # this reusable workflow's overall conclusion be informational
-    # rather than blocking the release. Tracked for v1.2 rework.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
-      # Attach the .intoto.jsonl attestation to the same release
-      # the goreleaser job just created.
-      upload-assets: true
-  slsa-provenance-gate:
-    name: SLSA provenance (non-blocking)
-    needs: slsa-provenance
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: summarise
-        run: |
-          echo "slsa-provenance conclusion: ${{ needs.slsa-provenance.result }}"
-          if [ "${{ needs.slsa-provenance.result }}" != "success" ]; then
-            echo "::warning::SLSA final step emitted exit 27 (known upstream bug); .intoto.jsonl was already uploaded by upload-assets. Verify at https://github.com/${{ github.repository }}/releases"
-          fi
-          # Never block the release on this job.
-          exit 0
+      # v1.2: drop the slsa-framework/slsa-github-generator
+      # reusable workflow (exit-27 bug tracked since v2.0.0 and
+      # still present in v2.1.0 — see
+      # github.com/slsa-framework/slsa-github-generator/issues/2610).
+      # Use GitHub's native actions/attest-build-provenance@v2
+      # instead. Produces a SLSA v1.0 predicate + Sigstore keyless
+      # signature, attached to the GitHub Attestations API + the
+      # release page. Consumers verify with:
+      #
+      #   gh attestation verify elsereno_vX.Y.Z_linux_amd64.tar.gz \
+      #       --repo RobinR00T/elSereno
+      #
+      # or, for cosign users:
+      #
+      #   cosign verify-attestation --type slsaprovenance1 \
+      #       --certificate-identity-regexp '…' --certificate-oidc-issuer '…' \
+      #       <artifact>
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          # All goreleaser archives under dist/ get attestation.
+          # `subject-path` accepts glob. The docker manifest gets
+          # its own cosign attestation via goreleaser's docker_signs.
+          subject-path: |
+            dist/elsereno_*.tar.gz
+            dist/elsereno_*.zip
+            dist/checksums.txt
+          # Keep the attestation on the release page as well (not
+          # just in the Attestations API) so operators who pull
+          # tarballs + verify offline have a local file to check.
+          show-summary: true

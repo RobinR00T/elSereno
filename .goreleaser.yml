@@ -179,13 +179,13 @@ signs:
       - "--output-signature=${signature}"
       - "${artifact}"
 
-# SLSA L3 provenance generation. The release workflow
-# (.github/workflows/release.yml) wraps goreleaser with
-# slsa-framework/slsa-github-generator so every archive has a
-# signed in-toto v1 attestation at
-# `<artefact>.intoto.jsonl`. The supply-chain workflow's
-# `provenance-verify` job runs `slsa-verifier verify-artifact`
-# on every tag push to prove the attestation chain is intact.
+# SLSA L3 provenance generation. Since v1.2 the release
+# workflow uses `actions/attest-build-provenance@v2` (GitHub
+# Attestations API) to mint SLSA v1.0 predicates for every
+# archive + checksums.txt. That dropped the
+# `slsa-framework/slsa-github-generator` reusable workflow
+# whose `final` step had an exit-27 bug (upstream 2610) across
+# v1.0.1 + v1.1.0.
 release:
   draft: false
   replace_existing_artifacts: true
@@ -199,8 +199,6 @@ release:
       --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
       checksums.txt
 
-    slsa-verifier verify-artifact <artefact> \
-      --provenance-path <artefact>.intoto.jsonl \
-      --source-uri github.com/{{ .Env.GITHUB_REPOSITORY }} \
-      --source-tag {{ .Tag }}
+    # SLSA v1.0 build provenance (v1.2+ via GitHub Attestations API):
+    gh attestation verify <artefact> --repo {{ .Env.GITHUB_REPOSITORY }}
     ```

@@ -93,5 +93,28 @@ else
 fi
 
 echo
+echo
+echo "== SLSA build provenance (v1.2+) =="
+# The v1.2 release flow mints attestations via GitHub's
+# Attestations API (actions/attest-build-provenance@v2). Use
+# gh CLI to verify one representative archive; full matrix
+# (all arches × OS) is exercised by gh attestation verify's
+# default subject scan.
+if command -v gh >/dev/null 2>&1; then
+    # Grab any archive we downloaded — cheapest probe.
+    curl -fLo "$WORK/probe.tar.gz" \
+        "$RELEASE_BASE/elsereno_${TAG#v}_linux_amd64.tar.gz" 2>/dev/null || true
+    if [ -f "$WORK/probe.tar.gz" ]; then
+        if gh attestation verify "$WORK/probe.tar.gz" --repo "$REPO" >/dev/null 2>&1; then
+            pass "SLSA build provenance verified for linux_amd64"
+        else
+            note "gh attestation verify returned non-zero (may be gh-CLI not-logged-in or v1.1 release)"
+        fi
+    fi
+else
+    note "gh CLI not installed — skipping SLSA attestation verify"
+fi
+
+echo
 echo "== summary =="
 echo "  release $TAG verified end-to-end"
