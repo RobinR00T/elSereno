@@ -240,6 +240,28 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-22 — **v1.3 chunk 1b (IAX2 plugin)** landed on main.
+  Asterisk's native binary UDP protocol on port 4569.
+  `internal/protocols/iax2/wire/` is a minimal RFC 5456 full-
+  frame parser (12-byte header, FrameType + IAXSubclass enums,
+  BuildNEW + BuildHANGUP). Probe sends a bare NEW, classifies
+  the reply by subclass: ACCEPT / AUTHREQ / REJECT / HANGUP /
+  PING-PONG / REG* → iax2-* note + protocol_risk=90
+  (Asterisk-specific; public-internet exposure is a direct
+  PBX disclosure). ACCEPT triggers a polite HANGUP so the
+  remote dialogue table doesn't grow. Mini-frame-length-
+  mismatch guard prevents HTTP bytes (byte[0]=0x48 → high bit
+  0 → looks like a mini-frame) from falsely confirming IAX2.
+- 2026-04-22 — **v1.3 chunk 1a (SIP plugin)** landed on main.
+  OPTIONS probe on port 5060 UDP+TCP identifies 15 known PBX
+  brands from the Server / User-Agent response header:
+  Asterisk, FreePBX, 3CX, Cisco UCM, Cisco SIP Gateway, Mitel,
+  Avaya, Yeastar, Grandstream, Fanvil, Yealink, Kamailio,
+  OpenSIPS, FreeSWITCH, SER. protocol_risk 70-90 per vendor
+  class (attack-ripe 90, enterprise 85, SOHO 80, proxies 75,
+  unknown 70). capability=60 once SIP confirmed; auth_state
+  drops to 50 on a 401 response. DenyAll proxy emits a SIP
+  403 Forbidden. Offensive write-gated variant v1.4.
 - 2026-04-22 — **v1.2 chunk 5 (SLSA .intoto.jsonl fix)** landed
   on main. Dropped the `slsa-framework/slsa-github-generator`
   reusable workflow (upstream exit-27 bug, tracked since

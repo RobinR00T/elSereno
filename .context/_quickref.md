@@ -40,15 +40,13 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-21)**: v1.0.1 released (RobinR00T/elSereno,
-private) with verified cosign bundle. **v1.1 in flight** on main —
-chunks 1-3 landed (per-plugin offensive WriteGatedHandler × 9,
-file-backed audit writer at `~/.elsereno/audit.jsonl` + confirm
-adapter, network delivery for `write modbus send` + `exploit run` +
-`audit verify-file`). Chunks 4-8 pending: SSE `/api/v1/stream` + DB
-panels, GHCR image, BPF filter bytecode, OPC UA plugin, wardialing
-batch. F0–F7 closed; ~70 commits on `main`.
-12 protocol plugins in the default build; every TCP-based plugin
+**Current phase (2026-04-22)**: v1.0.1 published on GitHub
+releases. v1.1.0 + v1.2.0 signed locally, unpushed (19 commits on
+top of origin/main). v1.3 chunk 1 (PBX discovery) in flight —
+SIP + IAX2 plugins landed (~ 21 unpushed commits total). See
+`.context/snapshots/v1.3-in-flight.md` + the closed v1.2
+snapshot for the full picture of what shipped in each cycle.
+15 protocol plugins in the default build; every TCP-based plugin
 enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
 (JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
