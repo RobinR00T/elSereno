@@ -227,6 +227,27 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-22 — **v1.2 chunk 2 (OPC UA write gating)** landed
+  on main. Extends `internal/protocols/opcua/wire/` with
+  service-layer parsing: OPN/MSG/CLO header types,
+  `ServiceTypeID` that decodes the TypeID from a MSG body's
+  ExpandedNodeId (TwoByte / FourByte numeric in ns=0),
+  `IsMutatingService` that returns true for
+  WriteRequest (673) + CallRequest (704). New package
+  `offensive/write/opcua` with `AllowedService{TypeID}`,
+  `AllowlistHash` (order-insensitive), `SessionMutation`,
+  `WriteGatedHandler.Authorise` + `Handle`. HEL/OPN/CLO pass
+  through; MSG frames with non-mutating TypeIDs pass;
+  mutating TypeIDs outside the allowlist get a UA-native
+  ServiceFault reply (StatusCode BadUserAccessDenied =
+  0x80100000) so real clients parse the refusal cleanly. 9
+  tests: AllowlistHash determinism + target-sensitivity,
+  Authorise happy path + denied token, routing (HEL passes,
+  Read passes, Write refused on empty allowlist, Write allowed
+  on match, Call treated like Write), Handle precondition.
+  Full UA binary encoding of WriteValue / CallMethodRequest
+  (per-NodeId allowlisting) is a v1.3 carry-over — the v1.2
+  gate is at TypeID granularity.
 - 2026-04-21 — **v1.2 chunk 1 (DB-backed panels)** landed on
   main. Three layers:
   1. `internal/audit.DBWriter` persists audit entries to

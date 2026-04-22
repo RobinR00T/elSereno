@@ -22,9 +22,12 @@ type MessageType string
 
 // OPC UA TCP message types we inspect.
 const (
-	MessageHello MessageType = "HEL"
-	MessageAck   MessageType = "ACK"
-	MessageError MessageType = "ERR"
+	MessageHello   MessageType = "HEL"
+	MessageAck     MessageType = "ACK"
+	MessageError   MessageType = "ERR"
+	MessageOpen    MessageType = "OPN" // OpenSecureChannel
+	MessageMessage MessageType = "MSG" // secure-channel body (service request/response)
+	MessageClose   MessageType = "CLO" // CloseSecureChannel
 )
 
 // ChunkType is the fourth header byte: 'F' (final), 'C' (chunk),
@@ -90,7 +93,8 @@ func ParseHeader(b []byte) (Header, error) {
 		return h, fmt.Errorf("%w: length=%d max=%d", ErrOversize, h.Length, MaxMessageSize)
 	}
 	switch h.Type {
-	case MessageHello, MessageAck, MessageError:
+	case MessageHello, MessageAck, MessageError,
+		MessageOpen, MessageMessage, MessageClose:
 	default:
 		return h, fmt.Errorf("%w: %q", ErrUnknownType, string(h.Type))
 	}
@@ -194,4 +198,112 @@ func wrap(t MessageType, body []byte) []byte {
 	binary.LittleEndian.PutUint32(out[4:8], uint32(HeaderSize+len(body))) //nolint:gosec // G115 — body length bounded by caller
 	copy(out[HeaderSize:], body)
 	return out
+}
+
+// WellKnown UA service-request Binary TypeIds from Part 4
+// Annex A. Request NodeIds are numeric in Namespace 0. We only
+// enumerate the ones the write-gate distinguishes; the full
+// catalogue is 150+ services and adds no value here.
+//
+// Encoded on the wire as a FourByteNodeId (0x01 encoding byte +
+// 1-byte namespace + 2-byte identifier LE). Some stacks use
+// TwoByteNodeId for small identifiers; the handler accepts both.
+const (
+	// TypeIDOpenSecureChannelRequest — OPC-UA Part 4 §7.1.
+	TypeIDOpenSecureChannelRequest uint16 = 446
+	// TypeIDCloseSecureChannelRequest — Part 4 §7.2.
+	TypeIDCloseSecureChannelRequest uint16 = 452
+	// TypeIDCreateSessionRequest — Part 4 §7.3.
+	TypeIDCreateSessionRequest uint16 = 461
+	// TypeIDActivateSessionRequest — Part 4 §7.5.
+	TypeIDActivateSessionRequest uint16 = 467
+	// TypeIDCloseSessionRequest — Part 4 §7.6.
+	TypeIDCloseSessionRequest uint16 = 473
+	// TypeIDReadRequest — Part 4 §10.2.
+	TypeIDReadRequest uint16 = 631
+	// TypeIDWriteRequest — Part 4 §10.4. THE BIG ONE.
+	TypeIDWriteRequest uint16 = 673
+	// TypeIDCallRequest — Part 4 §11.2. Method invocation can
+	// mutate server state as aggressively as Write, so the
+	// gate treats it the same.
+	TypeIDCallRequest uint16 = 704
+	// TypeIDBrowseRequest — Part 4 §8.2.
+	TypeIDBrowseRequest uint16 = 527
+)
+
+// NodeIDEncoding enumerates the four-variant TypeId encoding
+// prefix byte on the wire (Part 6 §5.2.2.9). Only Two- and
+// Four-byte numeric variants are used for service TypeIds in
+// Namespace 0; the rest (Numeric, String, Guid, ByteString)
+// appear for application NodeIds.
+type NodeIDEncoding byte
+
+// NodeId encoding prefixes.
+const (
+	NodeIDTwoByte    NodeIDEncoding = 0x00
+	NodeIDFourByte   NodeIDEncoding = 0x01
+	NodeIDNumeric    NodeIDEncoding = 0x02
+	NodeIDString     NodeIDEncoding = 0x03
+	NodeIDGuid       NodeIDEncoding = 0x04
+	NodeIDByteString NodeIDEncoding = 0x05
+)
+
+// ErrShortMSG is returned when a MSG body is too short to carry
+// the SymmetricAlgorithmSecurityHeader + SequenceHeader + TypeId.
+var ErrShortMSG = errors.New("opcua/wire: short MSG body")
+
+// ServiceTypeID decodes the service-request TypeId from the
+// beginning of a MSG chunk body. A MSG body layout is:
+//
+//	[0..3]   SecureChannelId (u32)                          — caller can stash
+//	[4..7]   TokenId (u32)                                  — caller can stash
+//	[8..11]  SequenceNumber (u32)
+//	[12..15] RequestId (u32)
+//	[16..]   ExpandedNodeId (NodeId encoding + payload)
+//	[...]    service-specific body
+//
+// For OPN the security header is different (AsymmetricAlgorithm
+// SecurityHeader with policy URI + certs) so this helper does
+// NOT apply; MSG bodies only. Returns (0, false) when the TypeId
+// encoding is not a FourByte or TwoByte numeric — those are the
+// only forms service requests use.
+func ServiceTypeID(msgBody []byte) (uint16, bool) {
+	if len(msgBody) < 17 {
+		return 0, false
+	}
+	enc := NodeIDEncoding(msgBody[16])
+	switch enc { //nolint:exhaustive // Numeric/String/Guid/ByteString are for application NodeIds; service TypeIds use only Two/FourByte
+	case NodeIDTwoByte:
+		// [17] = identifier (u8)
+		if len(msgBody) < 18 {
+			return 0, false
+		}
+		return uint16(msgBody[17]), true
+	case NodeIDFourByte:
+		// [17]   = namespace (u8; must be 0 for spec services)
+		// [18:20] = identifier (u16 LE)
+		if len(msgBody) < 20 {
+			return 0, false
+		}
+		if msgBody[17] != 0 {
+			return 0, false
+		}
+		return binary.LittleEndian.Uint16(msgBody[18:20]), true
+	}
+	return 0, false
+}
+
+// IsMutatingService returns true when the given TypeId names a
+// service request that can mutate server state. Write + Call
+// are the canonical two; AddNodes / AddReferences / DeleteNodes
+// / DeleteReferences mutate the address-space itself and would
+// matter for an operator with full admin rights, but ElSereno's
+// gate surface is Write + Call because those are what exploit
+// attempts reach for. Address-space mutations land with v1.3.
+func IsMutatingService(typeID uint16) bool {
+	switch typeID {
+	case TypeIDWriteRequest, TypeIDCallRequest:
+		return true
+	}
+	return false
 }
