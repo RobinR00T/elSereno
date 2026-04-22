@@ -1,6 +1,6 @@
-.PHONY: all build build-offensive build-sqlite install install-man \
+.PHONY: all build build-offensive install install-man \
         test test-race test-cover test-fuzz test-integration test-e2e test-all \
-        bench sec lint fmt tidy clean run docker docker-sqlite \
+        bench sec lint fmt tidy clean run docker \
         db-up db-down db-migrate db-reset \
         gen-manpages context-check ci release-gate
 
@@ -19,10 +19,6 @@ build:
 build-offensive:
 	CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
 	  -tags offensive -ldflags="$(LDFLAGS)" -o bin/elsereno-offensive ./cmd/elsereno
-
-build-sqlite:
-	CGO_ENABLED=1 go build -trimpath -buildvcs=false \
-	  -tags sqlite -ldflags="$(LDFLAGS)" -o bin/elsereno-sqlite ./cmd/elsereno
 
 install:
 	go install ./cmd/elsereno
@@ -103,9 +99,6 @@ run: build
 docker:
 	docker build -t elsereno:dev .
 
-docker-sqlite:
-	docker build -f Dockerfile.sqlite -t elsereno:sqlite-dev .
-
 db-up:
 	docker compose -f docker-compose.dev.yml up -d db
 
@@ -128,9 +121,10 @@ context-check:
 	./scripts/context-check.sh
 
 # `ci` replicates the remote CI locally as a superset so bitrot is caught
-# before push (PITF-031). Includes all three build variants, test-race,
-# test-cover, test-fuzz smoke, sec (including go-licenses), and context.
-ci: lint build build-offensive build-sqlite test-race test-cover test-fuzz sec context-check
+# before push (PITF-031). Covers the default + offensive build variants,
+# test-race, test-cover, test-fuzz smoke, sec (including go-licenses),
+# and context-check.
+ci: lint build build-offensive test-race test-cover test-fuzz sec context-check
 
 # release-gate runs the 1.0 preconditions (scripts/release-gate.sh):
 # tests + lint × 2 build variants, sec-suite, context-check, docs

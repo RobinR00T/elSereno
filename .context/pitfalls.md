@@ -166,9 +166,9 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Casos**: audit `event_type` SoT = SQL DDL; redaction patterns SoT = `conventions.md`.
 
 ## PITF-031 — Make ci drift respecto al CI remoto
-**Síntoma**: `make ci` local omite jobs que el CI remoto sí corre (builds -tags offensive/sqlite, fuzz, go-licenses) → bitrot no detectado hasta el push.
+**Síntoma**: `make ci` local omite jobs que el CI remoto sí corre (builds -tags offensive, fuzz, go-licenses) → bitrot no detectado hasta el push.
 **Regla**: `make ci` es superset funcional de los jobs del CI que detectan bitrot (todas las variantes de build + tests + seguridad completa).
-**Implementación correcta**: target `ci: lint build build-offensive build-sqlite test-race test-cover test-fuzz sec context-check`. `make sec` incluye `go-licenses check` además de gosec/govulncheck/trivy/gitleaks. Documentar en CONTRIBUTING que `make ci` es aproximación local (el remoto es autoritativo) y aun así cubre el mismo espacio.
+**Implementación correcta**: target `ci: lint build build-offensive test-race test-cover test-fuzz sec context-check`. `make sec` incluye `go-licenses check` además de gosec/govulncheck/trivy/gitleaks. Documentar en CONTRIBUTING que `make ci` es aproximación local (el remoto es autoritativo) y aun así cubre el mismo espacio. El variant `-tags sqlite` fue retirado en v1.2.
 
 ## PITF-032 — Env vars con secretos
 **Síntoma**: secretos en env (`ELSERENO_VAULT_PASSPHRASE`, API keys) leakean via `/proc/<pid>/environ` y `ps e`.

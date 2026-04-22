@@ -22,8 +22,6 @@ jobs:
         with:
           go-version: 'stable'
           cache: true
-      - name: install sqlcipher headers
-        run: sudo apt-get update && sudo apt-get install -y libsqlcipher-dev
       - uses: sigstore/cosign-installer@v3
       - uses: anchore/sbom-action/download-syft@v0
       - name: install cyclonedx-gomod

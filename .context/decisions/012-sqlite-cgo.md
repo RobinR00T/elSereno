@@ -1,12 +1,31 @@
 ---
 id: 012
 title: SQLite build via CGO with SQLCipher, native arch only
-status: accepted
+status: superseded
+superseded-by: v1.2 sqlite removal (2026-04-22)
 date: 2026-04-19
 phase: F0
 ---
 
-# ADR-012: SQLite build via CGO with SQLCipher, native arch only
+# ADR-012: SQLite build via CGO with SQLCipher, native arch only — SUPERSEDED
+
+## Status: SUPERSEDED in v1.2 (2026-04-22)
+
+The `-tags sqlite` portable variant has been removed. Operators
+who previously relied on SQLite + SQLCipher for single-host
+deployments should use Postgres directly — either the dev-db
+docker-compose for local work, or a dedicated Postgres instance
+for production. The vault itself is file-backed (AES-GCM +
+Argon2id) and does not need DB encryption. Migration path:
+
+1. Stand up Postgres 16 (`docker compose -f
+   docker-compose.dev.yml up -d db`).
+2. Set `DATABASE_URL=postgres://elsereno@localhost:5433/elsereno?sslmode=disable`.
+3. Run `elsereno db migrate up` to apply the schema.
+4. Discard the old SQLite file; nothing in elSereno references
+   it after v1.2.
+
+The rest of this file is preserved for historical reference.
 
 ## Context
 The portable backend (ADR-005) must encrypt at rest to be acceptable for

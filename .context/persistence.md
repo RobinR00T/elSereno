@@ -7,8 +7,11 @@ token-budget: 2000
 
 # Persistence
 
-Primary store: Postgres 16. Portable variant: SQLite via `-tags sqlite`
-(CGO, native runner arch only — ADR-012, PITF-006).
+Primary store: Postgres 16. The former SQLite portable variant
+(`-tags sqlite` + SQLCipher) was removed in v1.2 — operators
+deploy Postgres for single-host setups too (see
+`docker-compose.dev.yml`). ADR-012 is superseded; ADR-005
+stays as the Postgres default decision.
 
 ## Core tables (migration 00001)
 

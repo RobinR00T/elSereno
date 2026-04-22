@@ -9,7 +9,7 @@ token-budget: 900
 
 **What**: ICS/OT legacy exposure scanner + fingerprinter + proxy + REPL + dashboard. Defensive default; `-tags offensive` for writes/exploits/harvest/dial.
 
-**Stack**: Go 1.22+, Postgres (SQLite portable via tag), HTMX+Alpine+Tailwind, single static binary. Linux + macOS only.
+**Stack**: Go 1.25+, Postgres 16, HTMX+Alpine+Tailwind, single static binary (pure Go, no CGO). Linux + macOS only.
 
 **Key invariants**:
 - Default build read-only. Writes require `-tags offensive` + triple-confirm.

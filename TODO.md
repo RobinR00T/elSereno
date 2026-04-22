@@ -90,7 +90,7 @@ Top priorities (full detail + effort estimates in `ROADMAP.md`):
 - [x] .goreleaser.yml
 - [x] CI ci.yml + release.yml + nightly.yml + codeql.yml + dependabot + renovate
 - [x] Makefile completo (ci superset)
-- [x] Dockerfile pinned + Dockerfile.sqlite CGO
+- [x] Dockerfile pinned (Dockerfile.sqlite retired in v1.2 — Postgres-only)
 - [x] docker-compose.dev.yml Postgres 16 + Adminer
 - [x] .devcontainer · lefthook · .gitignore · .editorconfig · .gitleaks.toml
 - [x] Documentación raíz (README/SECURITY/LEGAL/CONTRIBUTING/CODE_OF_CONDUCT/NON-GOALS/CHANGELOG)

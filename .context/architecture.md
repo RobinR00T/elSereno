@@ -41,8 +41,8 @@ Registered in `init()` via blank imports in `cmd/elsereno/plugins.go`
 
 ## Build tags
 - `offensive`: writes, exploits, harvest, dial.
-- `sqlite`: CGO, runner-native arch only.
-- Default: read-only, Postgres, pure Go.
+- `sandbox_integration`: kernel-level seccomp-bpf tests (Linux).
+- Default: read-only, Postgres-only, pure Go (no CGO).
 
 ## IPv6 first-class
 Loopback = `127.0.0.1/8 ∪ ::1/128`. Hostnames resolved to all A+AAAA and

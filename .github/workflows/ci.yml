@@ -89,21 +89,6 @@ jobs:
           cache: true
       - run: go build -tags offensive ./...
 
-  build-sqlite:
-    name: build-sqlite
-    runs-on: ubuntu-latest
-    env:
-      CGO_ENABLED: '1'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-          cache: true
-      - name: install sqlcipher headers
-        run: sudo apt-get update && sudo apt-get install -y libsqlcipher-dev
-      - run: go build -tags sqlite ./...
-
   unit:
     name: unit (race + coverage)
     runs-on: ubuntu-latest

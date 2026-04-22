@@ -33,18 +33,17 @@ cosign 3.0.6.
 From a clean worktree (no `dist/`):
 
 ```sh
-goreleaser check                                        # validates config
-goreleaser build --snapshot --clean \
-    --id elsereno-default --id elsereno-offensive       # skip sqlite CGO
+goreleaser check                                    # validates config
+goreleaser build --snapshot --clean
 goreleaser release --snapshot --clean \
-    --skip sign,publish,docker,sbom                      # local-only
+    --skip sign,publish,docker,sbom                 # local-only
 ```
 
-Dry-run produces 8 binaries under `dist/` — 2 build variants ×
-4 OS/arch combinations (darwin/linux × amd64/arm64). The sqlite
-variant is skipped in a macOS dry-run because CGO cannot
-cross-compile from macOS to Linux without a Linux sysroot; the
-GitHub Actions runner (ubuntu-latest) builds all three variants.
+Dry-run produces 8 binaries under `dist/` — 2 build variants
+(default / offensive) × 4 OS/arch combinations (darwin/linux
+× amd64/arm64). Pure Go, no CGO — cross-compiles cleanly from
+macOS. The former SQLite variant was removed in v1.2; Postgres
+is the only supported backend.
 
 Smoke the artefacts:
 

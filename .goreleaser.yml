@@ -43,24 +43,6 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
-  - id: elsereno-sqlite
-    main: ./cmd/elsereno
-    binary: elsereno-sqlite
-    env:
-      - CGO_ENABLED=1
-    flags:
-      - -trimpath
-      - -buildvcs=false
-      - -tags=sqlite
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-    # SQLite variant is CGO; only ship the runner's native arch (ADR-012, PITF-006).
-    goos: [linux]
-    goarch: [amd64]
-
 archives:
   - id: default
     # goreleaser v2: `builds` was renamed to `ids` for archive filters.
@@ -78,14 +60,6 @@ archives:
       - man/man5/*.5
       - man/man7/*.7
       - completions/*
-
-  - id: sqlite
-    ids:
-      - elsereno-sqlite
-    name_template: "{{ .ProjectName }}_{{ .Version }}_sqlite_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
 
 checksum:
   name_template: "checksums.txt"

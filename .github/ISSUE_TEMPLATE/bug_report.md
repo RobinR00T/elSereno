@@ -22,8 +22,8 @@ labels: bug
 
 - `elsereno version`:
 - OS / arch:
-- Postgres / SQLite variant:
-- Build tags (`default` / `offensive` / `sqlite`):
+- Postgres version (if `DATABASE_URL` set):
+- Build tags (`default` / `offensive`):
 
 ## Logs
 

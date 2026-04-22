@@ -65,9 +65,6 @@ jump host. The primary adversaries are:
     triple confirmation. Dialling additionally requires
     **--dial-allowed**; ≤ 3-digit numbers are hard-blocked.
 
-**-tags sqlite** (build)
-:   Enables SQLCipher-backed portable DB. CGO; native arch only.
-
 **ELSERENO_VAULT_PASSPHRASE** (env)
 :   Emits a warning when a TTY is present; prefer **vault unlock** or a
     0600 file.

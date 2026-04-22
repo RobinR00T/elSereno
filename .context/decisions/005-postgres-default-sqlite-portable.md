@@ -1,25 +1,29 @@
 ---
 id: 005
-title: Postgres by default, SQLite portable via -tags sqlite
+title: Postgres as the only supported backend (v1.2+)
 status: accepted
 date: 2026-04-19
 phase: F0
+updated: 2026-04-22
 ---
 
-# ADR-005: Postgres by default, SQLite portable via `-tags sqlite`
+# ADR-005: Postgres as the only supported backend (v1.2+)
 
 ## Context
 The primary deployment is a single operator on a workstation with a
 dedicated Postgres (typically via docker-compose). Field engagements on
-air-gapped jump hosts need a no-Docker option.
+air-gapped jump hosts were originally a driver for a portable SQLite
+variant, but operator feedback showed the portable variant was rarely
+used and added substantial CGO + dual-dialect maintenance cost.
 
-## Decision
-- Default backend: PostgreSQL ≥ 16 via `pgx/v5` + `pgxpool`.
-- Portable backend: SQLCipher via `github.com/mutecomm/go-sqlcipher/v4`
-  behind `-tags sqlite`, which requires `CGO_ENABLED=1` and builds only for
-  the native architecture of the runner (ADR-012, PITF-006).
-- SQLite is **never** used as an output format — only as an optional
-  runtime backend.
+## Decision (v1.2 update)
+- Only backend: PostgreSQL ≥ 16 via `pgx/v5` + `pgxpool`.
+- The `-tags sqlite` portable variant is REMOVED in v1.2
+  (2026-04-22). ADR-012 is superseded.
+- Local / offline operators use `docker-compose.dev.yml` for a
+  loopback Postgres, or skip the DB entirely (SSE feed + audit
+  FileWriter still work without `DATABASE_URL`).
+- SQLite is **never** used as an output format.
 
 ## Consequences
 ### Positive
