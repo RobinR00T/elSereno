@@ -1,16 +1,19 @@
 ---
-phase: v1.3-released
-status: v1.3.0 tagged locally (unpushed); chunk 1 closed
-last-updated: 2026-04-22
+phase: v1.4-in-flight
+status: v1.3.0 tagged locally (unpushed); v1.4 chunk 1 landed (offensive sip gate)
+last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.3.0 signed locally (unpushed). Full PBX-discovery
-cycle shipped: SIP + IAX2 + pbxhttp, 15 PBX brand fingerprints
-across the three plugins. v1.2.0 + v1.3.0 both waiting on the
-operator to restore `GH_TOKEN` and push.
+**Phase**: v1.4 chunk 1 landed on `main` (`9038e4b`). v1.3.0 signed
+locally (unpushed). Full PBX-discovery cycle shipped: SIP + IAX2 +
+pbxhttp, 15 PBX brand fingerprints across the three plugins, plus
+the offensive SIP write-gate that turns the deny-all default proxy
+into a method-allowlisted forwarder. v1.2.0 + v1.3.0 + the 25
+unpushed commits all waiting on the operator to restore `GH_TOKEN`
+and push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -43,18 +46,39 @@ operator to restore `GH_TOKEN` and push.
   atg, atmodem, bacnet, banner, dnp3, enip, fox, hartip, iax2,
   iec104, modbus, opcua, pbxhttp, s7, sip, xot.
 
-**v1.4 roadmap** (see `TODO-vNext.md`):
-- Offensive write-gated proxies for SIP / IAX2 / pbxhttp
-  (deny-all today; allowlist-method/path-variant next).
-- TR-069/CWMP fingerprint on 7547/tcp.
-- VoIP-SIP dial backend subprocess.
-- Address `dial batch` CLI wiring to Backend.Deliver.
-- BACnet full UDP relay.
-- OPC UA per-NodeId allowlist.
-- Audit daemon for cross-process JSONL.
-- seccomp arg-level filtering.
-- HTTP paths beyond `/` for pbxhttp (vendor-specific
-  `/admin/config.php` / `/webclient/` / `/ccmadmin/`).
+**v1.4 in flight**:
+- `9038e4b` **chunk 1** — offensive SIP write-gate
+  (`offensive/write/sip/`). Method allowlist via
+  `AllowedMethod{Method string}`; always-safe set
+  (OPTIONS/ACK/BYE/CANCEL/PRACK) always passes; gated
+  methods (INVITE/REGISTER/MESSAGE/SUBSCRIBE/NOTIFY/REFER/
+  PUBLISH/UPDATE/INFO) require operator allowlist. Refusal
+  is a canonical `SIP/2.0 405 Method Not Allowed` with an
+  `Allow:` header listing the permitted methods. 13 tests;
+  race-clean; gosec clean; ADR-040 template preserved.
+
+**v1.4 remaining chunks** (planned):
+- **chunk 2**: offensive pbxhttp write-gate (HTTP path +
+  method allowlist, 405/403 refusal).
+- **chunk 3**: offensive iax2 write-gate (subclass allowlist,
+  HANGUP or REJECT refusal; needs UDP-proxy framework support
+  — may pivot to TCP-over-UDP relay or defer).
+- **chunk 4**: CLI wiring —
+  `elsereno write sip --target h:p --method INVITE --accept-writes
+   --confirm-target h:p --confirm-token T` (and the pbxhttp /
+  iax2 analogues).
+- **chunk 5**: TR-069/CWMP fingerprint on 7547/tcp.
+- **chunk 6**: VoIP-SIP dial backend subprocess
+  (`elsereno-dial-voip-sip` — seccomp-pair split since the parent
+  process can't socket()).
+- **chunk 7**: `dial batch --backend` CLI wiring to
+  Backend.Deliver.
+- **chunk 8**: BACnet full UDP relay.
+- **chunk 9**: OPC UA per-NodeId allowlist.
+- **chunk 10**: audit daemon for cross-process JSONL.
+- **chunk 11**: seccomp arg-level filtering.
+- **chunk 12**: HTTP paths beyond `/` for pbxhttp
+  (`/admin/config.php` / `/webclient/` / `/ccmadmin/`).
 
 **Unpushed work** (22 commits on local `main` ahead of
 `origin/main`), grouped by tag:
