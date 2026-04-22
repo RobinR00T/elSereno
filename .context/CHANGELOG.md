@@ -227,6 +227,33 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
+- 2026-04-22 — **v1.2 chunk 4 (dial backends)** landed on main.
+  New package `offensive/dial/backend` with the `Backend`
+  interface (`Name` / `Deliver(ctx, normalised) → Result` /
+  `Close`) + shared `Disposition` enum (preview, delivered,
+  no-answer, busy, hangup, failed). Two concrete backends
+  ship:
+    * `Mock` — records intent, returns preview by default,
+      scripted prefix-match dispositions for tests. Safe for
+      CI + dry-runs.
+    * `ATModem` — drives a Hayes-compatible modem over any
+      io.ReadWriter. Wire sequence ATZ → ATE0 → ATDT<num>; →
+      classify terminal result (CONNECT / NO ANSWER / BUSY /
+      NO CARRIER / NO DIAL TONE / ERROR / timeout) → ATH0.
+      Context-aware read (goroutine + select) so an
+      unresponsive modem hits dialTimeout instead of
+      hanging indefinitely. Shared bufio.Reader across the
+      sequence prevents the classic "fresh reader discards
+      read-ahead bytes" serial bug. No direct serial-fd
+      open — callers pass the opened port so tests use
+      net.Pipe.
+  7 unit tests + 1 tri-phase modem simulator: each Hayes
+  result code mapped to the right disposition, timeout path
+  validated. VoIP SIP backend is declared in the package
+  docstring as a separate subprocess binary (v1.3) because
+  the seccomp dial profile blocks socket() in the parent.
+  The `dial batch` CLI wiring to call Deliver on allowed
+  numbers ships in the v1.2 close commit.
 - 2026-04-22 — **v1.2 chunk 3 (protocol Handle loops)** landed
   on main: full wire-level `Handle` loops + protocol-native
   refusal frames for 5 TCP protocols that previously had only
