@@ -181,3 +181,145 @@ func TestWriteSIPDryRun_RequiresTarget(t *testing.T) {
 		t.Fatal("expected --target-required error")
 	}
 }
+
+// ---- OPC UA dry-run -------------------------------------------
+
+func TestWriteOPCUADryRun_OutputShape(t *testing.T) {
+	cmd := newWriteOPCUADryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "plc.example.com:4840",
+		"--service", "673",
+		"--service", "704",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Protocol:     opcua",
+		"Target:       plc.example.com:4840",
+		"Services:     673, 704",
+		"NodeIDs:      (none",
+		"PayloadHash:  ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteOPCUADryRun_WithNodeIDs(t *testing.T) {
+	cmd := newWriteOPCUADryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "plc.example.com:4840",
+		"--service", "673",
+		"--node-id", "ns=2;i=42",
+		"--node-id", "ns=3;i=100",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "ns=2;i=42") || !strings.Contains(out, "ns=3;i=100") {
+		t.Errorf("NodeIDs not rendered:\n%s", out)
+	}
+}
+
+func TestWriteOPCUADryRun_ServiceOutOfRange(t *testing.T) {
+	cmd := newWriteOPCUADryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--target", "h:1", "--service", "70000"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected service-out-of-range error")
+	}
+}
+
+// ---- BACnet dry-run -------------------------------------------
+
+func TestWriteBACnetDryRun_OutputShape(t *testing.T) {
+	cmd := newWriteBACnetDryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "bms.example.com:47808",
+		"--service-choice", "15",
+		"--service-choice", "20",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Protocol:     bacnet",
+		"Target:       bms.example.com:47808",
+		"Services:     15, 20",
+		"PayloadHash:  ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteBACnetDryRun_ServiceChoiceOutOfRange(t *testing.T) {
+	cmd := newWriteBACnetDryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--target", "h:1", "--service-choice", "256"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected service-choice-out-of-range error")
+	}
+}
+
+// ---- parseNodeIDFlag -----------------------------------------
+
+func TestParseNodeIDFlag_Valid(t *testing.T) {
+	cases := []struct {
+		in     string
+		wantNS uint16
+		wantID uint32
+	}{
+		{"ns=2;i=42", 2, 42},
+		{"ns=0;i=1", 0, 1},
+		{" NS=5 ; I=999 ", 5, 999},
+		{"ns=65535;i=4294967295", 65535, 4294967295},
+	}
+	for _, c := range cases {
+		got, err := parseNodeIDFlag(c.in)
+		if err != nil {
+			t.Errorf("parseNodeIDFlag(%q): %v", c.in, err)
+			continue
+		}
+		if got.Namespace != c.wantNS || got.Identifier != c.wantID {
+			t.Errorf("parseNodeIDFlag(%q) = ns=%d;i=%d, want ns=%d;i=%d",
+				c.in, got.Namespace, got.Identifier, c.wantNS, c.wantID)
+		}
+	}
+}
+
+func TestParseNodeIDFlag_Invalid(t *testing.T) {
+	for _, in := range []string{
+		"",               // empty
+		"ns=2",           // missing i=
+		"42;100",         // no key=
+		"ns=abc;i=42",    // non-numeric ns
+		"ns=65536;i=42",  // ns too big
+		"ns=2;unknown=3", // unknown key
+	} {
+		if _, err := parseNodeIDFlag(in); err == nil {
+			t.Errorf("parseNodeIDFlag(%q): expected error", in)
+		}
+	}
+}

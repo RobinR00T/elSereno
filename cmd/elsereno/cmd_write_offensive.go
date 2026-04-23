@@ -30,6 +30,8 @@ operator can inspect the exact bytes that would hit the wire.`,
 	cmd.AddCommand(newWriteSIPCmd())
 	cmd.AddCommand(newWriteIAX2Cmd())
 	cmd.AddCommand(newWritePBXHTTPCmd())
+	cmd.AddCommand(newWriteOPCUACmd())
+	cmd.AddCommand(newWriteBACnetCmd())
 	return cmd
 }
 

@@ -7,13 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	iaxwire "local/elsereno/internal/protocols/iax2/wire"
 	"local/elsereno/offensive/confirm"
+	bacwrite "local/elsereno/offensive/write/bacnet"
 	iaxwrite "local/elsereno/offensive/write/iax2"
+	opwrite "local/elsereno/offensive/write/opcua"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
 	sipwrite "local/elsereno/offensive/write/sip"
 
@@ -308,4 +311,253 @@ func iaxSubclassByName(name string) (iaxwire.IAXSubclass, error) {
 		return iaxwire.IAXAccept, nil
 	}
 	return 0, fmt.Errorf("--subclass %q: want one of NEW / REGREQ / AUTHREP / ACCEPT", name)
+}
+
+// ---- elsereno write opcua -------------------------------------
+
+func newWriteOPCUACmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "opcua",
+		Short: "OPC UA service-TypeID + optional per-NodeId proxy-session dry-run",
+		Long: `The gated OPC UA proxy authorises at service-TypeID
+granularity by default (allow WriteRequest, CallRequest, etc).
+Add --node-id ns=N;i=M (repeatable) to tighten the gate to
+specific Object_Identifier NodeIds: a WriteRequest then passes
+only when both its service TypeID is allowed AND the first
+WriteValue's NodeId is in the list. Rarer NodeId encodings
+(String / Guid / ByteString) are refused when per-node gating
+is active — the gate fails closed.`,
+	}
+	cmd.AddCommand(newWriteOPCUADryRunCmd())
+	return cmd
+}
+
+func newWriteOPCUADryRunCmd() *cobra.Command {
+	var target, ppFile, emitFile string
+	var services []uint
+	var nodeIDs []string
+	cmd := &cobra.Command{
+		Use:   "dry-run",
+		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if target == "" {
+				return fail(core.ExitUsage, errors.New("--target is required"))
+			}
+			svcs := make([]opwrite.AllowedService, 0, len(services))
+			for _, s := range services {
+				if s > 0xFFFF {
+					return fail(core.ExitUsage, fmt.Errorf("--service %d: must be 0-65535", s))
+				}
+				svcs = append(svcs, opwrite.AllowedService{TypeID: uint16(s)})
+			}
+			nids := make([]opwrite.AllowedNodeID, 0, len(nodeIDs))
+			for _, n := range nodeIDs {
+				parsed, err := parseNodeIDFlag(n)
+				if err != nil {
+					return fail(core.ExitUsage, err)
+				}
+				nids = append(nids, parsed)
+			}
+			mut := opwrite.SessionMutationWithNodeIDs(target, svcs, nids)
+			cmd.Printf("Protocol:     opcua\n")
+			cmd.Printf("Operation:    proxy_session\n")
+			cmd.Printf("Target:       %s\n", target)
+			cmd.Printf("Services:     %s\n", canonUintList(services))
+			cmd.Printf("NodeIDs:      %s\n", canonNodeIDs(nids))
+			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFileOPCUA(target, services, nodeIDs))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the OPC UA server we'll proxy to)")
+	cmd.Flags().UintSliceVar(&services, "service", nil, "service TypeID(s) to allow (e.g. 673 WriteRequest, 704 CallRequest)")
+	cmd.Flags().StringSliceVar(&nodeIDs, "node-id", nil, "optional NodeId(s) to restrict WriteRequests to, in ns=N;i=M form")
+	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
+	return cmd
+}
+
+// ---- elsereno write bacnet ------------------------------------
+
+func newWriteBACnetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bacnet",
+		Short: "BACnet/IP confirmed-service proxy-session dry-run",
+		Long: `The gated BACnet proxy always forwards non-BACnet
+traffic, unconfirmed-requests (Who-Is / I-Am / etc), acks /
+errors / rejects / aborts, and confirmed-reads. Confirmed-
+requests with a mutating service choice (WriteProperty,
+WritePropertyMultiple, AtomicWriteFile, CreateObject,
+DeleteObject, ReinitializeDevice, DeviceCommunicationControl,
+LifeSafetyOperation, Add/RemoveListElement) require explicit
+--service-choice allowlist entries.`,
+	}
+	cmd.AddCommand(newWriteBACnetDryRunCmd())
+	return cmd
+}
+
+func newWriteBACnetDryRunCmd() *cobra.Command {
+	var target, ppFile, emitFile string
+	var serviceChoices []uint
+	cmd := &cobra.Command{
+		Use:   "dry-run",
+		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if target == "" {
+				return fail(core.ExitUsage, errors.New("--target is required"))
+			}
+			svcs := make([]bacwrite.AllowedService, 0, len(serviceChoices))
+			for _, s := range serviceChoices {
+				if s > 0xFF {
+					return fail(core.ExitUsage, fmt.Errorf("--service-choice %d: must be 0-255", s))
+				}
+				svcs = append(svcs, bacwrite.AllowedService{ServiceChoice: uint8(s)})
+			}
+			mut := bacwrite.SessionMutation(target, svcs)
+			cmd.Printf("Protocol:     bacnet\n")
+			cmd.Printf("Operation:    proxy_session\n")
+			cmd.Printf("Target:       %s\n", target)
+			cmd.Printf("Services:     %s\n", canonUintList(serviceChoices))
+			cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
+			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
+	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
+	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
+	return cmd
+}
+
+// ---- shared helpers for opcua + bacnet ------------------------
+
+// parseNodeIDFlag parses `ns=N;i=M` into an opwrite.AllowedNodeID.
+// Spaces around tokens are tolerated.
+func parseNodeIDFlag(s string) (opwrite.AllowedNodeID, error) {
+	s = strings.TrimSpace(s)
+	parts := strings.Split(s, ";")
+	if len(parts) != 2 {
+		return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: want ns=N;i=M", s)
+	}
+	var ns uint64
+	var id uint64
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) != 2 {
+			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: each token is KEY=VALUE", s)
+		}
+		key := strings.TrimSpace(kv[0])
+		val := strings.TrimSpace(kv[1])
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: %q is not a number", s, val)
+		}
+		switch strings.ToLower(key) {
+		case "ns":
+			if n > 0xFFFF {
+				return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: ns must fit in uint16", s)
+			}
+			ns = n
+		case "i":
+			id = n
+		default:
+			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: unknown key %q (expected ns or i)", s, key)
+		}
+	}
+	// ns is guaranteed ≤ 0xFFFF by the range check above; id is
+	// capped to 32 bits by ParseUint(..., 32).
+	return opwrite.AllowedNodeID{
+		Namespace:  uint16(ns & 0xFFFF),
+		Identifier: uint32(id & 0xFFFFFFFF),
+	}, nil
+}
+
+// canonUintList returns a sorted deduped decimal list for
+// operator-readable output.
+func canonUintList(in []uint) string {
+	if len(in) == 0 {
+		return "(none)"
+	}
+	set := map[uint]struct{}{}
+	for _, v := range in {
+		set[v] = struct{}{}
+	}
+	out := make([]uint, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	parts := make([]string, len(out))
+	for i, v := range out {
+		parts[i] = strconv.FormatUint(uint64(v), 10)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// canonNodeIDs prints the sorted list in ns=N;i=M form.
+func canonNodeIDs(in []opwrite.AllowedNodeID) string {
+	if len(in) == 0 {
+		return "(none — gate only at service-TypeID level)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]opwrite.AllowedNodeID(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Namespace != sorted[j].Namespace {
+			return sorted[i].Namespace < sorted[j].Namespace
+		}
+		return sorted[i].Identifier < sorted[j].Identifier
+	})
+	for i, n := range sorted {
+		out[i] = fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier)
+	}
+	return strings.Join(out, ", ")
+}
+
+// buildAllowFileOPCUA builds the YAML for an OPC UA proxy
+// session. Note: v1.7 chunk 1 didn't wire per-NodeId fields into
+// proxyAllowFile because loadAllowFile didn't yet reach for
+// them; the emitter stores services only for now, and the
+// node_ids field is v1.8 wire-up.
+func buildAllowFileOPCUA(target string, services []uint, _ []string) proxyAllowFile {
+	return proxyAllowFile{
+		Plugin:   pluginNameOPCUA,
+		Target:   target,
+		Services: canonUints(services),
+	}
+}
+
+// buildAllowFileBACnet builds the YAML for a BACnet proxy session.
+func buildAllowFileBACnet(target string, choices []uint) proxyAllowFile {
+	return proxyAllowFile{
+		Plugin:         pluginNameBACnet,
+		Target:         target,
+		ServiceChoices: canonUints(choices),
+	}
+}
+
+// canonUints returns a sorted deduped copy of in.
+func canonUints(in []uint) []uint {
+	set := map[uint]struct{}{}
+	for _, v := range in {
+		set[v] = struct{}{}
+	}
+	out := make([]uint, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
