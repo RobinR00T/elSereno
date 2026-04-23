@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
@@ -95,7 +96,11 @@
       "Bash(git rm:*)",
       "Bash(git tag -v:*)",
       "Bash(git tag -l:*)",
-      "Bash(git tag -s:*)"
+      "Bash(git tag -s:*)",
+      "Bash(git fetch:*)",
+      "Bash(go doc:*)",
+      "Bash(gh auth setup-git)",
+      "Bash(gh auth status)"
     ]
   }
 }
