@@ -1,18 +1,19 @@
 ---
-phase: v1.6-released
-status: v1.6.0 tagged locally (unpushed); --allow-file + OPC UA per-NodeId
+phase: v1.7-released
+status: v1.7.0 tagged locally (unpushed); YAML round-trip + dry-run symmetry
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.6.0 signed locally (unpushed). Two chunks: YAML
-`--allow-file` for the proxy listen command, and OPC UA per-
-NodeId allowlist that tightens the v1.2 write-gate from service-
-TypeID to specific Object_Identifier NodeIds. v1.2.0 + v1.3.0 +
-v1.4.0 + v1.5.0 + v1.6.0 waiting on the operator to restore
-`GH_TOKEN` and push.
+**Phase**: v1.7.0 signed locally (unpushed). Two UX chunks:
+`write dry-run --emit-allow-file` closes the YAML round-trip
+started in v1.6 chunk 1, and new `write opcua / bacnet
+dry-run` subcommands close the asymmetry where only sip /
+iax2 / pbxhttp had proxy-session dry-runs. v1.2.0 + v1.3.0 +
+v1.4.0 + v1.5.0 + v1.6.0 + v1.7.0 waiting on the operator
+to restore `GH_TOKEN` and push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -40,6 +41,14 @@ v1.4.0 + v1.5.0 + v1.6.0 waiting on the operator to restore
   TypeID to specific Object_Identifier NodeIds). Backwards-
   compatible with v1.2 tokens when AllowedNodeIDs is empty.
   See `.context/snapshots/v1.6.0-allowfile-and-nodeid.md`.
+- **v1.7.0** (2026-04-23, local) — YAML round-trip emitter
+  (`write dry-run --emit-allow-file`) + new dry-runs for opcua
+  and bacnet (`--node-id ns=N;i=M` for OPC UA honours the
+  v1.6 per-NodeId extension). Write command surface now
+  symmetric across all five proxy-session-capable plugins
+  (sip / iax2 / pbxhttp / opcua / bacnet). Modbus proxy-
+  session dry-run is a v1.8 carry-over. See
+  `.context/snapshots/v1.7.0-yaml-round-trip.md`.
 
 **v1.4.0 chunks** (all landed):
 - `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
@@ -67,13 +76,22 @@ v1.4.0 + v1.5.0 + v1.6.0 waiting on the operator to restore
 
 **v1.6.0 chunks** (all landed):
 - `a5ee374` chunk 1 — `elsereno proxy listen --allow-file`
-  YAML loader. 10 tests (one per plugin + 4 error paths).
-- `f76b3f2` chunk 2 — OPC UA per-NodeId allowlist. Extends
-  the v1.2 write-gate with optional `AllowedNodeIDs`. Hash is
-  backwards-compatible when the NodeID list is empty. 8 tests
-  (3 hash + 2 wire parser + 3 gate E2E).
+  YAML loader. 10 tests.
+- `f76b3f2` chunk 2 — OPC UA per-NodeId allowlist. 8 tests.
 
-**v1.7+ roadmap** (see `TODO-vNext.md`):
+**v1.7.0 chunks** (all landed):
+- `0f31d6e` chunk 1 — `write dry-run --emit-allow-file`. YAML
+  round-trip emitter with stdout / file-with-0600 routing.
+  10 tests including a full emit → load recover round-trip.
+- `65e5382` chunk 2 — `write opcua dry-run` + `write bacnet
+  dry-run`. OPC UA honours v1.6 per-NodeId via `--node-id
+  ns=N;i=M`. 7 tests.
+
+**v1.8+ roadmap** (see `TODO-vNext.md`):
+- **FOFA input** (fofa.info) — base64-encoded query API,
+  returns hosts + banners. Operator-requested 2026-04-23.
+- **ZoomEye input** (zoomeye.org) — `API-KEY` header, same
+  shape as the Shodan / Censys inputs already ship.
 - BACnet per-object allowlist (same shape as OPC UA v1.6
   chunk 2, ASN.1 BER parsing).
 - SIP To-URI E.164 prefix allowlist for INVITE (toll-
@@ -98,11 +116,14 @@ v1.4.0 + v1.5.0 + v1.6.0 waiting on the operator to restore
 - `elsereno write <plugin> dry-run --emit-allow-file` to
   generate the YAML file from the dry-run output.
 
-**Unpushed work** (37 commits on local `main` ahead of
+**Unpushed work** (40 commits on local `main` ahead of
 `origin/main`), grouped by tag:
 
 ```
-<v1.6.0>   f76b3f2 feat(v1.6 chunk 2): opcua per-NodeId
+<v1.7.0>   65e5382 feat(v1.7 chunk 2): opcua/bacnet dry-run
+           0f31d6e feat(v1.7 chunk 1): --emit-allow-file
+<v1.6.0>   27fb616 docs(v1.6): close --allow-file + per-NodeId
+           f76b3f2 feat(v1.6 chunk 2): opcua per-NodeId
            a5ee374 feat(v1.6 chunk 1): --allow-file YAML
 <v1.5.0>   423d7a8 docs(v1.5): close proxy listen cycle
            1172eae feat(v1.5 chunk 2): extend proxy listen

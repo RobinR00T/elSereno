@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-04-23
+
+### Added
+
+- **`elsereno write <plugin> dry-run --emit-allow-file PATH`** —
+  writes the canonical YAML allow-file that pairs with v1.6
+  `proxy listen --allow-file`. Path `-` writes to stdout; any
+  other path is created/truncated with 0600 permissions.
+  Round-trip: the file emitted plugs directly into `proxy
+  listen --allow-file` without further editing.
+- **`elsereno write opcua dry-run`** — OPC UA proxy-session
+  token minting. Supports `--service <TypeID>` + optional
+  `--node-id ns=N;i=M` (repeatable) for the v1.6 per-NodeId
+  gate. PayloadHash is computed via `SessionMutationWithNodeIDs`
+  when NodeIDs are present.
+- **`elsereno write bacnet dry-run`** — BACnet/IP proxy-session
+  token minting. Takes `--service-choice <N>` (0-255) for the
+  v1.4 chunk 6 confirmed-service allowlist.
+- Shared helpers for operator UX: `parseNodeIDFlag("ns=N;i=M")`,
+  `canonUintList`, `canonNodeIDs`, `canonUints`.
+- **TODO**: FOFA (fofa.info) + ZoomEye (zoomeye.org) input
+  integrations are tracked in `TODO-vNext.md` for a future
+  cycle. Operator-requested 2026-04-23.
+
+### Changed
+
+- `proxyAllowFile` struct gained `,omitempty` YAML tags on
+  per-plugin fields so dry-run-emitted YAML only contains the
+  fields relevant to the selected plugin.
+- The write command surface is now symmetric across the five
+  proxy-session-capable plugins (sip / iax2 / pbxhttp / opcua
+  / bacnet). Modbus proxy-session dry-run is a v1.8 carry-over
+  because the existing `write modbus` CLI shape is per-request
+  (not per-session).
+
+### Deferred to v1.8+
+
+- Modbus proxy-session dry-run.
+- Per-NodeId persistence in the YAML allow-file (v1.7 emitter
+  only serialises `services:` for opcua; `node_ids:` wire-up
+  pending).
+- Runtime reload of the proxy listen allowlist (SIGHUP).
+- BACnet per-object allowlist (ASN.1 BER parsing).
+- SIP To-URI E.164 prefix allowlist for INVITE.
+- REGISTER AOR allowlist.
+- CWMP offensive proxy (SOAP RPC allowlist).
+- FOFA / ZoomEye input integrations.
+
 ## [1.6.0] — 2026-04-23
 
 ### Added

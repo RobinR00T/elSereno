@@ -240,6 +240,33 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.7.0 closed.** Two UX chunks:
+  chunk 1 added `write dry-run --emit-allow-file` to close the
+  YAML round-trip introduced in v1.6 chunk 1. Chunk 2 added
+  `write opcua dry-run` + `write bacnet dry-run` subcommands —
+  OPC UA honours the v1.6 per-NodeId extension via `--node-id
+  ns=N;i=M`. The write command surface is now symmetric across
+  the five proxy-session-capable plugins (sip / iax2 / pbxhttp
+  / opcua / bacnet). Modbus proxy-session dry-run is a v1.8+
+  carry-over. Snapshot at `.context/snapshots/v1.7.0-yaml-
+  round-trip.md`. v1.7.0 tag signed locally.
+- 2026-04-23 — **v1.7 chunk 2 (write opcua/bacnet dry-run)**
+  landed on main. `newWriteOPCUADryRunCmd` honours `--service
+  <TypeID>` + optional `--node-id ns=N;i=M` for the v1.6 per-
+  NodeId gate. `newWriteBACnetDryRunCmd` takes `--service-
+  choice <N>`. Both emit the YAML allow-file via the v1.7
+  chunk 1 emitter. `parseNodeIDFlag` + `canonUintList` +
+  `canonNodeIDs` shared helpers. 7 new tests.
+- 2026-04-23 — **v1.7 chunk 1 (write dry-run --emit-allow-
+  file)** landed on main. `emitAllowFile(cmd, path, af)` with
+  stdout vs file routing (0600 perms on file). `omitempty`
+  YAML tags on proxyAllowFile so dry-runs don't emit empty
+  per-plugin fields. 10 tests including a full emit → load →
+  recover round-trip.
+- 2026-04-23 — **TODO** note: FOFA (fofa.info) + ZoomEye
+  (zoomeye.org) input integrations are operator-requested.
+  Tracked in `TODO-vNext.md` under "Inputs + integraciones"
+  alongside the existing ONYPHE / STIX 2.1 ideas.
 - 2026-04-23 — **v1.6.0 closed.** Two chunks:
   chunk 1 added `--allow-file` YAML loader for `elsereno proxy
   listen` (single-file config instead of long flag lists).

@@ -41,13 +41,12 @@ token-budget: 900
 **First command when in doubt**: `elsereno doctor`.
 
 **Current phase (2026-04-23)**: v1.0.1 published on GitHub
-releases. v1.1.0 + v1.2.0 + v1.3.0 + v1.4.0 + v1.5.0 +
-**v1.6.0** signed locally, unpushed (37 commits on top of
-origin/main). v1.6.0 ships `--allow-file` YAML loader for the
-proxy listen command + OPC UA per-NodeId allowlist (opt-in,
-backwards-compatible with v1.2 tokens). See
-`.context/snapshots/v1.6.0-allowfile-and-nodeid.md` plus the
-cycle-by-cycle snapshots for v1.5 / v1.4 / v1.3 / v1.2.
+releases. v1.1.0 → v1.6.0 plus **v1.7.0** signed locally,
+unpushed (40 commits on top of origin/main). v1.7.0 closes the
+YAML round-trip (`write dry-run --emit-allow-file`) and brings
+`write opcua / bacnet dry-run` parity. See
+`.context/snapshots/v1.7.0-yaml-round-trip.md` plus the
+cycle-by-cycle snapshots for v1.6 / v1.5 / v1.4 / v1.3 / v1.2.
 **17 protocol plugins in the default build**; **6 offensive
 write-gated proxies** (two of them now with per-object
 tightness: OPC UA per-NodeId, Modbus per-unit+FC+addr-range);

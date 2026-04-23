@@ -107,8 +107,17 @@ surgen en campo.
 
 - [ ] **ONYPHE** input: `elsereno scan --input-type onyphe
   --api-key-file ...`.
-- [ ] **Fofa** input: similar.
-- [ ] **Zoomeye** input.
+- [ ] **FOFA** input — fofa.info. API endpoint
+  `https://fofa.info/api/v1/search/all?email=…&key=…&qbase64=…`,
+  base64-encoded FOFA query. Devuelve hosts con `ip:port` +
+  banner. Operator-requested (2026-04-23). Shape esperada:
+  `--input-type fofa --api-key-file ~/.elsereno/fofa.key
+  --query "port=4569 && protocol=iax2"`.
+- [ ] **ZoomEye** input — zoomeye.org. API endpoint
+  `https://api.zoomeye.org/host/search?query=…&page=…`,
+  header `API-KEY: <key>`. Operator-requested (2026-04-23).
+  Shape: `--input-type zoomeye --api-key-file ~/.elsereno/
+  zoomeye.key --query "app:Asterisk"`.
 - [ ] **Shodan InternetDB** (libre, sin key): CDN-friendly
   endpoint `/host/<ip>`.
 - [ ] **STIX 2.1 export**: cada finding → una `indicator` +
