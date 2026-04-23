@@ -55,10 +55,37 @@ type AllowedService struct {
 	TypeID uint16
 }
 
+// AllowedNodeID scopes a WriteRequest to a specific target
+// NodeId. When the handler's AllowedNodeIDs field is non-nil,
+// a WriteRequest MSG is forwarded ONLY when:
+//
+//   - its service TypeID is in the Allowed list (the v1.2
+//     service-level gate), AND
+//   - the first WriteValue's NodeId matches one of the
+//     AllowedNodeIDs (the v1.6 per-node gate).
+//
+// The per-node gate is opt-in: an empty AllowedNodeIDs list
+// falls back to v1.2 behaviour (service-TypeID allowlist only).
+//
+// Only ns + numeric identifier pairs are supported today. UA
+// NodeIDs can also be String / Guid / ByteString encoded but
+// those are out of scope for v1.6 chunk 2 — a WriteRequest
+// whose first NodeId uses one of those encodings is treated
+// as unparseable and falls back to the service-level decision.
+type AllowedNodeID struct {
+	Namespace  uint16
+	Identifier uint32
+}
+
 // AllowlistHash returns the deterministic SHA-256 of the
-// allowlist. Entries are sorted numerically before hashing so
-// the operator's dry-run token is stable regardless of input
-// order.
+// service-TypeID allowlist. Entries are sorted numerically
+// before hashing so the operator's dry-run token is stable
+// regardless of input order.
+//
+// v1.2 callers (service-TypeID only) keep the same hash they've
+// always seen. Operators who opt into per-NodeId gating use
+// AllowlistHashWithNodeIDs instead, which mixes both dimensions
+// into the hash.
 func AllowlistHash(target string, allowed []AllowedService) [32]byte {
 	sorted := append([]AllowedService(nil), allowed...)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -77,9 +104,62 @@ func AllowlistHash(target string, allowed []AllowedService) [32]byte {
 	return out
 }
 
+// AllowlistHashWithNodeIDs is the v1.6 per-NodeId hash that
+// incorporates both the service-TypeID allowlist AND a sorted
+// per-NodeId allowlist. When nodeIDs is nil or empty, the hash
+// is identical to AllowlistHash(target, services) so operators
+// who don't opt into per-node gating keep their existing
+// tokens.
+//
+// Hash layout on the wire:
+//
+//	target || 0x00 || TypeID(BE16) × sorted_services
+//	                    [|| 0xFF || namespace(BE16) || id(BE32) × sorted_nodeIDs]
+//
+// The 0xFF separator between the services block and the NodeIDs
+// block is chosen so it can never collide with a TypeID (TypeIDs
+// are little-endian 16-bit values but the hash writes big-
+// endian; a BE TypeID byte of 0xFF would require TypeID ≥ 0xFF00,
+// which is outside the Part 4 Table 17 allocation).
+func AllowlistHashWithNodeIDs(target string, services []AllowedService, nodeIDs []AllowedNodeID) [32]byte {
+	// v1.2 compatibility: no NodeIDs → v1.2 hash.
+	if len(nodeIDs) == 0 {
+		return AllowlistHash(target, services)
+	}
+	sortedSvc := append([]AllowedService(nil), services...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].TypeID < sortedSvc[j].TypeID })
+	sortedNodes := append([]AllowedNodeID(nil), nodeIDs...)
+	sort.Slice(sortedNodes, func(i, j int) bool {
+		if sortedNodes[i].Namespace != sortedNodes[j].Namespace {
+			return sortedNodes[i].Namespace < sortedNodes[j].Namespace
+		}
+		return sortedNodes[i].Identifier < sortedNodes[j].Identifier
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var u16 [2]byte
+	for _, a := range sortedSvc {
+		binary.BigEndian.PutUint16(u16[:], a.TypeID)
+		_, _ = h.Write(u16[:])
+	}
+	_, _ = h.Write([]byte{0xFF}) // separator (cannot collide with TypeID high byte)
+	var u32 [4]byte
+	for _, n := range sortedNodes {
+		binary.BigEndian.PutUint16(u16[:], n.Namespace)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], n.Identifier)
+		_, _ = h.Write(u32[:])
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
 // SessionMutation builds the confirm.Mutation that authorises
-// the proxy session for target + allowlist. Same shape as the
-// modbus / s7 / enip templates so the CLI wiring stays uniform.
+// the proxy session for target + service-TypeID allowlist. v1.2
+// compatibility.
 func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 	return confirm.Mutation{
 		Category:    confirm.CategoryWrite,
@@ -87,6 +167,19 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 		Operation:   "proxy_session",
 		Target:      target,
 		PayloadHash: AllowlistHash(target, allowed),
+	}
+}
+
+// SessionMutationWithNodeIDs is the v1.6 Mutation that mixes
+// both service-TypeID + per-NodeId into the PayloadHash. When
+// nodeIDs is nil/empty it degrades to SessionMutation.
+func SessionMutationWithNodeIDs(target string, services []AllowedService, nodeIDs []AllowedNodeID) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "opcua",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithNodeIDs(target, services, nodeIDs),
 	}
 }
 
@@ -106,6 +199,15 @@ type WriteGatedHandler struct {
 	// mutating service (equivalent to the default deny-all
 	// handler for writes; reads still pass).
 	Allowed []AllowedService
+	// AllowedNodeIDs is the optional v1.6 per-node allowlist.
+	// When non-empty, a WriteRequest MSG is forwarded only when
+	// both (a) its service TypeID is in Allowed AND (b) the
+	// first WriteValue's NodeId matches one of AllowedNodeIDs.
+	// WriteRequests whose first NodeId uses an unparseable
+	// encoding (String / Guid / ByteString) are refused when
+	// per-node gating is active — no fallback path.
+	// Empty/nil restores v1.2 service-TypeID-only behaviour.
+	AllowedNodeIDs []AllowedNodeID
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -124,7 +226,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithNodeIDs(h.Target, h.Allowed, h.AllowedNodeIDs)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -208,11 +310,37 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 	if !wire.IsMutatingService(typeID) {
 		return writeFrame(upstream, header.Type, body)
 	}
-	if h.isAllowed(typeID) {
-		return writeFrame(upstream, header.Type, body)
+	if !h.isAllowed(typeID) {
+		// Service-TypeID allowlist denies → refuse.
+		return writeServiceFault(clientWriter, body)
 	}
-	// Refuse: emit a UA ServiceFault back to the client.
-	return writeServiceFault(clientWriter, body)
+	// Service-TypeID allows. If the per-NodeId gate is active,
+	// further check the WriteRequest's first NodeId.
+	if len(h.AllowedNodeIDs) > 0 && typeID == wire.TypeIDWriteRequest {
+		if !h.writeRequestNodeAllowed(body) {
+			return writeServiceFault(clientWriter, body)
+		}
+	}
+	return writeFrame(upstream, header.Type, body)
+}
+
+// writeRequestNodeAllowed reports whether the WriteRequest at
+// `body` targets a NodeId in h.AllowedNodeIDs. Returns false on
+// unparseable WriteRequest bodies (rarer NodeId encodings, null
+// NodesToWrite array, truncated frames) — per-node gating is
+// strict by design: an operator who turned it on wants the gate
+// to refuse anything it can't verify.
+func (h *WriteGatedHandler) writeRequestNodeAllowed(body []byte) bool {
+	nid, _, ok := wire.WriteRequestFirstNode(body)
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedNodeIDs {
+		if a.Namespace == nid.Namespace && a.Identifier == nid.Identifier {
+			return true
+		}
+	}
+	return false
 }
 
 // isAllowed reports whether the given service TypeId is in the
