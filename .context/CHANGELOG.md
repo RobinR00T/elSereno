@@ -240,6 +240,35 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.5.0 closed.** `elsereno proxy listen` CLI
+  shipped. Two chunks: chunk 1 promoted the proxy stub to a
+  real command supporting sip / iax2 / pbxhttp (with per-plugin
+  `--method` / `--subclass` / `--allow` allowlist flags); chunk
+  2 extended to modbus / opcua / bacnet (`--function` /
+  `--service` / `--service-choice` flags) and added the first
+  end-to-end integration test (fake SIP origin + real
+  proxy.Server + real client assert that OPTIONS forwards and
+  INVITE gets a 405 without upstream seeing it). 6 offensive
+  write-gated proxies now runnable inline. v1.5.0 tag signed
+  locally. Snapshot at
+  `.context/snapshots/v1.5.0-proxy-listen.md`.
+- 2026-04-23 — **v1.5 chunk 2 (proxy listen for modbus/opcua/
+  bacnet + E2E)** landed on main. Extends chunk 1's sip/iax2/
+  pbxhttp support to the three remaining gated plugins with
+  numeric allowlist flags (range-validated uint8/uint16). Adds
+  TestProxyListen_E2E_SIP — first full-stack test covering
+  framework + handler + triple-confirm + filtering composed
+  together. Splits buildGatedHandler into per-plugin
+  constructors to keep gocyclo complexity ≤ 15.
+- 2026-04-23 — **v1.5 chunk 1 (proxy listen)** landed on main.
+  Promotes the cmd_stubs.go "proxy" command to a real offensive-
+  build implementation: `elsereno proxy listen --plugin
+  {sip|iax2|pbxhttp} --target h:p --listen L ...` authorises
+  the gate via triple-confirm, binds a TCP listener, runs the
+  protocol-specific handler inline via proxy.Server.Run until
+  SIGINT/SIGTERM. replaceProxyStubWithOffensiveCmd walks the
+  root command and replaces the EX_TEMPFAIL stub without
+  touching the default build.
 - 2026-04-23 — **v1.4.0 closed.** Offensive PBX write-gate
   cycle shipped: SIP method-allowlist gate (chunk 1), pbxhttp
   (method, path)-allowlist gate (chunk 2), IAX2 subclass-

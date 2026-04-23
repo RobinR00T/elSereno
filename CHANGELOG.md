@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-04-23
+
+### Added
+
+- **`elsereno proxy listen`** (offensive build) — runs any of
+  the six v1.4 write-gated handlers inline against a local
+  TCP listener. The operator workflow is finally end-to-end:
+  mint a confirm-token with `elsereno write <plugin> dry-run
+  --vault-passphrase-file …`, then run `elsereno proxy listen
+  --plugin <plugin> --target h:p --listen L:P <allowlist
+  flags> --accept-writes --confirm-target h:p --confirm-token
+  <hex> --vault-passphrase-file /path` to serve a gated
+  session until SIGINT / SIGTERM. Supported plugins:
+  - `--plugin sip --method INVITE …`
+  - `--plugin iax2 --subclass NEW …`
+  - `--plugin pbxhttp --allow POST:/admin/config.php …`
+  - `--plugin modbus --function 6 …`
+  - `--plugin opcua --service 673 …`
+  - `--plugin bacnet --service-choice 15 …`
+- **First end-to-end integration test** of the gated proxy
+  stack: fake SIP origin + `proxy.Server` + gated handler +
+  real client — asserts that allowlisted methods reach the
+  origin while refused methods get a canonical 405 without
+  ever leaving the proxy.
+
+### Changed
+
+- The `proxy` command (previously a planned-stub returning
+  EX_TEMPFAIL 75) now exposes real subcommands in the
+  offensive build. Default-build behaviour is unchanged: the
+  command still returns the stub's "planned" message.
+
+### Deferred to v1.6+
+
+- OPC UA per-NodeId allowlist.
+- BACnet per-object allowlist (ASN.1 BER parsing).
+- SIP To-URI E.164 prefix allowlist for INVITE.
+- REGISTER AOR allowlist.
+- CWMP offensive proxy.
+- `--allow-file` for YAML / JSON allowlist files.
+- Runtime reload (SIGHUP).
+
 ## [1.4.0] — 2026-04-23
 
 ### Added

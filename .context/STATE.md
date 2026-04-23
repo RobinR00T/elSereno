@@ -1,18 +1,19 @@
 ---
-phase: v1.4-released
-status: v1.4.0 tagged locally (unpushed); chunk cycle closed
+phase: v1.5-released
+status: v1.5.0 tagged locally (unpushed); proxy listen shipped
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.4.0 signed locally (unpushed). Full offensive-PBX-
-write-gate cycle shipped: SIP + IAX2 + pbxhttp gated proxies
-(chunks 1-3), CLI dry-run wiring (chunk 4), TR-069 ACS
-fingerprint (chunk 5), BACnet UDP write-gate (chunk 6 — closes
-the v1.2 carry-over). v1.2.0 + v1.3.0 + v1.4.0 waiting on the
-operator to restore `GH_TOKEN` and push.
+**Phase**: v1.5.0 signed locally (unpushed). `elsereno proxy
+listen` command shipped — operators can now run the v1.4 write-
+gated handlers inline against a local TCP listener. Supports
+all six gated plugins (sip / iax2 / pbxhttp / modbus / opcua /
+bacnet) with per-plugin allowlist flags and a first end-to-end
+test covering the full stack. v1.2.0 + v1.3.0 + v1.4.0 + v1.5.0
+waiting on the operator to restore `GH_TOKEN` and push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -28,6 +29,12 @@ operator to restore `GH_TOKEN` and push.
   + BACnet UDP relay + TR-069/CWMP fingerprint. 17 plugins
   default build; 4 offensive write-gated proxies (up from 2).
   See `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`.
+- **v1.5.0** (2026-04-23, local) — `elsereno proxy listen`
+  CLI goes live. All six write-gated plugins runnable via a
+  single command (--plugin {sip|iax2|pbxhttp|modbus|opcua|
+  bacnet} + per-plugin allowlist flags). First end-to-end
+  test of the full proxy stack. See
+  `.context/snapshots/v1.5.0-proxy-listen.md`.
 
 **v1.4.0 chunks** (all landed):
 - `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
@@ -53,10 +60,12 @@ operator to restore `GH_TOKEN` and push.
 **5 offensive write-gated proxies** (ADR-040 pattern):
   modbus, opcua, sip, iax2, pbxhttp, bacnet.
 
-**v1.5 roadmap** (see `TODO-vNext.md`):
-- Offensive `proxy listen` CLI verb (promote the existing
-  proxy stub; run the gated handlers inline against a real
-  listener).
+**v1.5.0 chunks** (all landed):
+- `e8bd030` chunk 1 — proxy listen for sip/iax2/pbxhttp.
+- `1172eae` chunk 2 — extend proxy listen to modbus/opcua/
+  bacnet + first end-to-end integration test.
+
+**v1.6+ roadmap** (see `TODO-vNext.md`):
 - OPC UA per-NodeId allowlist (tighten write gate from
   service-TypeID to specific Object_Identifiers).
 - BACnet per-object allowlist (same shape, ASN.1 BER parsing).
@@ -70,12 +79,17 @@ operator to restore `GH_TOKEN` and push.
 - `dial batch --backend` CLI wiring.
 - Audit daemon for cross-process JSONL.
 - seccomp arg-level filtering.
+- `--allow-file` for reading allowlists from YAML/JSON.
+- Runtime reload of the proxy listen allowlist (SIGHUP).
 
-**Unpushed work** (31 commits on local `main` ahead of
+**Unpushed work** (33 commits on local `main` ahead of
 `origin/main`), grouped by tag:
 
 ```
-<v1.4.0>   e4dc2a6 feat(v1.4 chunk 6): bacnet UDP write-gate
+<v1.5.0>   1172eae feat(v1.5 chunk 2): extend proxy listen
+           e8bd030 feat(v1.5 chunk 1): proxy listen sip/iax2/pbxhttp
+<v1.4.0>   7457016 docs(v1.4): close PBX-write-gate cycle
+           e4dc2a6 feat(v1.4 chunk 6): bacnet UDP write-gate
            02e705f feat(v1.4 chunk 5): cwmp TR-069
            26ca8df feat(v1.4 chunk 4): CLI write sip/iax2/pbxhttp
            b0d3ea7 feat(v1.4 chunk 3): iax2 write-gate
