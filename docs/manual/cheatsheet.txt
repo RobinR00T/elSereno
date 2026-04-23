@@ -1,9 +1,10 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.1.0+ (v1.2 features tagged below)
-Updated  : 2026-04-22
+Version  : v1.8.0 (first community release)
+Updated  : 2026-04-23
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
+Repo     : https://github.com/RobinR00T/elSereno
 ===============================================================
 
 
@@ -11,7 +12,7 @@ Binary   : elsereno (default) | elsereno-offensive (write-capable)
 elsereno vault init                       # 1a vez
 elsereno vault unlock                     # cada arranque
 elsereno serve --addr 127.0.0.1:8787      # dashboard
-elsereno plugins list                     # 13 protocolos
+elsereno plugins list                     # 17 protocolos (v1.8)
 
 # Non-interactive (CI / agent):
 umask 077; printf '%s' "$PP" > ~/.elsereno/dev.pp; chmod 0600 $_
@@ -29,8 +30,12 @@ shodan search 'port:502 country:ES' --fields ip_str,port \
 # Censys JSON
 elsereno scan --input-file censys.json --input-type censys
 
+# FOFA / ZoomEye (v1.8) — library-level por ahora
+# import "local/elsereno/internal/inputs/fofa" o /zoomeye
+# CLI wire-up (--input fofa:<q>) en v1.9 roadmap.
+
 # nmap XML
-nmap -sS -p 102,502,1911,2404,4840 target -oX out.xml
+nmap -sS -p 102,502,1911,2404,4569,4840,5060,7547 target -oX out.xml
 elsereno scan --input-file out.xml --input-type nmapxml
 
 # Plain list
@@ -43,20 +48,24 @@ elsereno scan --input-file t.txt \
   --webhook-url https://hook --webhook-secret-file wh.pp
 
 
------------------ Protocol fingerprints -----------------------
-  modbus    502         FC 1/3 + Read-Device-ID
-  s7        102         TPKT+COTP+ROSCTR 0x01
-  enip      44818       ListIdentity (CIP UCMM)
-  bacnet    47808/udp   Who-Is broadcast
-  dnp3      20000       Read Class 0
-  iec104    2404        STARTDT/TESTFR
-  hartip    5094        SessionInitiate
-  fox       1911/4911   "fox a" banner + version
-  atg       10001       <SOH>I20100<CR>  Veeder-Root
-  opcua     4840        HEL Hello → ACK/ERR/non-UA
-  xot       1998        X.25 CALL REQUEST
-  atmodem   serial/TCP  AT banner
-  banner    *           generic TCP grab
+----------------- Protocol fingerprints (17) ------------------
+  modbus    502/tcp      FC 1/3 + Read-Device-ID
+  s7        102/tcp      TPKT+COTP+ROSCTR 0x01
+  enip      44818/tcp    ListIdentity (CIP UCMM)
+  bacnet    47808/udp    Who-Is broadcast
+  dnp3      20000/tcp    Read Class 0
+  iec104    2404/tcp     STARTDT/TESTFR
+  hartip    5094/tcp     SessionInitiate
+  fox       1911/4911    "fox a" banner + version
+  atg       10001/tcp    <SOH>I20100<CR>  Veeder-Root
+  opcua     4840/tcp     HEL Hello → ACK/ERR/non-UA
+  xot       1998/tcp     X.25 CALL REQUEST
+  atmodem   serial/TCP   AT banner
+  sip       5060/udp+tcp OPTIONS → 15 PBX vendors    (v1.3+)
+  iax2      4569/udp     NEW → ACCEPT/AUTHREQ/REJ    (v1.3+)
+  pbxhttp   443/80/8088/5001  HTTP admin-UI, 15 brands (v1.3+)
+  cwmp      7547/tcp     TR-069 ACS Inform → 15 ACS  (v1.4+)
+  banner    *            generic TCP grab (fallback)
 
 
 --------------------- Scoring + triage ------------------------
@@ -103,8 +112,8 @@ NO requieren DB (funcionan con binario+vault solo):
   - serve + dashboard overview + plugins + scoring + live SSE
   - /admin/security (self-audit panel)
   - audit chain → ~/.elsereno/audit.jsonl (FileWriter)
-  - vault *   (AES-GCM file-backed)
-  - offensive verbs (write, exploit, harvest, dial)
+  - vault * (AES-GCM file-backed)
+  - offensive verbs (write, exploit, harvest, dial, proxy listen)
 
 SÍ requieren DB:
   - Dashboard panels de findings/triage/runs
@@ -119,44 +128,126 @@ Siempre requiere:
   2. `--accept-writes`
   3. `--confirm-target <mismo valor que --target>`
   4. `--confirm-token <HMAC del dry-run>`
+  5. `--vault-passphrase-file <path 0600>` (para derivar tokens)
 
-# Modbus write
+
+-- Write dry-run (deriva token) — 5 plugins + modbus legacy ---
+
+# SIP method allowlist (v1.5+, emit YAML desde v1.7)
+elsereno-offensive write sip dry-run \
+  --target pbx:5060 \
+  --method INVITE --method REGISTER \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/sip-gate.yaml
+
+# IAX2 subclass allowlist (v1.5+)
+elsereno-offensive write iax2 dry-run \
+  --target pbx:4569 \
+  --subclass NEW --subclass REGREQ \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/iax2-gate.yaml
+
+# pbxhttp (method, path) allowlist
+elsereno-offensive write pbxhttp dry-run \
+  --target pbx:443 \
+  --allow "POST:/admin/config.php" \
+  --allow "DELETE:/admin/user/42" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/pbxhttp-gate.yaml
+
+# OPC UA service + optional per-NodeId (v1.6+)
+elsereno-offensive write opcua dry-run \
+  --target plc:4840 \
+  --service 673 \
+  --node-id "ns=2;i=42" --node-id "ns=3;i=100" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/opcua-gate.yaml
+
+# BACnet service-choice allowlist
+elsereno-offensive write bacnet dry-run \
+  --target bms:47808 \
+  --service-choice 15 --service-choice 20 \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/bacnet-gate.yaml
+
+# Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
+
+
+-------------- Proxy listen (v1.5+) — run the gate ------------
+
+# Usando el YAML generado arriba
+elsereno-offensive proxy listen \
+  --allow-file /etc/elsereno/sip-gate.yaml \
+  --listen 127.0.0.1:5060 \
+  --accept-writes \
+  --confirm-target pbx:5060 \
+  --confirm-token <hex-de-dry-run> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# O flags directos (sin YAML):
+elsereno-offensive proxy listen \
+  --plugin sip --target pbx:5060 \
+  --method INVITE --method REGISTER \
+  --listen 127.0.0.1:5060 \
+  --accept-writes --confirm-target pbx:5060 --confirm-token <hex> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+
+-- Refusal codes por plugin ----------------------------------
+
+  modbus  → Exception 0x01 ILLEGAL_FUNCTION
+  opcua   → UA ServiceFault StatusCode BadUserAccessDenied
+  sip     → SIP/2.0 405 Method Not Allowed + Allow: header
+  iax2    → IAX2 HANGUP frame al SrcCallNum del cliente
+  pbxhttp → HTTP 405 (método) o HTTP 403 (path mismatch)
+  bacnet  → BACnet Abort-PDU con reason security-error
+
+
+-- Modbus write legacy (send) --------------------------------
 elsereno-offensive write modbus send \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234 \
   --accept-writes --confirm-target 10.0.0.5:502 --confirm-token <tok> \
   --vault-passphrase-file ~/.elsereno/dev.pp
 
-# Exploit
+
+-- Exploit ---------------------------------------------------
 elsereno-offensive exploit list
 elsereno-offensive exploit dry-run --cve cve-2015-5374 --target 10.0.0.6:102
 elsereno-offensive exploit run \
   --cve cve-2015-5374 --target 10.0.0.6:102 --proto udp \
   --accept-writes --confirm-target 10.0.0.6:102 --confirm-token <tok>
 
-# Harvest
+
+-- Harvest ---------------------------------------------------
 elsereno-offensive harvest --targets list.txt \
   --probers telnet,ftp,http-basic,snmp --accept-writes \
   --confirm-target list.txt --confirm-token <tok>
 
-# Dial (wardial batch, v1.1 chunk 8)
+
+-- Dial (wardial batch, v1.1 chunk 8) ------------------------
 elsereno-offensive dial validate --number "+34 91 123 4567"
 elsereno-offensive dial batch --numbers-file nums.txt \
   --scope scope.yaml --disposition preview
 
-# Audit
+
+-- Audit -----------------------------------------------------
 elsereno audit verify-file
 elsereno audit show --last 10
 
 
----------------- Detection (blue team — what to alert on) -----
+---------------- Detection (blue team — alerts) ---------------
 
   Modbus FC 5/6/15/16/22/23 desde external  → CRITICAL
   S7 ROSCTR=0x01 + Fn 0x04 (STOP) from non-HMI → CRITICAL
   DNP3 app FC 0x05/0x06 DirectOperate desde no-master → HIGH
   IEC-104 I-frame ASDU 45-51 (C_SC_NA_1…)   → HIGH
   OPC UA MSG TypeID 673/704 desde external  → HIGH
+  BACnet WriteProperty from WAN             → HIGH
+  SIP INVITE a destinos E.164 no-locales    → HIGH (toll fraud)
+  IAX2 NEW desde external                   → HIGH
+  TR-069 ACS Inform desde external          → CRITICAL (CPE RCE)
   Veeder-Root ATG <SOH>I/S/V... expuesta a Inet → CRITICAL
 
 
@@ -174,21 +265,35 @@ audit: ErrChainBroken        → audit.jsonl tocado; audit rebase
 ~/.elsereno/dev.pp           passphrase file (0600)
 scope.yaml                   ranges + ports + blocked_numbers
 docs/openapi.yaml            API 3.1 spec snapshot
+dist/*.tar.gz                goreleaser output (release build)
 
 
------------ Verificación supply-chain (post release) ----------
+----------- Verificación de release v1.8.0 (free-tier) --------
+
+# SHA-256
+curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.8.0/checksums.txt
+shasum -a 256 -c checksums.txt --ignore-missing
+
+# Tag GPG-signed (ACE3B86BACACE7D6 / Daniel Solís Agea)
+git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
+git tag -v v1.8.0
+
+# SBOM inspection
+jq '.components | length' elsereno_1.8.0_linux_amd64.tar.gz.cyclonedx.json
+
+
+----- Verificación legacy (releases con CI billing activa) ----
+
 cosign verify-blob --bundle checksums.txt.bundle \
   --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
   --certificate-oidc-issuer     'https://token.actions.githubusercontent.com' \
   checksums.txt
 
+gh attestation verify <artifact> --repo RobinR00T/elSereno
+
 cosign verify ghcr.io/robinr00t/elsereno:vX.Y.Z \
   --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
   --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
-
-cosign download sbom ghcr.io/robinr00t/elsereno:vX.Y.Z | jq '.components|length'
-
-scripts/release-smoke.sh vX.Y.Z    # end-to-end post-push
 
 
 ===============================================================

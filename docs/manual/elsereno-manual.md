@@ -31,46 +31,86 @@ vault). Cada acción se auditéa en cadena hash.
 
 ## 1. Instalación + primer arranque
 
-### 1.1 Instalación desde release firmada
+### 1.1 Instalación desde release firmada (v1.8.0+)
 
 ```sh
-# Descargar la última versión + bundle cosign
-VERSION=1.1.0
+VERSION=1.8.0
 OS=darwin          # o linux
 ARCH=arm64         # o amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
 
-curl -fLo "elsereno_${VERSION}.tar.gz" "${BASE}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
-curl -fLo checksums.txt         "${BASE}/checksums.txt"
-curl -fLo checksums.txt.bundle  "${BASE}/checksums.txt.bundle"
+# Descargar el tarball + checksums + SBOM
+curl -fLo "elsereno_${VERSION}.tar.gz" \
+  "${BASE}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
+curl -fLo checksums.txt "${BASE}/checksums.txt"
+curl -fLo "elsereno_${VERSION}.tar.gz.cyclonedx.json" \
+  "${BASE}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz.cyclonedx.json"
 
-# Integridad sha256 + firma cosign keyless
+# Integridad SHA-256
 shasum -a 256 -c checksums.txt --ignore-missing
-cosign verify-blob \
-  --bundle checksums.txt.bundle \
-  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
-  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com' \
-  checksums.txt
 
+# Desempaquetar
 tar xzf "elsereno_${VERSION}.tar.gz"
-./elsereno version
+
+# Dos binarios dentro del tar:
+#   elsereno            — build por defecto (read-only, safe)
+#   elsereno-offensive  — build -tags offensive (write/exploit/…)
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno version
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 17
 ```
 
-### 1.2 Instalación por docker (multi-arch + SBOM)
+### 1.2 Verificar el tag GPG firmado
+
+El tag `v1.8.0` está firmado con la clave del maintainer. Es el
+método de verificación canónico desde v1.8.0 (cosign keyless /
+SLSA requieren CI facturada y no aplican al free-tier flow).
 
 ```sh
-docker pull ghcr.io/robinr00t/elsereno:latest
+# Importar la clave pública
+curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
-# Verifica la firma del manifiesto
-cosign verify ghcr.io/robinr00t/elsereno:latest \
-  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
-  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
+# O pedirla al keyserver (si está publicada):
+gpg --keyserver keys.openpgp.org --recv-keys ACE3B86BACACE7D6
 
-# Descarga + cuenta componentes del SBOM
-cosign download sbom ghcr.io/robinr00t/elsereno:latest | jq '.components | length'
+# Clonar + verificar
+git clone https://github.com/RobinR00T/elSereno.git
+cd elSereno
+git tag -v v1.8.0
+# → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 
-### 1.3 Primer arranque — vault + dashboard
+### 1.3 Build desde fuentes (reproducible)
+
+```sh
+git clone https://github.com/RobinR00T/elSereno.git
+cd elSereno
+git checkout v1.8.0
+
+# Build default
+make build          # → bin/elsereno
+
+# Build offensive
+make build-offensive  # → bin/elsereno-offensive
+
+# O todo vía goreleaser (mismo flujo que la release oficial):
+goreleaser release --clean --skip=publish,sign,docker,validate
+shasum -a 256 dist/elsereno_*.tar.gz
+# → debe coincidir con checksums.txt de la release publicada
+```
+
+### 1.4 Docker (v1.1–v1.7 — sólo si restaurás Actions billing)
+
+El docker image en `ghcr.io/robinr00t/elsereno:*` queda en
+releases anteriores con Actions activo. Para v1.8.0 no hay
+imagen pública (sin CI billing). Para build local:
+
+```sh
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t local/elsereno:v1.8.0 .
+docker run --rm local/elsereno:v1.8.0 version
+```
+
+### 1.5 Primer arranque — vault + dashboard
 
 ```sh
 # Inicializa el vault cifrado (Argon2id + AES-GCM)
@@ -97,14 +137,14 @@ elsereno vault init   --vault-passphrase-file ~/.elsereno/dev.pp
 elsereno serve        --vault-passphrase-file ~/.elsereno/dev.pp
 ```
 
-### 1.4 Dashboard con Postgres (opcional, v1.2+)
+### 1.6 Dashboard con Postgres (opcional, v1.2+)
 
 Sin `$DATABASE_URL`, los paneles de findings/triage/runs
 responden 503 y la UI muestra "backend unavailable". Los paneles
 overview / plugins / live-feed / security siguen funcionando
 100% sin BD — la BD es sólo para historia persistida.
 
-#### 1.4.1 Con el script helper (`scripts/dev-db.sh`)
+#### 1.6.1 Con el script helper (`scripts/dev-db.sh`)
 
 ElSereno ships un script que arranca la dev-db + espera health
 + aplica migrations + deja el `DATABASE_URL` en un fichero 0600:
@@ -132,7 +172,7 @@ export $(grep -v '^#' ~/.elsereno/dev-db.env | xargs)
 elsereno serve --vault-passphrase-file ~/.elsereno/dev.pp
 ```
 
-#### 1.4.2 Manual (sin script)
+#### 1.6.2 Manual (sin script)
 
 Si prefieres no usar el script:
 
@@ -143,7 +183,7 @@ elsereno db migrate up
 elsereno serve
 ```
 
-#### 1.4.3 Matriz "¿necesito BD?"
+#### 1.6.3 Matriz "¿necesito BD?"
 
 | Feature | Requiere `$DATABASE_URL`? |
 |---------|--------------------------|
@@ -189,7 +229,38 @@ censys search 'services.service_name: MODBUS AND org: "ejemplo corp"' \
 elsereno scan --input-file censys-modbus.json --input-type censys
 ```
 
-#### 2.1.3 Inputs desde nmap XML
+#### 2.1.3 Inputs desde FOFA (v1.8+)
+
+FOFA (fofa.info) es un alternativo popular con mejor cobertura
+APAC para equipos ICS / PBX legacy. Auth: email + API key (ambos
+en `qbase64`-encoded query string).
+
+```go
+// Uso programático con el cliente internal/inputs/fofa:
+import "local/elsereno/internal/inputs/fofa"
+
+c, _ := fofa.New("tu-email@dominio.com", "<api-key>", 1) // 1 rps
+targets, err := c.Search(ctx, `protocol="iax2"`, 100)
+// targets[] es []core.Target → pipeable al scanner via stdin
+```
+
+CLI wire-up directo (`--input fofa:<query>`) está en v1.9
+roadmap. Por ahora: usa el cliente Go para volcar a NDJSON y
+pipear con stdin.
+
+#### 2.1.4 Inputs desde ZoomEye (v1.8+)
+
+ZoomEye (zoomeye.org) — misma idea, auth via `API-KEY` header
+(no URL), así que no leakea la credencial en logs.
+
+```go
+import "local/elsereno/internal/inputs/zoomeye"
+
+c, _ := zoomeye.New("<api-key>", 1)
+targets, err := c.Search(ctx, `app:"Asterisk"`, 1) // page 1
+```
+
+#### 2.1.5 Inputs desde nmap XML
 
 ```sh
 nmap -sS -p 102,502,1911,2404,4840,5094,10001,20000,44818,47808 \
@@ -199,7 +270,7 @@ elsereno scan --input-file nmap-ics.xml --input-type nmapxml \
               --concurrency 50 --rate 200 --out-ndjson findings.ndjson
 ```
 
-#### 2.1.4 Inputs desde stdin / lista plana
+#### 2.1.6 Inputs desde stdin / lista plana
 
 ```sh
 # Un "host:port" por línea
@@ -286,21 +357,31 @@ El feed live tambén recibe:
 
 Cada plugin tiene una descripción + puerto well-known:
 
-| Plugin    | Puerto      | Lo que hace |
-|-----------|-------------|-------------|
-| modbus    | 502         | Read-Holding-Regs + Read-Device-Identification |
-| s7        | 102         | TPKT/COTP + ROSCTR=0x01 Setup Comm |
-| enip      | 44818       | ListIdentity (CIP UCMM) |
-| bacnet    | 47808/udp   | Who-Is (APDU broadcast) |
-| dnp3      | 20000       | Read Class 0 (link-layer + APDU) |
-| iec104    | 2404        | TESTFR/STARTDT (APCI U-format) |
-| hartip    | 5094        | Session-Initiate |
-| fox       | 1911/4911   | Banner grab "fox a" + "fox.version" |
-| atg       | 10001       | `<SOH>I20100<CR>` (Veeder-Root info query) |
-| opcua     | 4840        | HEL Hello → clasifica ACK/ERR/non-UA |
-| xot       | 1998        | X.25 CALL REQUEST (RFC 1613) |
-| atmodem   | serial/TCP  | AT+CMEE query + banner parse |
-| banner    | 21/22/23/80 | TCP banner grab genérico |
+**17 plugins en el build por defecto** (v1.8+). Cada uno tiene
+una descripción + puerto well-known:
+
+| Plugin    | Puerto       | Lo que hace |
+|-----------|--------------|-------------|
+| modbus    | 502/tcp      | Read-Holding-Regs + Read-Device-Identification |
+| s7        | 102/tcp      | TPKT/COTP + ROSCTR=0x01 Setup Comm |
+| enip      | 44818/tcp    | ListIdentity (CIP UCMM) |
+| bacnet    | 47808/udp    | Who-Is (APDU broadcast) |
+| dnp3      | 20000/tcp    | Read Class 0 (link-layer + APDU) |
+| iec104    | 2404/tcp     | TESTFR/STARTDT (APCI U-format) |
+| hartip    | 5094/tcp     | Session-Initiate |
+| fox       | 1911/4911    | Banner grab "fox a" + "fox.version" |
+| atg       | 10001/tcp    | `<SOH>I20100<CR>` (Veeder-Root info query) |
+| opcua     | 4840/tcp     | HEL Hello → clasifica ACK/ERR/non-UA |
+| xot       | 1998/tcp     | X.25 CALL REQUEST (RFC 1613) |
+| atmodem   | serial/TCP   | AT+CMEE query + banner parse |
+| **sip**   | 5060/udp+tcp | OPTIONS → 15-vendor PBX matcher (Asterisk/FreePBX/3CX/…) |
+| **iax2**  | 4569/udp     | RFC 5456 NEW → subclase ACCEPT/AUTHREQ/REJECT |
+| **pbxhttp** | 443 (+80/8080/8088/5001/…) | HTTP admin-UI fingerprint, 15 brands |
+| **cwmp**  | 7547/tcp     | TR-069 ACS Inform → 15 ACS vendor fingerprints |
+| banner    | 21/22/23/80  | TCP banner grab genérico (fallback) |
+
+Los cuatro plugins en negrita se añadieron en v1.3 (PBX
+discovery) y v1.4 (CWMP / TR-069).
 
 ### 3.1 Modbus
 
@@ -425,6 +506,97 @@ elsereno scan --protocol atmodem --input stdin <<< "/dev/ttyUSB0"
 ```sh
 # Catch-all: puerto desconocido, snaga banner, aplica diccionario
 elsereno scan --protocol banner --input stdin <<< "10.0.0.20:2323"
+```
+
+### 3.14 SIP / PBX discovery (v1.3+)
+
+```sh
+# OPTIONS probe a 5060 UDP (por defecto) o TCP
+elsereno scan --protocol sip --input stdin <<< "pbx.ejemplo.com:5060"
+
+# Identifica 15 marcas desde Server / User-Agent / Allow headers:
+#   Asterisk / FreePBX / 3CX / Cisco UCM / Cisco SIP Gateway /
+#   Mitel (+ ShoreTel) / Avaya (+ IP Office) / Yeastar /
+#   Grandstream / Fanvil / Yealink / Kamailio / OpenSIPS /
+#   FreeSWITCH / SER.
+# Scoring tiers: 90 attack-ripe (Asterisk/FreePBX/3CX);
+# 85 enterprise (Cisco UCM / Avaya / Mitel); 80 SOHO (Yeastar /
+# Grandstream / Fanvil / Yealink); 75 proxy/gateway;
+# 70 SIP-unknown-vendor.
+#
+# `auth_state` baja a 50 si el servidor responde 401 Unauthorized
+# con Digest challenge.
+```
+
+### 3.15 IAX2 — Asterisk binary protocol (v1.3+)
+
+```sh
+# NEW frame → clasifica la respuesta por subclase
+elsereno scan --protocol iax2 --input stdin <<< "pbx.ejemplo.com:4569"
+
+# Subclases que confirman IAX2 (protocol_risk=90, Asterisk-
+# specific PBX disclosure):
+#   ACCEPT  — el remote aceptó nuestra call (se envía HANGUP
+#             inmediatamente para no dejar dialog colgado)
+#   AUTHREQ — pide auth (auth_state baja a 50)
+#   REJECT  — aceptó la llegada pero rehúsa
+#   HANGUP  — cerró al vuelo
+#   PING / PONG / REG* — todos confirman IAX2
+#
+# Mini-frames (audio) y frames no-IAX se descartan; bytes HTTP
+# que coincidan con mini-frame-encoding se filtran por length
+# sanity guard (real mini-frames son exactamente 4 bytes).
+```
+
+### 3.16 PBX HTTP admin-UI (v1.3+)
+
+```sh
+# Probe a la admin web (HTTPS por defecto, self-signed tolerado)
+elsereno scan --protocol pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
+
+# También funciona contra puertos comunes de admin alternativos:
+#   80 / 8080 / 8088 / 5001 / 8443 / 411 (Avaya IP Office)
+# El plugin acepta un path alternativo vía config (por defecto "/"):
+#   /admin/config.php  → FreePBX
+#   /webclient/        → 3CX
+#   /ccmadmin/login.do → Cisco UCM
+#
+# Reconoce 15 plataformas PBX vía response Server / <title> /
+# body: FreePBX, PBXact (Sangoma), 3CX, Yeastar (+ NeoGate +
+# Linkus), Cisco UCM, Avaya (IP Office / Aura / Communication
+# Manager), Mitel (+ ShoreTel + MiCollab), Grandstream (+ UCM6
+# + GXP + GXW), Fanvil, Yealink (+ SIP-T), Asterisk HTTP
+# Manager, Switchvox (Digium), Elastix, FreeSWITCH.
+#
+# Heurística "PBX-likely": cuando ningún brand matchea pero el
+# body menciona pbx / phone system / sip server / voip admin /
+# extension → protocol_risk sube a 70 para que el finding no
+# pase desapercibido.
+#
+# Default: InsecureSkipVerify=true — PBX default installs
+# shippean certificados self-signed siempre; la alternativa
+# sería no poder fingerprintear el 80 % de los PBXes en
+# producción. El probe NO transmite credenciales, solo lee la
+# página de login.
+```
+
+### 3.17 CWMP / TR-069 (v1.4+)
+
+```sh
+# ACS Inform probe a 7547/tcp
+elsereno scan --protocol cwmp --input stdin <<< "acs.ejemplo.com:7547"
+
+# Reconoce 15 plataformas ACS (Auto-Configuration Servers):
+#   GenieACS (open source) / LibreACS / EasyCwmp / OpenACS /
+#   Axiros ACS / Device Cloud (Digi) / Incognito / Motive /
+#   Netopia ACS / Broadcom ACS / Ericsson (Ericsson EDGE) /
+#   ZTE ACS / Alcatel-Lucent Motive / CommScope Arris / etc.
+#
+# TR-069 es el protocolo estándar de gestión remota de CPE
+# (Customer Premises Equipment — routers, ONTs, STBs...).
+# Un ACS público es una superficie enorme: una RCE en el ACS
+# da control remoto sobre MILES de dispositivos end-user. De
+# ahí el protocol_risk alto por defecto.
 ```
 
 ---
@@ -590,21 +762,123 @@ elsereno-offensive dial batch \
 #   audit chain appended to: ~/.elsereno/audit.jsonl
 ```
 
-### 6.5 Proxy write-gated (v1.1 + v1.2)
+### 6.5 Proxy write-gated (v1.5+ — CLI `proxy listen`)
 
-Para auditorías supervisadas donde el operador quiere pasar por
-un MITM controlado (ejemplo: permitir sólo un FC modbus
-concreto desde un HMI durante una ventana de cambio):
+Desde v1.5.0 todos los write-gates son ejecutables inline con
+un único verbo. Soporta **6 plugins**: modbus, opcua, sip,
+iax2, pbxhttp, bacnet.
+
+#### 6.5.1 Generar allow-file YAML + confirm-token (v1.7+ emit)
+
+El patrón canónico es `write <plugin> dry-run --emit-allow-file`:
+genera el YAML Y el confirm-token en una sola llamada.
 
 ```sh
-# Ejemplo hipotético de pipeline (la CLI `proxy serve` queda
-# para v1.2 chunk 6). En v1.1/v1.2 la infra está lista; el verbo
-# público CLI llega en el close del ciclo v1.2).
-# Una vez enganchado el `WriteGatedHandler`:
-#   - HEL/OPN/CLO (OPC UA) pasan transparentes
-#   - MSG con Write service TypeID 673 refused si no está en allowlist
-#   - El refusal es una UA ServiceFault con status 0x80100000
+# SIP — permitir sólo INVITE + REGISTER
+elsereno-offensive write sip dry-run \
+  --target pbx.ejemplo.com:5060 \
+  --method INVITE --method REGISTER \
+  --vault-passphrase-file ~/.elsereno/vault.pp \
+  --emit-allow-file /etc/elsereno/sip-gate.yaml
+
+# Output:
+#   Protocol:     sip
+#   Target:       pbx.ejemplo.com:5060
+#   Allowed:      INVITE, REGISTER
+#   Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK
+#   PayloadHash:  0faed99d…
+#   ConfirmToken: <hex-de-32-bytes>   ← para el --confirm-token del proxy
+#
+#   allow-file written to: /etc/elsereno/sip-gate.yaml (0600)
+#   next: elsereno proxy listen --allow-file /etc/elsereno/sip-gate.yaml --accept-writes ...
 ```
+
+Dry-runs disponibles:
+- `write sip dry-run --target H:P --method <M>…`
+- `write iax2 dry-run --target H:P --subclass <S>…`
+  (subclases gated: NEW / REGREQ / AUTHREP / ACCEPT)
+- `write pbxhttp dry-run --target H:P --allow METHOD:/path`
+- `write opcua dry-run --target H:P --service <N> [--node-id ns=N;i=M]`
+  (con `--node-id` activa el gate per-NodeId de v1.6)
+- `write bacnet dry-run --target H:P --service-choice <N>`
+- `write modbus dry-run …` (única que sigue el patrón viejo,
+  per-request; proxy-session dry-run es v1.9 carry-over)
+
+#### 6.5.2 Lanzar el proxy con el YAML
+
+```sh
+elsereno-offensive proxy listen \
+  --allow-file /etc/elsereno/sip-gate.yaml \
+  --listen 127.0.0.1:5060 \
+  --accept-writes \
+  --confirm-target pbx.ejemplo.com:5060 \
+  --confirm-token <el-hex-del-dry-run> \
+  --vault-passphrase-file ~/.elsereno/vault.pp
+```
+
+El cliente SIP (softphone, AMI, etc.) se conecta a
+`127.0.0.1:5060`. El proxy:
+- Siempre permite OPTIONS / ACK / BYE / CANCEL / PRACK.
+- Permite INVITE + REGISTER (vienen en el allowlist).
+- Rechaza cualquier otro con `SIP/2.0 405 Method Not Allowed`
+  y cabecera `Allow:` listando los permitidos.
+- La respuesta del upstream vuelve al cliente transparente.
+
+#### 6.5.3 Refusal codes por protocolo
+
+Cada gate emite un rechazo en el wire del protocolo original
+(no TCP RST, para que el cliente lo parsee limpiamente):
+
+| Plugin  | Código / estructura de rechazo |
+|---------|-------------------------------|
+| modbus  | Exception 0x01 ILLEGAL_FUNCTION |
+| opcua   | UA ServiceFault con StatusCode `BadUserAccessDenied` (0x80100000) |
+| sip     | `SIP/2.0 405 Method Not Allowed` + `Allow:` header |
+| iax2    | IAX2 HANGUP frame al client's SrcCallNum |
+| pbxhttp | HTTP 405 (método) o HTTP 403 (path mismatch) |
+| bacnet  | BACnet Abort-PDU con reason `security-error` |
+
+#### 6.5.4 Flags alternativos sin YAML (comandos largos)
+
+Si prefieres no usar `--allow-file`, todos los flags están en
+la CLI directa:
+
+```sh
+# equivalente al ejemplo SIP de arriba
+elsereno-offensive proxy listen \
+  --plugin sip \
+  --target pbx.ejemplo.com:5060 \
+  --method INVITE --method REGISTER \
+  --listen 127.0.0.1:5060 \
+  --accept-writes --confirm-target pbx.ejemplo.com:5060 \
+  --confirm-token <hex> --vault-passphrase-file ~/.elsereno/vault.pp
+```
+
+#### 6.5.5 OPC UA per-NodeId (v1.6+)
+
+El gate de OPC UA puede filtrar WriteRequests no sólo por
+TypeID sino también por NodeId del primer WriteValue:
+
+```sh
+# dry-run: permite WriteRequest (673) sólo contra ns=2;i=42
+elsereno-offensive write opcua dry-run \
+  --target plc.ejemplo.com:4840 \
+  --service 673 \
+  --node-id "ns=2;i=42" \
+  --vault-passphrase-file ~/.elsereno/vault.pp \
+  --emit-allow-file /etc/elsereno/opcua-gate.yaml
+
+# Comportamiento del gate:
+#   WriteRequest contra ns=2;i=42        → PASA
+#   WriteRequest contra ns=2;i=99        → REFUSED (ServiceFault)
+#   WriteRequest con NodeId encoding raro (String/Guid/ByteString)
+#   cuando AllowedNodeIDs está activo    → REFUSED (fail-closed)
+#   ReadRequest contra cualquier NodeId  → PASA siempre (reads no gatean)
+```
+
+Esto es lo que cierra el caso de uso "permitir al HMI escribir
+sólo a la variable de setpoint durante una ventana de cambio,
+pero no a la señal de presión".
 
 ### 6.6 Sandbox seccomp-bpf (Linux)
 

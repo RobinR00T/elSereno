@@ -35,56 +35,51 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
+Latest release: **[v1.8.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0)**
+— first community release.
+
 ```sh
-# Pick your platform; darwin/linux × amd64/arm64 available.
-VERSION=1.0.0
+VERSION=1.8.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
-URL="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
+BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
 
-curl -fL -o "elsereno_${VERSION}.tar.gz" "$URL"
-curl -fL -o checksums.txt  "https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/checksums.txt"
+curl -fLO "${BASE}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
+curl -fLO "${BASE}/checksums.txt"
+curl -fLO "${BASE}/elsereno_${VERSION}_${OS}_${ARCH}.tar.gz.cyclonedx.json"
 
-# Integrity check (abort if mismatch).
+# SHA-256 integrity check
 shasum -a 256 -c checksums.txt --ignore-missing
 
-tar xzf "elsereno_${VERSION}.tar.gz"
-./elsereno version
+tar xzf "elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
+
+# Two binaries bundled: elsereno (read-only) + elsereno-offensive
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno version
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 17
 ```
 
-Optional keyless-signature verification (requires
-[cosign](https://github.com/sigstore/cosign)):
+**Verify the GPG-signed tag** (canonical provenance for v1.8+):
 
 ```sh
-curl -fL -o checksums.txt.sig \
-  "https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}/checksums.txt.sig"
-# Bundle-mode verification ships in v1.1; for v1.0.0 the signature is
-# recorded in Sigstore's Rekor transparency log.
+# Import the maintainer key (ACE3B86BACACE7D6, Daniel Solís Agea)
+curl -fL https://github.com/RobinR00T.gpg | gpg --import
+
+# Clone + verify
+git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
+git tag -v v1.8.0
+# → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
+
+**Supply-chain note**: v1.8.0 is the first **free-tier** release,
+built locally with goreleaser + uploaded via `gh release upload`
+(no GitHub Actions minutes consumed). Verification is GPG-signed
+tag + SHA-256 + CycloneDX SBOMs. Releases v1.0.0 and v1.0.1 were
+built via CI with the full cosign keyless + SLSA v1.0 provenance
++ GHCR docker image package; those artefacts are still available
+on their respective release pages for operators who prefer that
+chain. Detail in [RELEASING.md](RELEASING.md).
 
 ## Quickstart
-
-### Via pre-built OCI image (v1.1+)
-
-```sh
-# Latest release (multi-arch: linux/amd64 + linux/arm64)
-docker pull ghcr.io/robinr00t/elsereno:latest
-docker run --rm -p 8787:8787 \
-  -v "$HOME/.elsereno:/home/nonroot/.elsereno" \
-  ghcr.io/robinr00t/elsereno:latest serve --addr 0.0.0.0:8787
-```
-
-The manifest is cosign-signed (keyless Sigstore) and carries a
-CycloneDX SBOM + SLSA-compatible provenance attestation. Verify end-
-to-end with:
-
-```sh
-cosign verify ghcr.io/robinr00t/elsereno:v1.1.0 \
-  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
-  --certificate-oidc-issuer     'https://token.actions.githubusercontent.com'
-
-cosign download sbom ghcr.io/robinr00t/elsereno:v1.1.0
-```
 
 ### From source (dev workflow)
 
@@ -110,27 +105,43 @@ transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 
-As of F5 (2026-04-19) the default build registers 12 plugins. Writes,
-exploits, credential harvest, and dial ship behind `-tags offensive`
-with the ADR-039 triple-confirm wrapper.
+As of **v1.8.0** (2026-04-23) the default build registers **17
+plugins**. Writes, exploits, credential harvest, dial, and the
+**write-gated proxies** (6 protocols: modbus, opcua, sip, iax2,
+pbxhttp, bacnet) ship behind `-tags offensive` with the ADR-039
+triple-confirm wrapper.
 
-| Protocol      | Port(s)            | Status      |
-|---------------|--------------------|-------------|
-| Modbus/TCP    | 502                | implemented (read-only proxy write-ban) |
-| S7comm        | 102                | implemented (probe + pass-through proxy) |
-| EtherNet/IP   | 44818              | implemented (probe + pass-through proxy) |
-| BACnet/IP     | 47808/udp          | implemented (Who-Is probe)              |
-| DNP3          | 20000              | implemented (probe + pass-through proxy) |
-| IEC 60870-5-104 | 2404             | implemented (TESTFR probe)              |
-| HART-IP       | 5094               | implemented (session-initiate probe)    |
-| Niagara Fox   | 1911, 4911         | implemented (banner probe)              |
-| ATG Veeder-Root | 10001            | implemented (I20100 probe)              |
-| XOT (X.25 over TCP) | 1998         | implemented (probe + pass-through proxy) |
-| AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | implemented (probe + write-ban proxy) |
-| banner/dictionary | many           | implemented (Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH) |
+| Protocol        | Port(s)            | Status (default build) |
+|-----------------|--------------------|------------------------|
+| Modbus/TCP      | 502                | probe + write-ban proxy · gated-write (v1.2, per-unit+FC+addr) |
+| S7comm          | 102                | probe + pass-through proxy |
+| EtherNet/IP     | 44818              | probe + pass-through proxy |
+| BACnet/IP       | 47808/udp          | Who-Is probe · gated-write (v1.4, per-service-choice) |
+| DNP3            | 20000              | probe + pass-through proxy |
+| IEC 60870-5-104 | 2404               | TESTFR probe |
+| HART-IP         | 5094               | session-initiate probe |
+| Niagara Fox     | 1911, 4911         | banner probe |
+| ATG Veeder-Root | 10001              | I20100 probe |
+| OPC UA          | 4840               | Hello probe · gated-write (v1.2, service-TypeID + per-NodeId v1.6) |
+| XOT (X.25 / TCP) | 1998              | probe + pass-through proxy |
+| AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | probe + write-ban proxy |
+| **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy (v1.4, per-method) |
+| **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy (v1.4, per-subclass) |
+| **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy (v1.4, per-(method,path)) |
+| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors |
+| banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
-See `.context/protocols/` for per-protocol notes and `.context/STATE.md` for
-the authoritative live state.
+The four rows in **bold** landed in v1.3 (SIP/IAX2/pbxhttp — PBX
+discovery) and v1.4 (CWMP). Run `elsereno plugins list` for the
+authoritative list on your binary.
+
+**Attack-surface inputs**: Shodan, Censys, FOFA (v1.8),
+ZoomEye (v1.8). See `internal/inputs/` for the library
+interface; CLI `--input <provider>:<query>` wire-up is
+v1.9 roadmap.
+
+See `.context/protocols/` for per-protocol notes and
+`.context/STATE.md` for the authoritative live state.
 
 ## Target acquisition
 
