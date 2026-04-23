@@ -1,12 +1,17 @@
 name: supply-chain
 
+# Disabled 2026-04-23 — no paid Actions billing. Original triggers
+# preserved below. workflow_dispatch stays so operators can still
+# run this on demand from the UI.
+#
+# Original auto-triggers:
+#   pull_request:
+#   push:
+#     branches: [main]
+#     tags: ["v*"]
+#   schedule:
+#     - cron: "0 4 * * *"
 on:
-  pull_request:
-  push:
-    branches: [main]
-    tags: ["v*"]
-  schedule:
-    - cron: "0 4 * * *"
   workflow_dispatch:
 
 permissions:

@@ -1,8 +1,13 @@
 name: nightly
 
+# Disabled 2026-04-23 — no paid Actions billing. Original schedule
+# preserved below. workflow_dispatch stays so operators can run it
+# on demand.
+#
+# Original schedule:
+#   schedule:
+#     - cron: "0 3 * * *"
 on:
-  schedule:
-    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:

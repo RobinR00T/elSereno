@@ -1,8 +1,16 @@
 name: release
 
+# Disabled 2026-04-23 — the project publishes releases via local
+# goreleaser build + `gh release upload` (see RELEASING.md) rather
+# than CI-built releases, to keep the project on the GitHub free
+# tier without per-minute Actions billing.
+#
+# Original trigger:
+#   on:
+#     push:
+#       tags: ["v*"]
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
