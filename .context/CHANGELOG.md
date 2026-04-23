@@ -240,6 +240,34 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.8.0 closed.** Two-chunk cycle, operator-
+  requested. Chunk 1 ships the FOFA (fofa.info) input client
+  with email+key auth and qbase64 query encoding. Chunk 2
+  ships the ZoomEye (zoomeye.org) input client with `API-KEY`
+  header auth. Both library-level only (matches existing
+  Shodan + Censys pattern); CLI wire-up is a v1.9 decision.
+  10 new tests across the two packages. Snapshot at
+  `.context/snapshots/v1.8.0-fofa-zoomeye-inputs.md`. v1.8.0
+  tag signed locally.
+- 2026-04-23 — **v1.8 chunk 2 (zoomeye input)** landed on main.
+  `API-KEY` HTTP header auth (credentials don't leak via URL
+  logs). 1-based paging. Envelope has top-level `ip` +
+  nested `portinfo.port`. Rows with unparseable IP/port
+  dropped silently. 5 tests including header-auth assertion +
+  402 Payment Required path (free-tier credit exhaustion).
+- 2026-04-23 — **v1.8 chunk 1 (fofa input)** landed on main.
+  FOFA needs both email + API key (unlike Shodan's single
+  key). Query base64-encoded per FOFA's `qbase64` convention.
+  Requests `fields=host,ip,port` for stable row shape.
+  `ErrNoCredentials` + `ErrAPIError` sentinels so callers
+  distinguish auth/quota/bad-query from transport errors.
+  5 tests including qbase64-round-trip assertion.
+- 2026-04-23 — **v1.1.0 → v1.7.0 pushed to origin/main.**
+  Operator restored PAT + ran `git push origin main` (41
+  commits) + `git push origin v1.1.0 v1.2.0 v1.3.0 v1.4.0
+  v1.5.0 v1.6.0 v1.7.0` (7 tags). 7 release workflows ran
+  in parallel on GitHub Actions (goreleaser + cosign + GHCR
+  + SBOM + SLSA attestation per tag).
 - 2026-04-23 — **v1.7.0 closed.** Two UX chunks:
   chunk 1 added `write dry-run --emit-allow-file` to close the
   YAML round-trip introduced in v1.6 chunk 1. Chunk 2 added

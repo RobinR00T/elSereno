@@ -40,18 +40,18 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-23)**: v1.0.1 published on GitHub
-releases. v1.1.0 → v1.6.0 plus **v1.7.0** signed locally,
-unpushed (40 commits on top of origin/main). v1.7.0 closes the
-YAML round-trip (`write dry-run --emit-allow-file`) and brings
-`write opcua / bacnet dry-run` parity. See
-`.context/snapshots/v1.7.0-yaml-round-trip.md` plus the
-cycle-by-cycle snapshots for v1.6 / v1.5 / v1.4 / v1.3 / v1.2.
-**17 protocol plugins in the default build**; **6 offensive
-write-gated proxies** (two of them now with per-object
+**Current phase (2026-04-23)**: v1.1.0 → **v1.7.0 pushed** to
+`origin/main` today (operator restored PAT + ran push; 41
+commits + 7 tags). **v1.8.0** signed locally, unpushed (2
+commits: FOFA + ZoomEye input clients). See
+`.context/snapshots/v1.8.0-fofa-zoomeye-inputs.md` plus the
+cycle-by-cycle snapshots for v1.7 / v1.6 / v1.5 / v1.4 / v1.3
+/ v1.2. **17 protocol plugins in the default build**; **6
+offensive write-gated proxies** (two with per-object
 tightness: OPC UA per-NodeId, Modbus per-unit+FC+addr-range);
-every TCP-based plugin enforces a wire-layer write-ban in
-default mode. 5 output sinks (NDJSON / CSV /
+**4 attack-surface input clients** (shodan / censys / fofa /
+zoomeye); every TCP-based plugin enforces a wire-layer
+write-ban in default mode. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
 (JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
 is now code-sourced (`internal/web/openapi.Spec`) and served live

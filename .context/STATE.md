@@ -1,19 +1,19 @@
 ---
-phase: v1.7-released
-status: v1.7.0 tagged locally (unpushed); YAML round-trip + dry-run symmetry
+phase: v1.8-released
+status: v1.8.0 tagged locally (unpushed); FOFA + ZoomEye inputs
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.7.0 signed locally (unpushed). Two UX chunks:
-`write dry-run --emit-allow-file` closes the YAML round-trip
-started in v1.6 chunk 1, and new `write opcua / bacnet
-dry-run` subcommands close the asymmetry where only sip /
-iax2 / pbxhttp had proxy-session dry-runs. v1.2.0 + v1.3.0 +
-v1.4.0 + v1.5.0 + v1.6.0 + v1.7.0 waiting on the operator
-to restore `GH_TOKEN` and push.
+**Phase**: v1.8.0 signed locally (unpushed). Two-chunk cycle:
+FOFA + ZoomEye attack-surface input clients, operator-
+requested immediately after v1.7.0 signing. Library-level
+only for now (CLI wire-up via `--input`, a new `elsereno
+search` verb, or vault-integration is a v1.9 decision).
+v1.1.0 → v1.7.0 are already on `origin/main` (pushed earlier
+today); v1.8.0 is the first local-only tag after the push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -49,6 +49,12 @@ to restore `GH_TOKEN` and push.
   (sip / iax2 / pbxhttp / opcua / bacnet). Modbus proxy-
   session dry-run is a v1.8 carry-over. See
   `.context/snapshots/v1.7.0-yaml-round-trip.md`.
+- **v1.8.0** (2026-04-23, local) — FOFA (fofa.info) +
+  ZoomEye (zoomeye.org) attack-surface input clients.
+  Library-level, matches the Shodan / Censys pattern. 10
+  tests across the two packages. CLI wire-up decision is a
+  v1.9 carry-over. See `.context/snapshots/v1.8.0-fofa-
+  zoomeye-inputs.md`.
 
 **v1.4.0 chunks** (all landed):
 - `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
@@ -80,18 +86,20 @@ to restore `GH_TOKEN` and push.
 - `f76b3f2` chunk 2 — OPC UA per-NodeId allowlist. 8 tests.
 
 **v1.7.0 chunks** (all landed):
-- `0f31d6e` chunk 1 — `write dry-run --emit-allow-file`. YAML
-  round-trip emitter with stdout / file-with-0600 routing.
-  10 tests including a full emit → load recover round-trip.
+- `0f31d6e` chunk 1 — `write dry-run --emit-allow-file`.
 - `65e5382` chunk 2 — `write opcua dry-run` + `write bacnet
-  dry-run`. OPC UA honours v1.6 per-NodeId via `--node-id
-  ns=N;i=M`. 7 tests.
+  dry-run`.
 
-**v1.8+ roadmap** (see `TODO-vNext.md`):
-- **FOFA input** (fofa.info) — base64-encoded query API,
-  returns hosts + banners. Operator-requested 2026-04-23.
-- **ZoomEye input** (zoomeye.org) — `API-KEY` header, same
-  shape as the Shodan / Censys inputs already ship.
+**v1.8.0 chunks** (all landed):
+- `da41262` chunk 1 — FOFA input client + 5 tests.
+- `315ad0c` chunk 2 — ZoomEye input client + 5 tests.
+
+**v1.9+ roadmap** (see `TODO-vNext.md`):
+- CLI wire-up for FOFA + ZoomEye (three options: extend
+  `--input fofa:<query>` / new `elsereno search` verb / vault
+  storage via `elsereno creds store <provider>`).
+- Modbus proxy-session dry-run.
+- ONYPHE input client.
 - BACnet per-object allowlist (same shape as OPC UA v1.6
   chunk 2, ASN.1 BER parsing).
 - SIP To-URI E.164 prefix allowlist for INVITE (toll-
@@ -113,11 +121,22 @@ to restore `GH_TOKEN` and push.
 - Runtime reload of the proxy listen allowlist (non-trivial
   because changing the allowlist changes PayloadHash which
   invalidates the confirm-token).
-- `elsereno write <plugin> dry-run --emit-allow-file` to
-  generate the YAML file from the dry-run output.
 
-**Unpushed work** (40 commits on local `main` ahead of
-`origin/main`), grouped by tag:
+**Pushed on 2026-04-23**: v1.1.0 → v1.7.0 tags + 41 commits
+of main landed on `origin/main` via the operator's fine-
+grained PAT. CI ran 7 release workflows (goreleaser + cosign
++ GHCR + SBOM + SLSA attestation per tag).
+
+**Unpushed work** (2 commits on local `main` ahead of
+`origin/main`):
+
+```
+<v1.8.0>   315ad0c feat(v1.8 chunk 2): zoomeye input
+           da41262 feat(v1.8 chunk 1): fofa input
+```
+
+**Historic commit list** (archived — all of these are now on
+`origin/main`):
 
 ```
 <v1.7.0>   65e5382 feat(v1.7 chunk 2): opcua/bacnet dry-run

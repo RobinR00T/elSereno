@@ -107,17 +107,22 @@ surgen en campo.
 
 - [ ] **ONYPHE** input: `elsereno scan --input-type onyphe
   --api-key-file ...`.
-- [ ] **FOFA** input — fofa.info. API endpoint
-  `https://fofa.info/api/v1/search/all?email=…&key=…&qbase64=…`,
-  base64-encoded FOFA query. Devuelve hosts con `ip:port` +
-  banner. Operator-requested (2026-04-23). Shape esperada:
-  `--input-type fofa --api-key-file ~/.elsereno/fofa.key
-  --query "port=4569 && protocol=iax2"`.
-- [ ] **ZoomEye** input — zoomeye.org. API endpoint
-  `https://api.zoomeye.org/host/search?query=…&page=…`,
-  header `API-KEY: <key>`. Operator-requested (2026-04-23).
-  Shape: `--input-type zoomeye --api-key-file ~/.elsereno/
-  zoomeye.key --query "app:Asterisk"`.
+- [x] **FOFA** input — fofa.info. ✅ Librería landed en v1.8
+  chunk 1 (`internal/inputs/fofa`). email+qbase64 auth. CLI
+  wire-up pendiente (ver `CLI wire-up` más abajo).
+- [x] **ZoomEye** input — zoomeye.org. ✅ Librería landed en
+  v1.8 chunk 2 (`internal/inputs/zoomeye`). `API-KEY` header.
+  CLI wire-up pendiente.
+- [ ] **CLI wire-up para FOFA + ZoomEye + Shodan + Censys** —
+  hoy los 4 clientes son librerías sin CLI. Opciones:
+  (a) extender `--input fofa:<query>` / `--input zoomeye:<q>`
+      con `--api-creds-file <path>` para las creds;
+  (b) nuevo verbo `elsereno search fofa --query <q>
+      --creds-file <path>` que saca NDJSON a stdout, que se
+      pipea a `elsereno scan --input stdin`;
+  (c) integración con vault (`elsereno creds store fofa` +
+      auto-uso desde `scan`).
+  (c) es lo más consistente con el resto del codebase.
 - [ ] **Shodan InternetDB** (libre, sin key): CDN-friendly
   endpoint `/host/<ip>`.
 - [ ] **STIX 2.1 export**: cada finding → una `indicator` +

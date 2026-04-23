@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-04-23
+
+### Added
+
+- **`internal/inputs/fofa`** — FOFA (fofa.info) attack-surface
+  input client, operator-requested. Requires both `email` +
+  `apiKey` (unlike Shodan's single key). `Search` base64-
+  encodes the query per FOFA's `qbase64` convention, requests
+  `fields=host,ip,port` for a stable row shape, maps rows to
+  `core.Target{Address, Port}`. `ErrNoCredentials` +
+  `ErrAPIError` typed sentinels.
+- **`internal/inputs/zoomeye`** — ZoomEye (zoomeye.org)
+  attack-surface input client, operator-requested. Single API
+  key delivered via `API-KEY` HTTP header so credentials
+  don't leak through URL logs. 1-based paging. `ErrNoAPIKey`
+  sentinel.
+
+### Notes
+
+- Both clients are **library-level only**, matching the
+  existing Shodan + Censys precedent. Neither is wired into
+  the `scan --input <kind>` dispatch yet — that's a v1.9
+  design decision (extend `--input fofa:<query>` vs a new
+  `elsereno search` verb vs vault-integration via
+  `elsereno creds store <provider>`).
+
+### Deferred to v1.9+
+
+- CLI wire-up for FOFA + ZoomEye (see design options above).
+- ONYPHE input client (also in `TODO-vNext.md`).
+- Modbus proxy-session dry-run (v1.7 carry-over).
+- BACnet per-object allowlist.
+- SIP To-URI E.164 prefix allowlist for INVITE.
+- REGISTER AOR allowlist.
+- CWMP offensive proxy.
+- SIGHUP reload of proxy listen allowlist.
+
 ## [1.7.0] — 2026-04-23
 
 ### Added
