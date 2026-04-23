@@ -27,6 +27,9 @@ ships (F6+). For now, --dry-run is the only supported mode so the
 operator can inspect the exact bytes that would hit the wire.`,
 	}
 	cmd.AddCommand(newWriteModbusCmd())
+	cmd.AddCommand(newWriteSIPCmd())
+	cmd.AddCommand(newWriteIAX2Cmd())
+	cmd.AddCommand(newWritePBXHTTPCmd())
 	return cmd
 }
 
