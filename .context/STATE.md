@@ -1,19 +1,26 @@
 ---
-phase: v1.8-released
-status: v1.8.0 tagged locally (unpushed); FOFA + ZoomEye inputs
+phase: v1.8-published
+status: v1.8.0 published on GitHub (first community release, free-tier flow)
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.8.0 signed locally (unpushed). Two-chunk cycle:
-FOFA + ZoomEye attack-surface input clients, operator-
-requested immediately after v1.7.0 signing. Library-level
-only for now (CLI wire-up via `--input`, a new `elsereno
-search` verb, or vault-integration is a v1.9 decision).
-v1.1.0 → v1.7.0 are already on `origin/main` (pushed earlier
-today); v1.8.0 is the first local-only tag after the push.
+**Phase**: **v1.8.0 publicado** en GitHub Releases
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0).
+Primera release pública con artefactos descargables. Flujo
+free-tier: goreleaser local + `gh release upload`, sin CI.
+Verificación: GPG tag (`git tag -v v1.8.0`) + SHA-256 +
+CycloneDX SBOMs.
+
+GitHub Actions workflows quedaron desactivados (trigger
+cambiado a `workflow_dispatch` only) después de que todos
+fallaran con "payment failed / spending limit reached" — el
+proyecto opera ahora en el tier gratuito de GitHub. Si en el
+futuro se restaura billing, los workflows se pueden reactivar
+editando el `on:` stanza en cada `.github/workflows/*.yml`
+(los triggers originales quedan preservados en comentarios).
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -122,18 +129,22 @@ today); v1.8.0 is the first local-only tag after the push.
   because changing the allowlist changes PayloadHash which
   invalidates the confirm-token).
 
-**Pushed on 2026-04-23**: v1.1.0 → v1.7.0 tags + 41 commits
-of main landed on `origin/main` via the operator's fine-
-grained PAT. CI ran 7 release workflows (goreleaser + cosign
-+ GHCR + SBOM + SLSA attestation per tag).
+**Pushed on 2026-04-23**: everything. All tags v1.1.0 →
+v1.8.0 on `origin/main`. Main at
+`3286b5e docs: refresh manual / cheatsheet / README for
+v1.8.0 community release`. Zero unpushed commits.
 
-**Unpushed work** (2 commits on local `main` ahead of
-`origin/main`):
-
-```
-<v1.8.0>   315ad0c feat(v1.8 chunk 2): zoomeye input
-           da41262 feat(v1.8 chunk 1): fofa input
-```
+**GitHub Actions status**:
+- Billing: spending limit reached / payment failed.
+- All 8 release workflow runs (one per tag v1.0.0 → v1.8.0)
+  aborted in ~30s with "job not started because payment has
+  failed". No release artefacts were produced by CI.
+- v1.8.0 artefacts (4 tarballs + 4 SBOMs + checksums.txt)
+  built locally and uploaded manually via
+  `gh release upload`.
+- All 6 workflows (`ci`, `release`, `codeql`, `supply-chain`,
+  `benchmarks`, `nightly`) gated to `workflow_dispatch:` only
+  to stop accumulating billing failures.
 
 **Historic commit list** (archived — all of these are now on
 `origin/main`):

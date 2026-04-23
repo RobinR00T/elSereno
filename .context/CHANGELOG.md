@@ -240,6 +240,24 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.8.0 PUBLISHED on GitHub Releases** as the
+  first community release. Artefacts (4 platform tarballs + 4
+  CycloneDX SBOMs + checksums.txt) built locally with
+  goreleaser and uploaded via `gh release upload` after all
+  CI release workflows failed at ~30s with "job not started
+  because payment has failed / spending limit reached". The
+  project shifts to the **GitHub free tier**: all 6 workflows
+  (ci / release / codeql / supply-chain / benchmarks /
+  nightly) gated to `workflow_dispatch:` only to stop
+  accumulating billing failures. Verification flow is now
+  **GPG-signed tag** (`git tag -v v1.8.0`, key
+  ACE3B86BACACE7D6 — Daniel Solís Agea) + SHA-256 checksums
+  + CycloneDX SBOMs. RELEASING.md rewritten to document the
+  new flow with the legacy CI-based flow preserved at the
+  bottom. Docs pass: elsereno-manual.md + .docx + cheatsheet
+  + README all refreshed with 17-plugin table, proxy listen
+  examples, `--allow-file` / `--emit-allow-file` usage, and
+  FOFA/ZoomEye inputs (library-level).
 - 2026-04-23 — **v1.8.0 closed.** Two-chunk cycle, operator-
   requested. Chunk 1 ships the FOFA (fofa.info) input client
   with email+key auth and qbase64 query encoding. Chunk 2
