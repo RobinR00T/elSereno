@@ -69,6 +69,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
+	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
 	cmd.Flags().StringVar(&opts.confirmToken, "confirm-token", "", "confirm-token derived from dry-run")
@@ -84,6 +85,7 @@ type proxyListenOpts struct {
 	target, listen                      string
 	methods, subclasses, allowEntries   []string
 	functions, services, serviceChoices []uint
+	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
 	dialTimeout, idleTimeout            time.Duration
@@ -91,6 +93,11 @@ type proxyListenOpts struct {
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
+	if opts.allowFile != "" {
+		if err := loadAllowFile(opts.allowFile, &opts); err != nil {
+			return fail(core.ExitUsage, err)
+		}
+	}
 	if err := validateProxyListenOpts(opts); err != nil {
 		return fail(core.ExitUsage, err)
 	}
@@ -182,17 +189,17 @@ type gatedProxyHandler interface {
 // surface regardless of the concrete plugin type.
 func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (gatedProxyHandler, error) {
 	switch strings.ToLower(opts.plugin) {
-	case "sip":
+	case pluginNameSIP:
 		return buildSIPHandler(opts, rt, c), nil
-	case "iax2":
+	case pluginNameIAX2:
 		return buildIAX2Handler(opts, rt, c)
-	case "pbxhttp":
+	case pluginNamePBXHTTP:
 		return buildPBXHTTPHandler(opts, rt, c)
-	case "modbus":
+	case pluginNameModbus:
 		return buildModbusHandler(opts, rt, c)
-	case "opcua":
+	case pluginNameOPCUA:
 		return buildOPCUAHandler(opts, rt, c)
-	case "bacnet":
+	case pluginNameBACnet:
 		return buildBACnetHandler(opts, rt, c)
 	}
 	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet", opts.plugin)
