@@ -60,13 +60,16 @@ type proxyAllowFile struct {
 	Target string `yaml:"target"`
 
 	// Per-plugin allowlist fields (only the one matching Plugin
-	// is consulted).
-	Methods        []string `yaml:"methods"`         // sip
-	Subclasses     []string `yaml:"subclasses"`      // iax2
-	Allow          []string `yaml:"allow"`           // pbxhttp
-	Functions      []uint   `yaml:"functions"`       // modbus
-	Services       []uint   `yaml:"services"`        // opcua
-	ServiceChoices []uint   `yaml:"service_choices"` // bacnet
+	// is consulted). `omitempty` keeps the emitted YAML focused
+	// on the fields relevant to this plugin — a sip dry-run's
+	// emit-allow-file shouldn't drop empty `subclasses: []` or
+	// `functions: []` keys into the file.
+	Methods        []string `yaml:"methods,omitempty"`         // sip
+	Subclasses     []string `yaml:"subclasses,omitempty"`      // iax2
+	Allow          []string `yaml:"allow,omitempty"`           // pbxhttp
+	Functions      []uint   `yaml:"functions,omitempty"`       // modbus
+	Services       []uint   `yaml:"services,omitempty"`        // opcua
+	ServiceChoices []uint   `yaml:"service_choices,omitempty"` // bacnet
 }
 
 // loadAllowFile reads + parses an allow-file and merges its

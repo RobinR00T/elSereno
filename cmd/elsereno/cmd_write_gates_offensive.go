@@ -42,7 +42,7 @@ into the eventual proxy-run verb.`,
 }
 
 func newWriteSIPDryRunCmd() *cobra.Command {
-	var target, ppFile string
+	var target, ppFile, emitFile string
 	var methods []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
@@ -62,12 +62,19 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			cmd.Printf("Allowed:      %s\n", canonMethods(methods))
 			cmd.Printf("Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-			return maybeMintToken(cmd, mut, ppFile)
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the SIP server we'll proxy to)")
 	cmd.Flags().StringSliceVar(&methods, "method", nil, "one or more gated methods (repeat or comma-separated)")
 	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
 }
 
@@ -90,7 +97,7 @@ HANGUP addressed to the client's SrcCallNum.`,
 }
 
 func newWriteIAX2DryRunCmd() *cobra.Command {
-	var target, ppFile string
+	var target, ppFile, emitFile string
 	var subclasses []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
@@ -114,12 +121,19 @@ func newWriteIAX2DryRunCmd() *cobra.Command {
 			cmd.Printf("Allowed:      %s\n", canonSubclasses(subclasses))
 			cmd.Printf("Always-safe:  HANGUP, ACK, PING, PONG, LAGRQ, LAGRP, INVAL, REGAUTH, REGACK, REGREJ, REGREL, REJECT\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-			return maybeMintToken(cmd, mut, ppFile)
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFileIAX2(target, subclasses))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the IAX2 server we'll proxy to)")
 	cmd.Flags().StringSliceVar(&subclasses, "subclass", nil, "one or more gated subclasses (NEW / REGREQ / AUTHREP / ACCEPT)")
 	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
 }
 
@@ -141,7 +155,7 @@ refused — the gate can't inspect tunnelled traffic.`,
 }
 
 func newWritePBXHTTPDryRunCmd() *cobra.Command {
-	var target, ppFile string
+	var target, ppFile, emitFile string
 	var entries []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
@@ -168,12 +182,19 @@ path is case-sensitive (RFC 3986).`,
 			cmd.Printf("Allowed:      %s\n", canonPBXEntries(allowed))
 			cmd.Printf("Always-safe:  GET, HEAD, OPTIONS\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-			return maybeMintToken(cmd, mut, ppFile)
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFilePBXHTTP(target, entries))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the HTTP(S) PBX admin server)")
 	cmd.Flags().StringSliceVar(&entries, "allow", nil, "one or more METHOD:/path pairs (repeat or comma-separated)")
 	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
 }
 
