@@ -240,6 +240,70 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.4.0 closed.** Offensive PBX write-gate
+  cycle shipped: SIP method-allowlist gate (chunk 1), pbxhttp
+  (method, path)-allowlist gate (chunk 2), IAX2 subclass-
+  allowlist UDP gate (chunk 3), CLI dry-run wiring for all
+  three (chunk 4), TR-069/CWMP ACS fingerprint plugin (chunk 5,
+  plugin #17), BACnet/IP service-choice UDP gate closing the
+  v1.2 carry-over (chunk 6). 4 new offensive write-gated proxies
+  (bringing the total to 5: modbus/opcua/sip/iax2/pbxhttp/
+  bacnet). Snapshot at
+  `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`.
+  v1.4.0 tag signed locally.
+- 2026-04-23 — **v1.4 chunk 6 (BACnet UDP write-gate)** landed
+  on main. `internal/protocols/bacnet/wire/service.go` ships
+  ASHRAE 135 APDU classification (APDUType enum +
+  ConfirmedService choices + IsMutatingConfirmedService
+  predicate + BuildAbortPDU). `offensive/write/bacnet/
+  gatedproxy.go` replaces the session-primitive stub with a
+  full UDP relay: always-passes Who-Is / I-Am / acks / errors /
+  non-BACnet / confirmed-reads; gates WriteProperty /
+  WritePropertyMultiple / AtomicWriteFile / AddListElement /
+  RemoveListElement / CreateObject / DeleteObject /
+  ReinitializeDevice / DeviceCommControl / LifeSafetyOperation;
+  refuses via BVLC-wrapped Abort-PDU with reason 5 (security-
+  error). 14 tests.
+- 2026-04-23 — **v1.4 chunk 5 (cwmp plugin)** landed on main.
+  TR-069 / CWMP ACS fingerprint on 7547/tcp. 15 ACS vendor
+  identifiers (GenieACS, FreeACS, Axiros, Nokia Altiplano,
+  Huawei FusionHome, Broadcom BroadWorks, Cisco Prime, ADB,
+  Friendly TR-069 Simulator, interaCMS, Netopia, create-net,
+  open-ACS, TR-069 marker). VendorRisk tiers 90/85/75/80.
+  isCWMPLikely heuristic fires on 401-with-acs-realm or
+  SOAP-with-cwmp body even without vendor match. Default-build
+  plugin count: 16 → 17. 15 tests.
+- 2026-04-23 — **v1.4 chunk 4 (CLI dry-run for gated proxies)**
+  landed on main. Three new cobra subcommands under `elsereno
+  write`: `sip dry-run --method`, `iax2 dry-run --subclass`,
+  `pbxhttp dry-run --allow METHOD:/path`. Each prints the
+  canonicalised allowlist + SessionMutation PayloadHash; with
+  --vault-passphrase-file also mints the expected confirm-
+  token via confirm.ExpectedToken. 11 tests cover parseAllowEntry,
+  iaxSubclassByName, canonMethods, cobra-driven shape checks,
+  and --target-required behaviour.
+- 2026-04-23 — **v1.4 chunk 3 (iax2 write-gate)** landed on main.
+  UDP per-datagram subclass allowlist. Mini-frames (audio) +
+  non-IAX frames (Voice/DTMF/Video) ALWAYS pass — media
+  unconditional. Gated IAX subclasses: NEW / REGREQ / AUTHREP /
+  ACCEPT. Refusal: HANGUP full-frame addressed to the client's
+  SrcCallNum (the universal IAX call-teardown signal). 14 tests
+  with net.Pipe UDP-semantics preserve-per-Write boundaries.
+- 2026-04-23 — **v1.4 chunk 2 (pbxhttp write-gate)** landed on
+  main. HTTP (method, path) allowlist via net/http's server
+  parser. Read-only methods (GET/HEAD/OPTIONS) always pass;
+  CONNECT always refused. Two-stage refusal: 405 when the
+  method isn't in the allowlist, 403 when method matches but
+  the path doesn't. 14 tests; bodyclose pitfall caught + fixed
+  with a statusResp{Code, Header} snapshot helper.
+- 2026-04-23 — **v1.4 chunk 1 (sip write-gate)** landed on main.
+  Per-request method allowlist via net/textproto request-line
+  parser. Always-safe set (OPTIONS/ACK/BYE/CANCEL/PRACK) passes
+  unconditionally; gated methods (INVITE, REGISTER, MESSAGE,
+  SUBSCRIBE, NOTIFY, REFER, PUBLISH, UPDATE, INFO) require
+  explicit allowlist. Refusal: canonical SIP/2.0 405 Method
+  Not Allowed with an Allow: header listing all permitted
+  methods. 13 tests; gocyclo drove the Handle + handleOne split.
 - 2026-04-22 — **v1.3.0 closed.** PBX-discovery cycle shipped:
   SIP + IAX2 + pbxhttp plugins (chunks 1a/1b/1c), 15 PBX brand
   fingerprints across the three, 16 plugins in the default

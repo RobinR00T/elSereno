@@ -40,15 +40,19 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-22)**: v1.0.1 published on GitHub
-releases. v1.1.0 + v1.2.0 + **v1.3.0** signed locally, unpushed
-(22 commits on top of origin/main). v1.3.0 closed the PBX-
-discovery cycle: SIP (5060/udp+tcp) + IAX2 (4569/udp) + pbxhttp
-(443) plugins, 15 PBX brand fingerprints across the three. See
+**Current phase (2026-04-23)**: v1.0.1 published on GitHub
+releases. v1.1.0 + v1.2.0 + v1.3.0 + **v1.4.0** signed locally,
+unpushed (31 commits on top of origin/main). v1.4.0 closed the
+offensive-PBX-write-gate cycle: gated proxies for SIP / IAX2 /
+pbxhttp, BACnet UDP write-gate (closing v1.2 carry-over), CLI
+dry-run wiring, plus the TR-069/CWMP fingerprint. See
+`.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md` +
 `.context/snapshots/v1.3.0-pbx-discovery.md` +
-`.context/snapshots/v1.2-db-panels-opcua-gates-dial.md` for the
-full picture of each cycle. **16 protocol plugins in the default
-build**; every TCP-based plugin enforces a wire-layer write-ban. 5 output sinks (NDJSON / CSV /
+`.context/snapshots/v1.2-db-panels-opcua-gates-dial.md` for
+cycle-by-cycle detail. **17 protocol plugins in the default
+build**; **5 offensive write-gated proxies** (modbus / opcua /
+sip / iax2 / pbxhttp / bacnet); every TCP-based plugin enforces
+a wire-layer write-ban in default mode. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
 (JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
 is now code-sourced (`internal/web/openapi.Spec`) and served live

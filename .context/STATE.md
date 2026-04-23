@@ -1,19 +1,18 @@
 ---
-phase: v1.4-in-flight
-status: v1.3.0 tagged locally (unpushed); v1.4 chunk 1 landed (offensive sip gate)
+phase: v1.4-released
+status: v1.4.0 tagged locally (unpushed); chunk cycle closed
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.4 chunk 1 landed on `main` (`9038e4b`). v1.3.0 signed
-locally (unpushed). Full PBX-discovery cycle shipped: SIP + IAX2 +
-pbxhttp, 15 PBX brand fingerprints across the three plugins, plus
-the offensive SIP write-gate that turns the deny-all default proxy
-into a method-allowlisted forwarder. v1.2.0 + v1.3.0 + the 25
-unpushed commits all waiting on the operator to restore `GH_TOKEN`
-and push.
+**Phase**: v1.4.0 signed locally (unpushed). Full offensive-PBX-
+write-gate cycle shipped: SIP + IAX2 + pbxhttp gated proxies
+(chunks 1-3), CLI dry-run wiring (chunk 4), TR-069 ACS
+fingerprint (chunk 5), BACnet UDP write-gate (chunk 6 — closes
+the v1.2 carry-over). v1.2.0 + v1.3.0 + v1.4.0 waiting on the
+operator to restore `GH_TOKEN` and push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -22,69 +21,69 @@ and push.
 - v1.2.0 (2026-04-22, local) — DB panels + OPC UA write gate
   + Handle loops × 5 + dial backends + SLSA via Attestations
   API + SyncFromFile + SQLite retired.
-- **v1.3.0** (2026-04-22, local) — PBX discovery (SIP + IAX2 +
-  pbxhttp). 16 plugins in default build (up from 13 at v1.2.0).
-  See `.context/snapshots/v1.3.0-pbx-discovery.md`.
+- v1.3.0 (2026-04-22, local) — PBX discovery (SIP + IAX2 +
+  pbxhttp). 16 plugins default build; 15 PBX brand
+  fingerprints.
+- **v1.4.0** (2026-04-23, local) — offensive PBX write-gates
+  + BACnet UDP relay + TR-069/CWMP fingerprint. 17 plugins
+  default build; 4 offensive write-gated proxies (up from 2).
+  See `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`.
 
-**v1.3.0 chunks** (all landed):
-- `e8278e5` chunk 1a — SIP OPTIONS probe on 5060/udp+tcp with
-  15-vendor matcher (Asterisk, FreePBX, 3CX, Cisco UCM, Cisco
-  SIP GW, Mitel, Avaya, Yeastar, Grandstream, Fanvil, Yealink,
-  Kamailio, OpenSIPS, FreeSWITCH, SER).
-- `ca68a3a` chunk 1b — IAX2 NEW/HANGUP probe on 4569/udp. RFC
-  5456 full-frame parser + subclass classifier. Mini-frame-
-  length-mismatch guard.
-- `abd296d` chunk 1c — pbxhttp HTTP(S) admin-UI fingerprint on
-  443 (also works on 80 / 8080 / 8088 / 5001 / 8443 with
-  overridden Scheme). 15 PBX platform fingerprints via
-  Server / title / body markers. PBX-likely heuristic for
-  unmatched-brand HTTP responders with PBX-ish body text.
-  InsecureSkipVerify defaulted true (PBX self-signed certs
-  are ubiquitous; documented gosec waiver).
+**v1.4.0 chunks** (all landed):
+- `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
+  via net/textproto request-line parser. 405 refusal with
+  Allow header.
+- `482263f` chunk 2 — offensive pbxhttp write-gate. (method,
+  path) allowlist via net/http's server parser. 405 / 403
+  refusals.
+- `b0d3ea7` chunk 3 — offensive iax2 write-gate. Subclass
+  allowlist with UDP per-datagram relay. HANGUP refusal.
+- `26ca8df` chunk 4 — CLI dry-run wiring for all three PBX
+  gates. `elsereno write {sip,iax2,pbxhttp} dry-run`.
+- `02e705f` chunk 5 — TR-069 / CWMP ACS fingerprint on 7547.
+  15 ACS vendor fingerprints. 17 plugins in default build.
+- `e4dc2a6` chunk 6 — BACnet/IP UDP write-gate. Service-choice
+  allowlist. Abort-PDU refusal with security-error reason.
+  Closes the v1.2 carry-over.
 
-**16 protocol plugins in the default build**:
-  atg, atmodem, bacnet, banner, dnp3, enip, fox, hartip, iax2,
-  iec104, modbus, opcua, pbxhttp, s7, sip, xot.
+**17 protocol plugins in the default build**:
+  atg, atmodem, bacnet, banner, cwmp, dnp3, enip, fox, hartip,
+  iax2, iec104, modbus, opcua, pbxhttp, s7, sip, xot.
 
-**v1.4 in flight**:
-- `9038e4b` **chunk 1** — offensive SIP write-gate
-  (`offensive/write/sip/`). Method allowlist via
-  `AllowedMethod{Method string}`; always-safe set
-  (OPTIONS/ACK/BYE/CANCEL/PRACK) always passes; gated
-  methods (INVITE/REGISTER/MESSAGE/SUBSCRIBE/NOTIFY/REFER/
-  PUBLISH/UPDATE/INFO) require operator allowlist. Refusal
-  is a canonical `SIP/2.0 405 Method Not Allowed` with an
-  `Allow:` header listing the permitted methods. 13 tests;
-  race-clean; gosec clean; ADR-040 template preserved.
+**5 offensive write-gated proxies** (ADR-040 pattern):
+  modbus, opcua, sip, iax2, pbxhttp, bacnet.
 
-**v1.4 remaining chunks** (planned):
-- **chunk 2**: offensive pbxhttp write-gate (HTTP path +
-  method allowlist, 405/403 refusal).
-- **chunk 3**: offensive iax2 write-gate (subclass allowlist,
-  HANGUP or REJECT refusal; needs UDP-proxy framework support
-  — may pivot to TCP-over-UDP relay or defer).
-- **chunk 4**: CLI wiring —
-  `elsereno write sip --target h:p --method INVITE --accept-writes
-   --confirm-target h:p --confirm-token T` (and the pbxhttp /
-  iax2 analogues).
-- **chunk 5**: TR-069/CWMP fingerprint on 7547/tcp.
-- **chunk 6**: VoIP-SIP dial backend subprocess
-  (`elsereno-dial-voip-sip` — seccomp-pair split since the parent
-  process can't socket()).
-- **chunk 7**: `dial batch --backend` CLI wiring to
-  Backend.Deliver.
-- **chunk 8**: BACnet full UDP relay.
-- **chunk 9**: OPC UA per-NodeId allowlist.
-- **chunk 10**: audit daemon for cross-process JSONL.
-- **chunk 11**: seccomp arg-level filtering.
-- **chunk 12**: HTTP paths beyond `/` for pbxhttp
-  (`/admin/config.php` / `/webclient/` / `/ccmadmin/`).
+**v1.5 roadmap** (see `TODO-vNext.md`):
+- Offensive `proxy listen` CLI verb (promote the existing
+  proxy stub; run the gated handlers inline against a real
+  listener).
+- OPC UA per-NodeId allowlist (tighten write gate from
+  service-TypeID to specific Object_Identifiers).
+- BACnet per-object allowlist (same shape, ASN.1 BER parsing).
+- SIP To-URI E.164 prefix allowlist for INVITE (toll-
+  destination blocking).
+- REGISTER AOR allowlist.
+- CWMP offensive proxy (SOAP RPC allowlist).
+- HTTP paths beyond `/` for pbxhttp fingerprint (vendor-
+  specific `/admin/config.php`, `/webclient/`, `/ccmadmin/`).
+- VoIP-SIP dial backend subprocess.
+- `dial batch --backend` CLI wiring.
+- Audit daemon for cross-process JSONL.
+- seccomp arg-level filtering.
 
-**Unpushed work** (22 commits on local `main` ahead of
+**Unpushed work** (31 commits on local `main` ahead of
 `origin/main`), grouped by tag:
 
 ```
-<v1.3.0>   abd296d feat(v1.3 chunk 1c): pbxhttp
+<v1.4.0>   e4dc2a6 feat(v1.4 chunk 6): bacnet UDP write-gate
+           02e705f feat(v1.4 chunk 5): cwmp TR-069
+           26ca8df feat(v1.4 chunk 4): CLI write sip/iax2/pbxhttp
+           b0d3ea7 feat(v1.4 chunk 3): iax2 write-gate
+           482263f feat(v1.4 chunk 2): pbxhttp write-gate
+           b43a472 docs(state): v1.4 chunk 1 landed
+           9038e4b feat(v1.4 chunk 1): sip write-gate
+<v1.3.0>   3ceebef docs(v1.3): close PBX-discovery cycle
+           abd296d feat(v1.3 chunk 1c): pbxhttp
            46f3818 docs(memory): refresh state for v1.3-in-flight
            ca68a3a feat(v1.3 chunk 1b): IAX2
            e8278e5 feat(v1.3 chunk 1a): SIP
@@ -110,12 +109,12 @@ and push.
 <v1.0.1>   (already at origin/main)
 ```
 
-**Bootstrap PAT**: still live. Operator asked to keep it until
-all v1.1/v1.2/v1.3 work is pushed; revoke after at
+**Bootstrap PAT**: still live. Operator asked to keep it
+until all v1.1/v1.2/v1.3/v1.4 work is pushed; revoke after at
 https://github.com/settings/personal-access-tokens.
 
-**Repo**: `RobinR00T/elSereno`, **private**. Flip to public is
-a post-push operator decision.
+**Repo**: `RobinR00T/elSereno`, **private**. Flip to public
+is a post-push operator decision.
 
 **Live services** (preview-start / dev-db helper):
 - dashboard 127.0.0.1:8787
@@ -123,11 +122,8 @@ a post-push operator decision.
 
 ## Open questions
 
-- Push 22 commits + 3 unpushed signed tags (v1.1.0, v1.2.0,
-  v1.3.0) to GitHub in one go, or one tag at a time with a
-  smoke-verify between each? (Recommended: one tag at a time,
-  so the release-smoke check validates the binary artifacts at
-  each step.)
-- Flip repo public now (before the big push) or after v1.3?
-- v1.4 leadoff: offensive write-gated PBX proxies (immediate
-  continuation of v1.3) vs TR-069 (orthogonal fingerprint)?
+- Operator push strategy: one tag at a time (smoke-verify each)
+  vs all-in-one push of 31 commits + 4 tags?
+- v1.5 leadoff chunk: `proxy listen` CLI (immediate operator
+  value) vs OPC UA per-NodeId (deeper protocol work)?
+- Public repo flip: before or after the big push?

@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-04-23
+
+### Added
+
+- **Offensive SIP write-gate** (`offensive/write/sip`, build-
+  tag `offensive`). Replaces the default deny-all SIP proxy
+  with a method-allowlist that lets operators use ElSereno as
+  a gated SIP relay. Always-safe methods (OPTIONS / ACK / BYE
+  / CANCEL / PRACK) always pass; gated methods (INVITE,
+  REGISTER, MESSAGE, SUBSCRIBE, NOTIFY, REFER, PUBLISH,
+  UPDATE, INFO) require explicit allowlist. Refusal is a
+  canonical `SIP/2.0 405 Method Not Allowed` with an Allow:
+  header.
+- **Offensive pbxhttp write-gate** (`offensive/write/pbxhttp`).
+  (method, path) allowlist for HTTP admin UIs. GET/HEAD/OPTIONS
+  always pass; CONNECT always refused. Refusal decision tree:
+  405 if the method isn't in the allowlist; 403 if the method
+  matches but the path doesn't.
+- **Offensive iax2 write-gate** (`offensive/write/iax2`). UDP
+  per-datagram IAX2 subclass allowlist. Mini-frames (audio)
+  and non-IAX media frames always pass. Gated subclasses:
+  NEW (call setup), REGREQ (registration), AUTHREP, ACCEPT.
+  Refusal is a HANGUP full-frame — the universal IAX call-
+  teardown signal.
+- **Offensive BACnet write-gate** (`offensive/write/bacnet`).
+  UDP per-datagram BACnet confirmed-service allowlist. Closes
+  the v1.2 carry-over where BACnet's Handle loop was stuck at
+  session-primitives because the generic TCP proxy framework
+  didn't apply. Always-passes unconfirmed-requests, acks /
+  errors / rejects / aborts, and confirmed-reads; gates
+  WriteProperty / WritePropertyMultiple / AtomicWriteFile /
+  AddListElement / RemoveListElement / CreateObject /
+  DeleteObject / ReinitializeDevice / DeviceCommunicationControl
+  / LifeSafetyOperation. Refusal is a BVLC-wrapped Abort-PDU
+  with ASHRAE 135 §20.1.9 reason 5 (security-error).
+- **CLI dry-run for all three PBX gated proxies.** New
+  subcommands `elsereno write sip dry-run`, `write iax2
+  dry-run`, `write pbxhttp dry-run`. Each prints the
+  SessionMutation PayloadHash + canonicalised allowlist; with
+  `--vault-passphrase-file`, also mints the expected confirm-
+  token the operator pastes into the eventual `proxy listen`
+  verb.
+- **`cwmp` plugin** — TR-069 / CWMP ACS fingerprint on port
+  7547/tcp. Identifies 15 ACS implementations including
+  GenieACS, FreeACS, Axiros (AXACS / AX-MDM), Nokia Altiplano,
+  Huawei FusionHome, Broadcom BroadWorks, Cisco Prime, ADB,
+  Friendly TR-069 Simulator, interaCMS, Netopia, create-net,
+  plus generic open-ACS and TR-069 markers. VendorRisk tiers
+  80-90 (exposed ACS is always a finding — the 2016 Deutsche
+  Telekom / Mirai port-7547 outage is the cautionary reference).
+- **`internal/protocols/bacnet/wire/service.go`** — ASHRAE 135
+  APDU classification helpers used by the BACnet write-gate.
+  APDUType enum, ConfirmedService enum (Table 20-7),
+  IsMutatingConfirmedService predicate, BuildAbortPDU helper.
+
+### Changed
+
+- Plugin count in the default build: **16 → 17** (+cwmp).
+- Offensive write-gated proxies: **2 → 5** (+ sip, iax2,
+  pbxhttp, bacnet alongside the existing modbus and opcua).
+- The v1.2 BACnet carry-over is resolved: BACnet no longer
+  ships with only session primitives; it has a full wire-level
+  UDP gate.
+
+### Deferred to v1.5
+
+- `proxy listen` CLI verb: promote the existing stub to
+  actually run the gated handlers inline against a real
+  listener.
+- OPC UA per-NodeId allowlist (tighter gate than the service-
+  TypeID-level of v1.2).
+- BACnet per-object allowlist (ASN.1 BER parsing).
+- SIP To-URI E.164 prefix allowlist for INVITE (toll-
+  destination blocking).
+- REGISTER AOR allowlist.
+- CWMP offensive proxy (SOAP RPC allowlist).
+- HTTP paths beyond `/` for pbxhttp fingerprint (vendor-
+  specific `/admin/config.php`, `/webclient/`, `/ccmadmin/`).
+- VoIP-SIP dial backend subprocess.
+- `dial batch --backend` CLI wiring.
+- Audit daemon for cross-process JSONL.
+- seccomp arg-level filtering.
+
 ## [1.3.0] — 2026-04-22
 
 ### Added
