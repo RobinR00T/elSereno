@@ -6,6 +6,7 @@ import (
 	"local/elsereno/internal/protocols/atmodem"
 	"local/elsereno/internal/protocols/bacnet"
 	"local/elsereno/internal/protocols/banner"
+	"local/elsereno/internal/protocols/cwmp"
 	"local/elsereno/internal/protocols/dnp3"
 	"local/elsereno/internal/protocols/enip"
 	"local/elsereno/internal/protocols/fox"
@@ -40,4 +41,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: sip.Default().Metadata(), Factory: func() core.Protocol { return sip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: iax2.Default().Metadata(), Factory: func() core.Protocol { return iax2.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pbxhttp.Default().Metadata(), Factory: func() core.Protocol { return pbxhttp.Default() }})
+	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
 }
