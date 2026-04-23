@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -15,9 +16,13 @@ import (
 
 	"local/elsereno/internal/core"
 	iaxwire "local/elsereno/internal/protocols/iax2/wire"
+	mbwire "local/elsereno/internal/protocols/modbus/wire"
 	"local/elsereno/internal/proxy"
 	"local/elsereno/offensive/confirm"
+	bacwrite "local/elsereno/offensive/write/bacnet"
 	iaxwrite "local/elsereno/offensive/write/iax2"
+	modwrite "local/elsereno/offensive/write/modbus"
+	opwrite "local/elsereno/offensive/write/opcua"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
 	sipwrite "local/elsereno/offensive/write/sip"
 )
@@ -35,9 +40,12 @@ func newProxyListenCmd() *cobra.Command {
 		Long: `Binds to --listen and forwards to --target with a
 protocol-aware gate. Supported plugins (--plugin):
 
-  sip      method allowlist (--method INVITE [--method REGISTER...])
-  iax2     subclass allowlist (--subclass NEW [--subclass REGREQ...])
-  pbxhttp  (method, path) allowlist (--allow POST:/path [...])
+  sip      method allowlist     (--method INVITE [--method REGISTER...])
+  iax2     subclass allowlist   (--subclass NEW [--subclass REGREQ...])
+  pbxhttp  (method, path) list  (--allow POST:/path [...])
+  modbus   function-code list   (--function 6 [--function 16 ...])
+  opcua    service-TypeID list  (--service 673 [--service 704 ...])
+  bacnet   service-choice list  (--service-choice 15 [--service-choice 20 ...])
 
 Triple-confirm fences are required (the handler's Authorise()
 rejects otherwise):
@@ -58,6 +66,9 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.methods, "method", nil, "sip: gated methods to allow")
 	cmd.Flags().StringSliceVar(&opts.subclasses, "subclass", nil, "iax2: gated subclasses to allow (NEW/REGREQ/AUTHREP/ACCEPT)")
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
+	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
+	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
+	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
 	cmd.Flags().StringVar(&opts.confirmToken, "confirm-token", "", "confirm-token derived from dry-run")
@@ -72,6 +83,7 @@ type proxyListenOpts struct {
 	plugin                              string
 	target, listen                      string
 	methods, subclasses, allowEntries   []string
+	functions, services, serviceChoices []uint
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
 	dialTimeout, idleTimeout            time.Duration
@@ -164,56 +176,147 @@ type gatedProxyHandler interface {
 	Authorise(ctx context.Context) error
 }
 
-// buildGatedHandler returns a handler + its gate scope from the
-// CLI flags for the selected plugin.
+// buildGatedHandler dispatches on --plugin (case-folded) to the
+// per-plugin constructor. Returning a gatedProxyHandler
+// interface lets the caller keep a uniform Authorise() + Handle()
+// surface regardless of the concrete plugin type.
 func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (gatedProxyHandler, error) {
 	switch strings.ToLower(opts.plugin) {
 	case "sip":
-		allowed := make([]sipwrite.AllowedMethod, 0, len(opts.methods))
-		for _, m := range opts.methods {
-			allowed = append(allowed, sipwrite.AllowedMethod{Method: m})
-		}
-		return &sipwrite.WriteGatedHandler{
-			Target:         opts.target,
-			Allowed:        allowed,
-			Deriver:        rt.Vault,
-			Auditor:        rt.Auditor,
-			SessionConfirm: c,
-		}, nil
+		return buildSIPHandler(opts, rt, c), nil
 	case "iax2":
-		allowed := make([]iaxwrite.AllowedSubclass, 0, len(opts.subclasses))
-		for _, s := range opts.subclasses {
-			sub, err := iaxSubclassByName(s)
-			if err != nil {
-				return nil, err
-			}
-			allowed = append(allowed, iaxwrite.AllowedSubclass{Subclass: sub})
-		}
-		return &iaxwrite.WriteGatedHandler{
-			Target:         opts.target,
-			Allowed:        allowed,
-			Deriver:        rt.Vault,
-			Auditor:        rt.Auditor,
-			SessionConfirm: c,
-		}, nil
+		return buildIAX2Handler(opts, rt, c)
 	case "pbxhttp":
-		allowed := make([]pbxwrite.AllowedWrite, 0, len(opts.allowEntries))
-		for _, e := range opts.allowEntries {
-			aw, err := parseAllowEntry(e)
-			if err != nil {
-				return nil, err
-			}
-			allowed = append(allowed, aw)
-		}
-		return &pbxwrite.WriteGatedHandler{
-			Target:         opts.target,
-			Allowed:        allowed,
-			Deriver:        rt.Vault,
-			Auditor:        rt.Auditor,
-			SessionConfirm: c,
-		}, nil
+		return buildPBXHTTPHandler(opts, rt, c)
+	case "modbus":
+		return buildModbusHandler(opts, rt, c)
+	case "opcua":
+		return buildOPCUAHandler(opts, rt, c)
+	case "bacnet":
+		return buildBACnetHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet", opts.plugin)
+}
+
+func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *sipwrite.WriteGatedHandler {
+	allowed := make([]sipwrite.AllowedMethod, 0, len(opts.methods))
+	for _, m := range opts.methods {
+		allowed = append(allowed, sipwrite.AllowedMethod{Method: m})
+	}
+	return &sipwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}
+}
+
+func buildIAX2Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*iaxwrite.WriteGatedHandler, error) {
+	allowed := make([]iaxwrite.AllowedSubclass, 0, len(opts.subclasses))
+	for _, s := range opts.subclasses {
+		sub, err := iaxSubclassByName(s)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, iaxwrite.AllowedSubclass{Subclass: sub})
+	}
+	return &iaxwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+func buildPBXHTTPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*pbxwrite.WriteGatedHandler, error) {
+	allowed := make([]pbxwrite.AllowedWrite, 0, len(opts.allowEntries))
+	for _, e := range opts.allowEntries {
+		aw, err := parseAllowEntry(e)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, aw)
+	}
+	return &pbxwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+func buildModbusHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*modwrite.WriteGatedHandler, error) {
+	allowed := make([]modwrite.AllowedWrite, 0, len(opts.functions))
+	for _, f := range opts.functions {
+		fc, err := parseByteFlag("--function", f)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, modwrite.AllowedWrite{FC: mbwire.FunctionCode(fc)})
+	}
+	return &modwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*opwrite.WriteGatedHandler, error) {
+	allowed := make([]opwrite.AllowedService, 0, len(opts.services))
+	for _, s := range opts.services {
+		tid, err := parseUint16Flag("--service", s)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, opwrite.AllowedService{TypeID: tid})
+	}
+	return &opwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*bacwrite.WriteGatedHandler, error) {
+	allowed := make([]bacwrite.AllowedService, 0, len(opts.serviceChoices))
+	for _, s := range opts.serviceChoices {
+		sc, err := parseByteFlag("--service-choice", s)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, bacwrite.AllowedService{ServiceChoice: sc})
+	}
+	return &bacwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// parseByteFlag validates that a --function / --service-choice
+// value fits in a uint8.
+func parseByteFlag(name string, v uint) (uint8, error) {
+	if v > 0xFF {
+		return 0, fmt.Errorf("%s %s: must be 0-255", name, strconv.FormatUint(uint64(v), 10))
+	}
+	return uint8(v), nil
+}
+
+// parseUint16Flag validates that a --service value fits in a uint16.
+func parseUint16Flag(name string, v uint) (uint16, error) {
+	if v > 0xFFFF {
+		return 0, fmt.Errorf("%s %s: must be 0-65535", name, strconv.FormatUint(uint64(v), 10))
+	}
+	return uint16(v), nil
 }
 
 // authoriseHandler calls Authorise on the plugin's handler. All
