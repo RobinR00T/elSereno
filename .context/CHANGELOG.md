@@ -240,6 +240,42 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-23 — **v1.6.0 closed.** Two chunks:
+  chunk 1 added `--allow-file` YAML loader for `elsereno proxy
+  listen` (single-file config instead of long flag lists).
+  Chunk 2 added opt-in OPC UA per-NodeId allowlist — extends
+  the v1.2 service-TypeID write gate with `AllowedNodeIDs`.
+  Backwards-compatible: when the NodeID list is empty, the
+  hash equals the v1.2 `AllowlistHash` so existing operator
+  tokens remain valid. OPC UA is the first protocol gate with
+  object-level granularity; BACnet + CallRequest per-object
+  variants are v1.7+. Snapshot at
+  `.context/snapshots/v1.6.0-allowfile-and-nodeid.md`. v1.6.0
+  tag signed locally.
+- 2026-04-23 — **v1.6 chunk 2 (OPC UA per-NodeId)** landed on
+  main. New `internal/protocols/opcua/wire/writerequest.go`
+  parses the UA RequestHeader + NodesToWrite array to extract
+  the first WriteValue's NodeId for TwoByte / FourByte /
+  Numeric encodings. Rarer encodings (String / Guid /
+  ByteString) are structurally consumed but return ok=false so
+  the caller fails closed. `offensive/write/opcua/gatedproxy.go`
+  gains `AllowedNodeID{Namespace, Identifier}` type, an
+  `AllowedNodeIDs` optional field on `WriteGatedHandler`, a
+  new `AllowlistHashWithNodeIDs(target, services, nodeIDs)`
+  that degrades to v1.2 hash for empty NodeIDs, and a second-
+  stage `writeRequestNodeAllowed` check inside `routeFrame`.
+  8 tests including 3 end-to-end gate tests (allowed NodeID
+  forwards / blocked NodeID returns ServiceFault / empty
+  allowlist falls back to v1.2 behaviour).
+- 2026-04-23 — **v1.6 chunk 1 (--allow-file YAML)** landed on
+  main. `elsereno proxy listen --allow-file <path.yaml>` reads
+  the plugin + target + allowlist from a YAML file using
+  `yaml.NewDecoder.KnownFields(true)` so typos fail noisily.
+  Schema is per-plugin: `methods:` for sip, `subclasses:` for
+  iax2, `allow:` for pbxhttp, `functions:` for modbus,
+  `services:` for opcua, `service_choices:` for bacnet.
+  Operator-supplied command-line flags act as defaults. 10
+  tests (one happy-path per plugin + 4 error paths).
 - 2026-04-23 — **v1.5.0 closed.** `elsereno proxy listen` CLI
   shipped. Two chunks: chunk 1 promoted the proxy stub to a
   real command supporting sip / iax2 / pbxhttp (with per-plugin

@@ -1,19 +1,18 @@
 ---
-phase: v1.5-released
-status: v1.5.0 tagged locally (unpushed); proxy listen shipped
+phase: v1.6-released
+status: v1.6.0 tagged locally (unpushed); --allow-file + OPC UA per-NodeId
 last-updated: 2026-04-23
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.5.0 signed locally (unpushed). `elsereno proxy
-listen` command shipped — operators can now run the v1.4 write-
-gated handlers inline against a local TCP listener. Supports
-all six gated plugins (sip / iax2 / pbxhttp / modbus / opcua /
-bacnet) with per-plugin allowlist flags and a first end-to-end
-test covering the full stack. v1.2.0 + v1.3.0 + v1.4.0 + v1.5.0
-waiting on the operator to restore `GH_TOKEN` and push.
+**Phase**: v1.6.0 signed locally (unpushed). Two chunks: YAML
+`--allow-file` for the proxy listen command, and OPC UA per-
+NodeId allowlist that tightens the v1.2 write-gate from service-
+TypeID to specific Object_Identifier NodeIds. v1.2.0 + v1.3.0 +
+v1.4.0 + v1.5.0 + v1.6.0 waiting on the operator to restore
+`GH_TOKEN` and push.
 
 **Shipped releases** (in git history):
 - v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
@@ -35,6 +34,12 @@ waiting on the operator to restore `GH_TOKEN` and push.
   bacnet} + per-plugin allowlist flags). First end-to-end
   test of the full proxy stack. See
   `.context/snapshots/v1.5.0-proxy-listen.md`.
+- **v1.6.0** (2026-04-23, local) — `--allow-file` YAML loader
+  for the proxy listen command + OPC UA per-NodeId allowlist
+  (opt-in tightening of the v1.2 write-gate from service-
+  TypeID to specific Object_Identifier NodeIds). Backwards-
+  compatible with v1.2 tokens when AllowedNodeIDs is empty.
+  See `.context/snapshots/v1.6.0-allowfile-and-nodeid.md`.
 
 **v1.4.0 chunks** (all landed):
 - `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
@@ -60,33 +65,47 @@ waiting on the operator to restore `GH_TOKEN` and push.
 **5 offensive write-gated proxies** (ADR-040 pattern):
   modbus, opcua, sip, iax2, pbxhttp, bacnet.
 
-**v1.5.0 chunks** (all landed):
-- `e8bd030` chunk 1 — proxy listen for sip/iax2/pbxhttp.
-- `1172eae` chunk 2 — extend proxy listen to modbus/opcua/
-  bacnet + first end-to-end integration test.
+**v1.6.0 chunks** (all landed):
+- `a5ee374` chunk 1 — `elsereno proxy listen --allow-file`
+  YAML loader. 10 tests (one per plugin + 4 error paths).
+- `f76b3f2` chunk 2 — OPC UA per-NodeId allowlist. Extends
+  the v1.2 write-gate with optional `AllowedNodeIDs`. Hash is
+  backwards-compatible when the NodeID list is empty. 8 tests
+  (3 hash + 2 wire parser + 3 gate E2E).
 
-**v1.6+ roadmap** (see `TODO-vNext.md`):
-- OPC UA per-NodeId allowlist (tighten write gate from
-  service-TypeID to specific Object_Identifiers).
-- BACnet per-object allowlist (same shape, ASN.1 BER parsing).
+**v1.7+ roadmap** (see `TODO-vNext.md`):
+- BACnet per-object allowlist (same shape as OPC UA v1.6
+  chunk 2, ASN.1 BER parsing).
 - SIP To-URI E.164 prefix allowlist for INVITE (toll-
   destination blocking).
 - REGISTER AOR allowlist.
 - CWMP offensive proxy (SOAP RPC allowlist).
 - HTTP paths beyond `/` for pbxhttp fingerprint (vendor-
   specific `/admin/config.php`, `/webclient/`, `/ccmadmin/`).
+- Match against String / Guid / ByteString NodeId encodings
+  for OPC UA per-NodeId gate (v1.6 chunk 2 is numeric-only).
+- Multi-node-per-WriteRequest allowlist (v1.6 chunk 2 only
+  checks the first WriteValue).
+- CallRequest per-object allowlist (OPC UA sibling of
+  WriteRequest).
 - VoIP-SIP dial backend subprocess.
 - `dial batch --backend` CLI wiring.
 - Audit daemon for cross-process JSONL.
 - seccomp arg-level filtering.
-- `--allow-file` for reading allowlists from YAML/JSON.
-- Runtime reload of the proxy listen allowlist (SIGHUP).
+- Runtime reload of the proxy listen allowlist (non-trivial
+  because changing the allowlist changes PayloadHash which
+  invalidates the confirm-token).
+- `elsereno write <plugin> dry-run --emit-allow-file` to
+  generate the YAML file from the dry-run output.
 
-**Unpushed work** (33 commits on local `main` ahead of
+**Unpushed work** (37 commits on local `main` ahead of
 `origin/main`), grouped by tag:
 
 ```
-<v1.5.0>   1172eae feat(v1.5 chunk 2): extend proxy listen
+<v1.6.0>   f76b3f2 feat(v1.6 chunk 2): opcua per-NodeId
+           a5ee374 feat(v1.6 chunk 1): --allow-file YAML
+<v1.5.0>   423d7a8 docs(v1.5): close proxy listen cycle
+           1172eae feat(v1.5 chunk 2): extend proxy listen
            e8bd030 feat(v1.5 chunk 1): proxy listen sip/iax2/pbxhttp
 <v1.4.0>   7457016 docs(v1.4): close PBX-write-gate cycle
            e4dc2a6 feat(v1.4 chunk 6): bacnet UDP write-gate

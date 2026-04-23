@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-04-23
+
+### Added
+
+- **`elsereno proxy listen --allow-file <path.yaml>`** — load
+  plugin + target + per-plugin allowlist from a YAML file
+  instead of long command-line flag sets. Unknown fields are
+  rejected (`yaml.NewDecoder.KnownFields(true)`) so typos like
+  `method:` (should be `methods:`) fail noisily. Schema per
+  plugin: `methods` (sip), `subclasses` (iax2), `allow`
+  (pbxhttp), `functions` (modbus), `services` (opcua),
+  `service_choices` (bacnet).
+- **OPC UA per-NodeId allowlist** (`offensive/write/opcua`) —
+  optional second-stage gate that authorises WriteRequest MSGs
+  only when the first WriteValue's NodeId matches an operator-
+  supplied list of `{Namespace, Identifier}` pairs. The v1.2
+  service-TypeID allowlist still fires first; the NodeID check
+  is strictly a *tightening*. Supports TwoByte / FourByte /
+  Numeric NodeId encodings; rarer encodings (String / Guid /
+  ByteString) cause fail-closed refusal when per-node gating
+  is active.
+- **`internal/protocols/opcua/wire.WriteRequestFirstNode`**
+  parser — walks past the UA RequestHeader + NodesToWrite
+  array prefix to extract the first NodeId.
+- **`AllowlistHashWithNodeIDs`** and **`SessionMutationWithNodeIDs`**
+  on `offensive/write/opcua` — new factories that mix NodeIDs
+  into the session PayloadHash.
+
+### Changed
+
+- OPC UA `WriteGatedHandler.Authorise()` now calls
+  `SessionMutationWithNodeIDs` instead of the v1.2
+  `SessionMutation`. For operators who don't set
+  `AllowedNodeIDs`, this is a no-op: the hash degrades to
+  the v1.2 `AllowlistHash(target, services)` and existing
+  confirm-tokens remain valid.
+
+### Deferred to v1.7+
+
+- OPC UA String / Guid / ByteString NodeId matching.
+- OPC UA multi-node-per-WriteRequest allowlist (today only
+  the first WriteValue is checked).
+- OPC UA CallRequest per-object allowlist.
+- BACnet per-object allowlist (ASN.1 BER parsing).
+- SIP To-URI E.164 prefix allowlist for INVITE.
+- REGISTER AOR allowlist.
+- CWMP offensive proxy.
+- Runtime reload of the proxy listen allowlist (SIGHUP).
+- `elsereno write <plugin> dry-run --emit-allow-file`.
+
 ## [1.5.0] — 2026-04-23
 
 ### Added

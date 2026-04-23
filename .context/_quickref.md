@@ -41,18 +41,18 @@ token-budget: 900
 **First command when in doubt**: `elsereno doctor`.
 
 **Current phase (2026-04-23)**: v1.0.1 published on GitHub
-releases. v1.1.0 + v1.2.0 + v1.3.0 + v1.4.0 + **v1.5.0** signed
-locally, unpushed (33 commits on top of origin/main). v1.5.0
-ships `elsereno proxy listen` — all six write-gated plugins
-(sip / iax2 / pbxhttp / modbus / opcua / bacnet) runnable via a
-single command with per-plugin allowlist flags + first end-to-
-end integration test. See `.context/snapshots/v1.5.0-proxy-
-listen.md` + `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`
-+ `.context/snapshots/v1.3.0-pbx-discovery.md` +
-`.context/snapshots/v1.2-db-panels-opcua-gates-dial.md` for
-cycle-by-cycle detail. **17 protocol plugins in the default
-build**; **6 offensive write-gated proxies**; every TCP-based
-plugin enforces a wire-layer write-ban in default mode. 5 output sinks (NDJSON / CSV /
+releases. v1.1.0 + v1.2.0 + v1.3.0 + v1.4.0 + v1.5.0 +
+**v1.6.0** signed locally, unpushed (37 commits on top of
+origin/main). v1.6.0 ships `--allow-file` YAML loader for the
+proxy listen command + OPC UA per-NodeId allowlist (opt-in,
+backwards-compatible with v1.2 tokens). See
+`.context/snapshots/v1.6.0-allowfile-and-nodeid.md` plus the
+cycle-by-cycle snapshots for v1.5 / v1.4 / v1.3 / v1.2.
+**17 protocol plugins in the default build**; **6 offensive
+write-gated proxies** (two of them now with per-object
+tightness: OPC UA per-NodeId, Modbus per-unit+FC+addr-range);
+every TCP-based plugin enforces a wire-layer write-ban in
+default mode. 5 output sinks (NDJSON / CSV /
 HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
 (JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
 is now code-sourced (`internal/web/openapi.Spec`) and served live
