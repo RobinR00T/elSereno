@@ -100,7 +100,10 @@
       "Bash(git fetch:*)",
       "Bash(go doc:*)",
       "Bash(gh auth setup-git)",
-      "Bash(gh auth status)"
+      "Bash(gh auth status)",
+      "Bash(goreleaser build:*)",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__get_page_text"
     ]
   }
 }
