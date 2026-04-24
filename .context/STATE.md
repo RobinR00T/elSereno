@@ -150,8 +150,13 @@ template (library → CLI → YAML → tests → docs).
 
 Chunks (in planned order):
 1. CWMP per-parameter-path allowlist (tighten v1.11 RPC gate).
+   **Landed** — commit `1a6cec3`.
 2. OPC UA multi-node per WriteRequest (walk NodesToWrite).
+   **Landed** — commit `0c34382`.
 3. OPC UA String/Guid/ByteString NodeID encodings.
+   **Landed** — rich wire parser + AllowedCanonicalNodeID +
+   CLI accepts ns=N;{s,g,b}=… + YAML `canonical:` field +
+   fail-closed multi-node walk. 17 new tests.
 4. Modbus structured `writes:` YAML (unit + FC + addr range).
 5. SIP from-domain allowlist (complements v1.10 AOR gate).
 6. OPC UA CallRequest per-object allowlist.

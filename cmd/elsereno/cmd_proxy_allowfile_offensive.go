@@ -57,11 +57,25 @@ const (
 // those flags are ALSO supplied on the command line, the file
 // wins (with a printed warning).
 // proxyNodeID is the YAML-structured form of an OPC UA NodeID
-// for the opcua per-node allowlist (v1.9+). Loader translates
-// it to the CLI `ns=N;i=M` string form used by proxyListenOpts.
+// for the opcua per-node allowlist. Two shapes supported:
+//
+//	Numeric (v1.9+):
+//	  - namespace: 2
+//	    identifier: 42
+//
+//	Canonical (v1.12+):
+//	  - canonical: "ns=2;s=Temperature"
+//	  - canonical: "ns=1;g=6B29FC40CA471067B31D00DD010662DA"
+//	  - canonical: "ns=3;b=DEADBEEF"
+//
+// Exactly one shape should be populated per entry. When
+// `canonical` is non-empty it wins; otherwise namespace +
+// identifier are used. The loader emits both forms as
+// `--node-id` strings for proxyListenOpts.
 type proxyNodeID struct {
-	Namespace  uint16 `yaml:"namespace"`
-	Identifier uint32 `yaml:"identifier"`
+	Namespace  uint16 `yaml:"namespace,omitempty"`
+	Identifier uint32 `yaml:"identifier,omitempty"`
+	Canonical  string `yaml:"canonical,omitempty"`
 }
 
 type proxyAllowFile struct {
@@ -122,14 +136,7 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 	case pluginNameModbus:
 		opts.functions = af.Functions
 	case pluginNameOPCUA:
-		opts.services = af.Services
-		if len(af.NodeIDs) > 0 {
-			opts.nodeIDs = make([]string, 0, len(af.NodeIDs))
-			for _, n := range af.NodeIDs {
-				opts.nodeIDs = append(opts.nodeIDs,
-					fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier))
-			}
-		}
+		applyOPCUAAllowFile(&af, opts)
 	case pluginNameBACnet:
 		opts.serviceChoices = af.ServiceChoices
 	case pluginNameCWMP:
@@ -139,4 +146,26 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
 	}
 	return nil
+}
+
+// applyOPCUAAllowFile populates proxyListenOpts from the opcua
+// plugin's YAML. Handles both v1.9 numeric (namespace+identifier)
+// and v1.12 canonical entries. Extracted from loadAllowFile to
+// keep that function under the funlen threshold.
+func applyOPCUAAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
+	opts.services = af.Services
+	if len(af.NodeIDs) == 0 {
+		return
+	}
+	opts.nodeIDs = make([]string, 0, len(af.NodeIDs))
+	for _, n := range af.NodeIDs {
+		if n.Canonical != "" {
+			// Canonical string is already the CLI `ns=N;<k>=<v>`
+			// form; keep verbatim.
+			opts.nodeIDs = append(opts.nodeIDs, n.Canonical)
+			continue
+		}
+		opts.nodeIDs = append(opts.nodeIDs,
+			fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier))
+	}
 }

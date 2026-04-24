@@ -71,7 +71,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
-	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (ns=N;i=M form, repeatable). Tightens the gate from service-TypeID to specific NodeIds (v1.6+; numeric encodings only — String/Guid/ByteString fail closed).")
+	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (repeatable). Accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring). Tightens the gate from service-TypeID to specific NodeIds; v1.12+ walks every WriteValue in a batched WriteRequest (v1.6 chunk 2 only checked the first).")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
@@ -327,21 +327,18 @@ func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		}
 		allowed = append(allowed, opwrite.AllowedService{TypeID: tid})
 	}
-	nodeIDs := make([]opwrite.AllowedNodeID, 0, len(opts.nodeIDs))
-	for _, raw := range opts.nodeIDs {
-		nid, err := parseNodeIDFlag(raw)
-		if err != nil {
-			return nil, err
-		}
-		nodeIDs = append(nodeIDs, nid)
+	nodeIDs, canonNodeIDs, err := parseNodeIDFlags(opts.nodeIDs)
+	if err != nil {
+		return nil, err
 	}
 	return &opwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		AllowedNodeIDs: nodeIDs,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:                  opts.target,
+		Allowed:                 allowed,
+		AllowedNodeIDs:          nodeIDs,
+		AllowedCanonicalNodeIDs: canonNodeIDs,
+		Deriver:                 rt.Vault,
+		Auditor:                 rt.Auditor,
+		SessionConfirm:          c,
 	}, nil
 }
 

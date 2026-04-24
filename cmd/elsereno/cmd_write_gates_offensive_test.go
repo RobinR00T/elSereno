@@ -359,7 +359,7 @@ func TestCanonCWMPRPCs(t *testing.T) {
 
 // ---- parseNodeIDFlag -----------------------------------------
 
-func TestParseNodeIDFlag_Valid(t *testing.T) {
+func TestParseNodeIDFlag_ValidNumeric(t *testing.T) {
 	cases := []struct {
 		in     string
 		wantNS uint16
@@ -376,24 +376,74 @@ func TestParseNodeIDFlag_Valid(t *testing.T) {
 			t.Errorf("parseNodeIDFlag(%q): %v", c.in, err)
 			continue
 		}
-		if got.Namespace != c.wantNS || got.Identifier != c.wantID {
+		if got.Numeric == nil {
+			t.Errorf("parseNodeIDFlag(%q): expected Numeric non-nil, got %+v", c.in, got)
+			continue
+		}
+		if got.Numeric.Namespace != c.wantNS || got.Numeric.Identifier != c.wantID {
 			t.Errorf("parseNodeIDFlag(%q) = ns=%d;i=%d, want ns=%d;i=%d",
-				c.in, got.Namespace, got.Identifier, c.wantNS, c.wantID)
+				c.in, got.Numeric.Namespace, got.Numeric.Identifier, c.wantNS, c.wantID)
+		}
+		if got.Canonical != "" {
+			t.Errorf("parseNodeIDFlag(%q): Numeric path should leave Canonical empty, got %q", c.in, got.Canonical)
+		}
+	}
+}
+
+// v1.12 chunk 3 — the s= / g= / b= encodings normalise to
+// canonical-string form and go through the Canonical path.
+func TestParseNodeIDFlag_ValidCanonical(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		// String form — case preserved.
+		{"ns=2;s=Temperature", "ns=2;s=Temperature"},
+		{"ns=0;s=MyVar", "ns=0;s=MyVar"},
+		// Guid form — dashes stripped, hex uppercased.
+		{"ns=1;g=6b29fc40-ca47-1067-b31d-00dd010662da", "ns=1;g=6B29FC40CA471067B31D00DD010662DA"},
+		{"ns=3;g=6B29FC40CA471067B31D00DD010662DA", "ns=3;g=6B29FC40CA471067B31D00DD010662DA"},
+		// ByteString form — hex uppercased.
+		{"ns=4;b=deadbeef", "ns=4;b=DEADBEEF"},
+		{"ns=5;b=AA", "ns=5;b=AA"},
+	}
+	for _, c := range cases {
+		got, err := parseNodeIDFlag(c.in)
+		if err != nil {
+			t.Errorf("parseNodeIDFlag(%q): %v", c.in, err)
+			continue
+		}
+		if got.Numeric != nil {
+			t.Errorf("parseNodeIDFlag(%q): expected Canonical, got Numeric %+v", c.in, got.Numeric)
+			continue
+		}
+		if string(got.Canonical) != c.want {
+			t.Errorf("parseNodeIDFlag(%q) = %q, want %q", c.in, got.Canonical, c.want)
 		}
 	}
 }
 
 func TestParseNodeIDFlag_Invalid(t *testing.T) {
-	for _, in := range []string{
-		"",               // empty
-		"ns=2",           // missing i=
-		"42;100",         // no key=
-		"ns=abc;i=42",    // non-numeric ns
-		"ns=65536;i=42",  // ns too big
-		"ns=2;unknown=3", // unknown key
-	} {
-		if _, err := parseNodeIDFlag(in); err == nil {
-			t.Errorf("parseNodeIDFlag(%q): expected error", in)
+	cases := []struct {
+		in     string
+		reason string
+	}{
+		{"", "empty"},
+		{"ns=2", "missing id"},
+		{"42;100", "no key="},
+		{"ns=abc;i=42", "non-numeric ns"},
+		{"ns=65536;i=42", "ns too big"},
+		{"ns=2;unknown=3", "unknown key"},
+		{"ns=2;s=", "empty string"},
+		{"ns=1;g=6B29FC40", "guid too short"},
+		{"ns=1;g=ZZ29FC40CA471067B31D00DD010662DA", "guid non-hex"},
+		{"ns=4;b=", "empty bytestring"},
+		{"ns=4;b=A", "odd hex length"},
+		{"ns=4;b=ZZ", "bytestring non-hex"},
+	}
+	for _, c := range cases {
+		if _, err := parseNodeIDFlag(c.in); err == nil {
+			t.Errorf("parseNodeIDFlag(%q): expected error (%s)", c.in, c.reason)
 		}
 	}
 }

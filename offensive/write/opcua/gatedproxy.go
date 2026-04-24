@@ -55,27 +55,44 @@ type AllowedService struct {
 	TypeID uint16
 }
 
-// AllowedNodeID scopes a WriteRequest to a specific target
-// NodeId. When the handler's AllowedNodeIDs field is non-nil,
-// a WriteRequest MSG is forwarded ONLY when:
+// AllowedNodeID scopes a WriteRequest to a specific numeric
+// target NodeId (ns + u32 identifier). When the handler's
+// AllowedNodeIDs field is non-nil, a WriteRequest MSG is
+// forwarded ONLY when:
 //
 //   - its service TypeID is in the Allowed list (the v1.2
 //     service-level gate), AND
-//   - the first WriteValue's NodeId matches one of the
-//     AllowedNodeIDs (the v1.6 per-node gate).
+//   - EVERY WriteValue's NodeId matches either an AllowedNodeID
+//     (numeric v1.6 path) OR a canonical-string entry in
+//     AllowedCanonicalNodeIDs (String / Guid / ByteString v1.12
+//     path).
 //
-// The per-node gate is opt-in: an empty AllowedNodeIDs list
-// falls back to v1.2 behaviour (service-TypeID allowlist only).
+// The per-node gate is opt-in: empty AllowedNodeIDs AND empty
+// AllowedCanonicalNodeIDs falls back to v1.2 behaviour (service-
+// TypeID allowlist only).
 //
-// Only ns + numeric identifier pairs are supported today. UA
-// NodeIDs can also be String / Guid / ByteString encoded but
-// those are out of scope for v1.6 chunk 2 — a WriteRequest
-// whose first NodeId uses one of those encodings is treated
-// as unparseable and falls back to the service-level decision.
+// v1.6 shipped numeric-only; v1.12 chunk 3 adds the String /
+// Guid / ByteString encodings via AllowedCanonicalNodeIDs. A
+// WriteRequest that mixes numeric + non-numeric NodeIDs still
+// passes as long as every entry is in its respective list.
 type AllowedNodeID struct {
 	Namespace  uint16
 	Identifier uint32
 }
+
+// AllowedCanonicalNodeID is a UA NodeId in the canonical string
+// form the operator types on the CLI / YAML: `ns=N;i=M`,
+// `ns=N;s=STR`, `ns=N;g=HEXGUID`, `ns=N;b=HEXBYTES`. The v1.12
+// chunk 3 addition: covers encodings the numeric AllowedNodeID
+// can't represent (String / Guid / ByteString).
+//
+// Canonical strings from the wire (produced by
+// wire.NodeIDValue.Canonical()) use uppercase hex for GUIDs and
+// ByteStrings; the hash and gate-check treat entries as raw
+// strings, so operator-supplied values must match the wire form
+// exactly — lowercase hex wouldn't match. The CLI flag parser
+// normalises to uppercase to close that gap.
+type AllowedCanonicalNodeID string
 
 // AllowlistHash returns the deterministic SHA-256 of the
 // service-TypeID allowlist. Entries are sorted numerically
@@ -157,6 +174,89 @@ func AllowlistHashWithNodeIDs(target string, services []AllowedService, nodeIDs 
 	return out
 }
 
+// AllowlistHashWithRichNodeIDs is the v1.12 chunk-3 extension
+// that also folds String / Guid / ByteString NodeIDs (in their
+// canonical string form) into the PayloadHash. The hash ladder:
+//
+//   - canonicalNodeIDs empty → degrades to AllowlistHashWithNodeIDs.
+//   - nodeIDs AND canonicalNodeIDs empty → degrades further to
+//     AllowlistHash (v1.2 hash).
+//
+// This preserves tokens minted by v1.2 / v1.6 / v1.9 operators
+// who never opt into per-NodeId gating. Operators who add
+// canonical entries get a new hash (new token required).
+//
+// Hash layout on the wire:
+//
+//	AllowlistHashWithNodeIDs output
+//	  [|| 0xFD || canonical(len BE16 + bytes) × sorted_canonicalNodeIDs]
+//
+// 0xFD separator is chosen after 0xFF (NodeID block separator
+// from v1.6) so the v1.6 block always terminates before the
+// v1.12 block begins. The per-entry `len BE16 + bytes`
+// length-prefix prevents cross-entry bleed ("ns=1;s=A" +
+// "B" hashing the same as "ns=1;s=AB").
+func AllowlistHashWithRichNodeIDs(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID) [32]byte {
+	// v1.6 / v1.2 compatibility: no canonical entries → v1.6 hash.
+	if len(canonicalNodeIDs) == 0 {
+		return AllowlistHashWithNodeIDs(target, services, nodeIDs)
+	}
+	// Recompute v1.6 hash body, then append the 0xFD block.
+	// Can't just feed the v1.6 output through sha256 again without
+	// losing the target/service/nodeIDs detail, so we re-walk.
+	sortedSvc := append([]AllowedService(nil), services...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].TypeID < sortedSvc[j].TypeID })
+	sortedNodes := append([]AllowedNodeID(nil), nodeIDs...)
+	sort.Slice(sortedNodes, func(i, j int) bool {
+		if sortedNodes[i].Namespace != sortedNodes[j].Namespace {
+			return sortedNodes[i].Namespace < sortedNodes[j].Namespace
+		}
+		return sortedNodes[i].Identifier < sortedNodes[j].Identifier
+	})
+	sortedCanon := append([]AllowedCanonicalNodeID(nil), canonicalNodeIDs...)
+	sort.Slice(sortedCanon, func(i, j int) bool { return sortedCanon[i] < sortedCanon[j] })
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var u16 [2]byte
+	for _, a := range sortedSvc {
+		binary.BigEndian.PutUint16(u16[:], a.TypeID)
+		_, _ = h.Write(u16[:])
+	}
+	// v1.6 numeric NodeID block — only emitted when nodeIDs has
+	// entries; otherwise skip the 0xFF separator so the canonical
+	// block isn't preceded by a redundant empty block.
+	if len(sortedNodes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		var u32 [4]byte
+		for _, n := range sortedNodes {
+			binary.BigEndian.PutUint16(u16[:], n.Namespace)
+			_, _ = h.Write(u16[:])
+			binary.BigEndian.PutUint32(u32[:], n.Identifier)
+			_, _ = h.Write(u32[:])
+		}
+	}
+	// v1.12 canonical NodeID block.
+	_, _ = h.Write([]byte{0xFD})
+	for _, c := range sortedCanon {
+		s := string(c)
+		// Length-prefix bounded to uint16 — any single canonical
+		// NodeID longer than 65535 bytes is truncated at hash
+		// time. In practice UA NodeID strings are well under 1 KB.
+		n := len(s)
+		if n > 0xFFFF {
+			n = 0xFFFF
+		}
+		binary.BigEndian.PutUint16(u16[:], uint16(n)) //nolint:gosec // G115 — explicit cap above
+		_, _ = h.Write(u16[:])
+		_, _ = h.Write([]byte(s)[:n])
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
 // SessionMutation builds the confirm.Mutation that authorises
 // the proxy session for target + service-TypeID allowlist. v1.2
 // compatibility.
@@ -183,6 +283,20 @@ func SessionMutationWithNodeIDs(target string, services []AllowedService, nodeID
 	}
 }
 
+// SessionMutationWithRichNodeIDs is the v1.12 chunk-3 Mutation
+// that mixes service-TypeID + numeric NodeID + canonical-string
+// NodeID into the PayloadHash. When canonicalNodeIDs is
+// nil/empty it degrades to SessionMutationWithNodeIDs.
+func SessionMutationWithRichNodeIDs(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "opcua",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithRichNodeIDs(target, services, nodeIDs, canonicalNodeIDs),
+	}
+}
+
 // WriteGatedHandler is the offensive replacement for the default
 // UA deny-all proxy. Construction requires triple-confirm
 // authorised session context (Deriver, Auditor, and the
@@ -199,15 +313,17 @@ type WriteGatedHandler struct {
 	// mutating service (equivalent to the default deny-all
 	// handler for writes; reads still pass).
 	Allowed []AllowedService
-	// AllowedNodeIDs is the optional v1.6 per-node allowlist.
-	// When non-empty, a WriteRequest MSG is forwarded only when
-	// both (a) its service TypeID is in Allowed AND (b) the
-	// first WriteValue's NodeId matches one of AllowedNodeIDs.
-	// WriteRequests whose first NodeId uses an unparseable
-	// encoding (String / Guid / ByteString) are refused when
-	// per-node gating is active — no fallback path.
-	// Empty/nil restores v1.2 service-TypeID-only behaviour.
+	// AllowedNodeIDs is the optional v1.6 per-node allowlist for
+	// numeric-encoded NodeIDs (TwoByte / FourByte / Numeric). See
+	// AllowedNodeID for the combined v1.6 + v1.12 gate semantics.
 	AllowedNodeIDs []AllowedNodeID
+	// AllowedCanonicalNodeIDs is the v1.12 chunk-3 per-node
+	// allowlist for String / Guid / ByteString encodings (and
+	// optionally numeric entries expressed in canonical form).
+	// When either AllowedNodeIDs or this field has entries, the
+	// gate walks EVERY WriteValue and admits a frame only when
+	// every NodeId matches its respective list.
+	AllowedCanonicalNodeIDs []AllowedCanonicalNodeID
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -226,7 +342,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithNodeIDs(h.Target, h.Allowed, h.AllowedNodeIDs)
+	m := SessionMutationWithRichNodeIDs(h.Target, h.Allowed, h.AllowedNodeIDs, h.AllowedCanonicalNodeIDs)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -315,8 +431,8 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 		return writeServiceFault(clientWriter, body)
 	}
 	// Service-TypeID allows. If the per-NodeId gate is active,
-	// further check the WriteRequest's first NodeId.
-	if len(h.AllowedNodeIDs) > 0 && typeID == wire.TypeIDWriteRequest {
+	// further check every WriteValue's NodeId.
+	if h.perNodeGateActive() && typeID == wire.TypeIDWriteRequest {
 		if !h.writeRequestNodeAllowed(body) {
 			return writeServiceFault(clientWriter, body)
 		}
@@ -324,42 +440,70 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 	return writeFrame(upstream, header.Type, body)
 }
 
+// perNodeGateActive reports whether EITHER per-NodeId allowlist
+// is populated. Used by routeFrame to skip the per-node check
+// when the operator only wants service-TypeID gating.
+func (h *WriteGatedHandler) perNodeGateActive() bool {
+	return len(h.AllowedNodeIDs) > 0 || len(h.AllowedCanonicalNodeIDs) > 0
+}
+
 // writeRequestNodeAllowed reports whether the WriteRequest at
-// `body` targets ONLY NodeIds in h.AllowedNodeIDs. Returns
-// false when:
+// `body` targets ONLY NodeIds in the operator's allowlists.
+// Returns false when:
 //
 //   - The NodesToWrite array can't be parsed (unknown encoding,
 //     truncated, null array).
-//   - ANY WriteValue targets a NodeId outside the allowlist.
+//   - ANY WriteValue targets a NodeId outside both the numeric
+//     list (AllowedNodeIDs) and the canonical-string list
+//     (AllowedCanonicalNodeIDs).
 //
-// v1.6 chunk 2 checked only the first WriteValue — a batched
-// WriteRequest could slip a malicious second/third entry past
-// the gate. v1.12 chunk 2 closes that by walking EVERY
-// WriteValue via wire.WriteRequestAllNodes.
+// History:
+//   - v1.6 chunk 2: checked only the first WriteValue; batched
+//     requests could slip past. Numeric encoding only.
+//   - v1.12 chunk 2: walks EVERY WriteValue via numeric
+//     WriteRequestAllNodes (still fail-closed on String/Guid/
+//     ByteString).
+//   - v1.12 chunk 3 (here): walks with the rich parser, so
+//     String/Guid/ByteString NodeIDs can be admitted when they
+//     match an AllowedCanonicalNodeID.
 //
-// Fail-closed semantics apply: when the strict multi-node
+// Fail-closed semantics still apply: when the strict multi-node
 // parser returns ok=false (unparseable WriteValue layout,
 // unknown DataValue encoding, etc.), the whole RPC is refused.
 // An attacker can't hide a write inside a complex-Variant
 // WriteValue our parser can't walk.
 func (h *WriteGatedHandler) writeRequestNodeAllowed(body []byte) bool {
-	nodes, ok := wire.WriteRequestAllNodes(body)
+	nodes, ok := wire.WriteRequestAllNodesRich(body)
 	if !ok || len(nodes) == 0 {
 		return false
 	}
 	for _, nid := range nodes {
-		if !h.nodeIDInAllowlist(nid) {
+		if !h.richNodeIDAllowed(nid) {
 			return false
 		}
 	}
 	return true
 }
 
-// nodeIDInAllowlist reports whether one NodeId is in the
-// operator-supplied allowlist.
-func (h *WriteGatedHandler) nodeIDInAllowlist(nid wire.NodeID) bool {
-	for _, a := range h.AllowedNodeIDs {
-		if a.Namespace == nid.Namespace && a.Identifier == nid.Identifier {
+// richNodeIDAllowed reports whether one parsed NodeId matches
+// either the numeric allowlist (for numeric encodings only) or
+// the canonical-string allowlist (any encoding). The numeric
+// fast path is kept so operators migrating from v1.6 keep their
+// AllowedNodeIDs semantics unchanged.
+func (h *WriteGatedHandler) richNodeIDAllowed(nid wire.NodeIDValue) bool {
+	if nid.Kind == wire.NodeIDKindNumeric {
+		for _, a := range h.AllowedNodeIDs {
+			if a.Namespace == nid.Namespace && a.Identifier == nid.Numeric {
+				return true
+			}
+		}
+	}
+	canon := nid.Canonical()
+	if canon == "" {
+		return false
+	}
+	for _, c := range h.AllowedCanonicalNodeIDs {
+		if string(c) == canon {
 			return true
 		}
 	}

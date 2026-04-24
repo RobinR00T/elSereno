@@ -374,12 +374,20 @@ func newWriteOPCUACmd() *cobra.Command {
 		Short: "OPC UA service-TypeID + optional per-NodeId proxy-session dry-run",
 		Long: `The gated OPC UA proxy authorises at service-TypeID
 granularity by default (allow WriteRequest, CallRequest, etc).
-Add --node-id ns=N;i=M (repeatable) to tighten the gate to
-specific Object_Identifier NodeIds: a WriteRequest then passes
-only when both its service TypeID is allowed AND the first
-WriteValue's NodeId is in the list. Rarer NodeId encodings
-(String / Guid / ByteString) are refused when per-node gating
-is active — the gate fails closed.`,
+Add --node-id (repeatable) to tighten the gate to specific
+target NodeIds. Accepted NodeId forms:
+
+  ns=N;i=M    numeric identifier (TwoByte / FourByte / Numeric)
+  ns=N;s=STR  string identifier
+  ns=N;g=HEX  Guid identifier (32 hex chars; dashes tolerated)
+  ns=N;b=HEX  ByteString identifier
+
+A WriteRequest then passes only when both its service TypeID is
+allowed AND EVERY WriteValue's NodeId matches one of the
+per-node allowlist entries (v1.12 walks the full NodesToWrite
+batch; v1.6 chunk 2 only checked the first). Unparseable
+WriteValue layouts / DataValue encodings are refused — the
+gate fails closed.`,
 	}
 	cmd.AddCommand(newWriteOPCUADryRunCmd())
 	return cmd
@@ -403,20 +411,16 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 				}
 				svcs = append(svcs, opwrite.AllowedService{TypeID: uint16(s)})
 			}
-			nids := make([]opwrite.AllowedNodeID, 0, len(nodeIDs))
-			for _, n := range nodeIDs {
-				parsed, err := parseNodeIDFlag(n)
-				if err != nil {
-					return fail(core.ExitUsage, err)
-				}
-				nids = append(nids, parsed)
+			nids, canonNids, err := parseNodeIDFlags(nodeIDs)
+			if err != nil {
+				return fail(core.ExitUsage, err)
 			}
-			mut := opwrite.SessionMutationWithNodeIDs(target, svcs, nids)
+			mut := opwrite.SessionMutationWithRichNodeIDs(target, svcs, nids, canonNids)
 			cmd.Printf("Protocol:     opcua\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Services:     %s\n", canonUintList(services))
-			cmd.Printf("NodeIDs:      %s\n", canonNodeIDs(nids))
+			cmd.Printf("NodeIDs:      %s\n", canonNodeIDsRich(nids, canonNids))
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
@@ -429,7 +433,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the OPC UA server we'll proxy to)")
 	cmd.Flags().UintSliceVar(&services, "service", nil, "service TypeID(s) to allow (e.g. 673 WriteRequest, 704 CallRequest)")
-	cmd.Flags().StringSliceVar(&nodeIDs, "node-id", nil, "optional NodeId(s) to restrict WriteRequests to, in ns=N;i=M form")
+	cmd.Flags().StringSliceVar(&nodeIDs, "node-id", nil, "optional NodeId(s) to restrict WriteRequests to; accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring)")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -617,46 +621,144 @@ func canonCWMPRPCs(in []string) string {
 
 // ---- shared helpers for opcua + bacnet ------------------------
 
-// parseNodeIDFlag parses `ns=N;i=M` into an opwrite.AllowedNodeID.
-// Spaces around tokens are tolerated.
-func parseNodeIDFlag(s string) (opwrite.AllowedNodeID, error) {
-	s = strings.TrimSpace(s)
-	parts := strings.Split(s, ";")
-	if len(parts) != 2 {
-		return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: want ns=N;i=M", s)
+// parsedNodeIDFlag is the tagged union produced by
+// parseNodeIDFlag. Exactly one of Numeric / Canonical is
+// populated. Numeric is the v1.6 fast path (ns + uint32 id);
+// Canonical is the v1.12 chunk-3 path that carries any of the
+// s= / g= / b= encodings in canonical-string form.
+type parsedNodeIDFlag struct {
+	Numeric   *opwrite.AllowedNodeID
+	Canonical opwrite.AllowedCanonicalNodeID
+}
+
+// parseNodeIDFlag parses one `--node-id` value into its
+// numeric-or-canonical form. Accepted input shapes:
+//
+//	ns=N;i=M   → numeric (ns uint16, id uint32)
+//	ns=N;s=STR → canonical string NodeID
+//	ns=N;g=HEX → canonical GUID NodeID (32 hex chars, dashes
+//	             tolerated, normalised to uppercase)
+//	ns=N;b=HEX → canonical ByteString NodeID (any even hex,
+//	             normalised to uppercase)
+//
+// Spaces around tokens are tolerated. ns must fit in uint16.
+func parseNodeIDFlag(s string) (parsedNodeIDFlag, error) {
+	ns, idKey, idVal, err := splitNodeIDTokens(s)
+	if err != nil {
+		return parsedNodeIDFlag{}, err
 	}
-	var ns uint64
-	var id uint64
+	return buildParsedNodeID(s, ns, idKey, idVal)
+}
+
+// splitNodeIDTokens validates the `KEY=VALUE;KEY=VALUE` shape
+// and extracts the (ns, idKey, idVal) triple.
+func splitNodeIDTokens(s string) (ns uint16, idKey, idVal string, err error) {
+	raw := strings.TrimSpace(s)
+	parts := strings.Split(raw, ";")
+	if len(parts) != 2 {
+		return 0, "", "", fmt.Errorf("--node-id %q: want ns=N;i=M|s=STR|g=HEX|b=HEX", s)
+	}
+	var nsSeen bool
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
 		kv := strings.SplitN(p, "=", 2)
 		if len(kv) != 2 {
-			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: each token is KEY=VALUE", s)
+			return 0, "", "", fmt.Errorf("--node-id %q: each token is KEY=VALUE", s)
 		}
-		key := strings.TrimSpace(kv[0])
+		key := strings.ToLower(strings.TrimSpace(kv[0]))
 		val := strings.TrimSpace(kv[1])
-		n, err := strconv.ParseUint(val, 10, 32)
-		if err != nil {
-			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: %q is not a number", s, val)
-		}
-		switch strings.ToLower(key) {
+		switch key {
 		case "ns":
-			if n > 0xFFFF {
-				return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: ns must fit in uint16", s)
+			n, parseErr := strconv.ParseUint(val, 10, 32)
+			if parseErr != nil {
+				return 0, "", "", fmt.Errorf("--node-id %q: ns %q is not a number", s, val)
 			}
-			ns = n
-		case "i":
-			id = n
+			if n > 0xFFFF {
+				return 0, "", "", fmt.Errorf("--node-id %q: ns must fit in uint16", s)
+			}
+			ns = uint16(n & 0xFFFF)
+			nsSeen = true
+		case "i", "s", "g", "b":
+			idKey = key
+			idVal = val
 		default:
-			return opwrite.AllowedNodeID{}, fmt.Errorf("--node-id %q: unknown key %q (expected ns or i)", s, key)
+			return 0, "", "", fmt.Errorf("--node-id %q: unknown key %q (expected ns, i, s, g, or b)", s, key)
 		}
 	}
-	// ns is guaranteed ≤ 0xFFFF by the range check above; id is
-	// capped to 32 bits by ParseUint(..., 32).
-	return opwrite.AllowedNodeID{
-		Namespace:  uint16(ns & 0xFFFF),
-		Identifier: uint32(id & 0xFFFFFFFF),
-	}, nil
+	if !nsSeen || idKey == "" {
+		return 0, "", "", fmt.Errorf("--node-id %q: must specify both ns= and one of i/s/g/b", s)
+	}
+	return ns, idKey, idVal, nil
+}
+
+// buildParsedNodeID finalises the parsedNodeIDFlag from the
+// split tokens. Per-kind validation + normalisation lives here.
+func buildParsedNodeID(orig string, ns uint16, idKey, idVal string) (parsedNodeIDFlag, error) {
+	switch idKey {
+	case "i":
+		n, err := strconv.ParseUint(idVal, 10, 32)
+		if err != nil {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: i %q is not a number", orig, idVal)
+		}
+		id := uint32(n & 0xFFFFFFFF)
+		return parsedNodeIDFlag{
+			Numeric: &opwrite.AllowedNodeID{Namespace: ns, Identifier: id},
+		}, nil
+	case "s":
+		if idVal == "" {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: s= must not be empty", orig)
+		}
+		return parsedNodeIDFlag{
+			Canonical: opwrite.AllowedCanonicalNodeID(fmt.Sprintf("ns=%d;s=%s", ns, idVal)),
+		}, nil
+	case "g":
+		hex, err := normaliseHex(idVal)
+		if err != nil {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: g %q: %w", orig, idVal, err)
+		}
+		if len(hex) != 32 {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: g= must be 32 hex chars (16 bytes), got %d", orig, len(hex))
+		}
+		return parsedNodeIDFlag{
+			Canonical: opwrite.AllowedCanonicalNodeID(fmt.Sprintf("ns=%d;g=%s", ns, hex)),
+		}, nil
+	case "b":
+		hex, err := normaliseHex(idVal)
+		if err != nil {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: b %q: %w", orig, idVal, err)
+		}
+		if len(hex) == 0 {
+			return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: b= must not be empty", orig)
+		}
+		return parsedNodeIDFlag{
+			Canonical: opwrite.AllowedCanonicalNodeID(fmt.Sprintf("ns=%d;b=%s", ns, hex)),
+		}, nil
+	}
+	return parsedNodeIDFlag{}, fmt.Errorf("--node-id %q: internal parser error", orig)
+}
+
+// normaliseHex strips dashes, validates hex, and uppercases.
+// Returns the canonical uppercase form.
+func normaliseHex(s string) (string, error) {
+	s = strings.ReplaceAll(s, "-", "")
+	if len(s)%2 != 0 {
+		return "", fmt.Errorf("odd number of hex chars (%d)", len(s))
+	}
+	out := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= '0' && c <= '9':
+			out[i] = c
+		case c >= 'A' && c <= 'F':
+			out[i] = c
+		case c >= 'a' && c <= 'f':
+			out[i] = c - ('a' - 'A')
+		default:
+			return "", fmt.Errorf("non-hex char %q", c)
+		}
+	}
+	return string(out), nil
 }
 
 // canonUintList returns a sorted deduped decimal list for
@@ -681,21 +783,47 @@ func canonUintList(in []uint) string {
 	return strings.Join(parts, ", ")
 }
 
-// canonNodeIDs prints the sorted list in ns=N;i=M form.
-func canonNodeIDs(in []opwrite.AllowedNodeID) string {
-	if len(in) == 0 {
+// parseNodeIDFlags splits a []string of --node-id values into
+// the numeric + canonical lists expected by
+// SessionMutationWithRichNodeIDs.
+func parseNodeIDFlags(in []string) ([]opwrite.AllowedNodeID, []opwrite.AllowedCanonicalNodeID, error) {
+	nids := make([]opwrite.AllowedNodeID, 0, len(in))
+	canonNids := make([]opwrite.AllowedCanonicalNodeID, 0, len(in))
+	for _, n := range in {
+		parsed, err := parseNodeIDFlag(n)
+		if err != nil {
+			return nil, nil, err
+		}
+		if parsed.Numeric != nil {
+			nids = append(nids, *parsed.Numeric)
+		} else {
+			canonNids = append(canonNids, parsed.Canonical)
+		}
+	}
+	return nids, canonNids, nil
+}
+
+// canonNodeIDsRich prints the sorted combined list (numeric +
+// canonical) in canonical string form.
+func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedCanonicalNodeID) string {
+	if len(nids) == 0 && len(canonNids) == 0 {
 		return "(none — gate only at service-TypeID level)"
 	}
-	out := make([]string, len(in))
-	sorted := append([]opwrite.AllowedNodeID(nil), in...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Namespace != sorted[j].Namespace {
-			return sorted[i].Namespace < sorted[j].Namespace
+	out := make([]string, 0, len(nids)+len(canonNids))
+	sortedNids := append([]opwrite.AllowedNodeID(nil), nids...)
+	sort.Slice(sortedNids, func(i, j int) bool {
+		if sortedNids[i].Namespace != sortedNids[j].Namespace {
+			return sortedNids[i].Namespace < sortedNids[j].Namespace
 		}
-		return sorted[i].Identifier < sorted[j].Identifier
+		return sortedNids[i].Identifier < sortedNids[j].Identifier
 	})
-	for i, n := range sorted {
-		out[i] = fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier)
+	for _, n := range sortedNids {
+		out = append(out, fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier))
+	}
+	sortedCanon := append([]opwrite.AllowedCanonicalNodeID(nil), canonNids...)
+	sort.Slice(sortedCanon, func(i, j int) bool { return sortedCanon[i] < sortedCanon[j] })
+	for _, c := range sortedCanon {
+		out = append(out, string(c))
 	}
 	return strings.Join(out, ", ")
 }
@@ -704,37 +832,59 @@ func canonNodeIDs(in []opwrite.AllowedNodeID) string {
 // session. v1.9 closes the v1.7 carry-over by persisting
 // per-NodeId entries alongside the service-TypeID allowlist —
 // the emitted YAML now round-trips cleanly through
-// loadAllowFile.
+// loadAllowFile. v1.12 chunk 3 extends node_ids with s= / g= /
+// b= canonical-form entries (see proxyNodeID for schema).
 func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:   pluginNameOPCUA,
 		Target:   target,
 		Services: canonUints(services),
 	}
-	if len(nodeIDRaw) > 0 {
-		af.NodeIDs = make([]proxyNodeID, 0, len(nodeIDRaw))
-		for _, raw := range nodeIDRaw {
-			nid, err := parseNodeIDFlag(raw)
-			if err != nil {
-				// Parse error surfaced upstream by the dry-run's
-				// pre-check; if we got here the flag is valid.
-				continue
-			}
-			af.NodeIDs = append(af.NodeIDs, proxyNodeID{
-				Namespace:  nid.Namespace,
-				Identifier: nid.Identifier,
-			})
+	if len(nodeIDRaw) == 0 {
+		return af
+	}
+	af.NodeIDs = make([]proxyNodeID, 0, len(nodeIDRaw))
+	for _, raw := range nodeIDRaw {
+		parsed, err := parseNodeIDFlag(raw)
+		if err != nil {
+			// Parse error surfaced upstream by the dry-run's
+			// pre-check; if we got here the flag is valid.
+			continue
 		}
-		// Sort for determinism — loadAllowFile + hash functions
-		// already sort, but the emitted file should be stable
-		// across invocations too.
-		sort.Slice(af.NodeIDs, func(i, j int) bool {
+		if parsed.Numeric != nil {
+			af.NodeIDs = append(af.NodeIDs, proxyNodeID{
+				Namespace:  parsed.Numeric.Namespace,
+				Identifier: parsed.Numeric.Identifier,
+			})
+			continue
+		}
+		// Canonical entry: stash as the single Canonical field.
+		af.NodeIDs = append(af.NodeIDs, proxyNodeID{
+			Canonical: string(parsed.Canonical),
+		})
+	}
+	// Sort for determinism — loadAllowFile + hash functions
+	// already sort, but the emitted file should be stable
+	// across invocations too.
+	sort.Slice(af.NodeIDs, func(i, j int) bool {
+		// Numeric entries (Canonical == "") before canonical-
+		// string entries; within numeric, by (ns, id); within
+		// canonical, by canonical string.
+		if af.NodeIDs[i].Canonical == "" && af.NodeIDs[j].Canonical != "" {
+			return true
+		}
+		if af.NodeIDs[i].Canonical != "" && af.NodeIDs[j].Canonical == "" {
+			return false
+		}
+		if af.NodeIDs[i].Canonical == "" {
+			// both numeric
 			if af.NodeIDs[i].Namespace != af.NodeIDs[j].Namespace {
 				return af.NodeIDs[i].Namespace < af.NodeIDs[j].Namespace
 			}
 			return af.NodeIDs[i].Identifier < af.NodeIDs[j].Identifier
-		})
-	}
+		}
+		return af.NodeIDs[i].Canonical < af.NodeIDs[j].Canonical
+	})
 	return af
 }
 

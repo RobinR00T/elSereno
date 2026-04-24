@@ -403,6 +403,57 @@ func TestEmitAllowFile_RoundTripOPCUAWithNodeIDs(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs — v1.12
+// chunk 3 extends node_ids with the `canonical:` YAML field for
+// String / Guid / ByteString encodings. Round-trip keeps the
+// canonical form verbatim so the operator's token stays stable.
+func TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+
+	services := []uint{673}
+	// Mixed: one numeric, one string, one guid, one bytestring.
+	nodeIDs := []string{
+		"ns=3;i=100",
+		"ns=2;s=Temperature",
+		"ns=1;g=6b29fc40-ca47-1067-b31d-00dd010662da",
+		"ns=4;b=DEADBEEF",
+	}
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if opts.plugin != "opcua" {
+		t.Errorf("plugin=%q, want opcua", opts.plugin)
+	}
+	if len(opts.nodeIDs) != 4 {
+		t.Fatalf("nodeIDs=%v, want 4 entries", opts.nodeIDs)
+	}
+	// Sort order: numeric first (by ns,id) then canonical strings
+	// (lexicographic).
+	wantOrder := []string{
+		"ns=3;i=100",
+		"ns=1;g=6B29FC40CA471067B31D00DD010662DA", // normalised to uppercase, no dashes
+		"ns=2;s=Temperature",
+		"ns=4;b=DEADBEEF",
+	}
+	if len(opts.nodeIDs) != len(wantOrder) {
+		t.Fatalf("nodeIDs len mismatch: got %d, want %d", len(opts.nodeIDs), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if opts.nodeIDs[i] != want {
+			t.Errorf("nodeIDs[%d] = %q, want %q", i, opts.nodeIDs[i], want)
+		}
+	}
+}
+
 func TestEmitAllowFile_OPCUAOmitsNodeIDsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)

@@ -17,6 +17,280 @@ type NodeID struct {
 	Identifier uint32
 }
 
+// NodeIDKind tags a rich-parsed NodeID by its on-wire encoding.
+// Needed to disambiguate the Numeric / String / GUID /
+// ByteString identifier forms in operator allowlists.
+type NodeIDKind byte
+
+// NodeIDKind values matching OPC UA Part 6 §5.2.2.9.
+const (
+	NodeIDKindNumeric    NodeIDKind = 0
+	NodeIDKindString     NodeIDKind = 1
+	NodeIDKindGUID       NodeIDKind = 2
+	NodeIDKindByteString NodeIDKind = 3
+)
+
+// NodeIDValue is the rich-parsed form of a UA NodeId. Only the
+// field matching `Kind` is populated. Designed for gates that
+// want to allowlist non-numeric NodeIDs (String / Guid /
+// ByteString) in addition to the numeric form v1.6 chunk 2
+// supported.
+type NodeIDValue struct {
+	Namespace uint16
+	Kind      NodeIDKind
+	Numeric   uint32   // valid when Kind == NodeIDKindNumeric
+	String    string   // valid when Kind == NodeIDKindString
+	GUID      [16]byte // valid when Kind == NodeIDKindGUID
+	Bytes     []byte   // valid when Kind == NodeIDKindByteString
+}
+
+// Canonical returns the OPC UA standard notation for this
+// NodeID: `ns=N;i=M` (numeric), `ns=N;s=STR` (string),
+// `ns=N;g=HEX` (guid), `ns=N;b=HEXBYTES` (bytestring). This
+// is the form operator allowlists use — it's human-readable
+// and unambiguous.
+func (v NodeIDValue) Canonical() string {
+	switch v.Kind {
+	case NodeIDKindNumeric:
+		return fmt.Sprintf("ns=%d;i=%d", v.Namespace, v.Numeric)
+	case NodeIDKindString:
+		return fmt.Sprintf("ns=%d;s=%s", v.Namespace, v.String)
+	case NodeIDKindGUID:
+		return fmt.Sprintf("ns=%d;g=%s", v.Namespace, hexBytesUpper(v.GUID[:]))
+	case NodeIDKindByteString:
+		return fmt.Sprintf("ns=%d;b=%s", v.Namespace, hexBytesUpper(v.Bytes))
+	}
+	return ""
+}
+
+// hexBytesUpper returns the uppercase hex encoding of b without
+// any separator characters. Used only by NodeIDValue.Canonical;
+// lives in this file to avoid an encoding/hex import.
+func hexBytesUpper(b []byte) string {
+	const hex = "0123456789ABCDEF"
+	out := make([]byte, len(b)*2)
+	for i, v := range b {
+		out[i*2] = hex[v>>4]
+		out[i*2+1] = hex[v&0x0F]
+	}
+	return string(out)
+}
+
+// parseNodeIDRich decodes one UA NodeId from the buffer and
+// returns its full encoded form. Handles all 5 encodings
+// (TwoByte / FourByte / Numeric / String / Guid / ByteString).
+// Returns (value, consumed, ok).
+//
+// Contrast with parseNodeID (v1.6): that function returns
+// ok=false for String / Guid / ByteString even though it
+// structurally-consumes them. parseNodeIDRich succeeds for all
+// encodings — designed for gates + per-NodeId-canonical
+// allowlists that want to authorise non-numeric NodeIDs.
+func parseNodeIDRich(b []byte) (NodeIDValue, int, bool) {
+	if len(b) < 1 {
+		return NodeIDValue{}, 0, false
+	}
+	enc := NodeIDEncoding(b[0])
+	switch enc { //nolint:exhaustive // unknown encodings fall through to "can't parse"
+	case NodeIDTwoByte:
+		if len(b) < 2 {
+			return NodeIDValue{}, 0, false
+		}
+		return NodeIDValue{
+			Namespace: 0,
+			Kind:      NodeIDKindNumeric,
+			Numeric:   uint32(b[1]),
+		}, 2, true
+	case NodeIDFourByte:
+		if len(b) < 4 {
+			return NodeIDValue{}, 0, false
+		}
+		return NodeIDValue{
+			Namespace: uint16(b[1]),
+			Kind:      NodeIDKindNumeric,
+			Numeric:   uint32(binary.LittleEndian.Uint16(b[2:4])),
+		}, 4, true
+	case NodeIDNumeric:
+		if len(b) < 7 {
+			return NodeIDValue{}, 0, false
+		}
+		return NodeIDValue{
+			Namespace: binary.LittleEndian.Uint16(b[1:3]),
+			Kind:      NodeIDKindNumeric,
+			Numeric:   binary.LittleEndian.Uint32(b[3:7]),
+		}, 7, true
+	case NodeIDString:
+		return parseStringNodeID(b)
+	case NodeIDGuid:
+		return parseGUIDNodeID(b)
+	case NodeIDByteString:
+		return parseByteStringNodeID(b)
+	}
+	return NodeIDValue{}, 0, false
+}
+
+// parseStringNodeID decodes a string-form NodeId (encoding
+// byte 0x03) into its canonical fields.
+//
+// Layout: 0x03 + ns(u16 LE) + String(u32 len + bytes).
+func parseStringNodeID(b []byte) (NodeIDValue, int, bool) {
+	if len(b) < 3+4 {
+		return NodeIDValue{}, 0, false
+	}
+	ns := binary.LittleEndian.Uint16(b[1:3])
+	sLen := int32(binary.LittleEndian.Uint32(b[3:7])) //nolint:gosec // G115 — -1 null sentinel intentional
+	if sLen < 0 {
+		return NodeIDValue{Namespace: ns, Kind: NodeIDKindString}, 7, true
+	}
+	end := 7 + int(sLen)
+	if end > len(b) {
+		return NodeIDValue{}, 0, false
+	}
+	return NodeIDValue{
+		Namespace: ns,
+		Kind:      NodeIDKindString,
+		String:    string(b[7:end]),
+	}, end, true
+}
+
+// parseGUIDNodeID decodes a GUID-form NodeId (encoding byte
+// 0x04) into its canonical fields.
+//
+// Layout: 0x04 + ns(u16 LE) + Guid(16 bytes, mixed-endian
+// per RFC 4122 §4.1.2: first 3 fields little-endian, last 8
+// bytes big-endian-ordered).
+func parseGUIDNodeID(b []byte) (NodeIDValue, int, bool) {
+	if len(b) < 3+16 {
+		return NodeIDValue{}, 0, false
+	}
+	ns := binary.LittleEndian.Uint16(b[1:3])
+	var guid [16]byte
+	copy(guid[:], b[3:19])
+	return NodeIDValue{
+		Namespace: ns,
+		Kind:      NodeIDKindGUID,
+		GUID:      guid,
+	}, 19, true
+}
+
+// parseByteStringNodeID decodes a ByteString-form NodeId
+// (encoding byte 0x05).
+//
+// Layout: 0x05 + ns(u16 LE) + ByteString(u32 len + bytes).
+func parseByteStringNodeID(b []byte) (NodeIDValue, int, bool) {
+	if len(b) < 3+4 {
+		return NodeIDValue{}, 0, false
+	}
+	ns := binary.LittleEndian.Uint16(b[1:3])
+	bLen := int32(binary.LittleEndian.Uint32(b[3:7])) //nolint:gosec // G115 — -1 null sentinel intentional
+	if bLen < 0 {
+		return NodeIDValue{Namespace: ns, Kind: NodeIDKindByteString}, 7, true
+	}
+	end := 7 + int(bLen)
+	if end > len(b) {
+		return NodeIDValue{}, 0, false
+	}
+	bs := make([]byte, bLen)
+	copy(bs, b[7:end])
+	return NodeIDValue{
+		Namespace: ns,
+		Kind:      NodeIDKindByteString,
+		Bytes:     bs,
+	}, end, true
+}
+
+// WriteRequestAllNodesRich is the v1.12 chunk 3 complement of
+// WriteRequestAllNodes. Walks every WriteValue and returns the
+// rich NodeIDValue (with Canonical() support for non-numeric
+// encodings).
+//
+// Same fail-closed contract as WriteRequestAllNodes: any parse
+// failure returns (nil, false) so the caller refuses the RPC.
+func WriteRequestAllNodesRich(msgBody []byte) (ids []NodeIDValue, ok bool) {
+	body, arrLen, ok := walkWriteRequestArrayPrefix(msgBody)
+	if !ok {
+		return nil, false
+	}
+	off := 0
+	out := make([]NodeIDValue, 0, arrLen)
+	for i := int32(0); i < arrLen; i++ {
+		v, wvOff, wvOK := parseWriteValueRich(body[off:])
+		if !wvOK {
+			return nil, false
+		}
+		out = append(out, v)
+		off += wvOff
+	}
+	return out, true
+}
+
+// walkWriteRequestArrayPrefix returns the slice positioned at
+// the first WriteValue and the NodesToWrite array length. Fail-
+// closed on truncated header, unparseable RequestHeader, or
+// null/empty array prefix. Extracted so both
+// WriteRequestAllNodes and WriteRequestAllNodesRich share the
+// prefix walk without the linter flagging a duplicated chunk.
+func walkWriteRequestArrayPrefix(msgBody []byte) (body []byte, arrLen int32, ok bool) {
+	const headerPrefix = 16
+	const typeIDSize = 4
+
+	if len(msgBody) < headerPrefix+typeIDSize+16 {
+		return nil, 0, false
+	}
+	off := headerPrefix + typeIDSize
+
+	consumed, ok := parseRequestHeader(msgBody[off:])
+	if !ok {
+		return nil, 0, false
+	}
+	off += consumed
+
+	if off+4 > len(msgBody) {
+		return nil, 0, false
+	}
+	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	off += 4
+	if arrLen <= 0 {
+		return nil, 0, false
+	}
+	return msgBody[off:], arrLen, true
+}
+
+// parseWriteValueRich parses one WriteValue using the rich
+// NodeID parser.
+func parseWriteValueRich(b []byte) (NodeIDValue, int, bool) {
+	off := 0
+	nid, consumed, ok := parseNodeIDRich(b[off:])
+	if !ok {
+		return NodeIDValue{}, 0, false
+	}
+	off += consumed
+	// AttributeId (u32).
+	if off+4 > len(b) {
+		return NodeIDValue{}, 0, false
+	}
+	off += 4
+	// IndexRange (String).
+	if off+4 > len(b) {
+		return NodeIDValue{}, 0, false
+	}
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	off += 4
+	if sLen > 0 {
+		if off+int(sLen) > len(b) {
+			return NodeIDValue{}, 0, false
+		}
+		off += int(sLen)
+	}
+	// DataValue (shared with parseWriteValue).
+	dvConsumed, ok := skipDataValue(b[off:])
+	if !ok {
+		return NodeIDValue{}, 0, false
+	}
+	off += dvConsumed
+	return nid, off, true
+}
+
 // WriteRequestAllNodes walks the full NodesToWrite array and
 // returns EVERY WriteValue's NodeId in document order.
 //
@@ -37,32 +311,14 @@ type NodeID struct {
 // first NodeId + don't want fail-closed semantics on unusual
 // DataValue shapes.
 func WriteRequestAllNodes(msgBody []byte) (ids []NodeID, ok bool) {
-	const headerPrefix = 16
-	const typeIDSize = 4
-
-	if len(msgBody) < headerPrefix+typeIDSize+16 {
-		return nil, false
-	}
-	off := headerPrefix + typeIDSize
-
-	consumed, ok := parseRequestHeader(msgBody[off:])
+	body, arrLen, ok := walkWriteRequestArrayPrefix(msgBody)
 	if !ok {
 		return nil, false
 	}
-	off += consumed
-
-	if off+4 > len(msgBody) {
-		return nil, false
-	}
-	arrLen := int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
-	off += 4
-	if arrLen <= 0 {
-		return nil, false
-	}
-
+	off := 0
 	out := make([]NodeID, 0, arrLen)
 	for i := int32(0); i < arrLen; i++ {
-		n, wvOff, wvOK := parseWriteValue(msgBody[off:])
+		n, wvOff, wvOK := parseWriteValue(body[off:])
 		if !wvOK {
 			return nil, false
 		}

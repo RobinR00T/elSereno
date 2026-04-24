@@ -240,6 +240,37 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.12 chunk 3 landed.** OPC UA String / GUID /
+  ByteString NodeID encodings reach the per-node gate. Rich
+  wire parser: `NodeIDValue{Namespace, Kind, Numeric, String,
+  GUID, Bytes}` with `.Canonical()` returning `ns=N;{i,s,g,b}=…`.
+  `WriteRequestAllNodesRich` walks every WriteValue with the
+  rich parser (shared helper with v1.12 chunk 2 so only the
+  per-entry shape differs). Handler gains
+  `AllowedCanonicalNodeIDs []AllowedCanonicalNodeID` alongside
+  the v1.6 numeric list; `richNodeIDAllowed` matches numeric
+  wire values against the numeric list and canonical strings
+  (uppercase hex for GUID / ByteString) against the canonical
+  list. `AllowlistHashWithRichNodeIDs` extends the hash ladder
+  with a 0xFD separator + length-prefixed canonical entries —
+  empty canonical list collapses to the v1.6 hash, empty both
+  collapses to v1.2. CLI `--node-id` accepts
+  `ns=N;{s=STR,g=HEX,b=HEX}`: GUID tolerates dashes and
+  normalises to uppercase hex; ByteString requires even hex.
+  YAML schema gains a `canonical:` field on each `node_ids:`
+  entry (numeric-only and canonical-only round-trip cleanly).
+  17 new tests: 5 hash ladder + 5 rich wire parser + 4 E2E gate
+  + 1 YAML round-trip + 2 CLI parse coverage. Closes the v1.6
+  chunk 2 carry-over that fell through on non-numeric
+  encodings. 0 lint issues after helper extractions
+  (walkWriteRequestArrayPrefix, splitNodeIDTokens,
+  buildParsedNodeID, applyOPCUAAllowFile).
+- 2026-04-24 — **v1.12 chunk 2 landed.** OPC UA multi-node
+  walk (`WriteRequestAllNodes`). Numeric encoding only; fails
+  closed on any unparseable WriteValue.
+- 2026-04-24 — **v1.12 chunk 1 landed.** CWMP per-parameter-
+  path allowlist (`AllowedParameterPath{Prefix}` +
+  `AllowlistHashWithParameterPaths` + SOAP Fault 9005 refusal).
 - 2026-04-24 — **v1.11.0 closed.** Single-chunk cycle: CWMP
   offensive proxy (SOAP RPC allowlist). Completes the TR-069
   story — v1.4 chunk 5 shipped the fingerprint, this chunk
