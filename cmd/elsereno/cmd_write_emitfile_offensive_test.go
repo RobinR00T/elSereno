@@ -257,7 +257,7 @@ func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
 		"  SetParameterValues  ", // duplicate after trim
 		"Download",
 	}
-	af := buildAllowFileCWMP("acs.example.com:7547", rpcs)
+	af := buildAllowFileCWMP("acs.example.com:7547", rpcs, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
 func TestEmitAllowFile_CWMPOmitsRPCsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileCWMP("acs:7547", nil)
+	af := buildAllowFileCWMP("acs:7547", nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

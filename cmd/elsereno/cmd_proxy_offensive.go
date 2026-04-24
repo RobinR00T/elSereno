@@ -74,6 +74,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (ns=N;i=M form, repeatable). Tightens the gate from service-TypeID to specific NodeIds (v1.6+; numeric encodings only — String/Guid/ByteString fail closed).")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
+	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
@@ -110,7 +111,13 @@ type proxyListenOpts struct {
 	// names (e.g. "SetParameterValues", "Reboot") — case-
 	// sensitive per TR-069 §A.4. Empty → only read-only +
 	// protocol-flow RPCs pass; every write-capable RPC refused.
-	rpcs                                []string
+	rpcs []string
+	// paramPrefixes holds the cwmp per-parameter-path
+	// allowlist (v1.12+). TR-069 parameter-name prefixes (e.g.
+	// "InternetGatewayDevice.WANDevice.") that constrain Set*
+	// RPCs to specific sub-trees. Case-sensitive. Empty → RPC-
+	// only gating (v1.11 behaviour).
+	paramPrefixes                       []string
 	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
@@ -366,12 +373,17 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 	for _, r := range opts.rpcs {
 		allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})
 	}
+	paths := make([]cwmpwrite.AllowedParameterPath, 0, len(opts.paramPrefixes))
+	for _, p := range opts.paramPrefixes {
+		paths = append(paths, cwmpwrite.AllowedParameterPath{Prefix: p})
+	}
 	return &cwmpwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:                opts.target,
+		Allowed:               allowed,
+		AllowedParameterPaths: paths,
+		Deriver:               rt.Vault,
+		Auditor:               rt.Auditor,
+		SessionConfirm:        c,
 	}
 }
 

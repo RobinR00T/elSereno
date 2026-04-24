@@ -111,39 +111,59 @@ func buildAllowFileIAX2(target string, subclasses []string) proxyAllowFile {
 }
 
 // buildAllowFileCWMP returns the YAML struct for a CWMP dry-run
-// (v1.11+). RPCs are deduped, prefix-stripped, case-preserved
-// (TR-069 RPC names are case-sensitive), and sorted for
-// deterministic emission. Empty list → omit the `rpcs:` key
-// entirely (backwards-compat friendly).
-func buildAllowFileCWMP(target string, rpcs []string) proxyAllowFile {
+// (v1.11+ rpcs:, v1.12+ param_prefixes:). RPCs are deduped,
+// prefix-stripped, case-preserved (TR-069 RPC names are case-
+// sensitive), and sorted for deterministic emission. Parameter
+// prefixes are trimmed + deduped + sorted (case preserved, per
+// TR-069 data-model conventions). Empty lists → omit the
+// respective key (backwards-compat friendly).
+func buildAllowFileCWMP(target string, rpcs, paramPrefixes []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin: pluginNameCWMP,
 		Target: target,
 	}
-	if len(rpcs) == 0 {
-		return af
+	if len(rpcs) > 0 {
+		seen := map[string]struct{}{}
+		trimmed := make([]string, 0, len(rpcs))
+		for _, r := range rpcs {
+			r = strings.TrimSpace(r)
+			// Strip "prefix:" if present (e.g. "cwmp:Reboot").
+			if i := strings.IndexByte(r, ':'); i > 0 {
+				r = r[i+1:]
+			}
+			r = strings.TrimSpace(r)
+			if r == "" {
+				continue
+			}
+			if _, dup := seen[r]; dup {
+				continue
+			}
+			seen[r] = struct{}{}
+			trimmed = append(trimmed, r)
+		}
+		if len(trimmed) > 0 {
+			stringsSort(trimmed)
+			af.RPCs = trimmed
+		}
 	}
-	seen := map[string]struct{}{}
-	trimmed := make([]string, 0, len(rpcs))
-	for _, r := range rpcs {
-		r = strings.TrimSpace(r)
-		// Strip "prefix:" if present (e.g. "cwmp:Reboot").
-		if i := strings.IndexByte(r, ':'); i > 0 {
-			r = r[i+1:]
+	if len(paramPrefixes) > 0 {
+		seen := map[string]struct{}{}
+		trimmed := make([]string, 0, len(paramPrefixes))
+		for _, p := range paramPrefixes {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			if _, dup := seen[p]; dup {
+				continue
+			}
+			seen[p] = struct{}{}
+			trimmed = append(trimmed, p)
 		}
-		r = strings.TrimSpace(r)
-		if r == "" {
-			continue
+		if len(trimmed) > 0 {
+			stringsSort(trimmed)
+			af.ParamPrefixes = trimmed
 		}
-		if _, dup := seen[r]; dup {
-			continue
-		}
-		seen[r] = struct{}{}
-		trimmed = append(trimmed, r)
-	}
-	if len(trimmed) > 0 {
-		stringsSort(trimmed)
-		af.RPCs = trimmed
 	}
 	return af
 }

@@ -24,6 +24,11 @@ import (
 	"local/elsereno/internal/core"
 )
 
+// displayNone is the canonical empty-list placeholder for
+// operator-facing dry-run output. Individual subcommands append
+// a per-field explanation where helpful.
+const displayNone = "(none)"
+
 // ---- elsereno write sip ---------------------------------------
 
 func newWriteSIPCmd() *cobra.Command {
@@ -110,7 +115,7 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 // does its own canonicalisation independently.
 func canonAORs(in []string) string {
 	if len(in) == 0 {
-		return "(none)"
+		return displayNone
 	}
 	cleaned := make([]string, 0, len(in))
 	seen := map[string]struct{}{}
@@ -515,7 +520,7 @@ CWMP-layer error rather than a transport glitch.`,
 
 func newWriteCWMPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
-	var rpcs []string
+	var rpcs, paramPrefixes []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -527,27 +532,60 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			for _, r := range rpcs {
 				allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})
 			}
-			mut := cwmpwrite.SessionMutation(target, allowed)
+			paths := make([]cwmpwrite.AllowedParameterPath, 0, len(paramPrefixes))
+			for _, p := range paramPrefixes {
+				paths = append(paths, cwmpwrite.AllowedParameterPath{Prefix: p})
+			}
+			mut := cwmpwrite.SessionMutationWithParameterPaths(target, allowed, paths)
 			cmd.Printf("Protocol:     cwmp\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("RPCs:         %s\n", canonCWMPRPCs(rpcs))
 			cmd.Printf("Always-safe:  GetParameter{Names,Values,Attributes}, GetRPCMethods, Inform{,Response}, TransferComplete, Kicked, Fault (+ non-POST)\n")
+			if len(paramPrefixes) > 0 {
+				cmd.Printf("ParamPaths:   %s\n", canonCWMPPaths(paramPrefixes))
+			} else {
+				cmd.Printf("ParamPaths:   (none — Set* RPCs can target any parameter path)\n")
+			}
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileCWMP(target, rpcs))
+				return emitAllowFile(cmd, p, buildAllowFileCWMP(target, rpcs, paramPrefixes))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the CWMP ACS we'll proxy to)")
 	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow — case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
+	cmd.Flags().StringSliceVar(&paramPrefixes, "param-prefix", nil, "optional: per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Only applies to SetParameterValues / SetParameterAttributes; other RPCs unaffected. Case-sensitive. Registration-hijack / partition mitigation (v1.12+).")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// canonCWMPPaths produces an operator-friendly sorted dedup'd
+// display of parameter-path prefixes. Case preserved.
+func canonCWMPPaths(in []string) string {
+	if len(in) == 0 {
+		return displayNone
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(in))
+	for _, p := range in {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return strings.Join(out, ", ")
 }
 
 // canonCWMPRPCs returns a sorted, deduped, prefix-stripped
@@ -625,7 +663,7 @@ func parseNodeIDFlag(s string) (opwrite.AllowedNodeID, error) {
 // operator-readable output.
 func canonUintList(in []uint) string {
 	if len(in) == 0 {
-		return "(none)"
+		return displayNone
 	}
 	set := map[uint]struct{}{}
 	for _, v := range in {

@@ -83,6 +83,7 @@ type proxyAllowFile struct {
 	NodeIDs        []proxyNodeID `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
 	ServiceChoices []uint        `yaml:"service_choices,omitempty"` // bacnet
 	RPCs           []string      `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
+	ParamPrefixes  []string      `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -133,6 +134,7 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		opts.serviceChoices = af.ServiceChoices
 	case pluginNameCWMP:
 		opts.rpcs = af.RPCs
+		opts.paramPrefixes = af.ParamPrefixes
 	default:
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
 	}

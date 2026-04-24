@@ -181,6 +181,108 @@ func SessionMutation(target string, allowed []AllowedRPC) confirm.Mutation {
 	}
 }
 
+// AllowedParameterPath is one parameter-path prefix the operator
+// has authorised for `SetParameterValues` /
+// `SetParameterAttributes` RPCs. When the handler's
+// `AllowedParameterPaths` field is non-empty, EVERY parameter
+// name inside the RPC body must start with at least one of
+// these prefixes; any unmatched path refuses the whole RPC.
+//
+// Typical use-case: operator allows `SetParameterValues` during
+// a WAN-side change window, but only over `InternetGatewayDevice.
+// WANDevice.*` — prevents a compromised ACS session from pushing
+// config to the LAN / management sub-trees. Paired with v1.11
+// chunk 1's RPC-level gate: the RPC must be in Allowed AND
+// every parameter must be in AllowedParameterPaths.
+//
+// Match is PREFIX (not exact): "InternetGatewayDevice.WANDevice."
+// matches "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.
+// 1.WANIPConnection.1.ExternalIPAddress" AND anything else under
+// that sub-tree. Operator writes the shortest unambiguous prefix.
+//
+// Paths are CASE-SENSITIVE per TR-069 data model conventions
+// (names are CamelCase; lowercasing would break the match). The
+// canonicaliser only trims whitespace.
+type AllowedParameterPath struct {
+	// Prefix is the parameter-name prefix to allow. Leading /
+	// trailing whitespace is trimmed; otherwise preserved
+	// verbatim. A trailing "." is conventional but not
+	// required (StrictPrefix semantics regardless).
+	Prefix string
+}
+
+// canonicaliseParameterPath trims whitespace. Case preserved
+// (TR-069 parameter names are case-sensitive). Empty string is
+// the only invalid form.
+func canonicaliseParameterPath(s string) string {
+	return strings.TrimSpace(s)
+}
+
+// AllowlistHashWithParameterPaths is the v1.12 hash that
+// incorporates both the RPC allowlist (v1.11) AND a sorted
+// per-parameter-path allowlist. When paths is nil/empty, the
+// hash equals `AllowlistHash(target, rpcs)` (v1.11) so
+// operators who don't opt into path gating keep their existing
+// tokens.
+//
+// Hash layout when paths is non-empty:
+//
+//	target || 0x00 || RPC<NUL>  × sorted_rpcs
+//	                || 0xFE || PATH<NUL> × sorted_paths
+//
+// The 0xFE separator can't collide with an ASCII RPC name byte
+// (CWMP RPCs are A-Z / 0-9 / ASCII) nor with a parameter path
+// byte (TR-069 paths are A-Z / 0-9 / . / _ / - ASCII).
+func AllowlistHashWithParameterPaths(target string, rpcs []AllowedRPC, paths []AllowedParameterPath) [32]byte {
+	if len(paths) == 0 {
+		return AllowlistHash(target, rpcs)
+	}
+	sortedRPCs := make([]string, 0, len(rpcs))
+	for _, r := range rpcs {
+		if c := canonicaliseRPC(r.Name); c != "" {
+			sortedRPCs = append(sortedRPCs, c)
+		}
+	}
+	sort.Strings(sortedRPCs)
+
+	sortedPaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if c := canonicaliseParameterPath(p.Prefix); c != "" {
+			sortedPaths = append(sortedPaths, c)
+		}
+	}
+	sort.Strings(sortedPaths)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, r := range sortedRPCs {
+		_, _ = h.Write([]byte(r))
+		_, _ = h.Write([]byte{0x00})
+	}
+	_, _ = h.Write([]byte{0xFE})
+	for _, p := range sortedPaths {
+		_, _ = h.Write([]byte(p))
+		_, _ = h.Write([]byte{0x00})
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithParameterPaths is the v1.12 Mutation that
+// mixes RPC + parameter-path allowlists into the PayloadHash.
+// Degrades to SessionMutation(v1.11) when paths is nil/empty.
+func SessionMutationWithParameterPaths(target string, rpcs []AllowedRPC, paths []AllowedParameterPath) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "cwmp",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithParameterPaths(target, rpcs, paths),
+	}
+}
+
 // alwaysSafeRPCs lists the CWMP RPC names that always pass,
 // regardless of the operator's allowlist. Reads, protocol-flow,
 // and CPE→ACS informational RPCs that are required for the CPE
@@ -220,6 +322,15 @@ type WriteGatedHandler struct {
 	// every write-capable RPC (reads + protocol-flow still
 	// pass via alwaysSafeRPCs).
 	Allowed []AllowedRPC
+	// AllowedParameterPaths is the optional v1.12 per-parameter
+	// allowlist. When non-empty, `SetParameterValues` /
+	// `SetParameterAttributes` RPCs pass only when EVERY
+	// <Name> inside the request matches at least one of these
+	// path prefixes. Other gated RPCs (Reboot, Download, etc.)
+	// are NOT constrained by this list.
+	//
+	// Empty list restores v1.11 behaviour (RPC-only gating).
+	AllowedParameterPaths []AllowedParameterPath
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -237,7 +348,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithParameterPaths(h.Target, h.Allowed, h.AllowedParameterPaths)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -310,22 +421,181 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 	}
 
 	if !h.allow(rpc) {
-		if werr := writeSOAPFault(client, rpc); werr != nil {
-			return true, werr
+		return h.refuseWithFault(ctx, req, client, rpc, writeSOAPFault)
+	}
+
+	// v1.12 per-parameter-path gate. Only fires for the two
+	// Set* RPCs; other write-capable RPCs (Reboot, Download,
+	// FactoryReset…) don't carry parameter names in this shape.
+	if h.pathGateActive(rpc) {
+		paths := extractParameterNames(body, rpc)
+		if !h.allParameterPathsAllowed(paths) {
+			return h.refuseWithFault(ctx, req, client, rpc, writeInvalidParameterNameFault)
 		}
-		// Gate refusal: don't forward. Keep the TCP stream open
-		// for the next request unless the client asked for
-		// close.
-		if req.Close {
-			return true, nil
-		}
-		if ctx.Err() != nil {
-			return true, ctx.Err()
-		}
-		return false, nil
 	}
 
 	return h.forwardBuffered(req, body, client, upstream, upReader)
+}
+
+// pathGateActive returns true when the per-parameter-path gate
+// should run for this RPC.
+func (h *WriteGatedHandler) pathGateActive(rpc string) bool {
+	if len(h.AllowedParameterPaths) == 0 {
+		return false
+	}
+	return rpc == "SetParameterValues" || rpc == "SetParameterAttributes"
+}
+
+// refuseWithFault writes a SOAP fault (either the generic RPC
+// refusal or the per-parameter-path refusal) and decides whether
+// to keep the TCP stream open for the next request.
+func (h *WriteGatedHandler) refuseWithFault(
+	ctx context.Context, req *http.Request, client io.Writer, rpc string,
+	writer func(io.Writer, string) error,
+) (bool, error) {
+	if werr := writer(client, rpc); werr != nil {
+		return true, werr
+	}
+	if req.Close {
+		return true, nil
+	}
+	if ctx.Err() != nil {
+		return true, ctx.Err()
+	}
+	return false, nil
+}
+
+// allParameterPathsAllowed returns true when EVERY path in the
+// incoming request matches at least one prefix in the operator's
+// allowlist. Returns false if the path list is empty (we don't
+// let a malformed Set* RPC with no parameters sneak through when
+// the gate is active — fail closed).
+func (h *WriteGatedHandler) allParameterPathsAllowed(paths []string) bool {
+	if len(paths) == 0 {
+		return false
+	}
+	prefixes := make([]string, 0, len(h.AllowedParameterPaths))
+	for _, p := range h.AllowedParameterPaths {
+		if c := canonicaliseParameterPath(p.Prefix); c != "" {
+			prefixes = append(prefixes, c)
+		}
+	}
+	if len(prefixes) == 0 {
+		return false
+	}
+	for _, name := range paths {
+		matched := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(name, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// extractParameterNames walks the SOAP body and returns the
+// `<Name>` values nested under each ParameterValueStruct (for
+// SetParameterValues) or SetParameterAttributesStruct (for
+// SetParameterAttributes). Returns the names in document order;
+// the caller treats an empty slice as fail-closed.
+//
+// Uses encoding/xml's streaming decoder so we don't materialise
+// the full parameter tree in memory — Set* RPCs can carry
+// hundreds of parameters.
+func extractParameterNames(body []byte, rpc string) []string {
+	if len(body) == 0 {
+		return nil
+	}
+	// Which inner struct holds the Name element?
+	var innerElem string
+	switch rpc {
+	case "SetParameterValues":
+		innerElem = "ParameterValueStruct"
+	case "SetParameterAttributes":
+		innerElem = "SetParameterAttributesStruct"
+	default:
+		return nil
+	}
+	dec := xml.NewDecoder(strings.NewReader(string(body)))
+	var names []string
+	inStruct := false
+	captureName := false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		switch v := tok.(type) {
+		case xml.StartElement:
+			if v.Name.Local == innerElem {
+				inStruct = true
+			} else if inStruct && v.Name.Local == "Name" {
+				captureName = true
+			}
+		case xml.CharData:
+			if captureName {
+				names = append(names, strings.TrimSpace(string(v)))
+			}
+		case xml.EndElement:
+			switch v.Name.Local {
+			case innerElem:
+				inStruct = false
+			case "Name":
+				captureName = false
+			}
+		}
+	}
+	return names
+}
+
+// CWMP Fault codes per TR-069 Annex A. 9005 "Invalid parameter
+// name" maps cleanly to "the gate refused a parameter path".
+const cwmpFaultInvalidParameterName = "9005"
+
+// writeInvalidParameterNameFault emits the per-parameter-path
+// refusal. Shape is identical to writeSOAPFault but with
+// FaultCode 9005 + distinct X-Elsereno-Gate-Reason header so
+// operators can tell the two refusal classes apart.
+func writeInvalidParameterNameFault(w io.Writer, rpc string) error {
+	body := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/"
+                   xmlns:cwmp="urn:dslforum-org:cwmp-1-2">
+  <soap-env:Header>
+    <cwmp:ID soap-env:mustUnderstand="1">elsereno-gate-refusal</cwmp:ID>
+  </soap-env:Header>
+  <soap-env:Body>
+    <soap-env:Fault>
+      <faultcode>Client</faultcode>
+      <faultstring>CWMP fault</faultstring>
+      <detail>
+        <cwmp:Fault>
+          <FaultCode>%s</FaultCode>
+          <FaultString>RPC %q targets a parameter path outside the session allowlist (ElSereno gated proxy)</FaultString>
+        </cwmp:Fault>
+      </detail>
+    </soap-env:Fault>
+  </soap-env:Body>
+</soap-env:Envelope>`, cwmpFaultInvalidParameterName, rpc)
+
+	header := fmt.Sprintf(
+		"HTTP/1.1 200 OK\r\n"+
+			"Server: ElSereno proxy (gated, offensive)\r\n"+
+			"Content-Type: text/xml; charset=utf-8\r\n"+
+			"X-Elsereno-Gate-Reason: CWMP parameter path not in session allowlist for %q\r\n"+
+			"Content-Length: %d\r\n"+
+			"Connection: close\r\n\r\n",
+		rpc, len(body),
+	)
+	if _, err := io.WriteString(w, header); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, body)
+	return err
 }
 
 // allow returns true if the RPC is in the operator's allowlist.
