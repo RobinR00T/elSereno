@@ -142,33 +142,50 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 - `62f8c6d` chunk 4 — ONYPHE input client (5th provider).
 - `18e91bf` chunk 5 — SIP INVITE To-URI prefix allowlist.
 
-**v1.10+ roadmap** (see `TODO-vNext.md`):
-- SIP REGISTER AOR allowlist (toll-fraud twin of v1.9 chunk 5).
-- Modbus per-(unit,fc,addr) structured YAML schema (closes
-  v1.9 chunk 2 `--unit`/`--address-*` + `--emit-allow-file`
-  incompatibility).
-- OPC UA multi-node WriteRequest allowlist (chunk 1 checks
-  first WriteValue only).
-- OPC UA String/Guid/ByteString NodeID encoding (chunk 1 is
-  numeric-only).
-- OPC UA CallRequest per-object allowlist.
-- BACnet per-object allowlist (ASN.1 BER parsing).
-- CWMP offensive proxy (SOAP RPC allowlist).
-- HTTP paths beyond `/` for pbxhttp fingerprint (vendor-
-  specific `/admin/config.php`, `/webclient/`, `/ccmadmin/`).
-- Match against String / Guid / ByteString NodeId encodings
-  for OPC UA per-NodeId gate (v1.6 chunk 2 is numeric-only).
-- Multi-node-per-WriteRequest allowlist (v1.6 chunk 2 only
-  checks the first WriteValue).
-- CallRequest per-object allowlist (OPC UA sibling of
-  WriteRequest).
-- VoIP-SIP dial backend subprocess.
-- `dial batch --backend` CLI wiring.
-- Audit daemon for cross-process JSONL.
+**v1.12 plan — "gates tightening + inputs polish"**
+
+Close all per-object / per-path carry-overs accumulated from
+v1.6→v1.11 in one multi-chunk cycle. Each chunk follows ADR-040
+template (library → CLI → YAML → tests → docs).
+
+Chunks (in planned order):
+1. CWMP per-parameter-path allowlist (tighten v1.11 RPC gate).
+2. OPC UA multi-node per WriteRequest (walk NodesToWrite).
+3. OPC UA String/Guid/ByteString NodeID encodings.
+4. Modbus structured `writes:` YAML (unit + FC + addr range).
+5. SIP from-domain allowlist (complements v1.10 AOR gate).
+6. OPC UA CallRequest per-object allowlist.
+7. BACnet per-object allowlist (ASN.1 BER parsing).
+8. Input pagination (5 providers).
+9. Shodan InternetDB (free, no-key provider #6).
+10. CWMP firmware-URL + SHA-256 allowlist for `Download`.
+
+After v1.12:
+- SIP REGISTER AOR + CWMP SOAP RPC gates already landed (v1.10
+  + v1.11).
+- All gates offer per-object granularity.
+- 6 attack-surface input providers (shodan / censys / fofa /
+  zoomeye / onyphe / shodan-internetdb).
+
+Deferred to v1.13+:
+- CWMP RPC-name case-warning in dry-run.
+- CWMP-over-TLS (:7548) operator recipe.
+- SIGHUP reload of proxy listen allowlist (needs token/hash
+  redesign).
+- `elsereno discover --auto <CIDR>` scriptless nmap+probe.
+- Triage bucket "utility" + dashboard diff-between-runs +
+  severity filter + CSV export.
 - seccomp arg-level filtering.
-- Runtime reload of the proxy listen allowlist (non-trivial
-  because changing the allowlist changes PayloadHash which
-  invalidates the confirm-token).
+- macOS sandbox via `sandbox_init(3)`.
+- Audit chain cross-process merge (flock).
+- STIX 2.1 export.
+- TUI bubbletea front-end.
+- Record & replay proxy sessions.
+- Windows support.
+- Multi-user OIDC + roles.
+- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS,
+  MELSEC, Red Lion, GE-SRTP, IEC 61850 MMS, KNX, M-Bus TCP,
+  OPC UA HTTPS, DLMS/COSEM, +1 more).
 
 **Pushed on 2026-04-23**: everything. All tags v1.1.0 →
 v1.8.0 on `origin/main`. Main at
@@ -205,8 +222,9 @@ is a post-push operator decision.
 
 ## Open questions
 
-- Operator push strategy: one tag at a time (smoke-verify each)
-  vs all-in-one push of 31 commits + 4 tags?
-- v1.5 leadoff chunk: `proxy listen` CLI (immediate operator
-  value) vs OPC UA per-NodeId (deeper protocol work)?
-- Public repo flip: before or after the big push?
+- Operator: revoke the v1.8-era PAT + rm ~/.elsereno/gh-token
+  once v1.12 ships (still live; session tokens unrevoked
+  carry exfil risk).
+- Repo public flip: still private. Post-v1.12 decision?
+- Restore Actions billing: would re-enable cosign+SLSA+GHCR
+  supply-chain layer. Cost vs value call.
