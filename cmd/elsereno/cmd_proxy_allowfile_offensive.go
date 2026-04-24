@@ -73,6 +73,7 @@ type proxyAllowFile struct {
 	// emit-allow-file shouldn't drop empty `subclasses: []` or
 	// `functions: []` keys into the file.
 	Methods        []string      `yaml:"methods,omitempty"`         // sip
+	ToPrefixes     []string      `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
 	Subclasses     []string      `yaml:"subclasses,omitempty"`      // iax2
 	Allow          []string      `yaml:"allow,omitempty"`           // pbxhttp
 	Functions      []uint        `yaml:"functions,omitempty"`       // modbus
@@ -108,6 +109,7 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 	switch strings.ToLower(af.Plugin) {
 	case pluginNameSIP:
 		opts.methods = af.Methods
+		opts.toPrefixes = af.ToPrefixes
 	case pluginNameIAX2:
 		opts.subclasses = af.Subclasses
 	case pluginNamePBXHTTP:

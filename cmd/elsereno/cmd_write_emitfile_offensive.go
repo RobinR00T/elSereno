@@ -56,12 +56,28 @@ func addEmitAllowFileFlag(cmd *cobra.Command, dest *string) {
 }
 
 // buildAllowFileSIP returns the YAML struct for a SIP dry-run.
-func buildAllowFileSIP(target string, methods []string) proxyAllowFile {
-	return proxyAllowFile{
+// v1.9+: optionally persists the INVITE destination prefix
+// allowlist as `to_prefixes:`.
+func buildAllowFileSIP(target string, methods, toPrefixes []string) proxyAllowFile {
+	af := proxyAllowFile{
 		Plugin:  pluginNameSIP,
 		Target:  target,
 		Methods: canonicaliseMethodList(methods),
 	}
+	if len(toPrefixes) > 0 {
+		trimmed := make([]string, 0, len(toPrefixes))
+		for _, p := range toPrefixes {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				trimmed = append(trimmed, p)
+			}
+		}
+		if len(trimmed) > 0 {
+			stringsSort(trimmed)
+			af.ToPrefixes = trimmed
+		}
+	}
+	return af
 }
 
 // buildAllowFileIAX2 returns the YAML struct for an IAX2 dry-run.

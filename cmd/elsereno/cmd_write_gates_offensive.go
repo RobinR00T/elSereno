@@ -46,7 +46,7 @@ into the eventual proxy-run verb.`,
 
 func newWriteSIPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
-	var methods []string
+	var methods, toPrefixes []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -58,24 +58,35 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			for _, m := range methods {
 				allowed = append(allowed, sipwrite.AllowedMethod{Method: m})
 			}
-			mut := sipwrite.SessionMutation(target, allowed)
+			prefixes := make([]sipwrite.AllowedToURIPrefix, 0, len(toPrefixes))
+			for _, p := range toPrefixes {
+				prefixes = append(prefixes, sipwrite.AllowedToURIPrefix{Prefix: p})
+			}
+			mut := sipwrite.SessionMutationWithPrefixes(target, allowed, prefixes)
 			cmd.Printf("Protocol:     sip\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Allowed:      %s\n", canonMethods(methods))
 			cmd.Printf("Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK\n")
+			if len(toPrefixes) > 0 {
+				cmd.Printf("ToPrefixes:   %s\n", canonMethods(toPrefixes))
+			} else {
+				cmd.Printf("ToPrefixes:   (none — INVITE destination not constrained)\n")
+			}
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods))
+				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the SIP server we'll proxy to)")
 	cmd.Flags().StringSliceVar(&methods, "method", nil, "one or more gated methods (repeat or comma-separated)")
+	cmd.Flags().StringSliceVar(&toPrefixes, "to-prefix", nil,
+		"optional: INVITE destination allowlist — URI user-part prefixes (e.g. +34, +44). Only applies to INVITE; other methods unaffected. Toll-fraud mitigation (v1.9+).")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd

@@ -76,10 +76,40 @@ type AllowedMethod struct {
 	Method string
 }
 
+// AllowedToURIPrefix is one prefix the operator has authorised
+// for INVITE destination numbers. When the handler's
+// `AllowedToURIPrefixes` field is non-empty, INVITE requests
+// pass only when the To: header's user-part starts with one of
+// these prefixes.
+//
+// Typical use-case: toll-fraud mitigation. The method allowlist
+// (`AllowedMethod{Method:"INVITE"}`) says "you can place
+// outbound calls"; the prefix allowlist says "only to these
+// destinations". Example: allow +34 (Spain) and +44 (UK)
+// prefixes but refuse +900, +883 (premium-rate / mobile
+// satellite) that are favourite toll-fraud targets.
+//
+// Prefixes are case-folded + trimmed before compare. Whitespace
+// + SIP URI separators (`tel:`, `sip:`) are stripped from the
+// candidate user-part before matching so operators can write
+// clean prefixes without worrying about the inbound URI shape.
+type AllowedToURIPrefix struct {
+	// Prefix is the canonical form expected at the start of
+	// the To: URI user-part. Leading "+" matters: "+34" only
+	// matches E.164-prefixed numbers, "34" would also match
+	// bare "34xxx" extensions.
+	Prefix string
+}
+
 // AllowlistHash returns the deterministic SHA-256 of the
-// allowlist. Methods are canonicalised to upper case and sorted
-// alphabetically before hashing so the operator's dry-run token
-// is stable regardless of input order / case.
+// method allowlist. Methods are canonicalised to upper case and
+// sorted alphabetically before hashing so the operator's
+// dry-run token is stable regardless of input order / case.
+//
+// v1.4 callers (method-only) keep the same hash they've always
+// seen. Operators who opt into To-URI prefix gating use
+// AllowlistHashWithPrefixes instead, which mixes both
+// dimensions into the hash.
 func AllowlistHash(target string, allowed []AllowedMethod) [32]byte {
 	sorted := make([]string, 0, len(allowed))
 	for _, a := range allowed {
@@ -98,9 +128,56 @@ func AllowlistHash(target string, allowed []AllowedMethod) [32]byte {
 	return out
 }
 
+// AllowlistHashWithPrefixes is the v1.9 hash that incorporates
+// both the method allowlist AND a sorted per-prefix allowlist.
+// When prefixes is nil or empty, the hash is identical to
+// AllowlistHash(target, methods) so v1.4 tokens remain valid
+// for operators not opting into prefix gating.
+//
+// Hash layout:
+//
+//	target || 0x00 || METHOD<NUL> × sorted_methods
+//	                    [|| 0xFF || PREFIX<NUL> × sorted_prefixes]
+//
+// The 0xFF separator cannot collide with a method byte (SIP
+// methods are ASCII A-Z uppercase; 0xFF is outside that range).
+func AllowlistHashWithPrefixes(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix) [32]byte {
+	if len(prefixes) == 0 {
+		return AllowlistHash(target, methods)
+	}
+	sortedMethods := make([]string, 0, len(methods))
+	for _, m := range methods {
+		sortedMethods = append(sortedMethods, strings.ToUpper(strings.TrimSpace(m.Method)))
+	}
+	sort.Strings(sortedMethods)
+
+	sortedPrefixes := make([]string, 0, len(prefixes))
+	for _, p := range prefixes {
+		sortedPrefixes = append(sortedPrefixes, canonicalisePrefix(p.Prefix))
+	}
+	sort.Strings(sortedPrefixes)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, m := range sortedMethods {
+		_, _ = h.Write([]byte(m))
+		_, _ = h.Write([]byte{0x00})
+	}
+	_, _ = h.Write([]byte{0xFF})
+	for _, p := range sortedPrefixes {
+		_, _ = h.Write([]byte(p))
+		_, _ = h.Write([]byte{0x00})
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
 // SessionMutation builds the confirm.Mutation that authorises the
 // proxy session for target + allowlist. Same shape as the modbus
-// / s7 / opcua templates so the CLI wiring stays uniform.
+// / s7 / opcua templates so the CLI wiring stays uniform. v1.4
+// compatibility.
 func SessionMutation(target string, allowed []AllowedMethod) confirm.Mutation {
 	return confirm.Mutation{
 		Category:    confirm.CategoryWrite,
@@ -109,6 +186,35 @@ func SessionMutation(target string, allowed []AllowedMethod) confirm.Mutation {
 		Target:      target,
 		PayloadHash: AllowlistHash(target, allowed),
 	}
+}
+
+// SessionMutationWithPrefixes is the v1.9 Mutation that mixes
+// both method + To-URI prefix allowlists into the PayloadHash.
+// When prefixes is nil/empty it degrades to SessionMutation.
+func SessionMutationWithPrefixes(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "sip",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithPrefixes(target, methods, prefixes),
+	}
+}
+
+// canonicalisePrefix normalises a prefix string for hashing +
+// compare: trim whitespace, strip any URI-scheme prefixes
+// operators might accidentally include ("tel:", "sip:") and
+// lowercase the result. Leading "+" is preserved because it's
+// semantically meaningful for E.164 vs. bare-digit extension.
+func canonicalisePrefix(p string) string {
+	p = strings.TrimSpace(p)
+	for _, scheme := range []string{"tel:", "sip:", "sips:"} {
+		if strings.HasPrefix(strings.ToLower(p), scheme) {
+			p = p[len(scheme):]
+			break
+		}
+	}
+	return strings.ToLower(p)
 }
 
 // alwaysSafeMethods lists the SIP methods that always pass,
@@ -136,6 +242,15 @@ type WriteGatedHandler struct {
 	// at session open. Empty list forbids every gated method;
 	// always-safe methods still pass.
 	Allowed []AllowedMethod
+	// AllowedToURIPrefixes is the optional v1.9 INVITE destination
+	// allowlist. When non-empty, an INVITE request passes only when
+	// both (a) INVITE is in Allowed AND (b) the To: header's URI
+	// user-part starts with one of these prefixes. Other gated
+	// methods (REGISTER, MESSAGE, …) are NOT constrained by this
+	// list; it only applies to INVITE (the toll-fraud vector).
+	//
+	// Empty list restores v1.4 behaviour (method-only gating).
+	AllowedToURIPrefixes []AllowedToURIPrefix
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -154,7 +269,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithPrefixes(h.Target, h.Allowed, h.AllowedToURIPrefixes)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -199,63 +314,143 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 	br := bufio.NewReader(client)
 	tp := textproto.NewReader(br)
 	for {
-		// Read the request-line. On EOF (client hung up), return
-		// gracefully.
 		line, err := tp.ReadLine()
 		if err != nil {
 			return err
 		}
-		// Skip blank lines (SIP tolerates inter-message CRLF as
-		// keep-alive).
 		if line == "" {
 			continue
 		}
-		// Guard: response-lines start with SIP/. The gate
-		// expects requests from the client. If we see a
-		// response, the client is misbehaving — log-worthy but
-		// not fatal; forward it so the upstream can decide.
+		// Responses start with "SIP/" — client is misbehaving,
+		// pass through so the upstream can decide.
 		if strings.HasPrefix(line, "SIP/") {
-			// Rebuild the full head + body and copy through.
 			if err := passthroughRawHead(line, tp, upstream); err != nil {
 				return err
 			}
 			continue
 		}
-
-		method, ok := parseMethod(line)
-		if !ok {
-			return fmt.Errorf("sip: malformed request-line %q", truncate(line, 64))
-		}
-
-		// Read headers into a MIMEHeader so we can honour
-		// Content-Length for the body.
-		headers, err := tp.ReadMIMEHeader()
-		if err != nil {
-			return fmt.Errorf("sip: read headers: %w", err)
-		}
-		bodyLen, err := parseContentLength(headers.Get("Content-Length"))
-		if err != nil {
-			return err
-		}
-		body := make([]byte, bodyLen)
-		if bodyLen > 0 {
-			if _, err := io.ReadFull(br, body); err != nil {
-				return fmt.Errorf("sip: read body: %w", err)
-			}
-		}
-
-		if h.allow(method) {
-			if err := writeRequest(upstream, line, headers, body); err != nil {
-				return err
-			}
-			continue
-		}
-		// Refuse: emit a 405 back to the client. Drop the body
-		// (already consumed above).
-		if err := writeMethodNotAllowed(clientWriter, headers, h.allowedMethodsList()); err != nil {
+		if err := h.forwardOne(line, br, tp, upstream, clientWriter); err != nil {
 			return err
 		}
 	}
+}
+
+// forwardOne handles a single parsed request-line: reads its
+// headers + body, applies the method + (optional) prefix gate,
+// then forwards or refuses.
+func (h *WriteGatedHandler) forwardOne(line string, br *bufio.Reader, tp *textproto.Reader, upstream, clientWriter io.Writer) error {
+	method, ok := parseMethod(line)
+	if !ok {
+		return fmt.Errorf("sip: malformed request-line %q", truncate(line, 64))
+	}
+	headers, err := tp.ReadMIMEHeader()
+	if err != nil {
+		return fmt.Errorf("sip: read headers: %w", err)
+	}
+	bodyLen, err := parseContentLength(headers.Get("Content-Length"))
+	if err != nil {
+		return err
+	}
+	body := make([]byte, bodyLen)
+	if bodyLen > 0 {
+		if _, err := io.ReadFull(br, body); err != nil {
+			return fmt.Errorf("sip: read body: %w", err)
+		}
+	}
+	if !h.allow(method) {
+		return writeMethodNotAllowed(clientWriter, headers, h.allowedMethodsList())
+	}
+	if strings.EqualFold(method, "INVITE") && len(h.AllowedToURIPrefixes) > 0 {
+		if !h.inviteDestinationAllowed(headers.Get("To")) {
+			return writeInviteForbidden(clientWriter, headers)
+		}
+	}
+	return writeRequest(upstream, line, headers, body)
+}
+
+// inviteDestinationAllowed reports whether the To: header's URI
+// user-part matches any operator-supplied prefix. Empty or
+// unparseable To: header → refuse (fail-closed when the gate is
+// active).
+func (h *WriteGatedHandler) inviteDestinationAllowed(toHeader string) bool {
+	user := extractToURIUser(toHeader)
+	if user == "" {
+		return false
+	}
+	userLower := strings.ToLower(user)
+	for _, p := range h.AllowedToURIPrefixes {
+		prefix := canonicalisePrefix(p.Prefix)
+		if prefix == "" {
+			continue
+		}
+		if strings.HasPrefix(userLower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractToURIUser parses a `To:` header value and returns the
+// URI user-part. Examples:
+//
+//	"Alice <sip:+34600123456@example.com>;tag=abc"   → "+34600123456"
+//	"<sip:201@pbx.internal>"                         → "201"
+//	"sip:+1555@gateway"                              → "+1555"
+//	"tel:+44203123;phone-context=…"                  → "+44203123"
+//
+// Returns empty string when the header is missing, unparseable,
+// or uses a URI scheme we don't recognise.
+func extractToURIUser(header string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return ""
+	}
+	// Strip display-name quoting + angle brackets.
+	if i := strings.IndexByte(header, '<'); i >= 0 {
+		j := strings.IndexByte(header[i+1:], '>')
+		if j < 0 {
+			return ""
+		}
+		header = header[i+1 : i+1+j]
+	}
+	// Strip the uri-parameters suffix (";tag=...", etc.).
+	if i := strings.IndexByte(header, ';'); i >= 0 {
+		header = header[:i]
+	}
+	// Scheme prefix.
+	for _, scheme := range []string{"sip:", "sips:", "tel:"} {
+		if strings.HasPrefix(strings.ToLower(header), scheme) {
+			header = header[len(scheme):]
+			break
+		}
+	}
+	// Take the user-part (everything before the '@').
+	if i := strings.IndexByte(header, '@'); i >= 0 {
+		header = header[:i]
+	}
+	return strings.TrimSpace(header)
+}
+
+// writeInviteForbidden emits a SIP/2.0 403 Forbidden back to
+// the client for an INVITE that hit the destination allowlist
+// but NOT the prefix list. Includes X-Elsereno-Gate-Reason so
+// the operator can trace which gate fired.
+func writeInviteForbidden(w io.Writer, reqHeaders textproto.MIMEHeader) error {
+	var b strings.Builder
+	b.WriteString("SIP/2.0 403 Forbidden\r\n") //nolint:misspell // RFC 3261 §21.4 canonical spelling
+	for _, k := range []string{"Via", "From", "To", "Call-ID", "CSeq"} {
+		for _, v := range reqHeaders.Values(k) {
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(v)
+			b.WriteString("\r\n")
+		}
+	}
+	b.WriteString("Server: ElSereno proxy (gated, offensive)\r\n")
+	b.WriteString("X-Elsereno-Gate-Reason: INVITE destination not in To-URI prefix allowlist\r\n")
+	b.WriteString("Content-Length: 0\r\n\r\n")
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 // allow reports whether the given SIP method is authorised for
