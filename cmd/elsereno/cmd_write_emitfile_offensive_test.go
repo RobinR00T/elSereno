@@ -28,7 +28,7 @@ func helperCmd(buf *bytes.Buffer) *cobra.Command {
 func TestEmitAllowFile_SIPStdout(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil, nil)
+	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil, nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestEmitAllowFile_SIPStdout(t *testing.T) {
 	}
 	// Should NOT include any of the other plugin fields
 	// (omitempty guarantees this).
-	for _, stray := range []string{"subclasses:", "allow:", "functions:", "services:", "service_choices:"} {
+	for _, stray := range []string{"subclasses:", "allow:", "functions:", "writes:", "services:", "service_choices:"} {
 		if strings.Contains(out, stray) {
 			t.Errorf("unexpected field %q in sip output:\n%s", stray, out)
 		}
@@ -91,7 +91,7 @@ func TestEmitAllowFile_WritesFile(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestEmitAllowFile_RoundTripSIP(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil)); err != nil {
+	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, nil)); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	var opts proxyListenOpts
@@ -144,7 +144,7 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixes(t *testing.T) {
 	af := buildAllowFileSIP("pbx:5060",
 		[]string{"INVITE"},
 		[]string{"+34", "+44"},
-		nil)
+		nil, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestEmitAllowFile_RoundTripSIPWithAORs(t *testing.T) {
 		"sip:bob@pbx.internal",
 		"sip:alice@pbx.internal", // unordered on purpose
 	}
-	af := buildAllowFileSIP("pbx:5060", []string{"REGISTER"}, nil, aors)
+	af := buildAllowFileSIP("pbx:5060", []string{"REGISTER"}, nil, aors, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -204,7 +204,8 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	af := buildAllowFileSIP("pbx:5060",
 		[]string{"INVITE", "REGISTER"},
 		[]string{"+34"},
-		[]string{"sip:alice@pbx.internal"})
+		[]string{"sip:alice@pbx.internal"},
+		nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -223,13 +224,59 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripSIPWithFromDomains — v1.12 chunk 5
+// closes the From-domain round-trip: emit writes `from_domains:`,
+// load materialises opts.fromDomains on the proxyListenOpts side.
+func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	// Mixed-case on purpose — emitter lowercases.
+	fromDomains := []string{"VoIP.Example.com", "internal.pbx"}
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, fromDomains)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.fromDomains) != 2 {
+		t.Fatalf("fromDomains=%v, want 2 entries", opts.fromDomains)
+	}
+	// Sort order: lexicographic on the lowercased form.
+	if opts.fromDomains[0] != "internal.pbx" {
+		t.Errorf("fromDomains[0] = %q, want internal.pbx (sorted+lowered)", opts.fromDomains[0])
+	}
+	if opts.fromDomains[1] != "voip.example.com" {
+		t.Errorf("fromDomains[1] = %q, want voip.example.com (lowered)", opts.fromDomains[1])
+	}
+}
+
+// TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty — YAML doesn't
+// emit the `from_domains:` key when the list is empty (preserves
+// backwards-compat with v1.10 files).
+func TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
+	if err := emitAllowFile(cmd, "-", af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "from_domains") {
+		t.Errorf("from_domains: should be omitted when list empty:\n%s", out)
+	}
+}
+
 // TestEmitAllowFile_SIPOmitsAORsWhenEmpty — YAML doesn't emit
 // the `aors:` key when list is nil (keeps backwards compat with
 // v1.9 files).
 func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

@@ -377,6 +377,197 @@ func SessionMutationWithAORs(target string, methods []AllowedMethod, prefixes []
 	}
 }
 
+// AllowlistHashWithFromDomains is the v1.12 chunk-5 hash that
+// adds a From-domain block on top of method + prefix + AOR.
+// Backwards-compat ladder:
+//
+//   - fromDomains empty → equals AllowlistHashWithAORs (v1.10).
+//   - fromDomains empty AND aors empty → equals
+//     AllowlistHashWithPrefixes (v1.9).
+//   - fromDomains empty AND aors empty AND prefixes empty →
+//     equals AllowlistHash (v1.4).
+//
+// Hash layout (when fromDomains is non-empty):
+//
+//	target || 0x00 || METHOD<NUL> × sorted_methods
+//	               [|| 0xFF || PREFIX<NUL> × sorted_prefixes]
+//	               [|| 0xFE || AOR<NUL> × sorted_aors]
+//	                || 0xFD || FROMDOMAIN<NUL> × sorted_from_domains
+//
+// The 0xFD separator is chosen so it can't collide with a
+// method / prefix / AOR byte (methods are ASCII A-Z; 0xFD is
+// outside both the printable ASCII range and the existing
+// separator values 0xFE / 0xFF).
+func AllowlistHashWithFromDomains(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR, fromDomains []AllowedFromDomain) [32]byte {
+	if len(fromDomains) == 0 {
+		return AllowlistHashWithAORs(target, methods, prefixes, aors)
+	}
+	sortedMethods := sortedMethodList(methods)
+	sortedPrefixes := sortedPrefixList(prefixes)
+	sortedAORs := sortedAORList(aors)
+	sortedFromDomains := sortedFromDomainList(fromDomains)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	writeNulTerminatedList(h, sortedMethods)
+	if len(sortedPrefixes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		writeNulTerminatedList(h, sortedPrefixes)
+	}
+	if len(sortedAORs) > 0 {
+		_, _ = h.Write([]byte{0xFE})
+		writeNulTerminatedList(h, sortedAORs)
+	}
+	_, _ = h.Write([]byte{0xFD})
+	writeNulTerminatedList(h, sortedFromDomains)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// sortedMethodList upper-cases + trims + sorts for hash input.
+func sortedMethodList(methods []AllowedMethod) []string {
+	out := make([]string, 0, len(methods))
+	for _, m := range methods {
+		out = append(out, strings.ToUpper(strings.TrimSpace(m.Method)))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// sortedPrefixList canonicalises + sorts for hash input.
+func sortedPrefixList(prefixes []AllowedToURIPrefix) []string {
+	out := make([]string, 0, len(prefixes))
+	for _, p := range prefixes {
+		if c := canonicalisePrefix(p.Prefix); c != "" {
+			out = append(out, c)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// sortedAORList canonicalises + sorts for hash input.
+func sortedAORList(aors []AllowedAOR) []string {
+	out := make([]string, 0, len(aors))
+	for _, a := range aors {
+		if c := canonicaliseAOR(a.AOR); c != "" {
+			out = append(out, c)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// sortedFromDomainList canonicalises + sorts for hash input.
+func sortedFromDomainList(fromDomains []AllowedFromDomain) []string {
+	out := make([]string, 0, len(fromDomains))
+	for _, f := range fromDomains {
+		if c := canonicaliseFromDomain(f.Domain); c != "" {
+			out = append(out, c)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// writeNulTerminatedList writes each entry followed by a 0x00
+// byte — the shared on-wire shape of every block in the hash
+// layout.
+func writeNulTerminatedList(w io.Writer, entries []string) {
+	for _, e := range entries {
+		_, _ = w.Write([]byte(e))
+		_, _ = w.Write([]byte{0x00})
+	}
+}
+
+// SessionMutationWithFromDomains is the v1.12 chunk-5 Mutation
+// that mixes method + prefix + AOR + From-domain into the
+// PayloadHash. Degrades cleanly down the ladder.
+func SessionMutationWithFromDomains(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR, fromDomains []AllowedFromDomain) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "sip",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithFromDomains(target, methods, prefixes, aors, fromDomains),
+	}
+}
+
+// AllowedFromDomain is one source-domain the operator has
+// authorised for the session's From: header. v1.12 chunk 5:
+// complements the REGISTER AOR gate (which controls WHO can
+// register) and the INVITE prefix gate (which controls WHERE
+// calls can go) with a WHOSE-IDENTITY check — the domain part
+// of the originator's From: URI.
+//
+// Typical use-case: an ITSP providing outbound trunks wants to
+// refuse any SIP message whose From: domain isn't one of the
+// customer's allocated identities. Or internal-only PBX: refuse
+// messages whose From: domain isn't `@internal.pbx` so a
+// compromised endpoint can't forge external identity on an
+// inbound trunk.
+//
+// The gate applies to every GATED method (INVITE / REGISTER /
+// MESSAGE / SUBSCRIBE / NOTIFY / REFER / PUBLISH / UPDATE /
+// INFO). Always-safe methods (OPTIONS / ACK / BYE / CANCEL /
+// PRACK) are never checked because their semantics are
+// transport-level. Empty AllowedFromDomains restores v1.10
+// behaviour (no from-domain check).
+//
+// Matching is EXACT on the canonicalised domain: lowercased,
+// IDN-aware (we don't decode puny — compare on the wire form).
+// An attacker with creds for `@pbx.example.com` can't spoof
+// `@evil.pbx.example.com` or `@pbx.example.com.attacker.io`
+// because those canonicalise differently.
+type AllowedFromDomain struct {
+	// Domain is the canonical from-domain the operator
+	// authorises. Accepts bare `host`, `@host`, or a full
+	// `sip:user@host` form — the canonicaliser extracts the
+	// host portion and lowercases it.
+	Domain string
+}
+
+// canonicaliseFromDomain normalises a From: domain string for
+// hashing + compare. Strips angle brackets, URI scheme, URI
+// parameters, user part (if present), leading `@`, and
+// lowercases the final host. Returns empty string on malformed
+// input.
+func canonicaliseFromDomain(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	// Angle brackets first.
+	if i := strings.IndexByte(s, '<'); i >= 0 {
+		j := strings.IndexByte(s[i+1:], '>')
+		if j < 0 {
+			return ""
+		}
+		s = s[i+1 : i+1+j]
+	}
+	// URI parameters.
+	if i := strings.IndexByte(s, ';'); i >= 0 {
+		s = s[:i]
+	}
+	// Scheme.
+	lower := strings.ToLower(s)
+	for _, scheme := range []string{"sips:", "sip:", "tel:"} {
+		if strings.HasPrefix(lower, scheme) {
+			s = s[len(scheme):]
+			break
+		}
+	}
+	// User part (everything up to @).
+	if i := strings.IndexByte(s, '@'); i >= 0 {
+		s = s[i+1:]
+	}
+	// Leading `@` (when operator writes "@host" form).
+	s = strings.TrimPrefix(s, "@")
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
 // canonicalisePrefix normalises a prefix string for hashing +
 // compare: trim whitespace, strip any URI-scheme prefixes
 // operators might accidentally include ("tel:", "sip:") and
@@ -442,6 +633,26 @@ type WriteGatedHandler struct {
 	// Empty list restores v1.9 behaviour (method + prefix gating
 	// only; REGISTER passes as long as REGISTER is in Allowed).
 	AllowedAORs []AllowedAOR
+	// AllowedFromDomains is the optional v1.12 chunk-5 From-
+	// header domain allowlist. When non-empty, every GATED
+	// request (INVITE / REGISTER / MESSAGE / SUBSCRIBE / NOTIFY /
+	// REFER / PUBLISH / UPDATE / INFO) passes only when both
+	// (a) its Method is in Allowed AND (b) the From: header's
+	// canonicalised host domain EXACTLY matches one of these
+	// entries. Always-safe methods (OPTIONS / ACK / BYE /
+	// CANCEL / PRACK) are not checked — their semantics are
+	// transport-level.
+	//
+	// Complements AllowedAORs (REGISTER identity) and
+	// AllowedToURIPrefixes (INVITE destination): AORs say WHO
+	// can register, prefixes say WHERE calls can go, from-
+	// domains say WHOSE IDENTITY the originator claims. An
+	// attacker with creds for `@internal.pbx` can't forge
+	// `@external.pbx` on the same session.
+	//
+	// Empty list restores v1.10 behaviour (no from-domain
+	// check).
+	AllowedFromDomains []AllowedFromDomain
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -460,7 +671,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithAORs(h.Target, h.Allowed, h.AllowedToURIPrefixes, h.AllowedAORs)
+	m := SessionMutationWithFromDomains(h.Target, h.Allowed, h.AllowedToURIPrefixes, h.AllowedAORs, h.AllowedFromDomains)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -527,8 +738,8 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 }
 
 // forwardOne handles a single parsed request-line: reads its
-// headers + body, applies the method + (optional) prefix gate,
-// then forwards or refuses.
+// headers + body, applies the method + optional per-method
+// gates (prefix / AOR / from-domain), then forwards or refuses.
 func (h *WriteGatedHandler) forwardOne(line string, br *bufio.Reader, tp *textproto.Reader, upstream, clientWriter io.Writer) error {
 	method, ok := parseMethod(line)
 	if !ok {
@@ -551,17 +762,126 @@ func (h *WriteGatedHandler) forwardOne(line string, br *bufio.Reader, tp *textpr
 	if !h.allow(method) {
 		return writeMethodNotAllowed(clientWriter, headers, h.allowedMethodsList())
 	}
+	if refusal := h.checkSubGates(method, headers); refusal != nil {
+		return refusal(clientWriter, headers)
+	}
+	return writeRequest(upstream, line, headers, body)
+}
+
+// refusalWriter returns nil if the request passes all per-method
+// sub-gates, or a function that writes the specific refusal
+// response to the client. Keeps forwardOne under gocyclo.
+type refusalWriter func(w io.Writer, hdrs textproto.MIMEHeader) error
+
+func (h *WriteGatedHandler) checkSubGates(method string, headers textproto.MIMEHeader) refusalWriter {
 	if strings.EqualFold(method, "INVITE") && len(h.AllowedToURIPrefixes) > 0 {
 		if !h.inviteDestinationAllowed(headers.Get("To")) {
-			return writeInviteForbidden(clientWriter, headers)
+			return writeInviteForbidden
 		}
 	}
 	if strings.EqualFold(method, "REGISTER") && len(h.AllowedAORs) > 0 {
 		if !h.registerAORAllowed(headers.Get("To")) {
-			return writeRegisterForbidden(clientWriter, headers)
+			return writeRegisterForbidden
 		}
 	}
-	return writeRequest(upstream, line, headers, body)
+	// From-domain gate applies to every gated method (not always-
+	// safe ones). If the method passed the allowlist, this is a
+	// gated method — enforce.
+	if len(h.AllowedFromDomains) > 0 && !isAlwaysSafe(method) {
+		if !h.fromDomainAllowed(headers.Get("From")) {
+			return writeFromDomainForbidden
+		}
+	}
+	return nil
+}
+
+// isAlwaysSafe reports whether method is in alwaysSafeMethods.
+// Package-level helper so forwardOne stays readable.
+func isAlwaysSafe(method string) bool {
+	_, ok := alwaysSafeMethods[strings.ToUpper(strings.TrimSpace(method))]
+	return ok
+}
+
+// fromDomainAllowed reports whether the From: header's
+// canonicalised domain matches any operator-supplied entry.
+// Empty or unparseable From: → refuse (fail-closed when the
+// gate is active).
+func (h *WriteGatedHandler) fromDomainAllowed(fromHeader string) bool {
+	candidate := canonicaliseFromDomain(extractFromURIFull(fromHeader))
+	if candidate == "" {
+		return false
+	}
+	for _, f := range h.AllowedFromDomains {
+		want := canonicaliseFromDomain(f.Domain)
+		if want == "" {
+			continue
+		}
+		if candidate == want {
+			return true
+		}
+	}
+	return false
+}
+
+// extractFromURIFull returns the full URI (user@host form) from
+// a `From:` header value, stripping display-name quoting + angle
+// brackets + URI parameters. Shape mirrors extractToURIFull so
+// canonicaliseFromDomain can take it and extract just the host.
+//
+// Examples:
+//
+//	"Alice <sip:alice@internal.pbx>;tag=abc" → "alice@internal.pbx"
+//	"<sips:bob@gateway.example.com>"         → "bob@gateway.example.com"
+//	"sip:+34911234@voip.op.com"              → "+34911234@voip.op.com"
+//
+// Returns empty string on unparseable input.
+func extractFromURIFull(header string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return ""
+	}
+	// Strip display-name quoting + angle brackets.
+	if i := strings.IndexByte(header, '<'); i >= 0 {
+		j := strings.IndexByte(header[i+1:], '>')
+		if j < 0 {
+			return ""
+		}
+		header = header[i+1 : i+1+j]
+	}
+	// Strip URI parameters.
+	if i := strings.IndexByte(header, ';'); i >= 0 {
+		header = header[:i]
+	}
+	// Scheme prefix.
+	for _, scheme := range []string{"sips:", "sip:", "tel:"} {
+		if strings.HasPrefix(strings.ToLower(header), scheme) {
+			header = header[len(scheme):]
+			break
+		}
+	}
+	return strings.TrimSpace(header)
+}
+
+// writeFromDomainForbidden emits a SIP/2.0 403 Forbidden back
+// to the client for a gated request whose From-domain isn't in
+// the allowlist. Includes X-Elsereno-Gate-Reason so the operator
+// can trace which gate fired.
+func writeFromDomainForbidden(w io.Writer, reqHeaders textproto.MIMEHeader) error {
+	var b strings.Builder
+	b.WriteString("SIP/2.0 403 Forbidden\r\n") //nolint:misspell // RFC 3261 §21.4 canonical spelling
+	for _, k := range []string{"Via", "From", "To", "Call-ID", "CSeq"} {
+		for _, v := range reqHeaders.Values(k) {
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(v)
+			b.WriteString("\r\n")
+		}
+	}
+	b.WriteString("Server: ElSereno proxy (gated, offensive)\r\n")
+	b.WriteString("X-Elsereno-Gate-Reason: From domain not in session allowlist (identity-spoof guard)\r\n")
+	b.WriteString("Content-Length: 0\r\n\r\n")
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 // registerAORAllowed reports whether the To: header's canonical

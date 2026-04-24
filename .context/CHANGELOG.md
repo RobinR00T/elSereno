@@ -240,6 +240,35 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.12 chunk 5 landed.** SIP From-header domain
+  allowlist — the identity-spoof complement to v1.10 chunk 1's
+  REGISTER AOR gate and v1.9 chunk 5's INVITE prefix gate.
+  Library: `AllowedFromDomain{Domain}` + `AllowlistHashWithFromDomains`
+  (0xFD separator layered on top of 0xFE AOR + 0xFF prefix) +
+  `SessionMutationWithFromDomains`. Ladder preserved: empty
+  fromDomains collapses to v1.10; empty+empty → v1.9; empty×3 →
+  v1.4. `canonicaliseFromDomain` extracts the host part —
+  accepts bare host, `@host`, `sip:user@host`, bracketed
+  `<sips:user@host;tag=…>` — lowercases, strips params.
+  Handler: `AllowedFromDomains` field checked in `checkSubGates`
+  for every gated method (INVITE / REGISTER / MESSAGE /
+  SUBSCRIBE / NOTIFY / REFER / PUBLISH / UPDATE / INFO).
+  Always-safe methods (OPTIONS / ACK / BYE / CANCEL / PRACK)
+  bypass the check. Refusal is SIP/2.0 403 Forbidden with
+  `X-Elsereno-Gate-Reason: From domain not in session allowlist
+  (identity-spoof guard)`. CLI: `write sip dry-run
+  --from-domain` + `proxy listen --from-domain` + YAML
+  `from_domains:` field (lowercased, sorted, deduped).
+  Refactor: `AllowlistHashWithFromDomains` split across
+  `sortedMethodList` / `sortedPrefixList` / `sortedAORList` /
+  `sortedFromDomainList` / `writeNulTerminatedList` for funlen;
+  `forwardOne` split with `checkSubGates` + `refusalWriter`
+  type for gocyclo. 11 new tests: hash ladder × 5 (empty =
+  v1.10, empty-all = v1.4, non-empty changes hash, order-
+  insensitive, case-insensitive canonical), E2E × 4 (allowed
+  INVITE passes, forbidden INVITE 403, OPTIONS bypasses,
+  REGISTER also gated), YAML round-trip × 2 (case-
+  normalisation + omit-when-empty). 0 lint issues.
 - 2026-04-24 — **v1.12 chunk 4 landed.** Modbus structured
   `writes:` YAML closes the v1.9 chunk 2 carry-over. New YAML
   struct `proxyModbusWrite{Unit, FC, Start, End}` alongside the

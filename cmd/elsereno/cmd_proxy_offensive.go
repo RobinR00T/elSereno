@@ -67,6 +67,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.methods, "method", nil, "sip: gated methods to allow")
 	cmd.Flags().StringSliceVar(&opts.toPrefixes, "to-prefix", nil, "sip: optional INVITE destination allowlist (prefixes like +34, +44). Only applies to INVITE; other methods unaffected (v1.9+).")
 	cmd.Flags().StringSliceVar(&opts.aors, "aor", nil, "sip: optional REGISTER AOR allowlist (e.g. sip:alice@pbx.internal, repeatable). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
+	cmd.Flags().StringSliceVar(&opts.fromDomains, "from-domain", nil, "sip: optional From-header domain allowlist (e.g. internal.pbx, repeatable). Applies to every gated method; exact host match. Identity-spoof mitigation (v1.12+).")
 	cmd.Flags().StringSliceVar(&opts.subclasses, "subclass", nil, "iax2: gated subclasses to allow (NEW/REGREQ/AUTHREP/ACCEPT)")
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form — any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
@@ -108,6 +109,12 @@ type proxyListenOpts struct {
 	// canonicalisation. Empty → v1.9 (or v1.4) gating without
 	// AOR-level tightening.
 	aors []string
+	// fromDomains holds the sip From-header domain allowlist
+	// (v1.12+). Host names (e.g. "internal.pbx") — exact-match
+	// after canonicalisation, applied to every gated method.
+	// Empty → v1.10 (or earlier) gating without from-domain
+	// tightening.
+	fromDomains []string
 	// rpcs holds the cwmp SOAP RPC allowlist (v1.11+). RPC
 	// names (e.g. "SetParameterValues", "Reboot") — case-
 	// sensitive per TR-069 §A.4. Empty → only read-only +
@@ -264,11 +271,16 @@ func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confi
 	for _, a := range opts.aors {
 		aors = append(aors, sipwrite.AllowedAOR{AOR: a})
 	}
+	fromDomains := make([]sipwrite.AllowedFromDomain, 0, len(opts.fromDomains))
+	for _, d := range opts.fromDomains {
+		fromDomains = append(fromDomains, sipwrite.AllowedFromDomain{Domain: d})
+	}
 	return &sipwrite.WriteGatedHandler{
 		Target:               opts.target,
 		Allowed:              allowed,
 		AllowedToURIPrefixes: prefixes,
 		AllowedAORs:          aors,
+		AllowedFromDomains:   fromDomains,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,

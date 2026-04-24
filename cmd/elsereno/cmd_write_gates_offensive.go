@@ -52,7 +52,7 @@ into the eventual proxy-run verb.`,
 
 func newWriteSIPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
-	var methods, toPrefixes, aors []string
+	var methods, toPrefixes, aors, fromDomains []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -72,28 +72,17 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			for _, a := range aors {
 				aorList = append(aorList, sipwrite.AllowedAOR{AOR: a})
 			}
-			mut := sipwrite.SessionMutationWithAORs(target, allowed, prefixes, aorList)
-			cmd.Printf("Protocol:     sip\n")
-			cmd.Printf("Operation:    proxy_session\n")
-			cmd.Printf("Target:       %s\n", target)
-			cmd.Printf("Allowed:      %s\n", canonMethods(methods))
-			cmd.Printf("Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK\n")
-			if len(toPrefixes) > 0 {
-				cmd.Printf("ToPrefixes:   %s\n", canonMethods(toPrefixes))
-			} else {
-				cmd.Printf("ToPrefixes:   (none — INVITE destination not constrained)\n")
+			fromDomainList := make([]sipwrite.AllowedFromDomain, 0, len(fromDomains))
+			for _, d := range fromDomains {
+				fromDomainList = append(fromDomainList, sipwrite.AllowedFromDomain{Domain: d})
 			}
-			if len(aors) > 0 {
-				cmd.Printf("AORs:         %s\n", canonAORs(aors))
-			} else {
-				cmd.Printf("AORs:         (none — REGISTER AoR not constrained)\n")
-			}
-			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+			mut := sipwrite.SessionMutationWithFromDomains(target, allowed, prefixes, aorList, fromDomainList)
+			printSIPDryRunSummary(cmd, target, methods, toPrefixes, aors, fromDomains, mut)
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes, aors))
+				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes, aors, fromDomains))
 			}
 			return nil
 		},
@@ -104,9 +93,60 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 		"optional: INVITE destination allowlist — URI user-part prefixes (e.g. +34, +44). Only applies to INVITE; other methods unaffected. Toll-fraud mitigation (v1.9+).")
 	cmd.Flags().StringSliceVar(&aors, "aor", nil,
 		"optional: REGISTER AOR allowlist — exact AoRs (e.g. sip:alice@pbx.internal). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
+	cmd.Flags().StringSliceVar(&fromDomains, "from-domain", nil,
+		"optional: From-header domain allowlist — exact host match (e.g. internal.pbx). Applies to every gated method. Identity-spoof mitigation (v1.12+).")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// printSIPDryRunSummary writes the human-readable block for the
+// sip dry-run. Extracted so the RunE body stays under funlen.
+func printSIPDryRunSummary(cmd *cobra.Command, target string, methods, toPrefixes, aors, fromDomains []string, mut confirm.Mutation) {
+	cmd.Printf("Protocol:     sip\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", target)
+	cmd.Printf("Allowed:      %s\n", canonMethods(methods))
+	cmd.Printf("Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK\n")
+	if len(toPrefixes) > 0 {
+		cmd.Printf("ToPrefixes:   %s\n", canonMethods(toPrefixes))
+	} else {
+		cmd.Printf("ToPrefixes:   (none — INVITE destination not constrained)\n")
+	}
+	if len(aors) > 0 {
+		cmd.Printf("AORs:         %s\n", canonAORs(aors))
+	} else {
+		cmd.Printf("AORs:         (none — REGISTER AoR not constrained)\n")
+	}
+	if len(fromDomains) > 0 {
+		cmd.Printf("FromDomains:  %s\n", canonFromDomains(fromDomains))
+	} else {
+		cmd.Printf("FromDomains:  (none — From: domain not constrained)\n")
+	}
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+}
+
+// canonFromDomains prints a sorted, dedup'd, lowercased list of
+// From-domain inputs for dry-run output.
+func canonFromDomains(in []string) string {
+	if len(in) == 0 {
+		return displayNone
+	}
+	cleaned := make([]string, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, d := range in {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d == "" {
+			continue
+		}
+		if _, dup := seen[d]; dup {
+			continue
+		}
+		seen[d] = struct{}{}
+		cleaned = append(cleaned, d)
+	}
+	sort.Strings(cleaned)
+	return strings.Join(cleaned, ", ")
 }
 
 // canonAORs prints a sorted comma-separated list of AoR inputs

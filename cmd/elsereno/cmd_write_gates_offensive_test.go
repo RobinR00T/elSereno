@@ -167,6 +167,48 @@ func TestWritePBXHTTPDryRun_OutputShape(t *testing.T) {
 	}
 }
 
+// TestWriteSIPDryRun_FromDomainFlag — v1.12 chunk 5 adds
+// --from-domain repeatable. Output should list canonical
+// (sorted, lowercased, deduped) from-domain values + register
+// the per-domain block in the PayloadHash.
+func TestWriteSIPDryRun_FromDomainFlag(t *testing.T) {
+	cmd := newWriteSIPDryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "pbx:5060",
+		"--method", "INVITE",
+		"--from-domain", "VoIP.Example.com",
+		"--from-domain", "internal.pbx",
+		"--from-domain", "INTERNAL.PBX", // dedup'd
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "FromDomains:  internal.pbx, voip.example.com") {
+		t.Errorf("expected canonical (sorted/lowered/deduped) FromDomains line:\n%s", out)
+	}
+}
+
+// TestWriteSIPDryRun_FromDomainEmpty — when --from-domain is
+// omitted the dry-run prints the "(none — …)" placeholder and
+// the hash collapses to the v1.10 layer.
+func TestWriteSIPDryRun_FromDomainEmpty(t *testing.T) {
+	cmd := newWriteSIPDryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--target", "pbx:5060", "--method", "INVITE"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !strings.Contains(buf.String(), "FromDomains:  (none — From: domain not constrained)") {
+		t.Errorf("expected placeholder when from-domains empty:\n%s", buf.String())
+	}
+}
+
 func TestWriteSIPDryRun_RequiresTarget(t *testing.T) {
 	cmd := newWriteSIPDryRunCmd()
 	var buf bytes.Buffer

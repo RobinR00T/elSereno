@@ -56,49 +56,72 @@ func addEmitAllowFileFlag(cmd *cobra.Command, dest *string) {
 }
 
 // buildAllowFileSIP returns the YAML struct for a SIP dry-run.
-// v1.9+: optionally persists the INVITE destination prefix
-// allowlist as `to_prefixes:`.
-// v1.10+: optionally persists the REGISTER AOR allowlist as
-// `aors:`.
-func buildAllowFileSIP(target string, methods, toPrefixes, aors []string) proxyAllowFile {
+// Optional fields:
+//
+//   - v1.9+:  to_prefixes (INVITE destination allowlist).
+//   - v1.10+: aors (REGISTER AoR allowlist).
+//   - v1.12+: from_domains (From-header domain allowlist,
+//     applies to every gated method).
+//
+// Empty input lists are omitted from the emitted YAML so v1.4-
+// era operators keep the compact method-only shape.
+func buildAllowFileSIP(target string, methods, toPrefixes, aors, fromDomains []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:  pluginNameSIP,
 		Target:  target,
 		Methods: canonicaliseMethodList(methods),
 	}
-	if len(toPrefixes) > 0 {
-		trimmed := make([]string, 0, len(toPrefixes))
-		for _, p := range toPrefixes {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				trimmed = append(trimmed, p)
-			}
-		}
-		if len(trimmed) > 0 {
-			stringsSort(trimmed)
-			af.ToPrefixes = trimmed
-		}
+	if sorted := trimmedDedupSorted(toPrefixes); len(sorted) > 0 {
+		af.ToPrefixes = sorted
 	}
-	if len(aors) > 0 {
-		trimmed := make([]string, 0, len(aors))
-		seen := map[string]struct{}{}
-		for _, a := range aors {
-			a = strings.TrimSpace(a)
-			if a == "" {
-				continue
-			}
-			if _, dup := seen[a]; dup {
-				continue
-			}
-			seen[a] = struct{}{}
-			trimmed = append(trimmed, a)
-		}
-		if len(trimmed) > 0 {
-			stringsSort(trimmed)
-			af.AORs = trimmed
-		}
+	if sorted := trimmedDedupSorted(aors); len(sorted) > 0 {
+		af.AORs = sorted
+	}
+	if sorted := trimmedDedupLowerSorted(fromDomains); len(sorted) > 0 {
+		af.FromDomains = sorted
 	}
 	return af
+}
+
+// trimmedDedupSorted returns in trimmed of whitespace, deduped,
+// case-preserved, sorted. Empty strings are dropped.
+func trimmedDedupSorted(in []string) []string {
+	trimmed := make([]string, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		trimmed = append(trimmed, s)
+	}
+	stringsSort(trimmed)
+	return trimmed
+}
+
+// trimmedDedupLowerSorted lowercases + trims + dedups + sorts.
+// Used for the From-domain allowlist (host names are case-
+// insensitive per RFC 3261 §19.1.1).
+func trimmedDedupLowerSorted(in []string) []string {
+	trimmed := make([]string, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, s := range in {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if s == "" {
+			continue
+		}
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		trimmed = append(trimmed, s)
+	}
+	stringsSort(trimmed)
+	return trimmed
 }
 
 // buildAllowFileIAX2 returns the YAML struct for an IAX2 dry-run.

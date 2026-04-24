@@ -162,6 +162,9 @@ Chunks (in planned order):
    CLI flag + round-trip hash stability + emit guard lifted.
    7 new tests.
 5. SIP from-domain allowlist (complements v1.10 AOR gate).
+   **Landed** — `AllowedFromDomain` + hash ladder (0xFD) +
+   per-gated-method check + 403 "identity-spoof guard". 11 new
+   tests (hash ladder × 5, E2E × 4, YAML round-trip × 2).
 6. OPC UA CallRequest per-object allowlist.
 7. BACnet per-object allowlist (ASN.1 BER parsing).
 8. Input pagination (5 providers).
