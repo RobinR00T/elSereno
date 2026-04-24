@@ -134,6 +134,138 @@ func TestEmitAllowFile_RoundTripSIP(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripSIPWithPrefixes — v1.9 chunk 5
+// sanity check that to_prefixes: survives emit → load.
+func TestEmitAllowFile_RoundTripSIPWithPrefixes(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileSIP("pbx:5060",
+		[]string{"INVITE"},
+		[]string{"+34", "+44"},
+		nil)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.toPrefixes) != 2 {
+		t.Errorf("toPrefixes=%v, want 2", opts.toPrefixes)
+	}
+}
+
+// TestEmitAllowFile_RoundTripSIPWithAORs — v1.10 chunk 1 closes
+// the REGISTER AOR allowlist round-trip: emit writes aors:,
+// load materialises opts.aors back on the proxyListenOpts side.
+func TestEmitAllowFile_RoundTripSIPWithAORs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	aors := []string{
+		"sip:bob@pbx.internal",
+		"sip:alice@pbx.internal", // unordered on purpose
+	}
+	af := buildAllowFileSIP("pbx:5060", []string{"REGISTER"}, nil, aors)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if opts.plugin != "sip" {
+		t.Errorf("plugin=%q", opts.plugin)
+	}
+	// AORs are sorted lexicographically on emit, so after
+	// round-trip they should come back sorted.
+	if len(opts.aors) != 2 {
+		t.Fatalf("aors=%v, want 2", opts.aors)
+	}
+	if opts.aors[0] != "sip:alice@pbx.internal" {
+		t.Errorf("aors[0] = %q, want sip:alice@pbx.internal (sorted)", opts.aors[0])
+	}
+	if opts.aors[1] != "sip:bob@pbx.internal" {
+		t.Errorf("aors[1] = %q, want sip:bob@pbx.internal (sorted)", opts.aors[1])
+	}
+}
+
+// TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs — both
+// v1.9 and v1.10 fields active at the same time; YAML contains
+// both keys, both survive the round-trip.
+func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileSIP("pbx:5060",
+		[]string{"INVITE", "REGISTER"},
+		[]string{"+34"},
+		[]string{"sip:alice@pbx.internal"})
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.methods) != 2 {
+		t.Errorf("methods=%v", opts.methods)
+	}
+	if len(opts.toPrefixes) != 1 {
+		t.Errorf("toPrefixes=%v", opts.toPrefixes)
+	}
+	if len(opts.aors) != 1 {
+		t.Errorf("aors=%v", opts.aors)
+	}
+}
+
+// TestEmitAllowFile_SIPOmitsAORsWhenEmpty — YAML doesn't emit
+// the `aors:` key when list is nil (keeps backwards compat with
+// v1.9 files).
+func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil)
+	if err := emitAllowFile(cmd, "-", af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "aors") {
+		t.Errorf("aors: should be omitted when list empty:\n%s", out)
+	}
+	if strings.Contains(out, "to_prefixes") {
+		t.Errorf("to_prefixes: should be omitted when list empty:\n%s", out)
+	}
+}
+
+// TestLoadAllowFile_SIPWithAORs — direct load test: YAML with
+// aors: is recognised by the unmarshal; `KnownFields(true)`
+// doesn't reject it.
+func TestLoadAllowFile_SIPWithAORs(t *testing.T) {
+	p := writeTempYAML(t, `
+plugin: sip
+target: pbx.example.com:5060
+methods: [REGISTER]
+aors:
+  - sip:alice@pbx.example.com
+  - sip:bob@pbx.example.com
+`)
+	var opts proxyListenOpts
+	if err := loadAllowFile(p, &opts); err != nil {
+		t.Fatalf("loadAllowFile: %v", err)
+	}
+	if len(opts.aors) != 2 {
+		t.Fatalf("aors=%v, want 2 entries", opts.aors)
+	}
+	if opts.aors[0] != "sip:alice@pbx.example.com" {
+		t.Errorf("aors[0] = %q", opts.aors[0])
+	}
+}
+
 func TestEmitAllowFile_RoundTripPBXHTTP(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "allow.yaml")
