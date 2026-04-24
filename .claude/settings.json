@@ -103,7 +103,9 @@
       "Bash(gh auth status)",
       "Bash(goreleaser build:*)",
       "mcp__Claude_in_Chrome__navigate",
-      "mcp__Claude_in_Chrome__get_page_text"
+      "mcp__Claude_in_Chrome__get_page_text",
+      "Bash(gofmt:*)",
+      "Bash(elsereno plugins:*)"
     ]
   }
 }
