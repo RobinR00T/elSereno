@@ -21,6 +21,7 @@ const (
 	pluginNameModbus  = "modbus"
 	pluginNameOPCUA   = "opcua"
 	pluginNameBACnet  = "bacnet"
+	pluginNameCWMP    = "cwmp"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every
@@ -81,6 +82,7 @@ type proxyAllowFile struct {
 	Services       []uint        `yaml:"services,omitempty"`        // opcua
 	NodeIDs        []proxyNodeID `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
 	ServiceChoices []uint        `yaml:"service_choices,omitempty"` // bacnet
+	RPCs           []string      `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -129,6 +131,8 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		}
 	case pluginNameBACnet:
 		opts.serviceChoices = af.ServiceChoices
+	case pluginNameCWMP:
+		opts.rpcs = af.RPCs
 	default:
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
 	}

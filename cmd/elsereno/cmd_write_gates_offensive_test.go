@@ -283,6 +283,80 @@ func TestWriteBACnetDryRun_ServiceChoiceOutOfRange(t *testing.T) {
 	}
 }
 
+// ---- CWMP dry-run (v1.11+) -----------------------------------
+
+func TestWriteCWMPDryRun_OutputShape(t *testing.T) {
+	cmd := newWriteCWMPDryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "acs.example.com:7547",
+		"--rpc", "SetParameterValues",
+		"--rpc", "Reboot",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Protocol:     cwmp",
+		"Target:       acs.example.com:7547",
+		"RPCs:         Reboot, SetParameterValues",
+		"Always-safe:  GetParameter",
+		"PayloadHash:  ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestWriteCWMPDryRun_EmptyRPCsShowsHint(t *testing.T) {
+	cmd := newWriteCWMPDryRunCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--target", "acs.example.com:7547"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "(none — all write-capable RPCs refused; reads still pass)") {
+		t.Errorf("empty-rpcs hint missing:\n%s", out)
+	}
+}
+
+func TestWriteCWMPDryRun_RequiresTarget(t *testing.T) {
+	cmd := newWriteCWMPDryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--rpc", "Reboot"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected --target-required error")
+	}
+}
+
+func TestCanonCWMPRPCs(t *testing.T) {
+	cases := []struct {
+		in   []string
+		want string
+	}{
+		{nil, "(none — all write-capable RPCs refused; reads still pass)"},
+		{[]string{"SetParameterValues", "Reboot"}, "Reboot, SetParameterValues"},
+		{[]string{"cwmp:Reboot", " Reboot "}, "Reboot"}, // dedup + prefix strip
+		{[]string{"Reboot", "SetParameterValues", "Download", "Reboot"}, "Download, Reboot, SetParameterValues"},
+	}
+	for _, c := range cases {
+		got := canonCWMPRPCs(c.in)
+		if got != c.want {
+			t.Errorf("canonCWMPRPCs(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 // ---- parseNodeIDFlag -----------------------------------------
 
 func TestParseNodeIDFlag_Valid(t *testing.T) {

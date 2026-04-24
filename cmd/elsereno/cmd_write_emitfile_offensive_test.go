@@ -242,6 +242,82 @@ func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripCWMP — v1.11 chunk 1: RPCs
+// survive emit → load, sorted + prefix-stripped.
+func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	// Mix of prefixed + bare + whitespace + duplicate to
+	// exercise the canonicaliser inside buildAllowFileCWMP.
+	rpcs := []string{
+		"cwmp:Reboot",
+		"SetParameterValues",
+		"  SetParameterValues  ", // duplicate after trim
+		"Download",
+	}
+	af := buildAllowFileCWMP("acs.example.com:7547", rpcs)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if opts.plugin != "cwmp" {
+		t.Errorf("plugin=%q, want cwmp", opts.plugin)
+	}
+	if len(opts.rpcs) != 3 {
+		t.Fatalf("rpcs=%v, want 3 entries (dedup'd)", opts.rpcs)
+	}
+	if opts.rpcs[0] != "Download" {
+		t.Errorf("rpcs[0]=%q, want Download (sorted)", opts.rpcs[0])
+	}
+	if opts.rpcs[1] != "Reboot" {
+		t.Errorf("rpcs[1]=%q, want Reboot (sorted)", opts.rpcs[1])
+	}
+	if opts.rpcs[2] != "SetParameterValues" {
+		t.Errorf("rpcs[2]=%q, want SetParameterValues (sorted)", opts.rpcs[2])
+	}
+}
+
+func TestEmitAllowFile_CWMPOmitsRPCsWhenEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileCWMP("acs:7547", nil)
+	if err := emitAllowFile(cmd, "-", af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "rpcs") {
+		t.Errorf("rpcs: should be omitted when list empty:\n%s", out)
+	}
+}
+
+// TestLoadAllowFile_CWMPWithRPCs — direct load test: YAML with
+// rpcs: is recognised by KnownFields(true).
+func TestLoadAllowFile_CWMPWithRPCs(t *testing.T) {
+	p := writeTempYAML(t, `
+plugin: cwmp
+target: acs.example.com:7547
+rpcs:
+  - SetParameterValues
+  - Reboot
+  - FactoryReset
+`)
+	var opts proxyListenOpts
+	if err := loadAllowFile(p, &opts); err != nil {
+		t.Fatalf("loadAllowFile: %v", err)
+	}
+	if len(opts.rpcs) != 3 {
+		t.Fatalf("rpcs=%v, want 3 entries", opts.rpcs)
+	}
+	if opts.rpcs[0] != "SetParameterValues" {
+		t.Errorf("rpcs[0]=%q", opts.rpcs[0])
+	}
+}
+
 // TestLoadAllowFile_SIPWithAORs — direct load test: YAML with
 // aors: is recognised by the unmarshal; `KnownFields(true)`
 // doesn't reject it.

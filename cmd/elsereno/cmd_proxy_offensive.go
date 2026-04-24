@@ -20,6 +20,7 @@ import (
 	"local/elsereno/internal/proxy"
 	"local/elsereno/offensive/confirm"
 	bacwrite "local/elsereno/offensive/write/bacnet"
+	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	iaxwrite "local/elsereno/offensive/write/iax2"
 	modwrite "local/elsereno/offensive/write/modbus"
 	opwrite "local/elsereno/offensive/write/opcua"
@@ -72,6 +73,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (ns=N;i=M form, repeatable). Tightens the gate from service-TypeID to specific NodeIds (v1.6+; numeric encodings only — String/Guid/ByteString fail closed).")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
+	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
@@ -103,7 +105,12 @@ type proxyListenOpts struct {
 	// AoRs (e.g. "sip:alice@pbx.internal") — exact-match after
 	// canonicalisation. Empty → v1.9 (or v1.4) gating without
 	// AOR-level tightening.
-	aors                                []string
+	aors []string
+	// rpcs holds the cwmp SOAP RPC allowlist (v1.11+). RPC
+	// names (e.g. "SetParameterValues", "Reboot") — case-
+	// sensitive per TR-069 §A.4. Empty → only read-only +
+	// protocol-flow RPCs pass; every write-capable RPC refused.
+	rpcs                                []string
 	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
@@ -220,8 +227,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildOPCUAHandler(opts, rt, c)
 	case pluginNameBACnet:
 		return buildBACnetHandler(opts, rt, c)
+	case pluginNameCWMP:
+		return buildCWMPHandler(opts, rt, c), nil
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp", opts.plugin)
 }
 
 func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *sipwrite.WriteGatedHandler {
@@ -345,6 +354,25 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
 	}, nil
+}
+
+// buildCWMPHandler wires opts.rpcs onto a CWMP WriteGatedHandler.
+// Read-only / protocol-flow RPCs are hardcoded in the library's
+// alwaysSafeRPCs set and don't need to pass through here — the
+// operator only supplies the write-capable RPCs they want to
+// authorise (SetParameterValues, Reboot, Download, etc.).
+func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *cwmpwrite.WriteGatedHandler {
+	allowed := make([]cwmpwrite.AllowedRPC, 0, len(opts.rpcs))
+	for _, r := range opts.rpcs {
+		allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})
+	}
+	return &cwmpwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}
 }
 
 // parseByteFlag validates that a --function / --service-choice

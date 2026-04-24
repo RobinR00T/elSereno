@@ -110,6 +110,44 @@ func buildAllowFileIAX2(target string, subclasses []string) proxyAllowFile {
 	}
 }
 
+// buildAllowFileCWMP returns the YAML struct for a CWMP dry-run
+// (v1.11+). RPCs are deduped, prefix-stripped, case-preserved
+// (TR-069 RPC names are case-sensitive), and sorted for
+// deterministic emission. Empty list → omit the `rpcs:` key
+// entirely (backwards-compat friendly).
+func buildAllowFileCWMP(target string, rpcs []string) proxyAllowFile {
+	af := proxyAllowFile{
+		Plugin: pluginNameCWMP,
+		Target: target,
+	}
+	if len(rpcs) == 0 {
+		return af
+	}
+	seen := map[string]struct{}{}
+	trimmed := make([]string, 0, len(rpcs))
+	for _, r := range rpcs {
+		r = strings.TrimSpace(r)
+		// Strip "prefix:" if present (e.g. "cwmp:Reboot").
+		if i := strings.IndexByte(r, ':'); i > 0 {
+			r = r[i+1:]
+		}
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		if _, dup := seen[r]; dup {
+			continue
+		}
+		seen[r] = struct{}{}
+		trimmed = append(trimmed, r)
+	}
+	if len(trimmed) > 0 {
+		stringsSort(trimmed)
+		af.RPCs = trimmed
+	}
+	return af
+}
+
 // buildAllowFilePBXHTTP returns the YAML struct for a pbxhttp
 // dry-run. The `Allow` list items keep their METHOD:/path form
 // so loadAllowFile + parseAllowEntry round-trip cleanly.

@@ -15,6 +15,7 @@ import (
 	iaxwire "local/elsereno/internal/protocols/iax2/wire"
 	"local/elsereno/offensive/confirm"
 	bacwrite "local/elsereno/offensive/write/bacnet"
+	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	iaxwrite "local/elsereno/offensive/write/iax2"
 	opwrite "local/elsereno/offensive/write/opcua"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
@@ -486,6 +487,94 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// ---- elsereno write cwmp -------------------------------------
+
+func newWriteCWMPCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cwmp",
+		Short: "TR-069 / CWMP ACS-CPE SOAP RPC-gated proxy (dry-run derives the session confirm-token)",
+		Long: `The gated CWMP proxy forwards all non-POST requests
+unconditionally, and POSTs whose SOAP Body's first child is a
+read-only / protocol-flow RPC (GetParameter{Names,Values,
+Attributes}, GetRPCMethods, Inform/InformResponse,
+TransferComplete, Kicked, Fault). POSTs whose RPC is write-
+capable (SetParameterValues, SetParameterAttributes, AddObject,
+DeleteObject, Reboot, FactoryReset, Download, Upload,
+ScheduleInform, ScheduleDownload, ChangeDUState, CancelTransfer)
+require explicit --rpc allowlist entries.
+
+Refusal emits a CWMP SOAP Fault (TR-069 Annex A FaultCode 9001
+"Request denied") so ACS code parses the rejection as a proper
+CWMP-layer error rather than a transport glitch.`,
+	}
+	cmd.AddCommand(newWriteCWMPDryRunCmd())
+	return cmd
+}
+
+func newWriteCWMPDryRunCmd() *cobra.Command {
+	var target, ppFile, emitFile string
+	var rpcs []string
+	cmd := &cobra.Command{
+		Use:   "dry-run",
+		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if target == "" {
+				return fail(core.ExitUsage, errors.New("--target is required"))
+			}
+			allowed := make([]cwmpwrite.AllowedRPC, 0, len(rpcs))
+			for _, r := range rpcs {
+				allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})
+			}
+			mut := cwmpwrite.SessionMutation(target, allowed)
+			cmd.Printf("Protocol:     cwmp\n")
+			cmd.Printf("Operation:    proxy_session\n")
+			cmd.Printf("Target:       %s\n", target)
+			cmd.Printf("RPCs:         %s\n", canonCWMPRPCs(rpcs))
+			cmd.Printf("Always-safe:  GetParameter{Names,Values,Attributes}, GetRPCMethods, Inform{,Response}, TransferComplete, Kicked, Fault (+ non-POST)\n")
+			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
+				return err
+			}
+			if p, err := ensureAllowFilePath(emitFile); err == nil {
+				return emitAllowFile(cmd, p, buildAllowFileCWMP(target, rpcs))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the CWMP ACS we'll proxy to)")
+	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow — case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
+	addPassphraseFileFlag(cmd, &ppFile)
+	addEmitAllowFileFlag(cmd, &emitFile)
+	return cmd
+}
+
+// canonCWMPRPCs returns a sorted, deduped, prefix-stripped
+// comma-separated list of RPC names for operator-friendly
+// display. Case is preserved (CWMP RPC names are case-
+// sensitive).
+func canonCWMPRPCs(in []string) string {
+	if len(in) == 0 {
+		return "(none — all write-capable RPCs refused; reads still pass)"
+	}
+	set := map[string]struct{}{}
+	for _, r := range in {
+		r = strings.TrimSpace(r)
+		if i := strings.IndexByte(r, ':'); i > 0 {
+			r = r[i+1:]
+		}
+		r = strings.TrimSpace(r)
+		if r != "" {
+			set[r] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return strings.Join(out, ", ")
 }
 
 // ---- shared helpers for opcua + bacnet ------------------------
