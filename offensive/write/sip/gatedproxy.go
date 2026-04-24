@@ -42,10 +42,24 @@
 //     allowlisted methods. Real SIP clients parse 405 correctly
 //     and back off without retrying.
 //
-// Out of scope for v1.4 chunk 1: INVITE To-header allowlist (toll-
-// destination blocking by dialled E.164 prefix), REGISTER AOR
-// allowlist (binding-specific allowlisting), per-From-URI policies.
-// These are v1.5+ once the method-level gate has field-time hours.
+// v1.9 chunk 5 added INVITE To-URI prefix allowlist
+// (`AllowedToURIPrefixes`) for toll-fraud mitigation. v1.10
+// chunk 1 adds REGISTER AOR allowlist (`AllowedAORs`) for
+// registration-hijack mitigation — pairs with the INVITE prefix
+// list as the two sides of PBX-abuse gating:
+//
+//   - INVITE + prefix list  → controls WHERE calls can go.
+//   - REGISTER + AOR list   → controls WHO can register a
+//     binding to call upstream. Without this the operator must
+//     trust that anyone who got through auth also got auth for
+//     every AoR; with it, a stolen set of creds for `alice@pbx`
+//     can't be used to hijack `admin@pbx`.
+//
+// Out of scope for v1.10 chunk 1: per-From-URI policies (restrict
+// which registrars can reach the proxy in the first place),
+// MESSAGE content allowlist, SUBSCRIBE / NOTIFY event-package
+// allowlist. Those are v1.11+ once the AOR + prefix gates have
+// field-time hours.
 package sip
 
 import (
@@ -201,6 +215,168 @@ func SessionMutationWithPrefixes(target string, methods []AllowedMethod, prefixe
 	}
 }
 
+// AllowedAOR is one AOR (Address-of-Record) the operator has
+// authorised for REGISTER. When the handler's `AllowedAORs`
+// field is non-empty, REGISTER requests pass only when the
+// To: header's URI (canonicalised, user@host form) exactly
+// matches one of these entries.
+//
+// Typical use-case: registration-hijack mitigation. An attacker
+// who captures SIP creds for one account (e.g. via phishing,
+// WiFi sniff, or a compromised endpoint) would normally be
+// able to register bindings for any AoR the upstream accepts —
+// hijacking inbound calls for `admin@pbx` using `alice@pbx`'s
+// stolen creds. With the AOR allowlist, REGISTER is scoped to
+// the exact AoR(s) the operator expects to serve; any drift is
+// a 403 with a traceable `X-Elsereno-Gate-Reason` header.
+//
+// AORs are case-folded + URI-scheme-stripped before compare so
+// operators can write `sip:alice@example.com` or just
+// `alice@example.com` — both canonicalise the same. The match
+// is EXACT (not prefix), unlike the INVITE prefix gate — an
+// attacker who gets `alice.evil@example.com` past the allowlist
+// shouldn't also get `alice@example.com`.
+type AllowedAOR struct {
+	// AOR is the canonical address-of-record the operator
+	// authorises. Accepts either bare `user@host` or fully-
+	// qualified `sip:user@host` / `sips:user@host` /
+	// `tel:user` form; the canonicaliser strips scheme + angle
+	// brackets + lowercases.
+	AOR string
+}
+
+// canonicaliseAOR normalises an AOR string for hashing +
+// compare. Strips angle brackets, URI scheme (sip:/sips:/tel:),
+// URI parameters (;tag=…), trims whitespace, and lowercases
+// the host part while preserving the user part's case because
+// RFC 3261 §19.1.1 says the user part is case-sensitive by
+// default. (In practice most SIP stacks fold the user part too,
+// but we stay conservative.)
+//
+// Returns empty string on malformed input.
+func canonicaliseAOR(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	// Angle brackets first.
+	if i := strings.IndexByte(s, '<'); i >= 0 {
+		j := strings.IndexByte(s[i+1:], '>')
+		if j < 0 {
+			return ""
+		}
+		s = s[i+1 : i+1+j]
+	}
+	// URI parameters.
+	if i := strings.IndexByte(s, ';'); i >= 0 {
+		s = s[:i]
+	}
+	// Scheme.
+	lower := strings.ToLower(s)
+	for _, scheme := range []string{"sips:", "sip:", "tel:"} {
+		if strings.HasPrefix(lower, scheme) {
+			s = s[len(scheme):]
+			break
+		}
+	}
+	// Split user@host, lowercase only host (user is
+	// technically case-sensitive per RFC 3261 §19.1.1).
+	if i := strings.IndexByte(s, '@'); i >= 0 {
+		user := s[:i]
+		host := strings.ToLower(s[i+1:])
+		return user + "@" + host
+	}
+	// No '@' — likely a `tel:` that lost its scheme. Lowercase
+	// the whole thing since there's no user/host distinction
+	// to preserve.
+	return strings.ToLower(s)
+}
+
+// AllowlistHashWithAORs is the v1.10 hash that incorporates the
+// method allowlist, the optional INVITE To-URI prefix allowlist
+// (v1.9), AND the optional REGISTER AOR allowlist (v1.10).
+//
+// Backwards compatibility: when both prefixes AND aors are
+// empty, the hash equals `AllowlistHash(target, methods)` (v1.4
+// plain). When only prefixes is non-empty, the hash equals
+// `AllowlistHashWithPrefixes(target, methods, prefixes)` (v1.9
+// variant). Only when aors is non-empty does the new layout
+// kick in — existing tokens remain valid for operators who
+// don't opt into AOR gating.
+//
+// New hash layout (when aors is non-empty):
+//
+//	target || 0x00 || METHOD<NUL> × sorted_methods
+//	               [|| 0xFF || PREFIX<NUL> × sorted_prefixes]
+//	                || 0xFE || AOR<NUL> × sorted_aors
+//
+// The 0xFE separator is chosen so it can't collide with a
+// method byte (SIP methods are ASCII A-Z) nor with the 0xFF
+// prefix-block separator. Decoders don't exist (this is a
+// one-way hash), but the distinct separator keeps collision
+// reasoning clean.
+func AllowlistHashWithAORs(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR) [32]byte {
+	if len(aors) == 0 {
+		return AllowlistHashWithPrefixes(target, methods, prefixes)
+	}
+	sortedMethods := make([]string, 0, len(methods))
+	for _, m := range methods {
+		sortedMethods = append(sortedMethods, strings.ToUpper(strings.TrimSpace(m.Method)))
+	}
+	sort.Strings(sortedMethods)
+
+	sortedPrefixes := make([]string, 0, len(prefixes))
+	for _, p := range prefixes {
+		sortedPrefixes = append(sortedPrefixes, canonicalisePrefix(p.Prefix))
+	}
+	sort.Strings(sortedPrefixes)
+
+	sortedAORs := make([]string, 0, len(aors))
+	for _, a := range aors {
+		if c := canonicaliseAOR(a.AOR); c != "" {
+			sortedAORs = append(sortedAORs, c)
+		}
+	}
+	sort.Strings(sortedAORs)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, m := range sortedMethods {
+		_, _ = h.Write([]byte(m))
+		_, _ = h.Write([]byte{0x00})
+	}
+	if len(sortedPrefixes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		for _, p := range sortedPrefixes {
+			_, _ = h.Write([]byte(p))
+			_, _ = h.Write([]byte{0x00})
+		}
+	}
+	_, _ = h.Write([]byte{0xFE})
+	for _, a := range sortedAORs {
+		_, _ = h.Write([]byte(a))
+		_, _ = h.Write([]byte{0x00})
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithAORs is the v1.10 Mutation that mixes
+// method + INVITE prefix + REGISTER AOR allowlists into the
+// PayloadHash. Degrades cleanly: empty aors → v1.9 behaviour;
+// empty aors AND empty prefixes → v1.4 behaviour.
+func SessionMutationWithAORs(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "sip",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithAORs(target, methods, prefixes, aors),
+	}
+}
+
 // canonicalisePrefix normalises a prefix string for hashing +
 // compare: trim whitespace, strip any URI-scheme prefixes
 // operators might accidentally include ("tel:", "sip:") and
@@ -251,6 +427,21 @@ type WriteGatedHandler struct {
 	//
 	// Empty list restores v1.4 behaviour (method-only gating).
 	AllowedToURIPrefixes []AllowedToURIPrefix
+	// AllowedAORs is the optional v1.10 REGISTER AOR allowlist.
+	// When non-empty, a REGISTER request passes only when both
+	// (a) REGISTER is in Allowed AND (b) the To: header's URI
+	// (canonicalised user@host form) EXACTLY matches one of these
+	// entries. The match is exact, not prefix (unlike
+	// AllowedToURIPrefixes) — stolen creds for `alice@pbx`
+	// shouldn't let an attacker register `admin@pbx`.
+	//
+	// Other gated methods (INVITE, MESSAGE, …) are NOT constrained
+	// by this list. It gates REGISTER ONLY, which is the
+	// registration-hijack vector.
+	//
+	// Empty list restores v1.9 behaviour (method + prefix gating
+	// only; REGISTER passes as long as REGISTER is in Allowed).
+	AllowedAORs []AllowedAOR
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -269,7 +460,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithPrefixes(h.Target, h.Allowed, h.AllowedToURIPrefixes)
+	m := SessionMutationWithAORs(h.Target, h.Allowed, h.AllowedToURIPrefixes, h.AllowedAORs)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -365,7 +556,96 @@ func (h *WriteGatedHandler) forwardOne(line string, br *bufio.Reader, tp *textpr
 			return writeInviteForbidden(clientWriter, headers)
 		}
 	}
+	if strings.EqualFold(method, "REGISTER") && len(h.AllowedAORs) > 0 {
+		if !h.registerAORAllowed(headers.Get("To")) {
+			return writeRegisterForbidden(clientWriter, headers)
+		}
+	}
 	return writeRequest(upstream, line, headers, body)
+}
+
+// registerAORAllowed reports whether the To: header's canonical
+// AOR matches any operator-supplied AOR in the allowlist.
+// Empty or unparseable To: header → refuse (fail-closed when
+// the gate is active).
+func (h *WriteGatedHandler) registerAORAllowed(toHeader string) bool {
+	candidate := canonicaliseAOR(extractToURIFull(toHeader))
+	if candidate == "" {
+		return false
+	}
+	for _, a := range h.AllowedAORs {
+		want := canonicaliseAOR(a.AOR)
+		if want == "" {
+			continue
+		}
+		if candidate == want {
+			return true
+		}
+	}
+	return false
+}
+
+// extractToURIFull returns the full URI (user@host form) from a
+// `To:` header value, stripping display-name quoting + angle
+// brackets + URI parameters. Keeps the host part (unlike
+// extractToURIUser which drops it) because AOR gating is
+// identity-level, not prefix-level.
+//
+// Examples:
+//
+//	"Alice <sip:alice@pbx.internal>;tag=abc"  → "alice@pbx.internal"
+//	"<sips:bob@example.com>"                  → "bob@example.com"
+//	"sip:+34911234@gateway"                   → "+34911234@gateway"
+//
+// Returns empty string on unparseable input.
+func extractToURIFull(header string) string {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return ""
+	}
+	// Strip display-name quoting + angle brackets.
+	if i := strings.IndexByte(header, '<'); i >= 0 {
+		j := strings.IndexByte(header[i+1:], '>')
+		if j < 0 {
+			return ""
+		}
+		header = header[i+1 : i+1+j]
+	}
+	// Strip the uri-parameters suffix (";tag=...", etc.).
+	if i := strings.IndexByte(header, ';'); i >= 0 {
+		header = header[:i]
+	}
+	// Scheme prefix.
+	for _, scheme := range []string{"sips:", "sip:", "tel:"} {
+		if strings.HasPrefix(strings.ToLower(header), scheme) {
+			header = header[len(scheme):]
+			break
+		}
+	}
+	return strings.TrimSpace(header)
+}
+
+// writeRegisterForbidden emits a SIP/2.0 403 Forbidden back to
+// the client for a REGISTER that hit the method allowlist but
+// NOT the AOR allowlist. Includes X-Elsereno-Gate-Reason so
+// the operator can trace which gate fired (useful when BOTH the
+// prefix + AOR gates are active on the same session).
+func writeRegisterForbidden(w io.Writer, reqHeaders textproto.MIMEHeader) error {
+	var b strings.Builder
+	b.WriteString("SIP/2.0 403 Forbidden\r\n")
+	for _, k := range []string{"Via", "From", "To", "Call-ID", "CSeq"} {
+		for _, v := range reqHeaders.Values(k) {
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(v)
+			b.WriteString("\r\n")
+		}
+	}
+	b.WriteString("Server: ElSereno proxy (gated, offensive)\r\n")
+	b.WriteString("X-Elsereno-Gate-Reason: AOR not in session allowlist (REGISTER hijack guard)\r\n")
+	b.WriteString("Content-Length: 0\r\n\r\n")
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 // inviteDestinationAllowed reports whether the To: header's URI

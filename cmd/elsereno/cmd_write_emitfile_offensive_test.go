@@ -28,7 +28,7 @@ func helperCmd(buf *bytes.Buffer) *cobra.Command {
 func TestEmitAllowFile_SIPStdout(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil)
+	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestEmitAllowFile_WritesFile(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestEmitAllowFile_RoundTripSIP(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil)); err != nil {
+	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil)); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	var opts proxyListenOpts

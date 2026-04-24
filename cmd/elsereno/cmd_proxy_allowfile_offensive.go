@@ -74,6 +74,7 @@ type proxyAllowFile struct {
 	// `functions: []` keys into the file.
 	Methods        []string      `yaml:"methods,omitempty"`         // sip
 	ToPrefixes     []string      `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
+	AORs           []string      `yaml:"aors,omitempty"`            // sip (v1.10+) — REGISTER AOR allowlist
 	Subclasses     []string      `yaml:"subclasses,omitempty"`      // iax2
 	Allow          []string      `yaml:"allow,omitempty"`           // pbxhttp
 	Functions      []uint        `yaml:"functions,omitempty"`       // modbus
@@ -110,6 +111,7 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 	case pluginNameSIP:
 		opts.methods = af.Methods
 		opts.toPrefixes = af.ToPrefixes
+		opts.aors = af.AORs
 	case pluginNameIAX2:
 		opts.subclasses = af.Subclasses
 	case pluginNamePBXHTTP:

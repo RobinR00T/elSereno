@@ -46,7 +46,7 @@ into the eventual proxy-run verb.`,
 
 func newWriteSIPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
-	var methods, toPrefixes []string
+	var methods, toPrefixes, aors []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -62,7 +62,11 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			for _, p := range toPrefixes {
 				prefixes = append(prefixes, sipwrite.AllowedToURIPrefix{Prefix: p})
 			}
-			mut := sipwrite.SessionMutationWithPrefixes(target, allowed, prefixes)
+			aorList := make([]sipwrite.AllowedAOR, 0, len(aors))
+			for _, a := range aors {
+				aorList = append(aorList, sipwrite.AllowedAOR{AOR: a})
+			}
+			mut := sipwrite.SessionMutationWithAORs(target, allowed, prefixes, aorList)
 			cmd.Printf("Protocol:     sip\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -73,12 +77,17 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			} else {
 				cmd.Printf("ToPrefixes:   (none — INVITE destination not constrained)\n")
 			}
+			if len(aors) > 0 {
+				cmd.Printf("AORs:         %s\n", canonAORs(aors))
+			} else {
+				cmd.Printf("AORs:         (none — REGISTER AoR not constrained)\n")
+			}
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes))
+				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes, aors))
 			}
 			return nil
 		},
@@ -87,9 +96,36 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&methods, "method", nil, "one or more gated methods (repeat or comma-separated)")
 	cmd.Flags().StringSliceVar(&toPrefixes, "to-prefix", nil,
 		"optional: INVITE destination allowlist — URI user-part prefixes (e.g. +34, +44). Only applies to INVITE; other methods unaffected. Toll-fraud mitigation (v1.9+).")
+	cmd.Flags().StringSliceVar(&aors, "aor", nil,
+		"optional: REGISTER AOR allowlist — exact AoRs (e.g. sip:alice@pbx.internal). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// canonAORs prints a sorted comma-separated list of AoR inputs
+// after canonicalising each (scheme stripped, lowercased host).
+// Used only for the dry-run operator output — the hash function
+// does its own canonicalisation independently.
+func canonAORs(in []string) string {
+	if len(in) == 0 {
+		return "(none)"
+	}
+	cleaned := make([]string, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, a := range in {
+		a = strings.TrimSpace(a)
+		if a == "" {
+			continue
+		}
+		if _, dup := seen[a]; dup {
+			continue
+		}
+		seen[a] = struct{}{}
+		cleaned = append(cleaned, a)
+	}
+	sort.Strings(cleaned)
+	return strings.Join(cleaned, ", ")
 }
 
 // ---- elsereno write iax2 --------------------------------------

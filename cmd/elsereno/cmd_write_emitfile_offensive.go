@@ -58,7 +58,9 @@ func addEmitAllowFileFlag(cmd *cobra.Command, dest *string) {
 // buildAllowFileSIP returns the YAML struct for a SIP dry-run.
 // v1.9+: optionally persists the INVITE destination prefix
 // allowlist as `to_prefixes:`.
-func buildAllowFileSIP(target string, methods, toPrefixes []string) proxyAllowFile {
+// v1.10+: optionally persists the REGISTER AOR allowlist as
+// `aors:`.
+func buildAllowFileSIP(target string, methods, toPrefixes, aors []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:  pluginNameSIP,
 		Target:  target,
@@ -75,6 +77,25 @@ func buildAllowFileSIP(target string, methods, toPrefixes []string) proxyAllowFi
 		if len(trimmed) > 0 {
 			stringsSort(trimmed)
 			af.ToPrefixes = trimmed
+		}
+	}
+	if len(aors) > 0 {
+		trimmed := make([]string, 0, len(aors))
+		seen := map[string]struct{}{}
+		for _, a := range aors {
+			a = strings.TrimSpace(a)
+			if a == "" {
+				continue
+			}
+			if _, dup := seen[a]; dup {
+				continue
+			}
+			seen[a] = struct{}{}
+			trimmed = append(trimmed, a)
+		}
+		if len(trimmed) > 0 {
+			stringsSort(trimmed)
+			af.AORs = trimmed
 		}
 	}
 	return af

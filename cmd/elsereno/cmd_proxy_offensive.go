@@ -65,6 +65,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
 	cmd.Flags().StringSliceVar(&opts.methods, "method", nil, "sip: gated methods to allow")
 	cmd.Flags().StringSliceVar(&opts.toPrefixes, "to-prefix", nil, "sip: optional INVITE destination allowlist (prefixes like +34, +44). Only applies to INVITE; other methods unaffected (v1.9+).")
+	cmd.Flags().StringSliceVar(&opts.aors, "aor", nil, "sip: optional REGISTER AOR allowlist (e.g. sip:alice@pbx.internal, repeatable). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	cmd.Flags().StringSliceVar(&opts.subclasses, "subclass", nil, "iax2: gated subclasses to allow (NEW/REGREQ/AUTHREP/ACCEPT)")
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
@@ -97,7 +98,12 @@ type proxyListenOpts struct {
 	// toPrefixes holds the sip INVITE destination allowlist
 	// (v1.9+). E.164-style prefixes (e.g. "+34", "+44") or bare
 	// extensions. Empty → v1.4 method-only gating.
-	toPrefixes                          []string
+	toPrefixes []string
+	// aors holds the sip REGISTER AOR allowlist (v1.10+). Full
+	// AoRs (e.g. "sip:alice@pbx.internal") — exact-match after
+	// canonicalisation. Empty → v1.9 (or v1.4) gating without
+	// AOR-level tightening.
+	aors                                []string
 	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
@@ -227,10 +233,15 @@ func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confi
 	for _, p := range opts.toPrefixes {
 		prefixes = append(prefixes, sipwrite.AllowedToURIPrefix{Prefix: p})
 	}
+	aors := make([]sipwrite.AllowedAOR, 0, len(opts.aors))
+	for _, a := range opts.aors {
+		aors = append(aors, sipwrite.AllowedAOR{AOR: a})
+	}
 	return &sipwrite.WriteGatedHandler{
 		Target:               opts.target,
 		Allowed:              allowed,
 		AllowedToURIPrefixes: prefixes,
+		AllowedAORs:          aors,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,
