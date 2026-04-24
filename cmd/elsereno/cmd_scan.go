@@ -37,7 +37,10 @@ func newScanCmd() *cobra.Command {
 			return runScan(cmd, opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.inputKind, "input", "", "input source: list:<path>|nmap:<path>|stdin")
+	cmd.Flags().StringVar(&opts.inputKind, "input", "",
+		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query>")
+	cmd.Flags().StringVar(&opts.apiCredsFile, "api-creds-file", "",
+		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:")
 	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "path to scope.yaml (optional)")
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
@@ -51,6 +54,7 @@ func newScanCmd() *cobra.Command {
 
 type scanOpts struct {
 	inputKind     string
+	apiCredsFile  string
 	scopePath     string
 	defaultPort   int
 	ratePerSec    int
@@ -211,8 +215,22 @@ func readTargets(ctx context.Context, opts scanOpts) ([]core.Target, error) {
 		}
 		defer func() { _ = f.Close() }()
 		return nmapxml.Parse(ctx, f)
+	case strings.HasPrefix(opts.inputKind, "shodan:"):
+		return readTargetsFromProvider(ctx, "shodan",
+			strings.TrimPrefix(opts.inputKind, "shodan:"), opts.apiCredsFile)
+	case strings.HasPrefix(opts.inputKind, "censys:"):
+		return readTargetsFromProvider(ctx, "censys",
+			strings.TrimPrefix(opts.inputKind, "censys:"), opts.apiCredsFile)
+	case strings.HasPrefix(opts.inputKind, "fofa:"):
+		return readTargetsFromProvider(ctx, "fofa",
+			strings.TrimPrefix(opts.inputKind, "fofa:"), opts.apiCredsFile)
+	case strings.HasPrefix(opts.inputKind, "zoomeye:"):
+		return readTargetsFromProvider(ctx, "zoomeye",
+			strings.TrimPrefix(opts.inputKind, "zoomeye:"), opts.apiCredsFile)
 	default:
-		return nil, fmt.Errorf("unknown input kind %q; use list:<path>|nmap:<path>|stdin", opts.inputKind)
+		return nil, fmt.Errorf(
+			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q>",
+			opts.inputKind)
 	}
 }
 
