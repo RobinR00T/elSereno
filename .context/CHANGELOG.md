@@ -240,6 +240,59 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.9.0 closed.** Five-chunk cycle. Chunk 1
+  closes the v1.6 per-NodeId → YAML round-trip gap (the
+  `--allow-file` emitter + loader now persist `node_ids:`
+  structurally). Chunk 2 adds `write modbus proxy-dry-run`,
+  closing the write-surface asymmetry (now all 6 gated
+  plugins have proxy-session dry-runs). Chunk 3 wires the 4
+  input clients (Shodan/Censys/FOFA/ZoomEye) into
+  `scan --input <provider>:<query>` with a 0600-enforced
+  `--api-creds-file <path.yaml>` for credentials. Chunk 4
+  adds ONYPHE (`internal/inputs/onyphe`) as 5th provider
+  with bearer-auth header + OQL query syntax. Chunk 5
+  extends the SIP write-gate with an opt-in INVITE
+  destination prefix allowlist for concrete toll-fraud
+  mitigation (e.g. allow INVITE but only to "+34"/"+44",
+  block "+900" premium-rate). 33 new tests. Backwards
+  compatible: empty allowlists / nil prefix lists preserve
+  v1.4-v1.8 hashes and tokens. Snapshot at
+  `.context/snapshots/v1.9.0-roundtrip-inputs-toll.md`.
+  v1.9.0 tag signed locally.
+- 2026-04-24 — **v1.9 chunk 5 (SIP INVITE To-URI prefix
+  allowlist)** landed on main. Opt-in
+  `WriteGatedHandler.AllowedToURIPrefixes` field. Hash is
+  backwards-compat: empty prefix list returns the v1.4
+  AllowlistHash. Per-request check parses the To: header's
+  URI user-part (handles `sip:` / `sips:` / `tel:` schemes,
+  display-name quoting, uri-params suffix); match against
+  sorted prefixes. Refusal: `SIP/2.0 403 Forbidden` with
+  `X-Elsereno-Gate-Reason:` header. REGISTER + other methods
+  unaffected — prefix list gates INVITE only. CLI:
+  `write sip dry-run --to-prefix +34`,
+  `proxy listen --to-prefix +34`, YAML `to_prefixes:`.
+  7 tests.
+- 2026-04-24 — **v1.9 chunk 4 (ONYPHE input)** landed on
+  main. 5th provider alongside Shodan/Censys/FOFA/ZoomEye.
+  Bearer auth via `Authorization: bearer <key>` header (RFC
+  6750). Query embedded in URL PATH (not query string) —
+  `url.PathEscape` encodes. In-body error flag. 5 tests.
+- 2026-04-24 — **v1.9 chunk 3 (input CLI wire-up)** landed
+  on main. `scan --input shodan:<q>|censys:<q>|fofa:<q>|
+  zoomeye:<q>` with `--api-creds-file <path.yaml>`. 0600
+  perm enforcement at load. KnownFields strict. 1 rps per
+  provider. 11 tests.
+- 2026-04-24 — **v1.9 chunk 2 (Modbus proxy-session
+  dry-run)** landed on main. New subcommand `write modbus
+  proxy-dry-run`. --function (repeatable) + optional --unit
+  + --address-from/--address-to. --emit-allow-file guard
+  against YAML schema limitation. 6 tests.
+- 2026-04-24 — **v1.9 chunk 1 (OPC UA NodeID YAML round-
+  trip)** landed on main. proxyAllowFile gains NodeIDs
+  field with yaml `node_ids:`. buildOPCUAHandler wires
+  opts.nodeIDs → AllowedNodeIDs. buildAllowFileOPCUA
+  serialises sorted NodeIDs. Existing v1.6 tests still
+  pass. 4 new tests for round-trip.
 - 2026-04-23 — **v1.8.0 PUBLISHED on GitHub Releases** as the
   first community release. Artefacts (4 platform tarballs + 4
   CycloneDX SBOMs + checksums.txt) built locally with

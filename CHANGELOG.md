@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-04-24
+
+Five chunks that close carry-overs, complete the attack-surface
+input story, and add a concrete toll-fraud mitigation.
+
+### Added
+
+- **OPC UA NodeID YAML round-trip.** The `--allow-file` emitter
+  + loader now persist per-NodeId allowlist entries as
+  structured `node_ids:` entries. Closes the v1.6 → v1.8 gap
+  where the per-NodeId gate had CLI support but the YAML
+  round-trip silently dropped NodeIDs.
+- **`elsereno write modbus proxy-dry-run`** — session-level
+  dry-run for the Modbus write-gate. Closes the write-surface
+  asymmetry (now all 6 gated plugins — sip/iax2/pbxhttp/opcua/
+  bacnet/modbus — have proxy-session dry-runs).
+- **`elsereno scan --input <provider>:<query>`** — CLI wire-up
+  for the 4 attack-surface input clients (shodan, censys, fofa,
+  zoomeye). Credentials via `--api-creds-file <path.yaml>` with
+  0600 permission enforcement and strict unknown-field
+  rejection.
+- **`internal/inputs/onyphe`** — 5th provider. ONYPHE (onyphe.io)
+  uses OQL query syntax embedded in the URL path + `bearer`
+  auth header. Wired into `scan --input onyphe:<q>`.
+- **SIP INVITE To-URI prefix allowlist.** New opt-in field
+  `WriteGatedHandler.AllowedToURIPrefixes` on the SIP
+  write-gate. When non-empty, INVITE passes only when the To:
+  header's URI user-part starts with one of the operator-
+  supplied prefixes. Canonical use-case: allow INVITE but only
+  to whitelisted destinations (e.g. "+34", "+44") while
+  rejecting "+900" premium-rate prefixes that are favourite
+  toll-fraud vectors. Other methods (REGISTER, MESSAGE, …)
+  unaffected.
+
+### Changed
+
+- `proxyAllowFile` YAML schema gains two v1.9 fields:
+  `node_ids:` (list of `{namespace, identifier}`) for opcua +
+  `to_prefixes:` (string list) for sip. Both `omitempty` so
+  v1.4-v1.8 emitted files stay backwards-compatible.
+- `buildSIPHandler` + `buildOPCUAHandler` now pass the new
+  optional fields (`AllowedToURIPrefixes`, `AllowedNodeIDs`)
+  through to the write-gate.
+- SIP + OPC UA `AllowlistHash` gain `WithPrefixes` /
+  `WithNodeIDs` companions that degrade to the v1.4 / v1.6
+  hash when the new dimension is empty — existing operator
+  tokens remain valid.
+
+### Deferred to v1.10+
+
+- SIP REGISTER AOR allowlist (sister to chunk 5's INVITE prefix
+  list; blocks registration hijack).
+- Modbus per-(unit, fc, addr-range) structured YAML (closes
+  chunk 2's `--unit`/`--address-*` + `--emit-allow-file`
+  incompatibility).
+- OPC UA multi-WriteValue allowlist (v1.6 + v1.9 chunk 1 check
+  the first WriteValue only).
+- OPC UA String/Guid/ByteString NodeID encodings (chunk 1 is
+  numeric-only).
+- OPC UA CallRequest per-object allowlist.
+- BACnet per-object allowlist (ASN.1 BER parsing).
+- CWMP offensive proxy (SOAP RPC allowlist — fingerprint shipped
+  in v1.4).
+
 ## [1.8.0] — 2026-04-23
 
 ### Added

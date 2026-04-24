@@ -1,18 +1,22 @@
 ---
-phase: v1.8-published
-status: v1.8.0 published on GitHub (first community release, free-tier flow)
-last-updated: 2026-04-23
+phase: v1.9-released
+status: v1.9.0 tagged locally; 5 chunks close carry-overs + add toll-fraud gate
+last-updated: 2026-04-24
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.8.0 publicado** en GitHub Releases
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0).
-Primera release pública con artefactos descargables. Flujo
-free-tier: goreleaser local + `gh release upload`, sin CI.
-Verificación: GPG tag (`git tag -v v1.8.0`) + SHA-256 +
-CycloneDX SBOMs.
+**Phase**: v1.9.0 firmado localmente (pendiente de publicar en
+GitHub Releases). 5-chunk cycle que cierra carry-overs de
+v1.6/v1.7 (OPC UA NodeID YAML round-trip, Modbus proxy-session
+dry-run), completa la integración de inputs (CLI wire-up para
+los 4 proveedores + ONYPHE como 5º), y añade mitigación
+concreta anti-toll-fraud en la gate SIP (prefix allowlist para
+INVITE destinations).
+
+v1.8.0 sigue publicado en
+https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0.
 
 GitHub Actions workflows quedaron desactivados (trigger
 cambiado a `workflow_dispatch` only) después de que todos
@@ -62,6 +66,12 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
   tests across the two packages. CLI wire-up decision is a
   v1.9 carry-over. See `.context/snapshots/v1.8.0-fofa-
   zoomeye-inputs.md`.
+- **v1.9.0** (2026-04-24, local) — 5 chunks: OPC UA NodeID
+  YAML round-trip, Modbus proxy-session dry-run, CLI wire-up
+  for Shodan/Censys/FOFA/ZoomEye via `scan --input`, ONYPHE
+  input client (5th provider), SIP INVITE To-URI prefix
+  allowlist for toll-fraud mitigation. 33 new tests. See
+  `.context/snapshots/v1.9.0-roundtrip-inputs-toll.md`.
 
 **v1.4.0 chunks** (all landed):
 - `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
@@ -101,17 +111,24 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 - `da41262` chunk 1 — FOFA input client + 5 tests.
 - `315ad0c` chunk 2 — ZoomEye input client + 5 tests.
 
-**v1.9+ roadmap** (see `TODO-vNext.md`):
-- CLI wire-up for FOFA + ZoomEye (three options: extend
-  `--input fofa:<query>` / new `elsereno search` verb / vault
-  storage via `elsereno creds store <provider>`).
-- Modbus proxy-session dry-run.
-- ONYPHE input client.
-- BACnet per-object allowlist (same shape as OPC UA v1.6
-  chunk 2, ASN.1 BER parsing).
-- SIP To-URI E.164 prefix allowlist for INVITE (toll-
-  destination blocking).
-- REGISTER AOR allowlist.
+**v1.9.0 chunks** (all landed):
+- `08ec93a` chunk 1 — OPC UA NodeID YAML round-trip.
+- `942f3fb` chunk 2 — Modbus proxy-session dry-run.
+- `a509b2e` chunk 3 — CLI wire-up for 4 input providers.
+- `62f8c6d` chunk 4 — ONYPHE input client (5th provider).
+- `18e91bf` chunk 5 — SIP INVITE To-URI prefix allowlist.
+
+**v1.10+ roadmap** (see `TODO-vNext.md`):
+- SIP REGISTER AOR allowlist (toll-fraud twin of v1.9 chunk 5).
+- Modbus per-(unit,fc,addr) structured YAML schema (closes
+  v1.9 chunk 2 `--unit`/`--address-*` + `--emit-allow-file`
+  incompatibility).
+- OPC UA multi-node WriteRequest allowlist (chunk 1 checks
+  first WriteValue only).
+- OPC UA String/Guid/ByteString NodeID encoding (chunk 1 is
+  numeric-only).
+- OPC UA CallRequest per-object allowlist.
+- BACnet per-object allowlist (ASN.1 BER parsing).
 - CWMP offensive proxy (SOAP RPC allowlist).
 - HTTP paths beyond `/` for pbxhttp fingerprint (vendor-
   specific `/admin/config.php`, `/webclient/`, `/ccmadmin/`).
