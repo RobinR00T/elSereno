@@ -110,12 +110,20 @@ func TestReadTargetsFromProvider_EmptyQuery(t *testing.T) {
 
 func TestReadTargetsFromProvider_UnknownProvider(t *testing.T) {
 	p := writeCredsTempYAML(t, `shodan: {key: x}`, 0o600)
-	_, err := readTargetsFromProvider(context.Background(), "onyphe", "cat:ics", p)
+	_, err := readTargetsFromProvider(context.Background(), "binaryedge", "cat:ics", p)
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}
 	if !strings.Contains(err.Error(), "unknown provider") {
 		t.Errorf("message should mention unknown provider: %v", err)
+	}
+}
+
+func TestReadTargetsFromProvider_MissingOnypheKey(t *testing.T) {
+	p := writeCredsTempYAML(t, `shodan: {key: x}`, 0o600)
+	_, err := readTargetsFromProvider(context.Background(), "onyphe", "q", p)
+	if err == nil {
+		t.Fatal("expected error for missing onyphe.key")
 	}
 }
 

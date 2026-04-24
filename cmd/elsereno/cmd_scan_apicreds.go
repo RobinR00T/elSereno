@@ -12,6 +12,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/inputs/censys"
 	"local/elsereno/internal/inputs/fofa"
+	"local/elsereno/internal/inputs/onyphe"
 	"local/elsereno/internal/inputs/shodan"
 	"local/elsereno/internal/inputs/zoomeye"
 )
@@ -47,6 +48,9 @@ type apiCreds struct {
 	ZoomEye struct {
 		Key string `yaml:"key"`
 	} `yaml:"zoomeye"`
+	Onyphe struct {
+		Key string `yaml:"key"`
+	} `yaml:"onyphe"`
 }
 
 // loadAPICreds reads + parses the creds file. Enforces 0600
@@ -106,8 +110,10 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 		return readFOFATargets(ctx, creds, query)
 	case "zoomeye":
 		return readZoomEyeTargets(ctx, creds, query)
+	case "onyphe":
+		return readOnypheTargets(ctx, creds, query)
 	}
-	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye)", provider)
+	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe)", provider)
 }
 
 func readShodanTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
@@ -148,6 +154,17 @@ func readZoomEyeTargets(ctx context.Context, creds apiCreds, query string) ([]co
 		return nil, fmt.Errorf("zoomeye: missing `zoomeye.key` in --api-creds-file")
 	}
 	c, err := zoomeye.New(creds.ZoomEye.Key, 1)
+	if err != nil {
+		return nil, err
+	}
+	return c.Search(ctx, query, 1) // page 1 — pagination is v1.10
+}
+
+func readOnypheTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
+	if creds.Onyphe.Key == "" {
+		return nil, fmt.Errorf("onyphe: missing `onyphe.key` in --api-creds-file")
+	}
+	c, err := onyphe.New(creds.Onyphe.Key, 1)
 	if err != nil {
 		return nil, err
 	}

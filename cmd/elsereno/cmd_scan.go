@@ -38,9 +38,9 @@ func newScanCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&opts.inputKind, "input", "",
-		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query>")
+		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query> | onyphe:<query>")
 	cmd.Flags().StringVar(&opts.apiCredsFile, "api-creds-file", "",
-		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:")
+		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:/onyphe:")
 	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "path to scope.yaml (optional)")
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
@@ -227,9 +227,12 @@ func readTargets(ctx context.Context, opts scanOpts) ([]core.Target, error) {
 	case strings.HasPrefix(opts.inputKind, "zoomeye:"):
 		return readTargetsFromProvider(ctx, "zoomeye",
 			strings.TrimPrefix(opts.inputKind, "zoomeye:"), opts.apiCredsFile)
+	case strings.HasPrefix(opts.inputKind, "onyphe:"):
+		return readTargetsFromProvider(ctx, "onyphe",
+			strings.TrimPrefix(opts.inputKind, "onyphe:"), opts.apiCredsFile)
 	default:
 		return nil, fmt.Errorf(
-			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q>",
+			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q>",
 			opts.inputKind)
 	}
 }
