@@ -56,6 +56,31 @@ const (
 // plugin allowlist flags are derived from the file. If any of
 // those flags are ALSO supplied on the command line, the file
 // wins (with a printed warning).
+// proxyModbusWrite is the YAML-structured form of a Modbus
+// AllowedWrite entry for the modbus per-write allowlist (v1.12+).
+// When non-nil, writes: entries are merged with any legacy
+// `functions:` list so the loader keeps v1.9 tokens stable.
+//
+// Example:
+//
+//	writes:
+//	  - unit: 1
+//	    fc: 6
+//	    start: 100
+//	    end: 200
+//	  - unit: 2
+//	    fc: 16
+//	  - fc: 5  # any unit, any address
+//
+// Each field is optional: `unit: 0` (or omitted) matches any
+// unit; start+end both omitted match any address.
+type proxyModbusWrite struct {
+	Unit  uint8  `yaml:"unit,omitempty"`
+	FC    uint8  `yaml:"fc"`
+	Start uint16 `yaml:"start,omitempty"`
+	End   uint16 `yaml:"end,omitempty"`
+}
+
 // proxyNodeID is the YAML-structured form of an OPC UA NodeID
 // for the opcua per-node allowlist. Two shapes supported:
 //
@@ -87,17 +112,18 @@ type proxyAllowFile struct {
 	// on the fields relevant to this plugin — a sip dry-run's
 	// emit-allow-file shouldn't drop empty `subclasses: []` or
 	// `functions: []` keys into the file.
-	Methods        []string      `yaml:"methods,omitempty"`         // sip
-	ToPrefixes     []string      `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
-	AORs           []string      `yaml:"aors,omitempty"`            // sip (v1.10+) — REGISTER AOR allowlist
-	Subclasses     []string      `yaml:"subclasses,omitempty"`      // iax2
-	Allow          []string      `yaml:"allow,omitempty"`           // pbxhttp
-	Functions      []uint        `yaml:"functions,omitempty"`       // modbus
-	Services       []uint        `yaml:"services,omitempty"`        // opcua
-	NodeIDs        []proxyNodeID `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
-	ServiceChoices []uint        `yaml:"service_choices,omitempty"` // bacnet
-	RPCs           []string      `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
-	ParamPrefixes  []string      `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
+	Methods        []string           `yaml:"methods,omitempty"`         // sip
+	ToPrefixes     []string           `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
+	AORs           []string           `yaml:"aors,omitempty"`            // sip (v1.10+) — REGISTER AOR allowlist
+	Subclasses     []string           `yaml:"subclasses,omitempty"`      // iax2
+	Allow          []string           `yaml:"allow,omitempty"`           // pbxhttp
+	Functions      []uint             `yaml:"functions,omitempty"`       // modbus (legacy: FC-only, any unit/addr)
+	Writes         []proxyModbusWrite `yaml:"writes,omitempty"`          // modbus (v1.12+: structured unit+fc+start+end)
+	Services       []uint             `yaml:"services,omitempty"`        // opcua
+	NodeIDs        []proxyNodeID      `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
+	ServiceChoices []uint             `yaml:"service_choices,omitempty"` // bacnet
+	RPCs           []string           `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
+	ParamPrefixes  []string           `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -134,7 +160,7 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 	case pluginNamePBXHTTP:
 		opts.allowEntries = af.Allow
 	case pluginNameModbus:
-		opts.functions = af.Functions
+		applyModbusAllowFile(&af, opts)
 	case pluginNameOPCUA:
 		applyOPCUAAllowFile(&af, opts)
 	case pluginNameBACnet:
@@ -146,6 +172,20 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
 	}
 	return nil
+}
+
+// applyModbusAllowFile populates proxyListenOpts from the modbus
+// plugin's YAML. Merges the legacy `functions:` list (v1.9+, FC-
+// only, any unit / any address) with the v1.12+ structured
+// `writes:` entries. Both produce uniform modbusWrites entries;
+// the handler does not distinguish between them.
+func applyModbusAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
+	opts.functions = af.Functions
+	if len(af.Writes) == 0 {
+		return
+	}
+	opts.modbusWritesYAML = make([]proxyModbusWrite, 0, len(af.Writes))
+	opts.modbusWritesYAML = append(opts.modbusWritesYAML, af.Writes...)
 }
 
 // applyOPCUAAllowFile populates proxyListenOpts from the opcua

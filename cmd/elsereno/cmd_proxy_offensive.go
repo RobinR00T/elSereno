@@ -69,7 +69,8 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.aors, "aor", nil, "sip: optional REGISTER AOR allowlist (e.g. sip:alice@pbx.internal, repeatable). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	cmd.Flags().StringSliceVar(&opts.subclasses, "subclass", nil, "iax2: gated subclasses to allow (NEW/REGREQ/AUTHREP/ACCEPT)")
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
-	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
+	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form — any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
+	cmd.Flags().StringSliceVar(&opts.modbusWritesCLI, "write", nil, "modbus: structured allowlist entry unit=N;fc=M;start=A;end=B (repeatable). unit/start/end are optional (0 = any). Example: unit=1;fc=6;start=100;end=200. v1.12+.")
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (repeatable). Accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring). Tightens the gate from service-TypeID to specific NodeIds; v1.12+ walks every WriteValue in a batched WriteRequest (v1.6 chunk 2 only checked the first).")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
@@ -117,7 +118,17 @@ type proxyListenOpts struct {
 	// "InternetGatewayDevice.WANDevice.") that constrain Set*
 	// RPCs to specific sub-trees. Case-sensitive. Empty → RPC-
 	// only gating (v1.11 behaviour).
-	paramPrefixes                       []string
+	paramPrefixes []string
+	// modbusWritesCLI holds structured --write flag values in
+	// their CLI string form ("unit=N;fc=M;start=A;end=B"). v1.12
+	// chunk 4 adds per-entry unit+FC+address-range granularity.
+	// Parsed in buildModbusHandler; merged with opts.functions.
+	modbusWritesCLI []string
+	// modbusWritesYAML holds structured entries loaded from the
+	// allow-file's `writes:` field. Kept separate from CLI so the
+	// loader can overwrite without losing the legacy functions
+	// list (which may also be present in the same YAML).
+	modbusWritesYAML                    []proxyModbusWrite
 	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
@@ -301,13 +312,9 @@ func buildPBXHTTPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.C
 }
 
 func buildModbusHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*modwrite.WriteGatedHandler, error) {
-	allowed := make([]modwrite.AllowedWrite, 0, len(opts.functions))
-	for _, f := range opts.functions {
-		fc, err := parseByteFlag("--function", f)
-		if err != nil {
-			return nil, err
-		}
-		allowed = append(allowed, modwrite.AllowedWrite{FC: mbwire.FunctionCode(fc)})
+	allowed, err := buildModbusAllowlist(opts)
+	if err != nil {
+		return nil, err
 	}
 	return &modwrite.WriteGatedHandler{
 		Target:         opts.target,
@@ -316,6 +323,38 @@ func buildModbusHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
 	}, nil
+}
+
+// buildModbusAllowlist merges the three input sources a proxy-
+// listen session can carry: legacy --function FC list, the v1.12
+// --write structured flags, and the allow-file's `writes:` YAML
+// entries. Produces the flat []AllowedWrite the library expects.
+func buildModbusAllowlist(opts proxyListenOpts) ([]modwrite.AllowedWrite, error) {
+	allowed := make([]modwrite.AllowedWrite, 0,
+		len(opts.functions)+len(opts.modbusWritesCLI)+len(opts.modbusWritesYAML))
+	for _, f := range opts.functions {
+		fc, err := parseByteFlag("--function", f)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, modwrite.AllowedWrite{FC: mbwire.FunctionCode(fc)})
+	}
+	for _, raw := range opts.modbusWritesCLI {
+		w, err := parseModbusWriteFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, w)
+	}
+	for _, w := range opts.modbusWritesYAML {
+		allowed = append(allowed, modwrite.AllowedWrite{
+			Unit:      w.Unit,
+			FC:        mbwire.FunctionCode(w.FC),
+			StartAddr: w.Start,
+			EndAddr:   w.End,
+		})
+	}
+	return allowed, nil
 }
 
 func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*opwrite.WriteGatedHandler, error) {

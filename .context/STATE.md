@@ -158,6 +158,9 @@ Chunks (in planned order):
    CLI accepts ns=N;{s,g,b}=… + YAML `canonical:` field +
    fail-closed multi-node walk. 17 new tests.
 4. Modbus structured `writes:` YAML (unit + FC + addr range).
+   **Landed** — `proxyModbusWrite` YAML struct + `--write`
+   CLI flag + round-trip hash stability + emit guard lifted.
+   7 new tests.
 5. SIP from-domain allowlist (complements v1.10 AOR gate).
 6. OPC UA CallRequest per-object allowlist.
 7. BACnet per-object allowlist (ASN.1 BER parsing).

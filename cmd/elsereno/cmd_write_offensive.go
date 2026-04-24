@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,6 +19,87 @@ import (
 	"local/elsereno/offensive/sandbox"
 	modwrite "local/elsereno/offensive/write/modbus"
 )
+
+// parseModbusWriteFlag parses a --write value in the form
+// `unit=N;fc=M;start=A;end=B` into an AllowedWrite. `fc` is
+// required; `unit` / `start` / `end` default to 0 (any).
+// Spaces around tokens are tolerated.
+func parseModbusWriteFlag(s string) (modwrite.AllowedWrite, error) {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return modwrite.AllowedWrite{}, fmt.Errorf("--write %q: empty", s)
+	}
+	var out modwrite.AllowedWrite
+	var fcSeen bool
+	for _, p := range strings.Split(raw, ";") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		key, n, err := splitModbusWriteToken(s, p)
+		if err != nil {
+			return modwrite.AllowedWrite{}, err
+		}
+		if err := applyModbusWriteKey(s, key, n, &out, &fcSeen); err != nil {
+			return modwrite.AllowedWrite{}, err
+		}
+	}
+	if !fcSeen {
+		return modwrite.AllowedWrite{}, fmt.Errorf("--write %q: fc= is required", s)
+	}
+	if out.StartAddr > out.EndAddr && out.EndAddr != 0 {
+		return modwrite.AllowedWrite{}, fmt.Errorf("--write %q: start=%d > end=%d", s, out.StartAddr, out.EndAddr)
+	}
+	return out, nil
+}
+
+// splitModbusWriteToken validates one KEY=VALUE pair and returns
+// (lowercase-key, numeric-value).
+func splitModbusWriteToken(orig, p string) (string, uint64, error) {
+	kv := strings.SplitN(p, "=", 2)
+	if len(kv) != 2 {
+		return "", 0, fmt.Errorf("--write %q: each token is KEY=VALUE", orig)
+	}
+	key := strings.ToLower(strings.TrimSpace(kv[0]))
+	val := strings.TrimSpace(kv[1])
+	n, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
+		return "", 0, fmt.Errorf("--write %q: %s %q is not a number", orig, key, val)
+	}
+	return key, n, nil
+}
+
+// applyModbusWriteKey folds one parsed KEY=VALUE into the
+// destination AllowedWrite. Also updates fcSeen when key==fc so
+// the caller can enforce the required-field check.
+func applyModbusWriteKey(orig, key string, n uint64, out *modwrite.AllowedWrite, fcSeen *bool) error {
+	switch key {
+	case "unit":
+		if n > 0xFF {
+			return fmt.Errorf("--write %q: unit must fit in uint8", orig)
+		}
+		out.Unit = uint8(n & 0xFF)
+	case "fc":
+		if n == 0 || n > 0xFF {
+			return fmt.Errorf("--write %q: fc must be 1-255", orig)
+		}
+		out.FC = mbwire.FunctionCode(n & 0xFF)
+		*fcSeen = true
+	case "start":
+		if n > 0xFFFF {
+			return fmt.Errorf("--write %q: start must fit in uint16", orig)
+		}
+		out.StartAddr = uint16(n & 0xFFFF)
+	case "end":
+		if n > 0xFFFF {
+			return fmt.Errorf("--write %q: end must fit in uint16", orig)
+		}
+		out.EndAddr = uint16(n & 0xFFFF)
+	default:
+		return fmt.Errorf("--write %q: unknown key %q (expected unit, fc, start, or end)", orig, key)
+	}
+	return nil
+}
 
 func newWriteCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -61,12 +145,15 @@ func newWriteModbusCmd() *cobra.Command {
 }
 
 // modbusProxyFlags groups the CLI flags for the v1.9 chunk 2
-// session dry-run so the RunE body stays short (funlen).
+// session dry-run so the RunE body stays short (funlen). v1.12
+// chunk 4 adds writes: repeated --write flag for structured
+// (unit, FC, address-range) entries that round-trip through YAML.
 type modbusProxyFlags struct {
 	target, ppFile, emitFile string
 	functions                []uint
 	unit                     uint8
 	addrFrom, addrTo         uint16
+	writes                   []string // v1.12+: structured "unit=N;fc=M;start=A;end=B"
 }
 
 // newWriteModbusProxyDryRunCmd — v1.9 chunk 2.
@@ -96,10 +183,11 @@ Function codes: 5 (WriteSingleCoil), 6 (WriteSingleRegister),
 		},
 	}
 	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the Modbus/TCP device we'll proxy to)")
-	cmd.Flags().UintSliceVar(&f.functions, "function", nil, "function code(s) to allow — repeatable; e.g. 6 16")
+	cmd.Flags().UintSliceVar(&f.functions, "function", nil, "function code(s) to allow — repeatable; e.g. 6 16 (legacy; pairs with --unit/--address-from/--address-to to produce one allow-entry shared by every FC)")
 	cmd.Flags().Uint8Var(&f.unit, "unit", 0, "optional: Modbus unit identifier (0 = any)")
 	cmd.Flags().Uint16Var(&f.addrFrom, "address-from", 0, "optional: inclusive start of address range")
 	cmd.Flags().Uint16Var(&f.addrTo, "address-to", 0, "optional: inclusive end of address range")
+	cmd.Flags().StringSliceVar(&f.writes, "write", nil, "v1.12+: structured per-entry allowlist unit=N;fc=M;start=A;end=B (repeatable). fc= is required; unit/start/end default to 0 (any). Round-trips through --emit-allow-file.")
 	addPassphraseFileFlag(cmd, &f.ppFile)
 	addEmitAllowFileFlag(cmd, &f.emitFile)
 	return cmd
@@ -109,8 +197,8 @@ func runWriteModbusProxyDryRun(cmd *cobra.Command, f modbusProxyFlags) error {
 	if f.target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required"))
 	}
-	if len(f.functions) == 0 {
-		return fail(core.ExitUsage, errors.New("--function is required (repeatable). See `--help` for FC list"))
+	if len(f.functions) == 0 && len(f.writes) == 0 {
+		return fail(core.ExitUsage, errors.New("--function or --write is required (repeatable). See `--help` for FC list"))
 	}
 	allowed, err := buildModbusProxyAllowlist(f)
 	if err != nil {
@@ -125,7 +213,7 @@ func runWriteModbusProxyDryRun(cmd *cobra.Command, f modbusProxyFlags) error {
 }
 
 func buildModbusProxyAllowlist(f modbusProxyFlags) ([]modwrite.AllowedWrite, error) {
-	allowed := make([]modwrite.AllowedWrite, 0, len(f.functions))
+	allowed := make([]modwrite.AllowedWrite, 0, len(f.functions)+len(f.writes))
 	for _, fc := range f.functions {
 		if fc > 0xFF {
 			return nil, fail(core.ExitUsage, fmt.Errorf("--function %d: must be 0-255", fc))
@@ -137,6 +225,13 @@ func buildModbusProxyAllowlist(f modbusProxyFlags) ([]modwrite.AllowedWrite, err
 			EndAddr:   f.addrTo,
 		})
 	}
+	for _, raw := range f.writes {
+		w, err := parseModbusWriteFlag(raw)
+		if err != nil {
+			return nil, fail(core.ExitUsage, err)
+		}
+		allowed = append(allowed, w)
+	}
 	return allowed, nil
 }
 
@@ -144,41 +239,106 @@ func printModbusProxySummary(cmd *cobra.Command, f modbusProxyFlags, mut confirm
 	cmd.Printf("Protocol:     modbus\n")
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Functions:    %s\n", canonUintList(f.functions))
-	if f.unit == 0 {
-		cmd.Printf("Unit:         any (0)\n")
-	} else {
-		cmd.Printf("Unit:         %d\n", f.unit)
+	if len(f.functions) > 0 {
+		cmd.Printf("Functions:    %s\n", canonUintList(f.functions))
+		if f.unit == 0 {
+			cmd.Printf("Unit:         any (0)\n")
+		} else {
+			cmd.Printf("Unit:         %d\n", f.unit)
+		}
+		if f.addrFrom == 0 && f.addrTo == 0 {
+			cmd.Printf("AddressRange: any\n")
+		} else {
+			cmd.Printf("AddressRange: %d..%d\n", f.addrFrom, f.addrTo)
+		}
 	}
-	if f.addrFrom == 0 && f.addrTo == 0 {
-		cmd.Printf("AddressRange: any\n")
-	} else {
-		cmd.Printf("AddressRange: %d..%d\n", f.addrFrom, f.addrTo)
+	if len(f.writes) > 0 {
+		cmd.Printf("Writes:       %d structured entries\n", len(f.writes))
+		for _, raw := range f.writes {
+			cmd.Printf("  - %s\n", raw)
+		}
 	}
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
 
 // maybeEmitModbusProxyAllow writes the YAML allow-file when
-// --emit-allow-file is set. Guards against the footgun where
-// --unit / --address-* tighten the gate but the YAML schema
-// only stores `functions:` — emitting would silently widen the
-// gate on round-trip and invalidate the confirm-token.
+// --emit-allow-file is set. v1.12 chunk 4 closes the v1.9 carry-
+// over: structured --write entries round-trip cleanly through
+// the new `writes:` YAML field, so the guard against --unit /
+// --address-* + emit is lifted — those legacy flags now
+// materialise as a single `writes:` entry in the emitted file.
 func maybeEmitModbusProxyAllow(cmd *cobra.Command, f modbusProxyFlags) error {
 	p, err := ensureAllowFilePath(f.emitFile)
 	if err != nil {
 		return nil //nolint:nilerr // missing --emit-allow-file is not an error
 	}
-	if f.unit != 0 || f.addrFrom != 0 || f.addrTo != 0 {
-		return fail(core.ExitUsage, errors.New(
-			"--emit-allow-file is not compatible with --unit or --address-from/--address-to today (the YAML schema stores `functions:` only; unit + address-range round-trip is a v1.10 carry-over). "+
-				"Either drop --unit/--address-* to emit a function-only YAML, or pass --unit/--address-* directly to `elsereno proxy listen` instead of using --allow-file"))
-	}
-	af := proxyAllowFile{
-		Plugin:    pluginNameModbus,
-		Target:    f.target,
-		Functions: canonUints(f.functions),
-	}
+	af := buildAllowFileModbus(f)
 	return emitAllowFile(cmd, p, af)
+}
+
+// buildAllowFileModbus emits the modbus allow-file. Legacy
+// --function + --unit + --address-* combinations collapse into
+// one `writes:` entry per FC. Structured --write entries pass
+// through verbatim.
+func buildAllowFileModbus(f modbusProxyFlags) proxyAllowFile {
+	af := proxyAllowFile{
+		Plugin: pluginNameModbus,
+		Target: f.target,
+	}
+	// Legacy path: if --unit/--address-* are default, still keep
+	// the compact `functions:` shape (preserves v1.9 YAML form).
+	// Otherwise lift each FC into a structured writes: entry so
+	// the gate tightening survives the round-trip.
+	legacyIsPlain := f.unit == 0 && f.addrFrom == 0 && f.addrTo == 0
+	if legacyIsPlain && len(f.functions) > 0 {
+		af.Functions = canonUints(f.functions)
+	} else {
+		for _, fc := range f.functions {
+			af.Writes = append(af.Writes, proxyModbusWrite{
+				Unit:  f.unit,
+				FC:    uint8(fc & 0xFF),
+				Start: f.addrFrom,
+				End:   f.addrTo,
+			})
+		}
+	}
+	// Structured --write entries round-trip verbatim.
+	for _, raw := range f.writes {
+		w, err := parseModbusWriteFlag(raw)
+		if err != nil {
+			// Upstream pre-check already validated; skip silently.
+			continue
+		}
+		af.Writes = append(af.Writes, proxyModbusWrite{
+			Unit:  w.Unit,
+			FC:    uint8(w.FC),
+			Start: w.StartAddr,
+			End:   w.EndAddr,
+		})
+	}
+	// Sort `writes:` for determinism (by unit, fc, start, end).
+	if len(af.Writes) > 0 {
+		sortProxyModbusWrites(af.Writes)
+	}
+	return af
+}
+
+// sortProxyModbusWrites orders entries by (unit, fc, start, end)
+// so round-trip emission is stable. Mirrors the library's
+// AllowlistHash sort order.
+func sortProxyModbusWrites(w []proxyModbusWrite) {
+	sort.Slice(w, func(i, j int) bool {
+		if w[i].Unit != w[j].Unit {
+			return w[i].Unit < w[j].Unit
+		}
+		if w[i].FC != w[j].FC {
+			return w[i].FC < w[j].FC
+		}
+		if w[i].Start != w[j].Start {
+			return w[i].Start < w[j].Start
+		}
+		return w[i].End < w[j].End
+	})
 }
 
 // buildModbusRequest is the shared flag-parsing helper for both the

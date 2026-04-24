@@ -240,6 +240,24 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.12 chunk 4 landed.** Modbus structured
+  `writes:` YAML closes the v1.9 chunk 2 carry-over. New YAML
+  struct `proxyModbusWrite{Unit, FC, Start, End}` alongside the
+  legacy `functions:` list; loader merges both into one
+  `[]AllowedWrite`. CLI gains `--write unit=N;fc=M;start=A;end=B`
+  (repeatable, validating: fc required; unit/start/end default
+  to 0 = any). Emit-allow-file guard lifted — legacy
+  `--function + --unit + --address-*` combinations now
+  materialise as a `writes:` entry per FC so the gate tightening
+  survives round-trip (previously refused with "not compatible"
+  error). `parseModbusWriteFlag` refactored across
+  `splitModbusWriteToken` + `applyModbusWriteKey` for
+  gocyclo. 7 new tests: parser valid × 4 input shapes, parser
+  invalid × 8 rejection cases, tight-gate round-trip, structured-
+  write flag output, structured-write round-trip, hash-stable
+  round-trip. Library hash unchanged — the existing
+  `AllowlistHash` already sorted by (unit, FC, start, end), so
+  operators who only used `functions:` keep their v1.9 tokens.
 - 2026-04-24 — **v1.12 chunk 3 landed.** OPC UA String / GUID /
   ByteString NodeID encodings reach the per-node gate. Rich
   wire parser: `NodeIDValue{Namespace, Kind, Numeric, String,
