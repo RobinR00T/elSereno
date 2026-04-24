@@ -35,11 +35,11 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.9.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.9.0)**
+Latest release: **[v1.10.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.10.0)**
 — YAML round-trip + 5-provider input CLI + SIP toll-fraud gate.
 
 ```sh
-VERSION=1.9.0
+VERSION=1.10.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -66,7 +66,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.8.0
+git tag -v v1.10.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 

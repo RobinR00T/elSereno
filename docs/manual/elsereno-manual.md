@@ -966,7 +966,85 @@ Nota: la lista de prefijos solo aplica a INVITE. REGISTER,
 MESSAGE, SUBSCRIBE, etc. NO se ven afectados — esos métodos
 siguen con el gate método-nivel únicamente.
 
-#### 6.5.6 OPC UA per-NodeId (v1.6+)
+#### 6.5.6 SIP REGISTER AOR allowlist (v1.10+, anti-registration-hijack)
+
+El gemelo del INVITE prefix gate: mientras ese controla **dónde**
+pueden ir las llamadas, el AOR allowlist controla **quién** puede
+registrar un binding para recibirlas. Sin él, si un atacante
+consigue las creds SIP de `alice@pbx` (phishing, WiFi sniff,
+endpoint comprometido) puede registrar a `admin@pbx` apuntando a
+su IP y secuestrar las llamadas entrantes al AoR legítimo.
+
+```sh
+# dry-run: permite REGISTER pero sólo para dos AoRs concretos
+elsereno-offensive write sip dry-run \
+  --target pbx.ejemplo.com:5060 \
+  --method REGISTER \
+  --aor "sip:alice@pbx.ejemplo.com" \
+  --aor "sip:bob@pbx.ejemplo.com" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/sip-register-gate.yaml
+
+# Output:
+#   Protocol:     sip
+#   Target:       pbx.ejemplo.com:5060
+#   Allowed:      REGISTER
+#   Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK
+#   ToPrefixes:   (none — INVITE destination not constrained)
+#   AORs:         sip:alice@pbx.ejemplo.com, sip:bob@pbx.ejemplo.com
+#   PayloadHash:  ...
+#   ConfirmToken: <hex>
+```
+
+YAML emitido con `aors:` estructural (round-tripeable):
+
+```yaml
+plugin: sip
+target: pbx.ejemplo.com:5060
+methods:
+  - REGISTER
+aors:
+  - sip:alice@pbx.ejemplo.com
+  - sip:bob@pbx.ejemplo.com
+```
+
+Comportamiento del gate:
+
+| Request                                     | Gate verdict |
+|---------------------------------------------|-------------|
+| `REGISTER` con `To: <sip:alice@pbx…>`       | PASA (exact AOR match) |
+| `REGISTER` con `To: <sips:Alice@PBX.…>`     | PASA (canonicalise: scheme strip + host lowercase) |
+| `REGISTER` con `To: <sip:admin@pbx…>`       | REFUSED → 403 + `X-Elsereno-Gate-Reason: AOR not in session allowlist (REGISTER hijack guard)` |
+| `REGISTER` con `To:` vacío o malformado     | REFUSED (fail-closed) |
+| `INVITE sip:+34600@carrier`                 | PASA (AOR list solo gatea REGISTER) |
+| `OPTIONS sip:pbx SIP/2.0`                   | PASA (always-safe) |
+
+Match es **exacto** (no prefix) a propósito: un attacker que pase
+`alice.evil@pbx…` por tu allowlist NO debería pasar también
+`alice@pbx…`. La canonicalisación:
+
+- Strip `<...>` angle brackets
+- Strip `;tag=...` URI parameters
+- Strip `sip:` / `sips:` / `tel:` scheme
+- Lowercase el host (el user-part preservado case-sensitive per
+  RFC 3261 §19.1.1)
+
+Se puede combinar con `--to-prefix` en el mismo dry-run — ambas
+gates coexisten:
+
+```sh
+elsereno-offensive write sip dry-run \
+  --target pbx.ejemplo.com:5060 \
+  --method INVITE --method REGISTER \
+  --to-prefix "+34" --to-prefix "+44" \
+  --aor "sip:alice@pbx.ejemplo.com" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/sip-full-gate.yaml
+# INVITE gatea por prefix; REGISTER gatea por AOR; el YAML lleva
+# ambos bloques.
+```
+
+#### 6.5.7 OPC UA per-NodeId (v1.6+)
 
 El gate de OPC UA puede filtrar WriteRequests no sólo por
 TypeID sino también por NodeId del primer WriteValue:

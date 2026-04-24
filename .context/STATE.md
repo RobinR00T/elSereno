@@ -1,19 +1,23 @@
 ---
-phase: v1.9-released
-status: v1.9.0 tagged locally; 5 chunks close carry-overs + add toll-fraud gate
+phase: v1.10-released
+status: v1.10.0 tagged locally; SIP REGISTER AOR allowlist (registration-hijack mitigation)
 last-updated: 2026-04-24
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.9.0 firmado localmente (pendiente de publicar en
-GitHub Releases). 5-chunk cycle que cierra carry-overs de
-v1.6/v1.7 (OPC UA NodeID YAML round-trip, Modbus proxy-session
-dry-run), completa la integración de inputs (CLI wire-up para
-los 4 proveedores + ONYPHE como 5º), y añade mitigación
-concreta anti-toll-fraud en la gate SIP (prefix allowlist para
-INVITE destinations).
+**Phase**: v1.10.0 firmado localmente (pendiente de publicar
+en GitHub Releases). Single-chunk cycle que añade el gemelo
+anti-registration-hijack del INVITE prefix gate de v1.9 chunk
+5: allowlist exact-match de AoRs permitidas para REGISTER,
+fail-closed ante To: malformados, refusal protocol-native
+(SIP 403 + X-Elsereno-Gate-Reason). Hash backwards-compat:
+operadores sin `AllowedAORs` siguen con sus tokens v1.9 / v1.4
+válidos.
+
+v1.9.0 sigue publicado en GitHub Releases. v1.10.0 pendiente de
+build local + gh release upload.
 
 v1.8.0 sigue publicado en
 https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0.
@@ -66,6 +70,12 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
   tests across the two packages. CLI wire-up decision is a
   v1.9 carry-over. See `.context/snapshots/v1.8.0-fofa-
   zoomeye-inputs.md`.
+- **v1.10.0** (2026-04-24, local) — SIP REGISTER AOR allowlist
+  (anti-registration-hijack). Twin of v1.9 chunk 5's INVITE
+  prefix gate. Library + CLI (`--aor`) + YAML (`aors:`) +
+  proxy-listen wiring + 15 tests. Hash backwards-compat
+  preserves v1.4 / v1.9 tokens. See
+  `.context/snapshots/v1.10.0-sip-aor.md`.
 - **v1.9.0** (2026-04-24, local) — 5 chunks: OPC UA NodeID
   YAML round-trip, Modbus proxy-session dry-run, CLI wire-up
   for Shodan/Censys/FOFA/ZoomEye via `scan --input`, ONYPHE

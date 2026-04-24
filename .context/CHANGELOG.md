@@ -240,6 +240,22 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.10.0 closed.** Single-chunk cycle: SIP
+  REGISTER AOR allowlist (anti-registration-hijack). Twin of
+  v1.9 chunk 5's INVITE prefix gate — where that one controls
+  WHERE calls can go, this controls WHO can register a
+  binding. `AllowedAOR{AOR}` + `AllowlistHashWithAORs` +
+  `SessionMutationWithAORs` + `canonicaliseAOR` (strips scheme
+  / angle brackets / URI params; host lowercased, user part
+  preserved per RFC 3261 §19.1.1). `registerAORAllowed`
+  exact-match canonical compare; fail-closed on
+  empty/malformed To:. `writeRegisterForbidden` emits 403 +
+  X-Elsereno-Gate-Reason "AOR not in session allowlist
+  (REGISTER hijack guard)". CLI: `write sip dry-run --aor` +
+  `proxy listen --aor` + YAML `aors:`. Hash backwards-compat
+  ladder: empty aors → v1.9; empty aors AND empty prefixes →
+  v1.4. 15 tests (10 library + 5 YAML round-trip). Snapshot:
+  `.context/snapshots/v1.10.0-sip-aor.md`.
 - 2026-04-24 — **v1.9.0 closed.** Five-chunk cycle. Chunk 1
   closes the v1.6 per-NodeId → YAML round-trip gap (the
   `--allow-file` emitter + loader now persist `node_ids:`

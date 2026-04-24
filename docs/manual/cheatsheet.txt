@@ -1,7 +1,7 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.9.0 (YAML round-trip + input CLI + toll-fraud gate)
+Version  : v1.10.0 (REGISTER AOR allowlist — registration-hijack mitigation)
 Updated  : 2026-04-24
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
@@ -144,15 +144,20 @@ Siempre requiere:
 
 -- Write dry-run (deriva token) — 5 plugins + modbus legacy ---
 
-# SIP method allowlist + INVITE destination prefix allowlist (v1.9+)
+# SIP method allowlist + INVITE destination prefix (v1.9+)
+#                     + REGISTER AOR allowlist (v1.10+)
 elsereno-offensive write sip dry-run \
   --target pbx:5060 \
   --method INVITE --method REGISTER \
   --to-prefix "+34" --to-prefix "+44" \
+  --aor "sip:alice@pbx.internal" \
+  --aor "sip:bob@pbx.internal" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/sip-gate.yaml
-# INVITE to +34600... passes; INVITE to +900555 → 403 Forbidden +
-# X-Elsereno-Gate-Reason header. REGISTER not constrained by prefixes.
+# INVITE to +34600... passes; INVITE to +900555 → 403 Forbidden
+# + X-Elsereno-Gate-Reason header.
+# REGISTER to alice@ or bob@ passes; REGISTER to admin@ → 403 +
+# "AOR not in session allowlist" (registration-hijack guard).
 
 # IAX2 subclass allowlist (v1.5+)
 elsereno-offensive write iax2 dry-run \
@@ -223,6 +228,9 @@ elsereno-offensive proxy listen \
   modbus  → Exception 0x01 ILLEGAL_FUNCTION
   opcua   → UA ServiceFault StatusCode BadUserAccessDenied
   sip     → SIP/2.0 405 Method Not Allowed + Allow: header
+            + SIP/2.0 403 Forbidden + X-Elsereno-Gate-Reason
+              when INVITE To-URI prefix (v1.9) or REGISTER
+              AOR (v1.10) gates fire
   iax2    → IAX2 HANGUP frame al SrcCallNum del cliente
   pbxhttp → HTTP 405 (método) o HTTP 403 (path mismatch)
   bacnet  → BACnet Abort-PDU con reason security-error

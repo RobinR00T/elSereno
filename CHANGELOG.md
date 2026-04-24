@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-04-24
+
+### Added
+
+- **SIP REGISTER AOR allowlist** — anti-registration-hijack
+  twin of v1.9 chunk 5's INVITE prefix gate. Where the INVITE
+  prefix controls WHERE calls can go (toll-fraud mitigation),
+  this gate controls WHO can register a binding (registration-
+  hijack mitigation). Closes the second of the two main PBX-
+  abuse vectors.
+- **`AllowedAOR{AOR string}`** opt-in type on
+  `offensive/write/sip.WriteGatedHandler.AllowedAORs`. Exact-
+  match (not prefix): stolen creds for `alice@pbx` shouldn't
+  also let an attacker register `admin@pbx`.
+- **`AllowlistHashWithAORs(target, methods, prefixes, aors)`**
+  — new hash that mixes all three allowlist dimensions.
+  Backwards-compat: empty aors → v1.9 hash; empty aors AND
+  empty prefixes → v1.4 hash. 0xFE separator for the AORs
+  block (distinct from 0xFF prefix separator and ASCII method
+  bytes).
+- **`SessionMutationWithAORs`** factory; `Authorise()` now
+  calls this variant.
+- **`canonicaliseAOR`** helper — strips angle brackets, URI
+  parameters, `sip:`/`sips:`/`tel:` scheme; lowercases host;
+  preserves user-part case per RFC 3261 §19.1.1.
+- **`elsereno write sip dry-run --aor <AoR>`** CLI flag,
+  repeatable.
+- **`elsereno proxy listen --aor <AoR>`** CLI flag,
+  repeatable.
+- **YAML `aors:` field** in `proxyAllowFile` — round-trips
+  through emit → load back to `proxyListenOpts.aors`.
+
+### Changed
+
+- `buildAllowFileSIP` signature extended from 3-arg to 4-arg
+  `(target, methods, toPrefixes, aors)`. All 3 existing test
+  callers updated.
+- `forwardOne` path adds a parallel `REGISTER + AOR list`
+  branch to the existing `INVITE + prefix list` branch.
+  Failed `registerAORAllowed` emits 403 + `X-Elsereno-Gate-
+  Reason: AOR not in session allowlist (REGISTER hijack
+  guard)`.
+
+### Deferred to v1.11+
+
+- CWMP offensive proxy (SOAP RPC allowlist).
+- BACnet per-object allowlist (ASN.1 BER).
+- OPC UA String / Guid / ByteString NodeID encodings.
+- OPC UA multi-node per WriteRequest.
+- OPC UA CallRequest per-object allowlist.
+- Modbus structured `writes:` YAML (unit + FC + addr range).
+- SIGHUP reload of proxy listen allowlist.
+
 ## [1.9.0] — 2026-04-24
 
 Five chunks that close carry-overs, complete the attack-surface
