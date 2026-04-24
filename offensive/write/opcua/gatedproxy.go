@@ -80,6 +80,40 @@ type AllowedNodeID struct {
 	Identifier uint32
 }
 
+// AllowedCallMethod scopes a UA CallRequest to a specific
+// (ObjectID, MethodID) pair. When the handler's
+// AllowedCallMethods field is non-empty, a CallRequest MSG is
+// forwarded ONLY when:
+//
+//   - its service TypeID is in Allowed (the v1.2 service-level
+//     gate), AND
+//   - EVERY CallMethodRequest's (ObjectID, MethodID) pair
+//     matches one of these entries.
+//
+// Both fields are NodeIds in the canonical string form used by
+// AllowedCanonicalNodeID (see below): `ns=N;i=M` for numeric,
+// `ns=N;s=STR` for string, `ns=N;g=HEX` for GUID,
+// `ns=N;b=HEX` for ByteString. Exact match only — method calls
+// are capability-grants, so prefix / range matching is
+// deliberately not supported.
+//
+// v1.12 chunk 6: the complement to v1.12 chunk 3 for
+// WriteRequest NodeIds. Where chunk 3 gates `write this
+// variable`, this gates `call this method on this object` —
+// the other mutating-service surface area.
+//
+// Empty list disables the per-method gate (CallRequests still
+// allowed service-wide if 704 is in Allowed).
+type AllowedCallMethod struct {
+	// ObjectID is the canonical-string NodeId of the Object
+	// node the method is being called on (e.g. the Folder or
+	// Object containing the method). Exact match.
+	ObjectID string
+	// MethodID is the canonical-string NodeId of the Method
+	// node itself. Exact match.
+	MethodID string
+}
+
 // AllowedCanonicalNodeID is a UA NodeId in the canonical string
 // form the operator types on the CLI / YAML: `ns=N;i=M`,
 // `ns=N;s=STR`, `ns=N;g=HEXGUID`, `ns=N;b=HEXBYTES`. The v1.12
@@ -297,6 +331,116 @@ func SessionMutationWithRichNodeIDs(target string, services []AllowedService, no
 	}
 }
 
+// AllowlistHashWithCallMethods is the v1.12 chunk-6 hash that
+// adds a per-CallMethod (Object, Method) block on top of all
+// previous hash layers. Ladder:
+//
+//   - callMethods empty → equals AllowlistHashWithRichNodeIDs
+//     (v1.12 chunk 3).
+//   - callMethods + canonicalNodeIDs both empty → equals
+//     AllowlistHashWithNodeIDs (v1.6).
+//   - canonicalNodeIDs + numeric + callMethods all empty →
+//     equals AllowlistHash (v1.2).
+//
+// Hash layout (when callMethods is non-empty):
+//
+//	AllowlistHashWithRichNodeIDs output
+//	  || 0xFC || (len(object) BE16 + object || len(method) BE16 + method) × sorted_callMethods
+//
+// The 0xFC separator is chosen below 0xFD / 0xFE / 0xFF used by
+// previous blocks. Each entry is length-prefixed per field so
+// an attacker can't craft two lists whose concatenation
+// collides.
+func AllowlistHashWithCallMethods(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID, callMethods []AllowedCallMethod) [32]byte {
+	if len(callMethods) == 0 {
+		return AllowlistHashWithRichNodeIDs(target, services, nodeIDs, canonicalNodeIDs)
+	}
+	// Reuse the rich-node-ID hash body by recomputing inline; we
+	// can't append to an already-finalised sha256 output.
+	sortedSvc := append([]AllowedService(nil), services...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].TypeID < sortedSvc[j].TypeID })
+	sortedNodes := append([]AllowedNodeID(nil), nodeIDs...)
+	sort.Slice(sortedNodes, func(i, j int) bool {
+		if sortedNodes[i].Namespace != sortedNodes[j].Namespace {
+			return sortedNodes[i].Namespace < sortedNodes[j].Namespace
+		}
+		return sortedNodes[i].Identifier < sortedNodes[j].Identifier
+	})
+	sortedCanon := append([]AllowedCanonicalNodeID(nil), canonicalNodeIDs...)
+	sort.Slice(sortedCanon, func(i, j int) bool { return sortedCanon[i] < sortedCanon[j] })
+	sortedCalls := append([]AllowedCallMethod(nil), callMethods...)
+	sort.Slice(sortedCalls, func(i, j int) bool {
+		if sortedCalls[i].ObjectID != sortedCalls[j].ObjectID {
+			return sortedCalls[i].ObjectID < sortedCalls[j].ObjectID
+		}
+		return sortedCalls[i].MethodID < sortedCalls[j].MethodID
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var u16 [2]byte
+	for _, a := range sortedSvc {
+		binary.BigEndian.PutUint16(u16[:], a.TypeID)
+		_, _ = h.Write(u16[:])
+	}
+	if len(sortedNodes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		var u32 [4]byte
+		for _, n := range sortedNodes {
+			binary.BigEndian.PutUint16(u16[:], n.Namespace)
+			_, _ = h.Write(u16[:])
+			binary.BigEndian.PutUint32(u32[:], n.Identifier)
+			_, _ = h.Write(u32[:])
+		}
+	}
+	if len(sortedCanon) > 0 {
+		_, _ = h.Write([]byte{0xFD})
+		for _, c := range sortedCanon {
+			writeLengthPrefixedString(h, string(c))
+		}
+	}
+	_, _ = h.Write([]byte{0xFC})
+	for _, cm := range sortedCalls {
+		writeLengthPrefixedString(h, cm.ObjectID)
+		writeLengthPrefixedString(h, cm.MethodID)
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// writeLengthPrefixedString writes s as uint16-len + bytes to
+// the hash. Single caller today (AllowlistHashWithCallMethods)
+// but future ladder additions will reuse it.
+func writeLengthPrefixedString(h interface {
+	Write([]byte) (int, error)
+}, s string) {
+	n := len(s)
+	if n > 0xFFFF {
+		n = 0xFFFF
+	}
+	var u16 [2]byte
+	binary.BigEndian.PutUint16(u16[:], uint16(n)) //nolint:gosec // G115 — explicit cap above
+	_, _ = h.Write(u16[:])
+	_, _ = h.Write([]byte(s)[:n])
+}
+
+// SessionMutationWithCallMethods is the v1.12 chunk-6 Mutation
+// mixing every per-session granularity (service + numeric /
+// canonical NodeID + per-CallMethod) into the PayloadHash.
+// When callMethods is nil/empty it degrades to
+// SessionMutationWithRichNodeIDs.
+func SessionMutationWithCallMethods(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID, callMethods []AllowedCallMethod) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "opcua",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithCallMethods(target, services, nodeIDs, canonicalNodeIDs, callMethods),
+	}
+}
+
 // WriteGatedHandler is the offensive replacement for the default
 // UA deny-all proxy. Construction requires triple-confirm
 // authorised session context (Deriver, Auditor, and the
@@ -324,6 +468,13 @@ type WriteGatedHandler struct {
 	// gate walks EVERY WriteValue and admits a frame only when
 	// every NodeId matches its respective list.
 	AllowedCanonicalNodeIDs []AllowedCanonicalNodeID
+	// AllowedCallMethods is the v1.12 chunk-6 per-CallMethod
+	// allowlist. When non-empty, a CallRequest MSG is forwarded
+	// only when EVERY CallMethodRequest's (ObjectID, MethodID)
+	// pair matches one of these entries. Empty disables the
+	// per-method gate but leaves CallRequest allowed if 704 is
+	// in the service Allowed list (v1.2 behaviour).
+	AllowedCallMethods []AllowedCallMethod
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -342,7 +493,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithRichNodeIDs(h.Target, h.Allowed, h.AllowedNodeIDs, h.AllowedCanonicalNodeIDs)
+	m := SessionMutationWithCallMethods(h.Target, h.Allowed, h.AllowedNodeIDs, h.AllowedCanonicalNodeIDs, h.AllowedCallMethods)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -437,7 +588,55 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 			return writeServiceFault(clientWriter, body)
 		}
 	}
+	// Per-CallMethod gate active + this is a CallRequest → walk
+	// every (ObjectID, MethodID) pair.
+	if len(h.AllowedCallMethods) > 0 && typeID == wire.TypeIDCallRequest {
+		if !h.callRequestAllMethodsAllowed(body) {
+			return writeServiceFault(clientWriter, body)
+		}
+	}
 	return writeFrame(upstream, header.Type, body)
+}
+
+// callRequestAllMethodsAllowed reports whether the CallRequest
+// at `body` targets ONLY (ObjectID, MethodID) pairs in
+// h.AllowedCallMethods. Returns false when:
+//
+//   - The MethodsToCall array can't be parsed (unknown encoding,
+//     truncated, null array).
+//   - ANY CallMethodRequest targets a pair outside the allowlist.
+//
+// Fail-closed on unparseable frames — same contract as
+// writeRequestNodeAllowed.
+func (h *WriteGatedHandler) callRequestAllMethodsAllowed(body []byte) bool {
+	methods, ok := wire.CallRequestAllMethods(body)
+	if !ok || len(methods) == 0 {
+		return false
+	}
+	for _, cm := range methods {
+		if !h.callMethodInAllowlist(cm) {
+			return false
+		}
+	}
+	return true
+}
+
+// callMethodInAllowlist reports whether one (Object, Method)
+// pair matches any AllowedCallMethod entry. Both sides are
+// compared on the canonical-string form (wire side from
+// NodeIDValue.Canonical(), operator side pre-supplied).
+func (h *WriteGatedHandler) callMethodInAllowlist(cm wire.CallMethod) bool {
+	obj := cm.ObjectID.Canonical()
+	mth := cm.MethodID.Canonical()
+	if obj == "" || mth == "" {
+		return false
+	}
+	for _, a := range h.AllowedCallMethods {
+		if a.ObjectID == obj && a.MethodID == mth {
+			return true
+		}
+	}
+	return false
 }
 
 // perNodeGateActive reports whether EITHER per-NodeId allowlist

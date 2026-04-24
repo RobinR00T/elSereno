@@ -437,6 +437,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var services []uint
 	var nodeIDs []string
+	var callMethods []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -455,18 +456,23 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			mut := opwrite.SessionMutationWithRichNodeIDs(target, svcs, nids, canonNids)
+			calls, err := parseCallMethodFlags(callMethods)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			mut := opwrite.SessionMutationWithCallMethods(target, svcs, nids, canonNids, calls)
 			cmd.Printf("Protocol:     opcua\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Services:     %s\n", canonUintList(services))
 			cmd.Printf("NodeIDs:      %s\n", canonNodeIDsRich(nids, canonNids))
+			cmd.Printf("CallMethods:  %s\n", canonCallMethods(calls))
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileOPCUA(target, services, nodeIDs))
+				return emitAllowFile(cmd, p, buildAllowFileOPCUA(target, services, nodeIDs, callMethods))
 			}
 			return nil
 		},
@@ -474,6 +480,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the OPC UA server we'll proxy to)")
 	cmd.Flags().UintSliceVar(&services, "service", nil, "service TypeID(s) to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().StringSliceVar(&nodeIDs, "node-id", nil, "optional NodeId(s) to restrict WriteRequests to; accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring)")
+	cmd.Flags().StringSliceVar(&callMethods, "call-method", nil, "optional: per-CallMethod allowlist. Format: object=<NodeId>;method=<NodeId>  where each <NodeId> is a canonical-string form (ns=N;i=M | s=STR | g=HEX | b=HEX). Repeatable; exact match only. v1.12+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -843,6 +850,85 @@ func parseNodeIDFlags(in []string) ([]opwrite.AllowedNodeID, []opwrite.AllowedCa
 	return nids, canonNids, nil
 }
 
+// parseCallMethodFlags parses --call-method entries. Each entry
+// is `object=<nodeid>;method=<nodeid>` where each nodeid is
+// itself a ns=N;<k>=<v> form — so the flag has nested `;` (one
+// separating object= from method=, one inside each NodeId).
+// Valid because parseNodeIDFlag already handles a single
+// `ns=N;<k>=<v>` string.
+func parseCallMethodFlags(in []string) ([]opwrite.AllowedCallMethod, error) {
+	out := make([]opwrite.AllowedCallMethod, 0, len(in))
+	for _, raw := range in {
+		cm, err := parseCallMethodFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, cm)
+	}
+	return out, nil
+}
+
+// parseCallMethodFlag parses one --call-method value into an
+// AllowedCallMethod. Splits on the first `;method=` so the
+// embedded `;` inside each NodeId doesn't confuse the parser.
+func parseCallMethodFlag(s string) (opwrite.AllowedCallMethod, error) {
+	raw := strings.TrimSpace(s)
+	lower := strings.ToLower(raw)
+	if !strings.HasPrefix(lower, "object=") {
+		return opwrite.AllowedCallMethod{}, fmt.Errorf("--call-method %q: must start with object=", s)
+	}
+	rest := raw[len("object="):]
+	idx := strings.Index(strings.ToLower(rest), ";method=")
+	if idx < 0 {
+		return opwrite.AllowedCallMethod{}, fmt.Errorf("--call-method %q: missing ;method=", s)
+	}
+	objRaw := strings.TrimSpace(rest[:idx])
+	mthRaw := strings.TrimSpace(rest[idx+len(";method="):])
+	obj, err := canonicalNodeIDForCallMethod(objRaw)
+	if err != nil {
+		return opwrite.AllowedCallMethod{}, fmt.Errorf("--call-method %q: object: %w", s, err)
+	}
+	mth, err := canonicalNodeIDForCallMethod(mthRaw)
+	if err != nil {
+		return opwrite.AllowedCallMethod{}, fmt.Errorf("--call-method %q: method: %w", s, err)
+	}
+	return opwrite.AllowedCallMethod{ObjectID: obj, MethodID: mth}, nil
+}
+
+// canonicalNodeIDForCallMethod canonicalises a NodeId string for
+// a CallMethod object/method field, returning the wire-form
+// canonical (e.g. numeric 42 normalises to "ns=0;i=42" when no
+// ns is provided). Uses parseNodeIDFlag to parse then formats.
+func canonicalNodeIDForCallMethod(s string) (string, error) {
+	p, err := parseNodeIDFlag(s)
+	if err != nil {
+		return "", err
+	}
+	if p.Numeric != nil {
+		return fmt.Sprintf("ns=%d;i=%d", p.Numeric.Namespace, p.Numeric.Identifier), nil
+	}
+	return string(p.Canonical), nil
+}
+
+// canonCallMethods prints the sorted list for operator output.
+func canonCallMethods(in []opwrite.AllowedCallMethod) string {
+	if len(in) == 0 {
+		return "(none — CallRequest accepts any object/method when 704 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]opwrite.AllowedCallMethod(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].ObjectID != sorted[j].ObjectID {
+			return sorted[i].ObjectID < sorted[j].ObjectID
+		}
+		return sorted[i].MethodID < sorted[j].MethodID
+	})
+	for i, cm := range sorted {
+		out[i] = fmt.Sprintf("object=%s;method=%s", cm.ObjectID, cm.MethodID)
+	}
+	return strings.Join(out, ", ")
+}
+
 // canonNodeIDsRich prints the sorted combined list (numeric +
 // canonical) in canonical string form.
 func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedCanonicalNodeID) string {
@@ -873,12 +959,32 @@ func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedC
 // per-NodeId entries alongside the service-TypeID allowlist —
 // the emitted YAML now round-trips cleanly through
 // loadAllowFile. v1.12 chunk 3 extends node_ids with s= / g= /
-// b= canonical-form entries (see proxyNodeID for schema).
-func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw []string) proxyAllowFile {
+// b= canonical-form entries (see proxyNodeID for schema). v1.12
+// chunk 6 adds call_methods for per-CallMethod gating.
+func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRaw []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:   pluginNameOPCUA,
 		Target:   target,
 		Services: canonUints(services),
+	}
+	if len(callMethodRaw) > 0 {
+		af.CallMethods = make([]proxyCallMethod, 0, len(callMethodRaw))
+		for _, raw := range callMethodRaw {
+			cm, err := parseCallMethodFlag(raw)
+			if err != nil {
+				continue
+			}
+			af.CallMethods = append(af.CallMethods, proxyCallMethod{
+				Object: cm.ObjectID,
+				Method: cm.MethodID,
+			})
+		}
+		sort.Slice(af.CallMethods, func(i, j int) bool {
+			if af.CallMethods[i].Object != af.CallMethods[j].Object {
+				return af.CallMethods[i].Object < af.CallMethods[j].Object
+			}
+			return af.CallMethods[i].Method < af.CallMethods[j].Method
+		})
 	}
 	if len(nodeIDRaw) == 0 {
 		return af

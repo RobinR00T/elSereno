@@ -166,6 +166,10 @@ Chunks (in planned order):
    per-gated-method check + 403 "identity-spoof guard". 11 new
    tests (hash ladder × 5, E2E × 4, YAML round-trip × 2).
 6. OPC UA CallRequest per-object allowlist.
+   **Landed** — `AllowedCallMethod{ObjectID, MethodID}` +
+   `CallRequestAllMethods` wire walker + 0xFC hash separator +
+   `--call-method object=…;method=…` CLI + YAML `call_methods:`
+   round-trip. 9 new tests.
 7. BACnet per-object allowlist (ASN.1 BER parsing).
 8. Input pagination (5 providers).
 9. Shodan InternetDB (free, no-key provider #6).

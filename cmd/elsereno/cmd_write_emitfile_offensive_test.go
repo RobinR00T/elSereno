@@ -224,6 +224,44 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripOPCUAWithCallMethods — v1.12 chunk 6
+// per-CallMethod allowlist round-trips through call_methods: YAML.
+func TestEmitAllowFile_RoundTripOPCUAWithCallMethods(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+
+	services := []uint{704}
+	callMethods := []string{
+		"object=ns=2;i=100;method=ns=2;i=101",
+		"object=ns=3;s=DeviceFolder;method=ns=3;s=Restart",
+	}
+	af := buildAllowFileOPCUA("plc:4840", services, nil, callMethods)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.callMethods) != 2 {
+		t.Fatalf("callMethods=%v, want 2", opts.callMethods)
+	}
+	found := map[string]bool{}
+	for _, e := range opts.callMethods {
+		found[e] = true
+	}
+	for _, want := range []string{
+		"object=ns=2;i=100;method=ns=2;i=101",
+		"object=ns=3;s=DeviceFolder;method=ns=3;s=Restart",
+	} {
+		if !found[want] {
+			t.Errorf("missing callMethods entry %q in %v", want, opts.callMethods)
+		}
+	}
+}
+
 // TestEmitAllowFile_RoundTripSIPWithFromDomains — v1.12 chunk 5
 // closes the From-domain round-trip: emit writes `from_domains:`,
 // load materialises opts.fromDomains on the proxyListenOpts side.
@@ -422,7 +460,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithNodeIDs(t *testing.T) {
 
 	services := []uint{673, 704}
 	nodeIDs := []string{"ns=3;i=100", "ns=2;i=42"} // unordered on purpose
-	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs)
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -468,7 +506,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs(t *testing.T) {
 		"ns=1;g=6b29fc40-ca47-1067-b31d-00dd010662da",
 		"ns=4;b=DEADBEEF",
 	}
-	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs)
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -504,7 +542,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs(t *testing.T) {
 func TestEmitAllowFile_OPCUAOmitsNodeIDsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileOPCUA("plc:4840", []uint{673}, nil)
+	af := buildAllowFileOPCUA("plc:4840", []uint{673}, nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

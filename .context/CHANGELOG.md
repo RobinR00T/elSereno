@@ -240,6 +240,32 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.12 chunk 6 landed.** OPC UA per-CallMethod
+  allowlist. Complements v1.12 chunk 3 (per-WriteValue NodeId)
+  with the other mutating service surface: CallRequest invokes
+  a Method on an Object; this gate scopes it to specific
+  (ObjectID, MethodID) pairs. New wire walker
+  `CallRequestAllMethods` parses the MethodsToCall array;
+  InputArguments walker reuses chunk 2's `skipVariant` +
+  wraps it with `skipVariantArray` for Variant[]. New library
+  types `AllowedCallMethod{ObjectID, MethodID}` (both canonical-
+  string NodeIds). Hash extension
+  `AllowlistHashWithCallMethods` adds a 0xFC separator below
+  the 0xFD / 0xFE / 0xFF blocks used by chunk 3 / v1.6 / v1.2;
+  each entry is length-prefixed (uint16). Ladder: empty
+  callMethods → chunk-3 hash; empty+empty → v1.6; empty×3 →
+  v1.2. `SessionMutationWithCallMethods` factory + handler
+  field `AllowedCallMethods`. Gate check
+  `callRequestAllMethodsAllowed` fails closed on unparseable
+  MethodsToCall. CLI: `write opcua dry-run --call-method
+  object=…;method=…` (repeatable) + `proxy listen
+  --call-method` + YAML `call_methods:` array with
+  `{object, method}` entries. `parseCallMethodFlag` splits on
+  `;method=` so the embedded `;` in each NodeId doesn't
+  confuse the parser. 9 new tests: hash ladder × 4, wire
+  walker × 4, E2E gate × 3 (allowed pass / one-forbidden
+  refuse / string-NodeId match), YAML round-trip × 1.
+  0 lint issues.
 - 2026-04-24 — **v1.12 chunk 5 landed.** SIP From-header domain
   allowlist — the identity-spoof complement to v1.10 chunk 1's
   REGISTER AOR gate and v1.9 chunk 5's INVITE prefix gate.

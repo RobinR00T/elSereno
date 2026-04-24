@@ -81,6 +81,25 @@ type proxyModbusWrite struct {
 	End   uint16 `yaml:"end,omitempty"`
 }
 
+// proxyCallMethod is the YAML-structured form of an OPC UA
+// AllowedCallMethod for per-session CallRequest gating (v1.12+).
+// Both fields are canonical-string NodeIds (ns=N;i=M | s= |
+// g= | b=). Emitted + loaded verbatim — the loader pushes them
+// back as `--call-method object=…;method=…` strings on
+// proxyListenOpts.
+//
+// Example:
+//
+//	call_methods:
+//	  - object: "ns=2;i=100"
+//	    method: "ns=2;i=101"
+//	  - object: "ns=3;s=DeviceFolder"
+//	    method: "ns=3;s=Restart"
+type proxyCallMethod struct {
+	Object string `yaml:"object"`
+	Method string `yaml:"method"`
+}
+
 // proxyNodeID is the YAML-structured form of an OPC UA NodeID
 // for the opcua per-node allowlist. Two shapes supported:
 //
@@ -122,6 +141,7 @@ type proxyAllowFile struct {
 	Writes         []proxyModbusWrite `yaml:"writes,omitempty"`          // modbus (v1.12+: structured unit+fc+start+end)
 	Services       []uint             `yaml:"services,omitempty"`        // opcua
 	NodeIDs        []proxyNodeID      `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
+	CallMethods    []proxyCallMethod  `yaml:"call_methods,omitempty"`    // opcua (v1.12+) — per-CallMethod (object,method) pairs
 	ServiceChoices []uint             `yaml:"service_choices,omitempty"` // bacnet
 	RPCs           []string           `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
 	ParamPrefixes  []string           `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
@@ -196,10 +216,6 @@ func applyModbusAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 // keep that function under the funlen threshold.
 func applyOPCUAAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	opts.services = af.Services
-	if len(af.NodeIDs) == 0 {
-		return
-	}
-	opts.nodeIDs = make([]string, 0, len(af.NodeIDs))
 	for _, n := range af.NodeIDs {
 		if n.Canonical != "" {
 			// Canonical string is already the CLI `ns=N;<k>=<v>`
@@ -209,5 +225,9 @@ func applyOPCUAAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 		}
 		opts.nodeIDs = append(opts.nodeIDs,
 			fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier))
+	}
+	for _, cm := range af.CallMethods {
+		opts.callMethods = append(opts.callMethods,
+			fmt.Sprintf("object=%s;method=%s", cm.Object, cm.Method))
 	}
 }
