@@ -1,7 +1,7 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.10.0 (REGISTER AOR allowlist — registration-hijack mitigation)
+Version  : v1.11.0 (CWMP offensive proxy — SOAP RPC allowlist)
 Updated  : 2026-04-24
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
@@ -193,6 +193,16 @@ elsereno-offensive write bacnet dry-run \
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
 
+# CWMP / TR-069 SOAP RPC allowlist (v1.11+)
+elsereno-offensive write cwmp dry-run \
+  --target acs:7547 \
+  --rpc SetParameterValues --rpc Reboot \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/cwmp-gate.yaml
+# Always-safe RPCs (GetParameter*, Inform, TransferComplete, …)
+# pass without allowlist. Refusal = SOAP Fault 9001 "Request
+# denied" + X-Elsereno-Gate-Reason header.
+
 # Modbus proxy-session dry-run (v1.9+, simétrico con los demás)
 elsereno-offensive write modbus proxy-dry-run \
   --target 10.0.0.5:502 \
@@ -234,6 +244,8 @@ elsereno-offensive proxy listen \
   iax2    → IAX2 HANGUP frame al SrcCallNum del cliente
   pbxhttp → HTTP 405 (método) o HTTP 403 (path mismatch)
   bacnet  → BACnet Abort-PDU con reason security-error
+  cwmp    → HTTP 200 OK + TR-069 SOAP Fault 9001 (Request
+            denied) + X-Elsereno-Gate-Reason header (v1.11+)
 
 
 -- Modbus write legacy (send) --------------------------------

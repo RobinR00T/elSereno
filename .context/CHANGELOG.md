@@ -240,6 +240,23 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-24 — **v1.11.0 closed.** Single-chunk cycle: CWMP
+  offensive proxy (SOAP RPC allowlist). Completes the TR-069
+  story — v1.4 chunk 5 shipped the fingerprint, this chunk
+  ships the matching offensive gate. 7 offensive write-gated
+  proxies in the default build (up from 6). `AllowedRPC{Name}`
+  + `WriteGatedHandler.Allowed` + `AllowlistHash` +
+  `SessionMutation` + `canonicaliseRPC` (strips cwmp:/cwmp-1-0:
+  namespace prefix, case preserved per TR-069 §A.4).
+  `alwaysSafeRPCs` set (14: GetParameter*, Inform,
+  TransferComplete, Kicked, Fault, +Response variants).
+  `extractRPCName` via streaming `xml.Decoder` — finds first
+  `StartElement` under `<*:Body>`, handles `soap:`/`soap-env:`
+  /`soapenv:` prefix variants. Refusal is HTTP 200 OK + SOAP
+  Fault body FaultCode 9001 "Request denied" (TR-069 Annex A)
+  + X-Elsereno-Gate-Reason header. 20 tests (13 library + 3
+  YAML + 4 CLI). Snapshot:
+  `.context/snapshots/v1.11.0-cwmp-offensive.md`.
 - 2026-04-24 — **v1.10.0 closed.** Single-chunk cycle: SIP
   REGISTER AOR allowlist (anti-registration-hijack). Twin of
   v1.9 chunk 5's INVITE prefix gate — where that one controls

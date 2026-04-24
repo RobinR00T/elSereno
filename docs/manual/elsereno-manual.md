@@ -1070,6 +1070,79 @@ Esto es lo que cierra el caso de uso "permitir al HMI escribir
 sólo a la variable de setpoint durante una ventana de cambio,
 pero no a la señal de presión".
 
+#### 6.5.8 CWMP / TR-069 RPC allowlist (v1.11+)
+
+La gate ofensiva para ACS ↔ CPE sobre TR-069. Completa el caso
+de uso que v1.4 dejó abierto (fingerprint disponible, sin
+gate): operador sentado entre un ACS y su parque de CPEs
+permite sólo las SOAP RPCs explícitamente allowlisted.
+
+Las RPCs read-only + protocol-flow (GetParameterNames,
+GetParameterValues, GetParameterAttributes, GetRPCMethods,
+Inform/InformResponse, TransferComplete, Kicked, Fault)
+**pasan siempre** — bloquearlas rompería el ciclo de registro
+del CPE.
+
+Las RPCs write-capable (SetParameterValues,
+SetParameterAttributes, AddObject, DeleteObject, Reboot,
+FactoryReset, Download, Upload, ScheduleInform,
+ScheduleDownload, ChangeDUState, CancelTransfer) requieren
+allowlist explícita.
+
+```sh
+# dry-run: permite sólo SetParameterValues + Reboot
+elsereno-offensive write cwmp dry-run \
+  --target acs.ejemplo.com:7547 \
+  --rpc SetParameterValues --rpc Reboot \
+  --vault-passphrase-file ~/.elsereno/vault.pp \
+  --emit-allow-file /etc/elsereno/cwmp-gate.yaml
+
+# Output:
+#   Protocol:     cwmp
+#   Target:       acs.ejemplo.com:7547
+#   RPCs:         Reboot, SetParameterValues
+#   Always-safe:  GetParameter{Names,Values,Attributes},
+#                 GetRPCMethods, Inform{,Response},
+#                 TransferComplete, Kicked, Fault (+ non-POST)
+#   PayloadHash:  …
+#   ConfirmToken: <hex>
+```
+
+YAML emitido:
+
+```yaml
+plugin: cwmp
+target: acs.ejemplo.com:7547
+rpcs:
+  - Reboot
+  - SetParameterValues
+```
+
+Comportamiento del gate:
+
+| Request                                                  | Gate verdict |
+|----------------------------------------------------------|-------------|
+| `POST /` body = `<cwmp:GetParameterValues>…`             | PASA (always-safe) |
+| `POST /` body = `<cwmp:SetParameterValues>…`             | PASA (en allowlist) |
+| `POST /` body = `<cwmp:Reboot>…`                         | PASA (en allowlist) |
+| `POST /` body = `<cwmp:FactoryReset/>`                   | REFUSED → SOAP Fault 9001 "Request denied" + `X-Elsereno-Gate-Reason` header |
+| `POST /` body = `<cwmp:Download>…`                       | REFUSED (no en allowlist) |
+| `POST /` con SOAPAction pero body vacío (keep-alive)     | PASA (no hay RPC que gatear) |
+| `GET /acs/status`                                        | PASA (non-POST; passthrough) |
+| `POST /` con `<soapenv:Body><cwmp:Reboot>` (namespace variant) | REFUSED (el parser reconoce soap:/soap-env:/soapenv:) |
+
+Nombres de RPC son **case-sensitive** per TR-069 §A.4:
+`SetParameterValues` ≠ `setparametervalues`. El canonicaliser
+acepta prefix `cwmp:` o `cwmp-1-2:` copy-pasted de wire
+captures, pero case se preserva.
+
+La refusal se emite como HTTP 200 OK + SOAP Fault body con
+FaultCode 9001 — TR-069 trata errores a nivel RPC como SOAP
+Faults, no HTTP errors. Esto permite que el ACS cliente
+parsee la negativa limpiamente y la muestre en su GUI como "CPE
+returned fault 9001 Request denied" en lugar de un error de
+transporte ambiguo.
+
 ### 6.6 Sandbox seccomp-bpf (Linux)
 
 Todos los verbs ofensivos instalan un filtro BPF por-perfil

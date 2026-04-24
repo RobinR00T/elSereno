@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-04-24
+
+### Added
+
+- **CWMP offensive proxy** — `offensive/write/cwmp`. Completes
+  the TR-069 story. v1.4 chunk 5 shipped the fingerprint (17
+  plugins, 15 ACS vendors); this ships the matching offensive
+  gate. Use case: operator sits between an ACS and a fleet of
+  CPEs during change windows and allowlists the SOAP RPCs
+  they're authorising.
+- **`AllowedRPC{Name string}`** opt-in type. Names are case-
+  sensitive per TR-069 §A.4.
+- **`AllowlistHash(target, allowed)`** + **`SessionMutation`**
+  — standard ADR-040 shape.
+- **`canonicaliseRPC`** helper — strips namespace prefix
+  (`cwmp:` / `cwmp-1-0:` / `cwmp-1-2:`) and whitespace; case
+  preserved.
+- **`alwaysSafeRPCs` set (14 entries)** — `GetParameter{Names,
+  Values,Attributes}` + Response variants, `GetRPCMethods`,
+  `Inform{,Response}`, `TransferComplete{,Response}`,
+  `AutonomousTransferComplete`, `Kicked{,Response}`, `Fault`.
+  These always pass.
+- **`elsereno write cwmp dry-run --rpc <Name>`** CLI,
+  repeatable.
+- **`elsereno proxy listen --rpc <Name> --plugin cwmp`** CLI.
+- **YAML `rpcs:` field** in `proxyAllowFile` — round-trips
+  through emit → load.
+
+### Changed
+
+- Write-capable RPCs (SetParameterValues, Reboot, Download,
+  FactoryReset, AddObject, DeleteObject, Upload,
+  ScheduleInform, ScheduleDownload, ChangeDUState,
+  CancelTransfer, SetParameterAttributes) now require explicit
+  allowlist. Empty allowlist → all write-capable RPCs refused;
+  always-safe RPCs still pass.
+- Refusal emits HTTP 200 OK + CWMP SOAP Fault body with
+  FaultCode 9001 "Request denied" (TR-069 Annex A spec-
+  conformant) + `X-Elsereno-Gate-Reason` header. ACS code
+  parses the rejection as an app-level error rather than a
+  transport glitch.
+- Non-POST (GET/HEAD/OPTIONS) requests bypass the SOAP parser
+  entirely — TR-069 proper is POST-only; non-POST is for ACS
+  status / health endpoints.
+- 7 offensive write-gated proxies in the default build (was
+  6). List: modbus, opcua, sip, iax2, pbxhttp, bacnet, cwmp.
+
+### Deferred to v1.12+
+
+- Per-parameter-path allowlist for `SetParameterValues`.
+- Firmware-URL allowlist for `Download` (URL + SHA-256 pin).
+- RPC-name case-warning in dry-run (flag unknown names).
+- Batch-RPC deferred-response routing.
+- CWMP-over-TLS (`:7548`) — already works transparently as
+  long as the proxy terminates TLS locally, but deserves an
+  explicit operator recipe.
+- SIGHUP reload (still needs redesign).
+
 ## [1.10.0] — 2026-04-24
 
 ### Added

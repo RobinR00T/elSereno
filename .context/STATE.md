@@ -1,23 +1,29 @@
 ---
-phase: v1.10-released
-status: v1.10.0 tagged locally; SIP REGISTER AOR allowlist (registration-hijack mitigation)
+phase: v1.11-released
+status: v1.11.0 tagged locally; CWMP offensive proxy (SOAP RPC allowlist)
 last-updated: 2026-04-24
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.10.0 firmado localmente (pendiente de publicar
-en GitHub Releases). Single-chunk cycle que añade el gemelo
-anti-registration-hijack del INVITE prefix gate de v1.9 chunk
-5: allowlist exact-match de AoRs permitidas para REGISTER,
-fail-closed ante To: malformados, refusal protocol-native
-(SIP 403 + X-Elsereno-Gate-Reason). Hash backwards-compat:
-operadores sin `AllowedAORs` siguen con sus tokens v1.9 / v1.4
-válidos.
+**Phase**: v1.11.0 firmado localmente (pendiente de publicar en
+GitHub Releases). Single-chunk cycle que completa el TR-069
+story: v1.4 trajo el fingerprint (17 plugins, 15 ACS vendors);
+v1.11 añade la gate ofensiva para ACS-CPE sobre TR-069 con
+allowlist per-SOAP-RPC. 7 offensive write-gated proxies en el
+default build (up from 6 — cwmp joins modbus/opcua/sip/iax2/
+pbxhttp/bacnet).
 
-v1.9.0 sigue publicado en GitHub Releases. v1.10.0 pendiente de
-build local + gh release upload.
+Read-only + protocol-flow RPCs (GetParameter*, Inform,
+TransferComplete, Kicked, Fault) pasan siempre. Write-capable
+RPCs (SetParameterValues, Reboot, FactoryReset, Download,
+Upload, etc.) requieren allowlist explícito. Refusal es SOAP
+Fault 9001 "Request denied" (TR-069 Annex A) + X-Elsereno-
+Gate-Reason header.
+
+v1.10.0 sigue publicado en GitHub Releases. v1.11.0 pendiente
+de build local + gh release upload.
 
 v1.8.0 sigue publicado en
 https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0.
@@ -76,6 +82,14 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
   proxy-listen wiring + 15 tests. Hash backwards-compat
   preserves v1.4 / v1.9 tokens. See
   `.context/snapshots/v1.10.0-sip-aor.md`.
+- **v1.11.0** (2026-04-24, local) — CWMP offensive proxy.
+  SOAP RPC allowlist for ACS-CPE TR-069 traffic. 14 always-
+  safe read-only + protocol-flow RPCs; operator allowlists
+  write-capable ones (SetParameterValues, Reboot, Download,
+  FactoryReset, etc.). Refusal is TR-069 Annex A SOAP Fault
+  9001 "Request denied". 20 new tests. 7 offensive write-
+  gated proxies in the default build (up from 6). See
+  `.context/snapshots/v1.11.0-cwmp-offensive.md`.
 - **v1.9.0** (2026-04-24, local) — 5 chunks: OPC UA NodeID
   YAML round-trip, Modbus proxy-session dry-run, CLI wire-up
   for Shodan/Censys/FOFA/ZoomEye via `scan --input`, ONYPHE

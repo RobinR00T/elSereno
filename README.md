@@ -35,7 +35,7 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.10.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.10.0)**
+Latest release: **[v1.11.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.11.0)**
 — YAML round-trip + 5-provider input CLI + SIP toll-fraud gate.
 
 ```sh
@@ -66,7 +66,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.10.0
+git tag -v v1.11.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 
@@ -128,7 +128,7 @@ triple-confirm wrapper.
 | **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy (v1.4, per-method) |
 | **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy (v1.4, per-subclass) |
 | **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy (v1.4, per-(method,path)) |
-| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors |
+| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy (v1.11, per-SOAP-RPC) |
 | banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
 The four rows in **bold** landed in v1.3 (SIP/IAX2/pbxhttp — PBX
