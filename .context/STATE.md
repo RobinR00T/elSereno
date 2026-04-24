@@ -187,52 +187,10 @@ v1.8.0 community release`. Zero unpushed commits.
   `benchmarks`, `nightly`) gated to `workflow_dispatch:` only
   to stop accumulating billing failures.
 
-**Historic commit list** (archived — all of these are now on
-`origin/main`):
-
-```
-<v1.7.0>   65e5382 feat(v1.7 chunk 2): opcua/bacnet dry-run
-           0f31d6e feat(v1.7 chunk 1): --emit-allow-file
-<v1.6.0>   27fb616 docs(v1.6): close --allow-file + per-NodeId
-           f76b3f2 feat(v1.6 chunk 2): opcua per-NodeId
-           a5ee374 feat(v1.6 chunk 1): --allow-file YAML
-<v1.5.0>   423d7a8 docs(v1.5): close proxy listen cycle
-           1172eae feat(v1.5 chunk 2): extend proxy listen
-           e8bd030 feat(v1.5 chunk 1): proxy listen sip/iax2/pbxhttp
-<v1.4.0>   7457016 docs(v1.4): close PBX-write-gate cycle
-           e4dc2a6 feat(v1.4 chunk 6): bacnet UDP write-gate
-           02e705f feat(v1.4 chunk 5): cwmp TR-069
-           26ca8df feat(v1.4 chunk 4): CLI write sip/iax2/pbxhttp
-           b0d3ea7 feat(v1.4 chunk 3): iax2 write-gate
-           482263f feat(v1.4 chunk 2): pbxhttp write-gate
-           b43a472 docs(state): v1.4 chunk 1 landed
-           9038e4b feat(v1.4 chunk 1): sip write-gate
-<v1.3.0>   3ceebef docs(v1.3): close PBX-discovery cycle
-           abd296d feat(v1.3 chunk 1c): pbxhttp
-           46f3818 docs(memory): refresh state for v1.3-in-flight
-           ca68a3a feat(v1.3 chunk 1b): IAX2
-           e8278e5 feat(v1.3 chunk 1a): SIP
-<v1.2.0>   8b9f245 docs(v1.2): close snapshot
-           bc13248 feat(v1.2 extra): SyncFromFile
-           26a7eda feat(v1.2 chunk 5): SLSA via Attestations API
-           f2fa41c feat(v1.2 chunk 4): dial backends
-           e8ff579 docs(authors): AUTHORS
-           c04215f docs(manual): operator manual pack
-           b5cb020 chore(v1.2): retire SQLite
-           2c1a70e feat(v1.2 chunk 3): Handle loops × 5
-           caa5b41 feat(v1.2 chunk 2): OPC UA write gating
-           378a701 chore(v1.2 polish): CSP + readyz + allowlist
-           8370b18 feat(v1.2 chunk 1): DB panels
-           0c15398 docs(v1.2): planning snapshot
-           c10a7d1 chore(v1.1 polish): release-smoke.sh
-<v1.1.0>   0238f15 docs(v1.1): close snapshot
-           8895148 feat(v1.1 chunk 8): wardialing batch
-           bd90591 feat(v1.1 chunk 7): OPC UA plugin
-           3af6c1f feat(v1.1 chunk 6): seccomp-bpf
-           2fa03d3 feat(v1.1 chunk 5): GHCR docker
-           fc7c4fe feat(v1.1 chunk 4a): SSE dashboard
-<v1.0.1>   (already at origin/main)
-```
+**Historic commit list**: see per-tag snapshots under
+`.context/snapshots/` for per-cycle commit mapping. All tags
+v1.0.0 → v1.11.0 are on `origin/main` with their respective
+snapshots authoritative on what landed.
 
 **Bootstrap PAT**: still live. Operator asked to keep it
 until all v1.1/v1.2/v1.3/v1.4 work is pushed; revoke after at
