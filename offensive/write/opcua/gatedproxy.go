@@ -325,16 +325,39 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 }
 
 // writeRequestNodeAllowed reports whether the WriteRequest at
-// `body` targets a NodeId in h.AllowedNodeIDs. Returns false on
-// unparseable WriteRequest bodies (rarer NodeId encodings, null
-// NodesToWrite array, truncated frames) — per-node gating is
-// strict by design: an operator who turned it on wants the gate
-// to refuse anything it can't verify.
+// `body` targets ONLY NodeIds in h.AllowedNodeIDs. Returns
+// false when:
+//
+//   - The NodesToWrite array can't be parsed (unknown encoding,
+//     truncated, null array).
+//   - ANY WriteValue targets a NodeId outside the allowlist.
+//
+// v1.6 chunk 2 checked only the first WriteValue — a batched
+// WriteRequest could slip a malicious second/third entry past
+// the gate. v1.12 chunk 2 closes that by walking EVERY
+// WriteValue via wire.WriteRequestAllNodes.
+//
+// Fail-closed semantics apply: when the strict multi-node
+// parser returns ok=false (unparseable WriteValue layout,
+// unknown DataValue encoding, etc.), the whole RPC is refused.
+// An attacker can't hide a write inside a complex-Variant
+// WriteValue our parser can't walk.
 func (h *WriteGatedHandler) writeRequestNodeAllowed(body []byte) bool {
-	nid, _, ok := wire.WriteRequestFirstNode(body)
-	if !ok {
+	nodes, ok := wire.WriteRequestAllNodes(body)
+	if !ok || len(nodes) == 0 {
 		return false
 	}
+	for _, nid := range nodes {
+		if !h.nodeIDInAllowlist(nid) {
+			return false
+		}
+	}
+	return true
+}
+
+// nodeIDInAllowlist reports whether one NodeId is in the
+// operator-supplied allowlist.
+func (h *WriteGatedHandler) nodeIDInAllowlist(nid wire.NodeID) bool {
 	for _, a := range h.AllowedNodeIDs {
 		if a.Namespace == nid.Namespace && a.Identifier == nid.Identifier {
 			return true
