@@ -1,8 +1,8 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.8.0 (first community release)
-Updated  : 2026-04-23
+Version  : v1.9.0 (YAML round-trip + input CLI + toll-fraud gate)
+Updated  : 2026-04-24
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
 ===============================================================
@@ -30,9 +30,20 @@ shodan search 'port:502 country:ES' --fields ip_str,port \
 # Censys JSON
 elsereno scan --input-file censys.json --input-type censys
 
-# FOFA / ZoomEye (v1.8) — library-level por ahora
-# import "local/elsereno/internal/inputs/fofa" o /zoomeye
-# CLI wire-up (--input fofa:<q>) en v1.9 roadmap.
+# FOFA / ZoomEye / ONYPHE (v1.8 + v1.9) — CLI wire-up desde v1.9
+elsereno scan --input fofa:'protocol="iax2"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+elsereno scan --input zoomeye:'app:"Asterisk"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+elsereno scan --input onyphe:'category:datascan product:freepbx' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+
+# api-creds.yaml (obligatorio 0600):
+#   shodan:  {key: ...}
+#   censys:  {id: ..., secret: ...}
+#   fofa:    {email: ..., key: ...}
+#   zoomeye: {key: ...}
+#   onyphe:  {key: ...}
 
 # nmap XML
 nmap -sS -p 102,502,1911,2404,4569,4840,5060,7547 target -oX out.xml
@@ -133,12 +144,15 @@ Siempre requiere:
 
 -- Write dry-run (deriva token) — 5 plugins + modbus legacy ---
 
-# SIP method allowlist (v1.5+, emit YAML desde v1.7)
+# SIP method allowlist + INVITE destination prefix allowlist (v1.9+)
 elsereno-offensive write sip dry-run \
   --target pbx:5060 \
   --method INVITE --method REGISTER \
+  --to-prefix "+34" --to-prefix "+44" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/sip-gate.yaml
+# INVITE to +34600... passes; INVITE to +900555 → 403 Forbidden +
+# X-Elsereno-Gate-Reason header. REGISTER not constrained by prefixes.
 
 # IAX2 subclass allowlist (v1.5+)
 elsereno-offensive write iax2 dry-run \
@@ -173,6 +187,15 @@ elsereno-offensive write bacnet dry-run \
 # Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
+
+# Modbus proxy-session dry-run (v1.9+, simétrico con los demás)
+elsereno-offensive write modbus proxy-dry-run \
+  --target 10.0.0.5:502 \
+  --function 6 --function 16 \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/modbus-gate.yaml
+# Opcional: --unit N --address-from N --address-to N (solo CLI,
+# NO compatible con --emit-allow-file hasta v1.10).
 
 
 -------------- Proxy listen (v1.5+) — run the gate ------------
@@ -268,18 +291,18 @@ docs/openapi.yaml            API 3.1 spec snapshot
 dist/*.tar.gz                goreleaser output (release build)
 
 
------------ Verificación de release v1.8.0 (free-tier) --------
+----------- Verificación de release v1.9.0 (free-tier) --------
 
 # SHA-256
-curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.8.0/checksums.txt
+curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.9.0/checksums.txt
 shasum -a 256 -c checksums.txt --ignore-missing
 
 # Tag GPG-signed (ACE3B86BACACE7D6 / Daniel Solís Agea)
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.8.0
+git tag -v v1.9.0
 
 # SBOM inspection
-jq '.components | length' elsereno_1.8.0_linux_amd64.tar.gz.cyclonedx.json
+jq '.components | length' elsereno_1.9.0_linux_amd64.tar.gz.cyclonedx.json
 
 
 ----- Verificación legacy (releases con CI billing activa) ----

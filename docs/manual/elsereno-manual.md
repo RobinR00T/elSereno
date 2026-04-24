@@ -229,14 +229,54 @@ censys search 'services.service_name: MODBUS AND org: "ejemplo corp"' \
 elsereno scan --input-file censys-modbus.json --input-type censys
 ```
 
-#### 2.1.3 Inputs desde FOFA (v1.8+)
+#### 2.1.3 Inputs desde FOFA / ZoomEye / ONYPHE (v1.8 + v1.9)
 
-FOFA (fofa.info) es un alternativo popular con mejor cobertura
-APAC para equipos ICS / PBX legacy. Auth: email + API key (ambos
-en `qbase64`-encoded query string).
+Tres proveedores alternativos a Shodan/Censys, todos wired al
+CLI desde v1.9 con `--input <provider>:<query>` +
+`--api-creds-file <path>`:
+
+```sh
+# ejemplo FOFA (fofa.info) — fuerte cobertura APAC
+elsereno scan \
+  --input fofa:'protocol="iax2" && country="ES"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml \
+  --output-format ndjson --output findings.ndjson
+
+# ejemplo ZoomEye (zoomeye.org) — API-KEY header auth
+elsereno scan \
+  --input zoomeye:'app:"Asterisk"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+
+# ejemplo ONYPHE (onyphe.io) — OQL query syntax, v1.9+
+elsereno scan \
+  --input onyphe:'category:datascan product:freepbx' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+```
+
+El fichero `~/.elsereno/api-creds.yaml` (obligatorio 0600):
+
+```yaml
+shodan:
+  key: <shodan-api-key>
+censys:
+  id: <censys-api-id>
+  secret: <censys-api-secret>
+fofa:
+  email: <fofa-email>
+  key: <fofa-api-key>
+zoomeye:
+  key: <zoomeye-api-key>
+onyphe:
+  key: <onyphe-api-key>
+```
+
+El loader enforce 0600 al leer (cualquier fichero con bits de
+grupo / mundo se rechaza con `chmod 600 <path>` de sugerencia)
+y `KnownFields(true)` rechaza typos en las claves al parse.
+
+Para uso programático (librería Go, sin CLI):
 
 ```go
-// Uso programático con el cliente internal/inputs/fofa:
 import "local/elsereno/internal/inputs/fofa"
 
 c, _ := fofa.New("tu-email@dominio.com", "<api-key>", 1) // 1 rps
@@ -244,23 +284,7 @@ targets, err := c.Search(ctx, `protocol="iax2"`, 100)
 // targets[] es []core.Target → pipeable al scanner via stdin
 ```
 
-CLI wire-up directo (`--input fofa:<query>`) está en v1.9
-roadmap. Por ahora: usa el cliente Go para volcar a NDJSON y
-pipear con stdin.
-
-#### 2.1.4 Inputs desde ZoomEye (v1.8+)
-
-ZoomEye (zoomeye.org) — misma idea, auth via `API-KEY` header
-(no URL), así que no leakea la credencial en logs.
-
-```go
-import "local/elsereno/internal/inputs/zoomeye"
-
-c, _ := zoomeye.New("<api-key>", 1)
-targets, err := c.Search(ctx, `app:"Asterisk"`, 1) // page 1
-```
-
-#### 2.1.5 Inputs desde nmap XML
+#### 2.1.4 Inputs desde nmap XML
 
 ```sh
 nmap -sS -p 102,502,1911,2404,4840,5094,10001,20000,44818,47808 \
@@ -270,7 +294,7 @@ elsereno scan --input-file nmap-ics.xml --input-type nmapxml \
               --concurrency 50 --rate 200 --out-ndjson findings.ndjson
 ```
 
-#### 2.1.6 Inputs desde stdin / lista plana
+#### 2.1.5 Inputs desde stdin / lista plana
 
 ```sh
 # Un "host:port" por línea
@@ -281,7 +305,7 @@ printf '10.0.0.5:502\n10.0.0.6:102\n10.0.0.7:44818\n' | \
 elsereno scan --input-file targets.txt
 ```
 
-#### 2.1.5 Aplicar scope (filtro de sanidad previo a toda acción)
+#### 2.1.6 Aplicar scope (filtro de sanidad previo a toda acción)
 
 ```yaml
 # scope.yaml — SIEMPRE carga un scope antes de scans grandes
@@ -316,7 +340,7 @@ elsereno dial validate --number "+34 91 123 4567" --scope scope.yaml
 Un target fuera del scope **no se prueba** y queda auditéado con
 `scope_applied` + `decision:denied`.
 
-#### 2.1.6 Outputs + reporting
+#### 2.1.7 Outputs + reporting
 
 Cinco formatos cubren los casos habituales:
 
@@ -674,7 +698,12 @@ backup cifrado).
 3. Triple confirmación: `--accept-writes`, `--confirm-target`, `--confirm-token`.
 4. (Si dial) `--dial-allowed` y números > 3 dígitos.
 
-### 6.1 Modbus write
+### 6.1 Modbus write — dos modos
+
+Modbus es el único plugin ofensivo con dos modos de operación
+porque su CLI original (v1.2) era per-request, no per-session:
+
+#### 6.1.1 Per-request (v1.2, todavía suportado)
 
 ```sh
 # Paso 1: dry-run (calcula token esperado)
@@ -699,6 +728,32 @@ elsereno-offensive write modbus send \
 # La fila de audit queda en ~/.elsereno/audit.jsonl
 elsereno audit verify-file
 ```
+
+#### 6.1.2 Proxy-session (v1.9+, simétrico con sip/iax2/pbxhttp/opcua/bacnet)
+
+```sh
+# Dry-run: genera el confirm-token para una sesión de proxy
+# listen con allowlist de function-codes
+elsereno-offensive write modbus proxy-dry-run \
+  --target 10.0.0.5:502 \
+  --function 6 --function 16 \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/modbus-gate.yaml
+
+# Lanzar el proxy con el YAML
+elsereno-offensive proxy listen \
+  --allow-file /etc/elsereno/modbus-gate.yaml \
+  --listen 127.0.0.1:15020 \
+  --accept-writes --confirm-target 10.0.0.5:502 \
+  --confirm-token <hex> --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+Opcionalmente en el dry-run puedes endurecer con `--unit N`,
+`--address-from N`, `--address-to N`. Atención: esa
+combinación NO es compatible con `--emit-allow-file` porque el
+schema YAML hoy solo persiste `functions:` (unit + address-
+range tightening llega en v1.10). Si usas esos flags, pasa el
+gate al proxy vía flags directos en lugar de `--allow-file`.
 
 ### 6.2 Exploit CVE (catálogo reducido)
 
@@ -854,7 +909,64 @@ elsereno-offensive proxy listen \
   --confirm-token <hex> --vault-passphrase-file ~/.elsereno/vault.pp
 ```
 
-#### 6.5.5 OPC UA per-NodeId (v1.6+)
+#### 6.5.5 SIP INVITE destination prefix allowlist (v1.9+)
+
+La gate SIP método-nivel de v1.4 dejaba pasar cualquier INVITE
+mientras el método estuviera permitido. v1.9 añade una
+segunda capa opcional: allowlist de prefijos en el URI de
+destino. Caso de uso típico: operator que corre ElSereno como
+trunk SIP entre un PBX tenant y un upstream carrier y quiere
+permitir solo llamadas a ciertos prefijos E.164 (bloqueando
++900 premium-rate, +883 satellite, etc.).
+
+```sh
+# dry-run: permite INVITE + REGISTER, pero sólo a +34 / +44
+elsereno-offensive write sip dry-run \
+  --target pbx.ejemplo.com:5060 \
+  --method INVITE --method REGISTER \
+  --to-prefix "+34" --to-prefix "+44" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/sip-gate.yaml
+
+# Output:
+#   Protocol:     sip
+#   Target:       pbx.ejemplo.com:5060
+#   Allowed:      INVITE, REGISTER
+#   Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK
+#   ToPrefixes:   +34, +44
+#   PayloadHash:  ...
+#   ConfirmToken: <hex>
+```
+
+YAML emitido con `to_prefixes:` estructural (round-tripeable):
+
+```yaml
+plugin: sip
+target: pbx.ejemplo.com:5060
+methods:
+  - INVITE
+  - REGISTER
+to_prefixes:
+  - "+34"
+  - "+44"
+```
+
+Comportamiento del gate:
+
+| Request                              | Gate verdict |
+|--------------------------------------|-------------|
+| `INVITE sip:+34600123@pbx`           | PASA (prefix match) |
+| `INVITE sip:+44207555@pbx`           | PASA (prefix match) |
+| `INVITE sip:+900555@pbx`             | REFUSED → 403 Forbidden + `X-Elsereno-Gate-Reason: INVITE destination not in To-URI prefix allowlist` |
+| `INVITE sip:201@pbx` (extensión)     | REFUSED (no matchea +34 ni +44) |
+| `REGISTER sip:pbx SIP/2.0`           | PASA (la allowlist de prefixes solo gatea INVITE) |
+| `OPTIONS sip:pbx SIP/2.0`            | PASA (always-safe) |
+
+Nota: la lista de prefijos solo aplica a INVITE. REGISTER,
+MESSAGE, SUBSCRIBE, etc. NO se ven afectados — esos métodos
+siguen con el gate método-nivel únicamente.
+
+#### 6.5.6 OPC UA per-NodeId (v1.6+)
 
 El gate de OPC UA puede filtrar WriteRequests no sólo por
 TypeID sino también por NodeId del primer WriteValue:

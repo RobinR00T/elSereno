@@ -35,11 +35,11 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.8.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0)**
-— first community release.
+Latest release: **[v1.9.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.9.0)**
+— YAML round-trip + 5-provider input CLI + SIP toll-fraud gate.
 
 ```sh
-VERSION=1.8.0
+VERSION=1.9.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -135,10 +135,18 @@ The four rows in **bold** landed in v1.3 (SIP/IAX2/pbxhttp — PBX
 discovery) and v1.4 (CWMP). Run `elsereno plugins list` for the
 authoritative list on your binary.
 
-**Attack-surface inputs**: Shodan, Censys, FOFA (v1.8),
-ZoomEye (v1.8). See `internal/inputs/` for the library
-interface; CLI `--input <provider>:<query>` wire-up is
-v1.9 roadmap.
+**Attack-surface inputs** (5 providers, all CLI-wired in v1.9):
+Shodan, Censys, FOFA, ZoomEye, ONYPHE. Usage:
+
+```sh
+elsereno scan --input fofa:'protocol="iax2"' \
+    --api-creds-file ~/.elsereno/api-creds.yaml
+```
+
+Credentials live in a single YAML (0600 enforced at load) with
+a per-provider block. Other accepted `--input` prefixes:
+`shodan:<q>`, `censys:<q>`, `zoomeye:<q>`, `onyphe:<q>` + the
+file-based `list:`, `nmap:`, `stdin`.
 
 See `.context/protocols/` for per-protocol notes and
 `.context/STATE.md` for the authoritative live state.
