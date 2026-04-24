@@ -527,16 +527,41 @@ func canonNodeIDs(in []opwrite.AllowedNodeID) string {
 }
 
 // buildAllowFileOPCUA builds the YAML for an OPC UA proxy
-// session. Note: v1.7 chunk 1 didn't wire per-NodeId fields into
-// proxyAllowFile because loadAllowFile didn't yet reach for
-// them; the emitter stores services only for now, and the
-// node_ids field is v1.8 wire-up.
-func buildAllowFileOPCUA(target string, services []uint, _ []string) proxyAllowFile {
-	return proxyAllowFile{
+// session. v1.9 closes the v1.7 carry-over by persisting
+// per-NodeId entries alongside the service-TypeID allowlist —
+// the emitted YAML now round-trips cleanly through
+// loadAllowFile.
+func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw []string) proxyAllowFile {
+	af := proxyAllowFile{
 		Plugin:   pluginNameOPCUA,
 		Target:   target,
 		Services: canonUints(services),
 	}
+	if len(nodeIDRaw) > 0 {
+		af.NodeIDs = make([]proxyNodeID, 0, len(nodeIDRaw))
+		for _, raw := range nodeIDRaw {
+			nid, err := parseNodeIDFlag(raw)
+			if err != nil {
+				// Parse error surfaced upstream by the dry-run's
+				// pre-check; if we got here the flag is valid.
+				continue
+			}
+			af.NodeIDs = append(af.NodeIDs, proxyNodeID{
+				Namespace:  nid.Namespace,
+				Identifier: nid.Identifier,
+			})
+		}
+		// Sort for determinism — loadAllowFile + hash functions
+		// already sort, but the emitted file should be stable
+		// across invocations too.
+		sort.Slice(af.NodeIDs, func(i, j int) bool {
+			if af.NodeIDs[i].Namespace != af.NodeIDs[j].Namespace {
+				return af.NodeIDs[i].Namespace < af.NodeIDs[j].Namespace
+			}
+			return af.NodeIDs[i].Identifier < af.NodeIDs[j].Identifier
+		})
+	}
+	return af
 }
 
 // buildAllowFileBACnet builds the YAML for a BACnet proxy session.

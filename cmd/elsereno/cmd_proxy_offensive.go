@@ -68,6 +68,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters)")
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
+	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (ns=N;i=M form, repeatable). Tightens the gate from service-TypeID to specific NodeIds (v1.6+; numeric encodings only — String/Guid/ByteString fail closed).")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
@@ -85,6 +86,13 @@ type proxyListenOpts struct {
 	target, listen                      string
 	methods, subclasses, allowEntries   []string
 	functions, services, serviceChoices []uint
+	// nodeIDs holds the opcua per-NodeId allowlist in the CLI-
+	// friendly "ns=N;i=M" form. Loaded from --node-id flags OR
+	// from the allow-file's structured `node_ids:` field (the
+	// loader converts structs to this string form). When
+	// non-empty, the opcua gate tightens from service-TypeID-
+	// only to (service-TypeID + first-WriteValue-NodeId-match).
+	nodeIDs                             []string
 	allowFile                           string
 	acceptWrites                        bool
 	confirmTarget, confirmToken, ppFile string
@@ -282,9 +290,18 @@ func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		}
 		allowed = append(allowed, opwrite.AllowedService{TypeID: tid})
 	}
+	nodeIDs := make([]opwrite.AllowedNodeID, 0, len(opts.nodeIDs))
+	for _, raw := range opts.nodeIDs {
+		nid, err := parseNodeIDFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		nodeIDs = append(nodeIDs, nid)
+	}
 	return &opwrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
+		AllowedNodeIDs: nodeIDs,
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,

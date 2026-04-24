@@ -106,6 +106,38 @@ services: [673, 704]
 	if len(opts.services) != 2 {
 		t.Fatalf("services = %v", opts.services)
 	}
+	if len(opts.nodeIDs) != 0 {
+		t.Fatalf("nodeIDs should be empty when node_ids: is absent, got %v", opts.nodeIDs)
+	}
+}
+
+// TestLoadAllowFile_OPCUAWithNodeIDs closes the v1.6 → v1.9
+// carry-over: the YAML schema persists per-NodeId entries and
+// the loader materialises them into proxyListenOpts.nodeIDs.
+func TestLoadAllowFile_OPCUAWithNodeIDs(t *testing.T) {
+	p := writeTempYAML(t, `
+plugin: opcua
+target: plc.example.com:4840
+services: [673]
+node_ids:
+  - namespace: 2
+    identifier: 42
+  - namespace: 3
+    identifier: 100
+`)
+	var opts proxyListenOpts
+	if err := loadAllowFile(p, &opts); err != nil {
+		t.Fatalf("loadAllowFile: %v", err)
+	}
+	if len(opts.nodeIDs) != 2 {
+		t.Fatalf("nodeIDs = %v, want 2 entries", opts.nodeIDs)
+	}
+	if opts.nodeIDs[0] != "ns=2;i=42" {
+		t.Errorf("nodeIDs[0] = %q, want ns=2;i=42", opts.nodeIDs[0])
+	}
+	if opts.nodeIDs[1] != "ns=3;i=100" {
+		t.Errorf("nodeIDs[1] = %q, want ns=3;i=100", opts.nodeIDs[1])
+	}
 }
 
 func TestLoadAllowFile_BACnet(t *testing.T) {

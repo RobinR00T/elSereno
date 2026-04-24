@@ -155,6 +155,59 @@ func TestEmitAllowFile_RoundTripPBXHTTP(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripOPCUAWithNodeIDs — closes the v1.6
+// → v1.9 gap: the emitted YAML contains `node_ids:` entries and
+// loadAllowFile materialises them back onto
+// proxyListenOpts.nodeIDs in CLI-friendly `ns=N;i=M` form.
+func TestEmitAllowFile_RoundTripOPCUAWithNodeIDs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+
+	services := []uint{673, 704}
+	nodeIDs := []string{"ns=3;i=100", "ns=2;i=42"} // unordered on purpose
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if opts.plugin != "opcua" {
+		t.Errorf("plugin=%q, want opcua", opts.plugin)
+	}
+	if len(opts.services) != 2 {
+		t.Errorf("services=%v", opts.services)
+	}
+	// NodeIDs are stored sorted numerically by (ns, id) in the
+	// emitter, so after round-trip they should come back sorted.
+	if len(opts.nodeIDs) != 2 {
+		t.Fatalf("nodeIDs=%v, want 2 entries", opts.nodeIDs)
+	}
+	if opts.nodeIDs[0] != "ns=2;i=42" {
+		t.Errorf("nodeIDs[0] = %q, want ns=2;i=42 (sorted)", opts.nodeIDs[0])
+	}
+	if opts.nodeIDs[1] != "ns=3;i=100" {
+		t.Errorf("nodeIDs[1] = %q, want ns=3;i=100 (sorted)", opts.nodeIDs[1])
+	}
+}
+
+func TestEmitAllowFile_OPCUAOmitsNodeIDsWhenEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+	af := buildAllowFileOPCUA("plc:4840", []uint{673}, nil)
+	if err := emitAllowFile(cmd, "-", af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "node_ids") {
+		t.Errorf("node_ids should be omitted when list empty:\n%s", out)
+	}
+}
+
 // ---- ensureAllowFilePath -------------------------------------
 
 func TestEnsureAllowFilePath_Empty(t *testing.T) {

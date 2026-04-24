@@ -55,6 +55,14 @@ const (
 // plugin allowlist flags are derived from the file. If any of
 // those flags are ALSO supplied on the command line, the file
 // wins (with a printed warning).
+// proxyNodeID is the YAML-structured form of an OPC UA NodeID
+// for the opcua per-node allowlist (v1.9+). Loader translates
+// it to the CLI `ns=N;i=M` string form used by proxyListenOpts.
+type proxyNodeID struct {
+	Namespace  uint16 `yaml:"namespace"`
+	Identifier uint32 `yaml:"identifier"`
+}
+
 type proxyAllowFile struct {
 	Plugin string `yaml:"plugin"`
 	Target string `yaml:"target"`
@@ -64,12 +72,13 @@ type proxyAllowFile struct {
 	// on the fields relevant to this plugin — a sip dry-run's
 	// emit-allow-file shouldn't drop empty `subclasses: []` or
 	// `functions: []` keys into the file.
-	Methods        []string `yaml:"methods,omitempty"`         // sip
-	Subclasses     []string `yaml:"subclasses,omitempty"`      // iax2
-	Allow          []string `yaml:"allow,omitempty"`           // pbxhttp
-	Functions      []uint   `yaml:"functions,omitempty"`       // modbus
-	Services       []uint   `yaml:"services,omitempty"`        // opcua
-	ServiceChoices []uint   `yaml:"service_choices,omitempty"` // bacnet
+	Methods        []string      `yaml:"methods,omitempty"`         // sip
+	Subclasses     []string      `yaml:"subclasses,omitempty"`      // iax2
+	Allow          []string      `yaml:"allow,omitempty"`           // pbxhttp
+	Functions      []uint        `yaml:"functions,omitempty"`       // modbus
+	Services       []uint        `yaml:"services,omitempty"`        // opcua
+	NodeIDs        []proxyNodeID `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
+	ServiceChoices []uint        `yaml:"service_choices,omitempty"` // bacnet
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -107,6 +116,13 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		opts.functions = af.Functions
 	case pluginNameOPCUA:
 		opts.services = af.Services
+		if len(af.NodeIDs) > 0 {
+			opts.nodeIDs = make([]string, 0, len(af.NodeIDs))
+			for _, n := range af.NodeIDs {
+				opts.nodeIDs = append(opts.nodeIDs,
+					fmt.Sprintf("ns=%d;i=%d", n.Namespace, n.Identifier))
+			}
+		}
 	case pluginNameBACnet:
 		opts.serviceChoices = af.ServiceChoices
 	default:
