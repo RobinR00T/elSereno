@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
+	mbwire "local/elsereno/internal/protocols/modbus/wire"
 	"local/elsereno/offensive/confirm"
 	"local/elsereno/offensive/sandbox"
 	modwrite "local/elsereno/offensive/write/modbus"
@@ -38,11 +39,145 @@ operator can inspect the exact bytes that would hit the wire.`,
 func newWriteModbusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "modbus",
-		Short: "Modbus/TCP writes (dry-run default + `send` subcommand)",
+		Short: "Modbus/TCP writes (per-request: dry-run + send; proxy session: proxy-dry-run)",
+		Long: `Two modes:
+
+- dry-run / send: per-request. Build a single Modbus PDU
+  (WriteSingleCoil or WriteSingleRegister) + derive the
+  per-request confirm-token. Use for one-off writes.
+
+- proxy-dry-run: proxy-session. Derive the confirm-token for a
+  gated proxy session keyed on the (unit, FC, address-range)
+  allowlist the operator will later pass to
+  ` + "`elsereno proxy listen --plugin modbus`" + `.
+  Closes the v1.5 asymmetry where sip/iax2/pbxhttp/opcua/bacnet
+  had proxy-session dry-runs but modbus only had per-request.`,
 	}
 	cmd.AddCommand(newWriteModbusDryRunCmd())
 	cmd.AddCommand(newWriteModbusSendCmd())
+	cmd.AddCommand(newWriteModbusProxyDryRunCmd())
 	return cmd
+}
+
+// modbusProxyFlags groups the CLI flags for the v1.9 chunk 2
+// session dry-run so the RunE body stays short (funlen).
+type modbusProxyFlags struct {
+	target, ppFile, emitFile string
+	functions                []uint
+	unit                     uint8
+	addrFrom, addrTo         uint16
+}
+
+// newWriteModbusProxyDryRunCmd — v1.9 chunk 2.
+// Session-level dry-run that mints the confirm-token for the
+// eventual `proxy listen --plugin modbus` session. Takes a
+// function-code allowlist (repeatable) + optional --unit and
+// --address-from/--address-to for tighter gates.
+func newWriteModbusProxyDryRunCmd() *cobra.Command {
+	var f modbusProxyFlags
+	cmd := &cobra.Command{
+		Use:   "proxy-dry-run",
+		Short: "Proxy-session dry-run — derive the confirm-token for `proxy listen --plugin modbus`",
+		Long: `Takes an allowlist of function codes (and optional unit +
+address range) and prints:
+  - the canonical SessionMutation
+  - the PayloadHash (sorted allowlist + target, SHA-256)
+  - (if --vault-passphrase-file) the expected confirm-token
+
+--emit-allow-file writes a YAML file that plugs directly into
+the eventual ` + "`elsereno proxy listen --allow-file <path>`" + `.
+
+Function codes: 5 (WriteSingleCoil), 6 (WriteSingleRegister),
+15 (WriteMultipleCoils), 16 (WriteMultipleRegisters), 22
+(MaskWriteRegister), 23 (ReadWriteMultipleRegisters).`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runWriteModbusProxyDryRun(cmd, f)
+		},
+	}
+	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the Modbus/TCP device we'll proxy to)")
+	cmd.Flags().UintSliceVar(&f.functions, "function", nil, "function code(s) to allow — repeatable; e.g. 6 16")
+	cmd.Flags().Uint8Var(&f.unit, "unit", 0, "optional: Modbus unit identifier (0 = any)")
+	cmd.Flags().Uint16Var(&f.addrFrom, "address-from", 0, "optional: inclusive start of address range")
+	cmd.Flags().Uint16Var(&f.addrTo, "address-to", 0, "optional: inclusive end of address range")
+	addPassphraseFileFlag(cmd, &f.ppFile)
+	addEmitAllowFileFlag(cmd, &f.emitFile)
+	return cmd
+}
+
+func runWriteModbusProxyDryRun(cmd *cobra.Command, f modbusProxyFlags) error {
+	if f.target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required"))
+	}
+	if len(f.functions) == 0 {
+		return fail(core.ExitUsage, errors.New("--function is required (repeatable). See `--help` for FC list"))
+	}
+	allowed, err := buildModbusProxyAllowlist(f)
+	if err != nil {
+		return err
+	}
+	mut := modwrite.SessionMutation(f.target, allowed)
+	printModbusProxySummary(cmd, f, mut)
+	if err := maybeMintToken(cmd, mut, f.ppFile); err != nil {
+		return err
+	}
+	return maybeEmitModbusProxyAllow(cmd, f)
+}
+
+func buildModbusProxyAllowlist(f modbusProxyFlags) ([]modwrite.AllowedWrite, error) {
+	allowed := make([]modwrite.AllowedWrite, 0, len(f.functions))
+	for _, fc := range f.functions {
+		if fc > 0xFF {
+			return nil, fail(core.ExitUsage, fmt.Errorf("--function %d: must be 0-255", fc))
+		}
+		allowed = append(allowed, modwrite.AllowedWrite{
+			Unit:      f.unit, // 0 = any
+			FC:        mbwire.FunctionCode(fc & 0xFF),
+			StartAddr: f.addrFrom,
+			EndAddr:   f.addrTo,
+		})
+	}
+	return allowed, nil
+}
+
+func printModbusProxySummary(cmd *cobra.Command, f modbusProxyFlags, mut confirm.Mutation) {
+	cmd.Printf("Protocol:     modbus\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", f.target)
+	cmd.Printf("Functions:    %s\n", canonUintList(f.functions))
+	if f.unit == 0 {
+		cmd.Printf("Unit:         any (0)\n")
+	} else {
+		cmd.Printf("Unit:         %d\n", f.unit)
+	}
+	if f.addrFrom == 0 && f.addrTo == 0 {
+		cmd.Printf("AddressRange: any\n")
+	} else {
+		cmd.Printf("AddressRange: %d..%d\n", f.addrFrom, f.addrTo)
+	}
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+}
+
+// maybeEmitModbusProxyAllow writes the YAML allow-file when
+// --emit-allow-file is set. Guards against the footgun where
+// --unit / --address-* tighten the gate but the YAML schema
+// only stores `functions:` — emitting would silently widen the
+// gate on round-trip and invalidate the confirm-token.
+func maybeEmitModbusProxyAllow(cmd *cobra.Command, f modbusProxyFlags) error {
+	p, err := ensureAllowFilePath(f.emitFile)
+	if err != nil {
+		return nil //nolint:nilerr // missing --emit-allow-file is not an error
+	}
+	if f.unit != 0 || f.addrFrom != 0 || f.addrTo != 0 {
+		return fail(core.ExitUsage, errors.New(
+			"--emit-allow-file is not compatible with --unit or --address-from/--address-to today (the YAML schema stores `functions:` only; unit + address-range round-trip is a v1.10 carry-over). "+
+				"Either drop --unit/--address-* to emit a function-only YAML, or pass --unit/--address-* directly to `elsereno proxy listen` instead of using --allow-file"))
+	}
+	af := proxyAllowFile{
+		Plugin:    pluginNameModbus,
+		Target:    f.target,
+		Functions: canonUints(f.functions),
+	}
+	return emitAllowFile(cmd, p, af)
 }
 
 // buildModbusRequest is the shared flag-parsing helper for both the
