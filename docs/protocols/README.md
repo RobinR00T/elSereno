@@ -1,24 +1,31 @@
 # Protocol support
 
-ElSereno ships 12 protocol plugins in the default build. Every
-TCP-based plugin enforces a wire-layer write-ban in the default
-build; writes land only under `-tags offensive` and must clear the
-ADR-039 triple-confirm wrapper.
+ElSereno ships **17 protocol plugins** in the default build (as
+of v1.12.0, 2026-04-25). Every TCP-based plugin enforces a wire-
+layer write-ban in the default build; writes land only under
+`-tags offensive` and must clear the ADR-039 triple-confirm
+wrapper. **7 of the 17** carry write-gated proxies with per-
+object / per-path scoping (rows in **bold**).
 
 | Protocol | Port(s) | Probe | Proxy default | Writes (offensive) |
 |----------|---------|-------|---------------|--------------------|
-| [Modbus/TCP](modbus.md) | 502 | FC 1 Read Coils + opportunistic FC 43/14 | wire write-ban (IllegalFunction) | FC 5/6/15/16 |
-| [S7comm](s7.md) | 102 | TPKT/COTP Connection Request | wire write-ban (AckData errClass 0x85) | WriteVar / PLCStop / PLCRestart |
-| [EtherNet/IP](enip.md) | 44818 | ListIdentity | SendRRData refused (status 0x0001) | SetAttributeSingle / Reset |
-| [BACnet/IP](bacnet.md) | 47808/udp | Who-Is broadcast | fail-closed (TCP framework) | WriteProperty |
-| [DNP3](dnp3.md) | 20000 | link-layer Request Link Status | user-data refused (FC 15 Not Supported) | (F6+) |
-| [IEC 60870-5-104](iec104.md) | 2404 | U-format TESTFR act | I-frames refused (STOPDT_act) | (F6+) |
-| [HART-IP](hartip.md) | 5094 | session initiate | TokenPassPDU refused (status 0x04) | (F6+) |
-| [Niagara Fox](fox.md) | 1911, 4911 | banner scrape | fail-closed | (F6+) |
-| [ATG Veeder-Root](atg.md) | 10001 | I20100 system status | non-`I` commands refused (`9999FF1B`) | (F6+) |
-| [XOT (X.25 over TCP)](xot.md) | 1998 | X.25 Call Request | pass-through with filtering | (F6+) |
-| [AT modem](atmodem.md) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | ATZ / ATI + vendor dictionary | ForbiddenPrefixes (ATD, ATA, CMGS/CMGW/CMSS/CMGD, CFUN, CPWROFF, `+++`) | dial (offensive only) |
-| [Banner / dictionary](banner.md) | many | TCP read, vendor match | read-only | n/a |
+| [**Modbus/TCP**](modbus.md) | 502 | FC 1 Read Coils + opportunistic FC 43/14 | wire write-ban (IllegalFunction) | FC 5/6/15/16/22/23 — gated per-(unit, FC, address-range) since v1.12 |
+| S7comm ([s7.md](s7.md)) | 102 | TPKT/COTP Connection Request | wire write-ban (AckData errClass 0x85) | WriteVar / PLCStop / PLCRestart |
+| EtherNet/IP ([enip.md](enip.md)) | 44818 | ListIdentity | SendRRData refused (status 0x0001) | SetAttributeSingle / Reset |
+| [**BACnet/IP**](bacnet.md) | 47808/udp | Who-Is broadcast | fail-closed (TCP framework) | WriteProperty (svc 15) — per-(ObjectType, Instance, PropertyID) since v1.12; other mutating services per-service-choice only |
+| DNP3 ([dnp3.md](dnp3.md)) | 20000 | link-layer Request Link Status | user-data refused (FC 15 Not Supported) | (F6+) |
+| IEC 60870-5-104 ([iec104.md](iec104.md)) | 2404 | U-format TESTFR act | I-frames refused (STOPDT_act) | (F6+) |
+| HART-IP ([hartip.md](hartip.md)) | 5094 | session initiate | TokenPassPDU refused (status 0x04) | (F6+) |
+| Niagara Fox ([fox.md](fox.md)) | 1911, 4911 | banner scrape | fail-closed | (F6+) |
+| ATG Veeder-Root ([atg.md](atg.md)) | 10001 | I20100 system status | non-`I` commands refused (`9999FF1B`) | (F6+) |
+| [**OPC UA**](opcua.md) | 4840 | HEL Hello | UA ServiceFault BadUserAccessDenied | WriteRequest — per-NodeId (numeric + String/GUID/ByteString since v1.12); CallRequest per-(ObjectId, MethodId) since v1.12 |
+| XOT (X.25 over TCP) ([xot.md](xot.md)) | 1998 | X.25 Call Request | pass-through with filtering | (F6+) |
+| AT modem ([atmodem.md](atmodem.md)) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | ATZ / ATI + vendor dictionary | ForbiddenPrefixes (ATD, ATA, CMGS/CMGW/CMSS/CMGD, CFUN, CPWROFF, `+++`) | dial (offensive only) |
+| [**SIP**](sip.md) | 5060/udp+tcp | OPTIONS | SIP/2.0 405 Method Not Allowed | per-method + INVITE prefix (v1.9) + REGISTER AOR (v1.10) + From-domain (v1.12) |
+| [**IAX2**](iax2.md) | 4569/udp | NEW | IAX2 HANGUP frame | per-subclass |
+| [**pbxhttp**](pbxhttp.md) | 443, 80, 8088, 5001, 8443, 411 | HTTP admin probe | HTTP 405 / 403 | per-(method, path) |
+| [**CWMP / TR-069**](cwmp.md) | 7547 | ACS Inform fingerprint | SOAP Fault 9001 "Request denied" | per-SOAP-RPC + per-parameter-path (v1.12) + per-firmware-URL for Download (v1.12) |
+| Banner / dictionary ([banner.md](banner.md)) | many | TCP read, vendor match | read-only | n/a |
 
 ## Proxy default-build policy
 

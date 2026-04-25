@@ -39,6 +39,34 @@ stable across dry-run and real-run.
 | `write_multiple_coils`       | 15 |
 | `write_multiple_registers`   | 16 |
 
+### Gated proxy (v1.2+, structured YAML in v1.12+)
+
+The library stores allowlist entries as `(unit, FC, start_addr,
+end_addr)` tuples. v1.2 exposed only a function-code list;
+v1.12 closes the round-trip gap so structured entries survive
+`--emit-allow-file` lossless:
+
+```sh
+# Legacy: any unit, any address, just FC list.
+elsereno-offensive write modbus proxy-dry-run \
+  --target plc.internal:502 \
+  --function 6 --function 16 \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/modbus-gate.yaml
+
+# Structured (v1.12+): per-(unit, FC, start, end) tuples.
+elsereno-offensive write modbus proxy-dry-run \
+  --target plc.internal:502 \
+  --write "unit=1;fc=6;start=100;end=200" \
+  --write "unit=2;fc=16;start=400;end=500" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/modbus-gate.yaml
+```
+
+YAML carries `functions:` (legacy) or `writes:` (structured) —
+the loader merges both. Refusal: Modbus IllegalFunction (0x01)
+exception response.
+
 ## Scope
 
 - PLC memory region; read yields process-critical values (tank

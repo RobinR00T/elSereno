@@ -3,8 +3,49 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.2 · 2026-04-22
-**Compatible con binario**: v1.1.0+ (OPC UA) y v1.2.0+ (paneles DB + gates por protocolo)
+**Versión del manual**: v1.12 · 2026-04-25
+**Compatible con binario**: v1.12.0+ (per-object gates en los
+7 write-gated proxies + paginación across 5 input providers +
+Shodan InternetDB sin API key)
+
+---
+
+## Novedades v1.11 / v1.12
+
+**v1.11.0** (2026-04-24) — CWMP/TR-069 offensive proxy.
+Allowlist por SOAP RPC para tráfico ACS-CPE. RPCs read-only +
+protocol-flow (GetParameter*, Inform, TransferComplete, …)
+pasan siempre; los write-capable (SetParameterValues, Reboot,
+Download, FactoryReset, …) requieren `--rpc <Name>` explícito.
+Refusal: SOAP Fault 9001 "Request denied" + cabecera
+`X-Elsereno-Gate-Reason`. Ver §6.5 (CWMP).
+
+**v1.12.0** (2026-04-25) — gates tightening + paginación de
+inputs. Cada gate ya escopa por identidad fina:
+
+- **CWMP**: `--param-prefix InternetGatewayDevice.WANDevice.`
+  para tightening de Set* RPCs; `--firmware url=…;sha256=…`
+  para limitar Download a imágenes concretas.
+- **OPC UA**: walk de cada WriteValue (no solo el primero);
+  `--node-id ns=N;{i,s,g,b}=…` admite los cuatro encodings
+  (numeric / String / GUID / ByteString); `--call-method
+  object=…;method=…` para CallRequest.
+- **Modbus**: `--write unit=N;fc=M;start=A;end=B` estructurado;
+  round-trip lossless con `--emit-allow-file`.
+- **SIP**: `--from-domain HOST` (identity-spoof guard).
+- **BACnet**: `--object type=N;instance=M;property=P` para
+  WriteProperty (svc 15) con BER walker.
+- **Inputs**: paginación automática hasta 1000 hits across
+  shodan/censys/fofa/zoomeye/onyphe (cierra el "page 1 only"
+  carry-over). Nuevo provider `internetdb:<ip>` sin API key
+  (rate-limit upstream ~10 rps).
+
+Ladders de hash backwards-compat: si no usas los flags nuevos,
+los confirm-tokens v1.4–v1.11 siguen valiendo.
+
+Snapshot completo:
+[`.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`](
+../../.context/snapshots/v1.12.0-gates-tightening-and-inputs.md).
 
 ---
 

@@ -1,8 +1,8 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.11.0 (CWMP offensive proxy — SOAP RPC allowlist)
-Updated  : 2026-04-24
+Version  : v1.12.0 (gates tightening + input pagination)
+Updated  : 2026-04-25
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
 ===============================================================
@@ -31,6 +31,7 @@ shodan search 'port:502 country:ES' --fields ip_str,port \
 elsereno scan --input-file censys.json --input-type censys
 
 # FOFA / ZoomEye / ONYPHE (v1.8 + v1.9) — CLI wire-up desde v1.9
+# Pagination: v1.12+ acumula hasta 1000 hits cruzando páginas.
 elsereno scan --input fofa:'protocol="iax2"' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 elsereno scan --input zoomeye:'app:"Asterisk"' \
@@ -38,12 +39,16 @@ elsereno scan --input zoomeye:'app:"Asterisk"' \
 elsereno scan --input onyphe:'category:datascan product:freepbx' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 
+# Shodan InternetDB (v1.12+) — sin API key, lookup-by-IP:
+elsereno scan --input internetdb:8.8.8.8
+
 # api-creds.yaml (obligatorio 0600):
 #   shodan:  {key: ...}
 #   censys:  {id: ..., secret: ...}
 #   fofa:    {email: ..., key: ...}
 #   zoomeye: {key: ...}
 #   onyphe:  {key: ...}
+# (internetdb no necesita credenciales)
 
 # nmap XML
 nmap -sS -p 102,502,1911,2404,4569,4840,5060,7547 target -oX out.xml
@@ -146,18 +151,22 @@ Siempre requiere:
 
 # SIP method allowlist + INVITE destination prefix (v1.9+)
 #                     + REGISTER AOR allowlist (v1.10+)
+#                     + From-header domain (v1.12+, identity-spoof)
 elsereno-offensive write sip dry-run \
   --target pbx:5060 \
   --method INVITE --method REGISTER \
   --to-prefix "+34" --to-prefix "+44" \
   --aor "sip:alice@pbx.internal" \
   --aor "sip:bob@pbx.internal" \
+  --from-domain pbx.internal \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/sip-gate.yaml
 # INVITE to +34600... passes; INVITE to +900555 → 403 Forbidden
 # + X-Elsereno-Gate-Reason header.
 # REGISTER to alice@ or bob@ passes; REGISTER to admin@ → 403 +
 # "AOR not in session allowlist" (registration-hijack guard).
+# Cualquier método gated cuyo From: no sea @pbx.internal → 403 +
+# "From domain not in session allowlist" (identity-spoof guard).
 
 # IAX2 subclass allowlist (v1.5+)
 elsereno-offensive write iax2 dry-run \
@@ -174,43 +183,66 @@ elsereno-offensive write pbxhttp dry-run \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/pbxhttp-gate.yaml
 
-# OPC UA service + optional per-NodeId (v1.6+)
+# OPC UA service + optional per-NodeId (v1.6+) +
+#               String/GUID/ByteString NodeIds (v1.12+) +
+#               per-CallMethod (v1.12+).
 elsereno-offensive write opcua dry-run \
   --target plc:4840 \
-  --service 673 \
-  --node-id "ns=2;i=42" --node-id "ns=3;i=100" \
+  --service 673 --service 704 \
+  --node-id "ns=2;i=42" \
+  --node-id "ns=2;s=Temperature" \
+  --node-id "ns=1;g=6B29FC40CA471067B31D00DD010662DA" \
+  --node-id "ns=3;b=DEADBEEF" \
+  --call-method "object=ns=2;i=100;method=ns=2;i=101" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/opcua-gate.yaml
+# v1.12 walks every WriteValue (no más first-only); CallRequest
+# se autoriza solo cuando todos los (object, method) coinciden.
 
-# BACnet service-choice allowlist
+# BACnet service-choice + per-WriteProperty object (v1.12+)
 elsereno-offensive write bacnet dry-run \
   --target bms:47808 \
   --service-choice 15 --service-choice 20 \
+  --object "type=0;instance=42;property=85" \
+  --object "type=2;instance=3;property=85" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
+# Tuplas (ObjectType, ObjectInstance, PropertyID) parseadas vía
+# ASN.1 BER del WriteProperty body. Otros mutating-services (10
+# CreateObject, 16 WritePropertyMultiple, etc.) siguen gateados
+# solo a service-choice level (v1.13+ extiende).
 
 # Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
 
-# CWMP / TR-069 SOAP RPC allowlist (v1.11+)
+# CWMP / TR-069 SOAP RPC allowlist (v1.11+) +
+#                  per-parameter-path (v1.12+) +
+#                  per-firmware-URL para Download (v1.12+)
 elsereno-offensive write cwmp dry-run \
   --target acs:7547 \
-  --rpc SetParameterValues --rpc Reboot \
+  --rpc SetParameterValues --rpc Reboot --rpc Download \
+  --param-prefix "InternetGatewayDevice.WANDevice." \
+  --firmware "url=https://acs.example.com/fw/router-1.2.3.bin;sha256=$(sha256sum fw.bin | awk '{print $1}')" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/cwmp-gate.yaml
 # Always-safe RPCs (GetParameter*, Inform, TransferComplete, …)
 # pass without allowlist. Refusal = SOAP Fault 9001 "Request
-# denied" + X-Elsereno-Gate-Reason header.
+# denied" + X-Elsereno-Gate-Reason header (RPC-only refusal),
+# 9005 "Invalid parameter name" (per-path refusal), o 9001 con
+# header "firmware URL not in session allowlist" (Download).
 
 # Modbus proxy-session dry-run (v1.9+, simétrico con los demás)
+# Legacy --function (cualquier unit / addr) o estructurado
+# --write (v1.12+, round-trip lossless con --emit-allow-file):
 elsereno-offensive write modbus proxy-dry-run \
   --target 10.0.0.5:502 \
-  --function 6 --function 16 \
+  --write "unit=1;fc=6;start=100;end=200" \
+  --write "unit=2;fc=16;start=400;end=500" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/modbus-gate.yaml
-# Opcional: --unit N --address-from N --address-to N (solo CLI,
-# NO compatible con --emit-allow-file hasta v1.10).
+# v1.9 emit-guard sobre --unit/--address-* levantado en v1.12:
+# legacy flags ahora se materializan como writes: estructurado.
 
 
 -------------- Proxy listen (v1.5+) — run the gate ------------
@@ -245,7 +277,9 @@ elsereno-offensive proxy listen \
   pbxhttp → HTTP 405 (método) o HTTP 403 (path mismatch)
   bacnet  → BACnet Abort-PDU con reason security-error
   cwmp    → HTTP 200 OK + TR-069 SOAP Fault 9001 (Request
-            denied) + X-Elsereno-Gate-Reason header (v1.11+)
+            denied) + X-Elsereno-Gate-Reason header (v1.11+),
+            o Fault 9005 (per-parameter-path, v1.12+), o 9001
+            con header "firmware URL" (per-Download, v1.12+)
 
 
 -- Modbus write legacy (send) --------------------------------
@@ -311,10 +345,10 @@ docs/openapi.yaml            API 3.1 spec snapshot
 dist/*.tar.gz                goreleaser output (release build)
 
 
------------ Verificación de release v1.9.0 (free-tier) --------
+----------- Verificación de release v1.12.0 (free-tier) --------
 
 # SHA-256
-curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.9.0/checksums.txt
+curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.12.0/checksums.txt
 shasum -a 256 -c checksums.txt --ignore-missing
 
 # Tag GPG-signed (ACE3B86BACACE7D6 / Daniel Solís Agea)

@@ -1,14 +1,74 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-21**. v1.0.0, v1.0.1, and v1.1.0 released
-at RobinR00T/elSereno (private). v1.1.0 signed locally with
-GPG key `ACE3B86BACACE7D6`; push + release-workflow + cosign
-verify smoke pending PAT restore in the operator's shell.
+State as of **2026-04-25**. **v1.12.0 is the latest release.**
 
-This document lists everything that is NOT yet in `main` — the
-carry-overs that were deliberately deferred and the features
-proposed for v1.2+ based on the security + operator surface the
-tool currently exposes.
+The shipped lineup (each tag GPG-signed with key
+`ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
+→ v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
+→ v1.10 → v1.11 → **v1.12**. Each release has a per-cycle
+snapshot under `.context/snapshots/`.
+
+For the live state see `.context/STATE.md`. For per-cycle deep
+dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
+the long-running roadmap so the delta between **shipped** and
+**proposed** stays visible.
+
+## Shipped highlights (post-v1.1)
+
+- **v1.2** — DB panels (findings / runs / triage), SLSA via
+  Attestations API, Modbus offensive write-gate (per-FC + unit
+  + address-range), OPC UA write-gate (service-TypeID).
+- **v1.3** — PBX discovery: SIP / IAX2 / pbxhttp probes + 15
+  PBX vendor fingerprints.
+- **v1.4** — Offensive PBX write-gates (sip / iax2 / pbxhttp),
+  BACnet UDP relay (per-service-choice), TR-069/CWMP probe.
+- **v1.5** — `elsereno proxy listen` CLI verb (one command for
+  all 6 write-gated plugins).
+- **v1.6** — `--allow-file` YAML loader + OPC UA per-NodeId
+  allowlist (numeric encodings).
+- **v1.7** — `--emit-allow-file` YAML emitter (round-trip).
+- **v1.8** — FOFA + ZoomEye input clients (5 providers total).
+  First **free-tier** release (cosign+SLSA pivot to free-tier
+  GPG-signed tag + SHA-256 + CycloneDX SBOM).
+- **v1.9** — CLI wire-up for the input providers, ONYPHE
+  (5th provider), SIP INVITE prefix gate (toll-fraud).
+- **v1.10** — SIP REGISTER AOR allowlist (registration-hijack).
+- **v1.11** — CWMP/TR-069 offensive proxy (per-SOAP-RPC). 7
+  offensive write-gated proxies in the default build.
+- **v1.12** — gates tightening + input pagination. Per-object /
+  per-path scoping across all 7 gates; pagination across the 5
+  paid input providers; Shodan InternetDB joins as the 6th
+  no-key provider.
+
+## v1.13+ proposed backlog
+
+- IPv6 support across proxy listen / scan / inputs / write
+  gates (`netip.Addr` audit, bind/listen v6-aware, allowlist
+  canonicalisation for v6 host literals `[::1]:port`).
+  Operator-requested 2026-04-25.
+- Per-object scoping for the BACnet mutating services beyond
+  WriteProperty (CreateObject / DeleteObject /
+  WritePropertyMultiple / DeviceCommunicationControl /
+  ReinitializeDevice / LifeSafetyOperation / AtomicWriteFile /
+  Add/RemoveListElement).
+- Bulk InternetDB lookup (file / stdin input).
+- CWMP TransferComplete-side SHA-256 verification (currently
+  the gate stores SHA-256 as audit metadata only).
+- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS,
+  MELSEC, Red Lion, GE-SRTP, IEC 61850 MMS, KNX, M-Bus TCP,
+  OPC UA HTTPS, DLMS/COSEM, +1 more).
+- Bigger-picture deferrals: SIGHUP reload of proxy listen
+  allowlist, `discover --auto <CIDR>`, TUI front-end, record-&-
+  replay proxy sessions, Windows support, multi-user OIDC +
+  roles, STIX 2.1 export.
+
+---
+
+## Historical deferral list (v1.1 era)
+
+The notes below preserve the original v1.1-era checklist for
+provenance. Most line items have shipped in v1.2–v1.12; what
+remains is mirrored above in "v1.13+ proposed backlog".
 
 ## v1.1 shipped (closed — see `.context/snapshots/v1.1-sse-sandbox-opcua-wardial.md`)
 

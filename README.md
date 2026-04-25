@@ -35,11 +35,14 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.11.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.11.0)**
-— YAML round-trip + 5-provider input CLI + SIP toll-fraud gate.
+Latest release: **[v1.12.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0)**
+— gates tightening + input pagination. Per-object / per-path
+allowlists across all 7 write-gated proxies, paged search
+across 5 attack-surface providers, plus Shodan InternetDB as a
+6th no-key provider.
 
 ```sh
-VERSION=1.10.0
+VERSION=1.12.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -66,7 +69,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.11.0
+git tag -v v1.12.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 
@@ -105,48 +108,56 @@ transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 
-As of **v1.8.0** (2026-04-23) the default build registers **17
+As of **v1.12.0** (2026-04-25) the default build registers **17
 plugins**. Writes, exploits, credential harvest, dial, and the
-**write-gated proxies** (6 protocols: modbus, opcua, sip, iax2,
-pbxhttp, bacnet) ship behind `-tags offensive` with the ADR-039
-triple-confirm wrapper.
+**write-gated proxies** (7 protocols: modbus, opcua, sip, iax2,
+pbxhttp, bacnet, cwmp) ship behind `-tags offensive` with the
+ADR-039 triple-confirm wrapper. Each gate scopes traffic at
+multiple granularities — see the per-protocol details below.
 
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
-| Modbus/TCP      | 502                | probe + write-ban proxy · gated-write (v1.2, per-unit+FC+addr) |
+| **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) — structured `writes:` YAML round-trip (v1.2/v1.12) |
 | S7comm          | 102                | probe + pass-through proxy |
 | EtherNet/IP     | 44818              | probe + pass-through proxy |
-| BACnet/IP       | 47808/udp          | Who-Is probe · gated-write (v1.4, per-service-choice) |
+| **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |
 | DNP3            | 20000              | probe + pass-through proxy |
 | IEC 60870-5-104 | 2404               | TESTFR probe |
 | HART-IP         | 5094               | session-initiate probe |
 | Niagara Fox     | 1911, 4911         | banner probe |
 | ATG Veeder-Root | 10001              | I20100 probe |
-| OPC UA          | 4840               | Hello probe · gated-write (v1.2, service-TypeID + per-NodeId v1.6) |
+| **OPC UA**      | 4840               | Hello probe · gated-write service-TypeID + per-NodeId (numeric + String/GUID/ByteString) + per-CallMethod `(ObjectId, MethodId)` (v1.2/v1.6/v1.12) |
 | XOT (X.25 / TCP) | 1998              | probe + pass-through proxy |
 | AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | probe + write-ban proxy |
-| **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy (v1.4, per-method) |
-| **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy (v1.4, per-subclass) |
-| **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy (v1.4, per-(method,path)) |
-| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy (v1.11, per-SOAP-RPC) |
+| **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy per-method + INVITE prefix + REGISTER AOR + From-domain (v1.4/v1.9/v1.10/v1.12) |
+| **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy per-subclass (v1.4) |
+| **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy per-(method, path) (v1.4) |
+| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
 | banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
-The four rows in **bold** landed in v1.3 (SIP/IAX2/pbxhttp — PBX
-discovery) and v1.4 (CWMP). Run `elsereno plugins list` for the
-authoritative list on your binary.
+The seven rows in **bold** carry write-gate proxies. The PBX
+trio (SIP/IAX2/pbxhttp) landed in v1.3, CWMP in v1.4 (probe) +
+v1.11 (gate). Per-object / per-path scoping (the second clause
+on every gated row except IAX2 / pbxhttp) landed in v1.12. Run
+`elsereno plugins list` for the authoritative list on your
+binary.
 
-**Attack-surface inputs** (5 providers, all CLI-wired in v1.9):
-Shodan, Censys, FOFA, ZoomEye, ONYPHE. Usage:
+**Attack-surface inputs** (6 providers, paginated since v1.12):
+Shodan, Censys, FOFA, ZoomEye, ONYPHE need API keys; Shodan
+InternetDB is **no-key** for low-volume IP lookups. Usage:
 
 ```sh
 elsereno scan --input fofa:'protocol="iax2"' \
     --api-creds-file ~/.elsereno/api-creds.yaml
+
+# No-key lookup-by-IP (rate-limited upstream to ~10 rps):
+elsereno scan --input internetdb:8.8.8.8
 ```
 
 Credentials live in a single YAML (0600 enforced at load) with
 a per-provider block. Other accepted `--input` prefixes:
-`shodan:<q>`, `censys:<q>`, `zoomeye:<q>`, `onyphe:<q>` + the
-file-based `list:`, `nmap:`, `stdin`.
+`shodan:<q>`, `censys:<q>`, `zoomeye:<q>`, `onyphe:<q>`,
+`internetdb:<ip>` + the file-based `list:`, `nmap:`, `stdin`.
 
 See `.context/protocols/` for per-protocol notes and
 `.context/STATE.md` for the authoritative live state.

@@ -36,6 +36,36 @@ relay lands with the offensive-build WriteProperty deployment.
 Object types included: AnalogValue (2), BinaryValue (5),
 MultiStateValue (19), Device (8).
 
+### Gated UDP relay (v1.4+)
+
+Two layers of allowlist:
+
+| Layer | Flag | Applies to | Match | Since |
+|-------|------|------------|-------|-------|
+| Service-choice | `--service-choice 15` | every confirmed-request | exact byte | v1.4 |
+| Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15) only | exact tuple after BER walk | v1.12 |
+
+Other mutating services (10 CreateObject, 11 DeleteObject, 16
+WritePropertyMultiple, 17 DeviceCommunicationControl, 20
+ReinitializeDevice, 27 LifeSafetyOperation, 7 AtomicWriteFile,
+8 AddListElement, 9 RemoveListElement) keep service-only gating
+in v1.12; the per-object layer for those services is a v1.13+
+follow-up (their request shapes differ).
+
+```sh
+elsereno-offensive write bacnet dry-run \
+  --target bms.internal:47808 \
+  --service-choice 15 --service-choice 20 \
+  --object "type=0;instance=42;property=85" \
+  --object "type=2;instance=3;property=85" \
+  --vault-passphrase-file ~/.elsereno/dev.pp \
+  --emit-allow-file /etc/elsereno/bacnet-gate.yaml
+```
+
+Refusal is a BACnet `Abort-PDU` with reason `5` (security-error).
+YAML keys: `service_choices:`, `objects:` (`{type, instance,
+property}`).
+
 ## Scope
 
 - BAS actuators (AnalogOutput, BinaryOutput) — direct physical
