@@ -55,6 +55,15 @@ ASN.1 BER encoding particulars used by the per-object gate:
   An optional `[1] password` CharacterString follows; the gate
   ignores it (password authorisation is between the operator
   and the device).
+- DeviceCommunicationControl (svc 17) has the structure
+  `[0] timeDuration?  [1] enableDisable  [2] password?` per
+  ASHRAE 135 §16.1:
+  - Optional `[0]` timeDuration — primitive context 0, length
+    1..4 (`0x09..0x0C`). The parser skips past the value bytes.
+  - Required `[1]` enableDisable — `0x19 NN` where NN is the
+    3-value enum (0 enable, 1 disable, 2 disableInitiation).
+  - Optional `[2]` password CharacterString — ignored.
+  The gate inspects only the enableDisable enum.
 - WPM SEQUENCE-OF-WriteAccessSpecification structure:
   ```
   SEQUENCE {
@@ -115,22 +124,41 @@ Three layers of allowlist (cumulative):
    (optional [1] CharacterString) is ignored at gate level.
    **Separate list from all other allowlists**: this is a
    service-internal scoping dimension. v1.13 chunk 9.
+6. **Per-DCC-states** (`--dcc-state N`) — exact enum match.
+   Applies to DeviceCommunicationControl (svc 17) only. The
+   3-value enableDisable enum (0 enable, 1 disable, 2
+   disableInitiation) — disable silences the device's BACnet
+   communications outright; disableInitiation lets reads
+   succeed but suppresses notifications. Typical operator
+   pattern: allow only state 0 (recovery direction) and refuse
+   1/2 to prevent device silencing. The optional timeDuration
+   ([0]) and password ([2]) fields are ignored at gate level.
+   v1.13 chunk 10.
 
-Other mutating services (svc 17 DeviceCommunicationControl,
-svc 27 LifeSafetyOperation, svc 7 AtomicWriteFile, svc 8/9
-Add/RemoveListElement) keep service-only gating; per-object
-layers for those services are v1.14+ follow-ups (their
-request shapes differ).
+Chunk 10 also introduced the `Allowlists` bundle struct
+(was `BACnetAllowlists` before linter caught the package
+stutter): collects every per-service dimension into a single
+arg so the chunk-10+ hash + mutation factories don't need to
+grow function parameters every cycle. The pre-existing
+chunk-1..9 functions retain their per-dimension signatures
+for backwards-compat with operator code that constructs
+sessions piecewise.
+
+Other mutating services (svc 27 LifeSafetyOperation, svc 7
+AtomicWriteFile, svc 8/9 Add/RemoveListElement) keep
+service-only gating; per-object layers for those services
+are v1.14+ follow-ups (their request shapes differ).
 
 Refusal: BVLC-wrapped Abort-PDU with reason 5 (security-error).
 
-Hash ladder (`AllowlistHashWithReinitStates` →
-`AllowlistHashWithCreateObjects` → `AllowlistHashWithDeleteObjects`
-→ `AllowlistHashWithObjects` → `AllowlistHash`): each successive
-empty dimension degrades to the prior-version hash. Separators:
-0xFC (reinit states), 0xFD (creates), 0xFE (deletes), 0xFF
-(per-property objects). Operator confirm-tokens minted before
-v1.12 / v1.13 stay valid.
+Hash ladder (`AllowlistHashWithDCCStates` →
+`AllowlistHashWithReinitStates` → `AllowlistHashWithCreateObjects`
+→ `AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
+→ `AllowlistHash`): each successive empty dimension degrades to
+the prior-version hash. Separators: 0xFB (DCC states), 0xFC
+(reinit states), 0xFD (creates), 0xFE (deletes), 0xFF (per-
+property objects). Operator confirm-tokens minted before v1.12
+/ v1.13 stay valid.
 
 ## REPL commands (planned F4 chunk 2)
 - See the generic REPL framework.

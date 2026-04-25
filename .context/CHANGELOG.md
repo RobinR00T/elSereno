@@ -240,6 +240,38 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.13 chunk 10 landed.** BACnet
+  DeviceCommunicationControl (svc 17) per-state allowlist.
+  The 3-value ASHRAE 135 §16.1 enableDisable enum has a clear
+  asymmetry: 0 enable is the SAFE recovery direction (undoes
+  an attacker-induced silence), 1 disable silences ALL BACnet
+  communication (blocks monitoring + alarms during incidents),
+  2 disableInitiation is a subtler attack (device responds to
+  polls but won't initiate notifications). Typical operator
+  pattern: allow only state 0 to permit recovery while
+  refusing 1/2 to prevent silencing actions. New CLI flag
+  `--dcc-state N` (0..2, repeatable); YAML field `dcc_states:`
+  (uint8 list). Wire parser at `internal/protocols/bacnet/wire/
+  devicecommcontrol.go` walks the optional [0] timeDuration
+  (length 1..4 primitive context-tag-0 forms 0x09..0x0C) +
+  required [1] enableDisable (`0x19 NN`); the optional [2]
+  password CharacterString is ignored at gate level (between
+  operator and device password policy). New
+  `AllowlistHashWithDCCStates` (separator 0xFB) extends the
+  v1.13 chunk-9 ladder; backwards-compat ladder degrades
+  through chunks 9/8/7/v1.12-chunk-7/v1.4. Refactor: split
+  `perObjectGatesAllow` into `objectListGatesAllow` (svc 10/11/
+  15/16) + `stateListGatesAllow` (svc 17/20) for gocyclo;
+  introduced `Allowlists` bundle struct (renamed from
+  `BACnetAllowlists` per revive's package-stutter rule) so
+  chunk-10+ hash + mutation factories take a single arg
+  instead of growing per-cycle. CLI gained
+  `parseAllowlists(in)` single-point-of-dispatch for every
+  per-service dimension. 13 new tests (4 hash ladder + 6 wire
+  parser including with/without timeDuration + length-1 vs
+  length-2 forms + 5 e2e covering the canonical "disable
+  REFUSED when only enable is allowed" + the subtler
+  disableInitiation refusal).
 - 2026-04-25 — **v1.13 chunk 9 landed.** BACnet
   ReinitializeDevice (svc 20) per-state allowlist. The 8-value
   ASHRAE 135 §16.4 reinitializedStateOfDevice enum has very

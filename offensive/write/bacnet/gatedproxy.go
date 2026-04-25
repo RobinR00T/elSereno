@@ -168,6 +168,54 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedDCCState scopes a DeviceCommunicationControl
+// confirmed-request (service 17) to a specific enableDisable
+// enum value. v1.13 chunk 10 adds state-level gating for the
+// service that can silence the device's BACnet communication.
+//
+// Semantics: when AllowedDCCStates is non-empty, a
+// DeviceCommunicationControl (svc 17) confirmed-request is
+// forwarded ONLY when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed enableDisable enum value is in this list.
+//
+// Empty list disables the per-state gate (DeviceCommControl
+// remains gated at service-choice level if 17 is in Allowed).
+//
+// Why state-level? The 3-state enum has very different blast
+// radii:
+//
+//   - 0 enable: SAFE direction. Re-enables comms on a device
+//     that was previously disabled — the typical recovery
+//     action after an attacker silenced it.
+//   - 1 disable: HOSTILE. Silences the device's BACnet
+//     communication for the requested duration; blocks all
+//     monitoring, alarms, and operational visibility during
+//     incidents.
+//   - 2 disableInitiation: SUBTLER attack. Device still
+//     responds to read polls but will not INITIATE
+//     notifications (no I-Am, no UnconfirmedCOVNotification,
+//     no event broadcasts) — defenders lose proactive
+//     awareness while polled metrics look normal.
+//
+// Typical operator pattern: allow state 0 (enable) only —
+// permits recovery from an attacker-induced silence but
+// refuses any attempt to silence a device. The optional
+// timeDuration (context tag 0) and password (context tag 2)
+// fields are ignored at gate level; the password is between
+// the operator and the device's auth layer.
+//
+// Kept SEPARATE from all other allowlists: this is a service-
+// internal scoping dimension, orthogonal to property /
+// delete / create / reinit lists.
+type AllowedDCCState struct {
+	// State is the ASHRAE 135 §16.1 enableDisable enum (0..2).
+	// See the wire.DCCState* constants for the labelled values.
+	State uint8
+}
+
 // AllowedReinitState scopes a ReinitializeDevice confirmed-
 // request (service 20) to a specific reinitializedStateOfDevice
 // enum value. v1.13 chunk 9 adds state-level gating for the
@@ -610,6 +658,111 @@ func SessionMutationWithReinitStates(target string, allowed []AllowedService, ob
 	}
 }
 
+// Allowlists bundles every per-service dimension into one
+// arg so the v1.13 chunk-10+ hash + mutation factories don't
+// need to grow a new function-parameter every time we add a
+// dimension. v1.4 → v1.13-chunk-9 functions retain their
+// per-dimension signatures for backwards-compat with operator
+// code that constructs sessions piecewise.
+type Allowlists struct {
+	Services      []AllowedService
+	Objects       []AllowedObject
+	DeleteObjects []AllowedDeleteObject
+	CreateObjects []AllowedCreateObject
+	ReinitStates  []AllowedReinitState
+	DCCStates     []AllowedDCCState
+}
+
+// AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
+// adds the per-DeviceCommunicationControl state allowlist on
+// top of the v1.13 chunk-9 layer. Backwards-compat ladder:
+//
+//   - empty DCCStates → equals AllowlistHashWithReinitStates
+//     (v1.13 chunk 9).
+//   - empty DCCStates + empty reinitStates → equals
+//     AllowlistHashWithCreateObjects (v1.13 chunk 8).
+//   - all-empty → equals AllowlistHash (v1.4).
+//
+// All v1.4 → v1.13-chunk-9 confirm-tokens remain valid for
+// operators who don't opt into per-DCC-state gating.
+//
+// Hash layout (when DCCStates is non-empty):
+//
+//	AllowlistHashWithReinitStates output
+//	  || 0xFB || (state byte) × sorted_DCCStates
+//
+// Separator 0xFB is below 0xFC (reinit), 0xFD (creates), 0xFE
+// (deletes), and 0xFF (per-property objects). Per-entry is
+// 1 byte (state enum 0..2).
+func AllowlistHashWithDCCStates(target string, al Allowlists) [32]byte {
+	if len(al.DCCStates) == 0 {
+		return AllowlistHashWithReinitStates(target, al.Services, al.Objects, al.DeleteObjects, al.CreateObjects, al.ReinitStates)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := append([]AllowedDCCState(nil), al.DCCStates...)
+	sort.Slice(sortedDCC, func(i, j int) bool {
+		return sortedDCC[i].State < sortedDCC[j].State
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	writeDCCStatesBlock(h, sortedDCC)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithDCCStates is the v1.13 chunk-10 mutation
+// that mixes every per-service dimension (services + per-
+// object + per-delete + per-create + per-reinit + per-DCC)
+// into the PayloadHash. Empty DCCStates → degrades to
+// SessionMutationWithReinitStates.
+func SessionMutationWithDCCStates(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithDCCStates(target, al),
+	}
+}
+
+// sortAllowedReinitStates returns a deterministically sorted
+// copy (by State ascending). Helper introduced alongside
+// chunk 10 so AllowlistHashWithDCCStates can reuse the chunk-9
+// sort logic without re-stating it inline.
+func sortAllowedReinitStates(in []AllowedReinitState) []AllowedReinitState {
+	out := append([]AllowedReinitState(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].State < out[j].State })
+	return out
+}
+
+// writeDCCStatesBlock writes the per-DCC-state block. Separator
+// 0xFB (v1.13 chunk 10). Caller must have already established
+// len(sorted) > 0.
+func writeDCCStatesBlock(h hashWriter, sorted []AllowedDCCState) {
+	_, _ = h.Write([]byte{0xFB})
+	for _, d := range sorted {
+		_, _ = h.Write([]byte{d.State})
+	}
+}
+
 // sortAllowedCreateObjects returns a deterministically sorted
 // copy (by ObjectType ascending). Helper introduced alongside
 // chunk 9 so AllowlistHashWithReinitStates can reuse the same
@@ -661,9 +814,14 @@ type WriteGatedHandler struct {
 	// See AllowedReinitState for semantics. Empty list preserves
 	// service-choice-only gating for that service.
 	AllowedReinitStates []AllowedReinitState
-	Deriver             confirm.KeyDeriver
-	Auditor             confirm.Auditor
-	SessionConfirm      confirm.Confirm
+	// AllowedDCCStates is the optional v1.13 chunk-10 per-state
+	// allowlist for DeviceCommunicationControl (service 17).
+	// See AllowedDCCState for semantics. Empty list preserves
+	// service-choice-only gating for that service.
+	AllowedDCCStates []AllowedDCCState
+	Deriver          confirm.KeyDeriver
+	Auditor          confirm.Auditor
+	SessionConfirm   confirm.Confirm
 
 	authorised bool
 }
@@ -674,7 +832,14 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithReinitStates(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects, h.AllowedCreateObjects, h.AllowedReinitStates)
+	m := SessionMutationWithDCCStates(h.Target, Allowlists{
+		Services:      h.Allowed,
+		Objects:       h.AllowedObjects,
+		DeleteObjects: h.AllowedDeleteObjects,
+		CreateObjects: h.AllowedCreateObjects,
+		ReinitStates:  h.AllowedReinitStates,
+		DCCStates:     h.AllowedDCCStates,
+	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -767,10 +932,27 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, upstream, clientWriter io.W
 
 // perObjectGatesAllow runs the per-service body checks for the
 // services that ship them. WriteProperty (15) + WPM (16) share
-// AllowedObjects; DeleteObject (11) uses AllowedDeleteObjects.
-// Other mutating services keep service-only gating (no body
-// inspection); they always pass through this helper.
+// AllowedObjects; DeleteObject (11) uses AllowedDeleteObjects;
+// CreateObject (10) uses AllowedCreateObjects; ReinitializeDevice
+// (20) uses AllowedReinitStates; DeviceCommControl (17) uses
+// AllowedDCCStates. Other mutating services keep service-only
+// gating (no body inspection); they always pass through this
+// helper. Per-service dispatch is split into per-list helpers so
+// the function stays under gocyclo as we keep adding dimensions.
 func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
+	if !h.objectListGatesAllow(svc, apdu) {
+		return false
+	}
+	if !h.stateListGatesAllow(svc, apdu) {
+		return false
+	}
+	return true
+}
+
+// objectListGatesAllow runs the object-tuple-style gates: per-
+// property writes (svc 15/16), per-target deletes (svc 11),
+// per-create-types (svc 10).
+func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedObjects) > 0 {
 		switch svc { //nolint:exhaustive // services not listed don't carry a per-property body the gate inspects
 		case wire.ConfirmedSvcWriteProperty:
@@ -793,12 +975,45 @@ func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu 
 			return false
 		}
 	}
+	return true
+}
+
+// stateListGatesAllow runs the enum-state-style gates: reinit
+// states (svc 20), DCC states (svc 17). These check a single
+// enum byte each.
+func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedReinitStates) > 0 && svc == wire.ConfirmedSvcReinitializeDevice {
 		if !h.reinitStateAllowed(apdu) {
 			return false
 		}
 	}
+	if len(h.AllowedDCCStates) > 0 && svc == wire.ConfirmedSvcDeviceCommControl {
+		if !h.dccStateAllowed(apdu) {
+			return false
+		}
+	}
 	return true
+}
+
+// dccStateAllowed parses the DeviceCommunicationControl body
+// and reports whether the requested enableDisable enum value
+// is in the operator's per-state allowlist. Fail-closed on
+// unparseable BER or unknown enum value.
+func (h *WriteGatedHandler) dccStateAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	state, ok := wire.ParseDeviceCommControl(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedDCCStates {
+		if a.State == state {
+			return true
+		}
+	}
+	return false
 }
 
 // reinitStateAllowed parses the ReinitializeDevice body and

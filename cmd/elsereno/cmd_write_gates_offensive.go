@@ -517,7 +517,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var serviceChoices []uint
 	var objects []string
 	var deleteObjects []string
-	var createObjectTypes, reinitStates []uint
+	var createObjectTypes, reinitStates, dccStates []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -531,6 +531,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				deleteObjects:     deleteObjects,
 				createObjectTypes: createObjectTypes,
 				reinitStates:      reinitStates,
+				dccStates:         dccStates,
 			})
 		},
 	}
@@ -540,6 +541,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
 	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
+	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -549,11 +551,11 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 // arg so runBACnetDryRun stays under the gocyclo / funlen
 // thresholds as we add v1.13+ per-service dimensions.
 type bacnetDryRunInputs struct {
-	target, ppFile, emitFile        string
-	serviceChoices                  []uint
-	objects                         []string
-	deleteObjects                   []string
-	createObjectTypes, reinitStates []uint
+	target, ppFile, emitFile                   string
+	serviceChoices                             []uint
+	objects                                    []string
+	deleteObjects                              []string
+	createObjectTypes, reinitStates, dccStates []uint
 }
 
 // runBACnetDryRun parses every per-service allowlist, computes
@@ -563,35 +565,58 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if in.target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required"))
 	}
-	svcs, err := parseBACnetServiceChoices(in.serviceChoices)
+	parsed, err := parseAllowlists(in)
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	objs, err := parseBACnetObjectFlags(in.objects)
-	if err != nil {
-		return fail(core.ExitUsage, err)
-	}
-	delObjs, err := parseBACnetDeleteObjectFlags(in.deleteObjects)
-	if err != nil {
-		return fail(core.ExitUsage, err)
-	}
-	creObjs, err := parseBACnetCreateObjectTypes(in.createObjectTypes)
-	if err != nil {
-		return fail(core.ExitUsage, err)
-	}
-	reiSts, err := parseBACnetReinitStates(in.reinitStates)
-	if err != nil {
-		return fail(core.ExitUsage, err)
-	}
-	mut := bacwrite.SessionMutationWithReinitStates(in.target, svcs, objs, delObjs, creObjs, reiSts)
-	printBACnetDryRunSummary(cmd, in, svcs, objs, delObjs, creObjs, reiSts, mut)
+	mut := bacwrite.SessionMutationWithDCCStates(in.target, parsed)
+	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
 	}
 	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
-		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates))
+		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates))
 	}
 	return nil
+}
+
+// parseAllowlists parses every per-service-dimension flag
+// into a Allowlists bundle. Single point of dispatch so
+// the dry-run command + future builders share the same
+// validation logic.
+func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
+	svcs, err := parseBACnetServiceChoices(in.serviceChoices)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	objs, err := parseBACnetObjectFlags(in.objects)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	delObjs, err := parseBACnetDeleteObjectFlags(in.deleteObjects)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	creObjs, err := parseBACnetCreateObjectTypes(in.createObjectTypes)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	reiSts, err := parseBACnetReinitStates(in.reinitStates)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	dccSts, err := parseBACnetDCCStates(in.dccStates)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
+	return bacwrite.Allowlists{
+		Services:      svcs,
+		Objects:       objs,
+		DeleteObjects: delObjs,
+		CreateObjects: creObjs,
+		ReinitStates:  reiSts,
+		DCCStates:     dccSts,
+	}, nil
 }
 
 // parseBACnetServiceChoices validates uint values fit in 1 byte.
@@ -607,16 +632,16 @@ func parseBACnetServiceChoices(in []uint) ([]bacwrite.AllowedService, error) {
 }
 
 // printBACnetDryRunSummary emits the canonical dry-run output.
-func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, svcs []bacwrite.AllowedService, objs []bacwrite.AllowedObject, delObjs []bacwrite.AllowedDeleteObject, creObjs []bacwrite.AllowedCreateObject, reiSts []bacwrite.AllowedReinitState, mut confirm.Mutation) {
-	_ = svcs // service list canonicalised via in.serviceChoices.
+func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, al bacwrite.Allowlists, mut confirm.Mutation) {
 	cmd.Printf("Protocol:     bacnet\n")
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", in.target)
 	cmd.Printf("Services:     %s\n", canonUintList(in.serviceChoices))
-	cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
-	cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(delObjs))
-	cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(creObjs))
-	cmd.Printf("ReinitStates: %s\n", canonBACnetReinitStates(reiSts))
+	cmd.Printf("Objects:      %s\n", canonBACnetObjects(al.Objects))
+	cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(al.DeleteObjects))
+	cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(al.CreateObjects))
+	cmd.Printf("ReinitStates: %s\n", canonBACnetReinitStates(al.ReinitStates))
+	cmd.Printf("DCCStates:    %s\n", canonBACnetDCCStates(al.DCCStates))
 	cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
@@ -759,6 +784,50 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetDCCStates converts repeated --dcc-state uint
+// values into AllowedDCCState entries. Each value must be a
+// known enum (0..2 per ASHRAE 135 §16.1 enableDisable).
+func parseBACnetDCCStates(in []uint) ([]bacwrite.AllowedDCCState, error) {
+	out := make([]bacwrite.AllowedDCCState, 0, len(in))
+	for _, v := range in {
+		if v > 2 {
+			return nil, fmt.Errorf("--dcc-state %d: must be 0-2 (ASHRAE 135 §16.1 enableDisable enum)", v)
+		}
+		out = append(out, bacwrite.AllowedDCCState{State: uint8(v & 0x03)})
+	}
+	return out, nil
+}
+
+// canonBACnetDCCStates prints the sorted list for dry-run.
+func canonBACnetDCCStates(in []bacwrite.AllowedDCCState) string {
+	if len(in) == 0 {
+		return "(none — DeviceCommControl accepts any state when 17 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedDCCState(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].State < sorted[j].State })
+	for i, d := range sorted {
+		out[i] = fmt.Sprintf("%d (%s)", d.State, dccStateLabel(d.State))
+	}
+	return strings.Join(out, ", ")
+}
+
+// dccStateLabel returns the spec name for an enableDisable
+// enum value. Unknown values render as "?" — never expected
+// since the parser validates the range.
+func dccStateLabel(v uint8) string {
+	switch v {
+	case 0:
+		return "enable"
+	case 1:
+		return "disable"
+	case 2:
+		return "disableInitiation"
+	default:
+		return "?"
+	}
 }
 
 // parseBACnetReinitStates converts repeated --reinit-state uint
@@ -1711,7 +1780,9 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // DeleteObject (svc 11). v1.13 chunk 8 adds `create_object_types:`
 // (type only) for CreateObject (svc 10). v1.13 chunk 9 adds
 // `reinit_states:` (state enum) for ReinitializeDevice (svc 20).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates []uint) proxyAllowFile {
+// v1.13 chunk 10 adds `dcc_states:` (state enum) for
+// DeviceCommunicationControl (svc 17).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates []uint) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
@@ -1765,6 +1836,9 @@ func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjec
 	if len(reinitStates) > 0 {
 		af.ReinitStates = canonAllowFileBACnetReinitStates(reinitStates)
 	}
+	if len(dccStates) > 0 {
+		af.DCCStates = canonAllowFileBACnetDCCStates(dccStates)
+	}
 	return af
 }
 
@@ -1779,6 +1853,22 @@ func canonAllowFileBACnetReinitStates(in []uint) []uint8 {
 			continue
 		}
 		out = append(out, uint8(v&0x07))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+// canonAllowFileBACnetDCCStates converts repeated raw uint
+// state values to YAML uint8 entries, dropping out-of-range
+// values + sorting ascending. Extracted so buildAllowFileBACnet
+// stays under the funlen threshold.
+func canonAllowFileBACnetDCCStates(in []uint) []uint8 {
+	out := make([]uint8, 0, len(in))
+	for _, v := range in {
+		if v > 2 {
+			continue
+		}
+		out = append(out, uint8(v&0x03))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out

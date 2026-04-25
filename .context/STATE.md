@@ -1,6 +1,6 @@
 ---
 phase: v1.13-in-flight
-status: v1.12.0 released; 9 chunks of v1.13 landed on main, no tag yet
+status: v1.12.0 released; 10 chunks of v1.13 landed on main, no tag yet
 last-updated: 2026-04-25
 token-budget: 300
 ---
@@ -9,7 +9,7 @@ token-budget: 300
 
 **Phase**: **v1.12.0 released** to GitHub
 (https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0).
-**v1.13 cycle in flight on main** — 9 chunks landed since
+**v1.13 cycle in flight on main** — 10 chunks landed since
 v1.12.0 close, no tag yet (operator decides when to cut).
 
 v1.13 is "post-v1.12 carry-over closure": each chunk fixes a
@@ -36,8 +36,11 @@ Snapshots:
   separate `AllowedDeleteObjects` list.
 - 8   `3f570e3` — BACnet CreateObject (svc 10) per-type
   allowlist + separate `AllowedCreateObjects` list.
-- 9   *(pending commit)* — BACnet ReinitializeDevice (svc 20)
-  per-state allowlist (0 coldstart..7 activate-changes).
+- 9   `b51f488` — BACnet ReinitializeDevice (svc 20) per-state
+  allowlist (0 coldstart..7 activate-changes).
+- 10  *(pending commit)* — BACnet DeviceCommunicationControl
+  (svc 17) per-state allowlist (0 enable / 1 disable / 2
+  disableInitiation).
 
 Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
 to native `// #nosec G<NNN>` markers — `make sec` now exit-0.
