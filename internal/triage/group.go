@@ -10,6 +10,7 @@ import (
 const (
 	BucketQuickWin  = "quick_win"
 	BucketStrategic = "strategic"
+	BucketUtility   = "utility"
 	BucketRoutine   = "routine"
 )
 
@@ -20,6 +21,13 @@ const (
 //     because the fix is usually "turn on auth".
 //   - strategic:  severity == critical AND impact_class > 60
 //     — matters for long-horizon remediation plans.
+//   - utility:    severity in {info, low} AND the finding surfaces
+//     reconnaissance / inventory value (banner data, version
+//     leaks, vendor identification) but isn't directly
+//     exploitable. v1.13 chunk 6 split this out of routine
+//     so operators can see what's "useful intel"
+//     vs. "background noise". Heuristic: severity ≤ low
+//     AND (banner-style plugin OR no impact factor present).
 //   - routine:    everything else.
 //
 // Callers that disagree with the policy can override via a YAML
@@ -37,14 +45,46 @@ func Group(f core.Finding) string {
 	if f.Severity == core.SeverityCritical && okI && impact >= 60 {
 		return BucketStrategic
 	}
+	if isUtilityFinding(f, okI, impact) {
+		return BucketUtility
+	}
 	return BucketRoutine
 }
 
+// isUtilityFinding implements the v1.13 chunk-6 utility heuristic.
+// A finding lands in "utility" when its severity is ≤ low AND
+// either:
+//
+//   - the protocol is the generic banner / dictionary plugin
+//     (whose findings are inventory data, not vulnerabilities),
+//     OR
+//   - the impact_class factor is absent or near-zero (informational
+//     signal, no operational lever).
+//
+// Severity > low always falls through (those are real findings
+// regardless of impact). The result is intentionally narrow —
+// "utility" should be a small, useful bucket that surfaces
+// recon-grade signals an operator wants to see, not a dumping
+// ground for everything routine.
+func isUtilityFinding(f core.Finding, okImpact bool, impact int) bool {
+	if f.Severity != core.SeverityInfo && f.Severity != core.SeverityLow {
+		return false
+	}
+	if f.Protocol == "banner" || f.Protocol == "atmodem" {
+		return true
+	}
+	if !okImpact || impact < 20 {
+		return true
+	}
+	return false
+}
+
 // Summary aggregates findings into per-bucket counts with a stable
-// ordering (quick_win, strategic, routine).
+// ordering (quick_win, strategic, utility, routine).
 type Summary struct {
 	QuickWin  []core.Finding
 	Strategic []core.Finding
+	Utility   []core.Finding
 	Routine   []core.Finding
 }
 
@@ -59,11 +99,13 @@ func BucketFindings(findings []core.Finding) Summary {
 			s.QuickWin = append(s.QuickWin, f)
 		case BucketStrategic:
 			s.Strategic = append(s.Strategic, f)
+		case BucketUtility:
+			s.Utility = append(s.Utility, f)
 		default:
 			s.Routine = append(s.Routine, f)
 		}
 	}
-	for _, bucket := range [][]core.Finding{s.QuickWin, s.Strategic, s.Routine} {
+	for _, bucket := range [][]core.Finding{s.QuickWin, s.Strategic, s.Utility, s.Routine} {
 		sort.SliceStable(bucket, func(i, j int) bool { return bucket[i].Score > bucket[j].Score })
 	}
 	return s

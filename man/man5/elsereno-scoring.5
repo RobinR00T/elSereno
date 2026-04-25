@@ -90,6 +90,28 @@ T}@T{
 < 20
 T}
 .TE
+.SH TRIAGE BUCKETS
+The \f[B]\f[CB]elsereno triage\f[B]\f[R] verb groups findings into four
+buckets in priority order.
+The first match wins:
+.TP
+\f[B]quick_win\f[R]
+severity ∈ {critical, high} AND \f[B]auth_state ≤ 10\f[R] \(em fast
+remediation, fix is usually \(lqturn on auth\(rq.
+.TP
+\f[B]strategic\f[R]
+severity == critical AND \f[B]impact_class ≥ 60\f[R] \(em long\- horizon
+remediation plans.
+.TP
+\f[B]utility\f[R] (v1.13+)
+severity ∈ {info, low} AND either the protocol is \f[CR]banner\f[R] /
+\f[CR]atmodem\f[R] (inventory plugins), OR \f[B]impact_class is absent
+or < 20\f[R].
+Useful recon\-grade signals (vendor banners, version leaks) separated
+from operational findings.
+.TP
+\f[B]routine\f[R]
+everything else.
 .SH STORAGE
 Per\-factor sub\-scores are stored in \f[B]findings.factors\f[R]
 (JSONB).

@@ -92,7 +92,9 @@ elsereno scan --input-file t.txt \
 --------------------- Scoring + triage ------------------------
 elsereno explain                 # ADR-006 factors
 elsereno scoring show            # weights + thresholds
-elsereno triage --run <uuid>     # quick-wins / strategic / routine
+elsereno triage --run <uuid>     # quick-wins / strategic / utility / routine
+                                  # (utility = banner-info / inventory data,
+                                  #  v1.13+; antes en routine)
 
 
 ----------------------- API HTTP (v1+) ------------------------

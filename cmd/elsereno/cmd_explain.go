@@ -122,13 +122,13 @@ func newWhyCmd() *cobra.Command {
 }
 
 // newTriageCmd groups a set of NDJSON findings into quick-win /
-// strategic / routine buckets. Input is one finding per line on
-// stdin or --from-file.
+// strategic / utility / routine buckets. Input is one finding
+// per line on stdin or --from-file.
 func newTriageCmd() *cobra.Command {
 	var path string
 	cmd := &cobra.Command{
 		Use:   "triage",
-		Short: "Group NDJSON findings into quick-win / strategic / routine",
+		Short: "Group NDJSON findings into quick-win / strategic / utility / routine",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			r := os.Stdin
 			if path != "" {
@@ -149,8 +149,8 @@ func newTriageCmd() *cobra.Command {
 				return fail(core.ExitDataErr, err)
 			}
 			s := triageBucket(findings)
-			cmd.Printf("quick_win: %d\nstrategic: %d\nroutine:   %d\n",
-				len(s.QuickWin), len(s.Strategic), len(s.Routine))
+			cmd.Printf("quick_win: %d\nstrategic: %d\nutility:   %d\nroutine:   %d\n",
+				len(s.QuickWin), len(s.Strategic), len(s.Utility), len(s.Routine))
 			return nil
 		},
 	}
@@ -163,20 +163,29 @@ func newTriageCmd() *cobra.Command {
 type triageSummary struct {
 	QuickWin  []core.Finding
 	Strategic []core.Finding
+	Utility   []core.Finding
 	Routine   []core.Finding
 }
 
+// triageBucket mirrors internal/triage.Group: quick_win →
+// strategic → utility → routine. The "utility" bucket (v1.13
+// chunk 6) catches low-severity inventory / banner findings so
+// the operator can separate "useful intel" from "background
+// noise". See internal/triage/group.go for the canonical
+// heuristic.
 func triageBucket(findings []core.Finding) triageSummary {
 	s := triageSummary{}
 	for _, f := range findings {
 		authState := 100
 		impact := 0
+		hasImpact := false
 		if f.Factors != nil {
 			if v, ok := f.Factors["auth_state"]; ok {
 				authState = v
 			}
 			if v, ok := f.Factors["impact_class"]; ok {
 				impact = v
+				hasImpact = true
 			}
 		}
 		switch {
@@ -184,11 +193,30 @@ func triageBucket(findings []core.Finding) triageSummary {
 			s.QuickWin = append(s.QuickWin, f)
 		case f.Severity == core.SeverityCritical && impact >= 60:
 			s.Strategic = append(s.Strategic, f)
+		case isUtilityFindingLocal(f, hasImpact, impact):
+			s.Utility = append(s.Utility, f)
 		default:
 			s.Routine = append(s.Routine, f)
 		}
 	}
 	return s
+}
+
+// isUtilityFindingLocal mirrors the canonical heuristic in
+// internal/triage. Kept as a duplicate so this file doesn't
+// import the package (the bridge type triageSummary already
+// implies the parallel structure).
+func isUtilityFindingLocal(f core.Finding, hasImpact bool, impact int) bool {
+	if f.Severity != core.SeverityInfo && f.Severity != core.SeverityLow {
+		return false
+	}
+	if f.Protocol == "banner" || f.Protocol == "atmodem" {
+		return true
+	}
+	if !hasImpact || impact < 20 {
+		return true
+	}
+	return false
 }
 
 // parseNDJSONFindings decodes a buffer of newline-delimited NDJSON

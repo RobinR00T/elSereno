@@ -35,6 +35,29 @@ The engine validates that weights sum to **1.0 ± 1e-9**.
 | low       | ≥ 20, < 40 |
 | info      | < 20       |
 
+# TRIAGE BUCKETS
+
+The **`elsereno triage`** verb groups findings into four
+buckets in priority order. The first match wins:
+
+**quick_win**
+:   severity ∈ {critical, high} AND **auth_state ≤ 10** — fast
+    remediation, fix is usually "turn on auth".
+
+**strategic**
+:   severity == critical AND **impact_class ≥ 60** — long-
+    horizon remediation plans.
+
+**utility** (v1.13+)
+:   severity ∈ {info, low} AND either the protocol is
+    `banner` / `atmodem` (inventory plugins), OR **impact_class
+    is absent or < 20**. Useful recon-grade signals (vendor
+    banners, version leaks) separated from operational
+    findings.
+
+**routine**
+:   everything else.
+
 # STORAGE
 
 Per-factor sub-scores are stored in **findings.factors** (JSONB). A run
