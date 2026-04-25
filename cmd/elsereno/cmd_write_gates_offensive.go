@@ -516,6 +516,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var serviceChoices []uint
 	var objects []string
+	var deleteObjects []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -534,19 +535,24 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			mut := bacwrite.SessionMutationWithObjects(target, svcs, objs)
+			delObjs, err := parseBACnetDeleteObjectFlags(deleteObjects)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			mut := bacwrite.SessionMutationWithDeleteObjects(target, svcs, objs, delObjs)
 			cmd.Printf("Protocol:     bacnet\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Services:     %s\n", canonUintList(serviceChoices))
 			cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
+			cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(delObjs))
 			cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects))
+				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects, deleteObjects))
 			}
 			return nil
 		},
@@ -554,6 +560,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
 	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
 	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
+	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -621,6 +628,87 @@ func parseBACnetObjectFlag(s string) (bacwrite.AllowedObject, error) {
 		return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: must specify type=, instance=, and property=", s)
 	}
 	return out, nil
+}
+
+// parseBACnetDeleteObjectFlags parses --delete-object entries
+// into AllowedDeleteObject{Type, Instance} tuples.
+func parseBACnetDeleteObjectFlags(in []string) ([]bacwrite.AllowedDeleteObject, error) {
+	out := make([]bacwrite.AllowedDeleteObject, 0, len(in))
+	for _, raw := range in {
+		o, err := parseBACnetDeleteObjectFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+// parseBACnetDeleteObjectFlag parses one --delete-object value.
+// Format: type=N;instance=M. Same shape as --object minus the
+// property field.
+func parseBACnetDeleteObjectFlag(s string) (bacwrite.AllowedDeleteObject, error) {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: empty", s)
+	}
+	var out bacwrite.AllowedDeleteObject
+	var typeSeen, instSeen bool
+	for _, p := range strings.Split(raw, ";") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) != 2 {
+			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: each token is KEY=VALUE", s)
+		}
+		key := strings.ToLower(strings.TrimSpace(kv[0]))
+		val := strings.TrimSpace(kv[1])
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: %s %q is not a number", s, key, val)
+		}
+		switch key {
+		case "type":
+			if n > 0x3FF {
+				return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: type must be 0-1023 (10 bits)", s)
+			}
+			out.ObjectType = uint16(n & 0x3FF)
+			typeSeen = true
+		case "instance":
+			if n > 0x3FFFFF {
+				return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: instance must be 0-4194303 (22 bits)", s)
+			}
+			out.ObjectInstance = uint32(n & 0x3FFFFF)
+			instSeen = true
+		default:
+			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: unknown key %q (expected type or instance)", s, key)
+		}
+	}
+	if !typeSeen || !instSeen {
+		return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: must specify both type= and instance=", s)
+	}
+	return out, nil
+}
+
+// canonBACnetDeleteObjects prints the sorted list for dry-run.
+func canonBACnetDeleteObjects(in []bacwrite.AllowedDeleteObject) string {
+	if len(in) == 0 {
+		return "(none — DeleteObject accepts any target when 11 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedDeleteObject(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].ObjectType != sorted[j].ObjectType {
+			return sorted[i].ObjectType < sorted[j].ObjectType
+		}
+		return sorted[i].ObjectInstance < sorted[j].ObjectInstance
+	})
+	for i, d := range sorted {
+		out[i] = fmt.Sprintf("type=%d;instance=%d", d.ObjectType, d.ObjectInstance)
+	}
+	return strings.Join(out, ", ")
 }
 
 // canonBACnetObjects prints the sorted list for dry-run output.
@@ -1479,38 +1567,58 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 }
 
 // buildAllowFileBACnet builds the YAML for a BACnet proxy
-// session. v1.12 chunk 7 adds the optional per-object allowlist
-// as `objects:` entries (type/instance/property per entry).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw []string) proxyAllowFile {
+// session. v1.12 chunk 7 adds `objects:` (type/instance/property
+// per entry) for WriteProperty + WritePropertyMultiple. v1.13
+// chunk 7 adds `delete_objects:` (type/instance only) for
+// DeleteObject (svc 11).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
 		ServiceChoices: canonUints(choices),
 	}
-	if len(objectsRaw) == 0 {
-		return af
-	}
-	af.Objects = make([]proxyBACnetObject, 0, len(objectsRaw))
-	for _, raw := range objectsRaw {
-		o, err := parseBACnetObjectFlag(raw)
-		if err != nil {
-			continue
+	if len(objectsRaw) > 0 {
+		af.Objects = make([]proxyBACnetObject, 0, len(objectsRaw))
+		for _, raw := range objectsRaw {
+			o, err := parseBACnetObjectFlag(raw)
+			if err != nil {
+				continue
+			}
+			af.Objects = append(af.Objects, proxyBACnetObject{
+				Type:     o.ObjectType,
+				Instance: o.ObjectInstance,
+				Property: o.PropertyID,
+			})
 		}
-		af.Objects = append(af.Objects, proxyBACnetObject{
-			Type:     o.ObjectType,
-			Instance: o.ObjectInstance,
-			Property: o.PropertyID,
+		sort.Slice(af.Objects, func(i, j int) bool {
+			if af.Objects[i].Type != af.Objects[j].Type {
+				return af.Objects[i].Type < af.Objects[j].Type
+			}
+			if af.Objects[i].Instance != af.Objects[j].Instance {
+				return af.Objects[i].Instance < af.Objects[j].Instance
+			}
+			return af.Objects[i].Property < af.Objects[j].Property
 		})
 	}
-	sort.Slice(af.Objects, func(i, j int) bool {
-		if af.Objects[i].Type != af.Objects[j].Type {
-			return af.Objects[i].Type < af.Objects[j].Type
+	if len(deleteObjectsRaw) > 0 {
+		af.DeleteObjects = make([]proxyBACnetDeleteObject, 0, len(deleteObjectsRaw))
+		for _, raw := range deleteObjectsRaw {
+			d, err := parseBACnetDeleteObjectFlag(raw)
+			if err != nil {
+				continue
+			}
+			af.DeleteObjects = append(af.DeleteObjects, proxyBACnetDeleteObject{
+				Type:     d.ObjectType,
+				Instance: d.ObjectInstance,
+			})
 		}
-		if af.Objects[i].Instance != af.Objects[j].Instance {
-			return af.Objects[i].Instance < af.Objects[j].Instance
-		}
-		return af.Objects[i].Property < af.Objects[j].Property
-	})
+		sort.Slice(af.DeleteObjects, func(i, j int) bool {
+			if af.DeleteObjects[i].Type != af.DeleteObjects[j].Type {
+				return af.DeleteObjects[i].Type < af.DeleteObjects[j].Type
+			}
+			return af.DeleteObjects[i].Instance < af.DeleteObjects[j].Instance
+		})
+	}
 	return af
 }
 

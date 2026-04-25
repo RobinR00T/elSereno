@@ -14,45 +14,45 @@ package sandbox
 // anyone who can grep a number.
 
 type syscallNums struct {
-	Execve         uint32
-	Execveat       uint32
-	Fork           uint32
-	Vfork          uint32
-	Clone          uint32
-	Clone3         uint32
-	Unshare        uint32
-	Mount          uint32
-	Umount2        uint32
-	Pivot_root     uint32
-	Chroot         uint32
-	Ptrace         uint32
-	Kexec_load     uint32
+	Execve          uint32
+	Execveat        uint32
+	Fork            uint32
+	Vfork           uint32
+	Clone           uint32
+	Clone3          uint32
+	Unshare         uint32
+	Mount           uint32
+	Umount2         uint32
+	Pivot_root      uint32
+	Chroot          uint32
+	Ptrace          uint32
+	Kexec_load      uint32
 	Kexec_file_load uint32
-	Init_module    uint32
-	Finit_module   uint32
-	Delete_module  uint32
-	Bpf            uint32
-	Reboot         uint32
-	Setns          uint32
-	Personality    uint32
+	Init_module     uint32
+	Finit_module    uint32
+	Delete_module   uint32
+	Bpf             uint32
+	Reboot          uint32
+	Setns           uint32
+	Personality     uint32
 
 	// per-profile extras
-	Truncate   uint32
-	Ftruncate  uint32
-	Unlink     uint32
-	Unlinkat   uint32
-	Mknod      uint32
-	Mknodat    uint32
-	Chmod      uint32
-	Fchmod     uint32
-	Fchmodat   uint32
-	Rename     uint32
-	Renameat   uint32
-	Renameat2  uint32
-	Symlink    uint32
-	Symlinkat  uint32
-	Link       uint32
-	Linkat     uint32
+	Truncate  uint32
+	Ftruncate uint32
+	Unlink    uint32
+	Unlinkat  uint32
+	Mknod     uint32
+	Mknodat   uint32
+	Chmod     uint32
+	Fchmod    uint32
+	Fchmodat  uint32
+	Rename    uint32
+	Renameat  uint32
+	Renameat2 uint32
+	Symlink   uint32
+	Symlinkat uint32
+	Link      uint32
+	Linkat    uint32
 
 	Socket     uint32
 	Socketpair uint32

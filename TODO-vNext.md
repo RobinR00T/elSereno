@@ -43,6 +43,9 @@ v1.3 → v1.12 archived to keep this file actionable.
   (`elsereno-offensive write cwmp verify-firmware`).
 - ✅ **BACnet per-object for WritePropertyMultiple (svc 16)** —
   v1.13 chunk 3.
+- ✅ **BACnet per-target for DeleteObject (svc 11)** — v1.13
+  chunk 7. Separate `AllowedDeleteObjects` list (kept distinct
+  from property-level `AllowedObjects`).
 - ✅ **CWMP RPC-name case-warning in dry-run** — v1.13 chunk 4.
 - ✅ **CWMP-over-TLS operator recipe** — v1.13 chunk 5 (docs
   only; nginx + HAProxy + Caddy front-proxy patterns).
@@ -59,9 +62,10 @@ v1.3 → v1.12 archived to keep this file actionable.
 
 - [ ] **BACnet per-object para los demás mutating services**.
   v1.12 chunk 7 cubre WriteProperty (svc 15). v1.13 chunk 3
-  añade WritePropertyMultiple (svc 16). Falta:
-    - svc 10 CreateObject — request: ObjectId target.
-    - svc 11 DeleteObject — request: ObjectId target.
+  añade WritePropertyMultiple (svc 16). v1.13 chunk 7 añade
+  DeleteObject (svc 11). Falta:
+    - svc 10 CreateObject — request: choice ObjectType vs
+      ObjectIdentifier + opcional listOfInitialValues.
     - svc 17 DeviceCommunicationControl — devices Disable /
       Disable-Initiation (silenciar dispositivo).
     - svc 20 ReinitializeDevice — coldstart / warmstart.
@@ -69,7 +73,7 @@ v1.3 → v1.12 archived to keep this file actionable.
     - svc 7 AtomicWriteFile — file Object writes.
     - svc 8/9 Add/RemoveListElement — recipient lists, schedules.
   Cada uno necesita su BER walker + tests. Estimación: 1
-  chunk por servicio (7 chunks = 1 ciclo).
+  chunk por servicio (6 chunks restantes).
 
 - [ ] **Bulk InternetDB lookup** — v1.12 chunk 9 cubre
   single-IP. Faltan `internetdb:file:<path>` y `internetdb:-`

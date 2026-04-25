@@ -12,7 +12,7 @@ object / per-path scoping (rows in **bold**).
 | [**Modbus/TCP**](modbus.md) | 502 | FC 1 Read Coils + opportunistic FC 43/14 | wire write-ban (IllegalFunction) | FC 5/6/15/16/22/23 — gated per-(unit, FC, address-range) since v1.12 |
 | S7comm ([s7.md](s7.md)) | 102 | TPKT/COTP Connection Request | wire write-ban (AckData errClass 0x85) | WriteVar / PLCStop / PLCRestart |
 | EtherNet/IP ([enip.md](enip.md)) | 44818 | ListIdentity | SendRRData refused (status 0x0001) | SetAttributeSingle / Reset |
-| [**BACnet/IP**](bacnet.md) | 47808/udp | Who-Is broadcast | fail-closed (TCP framework) | WriteProperty (svc 15) + WritePropertyMultiple (svc 16) — per-(ObjectType, Instance, PropertyID) since v1.12 / v1.13; other mutating services per-service-choice only |
+| [**BACnet/IP**](bacnet.md) | 47808/udp | Who-Is broadcast | fail-closed (TCP framework) | WriteProperty (svc 15) + WritePropertyMultiple (svc 16) — per-(ObjectType, Instance, PropertyID) since v1.12 / v1.13; DeleteObject (svc 11) per-(ObjectType, Instance) since v1.13; other mutating services per-service-choice only |
 | DNP3 ([dnp3.md](dnp3.md)) | 20000 | link-layer Request Link Status | user-data refused (FC 15 Not Supported) | (F6+) |
 | IEC 60870-5-104 ([iec104.md](iec104.md)) | 2404 | U-format TESTFR act | I-frames refused (STOPDT_act) | (F6+) |
 | HART-IP ([hartip.md](hartip.md)) | 5094 | session initiate | TokenPassPDU refused (status 0x04) | (F6+) |

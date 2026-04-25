@@ -121,6 +121,26 @@ type proxyBACnetObject struct {
 	Property uint32 `yaml:"property"`
 }
 
+// proxyBACnetDeleteObject is the YAML form of an
+// AllowedDeleteObject (v1.13 chunk 7). Two fields only —
+// PropertyID doesn't apply to object-level deletion.
+//
+// Example:
+//
+//	delete_objects:
+//	  - type: 2          # BinaryOutput
+//	    instance: 99
+//	  - type: 19         # MultiStateValue
+//	    instance: 7
+//
+// Operator allowlists specific DeleteObject targets. Other
+// destructive services (CreateObject, ReinitializeDevice, etc.)
+// keep service-only gating in v1.13; v1.14+ extensions follow.
+type proxyBACnetDeleteObject struct {
+	Type     uint16 `yaml:"type"`
+	Instance uint32 `yaml:"instance"`
+}
+
 // proxyCallMethod is the YAML-structured form of an OPC UA
 // AllowedCallMethod for per-session CallRequest gating (v1.12+).
 // Both fields are canonical-string NodeIds (ns=N;i=M | s= |
@@ -171,22 +191,23 @@ type proxyAllowFile struct {
 	// on the fields relevant to this plugin — a sip dry-run's
 	// emit-allow-file shouldn't drop empty `subclasses: []` or
 	// `functions: []` keys into the file.
-	Methods        []string            `yaml:"methods,omitempty"`         // sip
-	ToPrefixes     []string            `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
-	AORs           []string            `yaml:"aors,omitempty"`            // sip (v1.10+) — REGISTER AOR allowlist
-	FromDomains    []string            `yaml:"from_domains,omitempty"`    // sip (v1.12+) — From-header domain allowlist
-	Subclasses     []string            `yaml:"subclasses,omitempty"`      // iax2
-	Allow          []string            `yaml:"allow,omitempty"`           // pbxhttp
-	Functions      []uint              `yaml:"functions,omitempty"`       // modbus (legacy: FC-only, any unit/addr)
-	Writes         []proxyModbusWrite  `yaml:"writes,omitempty"`          // modbus (v1.12+: structured unit+fc+start+end)
-	Services       []uint              `yaml:"services,omitempty"`        // opcua
-	NodeIDs        []proxyNodeID       `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
-	CallMethods    []proxyCallMethod   `yaml:"call_methods,omitempty"`    // opcua (v1.12+) — per-CallMethod (object,method) pairs
-	ServiceChoices []uint              `yaml:"service_choices,omitempty"` // bacnet
-	Objects        []proxyBACnetObject `yaml:"objects,omitempty"`         // bacnet (v1.12+) — per-object WriteProperty allowlist
-	RPCs           []string            `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
-	ParamPrefixes  []string            `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
-	Firmware       []proxyCWMPFirmware `yaml:"firmware,omitempty"`        // cwmp (v1.12+) — per-image allowlist for Download
+	Methods        []string                  `yaml:"methods,omitempty"`         // sip
+	ToPrefixes     []string                  `yaml:"to_prefixes,omitempty"`     // sip (v1.9+) — INVITE destination allowlist
+	AORs           []string                  `yaml:"aors,omitempty"`            // sip (v1.10+) — REGISTER AOR allowlist
+	FromDomains    []string                  `yaml:"from_domains,omitempty"`    // sip (v1.12+) — From-header domain allowlist
+	Subclasses     []string                  `yaml:"subclasses,omitempty"`      // iax2
+	Allow          []string                  `yaml:"allow,omitempty"`           // pbxhttp
+	Functions      []uint                    `yaml:"functions,omitempty"`       // modbus (legacy: FC-only, any unit/addr)
+	Writes         []proxyModbusWrite        `yaml:"writes,omitempty"`          // modbus (v1.12+: structured unit+fc+start+end)
+	Services       []uint                    `yaml:"services,omitempty"`        // opcua
+	NodeIDs        []proxyNodeID             `yaml:"node_ids,omitempty"`        // opcua (v1.9+)
+	CallMethods    []proxyCallMethod         `yaml:"call_methods,omitempty"`    // opcua (v1.12+) — per-CallMethod (object,method) pairs
+	ServiceChoices []uint                    `yaml:"service_choices,omitempty"` // bacnet
+	Objects        []proxyBACnetObject       `yaml:"objects,omitempty"`         // bacnet (v1.12+) — per-object WriteProperty allowlist
+	DeleteObjects  []proxyBACnetDeleteObject `yaml:"delete_objects,omitempty"`  // bacnet (v1.13+) — per-target DeleteObject allowlist
+	RPCs           []string                  `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
+	ParamPrefixes  []string                  `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
+	Firmware       []proxyCWMPFirmware       `yaml:"firmware,omitempty"`        // cwmp (v1.12+) — per-image allowlist for Download
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -233,6 +254,10 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 			opts.bacnetObjects = append(opts.bacnetObjects,
 				fmt.Sprintf("type=%d;instance=%d;property=%d",
 					o.Type, o.Instance, o.Property))
+		}
+		for _, d := range af.DeleteObjects {
+			opts.bacnetDeleteObjects = append(opts.bacnetDeleteObjects,
+				fmt.Sprintf("type=%d;instance=%d", d.Type, d.Instance))
 		}
 	case pluginNameCWMP:
 		applyCWMPAllowFile(&af, opts)

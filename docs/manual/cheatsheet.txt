@@ -208,14 +208,19 @@ elsereno-offensive write opcua dry-run \
 
 # BACnet service-choice + per-WriteProperty object (v1.12+) +
 # per-WritePropertyMultiple (v1.13+, walk de cada tupla en el
-# batch — fail-closed si UNA sola tupla está fuera).
+# batch — fail-closed si UNA sola tupla está fuera) +
+# per-target DeleteObject (v1.13+, --delete-object).
 elsereno-offensive write bacnet dry-run \
   --target bms:47808 \
-  --service-choice 15 --service-choice 16 --service-choice 20 \
+  --service-choice 11 --service-choice 15 --service-choice 16 --service-choice 20 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
+  --delete-object "type=2;instance=99" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
+# AllowedObjects (writes) y AllowedDeleteObjects (delete) son
+# listas SEPARADAS — un operador puede permitir writes a (2,99)
+# sin permitir su deletion; tiene que añadir cada uno explícito.
 # Tuplas (ObjectType, ObjectInstance, PropertyID) parseadas vía
 # ASN.1 BER. v1.13+ extiende el walker a WritePropertyMultiple
 # (svc 16). Otros mutating-services (10 CreateObject, 17 DCC,

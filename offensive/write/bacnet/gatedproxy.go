@@ -129,6 +129,33 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 	}
 }
 
+// AllowedDeleteObject scopes a DeleteObject confirmed-request
+// (service 11) to a specific (ObjectType, ObjectInstance) pair.
+// v1.13 chunk 7 adds object-level gating for the destructive
+// service that doesn't carry a property dimension.
+//
+// Semantics: when AllowedDeleteObjects is non-empty, a
+// DeleteObject (svc 11) confirmed-request is forwarded ONLY
+// when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed target's (ObjectType, ObjectInstance) EXACTLY
+//     matches one of these entries.
+//
+// Empty list disables the per-target-delete gate (DeleteObject
+// remains gated at service-choice level if 11 is in Allowed).
+//
+// Kept SEPARATE from AllowedObjects (the property-level list
+// for svc 15/16) because the semantics differ: deleting an
+// object is more destructive than writing one of its
+// properties, and operators may want to allow property writes
+// to objects they DON'T want deleted (typical BAS pattern).
+type AllowedDeleteObject struct {
+	ObjectType     uint16
+	ObjectInstance uint32
+}
+
 // AllowlistHashWithObjects is the v1.12 chunk-7 hash that also
 // folds per-object (type, instance, property) entries into the
 // PayloadHash. Backwards compat: empty objects → equals
@@ -196,6 +223,91 @@ func SessionMutationWithObjects(target string, allowed []AllowedService, objects
 	}
 }
 
+// AllowlistHashWithDeleteObjects is the v1.13 chunk-7 hash that
+// adds the per-DeleteObject (type, instance) allowlist on top
+// of the v1.12 layer. Backwards-compat ladder: empty
+// deleteObjects → equals AllowlistHashWithObjects (v1.12);
+// empty deleteObjects AND empty objects → equals AllowlistHash
+// (v1.4). v1.4–v1.12 confirm-tokens remain valid.
+//
+// Hash layout (when deleteObjects is non-empty):
+//
+//	AllowlistHashWithObjects output
+//	  || 0xFE || (type BE16 || instance BE32) × sorted_deleteObjects
+//
+// 0xFE separator is below the 0xFF used by v1.12 chunk-7's
+// objects block, and per-entry is 6 bytes (2 type + 4 instance).
+func AllowlistHashWithDeleteObjects(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject) [32]byte {
+	if len(deleteObjects) == 0 {
+		return AllowlistHashWithObjects(target, allowed, objects)
+	}
+	sortedSvc := append([]AllowedService(nil), allowed...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].ServiceChoice < sortedSvc[j].ServiceChoice })
+	sortedObj := append([]AllowedObject(nil), objects...)
+	sort.Slice(sortedObj, func(i, j int) bool {
+		if sortedObj[i].ObjectType != sortedObj[j].ObjectType {
+			return sortedObj[i].ObjectType < sortedObj[j].ObjectType
+		}
+		if sortedObj[i].ObjectInstance != sortedObj[j].ObjectInstance {
+			return sortedObj[i].ObjectInstance < sortedObj[j].ObjectInstance
+		}
+		return sortedObj[i].PropertyID < sortedObj[j].PropertyID
+	})
+	sortedDel := append([]AllowedDeleteObject(nil), deleteObjects...)
+	sort.Slice(sortedDel, func(i, j int) bool {
+		if sortedDel[i].ObjectType != sortedDel[j].ObjectType {
+			return sortedDel[i].ObjectType < sortedDel[j].ObjectType
+		}
+		return sortedDel[i].ObjectInstance < sortedDel[j].ObjectInstance
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	if len(sortedObj) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		var u16 [2]byte
+		var u32 [4]byte
+		for _, o := range sortedObj {
+			binary.BigEndian.PutUint16(u16[:], o.ObjectType)
+			_, _ = h.Write(u16[:])
+			binary.BigEndian.PutUint32(u32[:], o.ObjectInstance)
+			_, _ = h.Write(u32[:])
+			binary.BigEndian.PutUint32(u32[:], o.PropertyID)
+			_, _ = h.Write(u32[:])
+		}
+	}
+	_, _ = h.Write([]byte{0xFE})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, d := range sortedDel {
+		binary.BigEndian.PutUint16(u16[:], d.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], d.ObjectInstance)
+		_, _ = h.Write(u32[:])
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithDeleteObjects is the v1.13 chunk-7
+// mutation that mixes services + per-object + per-delete into
+// the PayloadHash. Empty deleteObjects → degrades to
+// SessionMutationWithObjects.
+func SessionMutationWithDeleteObjects(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithDeleteObjects(target, allowed, objects, deleteObjects),
+	}
+}
+
 // AbortReasonSecurity is ASHRAE 135 §20.1.9 abort reason 5.
 const AbortReasonSecurity uint8 = 5
 
@@ -205,13 +317,19 @@ type WriteGatedHandler struct {
 	Target  string
 	Allowed []AllowedService
 	// AllowedObjects is the optional v1.12 chunk-7 per-object
-	// allowlist for WriteProperty (service 15). See AllowedObject
-	// for semantics. Empty list preserves v1.4 service-choice-
-	// only gating.
+	// allowlist for WriteProperty (service 15) and the v1.13
+	// chunk-3 extension for WritePropertyMultiple (service 16).
+	// See AllowedObject for semantics. Empty list preserves
+	// v1.4 service-choice-only gating for those services.
 	AllowedObjects []AllowedObject
-	Deriver        confirm.KeyDeriver
-	Auditor        confirm.Auditor
-	SessionConfirm confirm.Confirm
+	// AllowedDeleteObjects is the optional v1.13 chunk-7
+	// per-target-delete allowlist for DeleteObject (service 11).
+	// See AllowedDeleteObject for semantics. Empty list
+	// preserves service-choice-only gating for that service.
+	AllowedDeleteObjects []AllowedDeleteObject
+	Deriver              confirm.KeyDeriver
+	Auditor              confirm.Auditor
+	SessionConfirm       confirm.Confirm
 
 	authorised bool
 }
@@ -222,7 +340,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithObjects(h.Target, h.Allowed, h.AllowedObjects)
+	m := SessionMutationWithDeleteObjects(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -306,26 +424,59 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, upstream, clientWriter io.W
 	if !h.isAllowed(svc) {
 		return h.writeAbortRefusal(clientWriter, invokeID)
 	}
-	// Per-object gate active + this is a WriteProperty (15) /
-	// WritePropertyMultiple (16) request → walk the APDU body
-	// and check every (type, instance, property) tuple against
-	// the allowlist. Other mutating services keep service-level
-	// gating only (their request shapes differ; v1.13+ extends
-	// per-service).
-	if len(h.AllowedObjects) > 0 {
-		if svc == wire.ConfirmedSvcWriteProperty {
-			if !h.writePropertyObjectAllowed(apdu) {
-				return h.writeAbortRefusal(clientWriter, invokeID)
-			}
-		}
-		if svc == wire.ConfirmedSvcWritePropertyMultiple {
-			if !h.writePropertyMultipleObjectsAllowed(apdu) {
-				return h.writeAbortRefusal(clientWriter, invokeID)
-			}
-		}
+	if !h.perObjectGatesAllow(svc, apdu) {
+		return h.writeAbortRefusal(clientWriter, invokeID)
 	}
 	_, err := upstream.Write(frame)
 	return err
+}
+
+// perObjectGatesAllow runs the per-service body checks for the
+// services that ship them. WriteProperty (15) + WPM (16) share
+// AllowedObjects; DeleteObject (11) uses AllowedDeleteObjects.
+// Other mutating services keep service-only gating (no body
+// inspection); they always pass through this helper.
+func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
+	if len(h.AllowedObjects) > 0 {
+		switch svc { //nolint:exhaustive // services not listed don't carry a per-property body the gate inspects
+		case wire.ConfirmedSvcWriteProperty:
+			if !h.writePropertyObjectAllowed(apdu) {
+				return false
+			}
+		case wire.ConfirmedSvcWritePropertyMultiple:
+			if !h.writePropertyMultipleObjectsAllowed(apdu) {
+				return false
+			}
+		}
+	}
+	if len(h.AllowedDeleteObjects) > 0 && svc == wire.ConfirmedSvcDeleteObject {
+		if !h.deleteObjectAllowed(apdu) {
+			return false
+		}
+	}
+	return true
+}
+
+// deleteObjectAllowed parses the DeleteObject body and reports
+// whether the target (ObjectType, ObjectInstance) is in the
+// operator's per-delete allowlist. Fail-closed on unparseable
+// BER.
+func (h *WriteGatedHandler) deleteObjectAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	target, ok := wire.ParseDeleteObject(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedDeleteObjects {
+		if a.ObjectType == target.ObjectType &&
+			a.ObjectInstance == target.ObjectInstance {
+			return true
+		}
+	}
+	return false
 }
 
 // writePropertyObjectAllowed parses the WriteProperty body and

@@ -77,7 +77,7 @@ func Load(profile Profile) (LoadResult, error) {
 			Available: true,
 			Kind:      "seccomp-bpf",
 			Reason: fmt.Sprintf("profile=%s arch=%s blocklist-size=%d",
-				profile, runtime.GOARCH, (len(prog)-5)),
+				profile, runtime.GOARCH, (len(prog) - 5)),
 		},
 	}, nil
 }

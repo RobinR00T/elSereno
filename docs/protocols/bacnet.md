@@ -44,6 +44,7 @@ Two layers of allowlist:
 |-------|------|------------|-------|-------|
 | Service-choice | `--service-choice 15` | every confirmed-request | exact byte | v1.4 |
 | Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15, v1.12+) AND `WritePropertyMultiple` (svc 16, v1.13+) | exact tuple after BER walk | v1.12 / v1.13 |
+| Per-target-delete | `--delete-object type=N;instance=M` | `DeleteObject` (svc 11) | exact (type, instance) — no property dimension | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -51,7 +52,15 @@ The per-object check on **WritePropertyMultiple** walks every
 refuses the WHOLE WPM batch (fail-closed multi-target gate
 analogous to the OPC UA WriteRequest walker).
 
-Other mutating services (10 CreateObject, 11 DeleteObject, 17
+**AllowedObjects vs AllowedDeleteObjects** are kept separate:
+property writes don't auto-grant deletion. An operator who
+allowed `--object type=2;instance=99;property=85` (write
+PresentValue on BinaryOutput#99) must explicitly add
+`--delete-object type=2;instance=99` to permit deletion of
+the same object. This is the typical BAS pattern (writes ok,
+delete forbidden).
+
+Other mutating services (10 CreateObject, 17
 DeviceCommunicationControl, 20 ReinitializeDevice, 27
 LifeSafetyOperation, 7 AtomicWriteFile, 8 AddListElement, 9
 RemoveListElement) keep service-only gating in v1.13; per-

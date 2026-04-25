@@ -21,16 +21,16 @@ func assertFilterShape(t *testing.T, prog []unix.SockFilter, wantBlockedCount in
 	}
 
 	// Prologue: LD arch / JEQ audit_arch / RET KILL / LD nr.
-	if prog[0].Code != (bpfLD | bpfW | bpfABS) || prog[0].K != seccompDataOffsetArch {
+	if prog[0].Code != (bpfLD|bpfW|bpfABS) || prog[0].K != seccompDataOffsetArch {
 		t.Fatalf("insn[0] = %+v; want LD [arch]", prog[0])
 	}
 	if prog[1].Code != (bpfJMP | bpfJEQ | bpfK) {
 		t.Fatalf("insn[1].Code = 0x%x; want JEQ", prog[1].Code)
 	}
-	if prog[2].Code != (bpfRET | bpfK) || prog[2].K != seccompRetKill {
+	if prog[2].Code != (bpfRET|bpfK) || prog[2].K != seccompRetKill {
 		t.Fatalf("insn[2] = %+v; want RET KILL", prog[2])
 	}
-	if prog[3].Code != (bpfLD | bpfW | bpfABS) || prog[3].K != seccompDataOffsetNR {
+	if prog[3].Code != (bpfLD|bpfW|bpfABS) || prog[3].K != seccompDataOffsetNR {
 		t.Fatalf("insn[3] = %+v; want LD [nr]", prog[3])
 	}
 
@@ -52,11 +52,11 @@ func assertFilterShape(t *testing.T, prog []unix.SockFilter, wantBlockedCount in
 
 	// Tail RET ALLOW + RET ERRNO.
 	allow := prog[len(prog)-2]
-	if allow.Code != (bpfRET | bpfK) || allow.K != seccompRetAllow {
+	if allow.Code != (bpfRET|bpfK) || allow.K != seccompRetAllow {
 		t.Fatalf("allow tail = %+v; want RET ALLOW", allow)
 	}
 	deny := prog[len(prog)-1]
-	if deny.Code != (bpfRET | bpfK) || deny.K != (seccompRetErrno|uint32(unix.EPERM)) {
+	if deny.Code != (bpfRET|bpfK) || deny.K != (seccompRetErrno|uint32(unix.EPERM)) {
 		t.Fatalf("deny tail = %+v; want RET ERRNO|EPERM", deny)
 	}
 }
@@ -131,8 +131,8 @@ func TestBlockedSyscalls_DedupesAndDropsZeros(t *testing.T) {
 	// is honest about both conditions.
 	fake := syscallNums{
 		Execve:   59,
-		Execveat: 59,   // dup
-		Fork:     0,    // unsupported on this arch
+		Execveat: 59, // dup
+		Fork:     0,  // unsupported on this arch
 		Ptrace:   101,
 	}
 	out := blockedSyscalls(ProfileExploit, fake)
