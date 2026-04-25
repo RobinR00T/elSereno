@@ -67,7 +67,7 @@ func loadAPICreds(path string) (apiCreds, error) {
 		return out, fmt.Errorf("--api-creds-file %s: permissions %o must be 0600 (chmod 600 %s)",
 			path, info.Mode().Perm(), path)
 	}
-	raw, err := os.ReadFile(path) //nolint:gosec // G304 — path is operator-supplied; 0600 check above prevents world-readable leaks.
+	raw, err := os.ReadFile(path) // #nosec G304 — path is operator-supplied; 0600 check above prevents world-readable leaks.
 	if err != nil {
 		return out, fmt.Errorf("--api-creds-file %s: %w", path, err)
 	}

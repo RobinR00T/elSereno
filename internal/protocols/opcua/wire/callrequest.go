@@ -88,7 +88,7 @@ func skipVariantArray(b []byte) (int, bool) {
 	if len(b) < 4 {
 		return 0, false
 	}
-	n := int32(binary.LittleEndian.Uint32(b[:4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115 — -1 null sentinel intentional
 	if n < 0 {
 		return 4, true
 	}

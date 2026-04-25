@@ -128,7 +128,7 @@ func EncodeHello(h Hello) []byte {
 	// OPC UA strings are length-prefixed i32; -1 (0xFFFFFFFF)
 	// signals null. We always have a value so just emit the
 	// byte length.
-	binary.LittleEndian.PutUint32(body[20:24], uint32(len(urlBytes))) //nolint:gosec // G115 — EndpointURL length bounded by caller's input
+	binary.LittleEndian.PutUint32(body[20:24], uint32(len(urlBytes))) // #nosec G115 — EndpointURL length bounded by caller's input
 	copy(body[24:], urlBytes)
 	return wrap(MessageHello, body)
 }
@@ -179,7 +179,7 @@ func ParseError(body []byte) (Error, error) {
 		return Error{}, fmt.Errorf("opcua/wire: short ERR body: %d bytes", len(body))
 	}
 	code := binary.LittleEndian.Uint32(body[0:4])
-	lenField := int32(binary.LittleEndian.Uint32(body[4:8])) //nolint:gosec // G115 — UA wire format uses signed i32 here
+	lenField := int32(binary.LittleEndian.Uint32(body[4:8])) // #nosec G115 — UA wire format uses signed i32 here
 	if lenField <= 0 {
 		return Error{Code: code}, nil
 	}
@@ -195,7 +195,7 @@ func wrap(t MessageType, body []byte) []byte {
 	out := make([]byte, HeaderSize+len(body))
 	copy(out[0:3], string(t))
 	out[3] = byte(ChunkFinal)
-	binary.LittleEndian.PutUint32(out[4:8], uint32(HeaderSize+len(body))) //nolint:gosec // G115 — body length bounded by caller
+	binary.LittleEndian.PutUint32(out[4:8], uint32(HeaderSize+len(body))) // #nosec G115 — body length bounded by caller
 	copy(out[HeaderSize:], body)
 	return out
 }

@@ -124,7 +124,7 @@ func (p *Plugin) httpClient() *http.Client {
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{Timeout: p.DialTimeout}).DialContext,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: p.InsecureSkipVerify, //nolint:gosec // G402 — CWMP ACS on 7548 ubiquitously ships self-signed; we're fingerprinting, not transmitting credentials.
+			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402 — CWMP ACS on 7548 ubiquitously ships self-signed; we're fingerprinting, not transmitting credentials.
 			MinVersion:         tls.VersionTLS12,
 		},
 		TLSHandshakeTimeout: p.DialTimeout,

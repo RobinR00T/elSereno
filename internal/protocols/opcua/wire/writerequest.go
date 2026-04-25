@@ -138,7 +138,7 @@ func parseStringNodeID(b []byte) (NodeIDValue, int, bool) {
 		return NodeIDValue{}, 0, false
 	}
 	ns := binary.LittleEndian.Uint16(b[1:3])
-	sLen := int32(binary.LittleEndian.Uint32(b[3:7])) //nolint:gosec // G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115 — -1 null sentinel intentional
 	if sLen < 0 {
 		return NodeIDValue{Namespace: ns, Kind: NodeIDKindString}, 7, true
 	}
@@ -182,7 +182,7 @@ func parseByteStringNodeID(b []byte) (NodeIDValue, int, bool) {
 		return NodeIDValue{}, 0, false
 	}
 	ns := binary.LittleEndian.Uint16(b[1:3])
-	bLen := int32(binary.LittleEndian.Uint32(b[3:7])) //nolint:gosec // G115 — -1 null sentinel intentional
+	bLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115 — -1 null sentinel intentional
 	if bLen < 0 {
 		return NodeIDValue{Namespace: ns, Kind: NodeIDKindByteString}, 7, true
 	}
@@ -248,7 +248,7 @@ func walkWriteRequestArrayPrefix(msgBody []byte) (body []byte, arrLen int32, ok 
 	if off+4 > len(msgBody) {
 		return nil, 0, false
 	}
-	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 	off += 4
 	if arrLen <= 0 {
 		return nil, 0, false
@@ -274,7 +274,7 @@ func parseWriteValueRich(b []byte) (NodeIDValue, int, bool) {
 	if off+4 > len(b) {
 		return NodeIDValue{}, 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -358,7 +358,7 @@ func parseWriteValue(b []byte) (NodeID, int, bool) {
 	if off+4 > len(b) {
 		return NodeID{}, 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -467,7 +467,7 @@ func skipVariant(b []byte) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		n := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+		n := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 		off += 4
 		switch {
 		case n < 0:
@@ -545,7 +545,7 @@ func skipLengthPrefixedBytes(b []byte) (int, bool) {
 	if len(b) < 4 {
 		return 0, false
 	}
-	n := int32(binary.LittleEndian.Uint32(b[:4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115 — -1 null sentinel intentional
 	if n < 0 {
 		return 4, true
 	}
@@ -639,7 +639,7 @@ func WriteRequestFirstNode(msgBody []byte) (id NodeID, nodes int, ok bool) {
 	if off+4 > len(msgBody) {
 		return NodeID{}, 0, false
 	}
-	arrLen := int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) //nolint:gosec // G115 — int32 cast is intentional; 0xFFFFFFFF = -1 is the UA "null array" sentinel we want to see
+	arrLen := int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115 — int32 cast is intentional; 0xFFFFFFFF = -1 is the UA "null array" sentinel we want to see
 	off += 4
 	if arrLen <= 0 {
 		// Null or empty array — no NodeIds to gate against.
@@ -702,7 +702,7 @@ func skipAuditEntryAndTimeout(b []byte, off int) (int, bool) {
 	if off+4 > len(b) {
 		return 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -738,7 +738,7 @@ func skipAdditionalHeader(b []byte, off int) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		bLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+		bLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 		off += 4
 		if bLen > 0 {
 			if off+int(bLen) > len(b) {
@@ -819,7 +819,7 @@ func structuralSkip(b []byte, enc NodeIDEncoding) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) //nolint:gosec // G115 — -1 null sentinel intentional
+		sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 		off += 4
 		if sLen > 0 {
 			if off+int(sLen) > len(b) {

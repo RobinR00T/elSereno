@@ -140,7 +140,7 @@ func (p *Plugin) httpClient() *http.Client {
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{Timeout: p.DialTimeout}).DialContext,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: p.InsecureSkipVerify, //nolint:gosec // G402 — PBX admin panels ubiquitously ship self-signed certs; we're fingerprinting, not transmitting credentials, so the operational value outweighs MITM risk in this narrow context.
+			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402 — PBX admin panels ubiquitously ship self-signed certs; we're fingerprinting, not transmitting credentials, so the operational value outweighs MITM risk in this narrow context.
 			MinVersion:         tls.VersionTLS12,
 		},
 		TLSHandshakeTimeout: p.DialTimeout,
