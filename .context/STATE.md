@@ -1,19 +1,23 @@
 ---
-phase: v1.11-released
-status: v1.11.0 tagged locally; CWMP offensive proxy (SOAP RPC allowlist)
-last-updated: 2026-04-24
+phase: v1.12-closed
+status: v1.12.0 ready to tag; gates tightening + input pagination cycle done
+last-updated: 2026-04-25
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.11.0 firmado localmente (pendiente de publicar en
-GitHub Releases). Single-chunk cycle que completa el TR-069
-story: v1.4 trajo el fingerprint (17 plugins, 15 ACS vendors);
-v1.11 añade la gate ofensiva para ACS-CPE sobre TR-069 con
-allowlist per-SOAP-RPC. 7 offensive write-gated proxies en el
-default build (up from 6 — cwmp joins modbus/opcua/sip/iax2/
-pbxhttp/bacnet).
+**Phase**: v1.12.0 ready to tag locally. Ten-chunk cycle that
+closes every per-object / per-path / pagination carry-over
+accumulated v1.6→v1.11. Each existing gate now scopes to a
+specific identity, every input provider paginates, one new
+no-key provider (internetdb) joins the input lineup, and CWMP
+`Download` gets a per-firmware-URL gate. 7 offensive write-
+gated proxies (unchanged), 6 attack-surface input providers
+(up from 5).
+
+See `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
+for the full per-chunk breakdown.
 
 Read-only + protocol-flow RPCs (GetParameter*, Inform,
 TransferComplete, Kicked, Fault) pasan siempre. Write-capable
@@ -90,6 +94,16 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
   9001 "Request denied". 20 new tests. 7 offensive write-
   gated proxies in the default build (up from 6). See
   `.context/snapshots/v1.11.0-cwmp-offensive.md`.
+- **v1.12.0** (2026-04-25, local) — gates tightening + input
+  pagination. Ten-chunk cycle closing every per-object /
+  per-path / pagination carry-over accumulated v1.6→v1.11.
+  100 new tests. New: CWMP per-parameter-path + per-firmware-URL
+  gates; OPC UA multi-node walks (numeric + String/GUID/
+  ByteString) + per-CallMethod gate; Modbus structured writes
+  YAML round-trip; SIP from-domain identity-spoof gate; BACnet
+  per-WriteProperty (ASN.1 BER); pagination across 5 input
+  providers; internetdb (6th, no-key). See
+  `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`.
 - **v1.9.0** (2026-04-24, local) — 5 chunks: OPC UA NodeID
   YAML round-trip, Modbus proxy-session dry-run, CLI wire-up
   for Shodan/Censys/FOFA/ZoomEye via `scan --input`, ONYPHE
@@ -142,39 +156,9 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 - `62f8c6d` chunk 4 — ONYPHE input client (5th provider).
 - `18e91bf` chunk 5 — SIP INVITE To-URI prefix allowlist.
 
-**v1.12 plan — "gates tightening + inputs polish"**
-
-Close all per-object / per-path carry-overs accumulated from
-v1.6→v1.11 in one multi-chunk cycle. Each chunk follows ADR-040
-template (library → CLI → YAML → tests → docs).
-
-Chunks (in planned order):
-1. CWMP per-parameter-path allowlist (tighten v1.11 RPC gate).
-   **Landed** — commit `1a6cec3`.
-2. OPC UA multi-node per WriteRequest (walk NodesToWrite).
-   **Landed** — commit `0c34382`.
-3. OPC UA String/Guid/ByteString NodeID encodings.
-   **Landed** — rich wire parser + AllowedCanonicalNodeID +
-   CLI accepts ns=N;{s,g,b}=… + YAML `canonical:` field +
-   fail-closed multi-node walk. 17 new tests.
-4. Modbus structured `writes:` YAML (unit + FC + addr range).
-   **Landed** — `proxyModbusWrite` YAML struct + `--write`
-   CLI flag + round-trip hash stability + emit guard lifted.
-   7 new tests.
-5. SIP from-domain allowlist. **Landed** — chunk 5.
-6. OPC UA CallRequest per-object allowlist. **Landed** — chunk 6.
-7. BACnet per-object allowlist (ASN.1 BER parsing). **Landed** —
-   chunk 7.
-8. Input pagination (5 providers). **Landed** — chunk 8 closes
-   v1.10 carry-over.
-9. Shodan InternetDB (free, no-key provider #6). **Landed** —
-   chunk 9 — `internal/inputs/internetdb` package + bypass
-   creds-file in dispatcher.
-10. CWMP firmware-URL + SHA-256 allowlist for `Download`.
-    **Landed** — chunk 10 closes the firmware-push attack
-    surface with `AllowedFirmware{URL, SHA256}`, URL exact-
-    match (case-insensitive scheme+host, default-port stripped),
-    SHA256 metadata for downstream verification.
+**v1.12 cycle — closed.** All 10 chunks landed (commits
+`1a6cec3` → `9761eba`). See snapshot for the per-chunk
+breakdown. Pending: tag + push + GitHub release upload.
 
 After v1.12:
 - SIP REGISTER AOR + CWMP SOAP RPC gates already landed (v1.10

@@ -240,6 +240,21 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.12.0 closed.** Ten-chunk cycle landed.
+  Theme: gates tightening + input pagination. Each existing
+  write-gated proxy gets a finer dimension; each existing
+  attack-surface input client paginates; one new no-key
+  provider (internetdb) joins the lineup; CWMP `Download`
+  gets per-firmware-URL allowlisting. 100 new tests cycle-
+  wide. Hash ladders preserve all prior tokens (operators
+  who skip the new fields keep their v1.4–v1.11 confirm-
+  tokens). 7 offensive write-gated proxies (unchanged), 6
+  attack-surface input providers (up from 5). See
+  `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
+  for the full breakdown. Commits: chunk 1 `1a6cec3`, chunk
+  2 `0c34382`, chunk 3 `b4bd4dd`, chunk 4 `c3cafd1`, chunk 5
+  `0325999`, chunk 6 `9b2c4f5`, chunk 7 `196e647`, chunk 8
+  `8c61ff5`, chunk 9 `afb4eb3`, chunk 10 `9761eba`.
 - 2026-04-25 — **v1.12 chunk 10 landed.** CWMP firmware-URL +
   SHA-256 allowlist for the `Download` RPC. Closes the firmware-
   push attack surface — a misconfigured ACS can push firmware
