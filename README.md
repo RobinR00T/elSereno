@@ -41,6 +41,15 @@ allowlists across all 7 write-gated proxies, paged search
 across 5 attack-surface providers, plus Shodan InternetDB as a
 6th no-key provider.
 
+> **In flight on `main`** (no tag yet): seven v1.13 chunks
+> landed since v1.12 close. Highlights: BACnet WPM (svc 16) +
+> DeleteObject (svc 11) per-target gates, CWMP firmware
+> pre-flight verifier, InternetDB bulk lookup
+> (`internetdb:file:` + stdin), CWMP RPC-name case-warning,
+> CWMP-over-TLS operator recipe, triage `utility` bucket.
+> Build from source (`go install ./cmd/elsereno{,-offensive}`)
+> until v1.13.0 is cut.
+
 ```sh
 VERSION=1.12.0
 OS=darwin       # or linux

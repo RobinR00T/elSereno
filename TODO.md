@@ -48,8 +48,11 @@ forward-looking lists:
 | vNext: TR-069/CWMP fingerprint | v1.4 chunk 5 |
 | vNext: TR-069/CWMP gated proxy | v1.11 chunk 1 |
 | vNext: BACnet UDP relay | v1.4 chunk 6 |
-| vNext: per-object/per-path scoping across the 7 write-gates | v1.12 chunks 1–7, 10 |
+| vNext: per-object/per-path scoping across the 7 write-gates | v1.12 chunks 1–7, 10 + v1.13 chunks 3, 7 (BACnet WPM + DeleteObject) |
 | vNext: input pagination | v1.12 chunk 8 |
+| vNext: bulk InternetDB lookup | v1.13 chunk 1 |
+| vNext: CWMP firmware pre-flight verifier + RPC case-warning + CWMP-over-TLS recipe | v1.13 chunks 2, 4, 5 |
+| vNext: triage `utility` bucket | v1.13 chunk 6 |
 
 ## Brief items still open (moved to v1.13+ backlog)
 
@@ -67,3 +70,17 @@ forward-looking lists:
 
 The CHANGELOG entry for **v1.12.0** (2026-04-25) closes every
 gate-tightening + input-pagination carry-over from v1.6–v1.11.
+
+**v1.13 in flight on `main`** (no tag yet) — closes:
+- BACnet per-object scoping for WPM (svc 16) + DeleteObject
+  (svc 11) — chunks 3 + 7.
+- InternetDB bulk lookup (file + stdin) — chunk 1.
+- CWMP carry-overs from v1.11: firmware pre-flight verifier
+  (chunk 2), RPC case-warning (chunk 4), CWMP-over-TLS
+  operator recipe (chunk 5).
+- Triage `utility` bucket — chunk 6 (was on TODO-vNext as a
+  "Tools operativas" item).
+- `make sec` ratchet fix — `b611f5c` swapped 18
+  `//nolint:gosec` to native `// #nosec`.
+
+Operator decides when to cut `v1.13.0`.

@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-19
+last-updated: 2026-04-25
 token-budget: 900
 ---
 
@@ -40,36 +40,47 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-23)**: v1.1.0 → **v1.7.0 pushed** to
-`origin/main` today (operator restored PAT + ran push; 41
-commits + 7 tags). **v1.8.0** signed locally, unpushed (2
-commits: FOFA + ZoomEye input clients). See
-`.context/snapshots/v1.8.0-fofa-zoomeye-inputs.md` plus the
-cycle-by-cycle snapshots for v1.7 / v1.6 / v1.5 / v1.4 / v1.3
-/ v1.2. **17 protocol plugins in the default build**; **6
-offensive write-gated proxies** (two with per-object
-tightness: OPC UA per-NodeId, Modbus per-unit+FC+addr-range);
-**4 attack-surface input clients** (shodan / censys / fofa /
-zoomeye); every TCP-based plugin enforces a wire-layer
-write-ban in default mode. 5 output sinks (NDJSON / CSV /
-HTML-polished / CEF / Syslog) plus 3 ticketing / webhook sinks
-(JIRA / GitHub Issues / generic webhook with HMAC). OpenAPI 3.1
-is now code-sourced (`internal/web/openapi.Spec`) and served live
-on `/api/v1/openapi.yaml`; `elsereno api openapi -o docs/openapi.yaml`
-refreshes the snapshot. The offensive CLI (`write|exploit|harvest|
-dial`) is operator-usable behind `-tags offensive`; network delivery
-carries over to F7 once the DB-backed audit writer ships.
-`--vault-passphrase-file <0600 path>` unblocks CI/preview.
-Dashboard at `/` is polished (dark-mode, plugin grouping, scoring
-sidebar, severity thresholds). `RELEASING.md` ships the operator
-runbook for a signed 0.1.0 tag; dry-run produces 8 binaries
-(darwin + linux × amd64 + arm64 × default + offensive) with SBOM
-(CycloneDX 1.6, 48 components) and SHA-256 checksums.
-`make ci` green on both build variants.
-F7 adds: dockers_v2, nightly per-target fuzz matrix, regression
-benchmarks with benchstat, OpenTelemetry tracing, 6 STRIDE
-threat-model docs, supply-chain automation (scorecard + SLSA L3 +
-dep-review + osv-scanner), encrypted backup package + CLI verbs,
-pentest self-audit panel at `/admin/security`, and
-`make release-gate` local green-light. Next up: **v1.0.0 signed
-tag** (operator task; prerequisites in `RELEASING.md`).
+**Current phase (2026-04-25)**: **v1.12.0 released** on GitHub
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0). 9
+release assets: 4 archives (darwin/linux × amd64/arm64) + 4
+CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
+`ACE3B86BACACE7D6` (Daniel Solís Agea). **v1.13 cycle in flight
+on `main`** — 7 chunks landed since v1.12.0 close, no tag yet
+(operator decides when to cut).
+
+**Counts**: **17 protocol plugins** in the default build; **7
+offensive write-gated proxies** (modbus, opcua, sip, iax2,
+pbxhttp, bacnet, cwmp); **6 attack-surface input clients**
+(shodan, censys, fofa, zoomeye, onyphe, internetdb — last is
+no-key + single-IP/bulk-lookup since v1.13 chunk 1). Every
+TCP-based plugin enforces a wire-layer write-ban in default
+mode. **All 7 gates carry per-object / per-path scoping** as of
+v1.12 + v1.13: Modbus structured writes, OPC UA per-NodeId
+(numeric + String/GUID/ByteString) + per-CallMethod, BACnet
+per-WriteProperty + per-WPM + per-DeleteObject, SIP
+per-method/prefix/AOR/from-domain, CWMP per-RPC + per-param-
+prefix + per-firmware-URL, IAX2 per-subclass, pbxhttp per-
+(method, path).
+
+**Outputs**: 5 sinks (NDJSON / CSV / HTML / CEF / Syslog) + 3
+ticketing/webhook sinks (JIRA / GitHub Issues / generic HMAC
+webhook). **OpenAPI 3.1** code-sourced (`internal/web/openapi.Spec`),
+served live on `/api/v1/openapi.yaml`. **Triage**: 4-bucket
+priority since v1.13 chunk 6 (quick_win → strategic → utility
+→ routine).
+
+**Offensive CLI** (`write|exploit|harvest|dial`) operator-usable
+behind `-tags offensive`. Network delivery, DB-backed audit
+writer, SSE feed, dashboard live-feed all shipped. CWMP
+firmware pre-flight verifier
+(`elsereno-offensive write cwmp verify-firmware`) since v1.13
+chunk 2. `--vault-passphrase-file <0600 path>` unblocks CI/
+preview.
+
+**Supply chain**: Free-tier release flow since v1.8 (GPG-signed
+tag + SHA-256 + CycloneDX SBOM via local goreleaser + `gh
+release upload`); cosign keyless + SLSA v1.0 + GHCR docker
+remain available behind GitHub Actions billing restore. Pentest
+self-audit panel at `/admin/security`. `make sec` exit 0 since
+2026-04-25 (`b611f5c` swapped 18 `//nolint:gosec` → native
+`// #nosec G<NNN>`).

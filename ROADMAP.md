@@ -1,12 +1,14 @@
 # ElSereno — Roadmap
 
 State as of **2026-04-25**. **v1.12.0 is the latest release.**
+**v1.13 is in flight on `main`** with 7 chunks landed; operator
+decides when to tag.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
-→ v1.10 → v1.11 → **v1.12**. Each release has a per-cycle
-snapshot under `.context/snapshots/`.
+→ v1.10 → v1.11 → **v1.12** → *(v1.13 in flight)*. Each
+release has a per-cycle snapshot under `.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -40,23 +42,50 @@ the long-running roadmap so the delta between **shipped** and
   paid input providers; Shodan InternetDB joins as the 6th
   no-key provider.
 
-## v1.13+ proposed backlog
+## v1.13 in flight on `main` (no tag yet)
 
-- IPv6 support across proxy listen / scan / inputs / write
-  gates (`netip.Addr` audit, bind/listen v6-aware, allowlist
-  canonicalisation for v6 host literals `[::1]:port`).
-  Operator-requested 2026-04-25.
-- Per-object scoping for the BACnet mutating services beyond
-  WriteProperty (CreateObject / DeleteObject /
-  WritePropertyMultiple / DeviceCommunicationControl /
-  ReinitializeDevice / LifeSafetyOperation / AtomicWriteFile /
-  Add/RemoveListElement).
-- Bulk InternetDB lookup (file / stdin input).
-- CWMP TransferComplete-side SHA-256 verification (currently
-  the gate stores SHA-256 as audit metadata only).
-- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS,
-  MELSEC, Red Lion, GE-SRTP, IEC 61850 MMS, KNX, M-Bus TCP,
-  OPC UA HTTPS, DLMS/COSEM, +1 more).
+Seven chunks landed; operator decides when to cut.
+
+- **C** `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
+- **1** `781ee50` — InternetDB bulk lookup
+  (`internetdb:file:<path>` + `internetdb:-` stdin).
+- **2** `781ee50` — CWMP firmware pre-flight verifier
+  (`elsereno-offensive write cwmp verify-firmware`).
+- **3** `38dedff` — BACnet WPM (svc 16) per-object gate
+  with depth-aware BER walker.
+- **4** `861aa8d` — CWMP RPC-name case-warning in dry-run
+  (TR-069 §A.4 case-sensitivity guard).
+- **5** `861aa8d` — CWMP-over-TLS operator recipe
+  (nginx / HAProxy / Caddy front-proxy, docs only).
+- **6** `20f6215` — Triage `utility` bucket (4th priority
+  bucket between strategic and routine).
+- **7** `934c4f7` — BACnet DeleteObject (svc 11) per-target
+  gate with separate `AllowedDeleteObjects` list.
+
+Supporting: `b611f5c` swapped 18 `//nolint:gosec` → native
+`// #nosec G<NNN>` so `make sec` exits 0.
+
+## v1.14+ proposed backlog
+
+- **IPv6 cross-cutting** support across proxy listen / scan /
+  inputs / write gates (`netip.Addr` audit, bind/listen
+  v6-aware, allowlist canonicalisation for v6 host literals
+  `[::1]:port`). Operator-requested 2026-04-25; ~1 cycle.
+- **Per-object scoping for the rest of the BACnet mutating
+  services** — v1.13 chunks 3 + 7 closed WPM (svc 16) +
+  DeleteObject (svc 11). Still pending: CreateObject (svc 10),
+  DeviceCommunicationControl (svc 17), ReinitializeDevice
+  (svc 20), LifeSafetyOperation (svc 27), AtomicWriteFile
+  (svc 7), Add/RemoveListElement (svc 8/9). Each request
+  shape differs — 1 chunk per service.
+- **CWMP TransferComplete-side SHA-256 verification** —
+  v1.12 chunk 10 stores the SHA-256 as audit metadata; v1.14
+  parses the CPE → ACS TransferComplete envelope and compares
+  against the allowlist. Audit on mismatch (firmware corrupted
+  or supply-chain swap).
+- **12 legacy ICS protocols** (PROFINET DCP / GOOSE / SV,
+  CoDeSys, Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC
+  61850 MMS, KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM, +1).
 - Bigger-picture deferrals: SIGHUP reload of proxy listen
   allowlist, `discover --auto <CIDR>`, TUI front-end, record-&-
   replay proxy sessions, Windows support, multi-user OIDC +

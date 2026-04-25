@@ -1,23 +1,42 @@
 ---
-phase: v1.12-closed
-status: v1.12.0 ready to tag; gates tightening + input pagination cycle done
+phase: v1.13-in-flight
+status: v1.12.0 released; 7 chunks of v1.13 landed on main, no tag yet
 last-updated: 2026-04-25
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: v1.12.0 ready to tag locally. Ten-chunk cycle that
-closes every per-object / per-path / pagination carry-over
-accumulated v1.6→v1.11. Each existing gate now scopes to a
-specific identity, every input provider paginates, one new
-no-key provider (internetdb) joins the input lineup, and CWMP
-`Download` gets a per-firmware-URL gate. 7 offensive write-
-gated proxies (unchanged), 6 attack-surface input providers
-(up from 5).
+**Phase**: **v1.12.0 released** to GitHub
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0).
+**v1.13 cycle in flight on main** — 7 chunks landed since
+v1.12.0 close, no tag yet (operator decides when to cut).
 
-See `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
-for the full per-chunk breakdown.
+v1.13 is "post-v1.12 carry-over closure": each chunk fixes a
+small gap or adds a missing CLI surface that v1.12 left for
+later. Theme is incremental hardening + operator UX, not big
+new features.
+
+Snapshots:
+- `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
+  (10-chunk v1.12 cycle, full breakdown).
+- v1.13.0 snapshot will be written when the cycle is cut.
+
+**v1.13 chunks landed (no tag yet)**:
+- C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
+- 1   `781ee50` — InternetDB bulk lookup (`file:` + stdin).
+- 2   `781ee50` — CWMP firmware pre-flight verifier
+  (`elsereno-offensive write cwmp verify-firmware`).
+- 3   `38dedff` — BACnet WPM (svc 16) per-object gate +
+  depth-aware BER walker.
+- 4   `861aa8d` — CWMP RPC-name case-warning in dry-run.
+- 5   `861aa8d` — CWMP-over-TLS operator recipe (docs).
+- 6   `20f6215` — Triage "utility" bucket (4th bucket).
+- 7   `934c4f7` — BACnet DeleteObject (svc 11) per-target +
+  separate `AllowedDeleteObjects` list.
+
+Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
+to native `// #nosec G<NNN>` markers — `make sec` now exit-0.
 
 Read-only + protocol-flow RPCs (GetParameter*, Inform,
 TransferComplete, Kicked, Fault) pasan siempre. Write-capable
@@ -111,107 +130,41 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
   allowlist for toll-fraud mitigation. 33 new tests. See
   `.context/snapshots/v1.9.0-roundtrip-inputs-toll.md`.
 
-**v1.4.0 chunks** (all landed):
-- `9038e4b` chunk 1 — offensive SIP write-gate. Method allowlist
-  via net/textproto request-line parser. 405 refusal with
-  Allow header.
-- `482263f` chunk 2 — offensive pbxhttp write-gate. (method,
-  path) allowlist via net/http's server parser. 405 / 403
-  refusals.
-- `b0d3ea7` chunk 3 — offensive iax2 write-gate. Subclass
-  allowlist with UDP per-datagram relay. HANGUP refusal.
-- `26ca8df` chunk 4 — CLI dry-run wiring for all three PBX
-  gates. `elsereno write {sip,iax2,pbxhttp} dry-run`.
-- `02e705f` chunk 5 — TR-069 / CWMP ACS fingerprint on 7547.
-  15 ACS vendor fingerprints. 17 plugins in default build.
-- `e4dc2a6` chunk 6 — BACnet/IP UDP write-gate. Service-choice
-  allowlist. Abort-PDU refusal with security-error reason.
-  Closes the v1.2 carry-over.
+**Counts now**:
+- 17 protocol plugins (default build): atg, atmodem, bacnet,
+  banner, cwmp, dnp3, enip, fox, hartip, iax2, iec104, modbus,
+  opcua, pbxhttp, s7, sip, xot.
+- 7 offensive write-gated proxies: modbus, opcua, sip, iax2,
+  pbxhttp, bacnet, cwmp.
+- 6 attack-surface input providers: shodan, censys, fofa,
+  zoomeye, onyphe, internetdb (last is no-key + bulk lookup).
+- All 7 gates ship per-object / per-path scoping (closed v1.12
+  + v1.13).
 
-**17 protocol plugins in the default build**:
-  atg, atmodem, bacnet, banner, cwmp, dnp3, enip, fox, hartip,
-  iax2, iec104, modbus, opcua, pbxhttp, s7, sip, xot.
+**Per-cycle commits**: see `.context/snapshots/v1.<N>.0-*.md`
+for the authoritative per-cycle commit mapping. All tags v1.0.0
+→ v1.12.0 on `origin/main`.
 
-**5 offensive write-gated proxies** (ADR-040 pattern):
-  modbus, opcua, sip, iax2, pbxhttp, bacnet.
-
-**v1.6.0 chunks** (all landed):
-- `a5ee374` chunk 1 — `elsereno proxy listen --allow-file`
-  YAML loader. 10 tests.
-- `f76b3f2` chunk 2 — OPC UA per-NodeId allowlist. 8 tests.
-
-**v1.7.0 chunks** (all landed):
-- `0f31d6e` chunk 1 — `write dry-run --emit-allow-file`.
-- `65e5382` chunk 2 — `write opcua dry-run` + `write bacnet
-  dry-run`.
-
-**v1.8.0 chunks** (all landed):
-- `da41262` chunk 1 — FOFA input client + 5 tests.
-- `315ad0c` chunk 2 — ZoomEye input client + 5 tests.
-
-**v1.9.0 chunks** (all landed):
-- `08ec93a` chunk 1 — OPC UA NodeID YAML round-trip.
-- `942f3fb` chunk 2 — Modbus proxy-session dry-run.
-- `a509b2e` chunk 3 — CLI wire-up for 4 input providers.
-- `62f8c6d` chunk 4 — ONYPHE input client (5th provider).
-- `18e91bf` chunk 5 — SIP INVITE To-URI prefix allowlist.
-
-**v1.12 cycle — closed.** All 10 chunks landed (commits
-`1a6cec3` → `9761eba`). See snapshot for the per-chunk
-breakdown. Pending: tag + push + GitHub release upload.
-
-After v1.12:
-- SIP REGISTER AOR + CWMP SOAP RPC gates already landed (v1.10
-  + v1.11).
-- All gates offer per-object granularity.
-- 6 attack-surface input providers (shodan / censys / fofa /
-  zoomeye / onyphe / shodan-internetdb).
-
-Deferred to v1.13+:
-- IPv6 support across proxy listen / scan / inputs / write
-  gates (audit `netip.Addr` paths; bind/listen IPv6-aware;
-  audit log paths; allowlist canonicalisation for v6 host
-  literals `[::1]:port`). Operator-requested 2026-04-25.
-- CWMP RPC-name case-warning in dry-run.
-- CWMP-over-TLS (:7548) operator recipe.
-- SIGHUP reload of proxy listen allowlist (needs token/hash
-  redesign).
+**Deferred to v1.14+** (post-v1.13 backlog):
+- IPv6 cross-cutting support (audit `netip.Addr` paths;
+  bind/listen v6-aware; allowlist canonicalisation for `[::1]:
+  port` literals). Operator-requested 2026-04-25; ~1 cycle.
+- Per-object scoping for the rest of the BACnet mutating
+  services (svc 10 / 17 / 20 / 27 / 7 / 8 / 9). v1.13 closed
+  WPM (svc 16) + DeleteObject (svc 11).
+- CWMP TransferComplete-side SHA-256 verification.
+- SIGHUP reload of proxy listen allowlist.
 - `elsereno discover --auto <CIDR>` scriptless nmap+probe.
-- Triage bucket "utility" + dashboard diff-between-runs +
-  severity filter + CSV export.
-- seccomp arg-level filtering.
-- macOS sandbox via `sandbox_init(3)`.
 - Audit chain cross-process merge (flock).
-- STIX 2.1 export.
-- TUI bubbletea front-end.
-- Record & replay proxy sessions.
-- Windows support.
-- Multi-user OIDC + roles.
-- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS,
-  MELSEC, Red Lion, GE-SRTP, IEC 61850 MMS, KNX, M-Bus TCP,
-  OPC UA HTTPS, DLMS/COSEM, +1 more).
+- macOS sandbox via `sandbox_init(3)`.
+- 12 legacy ICS protocols.
+- Big-picture: TUI, Windows, OIDC, record-&-replay, STIX 2.1.
 
-**Pushed on 2026-04-23**: everything. All tags v1.1.0 →
-v1.8.0 on `origin/main`. Main at
-`3286b5e docs: refresh manual / cheatsheet / README for
-v1.8.0 community release`. Zero unpushed commits.
-
-**GitHub Actions status**:
-- Billing: spending limit reached / payment failed.
-- All 8 release workflow runs (one per tag v1.0.0 → v1.8.0)
-  aborted in ~30s with "job not started because payment has
-  failed". No release artefacts were produced by CI.
-- v1.8.0 artefacts (4 tarballs + 4 SBOMs + checksums.txt)
-  built locally and uploaded manually via
-  `gh release upload`.
-- All 6 workflows (`ci`, `release`, `codeql`, `supply-chain`,
-  `benchmarks`, `nightly`) gated to `workflow_dispatch:` only
-  to stop accumulating billing failures.
-
-**Historic commit list**: see per-tag snapshots under
-`.context/snapshots/` for per-cycle commit mapping. All tags
-v1.0.0 → v1.11.0 are on `origin/main` with their respective
-snapshots authoritative on what landed.
+**GitHub Actions status**: still gated to `workflow_dispatch:`
+only (billing limit reached after v1.0.0). Local build flow
+(goreleaser + syft + `gh release upload`) is the canonical
+release path since v1.8. Cosign+SLSA+GHCR remain available
+behind GHA billing restore.
 
 **Bootstrap PAT**: still live. Operator asked to keep it
 until all v1.1/v1.2/v1.3/v1.4 work is pushed; revoke after at

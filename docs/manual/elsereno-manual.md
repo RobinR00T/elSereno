@@ -3,10 +3,64 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.12 · 2026-04-25
+**Versión del manual**: v1.12 (+ v1.13 in-flight) · 2026-04-25
 **Compatible con binario**: v1.12.0+ (per-object gates en los
 7 write-gated proxies + paginación across 5 input providers +
-Shodan InternetDB sin API key)
+Shodan InternetDB sin API key). **v1.13 en `main`** añade
+BACnet WPM/DeleteObject por-target, CWMP firmware verifier
+pre-flight, InternetDB bulk lookup, RPC case-warning, CWMP-over-
+TLS recipe, triage `utility` bucket — sin tag aún.
+
+---
+
+## Novedades v1.13 (in-flight on `main`, sin tag aún)
+
+Siete chunks han aterrizado desde el cierre de v1.12; el operador
+decide cuándo cortar `v1.13.0`.
+
+- **InternetDB bulk lookup**: `--input internetdb:file:<path>`
+  (un IP por línea) o `internetdb:-` (stdin). v1.12 chunk 9
+  shippeó single-IP; v1.13 chunk 1 cierra el shape bulk.
+  Rate-limit upstream ~10 rps.
+- **CWMP firmware pre-flight verifier**:
+  `elsereno-offensive write cwmp verify-firmware
+  --firmware url=…;sha256=…`. HEAD → GET, calcula SHA-256
+  sobre el body, compara con el pin. Output OK / MISMATCH /
+  UNREACHABLE. Pegada antes de comprometer el allowlist de
+  firmware en `proxy listen`.
+- **BACnet WritePropertyMultiple (svc 16) per-object gate**.
+  WPM tiene SEQUENCE-OF anidado con valores BER constructed
+  (BACnetWeeklySchedule, …). Walker depth-aware. Cualquier
+  tupla forbidden refusa el batch entero (fail-closed). Usa
+  context tag 0 para el inner PropertyId (vs tag 1 en
+  WriteProperty).
+- **BACnet DeleteObject (svc 11) per-target gate**. Lista
+  separada `--delete-object type=N;instance=M` (no se reusa
+  AllowedObjects con PropertyId=0). El patrón típico BAS es
+  "writes ok, delete forbidden", así que un operador que
+  permitió `--object type=2;instance=99;property=85` (write
+  PresentValue en BinaryOutput#99) DEBE añadir
+  `--delete-object type=2;instance=99` para permitir
+  borrarlo.
+- **CWMP RPC-name case-warning** en dry-run. TR-069 §A.4
+  declara los RPC names case-sensitive. El comando warna si
+  ve `--rpc "FactoryReset"` cuando lo canónico es
+  `factoryReset`. El gate sigue siendo strict; el warning es
+  UX-only.
+- **CWMP-over-TLS operator recipe** (docs only). Tres
+  patrones de front-proxy en `docs/protocols/cwmp.md`:
+  nginx (`stream`), HAProxy (`mode tcp`), Caddy (`layer4`).
+  Cada uno termina TLS en `:7548` y forwards plaintext al
+  gate en `:7547`. El gate stays TLS-agnostic.
+- **Triage `utility` bucket**: 4ª prioridad entre `strategic`
+  y `routine`. Heurística: severity ∈ {info, low} AND
+  (Protocol ∈ {banner, atmodem} OR `impact_class < 20`).
+  Captura banner-leaks y AT-modem chatter — info útil pero
+  no aguja directa.
+
+Soporte: el fix de `make sec` (commit `b611f5c`) cambió 18
+`//nolint:gosec` por `// #nosec G<NNN>` nativo (gosec
+standalone no honra la anotación de golangci-lint).
 
 ---
 

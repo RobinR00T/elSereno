@@ -7,6 +7,144 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### v1.13 in flight on `main` (no tag yet)
+
+Seven chunks landed since v1.12.0 close. Operator decides when
+to cut.
+
+#### Added
+
+- **InternetDB bulk lookup** (`scan --input internetdb:file:<path>`
+  + `internetdb:-` stdin). v1.12 shipped single-IP only; v1.13
+  chunk 1 closes the bulk form. Rate-limit clamps to upstream's
+  ~10 rps.
+- **CWMP firmware pre-flight verifier**
+  (`elsereno-offensive write cwmp verify-firmware --firmware
+  url=…;sha256=…`). HEAD → GET, SHA-256 over body, compare to
+  pin. Output OK / MISMATCH / UNREACHABLE. Catches typos and
+  supply-chain swaps before the operator commits the firmware
+  allowlist.
+- **BACnet WritePropertyMultiple (svc 16) per-object gate**.
+  WPM has nested SEQUENCE-OF-WriteAccessSpecification structures
+  with constructed BER values (BACnetWeeklySchedule etc.) — the
+  walker is depth-aware (`skipUntilDepthZero`/`skipOneTagBody`).
+  Any single forbidden tuple refuses the entire batch (fail-
+  closed multi-target gate, analogous to the OPC UA WriteRequest
+  walker). Uses context tag 0 for inner PropertyId (vs tag 1
+  for the v1.12 WriteProperty path).
+- **BACnet DeleteObject (svc 11) per-target gate**. New
+  `--delete-object type=N;instance=M` flag + YAML
+  `delete_objects:` field. Kept as a SEPARATE list from
+  `AllowedObjects` so the typical BAS pattern "writes ok,
+  delete forbidden" is naturally expressible.
+- **CWMP RPC-name case-warning in dry-run**. TR-069 §A.4 RPC
+  names are case-sensitive; `emitCWMPRPCCaseWarnings` walks
+  the operator's `--rpc` list against the canonical 24-name
+  set and warns on case-mismatches. The gate itself stays
+  case-sensitive; the warning is UX-only.
+- **CWMP-over-TLS operator recipe** (docs only). Three front-
+  proxy patterns documented in `docs/protocols/cwmp.md`:
+  nginx (`stream`), HAProxy (`mode tcp`), Caddy (`layer4`).
+  Each terminates TLS on `:7548` and forwards plaintext to
+  the gate on `:7547`. The gate stays TLS-agnostic.
+- **Triage `utility` bucket**. Fourth priority bucket between
+  `strategic` and `routine`. Heuristic: severity ∈ {info, low}
+  AND (Protocol ∈ {banner, atmodem} OR `impact_class < 20`).
+  Catches old SSH banners, HTTP-HEAD `Server: nginx/1.10`, AT
+  modem chatter — useful fingerprint info that isn't a direct
+  nail. Existing `routine` items demote to `utility` when the
+  heuristic fires; `quick_win` / `strategic` are never
+  reclassified.
+
+#### Changed
+
+- BACnet `WriteGatedHandler.AllowlistHash` extended via
+  `AllowlistHashWithDeleteObjects` (0xFE separator).
+  Backwards-compat ladder: empty delete_objects → v1.12 hash;
+  empty objects + delete_objects → v1.4 hash.
+- `make sec` ratcheted from "expected fail" to exit 0. The
+  standalone gosec binary doesn't honour `//nolint:gosec`
+  (golangci-lint convention); swapped 18 annotations to
+  native `// #nosec G<NNN>` markers across the codebase.
+
+#### Tooling / docs
+
+- **TODO.md** trimmed 203 → 65 lines, closed-checklist tone
+  removed, brief delivery table added.
+- **TODO-vNext.md** restructured with `## ✅ Shipped during
+  v1.3-v1.12` archive section + concise active items.
+- **ROADMAP.md** gained "Shipped highlights post-v1.1"
+  condensed lineup; v1.13 in-flight section added.
+- **`man/src/man1/elsereno.1.md`** — first man1 page (197
+  lines) covering default + offensive command sets, write-
+  gate flag summaries, global flags, files, exit codes.
+  `scripts/gen-manpages.sh` loop now `for section in 1 5 7`.
+- 5 new per-protocol pages under `docs/protocols/` (sip,
+  iax2, pbxhttp, cwmp, opcua). BACnet + Modbus pages
+  extended with v1.12/v1.13 per-object sections.
+
+### Deferred to v1.14+
+
+- Per-object scoping for the rest of the BACnet mutating
+  services (CreateObject svc 10, DeviceCommunicationControl
+  svc 17, ReinitializeDevice svc 20, LifeSafetyOperation svc
+  27, AtomicWriteFile svc 7, Add/RemoveListElement svc 8/9).
+  Each request shape differs.
+- IPv6 cross-cutting cycle (operator-requested 2026-04-25):
+  `netip.Addr` audit, bind/listen v6-aware, allowlist
+  canonicalisation for `[::1]:port` literals.
+- CWMP TransferComplete-side SHA-256 verification (currently
+  the gate stores the SHA-256 as audit metadata only;
+  parsing the CPE → ACS TransferComplete envelope and
+  comparing against the allowlist is a v1.14 chunk).
+- SIGHUP reload of proxy listen allowlist.
+
+## [1.12.0] — 2026-04-25
+
+### Added
+
+- **Per-object / per-path scoping across all 7 write-gated
+  proxies.** Each existing gate gains a finer dimension:
+  CWMP `--param-prefix` (chunk 1), OPC UA multi-WriteValue
+  (chunk 2), OPC UA String/GUID/ByteString NodeID (chunk 3),
+  Modbus structured `--write unit=N;fc=M;start=A;end=B`
+  (chunk 4), SIP `--from-domain HOST` (chunk 5), OPC UA
+  `--call-method object=…;method=…` (chunk 6), BACnet
+  `--object type=N;instance=M;property=P` for WriteProperty
+  (chunk 7), CWMP `--firmware url=…;sha256=…` for Download
+  (chunk 10).
+- **Input pagination** across all 5 paid attack-surface
+  providers (chunk 8) — `SearchPaged(ctx, query, totalLimit)`
+  accumulates up to 1000 hits across pages. Censys uses
+  cursor-based pagination via `result.links.next`; the
+  others use `?page=N`.
+- **Shodan InternetDB** (chunk 9) — 6th attack-surface
+  provider, no-key, free, single-IP lookup. CLI:
+  `--input internetdb:<ip>`. Rate-limited upstream to ~10 rps.
+
+### Changed
+
+- All 7 gates' `AllowlistHash*` functions gain "With<Dimension>"
+  companions. Backwards-compat ladder: empty new dimension
+  degrades to the prior-version hash; existing operator
+  confirm-tokens remain valid.
+- 100 new tests cycle-wide. Hash separators reserved per
+  dimension (CWMP `0xFD` firmware / `0xFE` param-path; OPC UA
+  `0xFC` CallMethod / `0xFD` canonical NodeID / `0xFF`
+  numeric NodeID; SIP `0xFD` from-domain / `0xFE` AOR / `0xFF`
+  prefix; BACnet `0xFE` delete-objects / `0xFF` per-property
+  objects).
+
+### Deferred to v1.13+
+
+- Per-object scoping for the rest of the BACnet mutating
+  services (now partially shipped on main: WPM svc 16 +
+  DeleteObject svc 11 in v1.13 chunks 3 + 7).
+- Bulk InternetDB lookup (now shipped on main: v1.13 chunk 1).
+- CWMP TransferComplete-side SHA-256 verification (still
+  pending).
+- SIGHUP reload of proxy listen allowlist.
+
 ## [1.11.0] — 2026-04-24
 
 ### Added

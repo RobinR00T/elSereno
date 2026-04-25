@@ -1,7 +1,7 @@
 ---
 phase: any
 status: living
-last-updated: 2026-04-19
+last-updated: 2026-04-25
 ---
 
 # Context changelog
@@ -240,6 +240,104 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.13 chunk 7 landed.** BACnet DeleteObject
+  (svc 11) per-target allowlist. Separate `AllowedDeleteObjects
+  []{ObjectType, ObjectInstance}` list (kept distinct from the
+  property-level `AllowedObjects` from v1.12 chunk 7 + v1.13
+  chunk 3). The typical BAS pattern is "writes ok, delete
+  forbidden", so an operator who allowed
+  `--object type=2;instance=99;property=85` (write PresentValue
+  on BinaryOutput#99) must explicitly add
+  `--delete-object type=2;instance=99` to permit deletion.
+  `ParseDeleteObject` reuses the v1.12 `readObjectID` helper
+  (tag 0x0C + 4 bytes packed: 10-bit type<<22 | 22-bit
+  instance). New `AllowlistHashWithDeleteObjects` (0xFE
+  separator) extends the WPM hash; ladder degrades to v1.13/
+  v1.12/v1.4 hashes when each successive dimension is empty.
+  `--delete-object` flag, YAML `delete_objects:` field, 11
+  tests. Commit `934c4f7`.
+- 2026-04-25 — **v1.13 chunk 6 landed.** Triage `utility` bucket
+  added as the 4th priority bucket (quick_win → strategic →
+  utility → routine). Heuristic: severity ∈ {info, low} AND
+  (Protocol ∈ {banner, atmodem} OR impact_class < 20).
+  Captures findings that expose useful fingerprint info but
+  aren't direct nails — old SSH banners, HTTP-HEAD with
+  `Server: nginx/1.10`, AT modem chatter. `BucketUtility` const
+  + `Summary.Utility []core.Finding`. `cmd/elsereno/cmd_explain.go`
+  mirrors the heuristic locally + emits a `utility:` count
+  line. `routine` items move down to `utility` when the
+  heuristic fires; `quick_win` / `strategic` are never
+  reclassified. Commit `20f6215`.
+- 2026-04-25 — **v1.13 chunk 5 landed.** CWMP-over-TLS
+  operator recipe (docs only). Three front-proxy patterns
+  documented in `docs/protocols/cwmp.md`: nginx (`stream`
+  module), HAProxy (`mode tcp`), Caddy (`layer4` plugin).
+  Each terminates TLS on port 7548 and forwards plaintext to
+  ElSereno's CWMP gate on 7547. The gate itself stays
+  agnostic — TLS termination is the front-proxy's
+  responsibility. Snapshot also covers the cert-rotation
+  workflow + the operator-side cert-pinning recipe with curl.
+  Commit `861aa8d`.
+- 2026-04-25 — **v1.13 chunk 4 landed.** CWMP RPC-name
+  case-warning in dry-run. TR-069 §A.4 declares RPC names
+  case-sensitive. `emitCWMPRPCCaseWarnings` walks the
+  user-supplied `--rpc <Name>` list against
+  `canonicalCWMPRPCNames` (24 entries: 14 read-only +
+  protocol-flow + 10 write-capable) and emits
+  `WARN: --rpc "FactoryReset" — did you mean "factoryReset"?`
+  for case-mismatches. The gate itself is unchanged (still
+  case-sensitive); the warning is operator UX. Commit
+  `861aa8d`.
+- 2026-04-25 — **v1.13 chunk 3 landed.** BACnet
+  WritePropertyMultiple (svc 16) per-object gate. WPM has a
+  nested SEQUENCE-OF-WriteAccessSpecification structure where
+  each spec contains an ObjectIdentifier + listOfPropertyValues.
+  Each property value can be a CONSTRUCTED ASN.1 BER value
+  (BACnetWeeklySchedule, BACnetDateRange, …). New
+  `parseInnerPropertyValue` walks via depth-aware
+  `skipUntilDepthZero`/`skipOneTagBody` helpers (any-depth
+  constructed children + extended-length forms 0..4 inline +
+  5 extended). `readInnerPropertyID` uses context tag 0
+  (0x09/0x0A/0x0B) — different from WriteProperty's tag 1.
+  Any single forbidden tuple in the listOfWriteAccessSpecifications
+  refuses the WHOLE WPM batch (fail-closed multi-target gate
+  analogous to the OPC UA WriteRequest walker). 10 tests.
+  Commit `38dedff`.
+- 2026-04-25 — **v1.13 chunk 2 landed.** CWMP firmware
+  pre-flight verifier. New CLI verb
+  `elsereno-offensive write cwmp verify-firmware
+  --firmware url=…;sha256=…` resolves the URL via HTTP HEAD
+  → GET, computes SHA-256 over the body, and compares against
+  the operator-supplied pin. Output: `OK` / `MISMATCH` /
+  `UNREACHABLE`. Useful before the operator pastes a
+  firmware allowlist into `proxy listen` — catches typos /
+  stale pins / supply-chain swaps. Constants
+  `firmwareStatusOK`/`Mismatch`/`Unreachable` (goconst fix).
+  6 tests. Commit `781ee50`.
+- 2026-04-25 — **v1.13 chunk 1 landed.** InternetDB bulk
+  lookup. v1.12 chunk 9 shipped single-IP lookups; this
+  ships the bulk forms `internetdb:file:<path>` (one IP per
+  line) and `internetdb:-` (stdin). `readInternetDBTargets`
+  dispatches the three shapes (single / file / stdin);
+  `lookupAllInternetDB` rate-limits at the upstream's ~10 rps.
+  3 tests. Commit `781ee50`.
+- 2026-04-25 — **doc hygiene chunk C** landed. TODO.md
+  trimmed 203 → 65 lines (closed-checklist tone removed,
+  brief delivery table added). TODO-vNext.md restructured
+  with a `## ✅ Shipped during v1.3-v1.12` archive section
+  + active items. ROADMAP.md gained "Shipped highlights
+  post-v1.1" condensed lineup. New `man/src/man1/elsereno.1.md`
+  (197 lines) — first man1 page covering default + offensive
+  command sets, write-gate flag summaries, global flags,
+  files, exit codes. `scripts/gen-manpages.sh` loop now
+  `for section in 1 5 7` (was 5 7); dropped dead cobra/doc
+  branch. 5 new per-protocol pages under `docs/protocols/`
+  (sip, iax2, pbxhttp, cwmp, opcua). Commit `c581a62`.
+- 2026-04-25 — **make sec ratchet fix.** Standalone gosec
+  doesn't honour `//nolint:gosec` (golangci-lint convention);
+  it only honours native `// #nosec G<NNN>` annotations.
+  Swapped 18 markers across the codebase so `make sec` exits
+  0. Commit `b611f5c`.
 - 2026-04-25 — **v1.12.0 closed.** Ten-chunk cycle landed.
   Theme: gates tightening + input pagination. Each existing
   write-gated proxy gets a finer dimension; each existing
