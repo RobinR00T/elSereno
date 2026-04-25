@@ -517,6 +517,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var serviceChoices []uint
 	var objects []string
 	var deleteObjects []string
+	var createObjectTypes []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -539,20 +540,25 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			mut := bacwrite.SessionMutationWithDeleteObjects(target, svcs, objs, delObjs)
+			creObjs, err := parseBACnetCreateObjectTypes(createObjectTypes)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			mut := bacwrite.SessionMutationWithCreateObjects(target, svcs, objs, delObjs, creObjs)
 			cmd.Printf("Protocol:     bacnet\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Services:     %s\n", canonUintList(serviceChoices))
 			cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
 			cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(delObjs))
+			cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(creObjs))
 			cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects, deleteObjects))
+				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects, deleteObjects, createObjectTypes))
 			}
 			return nil
 		},
@@ -561,6 +567,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
 	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
 	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
+	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -690,6 +697,34 @@ func parseBACnetDeleteObjectFlag(s string) (bacwrite.AllowedDeleteObject, error)
 		return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: must specify both type= and instance=", s)
 	}
 	return out, nil
+}
+
+// parseBACnetCreateObjectTypes converts repeated --create-object-type
+// uint values into AllowedCreateObject{Type} entries. Each value
+// must fit in 10 bits (BACnetObjectType range).
+func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, error) {
+	out := make([]bacwrite.AllowedCreateObject, 0, len(in))
+	for _, v := range in {
+		if v > 0x3FF {
+			return nil, fmt.Errorf("--create-object-type %d: must be 0-1023 (10 bits)", v)
+		}
+		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
+	}
+	return out, nil
+}
+
+// canonBACnetCreateObjects prints the sorted list for dry-run.
+func canonBACnetCreateObjects(in []bacwrite.AllowedCreateObject) string {
+	if len(in) == 0 {
+		return "(none — CreateObject accepts any object-type when 10 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedCreateObject(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].ObjectType < sorted[j].ObjectType })
+	for i, c := range sorted {
+		out[i] = fmt.Sprintf("type=%d", c.ObjectType)
+	}
+	return strings.Join(out, ", ")
 }
 
 // canonBACnetDeleteObjects prints the sorted list for dry-run.
@@ -1570,8 +1605,9 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // session. v1.12 chunk 7 adds `objects:` (type/instance/property
 // per entry) for WriteProperty + WritePropertyMultiple. v1.13
 // chunk 7 adds `delete_objects:` (type/instance only) for
-// DeleteObject (svc 11).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string) proxyAllowFile {
+// DeleteObject (svc 11). v1.13 chunk 8 adds `create_object_types:`
+// (type only) for CreateObject (svc 10).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes []uint) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
@@ -1619,7 +1655,28 @@ func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjec
 			return af.DeleteObjects[i].Instance < af.DeleteObjects[j].Instance
 		})
 	}
+	if len(createObjectTypes) > 0 {
+		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(createObjectTypes)
+	}
 	return af
+}
+
+// canonAllowFileBACnetCreateTypes converts repeated raw uint
+// type values to YAML proxyBACnetCreateObject entries, dropping
+// out-of-range values + sorting by ObjectType. Extracted so
+// buildAllowFileBACnet stays under the funlen threshold.
+func canonAllowFileBACnetCreateTypes(in []uint) []proxyBACnetCreateObject {
+	out := make([]proxyBACnetCreateObject, 0, len(in))
+	for _, t := range in {
+		if t > 0x3FF {
+			continue
+		}
+		out = append(out, proxyBACnetCreateObject{Type: uint16(t & 0x3FF)})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Type < out[j].Type
+	})
+	return out
 }
 
 // canonUints returns a sorted deduped copy of in.

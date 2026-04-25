@@ -129,6 +129,45 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 	}
 }
 
+// AllowedCreateObject scopes a CreateObject confirmed-request
+// (service 10) to a specific BACnetObjectType. v1.13 chunk 8
+// adds object-type-level gating for the destructive service
+// that creates new objects on the device.
+//
+// Semantics: when AllowedCreateObjects is non-empty, a
+// CreateObject (svc 10) confirmed-request is forwarded ONLY
+// when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed objectSpecifier's BACnetObjectType is in
+//     this list (regardless of which CHOICE form the request
+//     uses — [0] objectType OR [1] objectIdentifier; the
+//     instance is ignored at the gate).
+//
+// Empty list disables the per-create-object gate (CreateObject
+// remains gated at service-choice level if 10 is in Allowed).
+//
+// Why type-only and not (type, instance)? Two reasons:
+//
+//  1. The most common CreateObject form is [0] objectType where
+//     the device picks the instance — an operator can't pre-
+//     declare a specific instance to allow.
+//  2. The typical BAS use-case is "operator may create new
+//     Schedule (type 17) objects on this device" — a TYPE-level
+//     allowlist matches this exactly. Per-instance Create
+//     allowlisting is unusual; v1.14+ may add it if asked.
+//
+// Kept SEPARATE from AllowedObjects (svc 15/16 property writes)
+// and AllowedDeleteObjects (svc 11 deletes): a CreateObject
+// of TypeX does not imply a DeleteObject of TypeX.Y or a
+// WriteProperty of TypeX.Y.PresentValue.
+type AllowedCreateObject struct {
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// enum (e.g. 17 = Schedule, 19 = MultiStateValue).
+	ObjectType uint16
+}
+
 // AllowedDeleteObject scopes a DeleteObject confirmed-request
 // (service 11) to a specific (ObjectType, ObjectInstance) pair.
 // v1.13 chunk 7 adds object-level gating for the destructive
@@ -308,6 +347,161 @@ func SessionMutationWithDeleteObjects(target string, allowed []AllowedService, o
 	}
 }
 
+// AllowlistHashWithCreateObjects is the v1.13 chunk-8 hash
+// that adds the per-CreateObject (type) allowlist on top of
+// the v1.13 chunk-7 layer. Backwards-compat ladder:
+//
+//   - empty createObjects → equals AllowlistHashWithDeleteObjects
+//     (v1.13 chunk 7).
+//   - empty createObjects + empty deleteObjects → equals
+//     AllowlistHashWithObjects (v1.12).
+//   - empty createObjects + empty deleteObjects + empty objects
+//     → equals AllowlistHash (v1.4).
+//
+// All v1.4 → v1.13-chunk-7 confirm-tokens remain valid for
+// operators who don't opt into per-create gating.
+//
+// Hash layout (when createObjects is non-empty):
+//
+//	AllowlistHashWithDeleteObjects output
+//	  || 0xFD || (type BE16) × sorted_createObjects
+//
+// Separator 0xFD is below 0xFE (deletes) and 0xFF (per-property
+// objects) — distinct sentinel byte. Per-entry is 2 bytes (type).
+func AllowlistHashWithCreateObjects(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject, createObjects []AllowedCreateObject) [32]byte {
+	if len(createObjects) == 0 {
+		return AllowlistHashWithDeleteObjects(target, allowed, objects, deleteObjects)
+	}
+	sortedSvc := sortAllowedServices(allowed)
+	sortedObj := sortAllowedObjects(objects)
+	sortedDel := sortAllowedDeleteObjects(deleteObjects)
+	sortedCre := append([]AllowedCreateObject(nil), createObjects...)
+	sort.Slice(sortedCre, func(i, j int) bool {
+		return sortedCre[i].ObjectType < sortedCre[j].ObjectType
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	writeCreateObjectsBlock(h, sortedCre)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// sortAllowedServices returns a deterministically sorted copy
+// (by ServiceChoice ascending). Helper extracted to keep
+// AllowlistHashWithCreateObjects under the funlen threshold.
+func sortAllowedServices(in []AllowedService) []AllowedService {
+	out := append([]AllowedService(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].ServiceChoice < out[j].ServiceChoice })
+	return out
+}
+
+// sortAllowedObjects returns a deterministically sorted copy
+// (by Type, Instance, PropertyID ascending).
+func sortAllowedObjects(in []AllowedObject) []AllowedObject {
+	out := append([]AllowedObject(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ObjectType != out[j].ObjectType {
+			return out[i].ObjectType < out[j].ObjectType
+		}
+		if out[i].ObjectInstance != out[j].ObjectInstance {
+			return out[i].ObjectInstance < out[j].ObjectInstance
+		}
+		return out[i].PropertyID < out[j].PropertyID
+	})
+	return out
+}
+
+// sortAllowedDeleteObjects returns a deterministically sorted
+// copy (by Type, Instance ascending).
+func sortAllowedDeleteObjects(in []AllowedDeleteObject) []AllowedDeleteObject {
+	out := append([]AllowedDeleteObject(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ObjectType != out[j].ObjectType {
+			return out[i].ObjectType < out[j].ObjectType
+		}
+		return out[i].ObjectInstance < out[j].ObjectInstance
+	})
+	return out
+}
+
+// writeObjectsBlock writes the per-property objects block to h
+// when non-empty. Separator 0xFF (v1.12 chunk 7).
+func writeObjectsBlock(h hashWriter, sorted []AllowedObject) {
+	if len(sorted) == 0 {
+		return
+	}
+	_, _ = h.Write([]byte{0xFF})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, o := range sorted {
+		binary.BigEndian.PutUint16(u16[:], o.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], o.ObjectInstance)
+		_, _ = h.Write(u32[:])
+		binary.BigEndian.PutUint32(u32[:], o.PropertyID)
+		_, _ = h.Write(u32[:])
+	}
+}
+
+// writeDeleteObjectsBlock writes the per-target deletes block
+// when non-empty. Separator 0xFE (v1.13 chunk 7).
+func writeDeleteObjectsBlock(h hashWriter, sorted []AllowedDeleteObject) {
+	if len(sorted) == 0 {
+		return
+	}
+	_, _ = h.Write([]byte{0xFE})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, d := range sorted {
+		binary.BigEndian.PutUint16(u16[:], d.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], d.ObjectInstance)
+		_, _ = h.Write(u32[:])
+	}
+}
+
+// writeCreateObjectsBlock writes the per-create-type block.
+// Separator 0xFD (v1.13 chunk 8). Caller must have already
+// established len(sorted) > 0.
+func writeCreateObjectsBlock(h hashWriter, sorted []AllowedCreateObject) {
+	_, _ = h.Write([]byte{0xFD})
+	var u16 [2]byte
+	for _, c := range sorted {
+		binary.BigEndian.PutUint16(u16[:], c.ObjectType)
+		_, _ = h.Write(u16[:])
+	}
+}
+
+// hashWriter is the minimal io.Writer subset the per-block
+// helpers use — sha256.New() satisfies it via its hash.Hash
+// interface. Defined locally so the helpers don't need to
+// import "hash" + "io" just to share signatures.
+type hashWriter interface {
+	Write(p []byte) (int, error)
+}
+
+// SessionMutationWithCreateObjects is the v1.13 chunk-8
+// mutation that mixes services + per-object + per-delete +
+// per-create into the PayloadHash. Empty createObjects →
+// degrades to SessionMutationWithDeleteObjects.
+func SessionMutationWithCreateObjects(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject, createObjects []AllowedCreateObject) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithCreateObjects(target, allowed, objects, deleteObjects, createObjects),
+	}
+}
+
 // AbortReasonSecurity is ASHRAE 135 §20.1.9 abort reason 5.
 const AbortReasonSecurity uint8 = 5
 
@@ -327,6 +521,11 @@ type WriteGatedHandler struct {
 	// See AllowedDeleteObject for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedDeleteObjects []AllowedDeleteObject
+	// AllowedCreateObjects is the optional v1.13 chunk-8
+	// per-create-type allowlist for CreateObject (service 10).
+	// See AllowedCreateObject for semantics. Empty list
+	// preserves service-choice-only gating for that service.
+	AllowedCreateObjects []AllowedCreateObject
 	Deriver              confirm.KeyDeriver
 	Auditor              confirm.Auditor
 	SessionConfirm       confirm.Confirm
@@ -340,7 +539,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithDeleteObjects(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects)
+	m := SessionMutationWithCreateObjects(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects, h.AllowedCreateObjects)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -454,7 +653,36 @@ func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu 
 			return false
 		}
 	}
+	if len(h.AllowedCreateObjects) > 0 && svc == wire.ConfirmedSvcCreateObject {
+		if !h.createObjectAllowed(apdu) {
+			return false
+		}
+	}
 	return true
+}
+
+// createObjectAllowed parses the CreateObject body and reports
+// whether the requested ObjectType is in the operator's
+// per-create-type allowlist. Fail-closed on unparseable BER.
+//
+// The gate matches by type only — instance is ignored even
+// when the [1] choice form encodes one. See AllowedCreateObject
+// for the design rationale.
+func (h *WriteGatedHandler) createObjectAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	objType, ok := wire.ParseCreateObject(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedCreateObjects {
+		if a.ObjectType == objType {
+			return true
+		}
+	}
+	return false
 }
 
 // deleteObjectAllowed parses the DeleteObject body and reports

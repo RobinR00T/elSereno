@@ -45,6 +45,7 @@ Two layers of allowlist:
 | Service-choice | `--service-choice 15` | every confirmed-request | exact byte | v1.4 |
 | Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15, v1.12+) AND `WritePropertyMultiple` (svc 16, v1.13+) | exact tuple after BER walk | v1.12 / v1.13 |
 | Per-target-delete | `--delete-object type=N;instance=M` | `DeleteObject` (svc 11) | exact (type, instance) — no property dimension | v1.13 |
+| Per-create-type | `--create-object-type N` | `CreateObject` (svc 10) | type-only after BER walk (instance ignored) | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -52,34 +53,50 @@ The per-object check on **WritePropertyMultiple** walks every
 refuses the WHOLE WPM batch (fail-closed multi-target gate
 analogous to the OPC UA WriteRequest walker).
 
-**AllowedObjects vs AllowedDeleteObjects** are kept separate:
-property writes don't auto-grant deletion. An operator who
-allowed `--object type=2;instance=99;property=85` (write
-PresentValue on BinaryOutput#99) must explicitly add
-`--delete-object type=2;instance=99` to permit deletion of
-the same object. This is the typical BAS pattern (writes ok,
-delete forbidden).
+**AllowedObjects vs AllowedDeleteObjects vs AllowedCreateObjects**
+are kept separate by design:
 
-Other mutating services (10 CreateObject, 17
-DeviceCommunicationControl, 20 ReinitializeDevice, 27
-LifeSafetyOperation, 7 AtomicWriteFile, 8 AddListElement, 9
-RemoveListElement) keep service-only gating in v1.13; per-
-object layers for those services are v1.14+ follow-ups (their
-request shapes differ).
+- Property writes (`--object`) don't auto-grant deletion.
+- Property writes (`--object`) don't auto-grant creation.
+- Deletion (`--delete-object`) doesn't auto-grant creation.
+
+An operator who allowed `--object type=2;instance=99;property=85`
+(write PresentValue on BinaryOutput#99) must explicitly add
+`--delete-object type=2;instance=99` to permit deletion of that
+object, and `--create-object-type 2` to permit creation of
+new BinaryOutputs. This matches the typical BAS pattern: most
+operators want property writes only, with delete + create
+forbidden.
+
+CreateObject is gated **by type only** — even when the operator
+uses the BACnet `[1] objectIdentifier` choice form (which
+encodes a specific instance), the gate matches by type. Most
+CreateObject calls use the `[0] objectType` form where the
+device picks the instance, so per-instance gating wouldn't be
+useful in practice; operators who need it can ask for v1.14+.
+
+Other mutating services (17 DeviceCommunicationControl, 20
+ReinitializeDevice, 27 LifeSafetyOperation, 7 AtomicWriteFile,
+8 AddListElement, 9 RemoveListElement) keep service-only
+gating in v1.13; per-object layers for those services are
+v1.14+ follow-ups (their request shapes differ).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
   --target bms.internal:47808 \
-  --service-choice 15 --service-choice 20 \
+  --service-choice 10 --service-choice 11 --service-choice 15 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
+  --delete-object "type=2;instance=99" \
+  --create-object-type 17 \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 ```
 
 Refusal is a BACnet `Abort-PDU` with reason `5` (security-error).
 YAML keys: `service_choices:`, `objects:` (`{type, instance,
-property}`).
+property}`), `delete_objects:` (`{type, instance}`),
+`create_object_types:` (`{type}`).
 
 ## Scope
 

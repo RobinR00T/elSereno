@@ -240,6 +240,35 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.13 chunk 8 landed.** BACnet CreateObject
+  (svc 10) per-type allowlist. Natural sequel to chunks 3 + 7
+  in the BACnet sequence: chunk 3 closed WPM (svc 16), chunk 7
+  closed DeleteObject (svc 11), chunk 8 closes the third
+  destructive service. New CLI flag `--create-object-type N`
+  (numeric BACnetObjectType, repeatable); YAML field
+  `create_object_types:` (`{type}` only — no instance dimension).
+  Wire parser at `internal/protocols/bacnet/wire/createobject.go`
+  walks the BACnet ASN.1 BER form: 0x0E (open ctx tag 0
+  constructed) + one of {0x09 1B / 0x0A 2B objectType, 0x1C 4B
+  objectIdentifier} + 0x0F (close). The gate matches by type
+  ONLY — even when the operator uses the [1] objectIdentifier
+  CHOICE form (which encodes a specific instance), the
+  instance is ignored at gate level. The typical BAS use-case
+  is "allow creating new Schedule (type 17) objects" — type-
+  level allowlist matches naturally. New
+  `AllowlistHashWithCreateObjects` (separator 0xFD) extends the
+  v1.13 chunk-7 ladder; backwards-compat ladder degrades
+  through chunks 7/12-chunk-7/v1.4. **Separate list from both
+  AllowedObjects and AllowedDeleteObjects** — property writes
+  don't auto-grant creation, deletion privileges don't auto-
+  grant creation. 13 tests (4 hash ladder + 6 wire parser + 5
+  e2e gate including a "AllowedObjects entry doesn't auto-grant
+  CreateObject" separation test). Refactor: extracted
+  sortAllowedServices/Objects/DeleteObjects helpers + per-block
+  hashWriter helpers to keep AllowlistHashWithCreateObjects
+  under funlen; canonAllowFileBACnetCreateTypes extracted from
+  buildAllowFileBACnet; applyBACnetAllowFile extracted from
+  loadAllowFile.
 - 2026-04-25 — **v1.13 chunk 7 landed.** BACnet DeleteObject
   (svc 11) per-target allowlist. Separate `AllowedDeleteObjects
   []{ObjectType, ObjectInstance}` list (kept distinct from the
