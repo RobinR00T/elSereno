@@ -37,6 +37,15 @@ v1.3 → v1.12 archived to keep this file actionable.
   5), Modbus structured writes (chunk 4), OPC UA rich NodeIDs +
   CallMethod (chunks 3, 6), BACnet per-WriteProperty (chunk 7),
   CWMP per-parameter-path + per-firmware (chunks 1, 10).
+- ✅ **InternetDB bulk lookup** — v1.13 chunk 1
+  (`internetdb:file:` + `internetdb:-`).
+- ✅ **CWMP firmware pre-flight verifier** — v1.13 chunk 2
+  (`elsereno-offensive write cwmp verify-firmware`).
+- ✅ **BACnet per-object for WritePropertyMultiple (svc 16)** —
+  v1.13 chunk 3.
+- ✅ **CWMP RPC-name case-warning in dry-run** — v1.13 chunk 4.
+- ✅ **CWMP-over-TLS operator recipe** — v1.13 chunk 5 (docs
+  only; nginx + HAProxy + Caddy front-proxy patterns).
 
 ---
 

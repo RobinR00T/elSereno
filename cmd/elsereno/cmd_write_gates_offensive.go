@@ -751,6 +751,14 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 				return fail(core.ExitUsage, err)
 			}
 			mut := cwmpwrite.SessionMutationWithFirmware(target, allowed, paths, fws)
+			// v1.13 chunk 4: warn when an --rpc value differs from
+			// the canonical TR-069 §A.4 spelling only by case. The
+			// gate is case-sensitive (per TR-069 §A.4), so a
+			// lowercase entry would silently fail to match the
+			// wire-side RPC. Surface this BEFORE the operator runs
+			// the proxy with a token whose hash bakes in the wrong
+			// case.
+			emitCWMPRPCCaseWarnings(cmd, rpcs)
 			cmd.Printf("Protocol:     cwmp\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -999,6 +1007,80 @@ func canonCWMPPaths(in []string) string {
 	}
 	sort.Strings(out)
 	return strings.Join(out, ", ")
+}
+
+// canonicalCWMPRPCNames is the list of TR-069 §A.4 RPC names
+// used for the v1.13 chunk-4 case-warning. Case sensitivity is
+// part of the spec, so when an operator types
+// `--rpc setparametervalues` we compare lowercase vs lowercase
+// and surface the canonical spelling. This list is NOT used by
+// the gate (which is strict about case); it's operator-UX
+// only.
+var canonicalCWMPRPCNames = []string{
+	// Read / protocol-flow (already in alwaysSafeRPCs but
+	// included so case-warning works even if operator writes
+	// them in lowercase).
+	"GetRPCMethods",
+	"GetParameterNames", "GetParameterNamesResponse",
+	"GetParameterValues", "GetParameterValuesResponse",
+	"GetParameterAttributes", "GetParameterAttributesResponse",
+	"Inform", "InformResponse",
+	"TransferComplete", "TransferCompleteResponse",
+	"AutonomousTransferComplete",
+	"Kicked", "KickedResponse",
+	"Fault",
+	// Write-capable (the operator-allowlist surface).
+	"SetParameterValues", "SetParameterValuesResponse",
+	"SetParameterAttributes", "SetParameterAttributesResponse",
+	"AddObject", "AddObjectResponse",
+	"DeleteObject", "DeleteObjectResponse",
+	"Reboot", "RebootResponse",
+	"FactoryReset", "FactoryResetResponse",
+	"Download", "DownloadResponse",
+	"Upload", "UploadResponse",
+	"ScheduleInform", "ScheduleInformResponse",
+	"ScheduleDownload", "ScheduleDownloadResponse",
+	"ChangeDUState", "ChangeDUStateResponse",
+	"CancelTransfer", "CancelTransferResponse",
+	"GetQueuedTransfers", "GetQueuedTransfersResponse",
+	"GetAllQueuedTransfers", "GetAllQueuedTransfersResponse",
+	"RequestDownload", "RequestDownloadResponse",
+}
+
+// canonicalCWMPRPCByLower maps lowercase canonical name → the
+// canonical spelling. Built once, queried by emitCWMPRPCCaseWarnings.
+var canonicalCWMPRPCByLower = func() map[string]string {
+	m := make(map[string]string, len(canonicalCWMPRPCNames))
+	for _, n := range canonicalCWMPRPCNames {
+		m[strings.ToLower(n)] = n
+	}
+	return m
+}()
+
+// emitCWMPRPCCaseWarnings prints a one-line warning per RPC
+// whose lowercased form matches a canonical TR-069 RPC but
+// whose case differs. Silent when the operator's input matches
+// canonical case. Silent for RPC names not in the canonical
+// list (vendor extensions).
+func emitCWMPRPCCaseWarnings(cmd *cobra.Command, in []string) {
+	for _, raw := range in {
+		r := strings.TrimSpace(raw)
+		if i := strings.IndexByte(r, ':'); i > 0 {
+			r = r[i+1:]
+		}
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		canon, ok := canonicalCWMPRPCByLower[strings.ToLower(r)]
+		if !ok {
+			continue
+		}
+		if canon == r {
+			continue
+		}
+		cmd.Printf("warning: --rpc %q differs in case from the canonical TR-069 spelling %q. The CWMP gate is case-sensitive per §A.4 — the wire-side RPC will not match the allowlist.\n", raw, canon)
+	}
 }
 
 // canonCWMPRPCs returns a sorted, deduped, prefix-stripped

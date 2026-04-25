@@ -231,6 +231,16 @@ elsereno-offensive write modbus dry-run \
 elsereno-offensive write cwmp verify-firmware \
   --allow-file /etc/elsereno/cwmp-gate.yaml
 
+# CWMP RPC-name case-warning (v1.13+) — el dry-run avisa si una
+# entrada --rpc difiere en case del nombre canónico TR-069 §A.4.
+# Ej: --rpc reboot → "warning: ... canonical Reboot ...".
+# El gate sigue siendo case-sensitive; la advertencia es UX.
+
+# CWMP-over-TLS (puerto 7548): el gate habla HTTP plano. Para
+# gatear CWMP-TLS pon nginx (o HAProxy/Caddy) delante:
+#   CPE ↔ nginx :7548 (TLS) ↔ elsereno :7547 ↔ ACS :7548 (TLS)
+# Receta completa: docs/protocols/cwmp.md "CWMP-over-TLS".
+
 # CWMP / TR-069 SOAP RPC allowlist (v1.11+) +
 #                  per-parameter-path (v1.12+) +
 #                  per-firmware-URL para Download (v1.12+)

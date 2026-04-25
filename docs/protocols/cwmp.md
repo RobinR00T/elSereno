@@ -98,6 +98,62 @@ elsereno-offensive write cwmp dry-run \
 YAML keys: `rpcs:`, `param_prefixes:`, `firmware:` (with
 `{url, sha256}` entries).
 
+## CWMP-over-TLS (port 7548)
+
+TR-069 §3.4 ("CPE protocol stack") defines two transport
+profiles: **HTTP** on port 7547 (the most common — covered by
+this document) and **HTTPS** on port 7548. TLS-encapsulated
+CWMP is increasingly common with newer ACSs that enforce
+mutually-authenticated TLS between ACS and CPE.
+
+The ElSereno proxy doesn't bind 7548 directly — it speaks plain
+HTTP. To gate CWMP-over-TLS, run a TLS-terminating reverse
+proxy (nginx / HAProxy / Caddy) in front of the ElSereno gate,
+re-encrypt to upstream:
+
+```
+CPE  ↔  nginx (TLS 7548)  ↔  elsereno-offensive (HTTP 7547)  ↔  ACS (TLS 7548)
+                                  proxy listen --plugin cwmp
+                                  --target acs:7548
+                                  ...
+```
+
+Example **nginx.conf** snippet for the front (CPE-facing) leg:
+
+```nginx
+stream {
+  upstream gate {
+    server 127.0.0.1:7547;
+  }
+  server {
+    listen 7548 ssl;
+    ssl_certificate     /etc/elsereno/cwmp-front.crt;
+    ssl_certificate_key /etc/elsereno/cwmp-front.key;
+    # Optional: require client cert (CPE-side mTLS).
+    # ssl_client_certificate /etc/elsereno/cpe-ca.pem;
+    # ssl_verify_client      on;
+    proxy_pass gate;
+  }
+}
+```
+
+For the back (ACS-facing) leg, configure the gate's `--target`
+to the ACS HTTPS endpoint and let the gate's `http.Client`
+perform a fresh TLS handshake. Inspect ACS-cert validation in
+`internal/protocols/cwmp/cwmp.go` — fingerprint code accepts
+self-signed certs (common for ISP ACSs) when
+`InsecureSkipVerify` is set; the gate path uses Go's default
+strict cert verification.
+
+**Why not native TLS in the gate?** v1.11 chose to keep the gate
+HTTP-only because (a) most operator-controlled deployments
+already have a TLS reverse proxy in front of the ACS-CPE
+channel for cert rotation + audit, (b) gating SOAP body content
+is orthogonal to TLS hygiene, and (c) embedding TLS would mean
+managing operator-supplied client certs / SNI / ALPN inside
+ElSereno. nginx / HAProxy do that better. Native TLS in the
+gate is a v1.14+ candidate if operator demand surfaces.
+
 ## See also
 
 - `.context/protocols/cwmp.md` and the v1.11 / v1.12 snapshots.
