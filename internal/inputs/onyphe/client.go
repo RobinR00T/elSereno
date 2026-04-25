@@ -76,6 +76,31 @@ type SearchResponse struct {
 	Results []SearchMatch `json:"results,omitempty"`
 }
 
+// SearchPaged calls /api/v2/search/<query> repeatedly,
+// accumulating up to totalLimit matches across pages. v1.12
+// chunk 8 closes the v1.10 "page 1 only" carry-over. Stops when
+// totalLimit is reached, a page returns 0 results, or ctx errors.
+func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) ([]core.Target, error) {
+	if totalLimit <= 0 {
+		totalLimit = 100
+	}
+	out := make([]core.Target, 0, totalLimit)
+	for page := 1; len(out) < totalLimit; page++ {
+		hits, err := c.Search(ctx, query, page)
+		if err != nil {
+			return out, err
+		}
+		if len(hits) == 0 {
+			break
+		}
+		out = append(out, hits...)
+	}
+	if len(out) > totalLimit {
+		out = out[:totalLimit]
+	}
+	return out, nil
+}
+
 // Search calls /api/v2/search/<query> and returns up to one
 // page of parsed matches. `query` is ONYPHE Query Language
 // (OQL) — e.g. `category:datascan product:freepbx`.

@@ -76,9 +76,38 @@ type SearchResponse struct {
 	Matches []SearchMatch `json:"matches"`
 }
 
+// SearchPaged calls /host/search repeatedly, accumulating up to
+// totalLimit hits across pages. v1.12 chunk 8 closes the v1.10
+// "page 1 only" carry-over. Stops when totalLimit is reached, a
+// page returns 0 matches, or ctx errors.
+//
+// ZoomEye returns ~20 matches per page; the loop multiplies that
+// out automatically until totalLimit is hit.
+func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) ([]core.Target, error) {
+	if totalLimit <= 0 {
+		totalLimit = 100
+	}
+	out := make([]core.Target, 0, totalLimit)
+	for page := 1; len(out) < totalLimit; page++ {
+		hits, err := c.Search(ctx, query, page)
+		if err != nil {
+			return out, err
+		}
+		if len(hits) == 0 {
+			break
+		}
+		out = append(out, hits...)
+	}
+	if len(out) > totalLimit {
+		out = out[:totalLimit]
+	}
+	return out, nil
+}
+
 // Search calls /host/search and returns up to `size` parsed
 // hits. `page` is 1-based (ZoomEye convention). Callers wanting
-// multiple pages make repeated calls with page=1, 2, 3…
+// multiple pages make repeated calls with page=1, 2, 3… (or use
+// SearchPaged for the loop).
 func (c *Client) Search(ctx context.Context, query string, page int) ([]core.Target, error) {
 	if c.Limiter != nil {
 		if err := c.Limiter.Wait(ctx); err != nil {

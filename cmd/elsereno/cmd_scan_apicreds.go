@@ -116,6 +116,14 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe)", provider)
 }
 
+// providerTotalLimit is the default cap per --input call. v1.12
+// chunk 8 enables pagination across all 5 providers; this cap
+// keeps free-tier quota usage sane (each provider returns ~100/
+// page, so 1000 hits = ~10 paginated requests). Operators
+// wanting more raise the cap via the (future) --max-results
+// flag — out of scope for chunk 8.
+const providerTotalLimit = 1000
+
 func readShodanTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
 	if creds.Shodan.Key == "" {
 		return nil, fmt.Errorf("shodan: missing `shodan.key` in --api-creds-file")
@@ -124,7 +132,7 @@ func readShodanTargets(ctx context.Context, creds apiCreds, query string) ([]cor
 	if err != nil {
 		return nil, err
 	}
-	return c.Search(ctx, query, 100)
+	return c.SearchPaged(ctx, query, providerTotalLimit)
 }
 
 func readCensysTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
@@ -135,7 +143,7 @@ func readCensysTargets(ctx context.Context, creds apiCreds, query string) ([]cor
 	if err != nil {
 		return nil, err
 	}
-	return c.Search(ctx, query, 100)
+	return c.SearchPaged(ctx, query, providerTotalLimit)
 }
 
 func readFOFATargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
@@ -146,7 +154,7 @@ func readFOFATargets(ctx context.Context, creds apiCreds, query string) ([]core.
 	if err != nil {
 		return nil, err
 	}
-	return c.Search(ctx, query, 100)
+	return c.SearchPaged(ctx, query, providerTotalLimit)
 }
 
 func readZoomEyeTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
@@ -157,7 +165,7 @@ func readZoomEyeTargets(ctx context.Context, creds apiCreds, query string) ([]co
 	if err != nil {
 		return nil, err
 	}
-	return c.Search(ctx, query, 1) // page 1 — pagination is v1.10
+	return c.SearchPaged(ctx, query, providerTotalLimit)
 }
 
 func readOnypheTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
@@ -168,5 +176,5 @@ func readOnypheTargets(ctx context.Context, creds apiCreds, query string) ([]cor
 	if err != nil {
 		return nil, err
 	}
-	return c.Search(ctx, query, 1) // page 1 — pagination is v1.10
+	return c.SearchPaged(ctx, query, providerTotalLimit)
 }

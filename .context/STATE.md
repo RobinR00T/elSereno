@@ -161,21 +161,12 @@ Chunks (in planned order):
    **Landed** — `proxyModbusWrite` YAML struct + `--write`
    CLI flag + round-trip hash stability + emit guard lifted.
    7 new tests.
-5. SIP from-domain allowlist (complements v1.10 AOR gate).
-   **Landed** — `AllowedFromDomain` + hash ladder (0xFD) +
-   per-gated-method check + 403 "identity-spoof guard". 11 new
-   tests (hash ladder × 5, E2E × 4, YAML round-trip × 2).
-6. OPC UA CallRequest per-object allowlist.
-   **Landed** — `AllowedCallMethod{ObjectID, MethodID}` +
-   `CallRequestAllMethods` wire walker + 0xFC hash separator +
-   `--call-method object=…;method=…` CLI + YAML `call_methods:`
-   round-trip. 9 new tests.
-7. BACnet per-object allowlist (ASN.1 BER parsing).
-   **Landed** — `ParseWriteProperty` BER walker (context tag 0
-   ObjectId + tag 1 PropertyId) + `AllowedObject` lib type +
-   0xFF hash separator + `--object` CLI + YAML `objects:`. 13
-   new tests.
-8. Input pagination (5 providers).
+5. SIP from-domain allowlist. **Landed** — chunk 5.
+6. OPC UA CallRequest per-object allowlist. **Landed** — chunk 6.
+7. BACnet per-object allowlist (ASN.1 BER parsing). **Landed** —
+   chunk 7.
+8. Input pagination (5 providers). **Landed** — chunk 8 closes
+   v1.10 carry-over.
 9. Shodan InternetDB (free, no-key provider #6).
 10. CWMP firmware-URL + SHA-256 allowlist for `Download`.
 

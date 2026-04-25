@@ -72,18 +72,64 @@ type SearchResponse struct {
 // on the wire (PITF-016 applies to argv/shell, not to TLS-protected
 // query strings).
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]core.Target, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	return c.searchPage(ctx, query, 1, limit)
+}
+
+// SearchPaged calls /shodan/host/search repeatedly, accumulating up
+// to totalLimit hits across multiple pages. v1.12 chunk 8 closes
+// the v1.10 carry-over. Stops when:
+//
+//   - totalLimit hits accumulated, OR
+//   - a page returns 0 matches (Shodan exhausted), OR
+//   - ctx is cancelled / errors.
+//
+// totalLimit ≤ 0 defaults to 100 (single-page Search). Each page
+// fetches 100 hits (Shodan's max per request); the rate limiter
+// throttles across pages.
+func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) ([]core.Target, error) {
+	if totalLimit <= 0 {
+		totalLimit = 100
+	}
+	const perPage = 100
+	out := make([]core.Target, 0, totalLimit)
+	for page := 1; len(out) < totalLimit; page++ {
+		hits, err := c.searchPage(ctx, query, page, perPage)
+		if err != nil {
+			return out, err
+		}
+		if len(hits) == 0 {
+			break
+		}
+		out = append(out, hits...)
+		if len(hits) < perPage {
+			// Shodan returned a partial page → no more results.
+			break
+		}
+	}
+	if len(out) > totalLimit {
+		out = out[:totalLimit]
+	}
+	return out, nil
+}
+
+// searchPage issues one /shodan/host/search call for a specific
+// page. Shared by Search (page 1) and SearchPaged (loop).
+func (c *Client) searchPage(ctx context.Context, query string, page, limit int) ([]core.Target, error) {
 	if c.Limiter != nil {
 		if err := c.Limiter.Wait(ctx); err != nil {
 			return nil, err
 		}
 	}
-	if limit <= 0 {
-		limit = 100
-	}
 	q := url.Values{}
 	q.Set("key", c.APIKey)
 	q.Set("query", query)
 	q.Set("limit", fmt.Sprintf("%d", limit))
+	if page > 1 {
+		q.Set("page", fmt.Sprintf("%d", page))
+	}
 
 	u := fmt.Sprintf("%s/shodan/host/search?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)

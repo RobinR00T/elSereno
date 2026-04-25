@@ -80,18 +80,54 @@ type SearchResponse struct {
 	Results [][]string `json:"results,omitempty"`
 }
 
+// SearchPaged calls /api/v1/search/all repeatedly with
+// page=1,2,3… until totalLimit hits accumulate or the page
+// returns 0 results. v1.12 chunk 8 closes the v1.10 "page 1
+// only" carry-over. FOFA returns up to 100 rows per page on
+// the free tier.
+func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) ([]core.Target, error) {
+	if totalLimit <= 0 {
+		totalLimit = 100
+	}
+	const perPage = 100
+	out := make([]core.Target, 0, totalLimit)
+	for page := 1; len(out) < totalLimit; page++ {
+		hits, err := c.searchPage(ctx, query, page, perPage)
+		if err != nil {
+			return out, err
+		}
+		if len(hits) == 0 {
+			break
+		}
+		out = append(out, hits...)
+		if len(hits) < perPage {
+			break
+		}
+	}
+	if len(out) > totalLimit {
+		out = out[:totalLimit]
+	}
+	return out, nil
+}
+
 // Search calls /api/v1/search/all and returns up to `size`
 // parsed hits. `query` is the FOFA search-query language
 // expression (e.g. `protocol="iax2"` or `app="Asterisk"`); it
 // is base64-encoded per FOFA's requirement before being sent.
 func (c *Client) Search(ctx context.Context, query string, size int) ([]core.Target, error) {
+	if size <= 0 {
+		size = 100
+	}
+	return c.searchPage(ctx, query, 1, size)
+}
+
+// searchPage issues one /api/v1/search/all call for a specific
+// page. Shared by Search (page 1) and SearchPaged (loop).
+func (c *Client) searchPage(ctx context.Context, query string, page, size int) ([]core.Target, error) {
 	if c.Limiter != nil {
 		if err := c.Limiter.Wait(ctx); err != nil {
 			return nil, err
 		}
-	}
-	if size <= 0 {
-		size = 100
 	}
 	qbase64 := base64.StdEncoding.EncodeToString([]byte(query))
 
@@ -101,6 +137,9 @@ func (c *Client) Search(ctx context.Context, query string, size int) ([]core.Tar
 	q.Set("qbase64", qbase64)
 	q.Set("size", strconv.Itoa(size))
 	q.Set("fields", "host,ip,port")
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
+	}
 
 	u := fmt.Sprintf("%s/api/v1/search/all?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)

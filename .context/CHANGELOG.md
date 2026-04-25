@@ -240,6 +240,27 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.12 chunk 8 landed.** Input pagination across
+  all 5 providers — closes the v1.10 "page 1 only" carry-over
+  noted in 4 of the 5 client comments. New `SearchPaged(ctx,
+  query, totalLimit)` method on each client. Per-provider:
+  - Shodan: `?page=N` parameter; `searchPage` shared helper
+    between `Search` (page 1) and `SearchPaged` (loop).
+  - Censys: cursor follow via `links.next`; `searchPage` returns
+    (hits, nextCursor); empty cursor terminates.
+  - FOFA: `?page=N` (1-indexed); per-page size 100; partial-
+    page detection.
+  - ZoomEye: `?page=N` (1-indexed); ~20/page from server.
+  - ONYPHE: `?page=N` (1-indexed); accumulates results.
+  All loops stop on (a) totalLimit reached, (b) empty page,
+  (c) ctx cancelled. CLI `readShodanTargets` /
+  `readCensysTargets` / `readFOFATargets` / `readZoomEyeTargets`
+  / `readOnypheTargets` switched to `SearchPaged` with a shared
+  `providerTotalLimit = 1000` cap (free-tier sane default).
+  9 new tests: Shodan × 3 (cap, empty-page, default-100),
+  ZoomEye × 2 (accumulates, stops-on-empty), ONYPHE × 1
+  (multi-page accumulation), FOFA × 1 (page increment),
+  Censys × 2 (cursor follow, totalLimit cap). 0 lint issues.
 - 2026-04-25 — **v1.12 chunk 7 landed.** BACnet per-object
   WriteProperty allowlist via ASN.1 BER parsing. Closes the
   v1.4 chunk 6 "service-choice only" carry-over for the most
