@@ -172,9 +172,6 @@ Deferred to v1.13+:
   gates (audit `netip.Addr` paths; bind/listen IPv6-aware;
   audit log paths; allowlist canonicalisation for v6 host
   literals `[::1]:port`). Operator-requested 2026-04-25.
-- IPv8 — operator-clarification needed (typo for IPv6? Tribler
-  IPv8 P2P overlay? IPv4+v6 dual-stack?). Recorded as backlog
-  pending the disambiguation.
 - CWMP RPC-name case-warning in dry-run.
 - CWMP-over-TLS (:7548) operator recipe.
 - SIGHUP reload of proxy listen allowlist (needs token/hash
