@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -125,12 +127,93 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe | internetdb)", provider)
 }
 
-// readInternetDBTargets dispatches `internetdb:<ip>` to the
-// no-key Shodan InternetDB lookup. Single-IP for v1.12; bulk
-// (file or stdin) is a v1.13+ follow-up.
+// readInternetDBTargets dispatches the no-key Shodan InternetDB
+// lookup. Three input shapes:
+//
+//	internetdb:<ip>          single IP lookup (v1.12).
+//	internetdb:file:<path>   one IP per line, file-driven bulk.
+//	internetdb:-             one IP per line on stdin.
+//
+// Bulk shapes accumulate hits across all IPs, honouring the
+// client's rate limiter (5 rps default). Lines starting with
+// `#` are comments. Blank lines + leading/trailing whitespace
+// are skipped silently. Unparseable IPs surface as errors so
+// the operator notices typos.
 func readInternetDBTargets(ctx context.Context, query string) ([]core.Target, error) {
 	c := internetdb.New(0)
+
+	// Bulk: file:<path>
+	if strings.HasPrefix(query, "file:") {
+		path := strings.TrimPrefix(query, "file:")
+		ips, err := readInternetDBIPListFromFile(path)
+		if err != nil {
+			return nil, err
+		}
+		return lookupAllInternetDB(ctx, c, ips)
+	}
+
+	// Bulk: stdin (`-`).
+	if query == "-" {
+		ips, err := readInternetDBIPListFromReader(os.Stdin)
+		if err != nil {
+			return nil, err
+		}
+		return lookupAllInternetDB(ctx, c, ips)
+	}
+
+	// Single IP.
 	return c.Lookup(ctx, query)
+}
+
+// lookupAllInternetDB iterates the IP list with rate-limited
+// per-IP lookups. Errors on a single IP surface immediately —
+// operators usually want to know the rate limit hit them.
+func lookupAllInternetDB(ctx context.Context, c *internetdb.Client, ips []string) ([]core.Target, error) {
+	out := make([]core.Target, 0, len(ips)*4)
+	for _, ip := range ips {
+		hits, err := c.Lookup(ctx, ip)
+		if err != nil {
+			return out, fmt.Errorf("internetdb bulk: %s: %w", ip, err)
+		}
+		out = append(out, hits...)
+	}
+	return out, nil
+}
+
+// readInternetDBIPListFromFile opens path and parses it via
+// readInternetDBIPListFromReader. Trims whitespace, skips
+// comments + blank lines.
+func readInternetDBIPListFromFile(path string) ([]string, error) {
+	if path == "" {
+		return nil, errors.New("internetdb file: path is empty (form: internetdb:file:<path>)")
+	}
+	f, err := os.Open(path) // #nosec G304 — operator-supplied IP-list path
+	if err != nil {
+		return nil, fmt.Errorf("internetdb file %q: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	return readInternetDBIPListFromReader(f)
+}
+
+// readInternetDBIPListFromReader reads one IP per line. Comments
+// (`#…`) + blank lines silently skipped.
+func readInternetDBIPListFromReader(r io.Reader) ([]string, error) {
+	scanner := bufio.NewScanner(r)
+	out := make([]string, 0, 64)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		out = append(out, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("internetdb: read IP list: %w", err)
+	}
+	if len(out) == 0 {
+		return nil, errors.New("internetdb: no IPs parsed from input (every line was blank or a comment)")
+	}
+	return out, nil
 }
 
 // providerTotalLimit is the default cap per --input call. v1.12

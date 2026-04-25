@@ -59,6 +59,29 @@ The optional `sha256=` field in `--firmware` is metadata —
 written to the YAML and the dry-run output for downstream
 verification (e.g. on a syslog of the `TransferComplete` reply).
 
+### Pre-flight verifier (v1.13+)
+
+Operators can verify the URL contents BEFORE opening the change
+window using:
+
+```sh
+elsereno-offensive write cwmp verify-firmware \
+  --allow-file /etc/elsereno/cwmp-gate.yaml
+```
+
+The command side-fetches each `firmware:` entry's URL via
+HTTPS, computes SHA-256 over the response body, and compares
+against the operator-supplied hash. Output is one line per URL
+with `✓ MATCH` / `✗ MISMATCH` / `! ERROR` / `- SKIPPED` (when
+no `sha256:` field). Exit code: `0` all match, `1` any
+mismatch, `2` usage / fetch error.
+
+Use this to catch a hostile / misconfigured ACS that swapped
+the firmware image at the URL between the dry-run when the
+operator computed the hash and the actual change window. The
+gate alone can't see the body content — it only enforces URL
+match at RPC time.
+
 ## Operator example
 
 ```sh

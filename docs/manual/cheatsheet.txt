@@ -42,6 +42,11 @@ elsereno scan --input onyphe:'category:datascan product:freepbx' \
 # Shodan InternetDB (v1.12+) — sin API key, lookup-by-IP:
 elsereno scan --input internetdb:8.8.8.8
 
+# InternetDB bulk lookup (v1.13+):
+elsereno scan --input internetdb:file:./ips.txt
+echo "10.0.0.1" | elsereno scan --input internetdb:-
+# (uno por línea; #-comments y blank-lines saltadas)
+
 # api-creds.yaml (obligatorio 0600):
 #   shodan:  {key: ...}
 #   censys:  {id: ..., secret: ...}
@@ -215,6 +220,13 @@ elsereno-offensive write bacnet dry-run \
 # Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
+
+# CWMP firmware pre-flight verifier (v1.13+) — side-fetch cada
+# URL en firmware: y verifica SHA-256 contra la allowlist.
+# Útil ANTES de abrir la ventana de cambios para detectar
+# firmware-swap. Exit 0 si todos coinciden, 1 si alguno no.
+elsereno-offensive write cwmp verify-firmware \
+  --allow-file /etc/elsereno/cwmp-gate.yaml
 
 # CWMP / TR-069 SOAP RPC allowlist (v1.11+) +
 #                  per-parameter-path (v1.12+) +

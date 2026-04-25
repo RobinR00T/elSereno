@@ -3,14 +3,21 @@
 package main
 
 import (
+	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	iaxwire "local/elsereno/internal/protocols/iax2/wire"
 	"local/elsereno/offensive/confirm"
@@ -659,6 +666,65 @@ Refusal emits a CWMP SOAP Fault (TR-069 Annex A FaultCode 9001
 CWMP-layer error rather than a transport glitch.`,
 	}
 	cmd.AddCommand(newWriteCWMPDryRunCmd())
+	cmd.AddCommand(newWriteCWMPVerifyFirmwareCmd())
+	return cmd
+}
+
+// newWriteCWMPVerifyFirmwareCmd is the v1.13 operator pre-flight
+// verifier for the CWMP Download firmware-URL allowlist. Given
+// an allow-file with `firmware:` entries, it side-fetches each
+// URL via HTTP/HTTPS, computes SHA-256 over the response body,
+// and compares against the operator-supplied SHA256 metadata.
+//
+// This catches firmware-swap attacks BEFORE the change window
+// opens: an ACS that previously published a benign image at
+// the URL might rotate to a malicious image right before the
+// CPE fetches it. The CWMP gate (v1.12 chunk 10) only enforces
+// URL match at RPC time; the actual hash isn't carried by
+// TR-069 Download. This tool closes that loop pre-emptively.
+//
+// Exit codes: 0 all-match, 1 any-mismatch, 2 usage / fetch
+// error.
+func newWriteCWMPVerifyFirmwareCmd() *cobra.Command {
+	var allowFile string
+	var fetchTimeout time.Duration
+	cmd := &cobra.Command{
+		Use:   "verify-firmware",
+		Short: "Pre-flight: side-fetch each firmware URL and verify its SHA-256 against the allow-file",
+		Long: `Reads the firmware: section of an allow-file YAML, downloads each
+URL, computes SHA-256, and compares against the expected hash.
+
+Use this BEFORE opening a change window: the CWMP gate (v1.12
+chunk 10) enforces URL match at RPC time, but TR-069 Download
+doesn't carry the firmware hash, so a hostile ACS could swap
+the image at the URL between dry-run and real run. This tool
+verifies the URL contents match operator expectation right now.
+
+Entries without a sha256 field are skipped with a warning.
+
+Exit code: 0 all match, 1 any mismatch, 2 usage / fetch error.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if allowFile == "" {
+				return fail(core.ExitUsage, errors.New("--allow-file is required"))
+			}
+			af, err := loadCWMPFirmwareAllowFile(allowFile)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			if len(af.Firmware) == 0 {
+				cmd.Printf("no firmware: entries in %s — nothing to verify\n", allowFile)
+				return nil
+			}
+			results, anyFail := verifyCWMPFirmwareURLs(cmd.Context(), af.Firmware, fetchTimeout)
+			printCWMPFirmwareVerifyResults(cmd, results)
+			if anyFail {
+				return fail(core.ExitError, errors.New("at least one firmware URL failed SHA-256 verification"))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&allowFile, "allow-file", "", "path to the YAML allow-file with `firmware:` entries (required)")
+	cmd.Flags().DurationVar(&fetchTimeout, "fetch-timeout", 60*time.Second, "per-URL fetch timeout (firmware images can be tens of MB)")
 	return cmd
 }
 
@@ -769,6 +835,128 @@ func validHexSHA256(s string) bool {
 		}
 	}
 	return true
+}
+
+// firmwareVerifyStatus values as named constants — printed in
+// the verify-firmware output and inspected by tests.
+const (
+	firmwareStatusMatch    = "match"
+	firmwareStatusMismatch = "mismatch"
+	firmwareStatusSkipped  = "skipped"
+	firmwareStatusError    = "error"
+)
+
+// firmwareVerifyResult is one entry in the verify-firmware
+// output: per-URL pass/fail with the diagnostic message.
+type firmwareVerifyResult struct {
+	URL          string
+	ExpectedHash string
+	GotHash      string
+	Status       string // one of firmwareStatus* above
+	Detail       string
+}
+
+// loadCWMPFirmwareAllowFile reads an allow-file YAML and
+// returns the cwmp-relevant fields. Lighter than the proxy-
+// listen loadAllowFile because verify-firmware doesn't need
+// the rest of the YAML (RPCs, paths, etc.).
+func loadCWMPFirmwareAllowFile(path string) (proxyAllowFile, error) {
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		return proxyAllowFile{}, err
+	}
+	// loadAllowFile populates opts.cwmpFirmware (CLI string form)
+	// but discards the structured data; reload directly to get
+	// the structured Firmware field.
+	raw, err := os.ReadFile(path) // #nosec G304 — operator-supplied YAML path
+	if err != nil {
+		return proxyAllowFile{}, fmt.Errorf("--allow-file %s: %w", path, err)
+	}
+	var af proxyAllowFile
+	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
+	dec.KnownFields(true)
+	if err := dec.Decode(&af); err != nil {
+		return proxyAllowFile{}, fmt.Errorf("--allow-file %s: parse: %w", path, err)
+	}
+	return af, nil
+}
+
+// verifyCWMPFirmwareURLs side-fetches each entry and verifies
+// SHA-256. Returns per-entry results + whether any entry failed
+// (mismatch or fetch error).
+func verifyCWMPFirmwareURLs(ctx context.Context, entries []proxyCWMPFirmware, timeout time.Duration) ([]firmwareVerifyResult, bool) {
+	client := &http.Client{Timeout: timeout}
+	results := make([]firmwareVerifyResult, 0, len(entries))
+	anyFail := false
+	for _, e := range entries {
+		r := firmwareVerifyResult{URL: e.URL, ExpectedHash: e.SHA256}
+		if e.SHA256 == "" {
+			r.Status = firmwareStatusSkipped
+			r.Detail = "no sha256 field; URL not verified"
+			results = append(results, r)
+			continue
+		}
+		got, err := fetchFirmwareSHA256(ctx, client, e.URL)
+		switch {
+		case err != nil:
+			r.Status = firmwareStatusError
+			r.Detail = err.Error()
+			anyFail = true
+		case strings.EqualFold(got, e.SHA256):
+			r.Status = firmwareStatusMatch
+			r.GotHash = got
+		default:
+			r.Status = firmwareStatusMismatch
+			r.GotHash = got
+			r.Detail = fmt.Sprintf("expected %s, got %s", e.SHA256, got)
+			anyFail = true
+		}
+		results = append(results, r)
+	}
+	return results, anyFail
+}
+
+// fetchFirmwareSHA256 downloads url and returns the lowercase
+// hex SHA-256 of the body. Bounded by client.Timeout. Body is
+// streamed (no full-image buffering) — firmware can be tens of
+// MB.
+func fetchFirmwareSHA256(ctx context.Context, client *http.Client, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetch: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, resp.Body); err != nil {
+		return "", fmt.Errorf("read body: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// printCWMPFirmwareVerifyResults writes a per-URL line to the
+// command's stdout. Uses cmd.Printf so callers can capture
+// output in tests.
+func printCWMPFirmwareVerifyResults(cmd *cobra.Command, results []firmwareVerifyResult) {
+	cmd.Printf("Firmware verification (%d entries):\n", len(results))
+	for _, r := range results {
+		switch r.Status {
+		case firmwareStatusMatch:
+			cmd.Printf("  ✓ MATCH    %s\n", r.URL)
+		case firmwareStatusMismatch:
+			cmd.Printf("  ✗ MISMATCH %s\n             %s\n", r.URL, r.Detail)
+		case firmwareStatusError:
+			cmd.Printf("  ! ERROR    %s\n             %s\n", r.URL, r.Detail)
+		case firmwareStatusSkipped:
+			cmd.Printf("  - SKIPPED  %s (%s)\n", r.URL, r.Detail)
+		}
+	}
 }
 
 // canonCWMPFirmware prints the sorted list of firmware entries
