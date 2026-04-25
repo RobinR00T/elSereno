@@ -1,61 +1,78 @@
 # ElSereno — Forward-looking TODO (vNext)
 
-Complementa a `TODO.md` (la checklist original del brief) y a
-`ROADMAP.md` (el plan chunked). Aquí se apuntan ideas de features
-futuras, superficies de ataque a añadir y mejoras operativas que
-surgen en campo.
+Complementa a `TODO.md` (la checklist original del brief — closed
+tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
+ideas de features futuras, superficies de ataque a añadir y
+mejoras operativas que surgen en campo.
 
 > Mantén este fichero **corto y accionable**. Cuando un ítem
 > entre en un ciclo (v1.x) muévelo a `ROADMAP.md` con su chunk
-> asignado + estimación.
+> asignado + estimación. Cuando cierre, márkalo `✅` con la
+> versión y/o el commit.
+
+Last refresh: **2026-04-25** (post-v1.12). Items shipped during
+v1.3 → v1.12 archived to keep this file actionable.
 
 ---
 
-## 🎯 High-leverage — siguiente ciclo v1.3
+## ✅ Shipped during v1.3–v1.12
 
-- [ ] **Buscar PBX expuestas (Asterisk y similares)** — la superficie
-  telefónica (VoIP / PBX / SBC) es enorme y poco cubierta por
-  herramientas ICS. Añadir un plugin `pbx` que haga fingerprint
-  sobre:
-    - **Asterisk**: SIP 5060/udp/tcp + AMI 5038/tcp (Asterisk
-      Manager Interface banner) + ARI 8088/tcp (`/ari/api-docs`
-      HTTP) + IAX2 4569/udp.
-    - **FreePBX**: 80/443 con `/admin/config.php` banner, cookie
-      `fpbxrec`, admin login page.
-    - **Cisco CallManager / UCM**: 2000/tcp SCCP + 5060/tcp SIP
-      + 8080/443 admin.
-    - **3CX**: 5060/5061 + 5000/tcp management + WebRTC web UI
-      banner.
-    - **Mitel**: 6801/tcp MICC + 6804/tcp + 7001 UI.
-    - **Avaya IP Office**: 50791/tcp SSA + 411 TLS.
-    - **Yeastar / Grandstream / Fanvil / Yealink** SOHO PBXs:
-      SIP fingerprint + HTTP admin pages.
-  Cada uno con un detector ASCII-banner + (cuando aplica) un
-  HTTP fingerprint (cabecera `Server`, favicon hash, title). El
-  scoring `protocol_risk` para PBX expuestas en Internet es
-  ≈ 85 (robo de minutos, fraude toll, escucha interna).
-  Chunk estimado: ~4 días. Dependencias: ninguna (el scanner
-  actual soporta ya UDP + HTTP banner).
+- ✅ **PBX discovery (Asterisk / FreePBX / Cisco UCM / 3CX /
+  Mitel / Avaya / Yeastar / Grandstream)** — v1.3 chunks 1-3 +
+  v1.4 chunk 5. SIP / IAX2 / pbxhttp probes + 15 PBX vendor
+  fingerprints.
+- ✅ **TR-069 / CWMP probe + offensive proxy** — v1.4 chunk 5
+  (probe) + v1.11 chunk 1 (gate) + v1.12 chunks 1, 10
+  (per-parameter-path + per-firmware).
+- ✅ **FOFA / ZoomEye / ONYPHE input clients** — v1.8 chunks 1-2
+  + v1.9 chunk 4. CLI wire-up via `--input <provider>:<query>`
+  + `--api-creds-file <yaml>` — v1.9 chunk 3.
+- ✅ **Shodan InternetDB (no-key provider)** — v1.12 chunk 9.
+- ✅ **Input pagination across 5 providers** — v1.12 chunk 8.
+- ✅ **SLSA-pivot to free-tier** — v1.8.0+ ships GPG-signed tag
+  + SHA-256 + CycloneDX SBOMs locally; cosign+SLSA+GHCR remain
+  available behind GitHub Actions billing restore.
+- ✅ **Per-object / per-path scoping across 7 write-gates** —
+  v1.12 chunks 1, 2, 3, 4, 5, 6, 7, 10. SIP From-domain (chunk
+  5), Modbus structured writes (chunk 4), OPC UA rich NodeIDs +
+  CallMethod (chunks 3, 6), BACnet per-WriteProperty (chunk 7),
+  CWMP per-parameter-path + per-firmware (chunks 1, 10).
 
-- [ ] **SIP scan mode dedicado** — OPTIONS + REGISTER probes
-  contra /udp/tcp/tls 5060/5061. Clasificar respuestas por
-  `User-Agent` header, enumerar extensiones REGISTER (con
-  guarda ≤ 3 dígitos + scope.blocked_extensions). Chunk ~2 días.
+---
 
-- [ ] **IAX2 fingerprint** — protocolo binario de Asterisk.
-  Paquete NEW + paquete HANGUP. Útil cuando SIP está bloqueado
-  pero IAX2 sigue expuesto a Internet en despliegues legacy.
+## 🎯 High-leverage — siguiente ciclo (v1.13)
 
-- [ ] **TR-069 / CWMP** (CPE WAN Management Protocol) — SOAP
-  sobre HTTP/7547 que muchos ISPs dejaron expuesto. Banner HTTP
-  + `<cwmp:Inform>` probe.
+- [ ] **IPv6 cross-cutting support** (operator-requested
+  2026-04-25). Audit `netip.Addr` paths + bind/listen + audit
+  log paths + allowlist canonicalisation for v6 host literals
+  `[::1]:port`. Likely splits across 3-4 chunks (scan / proxy /
+  inputs / write-gates). Estimación: ~1 ciclo completo.
 
-- [ ] **Wardial batch con backend real (VoIP SIP)** — v1.2
-  chunk 4 dejó la interfaz `Backend` + `Mock` + `ATModem`
-  listos. Falta el `voip-sip` backend corriendo en subproceso
-  (el sandbox `dial` bloquea sockets en el parent). Spec:
-  INVITE + ACK + BYE contra un proxy SIP configurable
-  (`--sip-proxy`, `--sip-user`, `--sip-pass-file`).
+- [ ] **BACnet per-object para los demás mutating services**.
+  v1.12 chunk 7 cubre WriteProperty (svc 15). Falta:
+    - svc 10 CreateObject — request: ObjectId target.
+    - svc 11 DeleteObject — request: ObjectId target.
+    - svc 16 WritePropertyMultiple — list of (ObjectId,
+      PropertyValues[]); más complejo que 15 (lista de listas).
+    - svc 17 DeviceCommunicationControl — devices Disable /
+      Disable-Initiation (silenciar dispositivo).
+    - svc 20 ReinitializeDevice — coldstart / warmstart.
+    - svc 27 LifeSafetyOperation — silence / unsilence alarmas.
+    - svc 7 AtomicWriteFile — file Object writes.
+    - svc 8/9 Add/RemoveListElement — recipient lists, schedules.
+  Cada uno necesita su BER walker + hash extension + tests.
+  Estimación: 1 chunk por servicio (8 chunks = 1-2 ciclos).
+
+- [ ] **Bulk InternetDB lookup** — v1.12 chunk 9 cubre
+  single-IP. Faltan `internetdb:file:<path>` y `internetdb:-`
+  (stdin), uno por línea, con rate-limit upstream ~10 rps.
+  Estimación: 1 chunk pequeño.
+
+- [ ] **CWMP TransferComplete-side SHA-256 verification** —
+  v1.12 chunk 10 almacena SHA-256 como metadata; falta parsear
+  el TransferComplete del CPE → ACS y comparar contra la
+  allowlist. Audit on mismatch (firmware corrupto / supply-chain
+  attack). Estimación: 1 chunk medio.
 
 ## 🧰 Herramientas operativas
 
@@ -76,62 +93,37 @@ surgen en campo.
 - [ ] **Dashboard: filtro por severity + export a CSV en el UI**
   (actualmente sólo vía CLI o `/api/v1/findings`).
 
+- [ ] **SIGHUP reload de proxy listen allowlist** — hoy el
+  allowlist se carga al arranque y se mintea el confirm-token
+  de la sesión. Permitir SIGHUP con re-mint del token requiere
+  un redesign del esquema (cookie de generación). Documentado
+  en `.context/STATE.md` "Deferred to v1.13+".
+
 ## 🔐 Supply-chain + hardening
 
-- [ ] **SLSA v2.1.0 upstream fix** — v1.1/v1.2 llevan el gate
-  non-blocking. Dropear el reusable workflow + llamar al
-  generator directo ya está en v1.2 chunk 5 (parte del plan),
-  pero si v1.2 queda sin completarlo, sigue pendiente en v1.3.
-
 - [ ] **seccomp-bpf arg-filtering** — el denylist actual
-  (v1.1 chunk 6) bloquea syscalls enteros. Añadir arg-level
-  filtering (ej. `openat` permitido sólo con `O_RDONLY`;
-  `socket` permitido sólo con `AF_INET`/`AF_INET6`, no
-  `AF_PACKET`).
+  bloquea syscalls enteros. Añadir arg-level filtering (ej.
+  `openat` permitido sólo con `O_RDONLY`; `socket` permitido
+  sólo con `AF_INET`/`AF_INET6`, no `AF_PACKET`).
 
-- [ ] **Sandbox para macOS via `sandbox_init(3)`** — actualmente
-  en macOS la sandbox degrada a "unavailable". Una `.sb` Scheme
-  policy limitada (no file writes fuera del cwd, no `exec`)
-  es pegajosa pero factible si salimos del modelo pure-Go
-  (cgo a `sandbox_init`). Recolección de preferencias
-  primero.
+- [ ] **Sandbox para macOS via `sandbox_init(3)`** —
+  actualmente en macOS la sandbox degrada a "unavailable". Una
+  `.sb` Scheme policy limitada (no file writes fuera del cwd,
+  no `exec`) es factible si salimos del modelo pure-Go (cgo a
+  `sandbox_init`).
 
 - [ ] **Audit chain cross-process merge** — si dos procesos
   escriben a `~/.elsereno/audit.jsonl` simultáneamente, hay
-  race. Los operadores en un SOC con varios analistas pueden
-  chocar. Implementar flock + reintento con backoff, o
+  race. Implementar flock + reintento con backoff, o
   idealmente un daemon `elsereno audit serve` al que los
   binarios ofensivos se conectan via uds.
 
-## 🌐 Inputs + integraciones
+## 🔬 Protocolos legacy no cubiertos (11 restantes)
 
-- [ ] **ONYPHE** input: `elsereno scan --input-type onyphe
-  --api-key-file ...`.
-- [x] **FOFA** input — fofa.info. ✅ Librería landed en v1.8
-  chunk 1 (`internal/inputs/fofa`). email+qbase64 auth. CLI
-  wire-up pendiente (ver `CLI wire-up` más abajo).
-- [x] **ZoomEye** input — zoomeye.org. ✅ Librería landed en
-  v1.8 chunk 2 (`internal/inputs/zoomeye`). `API-KEY` header.
-  CLI wire-up pendiente.
-- [ ] **CLI wire-up para FOFA + ZoomEye + Shodan + Censys** —
-  hoy los 4 clientes son librerías sin CLI. Opciones:
-  (a) extender `--input fofa:<query>` / `--input zoomeye:<q>`
-      con `--api-creds-file <path>` para las creds;
-  (b) nuevo verbo `elsereno search fofa --query <q>
-      --creds-file <path>` que saca NDJSON a stdout, que se
-      pipea a `elsereno scan --input stdin`;
-  (c) integración con vault (`elsereno creds store fofa` +
-      auto-uso desde `scan`).
-  (c) es lo más consistente con el resto del codebase.
-- [ ] **Shodan InternetDB** (libre, sin key): CDN-friendly
-  endpoint `/host/<ip>`.
-- [ ] **STIX 2.1 export**: cada finding → una `indicator` +
-  `observed-data` SDO. Permitiría compartir hallazgos con
-  plataformas threat-intel.
+Cada uno = un ciclo tipo v1.4 chunk 5 + 6.
 
-## 🔬 Protocolos legacy no cubiertos
-
-- [ ] **PROFINET DCP / GOOSE / SV** (L2, con gopacket)
+- [ ] **PROFINET DCP / GOOSE / SV** (L2, con gopacket — necesita
+  CAP_NET_RAW)
 - [ ] **CoDeSys** runtime (TCP/1200)
 - [ ] **Omron FINS** (UDP/9600, TCP/9600)
 - [ ] **MELSEC SLMP / 3E-Frame** (Mitsubishi, TCP/5007)
@@ -139,12 +131,12 @@ surgen en campo.
 - [ ] **ProConOS** (TCP/20547)
 - [ ] **Red Lion Crimson 3.0** (TCP/789)
 - [ ] **GE-SRTP** (TCP/18245)
-- [ ] **IEC 61850 MMS** (TCP/102 shared with S7, disambig
+- [ ] **IEC 61850 MMS** (TCP/102 shared with S7 — disambig
   required)
 - [ ] **KNX / EIB** (UDP/3671)
-- [ ] **M-Bus TCP** (TCP/502 shared with Modbus, disambig)
+- [ ] **M-Bus TCP** (TCP/502 shared with Modbus — disambig)
 - [ ] **OPC UA HTTPS** (additional transport for UA, distinct
-  from the UA-TCP 4840 ElSereno already covers).
+  from the UA-TCP 4840 ElSereno already covers)
 - [ ] **DLMS/COSEM** (IEC 62056-46, TCP/4059/4061)
 
 ## 🎨 UX
@@ -160,14 +152,18 @@ surgen en campo.
 
 ## 🪟 Plataforma
 
-- [ ] **Windows support**. El brief lo lista como vNext. El
-  bloqueador principal son los `syscall.*` por-plataforma en
-  `internal/audit` (file lock) + el sandbox (Windows no tiene
-  seccomp; podríamos usar AppContainer / Job Objects).
+- [ ] **Windows support**. El bloqueador principal son los
+  `syscall.*` por-plataforma en `internal/audit` (file lock) +
+  el sandbox (Windows no tiene seccomp; podríamos usar
+  AppContainer / Job Objects).
 
 - [ ] **Multi-user OIDC + roles**. Actualmente el dashboard
   tiene un solo operador por proceso. Para SOCs multi-analyst:
   OIDC (Keycloak/Azure AD) + roles (viewer / analyst / admin).
+
+- [ ] **STIX 2.1 export** — cada finding → un `indicator` +
+  `observed-data` SDO. Permitiría compartir hallazgos con
+  plataformas threat-intel.
 
 ---
 
