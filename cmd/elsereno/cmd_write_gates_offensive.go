@@ -553,7 +553,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
 	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
-	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+.")
+	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd

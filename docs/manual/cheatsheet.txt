@@ -204,18 +204,21 @@ elsereno-offensive write opcua dry-run \
 # v1.12 walks every WriteValue (no más first-only); CallRequest
 # se autoriza solo cuando todos los (object, method) coinciden.
 
-# BACnet service-choice + per-WriteProperty object (v1.12+)
+# BACnet service-choice + per-WriteProperty object (v1.12+) +
+# per-WritePropertyMultiple (v1.13+, walk de cada tupla en el
+# batch — fail-closed si UNA sola tupla está fuera).
 elsereno-offensive write bacnet dry-run \
   --target bms:47808 \
-  --service-choice 15 --service-choice 20 \
+  --service-choice 15 --service-choice 16 --service-choice 20 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 # Tuplas (ObjectType, ObjectInstance, PropertyID) parseadas vía
-# ASN.1 BER del WriteProperty body. Otros mutating-services (10
-# CreateObject, 16 WritePropertyMultiple, etc.) siguen gateados
-# solo a service-choice level (v1.13+ extiende).
+# ASN.1 BER. v1.13+ extiende el walker a WritePropertyMultiple
+# (svc 16). Otros mutating-services (10 CreateObject, 17 DCC,
+# 20 Reinit, 27 LSO, 7 AWF, 8/9 List*) siguen gateados solo a
+# service-choice level (v1.14+ extiende uno por uno).
 
 # Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \

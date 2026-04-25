@@ -49,19 +49,18 @@ v1.3 → v1.12 archived to keep this file actionable.
   inputs / write-gates). Estimación: ~1 ciclo completo.
 
 - [ ] **BACnet per-object para los demás mutating services**.
-  v1.12 chunk 7 cubre WriteProperty (svc 15). Falta:
+  v1.12 chunk 7 cubre WriteProperty (svc 15). v1.13 chunk 3
+  añade WritePropertyMultiple (svc 16). Falta:
     - svc 10 CreateObject — request: ObjectId target.
     - svc 11 DeleteObject — request: ObjectId target.
-    - svc 16 WritePropertyMultiple — list of (ObjectId,
-      PropertyValues[]); más complejo que 15 (lista de listas).
     - svc 17 DeviceCommunicationControl — devices Disable /
       Disable-Initiation (silenciar dispositivo).
     - svc 20 ReinitializeDevice — coldstart / warmstart.
     - svc 27 LifeSafetyOperation — silence / unsilence alarmas.
     - svc 7 AtomicWriteFile — file Object writes.
     - svc 8/9 Add/RemoveListElement — recipient lists, schedules.
-  Cada uno necesita su BER walker + hash extension + tests.
-  Estimación: 1 chunk por servicio (8 chunks = 1-2 ciclos).
+  Cada uno necesita su BER walker + tests. Estimación: 1
+  chunk por servicio (7 chunks = 1 ciclo).
 
 - [ ] **Bulk InternetDB lookup** — v1.12 chunk 9 cubre
   single-IP. Faltan `internetdb:file:<path>` y `internetdb:-`

@@ -306,13 +306,22 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, upstream, clientWriter io.W
 	if !h.isAllowed(svc) {
 		return h.writeAbortRefusal(clientWriter, invokeID)
 	}
-	// Per-object gate active + this is a WriteProperty request →
-	// walk the APDU body and check (type, instance, property)
-	// against the allowlist. Other mutating services bypass the
-	// per-object check (their structures differ).
-	if len(h.AllowedObjects) > 0 && svc == wire.ConfirmedSvcWriteProperty {
-		if !h.writePropertyObjectAllowed(apdu) {
-			return h.writeAbortRefusal(clientWriter, invokeID)
+	// Per-object gate active + this is a WriteProperty (15) /
+	// WritePropertyMultiple (16) request → walk the APDU body
+	// and check every (type, instance, property) tuple against
+	// the allowlist. Other mutating services keep service-level
+	// gating only (their request shapes differ; v1.13+ extends
+	// per-service).
+	if len(h.AllowedObjects) > 0 {
+		if svc == wire.ConfirmedSvcWriteProperty {
+			if !h.writePropertyObjectAllowed(apdu) {
+				return h.writeAbortRefusal(clientWriter, invokeID)
+			}
+		}
+		if svc == wire.ConfirmedSvcWritePropertyMultiple {
+			if !h.writePropertyMultipleObjectsAllowed(apdu) {
+				return h.writeAbortRefusal(clientWriter, invokeID)
+			}
 		}
 	}
 	_, err := upstream.Write(frame)
@@ -333,10 +342,42 @@ func (h *WriteGatedHandler) writePropertyObjectAllowed(apdu []byte) bool {
 	if !ok {
 		return false
 	}
+	return h.objectInAllowlist(target)
+}
+
+// writePropertyMultipleObjectsAllowed parses the WPM body and
+// reports whether EVERY (type, instance, property) tuple in
+// the request is in the operator's allowlist (same list as
+// for WriteProperty). Fail-closed on unparseable BER, empty
+// list, or any out-of-allowlist entry.
+//
+// v1.13 chunk 3: complement to writePropertyObjectAllowed for
+// the second-most-common BACnet write surface.
+func (h *WriteGatedHandler) writePropertyMultipleObjectsAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	targets, ok := wire.ParseWritePropertyMultiple(apdu[crHeader:])
+	if !ok || len(targets) == 0 {
+		return false
+	}
+	for _, t := range targets {
+		if !h.objectInAllowlist(t) {
+			return false
+		}
+	}
+	return true
+}
+
+// objectInAllowlist reports whether one (type, instance,
+// property) tuple is in AllowedObjects. Shared between the
+// WriteProperty and WritePropertyMultiple gate checks.
+func (h *WriteGatedHandler) objectInAllowlist(t wire.WritePropertyTarget) bool {
 	for _, a := range h.AllowedObjects {
-		if a.ObjectType == target.ObjectType &&
-			a.ObjectInstance == target.ObjectInstance &&
-			a.PropertyID == target.PropertyID {
+		if a.ObjectType == t.ObjectType &&
+			a.ObjectInstance == t.ObjectInstance &&
+			a.PropertyID == t.PropertyID {
 			return true
 		}
 	}

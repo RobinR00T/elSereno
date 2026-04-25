@@ -43,14 +43,20 @@ Two layers of allowlist:
 | Layer | Flag | Applies to | Match | Since |
 |-------|------|------------|-------|-------|
 | Service-choice | `--service-choice 15` | every confirmed-request | exact byte | v1.4 |
-| Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15) only | exact tuple after BER walk | v1.12 |
+| Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15, v1.12+) AND `WritePropertyMultiple` (svc 16, v1.13+) | exact tuple after BER walk | v1.12 / v1.13 |
 
-Other mutating services (10 CreateObject, 11 DeleteObject, 16
-WritePropertyMultiple, 17 DeviceCommunicationControl, 20
-ReinitializeDevice, 27 LifeSafetyOperation, 7 AtomicWriteFile,
-8 AddListElement, 9 RemoveListElement) keep service-only gating
-in v1.12; the per-object layer for those services is a v1.13+
-follow-up (their request shapes differ).
+The per-object check on **WritePropertyMultiple** walks every
+`(ObjectIdentifier, PropertyIdentifier)` pair in the
+`listOfWriteAccessSpecifications`. Any single forbidden tuple
+refuses the WHOLE WPM batch (fail-closed multi-target gate
+analogous to the OPC UA WriteRequest walker).
+
+Other mutating services (10 CreateObject, 11 DeleteObject, 17
+DeviceCommunicationControl, 20 ReinitializeDevice, 27
+LifeSafetyOperation, 7 AtomicWriteFile, 8 AddListElement, 9
+RemoveListElement) keep service-only gating in v1.13; per-
+object layers for those services are v1.14+ follow-ups (their
+request shapes differ).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
