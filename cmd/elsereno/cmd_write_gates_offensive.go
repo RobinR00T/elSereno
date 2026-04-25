@@ -664,7 +664,7 @@ CWMP-layer error rather than a transport glitch.`,
 
 func newWriteCWMPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
-	var rpcs, paramPrefixes []string
+	var rpcs, paramPrefixes, firmware []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -680,7 +680,11 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			for _, p := range paramPrefixes {
 				paths = append(paths, cwmpwrite.AllowedParameterPath{Prefix: p})
 			}
-			mut := cwmpwrite.SessionMutationWithParameterPaths(target, allowed, paths)
+			fws, err := parseCWMPFirmwareFlags(firmware)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			mut := cwmpwrite.SessionMutationWithFirmware(target, allowed, paths, fws)
 			cmd.Printf("Protocol:     cwmp\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -691,12 +695,13 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			} else {
 				cmd.Printf("ParamPaths:   (none — Set* RPCs can target any parameter path)\n")
 			}
+			cmd.Printf("Firmware:     %s\n", canonCWMPFirmware(fws))
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileCWMP(target, rpcs, paramPrefixes))
+				return emitAllowFile(cmd, p, buildAllowFileCWMP(target, rpcs, paramPrefixes, firmware))
 			}
 			return nil
 		},
@@ -704,9 +709,85 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the CWMP ACS we'll proxy to)")
 	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow — case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
 	cmd.Flags().StringSliceVar(&paramPrefixes, "param-prefix", nil, "optional: per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Only applies to SetParameterValues / SetParameterAttributes; other RPCs unaffected. Case-sensitive. Registration-hijack / partition mitigation (v1.12+).")
+	cmd.Flags().StringSliceVar(&firmware, "firmware", nil, "optional: per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional, repeatable). URL must EXACTLY match the <URL> the ACS sends; SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// parseCWMPFirmwareFlags parses --firmware values
+// (`url=<u>;sha256=<hex>`). sha256= is optional.
+func parseCWMPFirmwareFlags(in []string) ([]cwmpwrite.AllowedFirmware, error) {
+	out := make([]cwmpwrite.AllowedFirmware, 0, len(in))
+	for _, raw := range in {
+		f, err := parseCWMPFirmwareFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+// parseCWMPFirmwareFlag parses one --firmware value. Splits on
+// `;sha256=` so the embedded `;` inside URL query strings
+// (e.g. `?id=1;tag=foo`) doesn't confuse the parser.
+func parseCWMPFirmwareFlag(s string) (cwmpwrite.AllowedFirmware, error) {
+	raw := strings.TrimSpace(s)
+	lower := strings.ToLower(raw)
+	if !strings.HasPrefix(lower, "url=") {
+		return cwmpwrite.AllowedFirmware{}, fmt.Errorf("--firmware %q: must start with url=", s)
+	}
+	rest := raw[len("url="):]
+	url := rest
+	sha := ""
+	idx := strings.Index(strings.ToLower(rest), ";sha256=")
+	if idx >= 0 {
+		url = strings.TrimSpace(rest[:idx])
+		sha = strings.ToLower(strings.TrimSpace(rest[idx+len(";sha256="):]))
+		if !validHexSHA256(sha) {
+			return cwmpwrite.AllowedFirmware{}, fmt.Errorf("--firmware %q: sha256 must be 64 lowercase hex chars", s)
+		}
+	}
+	if url == "" {
+		return cwmpwrite.AllowedFirmware{}, fmt.Errorf("--firmware %q: url= must not be empty", s)
+	}
+	return cwmpwrite.AllowedFirmware{URL: url, SHA256: sha}, nil
+}
+
+// validHexSHA256 reports whether s is exactly 64 hex chars.
+func validHexSHA256(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= '0' && c <= '9':
+		case c >= 'a' && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// canonCWMPFirmware prints the sorted list of firmware entries
+// for operator dry-run output.
+func canonCWMPFirmware(in []cwmpwrite.AllowedFirmware) string {
+	if len(in) == 0 {
+		return "(none — Download accepts any URL when Download is in RPCs)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]cwmpwrite.AllowedFirmware(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].URL < sorted[j].URL })
+	for i, f := range sorted {
+		if f.SHA256 == "" {
+			out[i] = fmt.Sprintf("url=%s", f.URL)
+		} else {
+			out[i] = fmt.Sprintf("url=%s;sha256=%s", f.URL, f.SHA256)
+		}
+	}
+	return strings.Join(out, ", ")
 }
 
 // canonCWMPPaths produces an operator-friendly sorted dedup'd

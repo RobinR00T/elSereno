@@ -224,6 +224,40 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripCWMPWithFirmware — v1.12 chunk 10
+// per-image firmware allowlist round-trips through `firmware:`
+// YAML.
+func TestEmitAllowFile_RoundTripCWMPWithFirmware(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+
+	rpcs := []string{"Download"}
+	firmware := []string{
+		"url=https://acs.example.com/firmware/router-1.2.3.bin;sha256=" + strings.Repeat("a", 64),
+		"url=https://acs.example.com/firmware/cpe-fw.img",
+	}
+	af := buildAllowFileCWMP("acs:7547", rpcs, nil, firmware)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.cwmpFirmware) != 2 {
+		t.Fatalf("cwmpFirmware=%v, want 2 entries", opts.cwmpFirmware)
+	}
+	// Sort order: alphabetic by URL. cpe-fw.img < router-1.2.3.bin.
+	if !strings.Contains(opts.cwmpFirmware[0], "url=https://acs.example.com/firmware/cpe-fw.img") {
+		t.Errorf("[0] = %q, want cpe-fw first", opts.cwmpFirmware[0])
+	}
+	if !strings.Contains(opts.cwmpFirmware[1], "router-1.2.3.bin") || !strings.Contains(opts.cwmpFirmware[1], "sha256=") {
+		t.Errorf("[1] = %q, want router-1.2.3 with sha256", opts.cwmpFirmware[1])
+	}
+}
+
 // TestEmitAllowFile_RoundTripBACnetWithObjects — v1.12 chunk 7
 // per-object WriteProperty allowlist round-trips through the
 // `objects:` YAML field.
@@ -376,7 +410,7 @@ func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
 		"  SetParameterValues  ", // duplicate after trim
 		"Download",
 	}
-	af := buildAllowFileCWMP("acs.example.com:7547", rpcs, nil)
+	af := buildAllowFileCWMP("acs.example.com:7547", rpcs, nil, nil)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -404,7 +438,7 @@ func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
 func TestEmitAllowFile_CWMPOmitsRPCsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileCWMP("acs:7547", nil, nil)
+	af := buildAllowFileCWMP("acs:7547", nil, nil, nil)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

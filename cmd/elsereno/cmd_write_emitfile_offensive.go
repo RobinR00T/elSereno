@@ -133,62 +133,85 @@ func buildAllowFileIAX2(target string, subclasses []string) proxyAllowFile {
 	}
 }
 
-// buildAllowFileCWMP returns the YAML struct for a CWMP dry-run
-// (v1.11+ rpcs:, v1.12+ param_prefixes:). RPCs are deduped,
-// prefix-stripped, case-preserved (TR-069 RPC names are case-
-// sensitive), and sorted for deterministic emission. Parameter
-// prefixes are trimmed + deduped + sorted (case preserved, per
-// TR-069 data-model conventions). Empty lists → omit the
-// respective key (backwards-compat friendly).
-func buildAllowFileCWMP(target string, rpcs, paramPrefixes []string) proxyAllowFile {
+// buildAllowFileCWMP returns the YAML struct for a CWMP dry-run.
+// Optional fields:
+//
+//   - v1.11+: rpcs (RPC name allowlist).
+//   - v1.12+: param_prefixes (Set* parameter-path allowlist).
+//   - v1.12+: firmware ({url, sha256} entries for Download).
+//
+// RPCs are deduped, prefix-stripped, case-preserved. Parameter
+// prefixes are trimmed + deduped + sorted (case preserved per
+// TR-069). Firmware entries are sorted by URL.
+func buildAllowFileCWMP(target string, rpcs, paramPrefixes, firmwareRaw []string) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin: pluginNameCWMP,
 		Target: target,
 	}
-	if len(rpcs) > 0 {
-		seen := map[string]struct{}{}
-		trimmed := make([]string, 0, len(rpcs))
-		for _, r := range rpcs {
-			r = strings.TrimSpace(r)
-			// Strip "prefix:" if present (e.g. "cwmp:Reboot").
-			if i := strings.IndexByte(r, ':'); i > 0 {
-				r = r[i+1:]
-			}
-			r = strings.TrimSpace(r)
-			if r == "" {
-				continue
-			}
-			if _, dup := seen[r]; dup {
-				continue
-			}
-			seen[r] = struct{}{}
-			trimmed = append(trimmed, r)
-		}
-		if len(trimmed) > 0 {
-			stringsSort(trimmed)
-			af.RPCs = trimmed
-		}
+	if cleaned := cleanCWMPRPCs(rpcs); len(cleaned) > 0 {
+		af.RPCs = cleaned
 	}
-	if len(paramPrefixes) > 0 {
-		seen := map[string]struct{}{}
-		trimmed := make([]string, 0, len(paramPrefixes))
-		for _, p := range paramPrefixes {
-			p = strings.TrimSpace(p)
-			if p == "" {
-				continue
-			}
-			if _, dup := seen[p]; dup {
-				continue
-			}
-			seen[p] = struct{}{}
-			trimmed = append(trimmed, p)
-		}
-		if len(trimmed) > 0 {
-			stringsSort(trimmed)
-			af.ParamPrefixes = trimmed
-		}
+	if cleaned := trimmedDedupSorted(paramPrefixes); len(cleaned) > 0 {
+		af.ParamPrefixes = cleaned
+	}
+	if cleaned := cleanCWMPFirmware(firmwareRaw); len(cleaned) > 0 {
+		af.Firmware = cleaned
 	}
 	return af
+}
+
+// cleanCWMPRPCs strips the optional `cwmp:` / `cwmp-1-0:`
+// prefix, dedupes (case preserved per TR-069), and sorts.
+func cleanCWMPRPCs(rpcs []string) []string {
+	seen := map[string]struct{}{}
+	trimmed := make([]string, 0, len(rpcs))
+	for _, r := range rpcs {
+		r = strings.TrimSpace(r)
+		if i := strings.IndexByte(r, ':'); i > 0 {
+			r = r[i+1:]
+		}
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		if _, dup := seen[r]; dup {
+			continue
+		}
+		seen[r] = struct{}{}
+		trimmed = append(trimmed, r)
+	}
+	stringsSort(trimmed)
+	return trimmed
+}
+
+// cleanCWMPFirmware parses raw --firmware strings, dedupes by
+// (url, sha256), and sorts deterministically.
+func cleanCWMPFirmware(firmwareRaw []string) []proxyCWMPFirmware {
+	out := make([]proxyCWMPFirmware, 0, len(firmwareRaw))
+	seen := map[string]struct{}{}
+	for _, raw := range firmwareRaw {
+		f, err := parseCWMPFirmwareFlag(raw)
+		if err != nil {
+			continue
+		}
+		key := f.URL + "|" + f.SHA256
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, proxyCWMPFirmware{URL: f.URL, SHA256: f.SHA256})
+	}
+	// Sort by (URL, SHA256) — deterministic, stable.
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0; j-- {
+			a, b := out[j-1], out[j]
+			if a.URL < b.URL || (a.URL == b.URL && a.SHA256 <= b.SHA256) {
+				break
+			}
+			out[j-1], out[j] = out[j], out[j-1]
+		}
+	}
+	return out
 }
 
 // buildAllowFilePBXHTTP returns the YAML struct for a pbxhttp

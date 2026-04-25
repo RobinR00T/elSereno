@@ -62,11 +62,13 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"sort"
 	"strings"
 
@@ -283,6 +285,186 @@ func SessionMutationWithParameterPaths(target string, rpcs []AllowedRPC, paths [
 	}
 }
 
+// AllowedFirmware is one (URL, SHA256) pair the operator has
+// authorised for the `Download` CWMP RPC. v1.12 chunk 10:
+// closes the firmware-push attack surface by scoping which
+// images the ACS may push to the CPE.
+//
+// Semantics: when the handler's AllowedFirmware list is non-
+// empty, a Download RPC is forwarded ONLY when:
+//
+//   - its RPC name (Download) is in Allowed (the v1.11 RPC-level
+//     gate), AND
+//   - the <URL> element in the SOAP body EXACTLY matches one of
+//     these entries (case-insensitive on scheme+host; case-
+//     sensitive on path+query).
+//
+// SHA256 is optional metadata: TR-069's Download RPC does NOT
+// carry the firmware checksum (the CPE downloads the file
+// AFTER the RPC and reports back via TransferComplete). The
+// gate cannot enforce SHA256 at RPC time. Operators store the
+// expected hash here so dry-run / audit logs surface it; an
+// out-of-band downstream check (e.g. on TransferComplete or
+// at the firmware staging server) actually verifies it.
+//
+// Empty list disables the firmware gate (Download still
+// allowed RPC-wide if "Download" is in Allowed).
+type AllowedFirmware struct {
+	// URL is the exact firmware-image URL the ACS may instruct
+	// the CPE to fetch. Examples:
+	//
+	//   https://acs.example.com/firmware/router-1.2.3.bin
+	//   http://192.168.1.1:8080/cpe-fw.img
+	//
+	// Canonicalisation: scheme + host lowercased; default ports
+	// stripped (`:80` for http, `:443` for https); path + query
+	// preserved verbatim. URLs that differ only in trailing
+	// slash, fragment, or case-on-host match the same entry;
+	// path differences are exact.
+	URL string
+	// SHA256 is the hex-encoded SHA-256 of the firmware image
+	// the operator expects at URL. Optional — empty SHA256 is
+	// allowed (gate enforces URL only). When populated, the
+	// dry-run + emit YAML print it for downstream verification.
+	SHA256 string
+}
+
+// AllowlistHashWithFirmware is the v1.12 chunk-10 hash that
+// adds the (URL, SHA256) firmware allowlist on top of the
+// v1.12 chunk-1 RPC + parameter-path layers. Backwards-compat
+// ladder: empty firmware → AllowlistHashWithParameterPaths;
+// empty firmware AND empty paths → AllowlistHash (v1.11).
+//
+// Hash layout (when firmware is non-empty):
+//
+//	AllowlistHashWithParameterPaths output
+//	  || 0xFD || (len(url) BE16 + url || len(sha) BE16 + sha) × sorted_firmware
+//
+// 0xFD separator below 0xFE (param-paths) and the v1.11 RPC
+// block. Each entry is length-prefixed per field so an attacker
+// can't craft two lists whose byte concatenation collides.
+func AllowlistHashWithFirmware(target string, rpcs []AllowedRPC, paths []AllowedParameterPath, firmware []AllowedFirmware) [32]byte {
+	if len(firmware) == 0 {
+		return AllowlistHashWithParameterPaths(target, rpcs, paths)
+	}
+	sortedRPCs := make([]string, 0, len(rpcs))
+	for _, r := range rpcs {
+		if c := canonicaliseRPC(r.Name); c != "" {
+			sortedRPCs = append(sortedRPCs, c)
+		}
+	}
+	sort.Strings(sortedRPCs)
+
+	sortedPaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if c := canonicaliseParameterPath(p.Prefix); c != "" {
+			sortedPaths = append(sortedPaths, c)
+		}
+	}
+	sort.Strings(sortedPaths)
+
+	sortedFirmware := make([]AllowedFirmware, 0, len(firmware))
+	for _, f := range firmware {
+		canon := canonicaliseFirmwareURL(f.URL)
+		if canon == "" {
+			continue
+		}
+		sortedFirmware = append(sortedFirmware, AllowedFirmware{
+			URL:    canon,
+			SHA256: strings.ToLower(strings.TrimSpace(f.SHA256)),
+		})
+	}
+	sort.Slice(sortedFirmware, func(i, j int) bool {
+		if sortedFirmware[i].URL != sortedFirmware[j].URL {
+			return sortedFirmware[i].URL < sortedFirmware[j].URL
+		}
+		return sortedFirmware[i].SHA256 < sortedFirmware[j].SHA256
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, r := range sortedRPCs {
+		_, _ = h.Write([]byte(r))
+		_, _ = h.Write([]byte{0x00})
+	}
+	if len(sortedPaths) > 0 {
+		_, _ = h.Write([]byte{0xFE})
+		for _, p := range sortedPaths {
+			_, _ = h.Write([]byte(p))
+			_, _ = h.Write([]byte{0x00})
+		}
+	}
+	_, _ = h.Write([]byte{0xFD})
+	for _, f := range sortedFirmware {
+		writeLengthPrefixedString(h, f.URL)
+		writeLengthPrefixedString(h, f.SHA256)
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// writeLengthPrefixedString writes s as uint16-len + bytes.
+// Single caller today (AllowlistHashWithFirmware) but keeps the
+// shape ready for future hash-ladder additions in this package.
+func writeLengthPrefixedString(h interface {
+	Write([]byte) (int, error)
+}, s string) {
+	n := len(s)
+	if n > 0xFFFF {
+		n = 0xFFFF
+	}
+	var u16 [2]byte
+	binary.BigEndian.PutUint16(u16[:], uint16(n)) //nolint:gosec // G115 — explicit cap above
+	_, _ = h.Write(u16[:])
+	_, _ = h.Write([]byte(s)[:n])
+}
+
+// canonicaliseFirmwareURL normalises a TR-069 Download URL for
+// hash + compare. Scheme + host lowercased; default ports
+// stripped (:80 for http, :443 for https); path + query
+// preserved verbatim. Returns empty string on unparseable input.
+func canonicaliseFirmwareURL(u string) string {
+	u = strings.TrimSpace(u)
+	if u == "" {
+		return ""
+	}
+	parsed, err := neturl.Parse(u)
+	if err != nil {
+		return ""
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	host := strings.ToLower(parsed.Host)
+	// Strip default port.
+	switch parsed.Scheme {
+	case "http":
+		host = strings.TrimSuffix(host, ":80")
+	case "https":
+		host = strings.TrimSuffix(host, ":443")
+	}
+	parsed.Host = host
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+// SessionMutationWithFirmware is the v1.12 chunk-10 Mutation
+// that mixes RPC + param-path + firmware allowlists into the
+// PayloadHash. Degrades to SessionMutationWithParameterPaths
+// when firmware is nil/empty.
+func SessionMutationWithFirmware(target string, rpcs []AllowedRPC, paths []AllowedParameterPath, firmware []AllowedFirmware) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "cwmp",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithFirmware(target, rpcs, paths, firmware),
+	}
+}
+
 // alwaysSafeRPCs lists the CWMP RPC names that always pass,
 // regardless of the operator's allowlist. Reads, protocol-flow,
 // and CPE→ACS informational RPCs that are required for the CPE
@@ -331,6 +513,17 @@ type WriteGatedHandler struct {
 	//
 	// Empty list restores v1.11 behaviour (RPC-only gating).
 	AllowedParameterPaths []AllowedParameterPath
+	// AllowedFirmware is the optional v1.12 chunk-10 per-image
+	// allowlist for the `Download` RPC. When non-empty, a
+	// Download RPC passes only when its <URL> matches one of
+	// these entries (canonicalised exact match). Other gated
+	// RPCs are NOT constrained by this list. SHA256 is metadata
+	// only — the gate cannot verify it at RPC time (TR-069
+	// reports the actual hash later via TransferComplete).
+	//
+	// Empty list restores v1.12-chunk-9 behaviour (Download
+	// gated only at RPC level).
+	AllowedFirmware []AllowedFirmware
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -348,7 +541,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithParameterPaths(h.Target, h.Allowed, h.AllowedParameterPaths)
+	m := SessionMutationWithFirmware(h.Target, h.Allowed, h.AllowedParameterPaths, h.AllowedFirmware)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -434,7 +627,92 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 		}
 	}
 
+	// v1.12 chunk-10 per-firmware gate. Only fires for Download
+	// when AllowedFirmware is populated. Extracts the <URL>
+	// element from the SOAP body and matches against the
+	// allowlist (canonical exact match).
+	if h.firmwareGateActive(rpc) {
+		url := extractDownloadURL(body)
+		if !h.firmwareURLAllowed(url) {
+			return h.refuseWithFault(ctx, req, client, rpc, writeInvalidFirmwareURLFault)
+		}
+	}
+
 	return h.forwardBuffered(req, body, client, upstream, upReader)
+}
+
+// firmwareGateActive returns true when the per-firmware gate
+// should run for this RPC.
+func (h *WriteGatedHandler) firmwareGateActive(rpc string) bool {
+	if len(h.AllowedFirmware) == 0 {
+		return false
+	}
+	return rpc == rpcNameDownload
+}
+
+// firmwareURLAllowed reports whether the parsed Download URL
+// matches at least one entry in AllowedFirmware (canonicalised
+// exact compare). Empty/unparseable URL → refuse (fail-closed
+// when the gate is active).
+func (h *WriteGatedHandler) firmwareURLAllowed(url string) bool {
+	candidate := canonicaliseFirmwareURL(url)
+	if candidate == "" {
+		return false
+	}
+	for _, f := range h.AllowedFirmware {
+		want := canonicaliseFirmwareURL(f.URL)
+		if want == "" {
+			continue
+		}
+		if candidate == want {
+			return true
+		}
+	}
+	return false
+}
+
+// extractDownloadURL walks the SOAP body and returns the value
+// of the `<URL>` element nested under the Download RPC. Uses
+// the streaming xml.Decoder pattern shared with
+// extractParameterNames so we don't materialise the full SOAP
+// tree.
+//
+// Returns the empty string when the URL element is absent or
+// the body is unparseable — caller treats either as fail-
+// closed when the gate is active.
+func extractDownloadURL(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	dec := xml.NewDecoder(strings.NewReader(string(body)))
+	insideDownload := false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return ""
+		}
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if elem.Name.Local == rpcNameDownload {
+				insideDownload = true
+				continue
+			}
+			if !insideDownload {
+				continue
+			}
+			if elem.Name.Local == "URL" {
+				var url string
+				if err := dec.DecodeElement(&url, &elem); err != nil {
+					return ""
+				}
+				return strings.TrimSpace(url)
+			}
+		case xml.EndElement:
+			if elem.Name.Local == rpcNameDownload {
+				return ""
+			}
+		}
+	}
 }
 
 // pathGateActive returns true when the per-parameter-path gate
@@ -555,7 +833,57 @@ func extractParameterNames(body []byte, rpc string) []string {
 
 // CWMP Fault codes per TR-069 Annex A. 9005 "Invalid parameter
 // name" maps cleanly to "the gate refused a parameter path".
+// 9001 "Request denied" is reused for firmware-URL refusals
+// because no Annex A code is precise enough; the
+// X-Elsereno-Gate-Reason header carries the specific cause.
 const cwmpFaultInvalidParameterName = "9005"
+
+// rpcNameDownload is the RPC literal we test against in three
+// places (firmwareGateActive, extractDownloadURL, fault writer).
+// Pulled out as a const to satisfy goconst.
+const rpcNameDownload = "Download"
+
+// writeInvalidFirmwareURLFault emits the v1.12 chunk-10 firmware-
+// URL refusal: SOAP Fault 9001 "Request denied" with a per-
+// gate header naming the URL allowlist as the failed check.
+// Real ACSes parse the fault as "the CPE refused this Download"
+// and stop pushing.
+func writeInvalidFirmwareURLFault(w io.Writer, rpc string) error {
+	body := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/"
+                   xmlns:cwmp="urn:dslforum-org:cwmp-1-2">
+  <soap-env:Header>
+    <cwmp:ID soap-env:mustUnderstand="1">elsereno-gate-refusal</cwmp:ID>
+  </soap-env:Header>
+  <soap-env:Body>
+    <soap-env:Fault>
+      <faultcode>Client</faultcode>
+      <faultstring>CWMP fault</faultstring>
+      <detail>
+        <cwmp:Fault>
+          <FaultCode>%s</FaultCode>
+          <FaultString>RPC %q firmware URL outside the session allowlist (ElSereno gated proxy)</FaultString>
+        </cwmp:Fault>
+      </detail>
+    </soap-env:Fault>
+  </soap-env:Body>
+</soap-env:Envelope>`, cwmpFaultRequestDenied, rpc)
+
+	header := fmt.Sprintf(
+		"HTTP/1.1 200 OK\r\n"+
+			"Server: ElSereno proxy (gated, offensive)\r\n"+
+			"Content-Type: text/xml; charset=utf-8\r\n"+
+			"X-Elsereno-Gate-Reason: CWMP firmware URL not in session allowlist for %q\r\n"+
+			"Content-Length: %d\r\n"+
+			"Connection: close\r\n\r\n",
+		rpc, len(body),
+	)
+	if _, err := io.WriteString(w, header); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, body)
+	return err
+}
 
 // writeInvalidParameterNameFault emits the per-parameter-path
 // refusal. Shape is identical to writeSOAPFault but with

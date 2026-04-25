@@ -171,6 +171,10 @@ Chunks (in planned order):
    chunk 9 — `internal/inputs/internetdb` package + bypass
    creds-file in dispatcher.
 10. CWMP firmware-URL + SHA-256 allowlist for `Download`.
+    **Landed** — chunk 10 closes the firmware-push attack
+    surface with `AllowedFirmware{URL, SHA256}`, URL exact-
+    match (case-insensitive scheme+host, default-port stripped),
+    SHA256 metadata for downstream verification.
 
 After v1.12:
 - SIP REGISTER AOR + CWMP SOAP RPC gates already landed (v1.10

@@ -81,6 +81,20 @@ type proxyModbusWrite struct {
 	End   uint16 `yaml:"end,omitempty"`
 }
 
+// proxyCWMPFirmware is the YAML-structured form of a CWMP
+// AllowedFirmware entry (v1.12 chunk 10). Per-image allowlist
+// for the Download RPC.
+//
+//	url:    "https://acs.example.com/firmware/router-1.2.3.bin"
+//	sha256: "<64 hex chars>"   # optional metadata
+//
+// SHA256 is for downstream verification (TR-069 doesn't carry
+// it in Download); the gate enforces URL only.
+type proxyCWMPFirmware struct {
+	URL    string `yaml:"url"`
+	SHA256 string `yaml:"sha256,omitempty"`
+}
+
 // proxyBACnetObject is the YAML-structured form of a BACnet
 // AllowedObject (v1.12 chunk 7). Three 32-bit fields:
 //
@@ -172,6 +186,7 @@ type proxyAllowFile struct {
 	Objects        []proxyBACnetObject `yaml:"objects,omitempty"`         // bacnet (v1.12+) — per-object WriteProperty allowlist
 	RPCs           []string            `yaml:"rpcs,omitempty"`            // cwmp (v1.11+) — SOAP RPC allowlist
 	ParamPrefixes  []string            `yaml:"param_prefixes,omitempty"`  // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
+	Firmware       []proxyCWMPFirmware `yaml:"firmware,omitempty"`        // cwmp (v1.12+) — per-image allowlist for Download
 }
 
 // loadAllowFile reads + parses an allow-file and merges its
@@ -220,12 +235,25 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 					o.Type, o.Instance, o.Property))
 		}
 	case pluginNameCWMP:
-		opts.rpcs = af.RPCs
-		opts.paramPrefixes = af.ParamPrefixes
+		applyCWMPAllowFile(&af, opts)
 	default:
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
 	}
 	return nil
+}
+
+// applyCWMPAllowFile populates proxyListenOpts from the cwmp
+// plugin's YAML. Extracted so loadAllowFile stays under funlen.
+func applyCWMPAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
+	opts.rpcs = af.RPCs
+	opts.paramPrefixes = af.ParamPrefixes
+	for _, f := range af.Firmware {
+		entry := "url=" + f.URL
+		if f.SHA256 != "" {
+			entry += ";sha256=" + f.SHA256
+		}
+		opts.cwmpFirmware = append(opts.cwmpFirmware, entry)
+	}
 }
 
 // applyModbusAllowFile populates proxyListenOpts from the modbus

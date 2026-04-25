@@ -240,6 +240,39 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.12 chunk 10 landed.** CWMP firmware-URL +
+  SHA-256 allowlist for the `Download` RPC. Closes the firmware-
+  push attack surface — a misconfigured ACS can push firmware
+  to millions of devices, so per-image scoping is the natural
+  v1.11→v1.12 tightening. Library:
+  `AllowedFirmware{URL, SHA256}` + `canonicaliseFirmwareURL`
+  (lowercases scheme+host, strips default ports `:80` for http
+  / `:443` for https, preserves path+query verbatim) +
+  `AllowlistHashWithFirmware` (0xFD separator below 0xFE
+  param-paths; each entry is length-prefixed URL + length-
+  prefixed SHA256) + `SessionMutationWithFirmware`. Hash
+  ladder: empty firmware → chunk-1 hash; empty firmware AND
+  empty paths → v1.11 hash. SHA256 is operator metadata only —
+  TR-069's Download RPC doesn't carry it (the CPE reports it
+  later via TransferComplete); the gate enforces URL only.
+  Handler `AllowedFirmware` field + `firmwareGateActive(rpc)` +
+  `firmwareURLAllowed(url)` + `extractDownloadURL(body)`
+  (streaming xml.Decoder walking `<Download>` → `<URL>`).
+  Refusal is SOAP Fault 9001 + `X-Elsereno-Gate-Reason: CWMP
+  firmware URL not in session allowlist`. CLI:
+  `write cwmp dry-run --firmware url=…;sha256=…` (sha256
+  optional, validated as 64 lowercase hex) +
+  `proxy listen --firmware` + YAML `firmware:` array with
+  `{url, sha256}` entries. Refactor: `applyCWMPAllowFile`
+  extracted from `loadAllowFile` (funlen);
+  `cleanCWMPRPCs` + `cleanCWMPFirmware` extracted from
+  `buildAllowFileCWMP` (gocyclo); `rpcNameDownload` const
+  (goconst). 9 new tests: hash ladder × 6 (empty=chunk-1,
+  empty-all=v1.11, non-empty changes, order-insensitive,
+  url-case-insensitive, default-port-stripped), E2E gate × 4
+  (allowed-passes, forbidden-refuses-9001, empty-bypasses,
+  canonicalisation-matches), YAML round-trip × 1. 0 lint
+  issues.
 - 2026-04-25 — **v1.12 chunk 9 landed.** Shodan InternetDB
   (`internetdb.shodan.io`) wired as the 6th attack-surface
   input provider. Free + no API key required (the upstream is

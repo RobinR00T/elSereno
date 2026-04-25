@@ -79,6 +79,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15). Format: type=N;instance=M;property=P (repeatable, exact match). Other mutating services bypass this check. v1.12+.")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
+	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
@@ -95,6 +96,12 @@ type proxyListenOpts struct {
 	target, listen                      string
 	methods, subclasses, allowEntries   []string
 	functions, services, serviceChoices []uint
+	// cwmpFirmware holds the cwmp per-image allowlist for the
+	// Download RPC in CLI-friendly "url=<u>;sha256=<hex>" form
+	// (v1.12+). Restricts Download to specific firmware URLs;
+	// SHA256 is metadata only (TR-069 reports it later via
+	// TransferComplete).
+	cwmpFirmware []string
 	// bacnetObjects holds the bacnet per-object WriteProperty
 	// allowlist in the CLI-friendly
 	// "type=N;instance=M;property=P" form (v1.12+). Restricts
@@ -267,7 +274,11 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 	case pluginNameBACnet:
 		return buildBACnetHandler(opts, rt, c)
 	case pluginNameCWMP:
-		return buildCWMPHandler(opts, rt, c), nil
+		h, err := buildCWMPHandler(opts, rt, c)
+		if err != nil {
+			return nil, err
+		}
+		return h, nil
 	}
 	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp", opts.plugin)
 }
@@ -440,7 +451,7 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 // alwaysSafeRPCs set and don't need to pass through here — the
 // operator only supplies the write-capable RPCs they want to
 // authorise (SetParameterValues, Reboot, Download, etc.).
-func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *cwmpwrite.WriteGatedHandler {
+func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*cwmpwrite.WriteGatedHandler, error) {
 	allowed := make([]cwmpwrite.AllowedRPC, 0, len(opts.rpcs))
 	for _, r := range opts.rpcs {
 		allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})
@@ -449,14 +460,19 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 	for _, p := range opts.paramPrefixes {
 		paths = append(paths, cwmpwrite.AllowedParameterPath{Prefix: p})
 	}
+	firmware, err := parseCWMPFirmwareFlags(opts.cwmpFirmware)
+	if err != nil {
+		return nil, err
+	}
 	return &cwmpwrite.WriteGatedHandler{
 		Target:                opts.target,
 		Allowed:               allowed,
 		AllowedParameterPaths: paths,
+		AllowedFirmware:       firmware,
 		Deriver:               rt.Vault,
 		Auditor:               rt.Auditor,
 		SessionConfirm:        c,
-	}
+	}, nil
 }
 
 // parseByteFlag validates that a --function / --service-choice
