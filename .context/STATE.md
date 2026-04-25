@@ -171,6 +171,10 @@ Chunks (in planned order):
    `--call-method object=…;method=…` CLI + YAML `call_methods:`
    round-trip. 9 new tests.
 7. BACnet per-object allowlist (ASN.1 BER parsing).
+   **Landed** — `ParseWriteProperty` BER walker (context tag 0
+   ObjectId + tag 1 PropertyId) + `AllowedObject` lib type +
+   0xFF hash separator + `--object` CLI + YAML `objects:`. 13
+   new tests.
 8. Input pagination (5 providers).
 9. Shodan InternetDB (free, no-key provider #6).
 10. CWMP firmware-URL + SHA-256 allowlist for `Download`.

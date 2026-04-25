@@ -48,6 +48,7 @@ package bacnet
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -64,6 +65,41 @@ import (
 // listing.
 type AllowedService struct {
 	ServiceChoice uint8
+}
+
+// AllowedObject scopes a WriteProperty request to a specific
+// (ObjectType, ObjectInstance, PropertyID) tuple. v1.12 chunk 7:
+// the per-object tightening on top of the v1.4 service-choice
+// gate.
+//
+// Semantics: when the handler's AllowedObjects field is non-
+// empty, a WriteProperty (service 15) confirmed-request is
+// forwarded ONLY when:
+//
+//   - its service choice is in Allowed (the v1.4 service-level
+//     gate), AND
+//   - the parsed target's (ObjectType, ObjectInstance, PropertyID)
+//     EXACTLY matches one of these entries.
+//
+// Other mutating services (WritePropertyMultiple, CreateObject,
+// DeleteObject, ReinitializeDevice, DeviceCommunicationControl,
+// LifeSafetyOperation, AtomicWriteFile, AddListElement,
+// RemoveListElement) are NOT constrained by AllowedObjects —
+// their request structures differ. Operators who want per-object
+// scoping on those services will need v1.13+ (or keep using
+// service-only gating for them today).
+//
+// Empty list disables the per-object gate (WriteProperty still
+// allowed service-wide if 15 is in Allowed).
+type AllowedObject struct {
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// enum (e.g. 0 = AnalogInput, 2 = BinaryOutput, 8 = Device).
+	ObjectType uint16
+	// ObjectInstance is the 22-bit instance number (0..4_194_303).
+	ObjectInstance uint32
+	// PropertyID is the ASHRAE 135 BACnetPropertyIdentifier enum
+	// (e.g. 85 = PresentValue, 87 = Priority-Array).
+	PropertyID uint32
 }
 
 // AllowlistHash returns the deterministic SHA-256 over target +
@@ -93,14 +129,86 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 	}
 }
 
+// AllowlistHashWithObjects is the v1.12 chunk-7 hash that also
+// folds per-object (type, instance, property) entries into the
+// PayloadHash. Backwards compat: empty objects → equals
+// AllowlistHash(target, services) (v1.4 tokens remain valid for
+// operators not opting into per-object gating).
+//
+// Hash layout (when objects is non-empty):
+//
+//	target || 0x00 || SVC × sorted_services
+//	               || 0xFF || (type BE16 || instance BE32 || property BE32) × sorted_objects
+//
+// 0xFF separator is outside the valid service-choice range
+// (0..255 fits in one byte; the separator is a sentinel distinct
+// from any ServiceChoice byte). Per-entry: 2-byte type + 4-byte
+// instance + 4-byte property = 10 bytes.
+func AllowlistHashWithObjects(target string, allowed []AllowedService, objects []AllowedObject) [32]byte {
+	if len(objects) == 0 {
+		return AllowlistHash(target, allowed)
+	}
+	sortedSvc := append([]AllowedService(nil), allowed...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].ServiceChoice < sortedSvc[j].ServiceChoice })
+	sortedObj := append([]AllowedObject(nil), objects...)
+	sort.Slice(sortedObj, func(i, j int) bool {
+		if sortedObj[i].ObjectType != sortedObj[j].ObjectType {
+			return sortedObj[i].ObjectType < sortedObj[j].ObjectType
+		}
+		if sortedObj[i].ObjectInstance != sortedObj[j].ObjectInstance {
+			return sortedObj[i].ObjectInstance < sortedObj[j].ObjectInstance
+		}
+		return sortedObj[i].PropertyID < sortedObj[j].PropertyID
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	_, _ = h.Write([]byte{0xFF})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, o := range sortedObj {
+		binary.BigEndian.PutUint16(u16[:], o.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], o.ObjectInstance)
+		_, _ = h.Write(u32[:])
+		binary.BigEndian.PutUint32(u32[:], o.PropertyID)
+		_, _ = h.Write(u32[:])
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithObjects is the v1.12 chunk-7 mutation that
+// mixes services + per-object allowlist into the PayloadHash.
+// Empty objects → degrades to SessionMutation.
+func SessionMutationWithObjects(target string, allowed []AllowedService, objects []AllowedObject) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithObjects(target, allowed, objects),
+	}
+}
+
 // AbortReasonSecurity is ASHRAE 135 §20.1.9 abort reason 5.
 const AbortReasonSecurity uint8 = 5
 
 // WriteGatedHandler is the offensive replacement for the default
 // BACnet fail-closed proxy.
 type WriteGatedHandler struct {
-	Target         string
-	Allowed        []AllowedService
+	Target  string
+	Allowed []AllowedService
+	// AllowedObjects is the optional v1.12 chunk-7 per-object
+	// allowlist for WriteProperty (service 15). See AllowedObject
+	// for semantics. Empty list preserves v1.4 service-choice-
+	// only gating.
+	AllowedObjects []AllowedObject
 	Deriver        confirm.KeyDeriver
 	Auditor        confirm.Auditor
 	SessionConfirm confirm.Confirm
@@ -114,7 +222,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithObjects(h.Target, h.Allowed, h.AllowedObjects)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -195,11 +303,44 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, upstream, clientWriter io.W
 		_, err := upstream.Write(frame)
 		return err
 	}
-	if h.isAllowed(svc) {
-		_, err := upstream.Write(frame)
-		return err
+	if !h.isAllowed(svc) {
+		return h.writeAbortRefusal(clientWriter, invokeID)
 	}
-	return h.writeAbortRefusal(clientWriter, invokeID)
+	// Per-object gate active + this is a WriteProperty request →
+	// walk the APDU body and check (type, instance, property)
+	// against the allowlist. Other mutating services bypass the
+	// per-object check (their structures differ).
+	if len(h.AllowedObjects) > 0 && svc == wire.ConfirmedSvcWriteProperty {
+		if !h.writePropertyObjectAllowed(apdu) {
+			return h.writeAbortRefusal(clientWriter, invokeID)
+		}
+	}
+	_, err := upstream.Write(frame)
+	return err
+}
+
+// writePropertyObjectAllowed parses the WriteProperty body and
+// reports whether the target (ObjectType, ObjectInstance,
+// PropertyID) is in the operator's allowlist. Fail-closed on
+// unparseable BER.
+func (h *WriteGatedHandler) writePropertyObjectAllowed(apdu []byte) bool {
+	// Skip the 4-byte confirmed-request header.
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	target, ok := wire.ParseWriteProperty(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedObjects {
+		if a.ObjectType == target.ObjectType &&
+			a.ObjectInstance == target.ObjectInstance &&
+			a.PropertyID == target.PropertyID {
+			return true
+		}
+	}
+	return false
 }
 
 // isAllowed reports whether the given confirmed service is in

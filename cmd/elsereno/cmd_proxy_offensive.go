@@ -76,6 +76,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (repeatable). Accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring). Tightens the gate from service-TypeID to specific NodeIds; v1.12+ walks every WriteValue in a batched WriteRequest (v1.6 chunk 2 only checked the first).")
 	cmd.Flags().StringSliceVar(&opts.callMethods, "call-method", nil, "opcua: optional per-CallMethod allowlist (repeatable). Format: object=<NodeId>;method=<NodeId> where each NodeId is canonical-string form (ns=N;{i,s,g,b}=…). Restricts CallRequest to specific (object, method) pairs; exact match only. v1.12+.")
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
+	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15). Format: type=N;instance=M;property=P (repeatable, exact match). Other mutating services bypass this check. v1.12+.")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
@@ -94,6 +95,12 @@ type proxyListenOpts struct {
 	target, listen                      string
 	methods, subclasses, allowEntries   []string
 	functions, services, serviceChoices []uint
+	// bacnetObjects holds the bacnet per-object WriteProperty
+	// allowlist in the CLI-friendly
+	// "type=N;instance=M;property=P" form (v1.12+). Restricts
+	// service 15 WriteProperty requests to specific
+	// (ObjectType, ObjectInstance, PropertyID) tuples.
+	bacnetObjects []string
 	// callMethods holds the opcua per-CallMethod allowlist in
 	// the CLI-friendly "object=<NodeId>;method=<NodeId>" form
 	// (v1.12+). When non-empty, a CallRequest MSG is forwarded
@@ -414,9 +421,14 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		}
 		allowed = append(allowed, bacwrite.AllowedService{ServiceChoice: sc})
 	}
+	objs, err := parseBACnetObjectFlags(opts.bacnetObjects)
+	if err != nil {
+		return nil, err
+	}
 	return &bacwrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
+		AllowedObjects: objs,
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,

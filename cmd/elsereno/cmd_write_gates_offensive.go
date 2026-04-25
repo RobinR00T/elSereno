@@ -508,6 +508,7 @@ LifeSafetyOperation, Add/RemoveListElement) require explicit
 func newWriteBACnetDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var serviceChoices []uint
+	var objects []string
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -522,27 +523,119 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				}
 				svcs = append(svcs, bacwrite.AllowedService{ServiceChoice: uint8(s)})
 			}
-			mut := bacwrite.SessionMutation(target, svcs)
+			objs, err := parseBACnetObjectFlags(objects)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
+			mut := bacwrite.SessionMutationWithObjects(target, svcs, objs)
 			cmd.Printf("Protocol:     bacnet\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
 			cmd.Printf("Services:     %s\n", canonUintList(serviceChoices))
+			cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
 			cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices))
+				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
 	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
+	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// parseBACnetObjectFlags parses --object entries into
+// AllowedObject{Type, Instance, Property} tuples.
+func parseBACnetObjectFlags(in []string) ([]bacwrite.AllowedObject, error) {
+	out := make([]bacwrite.AllowedObject, 0, len(in))
+	for _, raw := range in {
+		o, err := parseBACnetObjectFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+// parseBACnetObjectFlag parses one --object value.
+// Format: type=N;instance=M;property=P. Spaces tolerated.
+func parseBACnetObjectFlag(s string) (bacwrite.AllowedObject, error) {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: empty", s)
+	}
+	var out bacwrite.AllowedObject
+	var typeSeen, instSeen, propSeen bool
+	for _, p := range strings.Split(raw, ";") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) != 2 {
+			return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: each token is KEY=VALUE", s)
+		}
+		key := strings.ToLower(strings.TrimSpace(kv[0]))
+		val := strings.TrimSpace(kv[1])
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: %s %q is not a number", s, key, val)
+		}
+		switch key {
+		case "type":
+			if n > 0x3FF {
+				return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: type must be 0-1023 (10 bits)", s)
+			}
+			out.ObjectType = uint16(n & 0x3FF)
+			typeSeen = true
+		case "instance":
+			if n > 0x3FFFFF {
+				return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: instance must be 0-4194303 (22 bits)", s)
+			}
+			out.ObjectInstance = uint32(n & 0x3FFFFF)
+			instSeen = true
+		case "property":
+			out.PropertyID = uint32(n & 0xFFFFFFFF)
+			propSeen = true
+		default:
+			return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: unknown key %q (expected type, instance, or property)", s, key)
+		}
+	}
+	if !typeSeen || !instSeen || !propSeen {
+		return bacwrite.AllowedObject{}, fmt.Errorf("--object %q: must specify type=, instance=, and property=", s)
+	}
+	return out, nil
+}
+
+// canonBACnetObjects prints the sorted list for dry-run output.
+func canonBACnetObjects(in []bacwrite.AllowedObject) string {
+	if len(in) == 0 {
+		return "(none — WriteProperty accepts any object when 15 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedObject(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].ObjectType != sorted[j].ObjectType {
+			return sorted[i].ObjectType < sorted[j].ObjectType
+		}
+		if sorted[i].ObjectInstance != sorted[j].ObjectInstance {
+			return sorted[i].ObjectInstance < sorted[j].ObjectInstance
+		}
+		return sorted[i].PropertyID < sorted[j].PropertyID
+	})
+	for i, o := range sorted {
+		out[i] = fmt.Sprintf("type=%d;instance=%d;property=%d", o.ObjectType, o.ObjectInstance, o.PropertyID)
+	}
+	return strings.Join(out, ", ")
 }
 
 // ---- elsereno write cwmp -------------------------------------
@@ -1034,13 +1127,40 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 	return af
 }
 
-// buildAllowFileBACnet builds the YAML for a BACnet proxy session.
-func buildAllowFileBACnet(target string, choices []uint) proxyAllowFile {
-	return proxyAllowFile{
+// buildAllowFileBACnet builds the YAML for a BACnet proxy
+// session. v1.12 chunk 7 adds the optional per-object allowlist
+// as `objects:` entries (type/instance/property per entry).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw []string) proxyAllowFile {
+	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
 		ServiceChoices: canonUints(choices),
 	}
+	if len(objectsRaw) == 0 {
+		return af
+	}
+	af.Objects = make([]proxyBACnetObject, 0, len(objectsRaw))
+	for _, raw := range objectsRaw {
+		o, err := parseBACnetObjectFlag(raw)
+		if err != nil {
+			continue
+		}
+		af.Objects = append(af.Objects, proxyBACnetObject{
+			Type:     o.ObjectType,
+			Instance: o.ObjectInstance,
+			Property: o.PropertyID,
+		})
+	}
+	sort.Slice(af.Objects, func(i, j int) bool {
+		if af.Objects[i].Type != af.Objects[j].Type {
+			return af.Objects[i].Type < af.Objects[j].Type
+		}
+		if af.Objects[i].Instance != af.Objects[j].Instance {
+			return af.Objects[i].Instance < af.Objects[j].Instance
+		}
+		return af.Objects[i].Property < af.Objects[j].Property
+	})
+	return af
 }
 
 // canonUints returns a sorted deduped copy of in.

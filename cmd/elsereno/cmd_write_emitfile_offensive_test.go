@@ -224,6 +224,40 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_RoundTripBACnetWithObjects — v1.12 chunk 7
+// per-object WriteProperty allowlist round-trips through the
+// `objects:` YAML field.
+func TestEmitAllowFile_RoundTripBACnetWithObjects(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	var buf bytes.Buffer
+	cmd := helperCmd(&buf)
+
+	choices := []uint{15}
+	objects := []string{
+		"type=2;instance=3;property=85",
+		"type=0;instance=42;property=85",
+	}
+	af := buildAllowFileBACnet("bms:47808", choices, objects)
+	if err := emitAllowFile(cmd, path, af); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if len(opts.bacnetObjects) != 2 {
+		t.Fatalf("bacnetObjects=%v, want 2 entries", opts.bacnetObjects)
+	}
+	// Sort order: (type, instance, property).
+	if opts.bacnetObjects[0] != "type=0;instance=42;property=85" {
+		t.Errorf("bacnetObjects[0] = %q", opts.bacnetObjects[0])
+	}
+	if opts.bacnetObjects[1] != "type=2;instance=3;property=85" {
+		t.Errorf("bacnetObjects[1] = %q", opts.bacnetObjects[1])
+	}
+}
+
 // TestEmitAllowFile_RoundTripOPCUAWithCallMethods — v1.12 chunk 6
 // per-CallMethod allowlist round-trips through call_methods: YAML.
 func TestEmitAllowFile_RoundTripOPCUAWithCallMethods(t *testing.T) {

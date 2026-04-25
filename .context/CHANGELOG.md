@@ -240,6 +240,33 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.12 chunk 7 landed.** BACnet per-object
+  WriteProperty allowlist via ASN.1 BER parsing. Closes the
+  v1.4 chunk 6 "service-choice only" carry-over for the most
+  common BACnet write surface. New wire parser
+  `ParseWriteProperty(apdu)` walks context tag 0 (ObjectId, 4
+  bytes packed: 10-bit type + 22-bit instance) + tag 1
+  (PropertyId, 1..3 bytes); ignores remaining tags (array index,
+  value, priority) — gate decision needs only (type, instance,
+  property). New library types `AllowedObject{ObjectType
+  uint16, ObjectInstance uint32, PropertyID uint32}` +
+  `AllowlistHashWithObjects` (0xFF separator below the v1.4
+  service-choice block; per-entry: 2-byte type + 4-byte
+  instance + 4-byte property = 10 bytes). Hash ladder: empty
+  objects → v1.4 hash. `SessionMutationWithObjects` factory.
+  Handler `AllowedObjects` + `writePropertyObjectAllowed`
+  per-frame check that fires only on confirmed-service 15;
+  other mutating services (10/11/16/17/20/27/8/9/7) bypass the
+  per-object gate (their request shapes differ — v1.13+ work).
+  Refusal is the existing security-error Abort-PDU. CLI:
+  `write bacnet dry-run --object type=N;instance=M;property=P`
+  (repeatable) + `proxy listen --object` + YAML `objects:` with
+  structured `{type, instance, property}` entries. Sort order
+  on emit: (type, instance, property). 13 new tests: hash
+  ladder × 4, BER parser × 4 (happy path / multi-byte propid /
+  truncated / wrong tag), E2E gate × 4 (allowed-passes /
+  forbidden-property-refuses / forbidden-type-refuses /
+  empty-list-bypasses), YAML round-trip × 1. 0 lint issues.
 - 2026-04-24 — **v1.12 chunk 6 landed.** OPC UA per-CallMethod
   allowlist. Complements v1.12 chunk 3 (per-WriteValue NodeId)
   with the other mutating service surface: CallRequest invokes
