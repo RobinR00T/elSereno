@@ -12,6 +12,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/inputs/censys"
 	"local/elsereno/internal/inputs/fofa"
+	"local/elsereno/internal/inputs/internetdb"
 	"local/elsereno/internal/inputs/onyphe"
 	"local/elsereno/internal/inputs/shodan"
 	"local/elsereno/internal/inputs/zoomeye"
@@ -81,7 +82,10 @@ func loadAPICreds(path string) (apiCreds, error) {
 // errAPICredsNotSet is returned when the operator uses a
 // provider input (e.g. --input shodan:…) but omits
 // --api-creds-file. Caller surfaces the remediation hint.
-var errAPICredsNotSet = errors.New("--api-creds-file is required for provider inputs (shodan:, censys:, fofa:, zoomeye:)")
+//
+// internetdb is excluded from this check — it requires no API
+// key — so its readInternetDBTargets path bypasses creds load.
+var errAPICredsNotSet = errors.New("--api-creds-file is required for provider inputs (shodan:, censys:, fofa:, zoomeye:, onyphe:)")
 
 // readTargetsFromProvider dispatches `<provider>:<query>` to
 // the matching input client. Provider is the prefix of the
@@ -93,6 +97,11 @@ var errAPICredsNotSet = errors.New("--api-creds-file is required for provider in
 func readTargetsFromProvider(ctx context.Context, provider, query, credsFile string) ([]core.Target, error) {
 	if query == "" {
 		return nil, fmt.Errorf("--input %s: query is empty (form: --input %s:<query>)", provider, provider)
+	}
+	// internetdb is the only no-key provider — bypass the
+	// credentials file entirely.
+	if provider == "internetdb" {
+		return readInternetDBTargets(ctx, query)
 	}
 	if credsFile == "" {
 		return nil, errAPICredsNotSet
@@ -113,7 +122,15 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 	case "onyphe":
 		return readOnypheTargets(ctx, creds, query)
 	}
-	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe)", provider)
+	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe | internetdb)", provider)
+}
+
+// readInternetDBTargets dispatches `internetdb:<ip>` to the
+// no-key Shodan InternetDB lookup. Single-IP for v1.12; bulk
+// (file or stdin) is a v1.13+ follow-up.
+func readInternetDBTargets(ctx context.Context, query string) ([]core.Target, error) {
+	c := internetdb.New(0)
+	return c.Lookup(ctx, query)
 }
 
 // providerTotalLimit is the default cap per --input call. v1.12

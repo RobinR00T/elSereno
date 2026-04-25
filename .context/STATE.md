@@ -167,7 +167,9 @@ Chunks (in planned order):
    chunk 7.
 8. Input pagination (5 providers). **Landed** — chunk 8 closes
    v1.10 carry-over.
-9. Shodan InternetDB (free, no-key provider #6).
+9. Shodan InternetDB (free, no-key provider #6). **Landed** —
+   chunk 9 — `internal/inputs/internetdb` package + bypass
+   creds-file in dispatcher.
 10. CWMP firmware-URL + SHA-256 allowlist for `Download`.
 
 After v1.12:

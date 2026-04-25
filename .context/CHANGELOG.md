@@ -240,6 +240,23 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.12 chunk 9 landed.** Shodan InternetDB
+  (`internetdb.shodan.io`) wired as the 6th attack-surface
+  input provider. Free + no API key required (the upstream is
+  rate-limited to ~10 rps; the client defaults to 5 rps).
+  Lookup-by-IP rather than search-by-query: operator gives
+  `--input internetdb:8.8.8.8` and the package issues GET
+  `/<ip>` → returns one core.Target per open port. New
+  `internal/inputs/internetdb` package (doc.go +
+  client.go). 404 from upstream maps to `(nil, nil)` (clean
+  "no data" UX). Invalid-IP input fails with `ErrInvalidIP`.
+  Dispatcher in `cmd_scan_apicreds.go` bypasses the creds-
+  file check for this provider (the only no-key one). Single-
+  IP only — bulk lookup (file or stdin) is a v1.13+ follow-up.
+  5 new tests: happy path, 404-is-empty, invalid-IP rejected,
+  500 surfaces as error, invalid ports dropped silently.
+  Provider count: 6 — shodan / censys / fofa / zoomeye /
+  onyphe / internetdb. 0 lint issues.
 - 2026-04-25 — **v1.12 chunk 8 landed.** Input pagination across
   all 5 providers — closes the v1.10 "page 1 only" carry-over
   noted in 4 of the 5 client comments. New `SearchPaged(ctx,
