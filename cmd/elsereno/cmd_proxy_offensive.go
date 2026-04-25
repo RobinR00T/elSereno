@@ -79,6 +79,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15, v1.12+) and WritePropertyMultiple (svc 16, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Both gates walk every (object, property) tuple in the request. Other mutating services keep service-only gating.")
 	cmd.Flags().StringSliceVar(&opts.bacnetDeleteObjects, "delete-object", nil, "bacnet: optional per-target allowlist for DeleteObject (svc 11, v1.13+). Format: type=N;instance=M (repeatable, exact match). Object-level only.")
 	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only — instance ignored at gate level.")
+	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
@@ -124,6 +125,12 @@ type proxyListenOpts struct {
 	// requests are forwarded only when the inferred ObjectType
 	// matches one of these entries (instance is ignored).
 	bacnetCreateObjectTypes []uint
+	// bacnetReinitStates holds the bacnet per-state
+	// ReinitializeDevice allowlist (v1.13+). Numeric ASHRAE 135
+	// §16.4 reinitializedStateOfDevice enum (0..7). When
+	// non-empty, ReinitializeDevice (svc 20) requests forward
+	// only when the parsed state value matches one of these.
+	bacnetReinitStates []uint
 	// callMethods holds the opcua per-CallMethod allowlist in
 	// the CLI-friendly "object=<NodeId>;method=<NodeId>" form
 	// (v1.12+). When non-empty, a CallRequest MSG is forwarded
@@ -460,12 +467,17 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	reiSts, err := parseBACnetReinitStates(opts.bacnetReinitStates)
+	if err != nil {
+		return nil, err
+	}
 	return &bacwrite.WriteGatedHandler{
 		Target:               opts.target,
 		Allowed:              allowed,
 		AllowedObjects:       objs,
 		AllowedDeleteObjects: delObjs,
 		AllowedCreateObjects: creObjs,
+		AllowedReinitStates:  reiSts,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,

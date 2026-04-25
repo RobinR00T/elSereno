@@ -517,50 +517,21 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var serviceChoices []uint
 	var objects []string
 	var deleteObjects []string
-	var createObjectTypes []uint
+	var createObjectTypes, reinitStates []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if target == "" {
-				return fail(core.ExitUsage, errors.New("--target is required"))
-			}
-			svcs := make([]bacwrite.AllowedService, 0, len(serviceChoices))
-			for _, s := range serviceChoices {
-				if s > 0xFF {
-					return fail(core.ExitUsage, fmt.Errorf("--service-choice %d: must be 0-255", s))
-				}
-				svcs = append(svcs, bacwrite.AllowedService{ServiceChoice: uint8(s)})
-			}
-			objs, err := parseBACnetObjectFlags(objects)
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-			delObjs, err := parseBACnetDeleteObjectFlags(deleteObjects)
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-			creObjs, err := parseBACnetCreateObjectTypes(createObjectTypes)
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-			mut := bacwrite.SessionMutationWithCreateObjects(target, svcs, objs, delObjs, creObjs)
-			cmd.Printf("Protocol:     bacnet\n")
-			cmd.Printf("Operation:    proxy_session\n")
-			cmd.Printf("Target:       %s\n", target)
-			cmd.Printf("Services:     %s\n", canonUintList(serviceChoices))
-			cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
-			cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(delObjs))
-			cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(creObjs))
-			cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
-			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
-				return err
-			}
-			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileBACnet(target, serviceChoices, objects, deleteObjects, createObjectTypes))
-			}
-			return nil
+			return runBACnetDryRun(cmd, bacnetDryRunInputs{
+				target:            target,
+				ppFile:            ppFile,
+				emitFile:          emitFile,
+				serviceChoices:    serviceChoices,
+				objects:           objects,
+				deleteObjects:     deleteObjects,
+				createObjectTypes: createObjectTypes,
+				reinitStates:      reinitStates,
+			})
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
@@ -568,9 +539,86 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
 	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
 	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
+	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
+}
+
+// bacnetDryRunInputs bundles the dry-run flags into a single
+// arg so runBACnetDryRun stays under the gocyclo / funlen
+// thresholds as we add v1.13+ per-service dimensions.
+type bacnetDryRunInputs struct {
+	target, ppFile, emitFile        string
+	serviceChoices                  []uint
+	objects                         []string
+	deleteObjects                   []string
+	createObjectTypes, reinitStates []uint
+}
+
+// runBACnetDryRun parses every per-service allowlist, computes
+// the session PayloadHash, prints the operator-facing summary,
+// optionally mints the confirm-token + emits the YAML.
+func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
+	if in.target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required"))
+	}
+	svcs, err := parseBACnetServiceChoices(in.serviceChoices)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	objs, err := parseBACnetObjectFlags(in.objects)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	delObjs, err := parseBACnetDeleteObjectFlags(in.deleteObjects)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	creObjs, err := parseBACnetCreateObjectTypes(in.createObjectTypes)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	reiSts, err := parseBACnetReinitStates(in.reinitStates)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	mut := bacwrite.SessionMutationWithReinitStates(in.target, svcs, objs, delObjs, creObjs, reiSts)
+	printBACnetDryRunSummary(cmd, in, svcs, objs, delObjs, creObjs, reiSts, mut)
+	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
+		return err
+	}
+	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
+		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates))
+	}
+	return nil
+}
+
+// parseBACnetServiceChoices validates uint values fit in 1 byte.
+func parseBACnetServiceChoices(in []uint) ([]bacwrite.AllowedService, error) {
+	out := make([]bacwrite.AllowedService, 0, len(in))
+	for _, s := range in {
+		if s > 0xFF {
+			return nil, fmt.Errorf("--service-choice %d: must be 0-255", s)
+		}
+		out = append(out, bacwrite.AllowedService{ServiceChoice: uint8(s)})
+	}
+	return out, nil
+}
+
+// printBACnetDryRunSummary emits the canonical dry-run output.
+func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, svcs []bacwrite.AllowedService, objs []bacwrite.AllowedObject, delObjs []bacwrite.AllowedDeleteObject, creObjs []bacwrite.AllowedCreateObject, reiSts []bacwrite.AllowedReinitState, mut confirm.Mutation) {
+	_ = svcs // service list canonicalised via in.serviceChoices.
+	cmd.Printf("Protocol:     bacnet\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", in.target)
+	cmd.Printf("Services:     %s\n", canonUintList(in.serviceChoices))
+	cmd.Printf("Objects:      %s\n", canonBACnetObjects(objs))
+	cmd.Printf("DeleteObjects: %s\n", canonBACnetDeleteObjects(delObjs))
+	cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(creObjs))
+	cmd.Printf("ReinitStates: %s\n", canonBACnetReinitStates(reiSts))
+	cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
 
 // parseBACnetObjectFlags parses --object entries into
@@ -711,6 +759,61 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetReinitStates converts repeated --reinit-state uint
+// values into AllowedReinitState entries. Each value must be a
+// known enum (0..7 per ASHRAE 135 §16.4).
+func parseBACnetReinitStates(in []uint) ([]bacwrite.AllowedReinitState, error) {
+	out := make([]bacwrite.AllowedReinitState, 0, len(in))
+	for _, v := range in {
+		if v > 7 {
+			return nil, fmt.Errorf("--reinit-state %d: must be 0-7 (ASHRAE 135 §16.4 enum)", v)
+		}
+		out = append(out, bacwrite.AllowedReinitState{State: uint8(v & 0x07)})
+	}
+	return out, nil
+}
+
+// canonBACnetReinitStates prints the sorted list for dry-run,
+// labelling each known state for operator readability.
+func canonBACnetReinitStates(in []bacwrite.AllowedReinitState) string {
+	if len(in) == 0 {
+		return "(none — ReinitializeDevice accepts any state when 20 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedReinitState(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].State < sorted[j].State })
+	for i, r := range sorted {
+		out[i] = fmt.Sprintf("%d (%s)", r.State, reinitStateLabel(r.State))
+	}
+	return strings.Join(out, ", ")
+}
+
+// reinitStateLabel returns the spec name for an enum value.
+// Unknown values render as "?" — never expected since the
+// parser validates the range.
+func reinitStateLabel(v uint8) string {
+	switch v {
+	case 0:
+		return "coldstart"
+	case 1:
+		return "warmstart"
+	case 2:
+		return "startbackup"
+	case 3:
+		return "endbackup"
+	case 4:
+		return "startrestore"
+	case 5:
+		return "endrestore"
+	case 6:
+		return "abortrestore"
+	case 7:
+		return "activate-changes"
+	default:
+		return "?"
+	}
 }
 
 // canonBACnetCreateObjects prints the sorted list for dry-run.
@@ -1606,8 +1709,9 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // per entry) for WriteProperty + WritePropertyMultiple. v1.13
 // chunk 7 adds `delete_objects:` (type/instance only) for
 // DeleteObject (svc 11). v1.13 chunk 8 adds `create_object_types:`
-// (type only) for CreateObject (svc 10).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes []uint) proxyAllowFile {
+// (type only) for CreateObject (svc 10). v1.13 chunk 9 adds
+// `reinit_states:` (state enum) for ReinitializeDevice (svc 20).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates []uint) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
@@ -1658,7 +1762,26 @@ func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjec
 	if len(createObjectTypes) > 0 {
 		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(createObjectTypes)
 	}
+	if len(reinitStates) > 0 {
+		af.ReinitStates = canonAllowFileBACnetReinitStates(reinitStates)
+	}
 	return af
+}
+
+// canonAllowFileBACnetReinitStates converts repeated raw uint
+// state values to YAML uint8 entries, dropping out-of-range
+// values + sorting ascending. Extracted so buildAllowFileBACnet
+// stays under the funlen threshold.
+func canonAllowFileBACnetReinitStates(in []uint) []uint8 {
+	out := make([]uint8, 0, len(in))
+	for _, v := range in {
+		if v > 7 {
+			continue
+		}
+		out = append(out, uint8(v&0x07))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 // canonAllowFileBACnetCreateTypes converts repeated raw uint

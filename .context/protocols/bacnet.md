@@ -48,6 +48,13 @@ ASN.1 BER encoding particulars used by the per-object gate:
   - `0x1C PP PP PP PP` — `[1] objectIdentifier`, primitive, length 4
     (BACnetObjectIdentifier packed as `(type<<22) | instance`).
   Optional `[1] listOfInitialValues` follows after the close tag.
+- ReinitializeDevice (svc 20) carries a single primitive
+  context-tag-0 enumerated for the reinitializedStateOfDevice:
+  - `0x09 NN` — primitive context 0, length 1, where NN is the
+    8-value ASHRAE 135 §16.4 enum (0..7).
+  An optional `[1] password` CharacterString follows; the gate
+  ignores it (password authorisation is between the operator
+  and the device).
 - WPM SEQUENCE-OF-WriteAccessSpecification structure:
   ```
   SEQUENCE {
@@ -99,21 +106,31 @@ Three layers of allowlist (cumulative):
    matches naturally; per-(type, instance) Create
    allowlisting is rare since the device usually picks the
    instance. v1.13 chunk 8.
+5. **Per-reinit-states** (`--reinit-state N`) — exact enum
+   match. Applies to ReinitializeDevice (svc 20) only. The
+   8-value enum (0 coldstart, 1 warmstart, 2..6 backup/restore
+   lifecycle, 7 activate-changes) has very different blast
+   radii — operators typically allow only state 7 during a
+   maintenance window and refuse the rest. The password
+   (optional [1] CharacterString) is ignored at gate level.
+   **Separate list from all other allowlists**: this is a
+   service-internal scoping dimension. v1.13 chunk 9.
 
 Other mutating services (svc 17 DeviceCommunicationControl,
-svc 20 ReinitializeDevice, svc 27 LifeSafetyOperation, svc 7
-AtomicWriteFile, svc 8/9 Add/RemoveListElement) keep
-service-only gating; per-object layers for those services are
-v1.14+ follow-ups (their request shapes differ).
+svc 27 LifeSafetyOperation, svc 7 AtomicWriteFile, svc 8/9
+Add/RemoveListElement) keep service-only gating; per-object
+layers for those services are v1.14+ follow-ups (their
+request shapes differ).
 
 Refusal: BVLC-wrapped Abort-PDU with reason 5 (security-error).
 
-Hash ladder (`AllowlistHashWithCreateObjects` →
-`AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects` →
-`AllowlistHash`): each successive empty dimension degrades to
-the prior-version hash. Separators: 0xFD (creates), 0xFE
-(deletes), 0xFF (per-property objects). Operator confirm-tokens
-minted before v1.12 / v1.13 stay valid.
+Hash ladder (`AllowlistHashWithReinitStates` →
+`AllowlistHashWithCreateObjects` → `AllowlistHashWithDeleteObjects`
+→ `AllowlistHashWithObjects` → `AllowlistHash`): each successive
+empty dimension degrades to the prior-version hash. Separators:
+0xFC (reinit states), 0xFD (creates), 0xFE (deletes), 0xFF
+(per-property objects). Operator confirm-tokens minted before
+v1.12 / v1.13 stay valid.
 
 ## REPL commands (planned F4 chunk 2)
 - See the generic REPL framework.

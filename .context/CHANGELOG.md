@@ -240,6 +240,34 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-25 — **v1.13 chunk 9 landed.** BACnet
+  ReinitializeDevice (svc 20) per-state allowlist. The 8-value
+  ASHRAE 135 §16.4 reinitializedStateOfDevice enum has very
+  different blast radii: 0 coldstart wipes runtime state, 1
+  warmstart restarts the BACnet stack, 2..6 are backup/restore
+  lifecycle states (destructive when interleaved), 7
+  activate-changes is the post-config-update refresh and
+  usually safe. Typical operator pattern: allow only state 7
+  during a maintenance window. New CLI flag `--reinit-state N`
+  (0..7, repeatable); YAML field `reinit_states:` (uint8 list).
+  Wire parser at `internal/protocols/bacnet/wire/reinitialize
+  device.go` reads the single primitive context-tag-0 length-1
+  enum byte (`0x09 NN`) — the optional [1] password
+  CharacterString is ignored at gate level (between operator
+  and device password policy). New `AllowlistHashWithReinit
+  States` (separator 0xFC) extends the v1.13-chunk-8 ladder;
+  backwards-compat ladder degrades through chunks 8/7/v1.12-
+  chunk-7/v1.4 when each dimension is empty. Refactor
+  introduced helper `sortAllowedCreateObjects` and
+  `writeReinitStatesBlock` to keep the new hash function under
+  funlen; `runBACnetDryRun` extracted with a
+  `bacnetDryRunInputs` struct so the dry-run command stays
+  under gocyclo as we keep adding dimensions; `printBACnet
+  DryRunSummary` + `parseBACnetServiceChoices` /
+  `parseBACnetReinitStates` extracted as helpers. 11 new tests
+  (4 hash ladder + 4 wire parser including out-of-range fail-
+  closed + 5 e2e covering the canonical "coldstart refused
+  when only activate-changes is allowed" safety invariant).
 - 2026-04-25 — **v1.13 chunk 8 landed.** BACnet CreateObject
   (svc 10) per-type allowlist. Natural sequel to chunks 3 + 7
   in the BACnet sequence: chunk 3 closed WPM (svc 16), chunk 7

@@ -46,6 +46,7 @@ Two layers of allowlist:
 | Per-object | `--object type=N;instance=M;property=P` | `WriteProperty` (svc 15, v1.12+) AND `WritePropertyMultiple` (svc 16, v1.13+) | exact tuple after BER walk | v1.12 / v1.13 |
 | Per-target-delete | `--delete-object type=N;instance=M` | `DeleteObject` (svc 11) | exact (type, instance) — no property dimension | v1.13 |
 | Per-create-type | `--create-object-type N` | `CreateObject` (svc 10) | type-only after BER walk (instance ignored) | v1.13 |
+| Per-reinit-state | `--reinit-state N` | `ReinitializeDevice` (svc 20) | exact enum value (0..7 per ASHRAE 135 §16.4) | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -75,20 +76,30 @@ CreateObject calls use the `[0] objectType` form where the
 device picks the instance, so per-instance gating wouldn't be
 useful in practice; operators who need it can ask for v1.14+.
 
-Other mutating services (17 DeviceCommunicationControl, 20
-ReinitializeDevice, 27 LifeSafetyOperation, 7 AtomicWriteFile,
-8 AddListElement, 9 RemoveListElement) keep service-only
-gating in v1.13; per-object layers for those services are
-v1.14+ follow-ups (their request shapes differ).
+**ReinitializeDevice (svc 20)** is gated **per-state**: the
+8-value enum has very different blast radii (0 coldstart wipes
+runtime state; 1 warmstart restarts the BACnet stack; 2..6 are
+backup/restore lifecycle states; 7 activate-changes is usually
+safe). Operators typically allow only state 7 during a
+maintenance window. The password (optional context-1
+CharacterString in the request) is ignored at gate level —
+it's between the operator and the device's password policy.
+
+Other mutating services (17 DeviceCommunicationControl, 27
+LifeSafetyOperation, 7 AtomicWriteFile, 8 AddListElement, 9
+RemoveListElement) keep service-only gating in v1.13; per-
+object layers for those services are v1.14+ follow-ups (their
+request shapes differ).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
   --target bms.internal:47808 \
-  --service-choice 10 --service-choice 11 --service-choice 15 \
+  --service-choice 10 --service-choice 11 --service-choice 15 --service-choice 20 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --delete-object "type=2;instance=99" \
   --create-object-type 17 \
+  --reinit-state 7 \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 ```
@@ -96,7 +107,7 @@ elsereno-offensive write bacnet dry-run \
 Refusal is a BACnet `Abort-PDU` with reason `5` (security-error).
 YAML keys: `service_choices:`, `objects:` (`{type, instance,
 property}`), `delete_objects:` (`{type, instance}`),
-`create_object_types:` (`{type}`).
+`create_object_types:` (`{type}`), `reinit_states:` (uint8 list).
 
 ## Scope
 

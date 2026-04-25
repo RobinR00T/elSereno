@@ -168,6 +168,50 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedReinitState scopes a ReinitializeDevice confirmed-
+// request (service 20) to a specific reinitializedStateOfDevice
+// enum value. v1.13 chunk 9 adds state-level gating for the
+// service that controls device coldstart/warmstart/backup.
+//
+// Semantics: when AllowedReinitStates is non-empty, a
+// ReinitializeDevice (svc 20) confirmed-request is forwarded
+// ONLY when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed reinitializedStateOfDevice enum value is in
+//     this list.
+//
+// Empty list disables the per-state gate (ReinitializeDevice
+// remains gated at service-choice level if 20 is in Allowed).
+//
+// Why state-level? The 8-state enum has very different
+// blast radii:
+//
+//   - 0 coldstart: WIPES runtime state.
+//   - 1 warmstart: restarts the BACnet stack.
+//   - 2..6 backup/restore lifecycle: bracket vendor backup
+//     workflows; safe in isolation but destructive when
+//     interleaved with normal traffic.
+//   - 7 activate-changes: usually safe — post-config-write
+//     refresh.
+//
+// Typical operator pattern: allow only state 7
+// (activate-changes) during a maintenance window; refuse
+// 0..6 outright. Per-instance scoping doesn't apply here —
+// ReinitializeDevice always targets the device the proxy is
+// forwarding to.
+//
+// Kept SEPARATE from all other allowlists: this is a service-
+// internal scoping dimension, orthogonal to property /
+// delete / create object lists.
+type AllowedReinitState struct {
+	// State is the ASHRAE 135 §16.4 reinitializedStateOfDevice
+	// enum (0..7). See the wire.ReinitState* constants for the
+	// labelled values.
+	State uint8
+}
+
 // AllowedDeleteObject scopes a DeleteObject confirmed-request
 // (service 11) to a specific (ObjectType, ObjectInstance) pair.
 // v1.13 chunk 7 adds object-level gating for the destructive
@@ -502,6 +546,92 @@ func SessionMutationWithCreateObjects(target string, allowed []AllowedService, o
 	}
 }
 
+// AllowlistHashWithReinitStates is the v1.13 chunk-9 hash that
+// adds the per-ReinitializeDevice state allowlist on top of
+// the v1.13 chunk-8 layer. Backwards-compat ladder:
+//
+//   - empty reinitStates → equals AllowlistHashWithCreateObjects
+//     (v1.13 chunk 8).
+//   - empty reinitStates + empty createObjects → equals
+//     AllowlistHashWithDeleteObjects (v1.13 chunk 7).
+//   - all-empty → equals AllowlistHash (v1.4).
+//
+// All v1.4 → v1.13-chunk-8 confirm-tokens remain valid for
+// operators who don't opt into per-state gating.
+//
+// Hash layout (when reinitStates is non-empty):
+//
+//	AllowlistHashWithCreateObjects output
+//	  || 0xFC || (state byte) × sorted_reinitStates
+//
+// Separator 0xFC is below 0xFD (creates), 0xFE (deletes), and
+// 0xFF (per-property objects). Per-entry is 1 byte (state enum).
+func AllowlistHashWithReinitStates(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject, createObjects []AllowedCreateObject, reinitStates []AllowedReinitState) [32]byte {
+	if len(reinitStates) == 0 {
+		return AllowlistHashWithCreateObjects(target, allowed, objects, deleteObjects, createObjects)
+	}
+	sortedSvc := sortAllowedServices(allowed)
+	sortedObj := sortAllowedObjects(objects)
+	sortedDel := sortAllowedDeleteObjects(deleteObjects)
+	sortedCre := sortAllowedCreateObjects(createObjects)
+	sortedRei := append([]AllowedReinitState(nil), reinitStates...)
+	sort.Slice(sortedRei, func(i, j int) bool {
+		return sortedRei[i].State < sortedRei[j].State
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	writeReinitStatesBlock(h, sortedRei)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithReinitStates is the v1.13 chunk-9 mutation
+// that mixes services + per-object + per-delete + per-create +
+// per-reinit-state into the PayloadHash. Empty reinitStates →
+// degrades to SessionMutationWithCreateObjects.
+func SessionMutationWithReinitStates(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject, createObjects []AllowedCreateObject, reinitStates []AllowedReinitState) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithReinitStates(target, allowed, objects, deleteObjects, createObjects, reinitStates),
+	}
+}
+
+// sortAllowedCreateObjects returns a deterministically sorted
+// copy (by ObjectType ascending). Helper introduced alongside
+// chunk 9 so AllowlistHashWithReinitStates can reuse the same
+// sort pattern as the lower-layer hashes.
+func sortAllowedCreateObjects(in []AllowedCreateObject) []AllowedCreateObject {
+	out := append([]AllowedCreateObject(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].ObjectType < out[j].ObjectType
+	})
+	return out
+}
+
+// writeReinitStatesBlock writes the per-state block. Separator
+// 0xFC (v1.13 chunk 9). Caller must have already established
+// len(sorted) > 0.
+func writeReinitStatesBlock(h hashWriter, sorted []AllowedReinitState) {
+	_, _ = h.Write([]byte{0xFC})
+	for _, r := range sorted {
+		_, _ = h.Write([]byte{r.State})
+	}
+}
+
 // AbortReasonSecurity is ASHRAE 135 §20.1.9 abort reason 5.
 const AbortReasonSecurity uint8 = 5
 
@@ -526,9 +656,14 @@ type WriteGatedHandler struct {
 	// See AllowedCreateObject for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedCreateObjects []AllowedCreateObject
-	Deriver              confirm.KeyDeriver
-	Auditor              confirm.Auditor
-	SessionConfirm       confirm.Confirm
+	// AllowedReinitStates is the optional v1.13 chunk-9
+	// per-state allowlist for ReinitializeDevice (service 20).
+	// See AllowedReinitState for semantics. Empty list preserves
+	// service-choice-only gating for that service.
+	AllowedReinitStates []AllowedReinitState
+	Deriver             confirm.KeyDeriver
+	Auditor             confirm.Auditor
+	SessionConfirm      confirm.Confirm
 
 	authorised bool
 }
@@ -539,7 +674,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithCreateObjects(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects, h.AllowedCreateObjects)
+	m := SessionMutationWithReinitStates(h.Target, h.Allowed, h.AllowedObjects, h.AllowedDeleteObjects, h.AllowedCreateObjects, h.AllowedReinitStates)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -658,7 +793,33 @@ func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu 
 			return false
 		}
 	}
+	if len(h.AllowedReinitStates) > 0 && svc == wire.ConfirmedSvcReinitializeDevice {
+		if !h.reinitStateAllowed(apdu) {
+			return false
+		}
+	}
 	return true
+}
+
+// reinitStateAllowed parses the ReinitializeDevice body and
+// reports whether the requested reinitializedStateOfDevice
+// enum value is in the operator's per-state allowlist. Fail-
+// closed on unparseable BER or unknown enum value.
+func (h *WriteGatedHandler) reinitStateAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	state, ok := wire.ParseReinitializeDevice(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedReinitStates {
+		if a.State == state {
+			return true
+		}
+	}
+	return false
 }
 
 // createObjectAllowed parses the CreateObject body and reports
