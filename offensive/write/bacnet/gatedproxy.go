@@ -168,6 +168,50 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedAtomicWriteFile scopes an AtomicWriteFile confirmed-
+// request (service 7) to a specific File object instance. v1.13
+// chunk 12 adds per-file-instance gating for the service that
+// overwrites File objects on the device — firmware blobs,
+// configuration files, and log files all live behind File
+// objects on most BACnet devices.
+//
+// Semantics: when AllowedAtomicWriteFiles is non-empty, an
+// AtomicWriteFile (svc 7) confirmed-request is forwarded ONLY
+// when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed fileIdentifier's ObjectInstance is in this
+//     list (the ObjectType portion is implicitly 10 = File
+//     per ASHRAE 135 §15.8; any other type fails closed).
+//
+// Empty list disables the per-file gate (AtomicWriteFile
+// remains gated at service-choice level if 7 is in Allowed).
+//
+// Why per-instance and not (type, instance)? The fileIdentifier
+// in AtomicWriteFile MUST be a File object (ObjectType 10) —
+// no operator would ever want to allow writing to non-File
+// objects via this RPC. Storing only the instance keeps the
+// API simple; the parser validates the type itself.
+//
+// Why not also gate the access specifier (stream vs record,
+// start position, record count)? That's wire-level minutiae —
+// the operator's risk model is "may operator X overwrite
+// firmware blob File#3?" not "may they overwrite bytes
+// 100..200 of File#3?". Per-byte-range scoping has no
+// operational use case in production.
+//
+// Kept SEPARATE from AllowedObjects (svc 15/16 property writes)
+// and the other allowlists: writing to File#3 (firmware) is a
+// fundamentally different operation from writing to
+// AnalogValue#3 (sensor reading). The allowlists must not
+// auto-grant each other.
+type AllowedAtomicWriteFile struct {
+	// Instance is the 22-bit BACnet File-object instance number
+	// (0..4_194_303). Type is implicit (always 10 = File).
+	Instance uint32
+}
+
 // AllowedLSOOperation scopes a LifeSafetyOperation confirmed-
 // request (service 27) to a specific BACnetLifeSafetyOperation
 // enum value. v1.13 chunk 11 adds operation-level gating for
@@ -721,13 +765,14 @@ func SessionMutationWithReinitStates(target string, allowed []AllowedService, ob
 // per-dimension signatures for backwards-compat with operator
 // code that constructs sessions piecewise.
 type Allowlists struct {
-	Services      []AllowedService
-	Objects       []AllowedObject
-	DeleteObjects []AllowedDeleteObject
-	CreateObjects []AllowedCreateObject
-	ReinitStates  []AllowedReinitState
-	DCCStates     []AllowedDCCState
-	LSOOperations []AllowedLSOOperation
+	Services         []AllowedService
+	Objects          []AllowedObject
+	DeleteObjects    []AllowedDeleteObject
+	CreateObjects    []AllowedCreateObject
+	ReinitStates     []AllowedReinitState
+	DCCStates        []AllowedDCCState
+	LSOOperations    []AllowedLSOOperation
+	AtomicWriteFiles []AllowedAtomicWriteFile
 }
 
 // AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
@@ -873,6 +918,106 @@ func SessionMutationWithLSOOps(target string, al Allowlists) confirm.Mutation {
 	}
 }
 
+// AllowlistHashWithAWF is the v1.13 chunk-12 hash that adds
+// the per-AtomicWriteFile-instance allowlist on top of the
+// chunk-11 layer. Backwards-compat ladder:
+//
+//   - empty AtomicWriteFiles → equals AllowlistHashWithLSOOps
+//     (v1.13 chunk 11).
+//   - all-empty (no AWF + no LSO + ...) → equals AllowlistHash
+//     (v1.4).
+//
+// All v1.4 → v1.13-chunk-11 confirm-tokens remain valid for
+// operators who don't opt into per-file gating.
+//
+// Hash layout (when AtomicWriteFiles is non-empty):
+//
+//	AllowlistHashWithLSOOps output
+//	  || 0xF9 || (instance BE32) × sorted_AtomicWriteFiles
+//
+// Separator 0xF9 is below 0xFA (LSO ops), 0xFB (DCC), 0xFC
+// (reinit), 0xFD (creates), 0xFE (deletes), and 0xFF (per-
+// property objects). Per-entry is 4 bytes (the 22-bit instance
+// stored in a 4-byte big-endian word — the high 10 bits stay
+// zero since File has no namespace prefix).
+func AllowlistHashWithAWF(target string, al Allowlists) [32]byte {
+	if len(al.AtomicWriteFiles) == 0 {
+		return AllowlistHashWithLSOOps(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := sortAllowedLSOOps(al.LSOOperations)
+	sortedAWF := append([]AllowedAtomicWriteFile(nil), al.AtomicWriteFiles...)
+	sort.Slice(sortedAWF, func(i, j int) bool {
+		return sortedAWF[i].Instance < sortedAWF[j].Instance
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	if len(sortedLSO) > 0 {
+		writeLSOOpsBlock(h, sortedLSO)
+	}
+	writeAWFBlock(h, sortedAWF)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithAWF is the v1.13 chunk-12 mutation that
+// mixes every per-service dimension into the PayloadHash.
+// Empty AtomicWriteFiles → degrades to
+// SessionMutationWithLSOOps.
+func SessionMutationWithAWF(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithAWF(target, al),
+	}
+}
+
+// sortAllowedLSOOps returns a deterministically sorted copy
+// (by Operation ascending). Helper introduced alongside chunk
+// 12 so AllowlistHashWithAWF can reuse the chunk-11 sort
+// logic without re-stating it inline.
+func sortAllowedLSOOps(in []AllowedLSOOperation) []AllowedLSOOperation {
+	out := append([]AllowedLSOOperation(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Operation < out[j].Operation })
+	return out
+}
+
+// writeAWFBlock writes the per-File-instance block. Separator
+// 0xF9 (v1.13 chunk 12). Caller must have already established
+// len(sorted) > 0.
+func writeAWFBlock(h hashWriter, sorted []AllowedAtomicWriteFile) {
+	_, _ = h.Write([]byte{0xF9})
+	var u32 [4]byte
+	for _, a := range sorted {
+		binary.BigEndian.PutUint32(u32[:], a.Instance)
+		_, _ = h.Write(u32[:])
+	}
+}
+
 // sortAllowedDCCStates returns a deterministically sorted copy
 // (by State ascending). Helper introduced alongside chunk 11
 // so AllowlistHashWithLSOOps can reuse the chunk-10 sort logic
@@ -974,9 +1119,14 @@ type WriteGatedHandler struct {
 	// 27). See AllowedLSOOperation for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedLSOOperations []AllowedLSOOperation
-	Deriver              confirm.KeyDeriver
-	Auditor              confirm.Auditor
-	SessionConfirm       confirm.Confirm
+	// AllowedAtomicWriteFiles is the optional v1.13 chunk-12
+	// per-File-instance allowlist for AtomicWriteFile (service
+	// 7). See AllowedAtomicWriteFile for semantics. Empty list
+	// preserves service-choice-only gating for that service.
+	AllowedAtomicWriteFiles []AllowedAtomicWriteFile
+	Deriver                 confirm.KeyDeriver
+	Auditor                 confirm.Auditor
+	SessionConfirm          confirm.Confirm
 
 	authorised bool
 }
@@ -987,14 +1137,15 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithLSOOps(h.Target, Allowlists{
-		Services:      h.Allowed,
-		Objects:       h.AllowedObjects,
-		DeleteObjects: h.AllowedDeleteObjects,
-		CreateObjects: h.AllowedCreateObjects,
-		ReinitStates:  h.AllowedReinitStates,
-		DCCStates:     h.AllowedDCCStates,
-		LSOOperations: h.AllowedLSOOperations,
+	m := SessionMutationWithAWF(h.Target, Allowlists{
+		Services:         h.Allowed,
+		Objects:          h.AllowedObjects,
+		DeleteObjects:    h.AllowedDeleteObjects,
+		CreateObjects:    h.AllowedCreateObjects,
+		ReinitStates:     h.AllowedReinitStates,
+		DCCStates:        h.AllowedDCCStates,
+		LSOOperations:    h.AllowedLSOOperations,
+		AtomicWriteFiles: h.AllowedAtomicWriteFiles,
 	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
@@ -1107,7 +1258,8 @@ func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu 
 
 // objectListGatesAllow runs the object-tuple-style gates: per-
 // property writes (svc 15/16), per-target deletes (svc 11),
-// per-create-types (svc 10).
+// per-create-types (svc 10), per-File-instance AtomicWriteFile
+// (svc 7).
 func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedObjects) > 0 {
 		switch svc { //nolint:exhaustive // services not listed don't carry a per-property body the gate inspects
@@ -1131,7 +1283,33 @@ func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu
 			return false
 		}
 	}
+	if len(h.AllowedAtomicWriteFiles) > 0 && svc == wire.ConfirmedSvcAtomicWriteFile {
+		if !h.atomicWriteFileAllowed(apdu) {
+			return false
+		}
+	}
 	return true
+}
+
+// atomicWriteFileAllowed parses the AtomicWriteFile body and
+// reports whether the target File instance is in the
+// operator's allowlist. Fail-closed on unparseable BER or
+// when ObjectType != 10 (File).
+func (h *WriteGatedHandler) atomicWriteFileAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	inst, ok := wire.ParseAtomicWriteFile(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedAtomicWriteFiles {
+		if a.Instance == inst {
+			return true
+		}
+	}
+	return false
 }
 
 // stateListGatesAllow runs the enum-state-style gates: reinit

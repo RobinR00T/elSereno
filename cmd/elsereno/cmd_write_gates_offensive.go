@@ -517,7 +517,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var serviceChoices []uint
 	var objects []string
 	var deleteObjects []string
-	var createObjectTypes, reinitStates, dccStates, lsoOps []uint
+	var createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -533,6 +533,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				reinitStates:      reinitStates,
 				dccStates:         dccStates,
 				lsoOps:            lsoOps,
+				awfFiles:          awfFiles,
 			})
 		},
 	}
@@ -544,6 +545,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
+	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -553,11 +555,11 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 // arg so runBACnetDryRun stays under the gocyclo / funlen
 // thresholds as we add v1.13+ per-service dimensions.
 type bacnetDryRunInputs struct {
-	target, ppFile, emitFile                           string
-	serviceChoices                                     []uint
-	objects                                            []string
-	deleteObjects                                      []string
-	createObjectTypes, reinitStates, dccStates, lsoOps []uint
+	target, ppFile, emitFile                                     string
+	serviceChoices                                               []uint
+	objects                                                      []string
+	deleteObjects                                                []string
+	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 }
 
 // runBACnetDryRun parses every per-service allowlist, computes
@@ -571,13 +573,13 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithLSOOps(in.target, parsed)
+	mut := bacwrite.SessionMutationWithAWF(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
 	}
 	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
-		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates, in.lsoOps))
+		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates, in.lsoOps, in.awfFiles))
 	}
 	return nil
 }
@@ -615,14 +617,19 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 	if err != nil {
 		return bacwrite.Allowlists{}, err
 	}
+	awfFiles, err := parseBACnetAWFFiles(in.awfFiles)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
 	return bacwrite.Allowlists{
-		Services:      svcs,
-		Objects:       objs,
-		DeleteObjects: delObjs,
-		CreateObjects: creObjs,
-		ReinitStates:  reiSts,
-		DCCStates:     dccSts,
-		LSOOperations: lsoOps,
+		Services:         svcs,
+		Objects:          objs,
+		DeleteObjects:    delObjs,
+		CreateObjects:    creObjs,
+		ReinitStates:     reiSts,
+		DCCStates:        dccSts,
+		LSOOperations:    lsoOps,
+		AtomicWriteFiles: awfFiles,
 	}, nil
 }
 
@@ -650,6 +657,7 @@ func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, al bacw
 	cmd.Printf("ReinitStates: %s\n", canonBACnetReinitStates(al.ReinitStates))
 	cmd.Printf("DCCStates:    %s\n", canonBACnetDCCStates(al.DCCStates))
 	cmd.Printf("LSOOps:       %s\n", canonBACnetLSOOps(al.LSOOperations))
+	cmd.Printf("AWFFiles:     %s\n", canonBACnetAWFFiles(al.AtomicWriteFiles))
 	cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
@@ -792,6 +800,34 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetAWFFiles converts repeated --awf-file uint values
+// into AllowedAtomicWriteFile entries. Each value must fit in
+// 22 bits (BACnet object instance range).
+func parseBACnetAWFFiles(in []uint) ([]bacwrite.AllowedAtomicWriteFile, error) {
+	out := make([]bacwrite.AllowedAtomicWriteFile, 0, len(in))
+	for _, v := range in {
+		if v > 0x3FFFFF {
+			return nil, fmt.Errorf("--awf-file %d: must be 0-4194303 (22-bit BACnet instance)", v)
+		}
+		out = append(out, bacwrite.AllowedAtomicWriteFile{Instance: uint32(v & 0x3FFFFF)})
+	}
+	return out, nil
+}
+
+// canonBACnetAWFFiles prints the sorted list for dry-run.
+func canonBACnetAWFFiles(in []bacwrite.AllowedAtomicWriteFile) string {
+	if len(in) == 0 {
+		return "(none — AtomicWriteFile accepts any File instance when 7 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedAtomicWriteFile(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Instance < sorted[j].Instance })
+	for i, a := range sorted {
+		out[i] = fmt.Sprintf("File#%d", a.Instance)
+	}
+	return strings.Join(out, ", ")
 }
 
 // parseBACnetLSOOps converts repeated --lso-op uint values into
@@ -1849,54 +1885,16 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // v1.13 chunk 10 adds `dcc_states:` (state enum) for
 // DeviceCommunicationControl (svc 17). v1.13 chunk 11 adds
 // `lso_ops:` (operation enum) for LifeSafetyOperation (svc 27).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates, lsoOps []uint) proxyAllowFile {
+// v1.13 chunk 12 adds `awf_files:` (File instance) for
+// AtomicWriteFile (svc 7).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
 		ServiceChoices: canonUints(choices),
 	}
-	if len(objectsRaw) > 0 {
-		af.Objects = make([]proxyBACnetObject, 0, len(objectsRaw))
-		for _, raw := range objectsRaw {
-			o, err := parseBACnetObjectFlag(raw)
-			if err != nil {
-				continue
-			}
-			af.Objects = append(af.Objects, proxyBACnetObject{
-				Type:     o.ObjectType,
-				Instance: o.ObjectInstance,
-				Property: o.PropertyID,
-			})
-		}
-		sort.Slice(af.Objects, func(i, j int) bool {
-			if af.Objects[i].Type != af.Objects[j].Type {
-				return af.Objects[i].Type < af.Objects[j].Type
-			}
-			if af.Objects[i].Instance != af.Objects[j].Instance {
-				return af.Objects[i].Instance < af.Objects[j].Instance
-			}
-			return af.Objects[i].Property < af.Objects[j].Property
-		})
-	}
-	if len(deleteObjectsRaw) > 0 {
-		af.DeleteObjects = make([]proxyBACnetDeleteObject, 0, len(deleteObjectsRaw))
-		for _, raw := range deleteObjectsRaw {
-			d, err := parseBACnetDeleteObjectFlag(raw)
-			if err != nil {
-				continue
-			}
-			af.DeleteObjects = append(af.DeleteObjects, proxyBACnetDeleteObject{
-				Type:     d.ObjectType,
-				Instance: d.ObjectInstance,
-			})
-		}
-		sort.Slice(af.DeleteObjects, func(i, j int) bool {
-			if af.DeleteObjects[i].Type != af.DeleteObjects[j].Type {
-				return af.DeleteObjects[i].Type < af.DeleteObjects[j].Type
-			}
-			return af.DeleteObjects[i].Instance < af.DeleteObjects[j].Instance
-		})
-	}
+	af.Objects = canonAllowFileBACnetObjects(objectsRaw)
+	af.DeleteObjects = canonAllowFileBACnetDeleteObjects(deleteObjectsRaw)
 	if len(createObjectTypes) > 0 {
 		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(createObjectTypes)
 	}
@@ -1909,7 +1907,85 @@ func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjec
 	if len(lsoOps) > 0 {
 		af.LSOOps = canonAllowFileBACnetLSOOps(lsoOps)
 	}
+	if len(awfFiles) > 0 {
+		af.AWFFiles = canonAllowFileBACnetAWFFiles(awfFiles)
+	}
 	return af
+}
+
+// canonAllowFileBACnetObjects converts repeated CLI-form
+// "type=N;instance=M;property=P" strings to sorted YAML
+// proxyBACnetObject entries. Extracted so buildAllowFileBACnet
+// stays under the funlen threshold.
+func canonAllowFileBACnetObjects(in []string) []proxyBACnetObject {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetObject, 0, len(in))
+	for _, raw := range in {
+		o, err := parseBACnetObjectFlag(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, proxyBACnetObject{
+			Type:     o.ObjectType,
+			Instance: o.ObjectInstance,
+			Property: o.PropertyID,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		if out[i].Instance != out[j].Instance {
+			return out[i].Instance < out[j].Instance
+		}
+		return out[i].Property < out[j].Property
+	})
+	return out
+}
+
+// canonAllowFileBACnetDeleteObjects converts repeated CLI-form
+// "type=N;instance=M" strings to sorted YAML
+// proxyBACnetDeleteObject entries.
+func canonAllowFileBACnetDeleteObjects(in []string) []proxyBACnetDeleteObject {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetDeleteObject, 0, len(in))
+	for _, raw := range in {
+		d, err := parseBACnetDeleteObjectFlag(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, proxyBACnetDeleteObject{
+			Type:     d.ObjectType,
+			Instance: d.ObjectInstance,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		return out[i].Instance < out[j].Instance
+	})
+	return out
+}
+
+// canonAllowFileBACnetAWFFiles converts repeated raw uint File
+// instance values to YAML uint32 entries, dropping out-of-range
+// values + sorting ascending. Extracted so buildAllowFileBACnet
+// stays under the funlen threshold.
+func canonAllowFileBACnetAWFFiles(in []uint) []uint32 {
+	out := make([]uint32, 0, len(in))
+	for _, v := range in {
+		if v > 0x3FFFFF {
+			continue
+		}
+		out = append(out, uint32(v&0x3FFFFF))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 // canonAllowFileBACnetLSOOps converts repeated raw uint

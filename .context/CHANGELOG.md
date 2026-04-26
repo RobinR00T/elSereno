@@ -240,6 +240,42 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.13 chunk 12 landed.** BACnet
+  AtomicWriteFile (svc 7) per-File-instance allowlist.
+  Closes the file-overwrite surface: AtomicWriteFile is what
+  operators use to replace firmware blobs, configuration
+  files, and log files on the device — the same RPC that's
+  the typical vehicle for malicious firmware swaps. The
+  fileIdentifier in the request MUST be a File object
+  (ObjectType=10 per ASHRAE 135 §15.8); the parser fails
+  closed on any other ObjectType. The operator allowlists
+  specific File instance numbers; the access specifier
+  (stream vs record + byte offsets) is intentionally
+  ignored at gate level — per-byte-range scoping has no
+  operational use case in production. Typical pattern: when
+  File#1 is firmware and File#5 is a rotating log, allow
+  `--awf-file 5` to permit log writes + REFUSE firmware
+  overwrites. New CLI flag `--awf-file N` (22-bit
+  instance, repeatable); YAML field `awf_files:` (uint32
+  list). Wire parser at `internal/protocols/bacnet/wire/
+  atomicwritefile.go` — note that fileIdentifier in this
+  service uses APPLICATION tag 12 (`0xC4`) NOT the
+  context-tagged 0x0C form used elsewhere. New
+  `AllowlistHashWithAWF` (separator 0xF9) extends the
+  v1.13-chunk-11 ladder; backwards-compat ladder degrades
+  through chunks 11/10/9/8/7/v1.12-chunk-7/v1.4. Refactor:
+  introduced `sortAllowedLSOOps` helper; the `Allowlists`
+  bundle gains an `AtomicWriteFiles` field; `parseAllowlists`
+  adds the awf-file dispatch step. Also extracted
+  `registerProxyListenFlags` + 5 per-plugin flag-registration
+  helpers from `newProxyListenCmd` (which had grown over
+  funlen with all the v1.13 dimensions); extracted
+  `canonAllowFileBACnetObjects` + `canonAllowFileBACnetDeleteObjects`
+  from `buildAllowFileBACnet`. 13 new tests (4 hash ladder +
+  5 wire parser including ObjectType≠File fail-closed +
+  large instance + 4 e2e covering the canonical "firmware
+  refused, log allowed" safety invariant + non-File-type
+  fail-closed at the gate level).
 - 2026-04-26 — **v1.13 chunk 11 landed.** BACnet
   LifeSafetyOperation (svc 27) per-operation allowlist.
   Closes the most safety-critical BACnet service: silencing

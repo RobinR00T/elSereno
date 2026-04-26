@@ -61,20 +61,56 @@ The proxy runs until SIGINT / SIGTERM.`,
 			return runProxyListen(cmd, opts)
 		},
 	}
+	registerProxyListenFlags(cmd, &opts)
+	return cmd
+}
+
+// registerProxyListenFlags registers every CLI flag onto cmd.
+// Extracted from newProxyListenCmd so the parent function stays
+// under funlen as we keep adding per-service dimensions.
+func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp")
 	cmd.Flags().StringVar(&opts.target, "target", "", "upstream host:port")
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
+	registerProxyListenSIPFlags(cmd, opts)
+	registerProxyListenIAX2PBXFlags(cmd, opts)
+	registerProxyListenModbusFlags(cmd, opts)
+	registerProxyListenOPCUAFlags(cmd, opts)
+	registerProxyListenBACnetFlags(cmd, opts)
+	registerProxyListenCWMPFlags(cmd, opts)
+	registerProxyListenSessionFlags(cmd, opts)
+	addPassphraseFileFlag(cmd, &opts.ppFile)
+}
+
+// registerProxyListenSIPFlags adds the sip-specific flags.
+func registerProxyListenSIPFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.methods, "method", nil, "sip: gated methods to allow")
 	cmd.Flags().StringSliceVar(&opts.toPrefixes, "to-prefix", nil, "sip: optional INVITE destination allowlist (prefixes like +34, +44). Only applies to INVITE; other methods unaffected (v1.9+).")
 	cmd.Flags().StringSliceVar(&opts.aors, "aor", nil, "sip: optional REGISTER AOR allowlist (e.g. sip:alice@pbx.internal, repeatable). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	cmd.Flags().StringSliceVar(&opts.fromDomains, "from-domain", nil, "sip: optional From-header domain allowlist (e.g. internal.pbx, repeatable). Applies to every gated method; exact host match. Identity-spoof mitigation (v1.12+).")
+}
+
+// registerProxyListenIAX2PBXFlags adds iax2 + pbxhttp flags.
+func registerProxyListenIAX2PBXFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.subclasses, "subclass", nil, "iax2: gated subclasses to allow (NEW/REGREQ/AUTHREP/ACCEPT)")
 	cmd.Flags().StringSliceVar(&opts.allowEntries, "allow", nil, "pbxhttp: METHOD:/path pairs to allow")
+}
+
+// registerProxyListenModbusFlags adds the modbus flags.
+func registerProxyListenModbusFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form — any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
 	cmd.Flags().StringSliceVar(&opts.modbusWritesCLI, "write", nil, "modbus: structured allowlist entry unit=N;fc=M;start=A;end=B (repeatable). unit/start/end are optional (0 = any). Example: unit=1;fc=6;start=100;end=200. v1.12+.")
+}
+
+// registerProxyListenOPCUAFlags adds the opcua flags.
+func registerProxyListenOPCUAFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.services, "service", nil, "opcua: service TypeIDs to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().StringSliceVar(&opts.nodeIDs, "node-id", nil, "opcua: optional per-NodeId allowlist (repeatable). Accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring). Tightens the gate from service-TypeID to specific NodeIds; v1.12+ walks every WriteValue in a batched WriteRequest (v1.6 chunk 2 only checked the first).")
 	cmd.Flags().StringSliceVar(&opts.callMethods, "call-method", nil, "opcua: optional per-CallMethod allowlist (repeatable). Format: object=<NodeId>;method=<NodeId> where each NodeId is canonical-string form (ns=N;{i,s,g,b}=…). Restricts CallRequest to specific (object, method) pairs; exact match only. v1.12+.")
+}
+
+// registerProxyListenBACnetFlags adds the bacnet flags.
+func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15, v1.12+) and WritePropertyMultiple (svc 16, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Both gates walk every (object, property) tuple in the request. Other mutating services keep service-only gating.")
 	cmd.Flags().StringSliceVar(&opts.bacnetDeleteObjects, "delete-object", nil, "bacnet: optional per-target allowlist for DeleteObject (svc 11, v1.13+). Format: type=N;instance=M (repeatable, exact match). Object-level only.")
@@ -82,9 +118,20 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
 	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses.")
+	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
+}
+
+// registerProxyListenCWMPFlags adds the cwmp flags.
+func registerProxyListenCWMPFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
+}
+
+// registerProxyListenSessionFlags adds the session-control
+// flags (allow-file, accept-writes, confirm-target/token,
+// timeouts, max-conns).
+func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
@@ -92,8 +139,6 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().DurationVar(&opts.dialTimeout, "dial-timeout", 5*time.Second, "upstream dial timeout")
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
-	addPassphraseFileFlag(cmd, &opts.ppFile)
-	return cmd
 }
 
 type proxyListenOpts struct {
@@ -149,6 +194,13 @@ type proxyListenOpts struct {
 	// operations can be life-threatening on production
 	// fire-alarm panels.
 	bacnetLSOOps []uint
+	// bacnetAWFFiles holds the bacnet per-File-instance
+	// AtomicWriteFile allowlist (v1.13+). 22-bit File-object
+	// instance number (ObjectType implicitly 10 = File). When
+	// non-empty, AtomicWriteFile (svc 7) requests forward only
+	// when the parsed fileIdentifier's instance matches one of
+	// these.
+	bacnetAWFFiles []uint
 	// callMethods holds the opcua per-CallMethod allowlist in
 	// the CLI-friendly "object=<NodeId>;method=<NodeId>" form
 	// (v1.12+). When non-empty, a CallRequest MSG is forwarded
@@ -497,18 +549,23 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	awfFiles, err := parseBACnetAWFFiles(opts.bacnetAWFFiles)
+	if err != nil {
+		return nil, err
+	}
 	return &bacwrite.WriteGatedHandler{
-		Target:               opts.target,
-		Allowed:              allowed,
-		AllowedObjects:       objs,
-		AllowedDeleteObjects: delObjs,
-		AllowedCreateObjects: creObjs,
-		AllowedReinitStates:  reiSts,
-		AllowedDCCStates:     dccSts,
-		AllowedLSOOperations: lsoOps,
-		Deriver:              rt.Vault,
-		Auditor:              rt.Auditor,
-		SessionConfirm:       c,
+		Target:                  opts.target,
+		Allowed:                 allowed,
+		AllowedObjects:          objs,
+		AllowedDeleteObjects:    delObjs,
+		AllowedCreateObjects:    creObjs,
+		AllowedReinitStates:     reiSts,
+		AllowedDCCStates:        dccSts,
+		AllowedLSOOperations:    lsoOps,
+		AllowedAtomicWriteFiles: awfFiles,
+		Deriver:                 rt.Vault,
+		Auditor:                 rt.Auditor,
+		SessionConfirm:          c,
 	}, nil
 }
 

@@ -49,6 +49,7 @@ Two layers of allowlist:
 | Per-reinit-state | `--reinit-state N` | `ReinitializeDevice` (svc 20) | exact enum value (0..7 per ASHRAE 135 §16.4) | v1.13 |
 | Per-DCC-state | `--dcc-state N` | `DeviceCommunicationControl` (svc 17) | exact enableDisable enum value (0..2 per ASHRAE 135 §16.1) | v1.13 |
 | Per-LSO-op | `--lso-op N` | `LifeSafetyOperation` (svc 27) | exact BACnetLifeSafetyOperation enum value (0..9 per ASHRAE 135 §21) — **CRITICAL: silencing variants 1/2/3 can be lethal on fire-alarm panels** | v1.13 |
+| Per-AWF-file | `--awf-file N` | `AtomicWriteFile` (svc 7) | exact File-object instance number (ObjectType implicitly 10 = File per ASHRAE 135 §15.8) — useful when File#1 is firmware blob and File#5 is a log file | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -109,16 +110,27 @@ requestingProcessIdentifier ([0]), requestingSource ([1]) and
 optional objectIdentifier ([3]) fields are ignored at gate
 level.
 
-Other mutating services (7 AtomicWriteFile, 8 AddListElement,
-9 RemoveListElement) keep service-only gating in v1.13; per-
-object layers for those services are v1.14+ follow-ups (their
-request shapes differ).
+**AtomicWriteFile (svc 7)** is gated **per-File-instance**.
+The fileIdentifier in the request is always a BACnetObjectIdentifier
+with ObjectType=10 (File) per ASHRAE 135 §15.8 — anything else
+fails closed. The operator allowlists specific File-object
+instance numbers; the access specifier (stream vs record,
+offsets, byte counts) is ignored at gate level (per-byte-range
+scoping has no operational use case in production). Useful
+pattern: when File#1 is the device firmware blob and File#5 is
+a rotating log file, allow `--awf-file 5` to permit log
+overwrites + REFUSE firmware overwrites.
+
+Other mutating services (8 AddListElement, 9 RemoveListElement)
+keep service-only gating in v1.13; per-object layers for those
+services are v1.14+ follow-ups (their request shapes differ).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
   --target bms.internal:47808 \
-  --service-choice 10 --service-choice 11 --service-choice 15 \
-  --service-choice 17 --service-choice 20 --service-choice 27 \
+  --service-choice 7 --service-choice 10 --service-choice 11 \
+  --service-choice 15 --service-choice 17 --service-choice 20 \
+  --service-choice 27 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --delete-object "type=2;instance=99" \
@@ -126,6 +138,7 @@ elsereno-offensive write bacnet dry-run \
   --reinit-state 7 \
   --dcc-state 0 \
   --lso-op 7 --lso-op 8 --lso-op 9 \
+  --awf-file 5 \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 ```
@@ -134,7 +147,8 @@ Refusal is a BACnet `Abort-PDU` with reason `5` (security-error).
 YAML keys: `service_choices:`, `objects:` (`{type, instance,
 property}`), `delete_objects:` (`{type, instance}`),
 `create_object_types:` (`{type}`), `reinit_states:` (uint8 list),
-`dcc_states:` (uint8 list), `lso_ops:` (uint8 list).
+`dcc_states:` (uint8 list), `lso_ops:` (uint8 list),
+`awf_files:` (uint32 list).
 
 ## Scope
 

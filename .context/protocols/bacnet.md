@@ -78,6 +78,15 @@ ASN.1 BER encoding particulars used by the per-object gate:
   helper that walks the inline-length and extended-length
   forms uniformly so future BACnet services with similar
   envelope structures can reuse it.
+- AtomicWriteFile (svc 7) leads with an APPLICATION-tagged
+  BACnetObjectIdentifier (NOT context-tagged): `0xC4 PP PP PP
+  PP` where the 4 bytes are the standard packed
+  `(type<<22) | instance` form. The ObjectType MUST be 10
+  (File); anything else is malformed and fails closed. After
+  the fileIdentifier comes the access specifier CHOICE
+  (`[0]` streamAccess or `[1]` recordAccess, both
+  CONSTRUCTED) — the gate ignores the access specifier
+  entirely (no per-byte-range scoping).
 - WPM SEQUENCE-OF-WriteAccessSpecification structure:
   ```
   SEQUENCE {
@@ -160,6 +169,14 @@ Three layers of allowlist (cumulative):
    The requestingProcessIdentifier ([0]), requestingSource
    ([1]), and optional objectIdentifier ([3]) fields are all
    ignored at gate level. v1.13 chunk 11.
+8. **Per-AWF-files** (`--awf-file N`) — exact File instance
+   match. Applies to AtomicWriteFile (svc 7) only. The
+   fileIdentifier in the request MUST have ObjectType=10
+   (File); anything else fails closed. The access specifier
+   (stream vs record + offsets) is ignored at gate level.
+   Useful for distinguishing destructive overwrites: when
+   File#1 is the device firmware blob and File#5 is a log,
+   allow only File#5. v1.13 chunk 12.
 
 Chunk 10 introduced the `Allowlists` bundle struct (was
 `BACnetAllowlists` before linter caught the package stutter):
@@ -169,22 +186,21 @@ parameters every cycle. The pre-existing chunk-1..9 functions
 retain their per-dimension signatures for backwards-compat with
 operator code that constructs sessions piecewise.
 
-Other mutating services (svc 7 AtomicWriteFile, svc 8/9
-Add/RemoveListElement) keep service-only gating; per-object
-layers for those services are v1.14+ follow-ups (their
-request shapes differ).
+Other mutating services (svc 8/9 Add/RemoveListElement) keep
+service-only gating; per-object layers for those services
+are v1.14+ follow-ups (their request shapes differ).
 
 Refusal: BVLC-wrapped Abort-PDU with reason 5 (security-error).
 
-Hash ladder (`AllowlistHashWithLSOOps` →
-`AllowlistHashWithDCCStates` → `AllowlistHashWithReinitStates`
-→ `AllowlistHashWithCreateObjects` →
-`AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
+Hash ladder (`AllowlistHashWithAWF` →
+`AllowlistHashWithLSOOps` → `AllowlistHashWithDCCStates` →
+`AllowlistHashWithReinitStates` → `AllowlistHashWithCreateObjects`
+→ `AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
 → `AllowlistHash`): each successive empty dimension degrades to
-the prior-version hash. Separators: 0xFA (LSO ops), 0xFB (DCC
-states), 0xFC (reinit states), 0xFD (creates), 0xFE (deletes),
-0xFF (per-property objects). Operator confirm-tokens minted
-before v1.12 / v1.13 stay valid.
+the prior-version hash. Separators: 0xF9 (AWF files), 0xFA
+(LSO ops), 0xFB (DCC states), 0xFC (reinit states), 0xFD
+(creates), 0xFE (deletes), 0xFF (per-property objects).
+Operator confirm-tokens minted before v1.12 / v1.13 stay valid.
 
 ## REPL commands (planned F4 chunk 2)
 - See the generic REPL framework.
