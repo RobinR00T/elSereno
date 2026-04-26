@@ -240,6 +240,30 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.14 chunk 2 landed.** Target
+  canonicalisation across proxy listen + every dry-run
+  command. The operator UX hazard: write
+  `[0:0:0:0:0:0:0:1]:7547` in dry-run, write `[::1]:7547`
+  in `proxy listen` → byte-for-byte compare fails, hash
+  diverges, confirm-token mismatches. v1.14 chunk 2 closes
+  this gap by canonicalising target / listen / confirm-target
+  strings via the chunk-1 `netutil.CanonicalHostPort`. RFC
+  5952-canonical IPv6 forms (longform → short, lowercase
+  hex) make every equivalent input collapse to the same
+  string — hash + token match downstream. New helper
+  `canonicaliseTarget` in `cmd_write_gates_offensive.go`.
+  Wire-up: `runProxyListen` (target / listen / confirmTarget
+  after loadAllowFile + validate); 6 dry-run RunE handlers
+  (sip / iax2 / pbxhttp / modbus / opcua / cwmp);
+  `runBACnetDryRun`. Backwards-compat: IPv4 forms unchanged,
+  already-canonical IPv6 forms unchanged — only operators
+  using IPv6 longform / uppercase need to re-mint tokens.
+  9 new tests: `TestCanonicaliseTarget_IPv6FormsConverge`
+  (longform/shortform/uppercase variants → same canonical
+  string), `TestCanonicaliseTarget_HostnameUnchanged`
+  (localhost / hostnames pass through), per-plugin hash-
+  equivalence regressions for BACnet / OPC UA / SIP / IAX2 /
+  pbxhttp / CWMP.
 - 2026-04-26 — **v1.14 chunk 1 landed.** IPv6 foundation —
   the v1.14 cycle opens with the operator-requested
   cross-cutting IPv6 work (2026-04-25). New

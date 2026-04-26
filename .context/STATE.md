@@ -29,13 +29,20 @@ Snapshots:
   hash separator allocation).
 
 **v1.14 chunks landed (in-flight)**:
-- 1   *(pending commit)* — IPv6 foundation: new
-  `internal/netutil` package with `IsLoopbackHostPort` +
-  `CanonicalHostPort` + `ParseAddrPort` helpers. Replaces the
-  fragile substring-based loopback check in `cmd_serve.go`
-  (which missed IPv6 longform `[0:0:0:0:0:0:0:1]:port` and
-  zone-scoped `[::1%lo0]:port`). 18 unit tests cover every
-  loopback variant + canonicalisation cases.
+- 1   `8824885` — IPv6 foundation: `internal/netutil` package
+  with `IsLoopbackHostPort` + `CanonicalHostPort` +
+  `ParseAddrPort`. Replaces fragile substring-based loopback
+  check in `cmd_serve.go`. 18 unit tests.
+- 2   *(pending commit)* — Target canonicalisation across
+  proxy listen + every dry-run command. Operator who writes
+  `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in
+  `proxy listen` (or any other longform/uppercase IPv6
+  variant) now sees both canonicalise to the same string —
+  hash matches, confirm-token works. Wire-up in
+  `runProxyListen` (target/listen/confirmTarget) + 6 dry-run
+  commands (sip/iax2/pbxhttp/modbus/opcua/cwmp) +
+  runBACnetDryRun. 9 new tests covering the canonicalisation
+  + per-plugin SessionMutation hash equivalence.
 
 **v1.13 chunks landed (released as v1.13.0)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.

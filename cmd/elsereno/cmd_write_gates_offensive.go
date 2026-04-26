@@ -29,7 +29,35 @@ import (
 	sipwrite "local/elsereno/offensive/write/sip"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 )
+
+// canonicaliseTarget normalises a host:port string for IP-literal
+// equivalence (IPv6 longform → short, lowercase hex, etc. per
+// RFC 5952). Hostname forms and bare addresses without ports
+// pass through unchanged. Used at every CLI parse boundary
+// where a target string flows into a hash, byte-for-byte
+// compare, or YAML emit — so an operator who writes
+// `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in proxy
+// listen sees both canonicalise to the same value and the
+// confirm-token matches.
+//
+// v1.14 chunk 2: lifts the IPv6 foundation laid in chunk 1 into
+// the proxy + write-gate paths. IPv4 forms are unchanged
+// (already canonical for any practical input). Existing
+// operator confirm-tokens minted from IPv4 targets remain
+// valid; only operators who used IPv6 longform / uppercase
+// hex need to re-mint.
+func canonicaliseTarget(target string) string {
+	if target == "" {
+		return target
+	}
+	canon, err := netutil.CanonicalHostPort(target)
+	if err != nil {
+		return target
+	}
+	return canon
+}
 
 // displayNone is the canonical empty-list placeholder for
 // operator-facing dry-run output. Individual subcommands append
@@ -67,6 +95,7 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			if target == "" {
 				return fail(core.ExitUsage, errors.New("--target is required"))
 			}
+			target = canonicaliseTarget(target)
 			allowed := make([]sipwrite.AllowedMethod, 0, len(methods))
 			for _, m := range methods {
 				allowed = append(allowed, sipwrite.AllowedMethod{Method: m})
@@ -209,6 +238,7 @@ func newWriteIAX2DryRunCmd() *cobra.Command {
 			if target == "" {
 				return fail(core.ExitUsage, errors.New("--target is required"))
 			}
+			target = canonicaliseTarget(target)
 			allowed := make([]iaxwrite.AllowedSubclass, 0, len(subclasses))
 			for _, s := range subclasses {
 				sub, err := iaxSubclassByName(s)
@@ -270,6 +300,7 @@ path is case-sensitive (RFC 3986).`,
 			if target == "" {
 				return fail(core.ExitUsage, errors.New("--target is required"))
 			}
+			target = canonicaliseTarget(target)
 			allowed := make([]pbxwrite.AllowedWrite, 0, len(entries))
 			for _, e := range entries {
 				aw, err := parseAllowEntry(e)
@@ -452,6 +483,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 			if target == "" {
 				return fail(core.ExitUsage, errors.New("--target is required"))
 			}
+			target = canonicaliseTarget(target)
 			svcs := make([]opwrite.AllowedService, 0, len(services))
 			for _, s := range services {
 				if s > 0xFFFF {
@@ -571,6 +603,7 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if in.target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required"))
 	}
+	in.target = canonicaliseTarget(in.target)
 	parsed, err := parseAllowlists(in)
 	if err != nil {
 		return fail(core.ExitUsage, err)
@@ -1208,6 +1241,7 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			if target == "" {
 				return fail(core.ExitUsage, errors.New("--target is required"))
 			}
+			target = canonicaliseTarget(target)
 			allowed := make([]cwmpwrite.AllowedRPC, 0, len(rpcs))
 			for _, r := range rpcs {
 				allowed = append(allowed, cwmpwrite.AllowedRPC{Name: r})

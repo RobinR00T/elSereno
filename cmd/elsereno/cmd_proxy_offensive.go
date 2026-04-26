@@ -274,6 +274,14 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 	if err := validateProxyListenOpts(opts); err != nil {
 		return fail(core.ExitUsage, err)
 	}
+	// Canonicalise the IP-literal forms in target / listen /
+	// confirmTarget so an operator who wrote
+	// `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in
+	// proxy listen sees both normalise to the same value (token
+	// matches, byte-for-byte compare succeeds). v1.14 chunk 2.
+	opts.target = canonicaliseTarget(opts.target)
+	opts.listen = canonicaliseTarget(opts.listen)
+	opts.confirmTarget = canonicaliseTarget(opts.confirmTarget)
 
 	rt, err := newOffensiveRuntime(cmd, opts.ppFile)
 	if err != nil {
