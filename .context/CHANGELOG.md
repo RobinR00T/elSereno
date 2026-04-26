@@ -240,6 +240,32 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.14 chunk 1 landed.** IPv6 foundation —
+  the v1.14 cycle opens with the operator-requested
+  cross-cutting IPv6 work (2026-04-25). New
+  `internal/netutil` package with `IsLoopbackHostPort` +
+  `CanonicalHostPort` + `ParseAddrPort` helpers. Replaces the
+  substring-based loopback check in `cmd_serve.go` (which
+  missed IPv6 longform `[0:0:0:0:0:0:0:1]:port`, zone-scoped
+  `[::1%lo0]:port`, and IPv4 anywhere-in-127/8 like
+  `127.0.0.5:8787`). The new helper delegates to
+  `netip.ParseAddrPort` + `Addr.IsLoopback()`, which handle
+  every spec-conformant variant per RFC 1122 (IPv4) + RFC 5952
+  (IPv6). `CanonicalHostPort` normalises IPv6 longform → short,
+  lowercase hex, etc. — useful when the rest of the cycle adds
+  IP-allowlist deduplication. 18 unit tests cover IPv4
+  loopback (127.0.0.1, 127.0.0.5, 127.255.255.255), IPv6
+  shortform (`[::1]:port`), longform
+  (`[0:0:0:0:0:0:0:1]:port`), zone-scoped (`[::1%lo0]:port`),
+  hostname (`localhost:port`), unspecified (`[::]:port` —
+  NOT loopback), and various non-loopback / malformed
+  rejection cases.
+- 2026-04-26 — **v1.13.0 PUBLISHED on GitHub Releases**
+  (https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
+  9 assets (4 archives + 4 CycloneDX SBOMs + checksums.txt).
+  Tag GPG-signed with `ACE3B86BACACE7D6`. Free-tier flow
+  (goreleaser local + `gh release create`). Cycle-close
+  commit `eb6f383`; v1.13.0-released memory commit `8f4b220`.
 - 2026-04-26 — **v1.13 chunk 13 landed.** BACnet
   Add/RemoveListElement (svc 8/9) per-(object, property)
   allowlist. **CLOSES every BACnet mutating service** — all

@@ -14,6 +14,7 @@ import (
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/creds"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/web"
 	"local/elsereno/internal/web/stream"
 )
@@ -160,10 +161,10 @@ func unlockVault(cmd *cobra.Command, passphraseFile string) (*creds.Vault, error
 }
 
 // isLoopbackAddr returns true iff addr binds only to loopback.
+// Delegates to netutil.IsLoopbackHostPort which catches every
+// IPv6 variant (longform `[0:0:0:0:0:0:0:1]:port`, zone-scoped
+// `[::1%lo0]:port`, etc.) — the previous substring-based
+// implementation only matched `[::1]:` shortform.
 func isLoopbackAddr(addr string) bool {
-	return addr == "" ||
-		addr == "127.0.0.1:8787" ||
-		addr == "[::1]:8787" ||
-		addr == "localhost:8787" ||
-		(len(addr) > 10 && (addr[:10] == "127.0.0.1:" || addr[:6] == "[::1]:"))
+	return netutil.IsLoopbackHostPort(addr)
 }

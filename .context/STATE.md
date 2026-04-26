@@ -1,6 +1,6 @@
 ---
-phase: v1.13-released
-status: v1.13.0 published on GitHub Releases; 13-chunk cycle closed
+phase: v1.14-in-flight
+status: v1.13.0 released; v1.14 cycle opened with chunk 1 (IPv6 foundation)
 last-updated: 2026-04-26
 token-budget: 300
 ---
@@ -9,11 +9,10 @@ token-budget: 300
 
 **Phase**: **v1.13.0 published** on GitHub
 (https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
-9 release assets: 4 archives (darwin/linux × amd64/arm64) +
-4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
-`ACE3B86BACACE7D6`. **Closes every BACnet mutating service**
-(9/9: svc 7/8/9/10/11/15/16/17/20/27 with wire-level per-
-target-or-state allowlists).
+**v1.14 cycle in flight on `main`** — chunk 1 lands the IPv6
+foundation (operator-requested 2026-04-25). Theme: cross-cutting
+IPv6 audit + canonicalisation across the proxy, scan, inputs,
+write-gate paths.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating
@@ -29,7 +28,16 @@ Snapshots:
   (13-chunk v1.13 cycle — full breakdown + per-chunk delta +
   hash separator allocation).
 
-**v1.13 chunks landed (tag pending)**:
+**v1.14 chunks landed (in-flight)**:
+- 1   *(pending commit)* — IPv6 foundation: new
+  `internal/netutil` package with `IsLoopbackHostPort` +
+  `CanonicalHostPort` + `ParseAddrPort` helpers. Replaces the
+  fragile substring-based loopback check in `cmd_serve.go`
+  (which missed IPv6 longform `[0:0:0:0:0:0:0:1]:port` and
+  zone-scoped `[::1%lo0]:port`). 18 unit tests cover every
+  loopback variant + canonicalisation cases.
+
+**v1.13 chunks landed (released as v1.13.0)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
 - 1   `781ee50` — InternetDB bulk lookup (`file:` + stdin).
 - 2   `781ee50` — CWMP firmware pre-flight verifier
