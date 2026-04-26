@@ -40,14 +40,13 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-26)**: **v1.14.0 cycle closed** on
-`main` — 4 chunks (IPv6 foundation `internal/netutil` →
-target canonicalisation across proxy listen + dry-run →
-`scan --input internetdb:` IPv6 fixes incl. dispatcher
-regression → scope/dedupe IPv6 coverage). Tag + GitHub
-release pending operator. **v1.13.0 remains the latest GitHub
-release**. Snapshots:
-`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`,
+**Current phase (2026-04-26)**: **v1.14.0 published** on
+GitHub (https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0).
+4-chunk IPv6 cross-cutting cycle: new `internal/netutil`
+package, target canonicalisation across proxy listen + dry-
+run, `scan --input internetdb:` dispatcher fix + bracket-
+stripping, scope/dedupe contract pinned. 50+ new tests.
+Snapshot:
 `.context/snapshots/v1.14.0-ipv6-cross-cutting.md`.
 
 **Counts**: **17 protocol plugins** in the default build; **7

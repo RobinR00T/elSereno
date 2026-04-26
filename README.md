@@ -35,26 +35,21 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)**
-— BACnet completion + CWMP polish. **Closes every BACnet
-mutating service** — all 9 (svc 7/8/9/10/11/15/16/17/20/27)
-now have wire-level per-target-or-state allowlists. Plus CWMP
-firmware pre-flight verifier, RPC case-warning, over-TLS
-recipe; InternetDB bulk lookup; triage `utility` bucket. See
-[`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`](.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md)
+Latest release: **[v1.14.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0)**
+— IPv6 cross-cutting. New `internal/netutil` package +
+target canonicalisation at every CLI parse boundary + `scan
+--input internetdb:` dispatcher fix + IPv6 bracket-stripping
+ergonomics + scope/dedupe contract pinned. See
+[`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](.context/snapshots/v1.14.0-ipv6-cross-cutting.md)
 for the per-chunk breakdown.
 
-> **v1.14.0 cycle closed on `main`** (4 chunks; tag + GitHub
-> release pending operator). Operator-requested IPv6 cross-
-> cutting work: new `internal/netutil` package + target
-> canonicalisation at every CLI parse boundary + `scan --input
-> internetdb:` dispatcher fix + IPv6 bracket-stripping
-> ergonomics + scope/dedupe IPv6 contract tests. Build from
-> source until v1.14.0 is cut. See
-> [`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](.context/snapshots/v1.14.0-ipv6-cross-cutting.md).
+Previous release: [v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)
+— BACnet completion + CWMP polish (closes all 9 BACnet
+mutating services with wire-level per-target-or-state
+allowlists).
 
 ```sh
-VERSION=1.13.0
+VERSION=1.14.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -81,7 +76,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.13.0
+git tag -v v1.14.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 

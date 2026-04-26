@@ -3,15 +3,14 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.14.0 (ciclo cerrado, tag pendiente)
-· 2026-04-26
-**Compatible con binario**: v1.13.0+ (cierra TODOS los
-servicios mutating BACnet — svc 7/8/9/10/11/15/16/17/20/27).
-**v1.14.0** añade soporte IPv6 cross-cutting: nuevo paquete
-`internal/netutil`, canonicalización IPv6 en `--target` /
-`--listen` / `--confirm-target`, fix del dispatcher
-`scan --input internetdb:`, bracket-stripping para
-`[2001:db8::1]`, scope + dedupe IPv6 contract tests.
+**Versión del manual**: v1.14.0 · 2026-04-26
+**Compatible con binario**: v1.14.0+ (IPv6 cross-cutting:
+nuevo paquete `internal/netutil`, canonicalización IPv6 en
+`--target` / `--listen` / `--confirm-target`, fix del
+dispatcher `scan --input internetdb:`, bracket-stripping para
+`[2001:db8::1]`, scope + dedupe IPv6 contract tests). v1.13.0
+sigue cerrando TODOS los servicios mutating BACnet (svc 7/8/9/
+10/11/15/16/17/20/27).
 
 ---
 

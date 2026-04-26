@@ -1,17 +1,20 @@
 ---
-phase: v1.14-closed
-status: v1.13.0 released; v1.14.0 cycle closed (4 chunks); tag pending
+phase: v1.14-released
+status: v1.14.0 published on GitHub Releases; 4-chunk IPv6 cycle closed
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.14.0 cycle closed** on `main` — 4 chunks
-landed since v1.13.0. Theme: IPv6 cross-cutting (operator-
-requested 2026-04-25). Tag, push, GitHub release pending
-operator. **v1.13.0 remains the latest GitHub release** until
-v1.14.0 is cut.
+**Phase**: **v1.14.0 published** on GitHub
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0).
+9 release assets: 4 archives (darwin/linux × amd64/arm64) +
+4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
+`ACE3B86BACACE7D6`. **IPv6 cross-cutting cycle complete**:
+new `internal/netutil` package + canonicalisation at every
+CLI parse boundary + `scan --input internetdb:` dispatcher
+fix + scope/dedupe contract pinned.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating
