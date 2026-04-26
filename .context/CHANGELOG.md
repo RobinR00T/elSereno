@@ -240,6 +240,32 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.14 chunk 3 landed.** `scan --input
+  internetdb:` IPv6 fixes. Two real bugs: (a) the dispatcher
+  in `cmd_scan.go` had no case for `internetdb:` — the CLI
+  accepted the prefix but `readTargets` errored as "unknown
+  input kind" (regression introduced in v1.13 chunk 1 —
+  `readInternetDBTargets` was wired through
+  `readTargetsFromProvider` but the dispatcher case was
+  forgotten); (b) even when dispatched, `netip.ParseAddr`
+  rejects bracketed IPv6 literals like `[2001:db8::1]` so
+  `--input internetdb:[2001:db8::1]` always failed. Both
+  fixed. New helper `stripIPv6Brackets` at the CLI boundary
+  strips leading-`[` + trailing-`]` (mirrors the host:port
+  bracket convention operators already use for `--target` /
+  `--listen`). Applied to single-IP form
+  (`internetdb:<ip>`), file-bulk
+  (`internetdb:file:<path>` — bracketed lines tolerated), and
+  stdin-bulk (`internetdb:-`). The `cmd_scan.go` dispatcher's
+  "unknown input kind" error now mentions `internetdb:<ip>`
+  in the list of valid prefixes. 14 new tests:
+  TestStripIPv6Brackets (10 input shapes incl. unmatched-
+  bracket pass-through), TestReadInternetDBTargets_BracketedIPv6
+  (httptest-driven IPv6 round-trip — verifies the upstream
+  receives the canonical bare-literal path
+  `/2001:db8::1`), TestReadTargets_InternetDBDispatchWired
+  (regression guard: dispatcher must NOT return "unknown
+  input kind" for `internetdb:` prefix).
 - 2026-04-26 — **v1.14 chunk 2 landed.** Target
   canonicalisation across proxy listen + every dry-run
   command. The operator UX hazard: write

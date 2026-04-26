@@ -230,9 +230,12 @@ func readTargets(ctx context.Context, opts scanOpts) ([]core.Target, error) {
 	case strings.HasPrefix(opts.inputKind, "onyphe:"):
 		return readTargetsFromProvider(ctx, "onyphe",
 			strings.TrimPrefix(opts.inputKind, "onyphe:"), opts.apiCredsFile)
+	case strings.HasPrefix(opts.inputKind, "internetdb:"):
+		return readTargetsFromProvider(ctx, "internetdb",
+			strings.TrimPrefix(opts.inputKind, "internetdb:"), opts.apiCredsFile)
 	default:
 		return nil, fmt.Errorf(
-			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q>",
+			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>",
 			opts.inputKind)
 	}
 }

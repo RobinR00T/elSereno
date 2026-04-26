@@ -161,23 +161,46 @@ func readInternetDBTargets(ctx context.Context, query string) ([]core.Target, er
 		return lookupAllInternetDB(ctx, c, ips)
 	}
 
-	// Single IP.
-	return c.Lookup(ctx, query)
+	// Single IP. Strip IPv6 brackets so operators can type
+	// `--input internetdb:[2001:db8::1]` (mirroring the
+	// host:port-style bracket convention they use for --target).
+	return c.Lookup(ctx, stripIPv6Brackets(query))
 }
 
 // lookupAllInternetDB iterates the IP list with rate-limited
 // per-IP lookups. Errors on a single IP surface immediately —
 // operators usually want to know the rate limit hit them.
+//
+// Each IP is passed through stripIPv6Brackets so operators
+// who type `[2001:db8::1]` (the host:port-style bracket form,
+// for symmetry with --target / --listen) succeed alongside
+// the bare-literal `2001:db8::1`. v1.14 chunk 3.
 func lookupAllInternetDB(ctx context.Context, c *internetdb.Client, ips []string) ([]core.Target, error) {
 	out := make([]core.Target, 0, len(ips)*4)
 	for _, ip := range ips {
-		hits, err := c.Lookup(ctx, ip)
+		canon := stripIPv6Brackets(ip)
+		hits, err := c.Lookup(ctx, canon)
 		if err != nil {
 			return out, fmt.Errorf("internetdb bulk: %s: %w", ip, err)
 		}
 		out = append(out, hits...)
 	}
 	return out, nil
+}
+
+// stripIPv6Brackets returns s without leading "[" + trailing "]"
+// when both are present. The brackets aren't part of the IPv6
+// literal per RFC 5952 — they're a host:port-string convention
+// to disambiguate the address from the trailing port. Operators
+// who type `[2001:db8::1]` for `--input internetdb:` (mirroring
+// the bracket convention they use for `--target`) get the
+// expected behaviour without surprise. Anything else passes
+// through unchanged.
+func stripIPv6Brackets(s string) string {
+	if len(s) >= 2 && s[0] == '[' && s[len(s)-1] == ']' {
+		return s[1 : len(s)-1]
+	}
+	return s
 }
 
 // readInternetDBIPListFromFile opens path and parses it via
@@ -196,7 +219,9 @@ func readInternetDBIPListFromFile(path string) ([]string, error) {
 }
 
 // readInternetDBIPListFromReader reads one IP per line. Comments
-// (`#…`) + blank lines silently skipped.
+// (`#…`) + blank lines silently skipped. Bracketed IPv6 literals
+// (`[2001:db8::1]`) get the brackets stripped before parsing
+// downstream, mirroring the single-IP CLI form (v1.14 chunk 3).
 func readInternetDBIPListFromReader(r io.Reader) ([]string, error) {
 	scanner := bufio.NewScanner(r)
 	out := make([]string, 0, 64)
@@ -205,7 +230,7 @@ func readInternetDBIPListFromReader(r io.Reader) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		out = append(out, line)
+		out = append(out, stripIPv6Brackets(line))
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("internetdb: read IP list: %w", err)

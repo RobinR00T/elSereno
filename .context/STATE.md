@@ -33,16 +33,18 @@ Snapshots:
   with `IsLoopbackHostPort` + `CanonicalHostPort` +
   `ParseAddrPort`. Replaces fragile substring-based loopback
   check in `cmd_serve.go`. 18 unit tests.
-- 2   *(pending commit)* — Target canonicalisation across
-  proxy listen + every dry-run command. Operator who writes
-  `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in
-  `proxy listen` (or any other longform/uppercase IPv6
-  variant) now sees both canonicalise to the same string —
-  hash matches, confirm-token works. Wire-up in
-  `runProxyListen` (target/listen/confirmTarget) + 6 dry-run
-  commands (sip/iax2/pbxhttp/modbus/opcua/cwmp) +
-  runBACnetDryRun. 9 new tests covering the canonicalisation
-  + per-plugin SessionMutation hash equivalence.
+- 2   `0de0923` — Target canonicalisation across proxy listen +
+  every dry-run command (sip/iax2/pbxhttp/modbus/opcua/cwmp +
+  BACnet runner). 9 new tests.
+- 3   *(pending commit)* — `scan --input internetdb:` IPv6
+  fixes: (a) wire the missing dispatcher case in `cmd_scan.go`
+  (regression introduced in v1.13 chunk 1 — the CLI accepted
+  the prefix but `readTargets` had no case for it); (b) strip
+  IPv6 brackets at the CLI boundary so
+  `--input internetdb:[2001:db8::1]` works (mirrors the
+  `--target [2001:db8::1]:port` convention). 14 new tests
+  including a httptest-driven IPv6 round-trip + dispatcher
+  regression guard.
 
 **v1.13 chunks landed (released as v1.13.0)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
