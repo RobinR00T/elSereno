@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **v1.16 chunk 1 — CWMP TransferComplete authorisation
+  cross-reference**: closes the v1.15 chunk-1 observer half by
+  correlating the CPE → ACS TransferComplete envelope with the
+  prior Download authorisation that started the transfer. The
+  gate records (CommandKey, DownloadURL, AllowlistURL,
+  AllowlistSHA256, AuthorisedAt) at Download authorisation
+  time (FIFO-bounded by `PendingDownloadCap`, default 256) and
+  resolves the entry on TransferComplete. The resolved
+  cross-reference is exposed via the new
+  `TransferCompleteFields.Authorisation *DownloadAuthorisation`
+  field; `Outcome()` classifies the envelope into one of
+  `succeeded` / `failed` / `orphan_complete` / `orphan_fault`.
+  Default CLI observer enriches its stderr log line with
+  `outcome=`, `download_url=`, `allowlist_sha256=`, and
+  `authorised_at=` fields. Orphan rows surface CPE reports for
+  CommandKeys we never authorised (suspicious) for operator
+  alerting. Resolution is one-shot — a duplicate or replayed
+  TransferComplete sees `Authorisation=nil` on the second hit.
+  9 new tests across `transfercomplete_test.go` (E2E
+  Download → TransferComplete observer flows) and a new
+  `pendingdownload_test.go` (unit tests for cap eviction +
+  duplicate-key handling + extractor parser).
+
 ## [1.15.0] — 2026-04-26
 
 Five-chunk cycle covering loose-end closure on multiple

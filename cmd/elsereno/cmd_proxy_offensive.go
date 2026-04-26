@@ -667,7 +667,15 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 // log line for each TransferComplete envelope seen by the
 // CWMP gate. Format mirrors the existing ElSereno operator
 // stream: TIMESTAMP level=info msg=cwmp_transfer_complete
-// target=... command_key=... fault_code=... ...
+// target=... outcome=... command_key=... fault_code=... ...
+//
+// v1.16 chunk 1 enrichment: when the gate resolves the prior
+// Download authorisation that started this transfer, the log
+// line carries `outcome=succeeded|failed` plus
+// `download_url=` + `allowlist_sha256=` cross-references.
+// When no matching authorisation is found,
+// `outcome=orphan_complete|orphan_fault` and the cross-ref
+// fields are empty — operators should alert on orphan rows.
 //
 // Lightweight on purpose — runs synchronously on the proxy
 // request goroutine. Operators wanting structured ingest
@@ -675,15 +683,22 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 // pipeline.
 func defaultTransferCompleteObserver(target string) cwmpwrite.TransferCompleteObserver {
 	return func(f cwmpwrite.TransferCompleteFields) {
-		status := "ok"
-		if !f.IsSuccess() {
-			status = "fault"
+		var (
+			downloadURL string
+			allowSHA256 string
+			authoredAt  string
+		)
+		if f.Authorisation != nil {
+			downloadURL = f.Authorisation.DownloadURL
+			allowSHA256 = f.Authorisation.AllowlistSHA256
+			authoredAt = f.Authorisation.AuthorisedAt.Format(time.RFC3339Nano)
 		}
 		fmt.Fprintf(os.Stderr,
-			"%s level=info msg=cwmp_transfer_complete target=%q status=%s command_key=%q fault_code=%q fault_string=%q start=%q complete=%q\n",
+			"%s level=info msg=cwmp_transfer_complete target=%q outcome=%s command_key=%q fault_code=%q fault_string=%q start=%q complete=%q download_url=%q allowlist_sha256=%q authorised_at=%q\n",
 			time.Now().UTC().Format(time.RFC3339Nano),
-			target, status, f.CommandKey, f.FaultCode, f.FaultString,
+			target, f.Outcome(), f.CommandKey, f.FaultCode, f.FaultString,
 			f.StartTime, f.CompleteTime,
+			downloadURL, allowSHA256, authoredAt,
 		)
 	}
 }

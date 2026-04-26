@@ -5,6 +5,7 @@ package cwmp_test
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -222,5 +223,289 @@ func TestTransferCompleteFields_IsSuccess(t *testing.T) {
 				t.Errorf("IsSuccess() for %q = %v, want %v", code, f.IsSuccess(), want)
 			}
 		})
+	}
+}
+
+// TestTransferCompleteFields_Outcome — pin the v1.16 chunk-1
+// outcome classifier semantics. Crosses (IsSuccess, hasAuth) ×
+// the four resulting labels.
+func TestTransferCompleteFields_Outcome(t *testing.T) {
+	auth := &cwmpwrite.DownloadAuthorisation{CommandKey: "ck"}
+	cases := []struct {
+		name    string
+		fields  cwmpwrite.TransferCompleteFields
+		outcome string
+	}{
+		{
+			name:    "succeeded_with_auth",
+			fields:  cwmpwrite.TransferCompleteFields{FaultCode: "0", Authorisation: auth},
+			outcome: "succeeded",
+		},
+		{
+			name:    "failed_with_auth",
+			fields:  cwmpwrite.TransferCompleteFields{FaultCode: "9010", Authorisation: auth},
+			outcome: "failed",
+		},
+		{
+			name:    "orphan_complete_no_auth",
+			fields:  cwmpwrite.TransferCompleteFields{FaultCode: "0", Authorisation: nil},
+			outcome: "orphan_complete",
+		},
+		{
+			name:    "orphan_fault_no_auth",
+			fields:  cwmpwrite.TransferCompleteFields{FaultCode: "9012", Authorisation: nil},
+			outcome: "orphan_fault",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.fields.Outcome(); got != c.outcome {
+				t.Errorf("Outcome() = %q, want %q", got, c.outcome)
+			}
+		})
+	}
+}
+
+// soapDownloadWithKey builds a Download SOAP envelope with the
+// given CommandKey + URL. v1.16 chunk 1 helper.
+func soapDownloadWithKey(commandKey, url string) string {
+	return soapEnvelope(`<cwmp:Download>` +
+		`<CommandKey>` + commandKey + `</CommandKey>` +
+		`<FileType>1 Firmware Upgrade Image</FileType>` +
+		`<URL>` + url + `</URL>` +
+		`<FileSize>0</FileSize>` +
+		`<DelaySeconds>0</DelaySeconds>` +
+		`</cwmp:Download>`)
+}
+
+// driveSessionWithFirmwareAndObserver wires both an
+// AllowedFirmware allowlist (so Download is gate-allowed) AND
+// an OnTransferComplete observer, then drives the proxy. The
+// Download RPC is added to Allowed so the RPC gate doesn't
+// refuse it. Returns the client conn + observer snapshot fn.
+func driveSessionWithFirmwareAndObserver(t *testing.T, fws []cwmpwrite.AllowedFirmware) (net.Conn, func() []cwmpwrite.TransferCompleteFields) {
+	t.Helper()
+	target := "acs.test:7547"
+	allowed := []cwmpwrite.AllowedRPC{{Name: "Download"}}
+
+	// Token must be derived from the same SessionMutationWith*
+	// shape the handler uses at Authorise time.
+	mut := cwmpwrite.SessionMutationWithFirmware(target, allowed, nil, fws)
+	tok, err := confirm.ExpectedToken(mut, &fakeDeriver{key: []byte(testDeriverKey)})
+	if err != nil {
+		t.Fatalf("expected-token: %v", err)
+	}
+
+	var (
+		mu       sync.Mutex
+		captured []cwmpwrite.TransferCompleteFields
+	)
+	h := &cwmpwrite.WriteGatedHandler{
+		Target:          target,
+		Allowed:         allowed,
+		AllowedFirmware: fws,
+		Deriver:         &fakeDeriver{key: []byte(testDeriverKey)},
+		Auditor:         &fakeAuditor{},
+		SessionConfirm: confirm.Confirm{
+			AcceptsWrites: true,
+			ConfirmTarget: target,
+			ConfirmToken:  tok,
+		},
+		OnTransferComplete: func(f cwmpwrite.TransferCompleteFields) {
+			mu.Lock()
+			defer mu.Unlock()
+			captured = append(captured, f)
+		},
+	}
+	if err := h.Authorise(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	clientPipe, handlerClientSide := net.Pipe()
+	handlerUpstreamSide, originSide := net.Pipe()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancel()
+		_ = clientPipe.Close()
+		_ = handlerClientSide.Close()
+		_ = handlerUpstreamSide.Close()
+		_ = originSide.Close()
+	})
+	acs := &upstreamACS{}
+	go acs.run(originSide)
+	go func() { _ = h.Handle(ctx, handlerClientSide, handlerUpstreamSide) }()
+	snapshot := func() []cwmpwrite.TransferCompleteFields {
+		mu.Lock()
+		defer mu.Unlock()
+		out := make([]cwmpwrite.TransferCompleteFields, len(captured))
+		copy(out, captured)
+		return out
+	}
+	return clientPipe, snapshot
+}
+
+// TestObserveTransferComplete_ResolvesAuthorisationFromPriorDownload
+// — drive a Download → drive a TransferComplete with the same
+// CommandKey → observer sees fields.Authorisation populated
+// with the canonical URL + SHA256 from the AllowedFirmware
+// entry that authorised the Download. v1.16 chunk 1.
+func TestObserveTransferComplete_ResolvesAuthorisationFromPriorDownload(t *testing.T) {
+	url := "https://acs.example.com/firmware/router-1.2.3.bin"
+	wantSHA := "abc123def456abc123def456abc123def456abc123def456abc123def456abc1"
+	fws := []cwmpwrite.AllowedFirmware{{URL: url, SHA256: wantSHA}}
+	client, snap := driveSessionWithFirmwareAndObserver(t, fws)
+
+	// 1. Authorised Download.
+	if _, err := client.Write([]byte(postRequest(soapDownloadWithKey("fw-update-42", url)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	// 2. CPE reports TransferComplete success on same key.
+	if _, err := client.Write([]byte(postRequest(soapTransferComplete(
+		"fw-update-42", "0", "",
+		"2026-04-26T15:00:00Z", "2026-04-26T15:05:00Z",
+	)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	got := snap()
+	if len(got) != 1 {
+		t.Fatalf("observer got %d invocations, want 1", len(got))
+	}
+	f := got[0]
+	if f.Authorisation == nil {
+		t.Fatal("Authorisation = nil; want populated DownloadAuthorisation for matched CommandKey")
+	}
+	if f.Authorisation.CommandKey != "fw-update-42" {
+		t.Errorf("Authorisation.CommandKey = %q", f.Authorisation.CommandKey)
+	}
+	if f.Authorisation.DownloadURL != url {
+		t.Errorf("Authorisation.DownloadURL = %q, want %q", f.Authorisation.DownloadURL, url)
+	}
+	if f.Authorisation.AllowlistURL != url {
+		t.Errorf("Authorisation.AllowlistURL = %q, want %q", f.Authorisation.AllowlistURL, url)
+	}
+	if f.Authorisation.AllowlistSHA256 != wantSHA {
+		t.Errorf("Authorisation.AllowlistSHA256 = %q, want %q", f.Authorisation.AllowlistSHA256, wantSHA)
+	}
+	if f.Outcome() != "succeeded" {
+		t.Errorf("Outcome() = %q, want succeeded", f.Outcome())
+	}
+}
+
+// TestObserveTransferComplete_OrphanCompleteHasNoAuthorisation
+// — when the CPE reports TransferComplete for a CommandKey we
+// never authorised, observer fields.Authorisation is nil and
+// Outcome() returns "orphan_complete". Suspicious from an
+// operator perspective. v1.16 chunk 1.
+func TestObserveTransferComplete_OrphanCompleteHasNoAuthorisation(t *testing.T) {
+	client, _, snap := driveSessionWithObserver(t)
+	if _, err := client.Write([]byte(postRequest(soapTransferComplete(
+		"unknown-key-from-other-acs", "0", "",
+		"2026-04-26T15:00:00Z", "2026-04-26T15:05:00Z",
+	)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	got := snap()
+	if len(got) != 1 {
+		t.Fatalf("observer got %d invocations, want 1", len(got))
+	}
+	if got[0].Authorisation != nil {
+		t.Errorf("Authorisation = %#v; want nil for orphan complete", got[0].Authorisation)
+	}
+	if got[0].Outcome() != "orphan_complete" {
+		t.Errorf("Outcome() = %q, want orphan_complete", got[0].Outcome())
+	}
+}
+
+// TestObserveTransferComplete_FaultPathStillResolves — the gate
+// resolves the Authorisation regardless of FaultCode. Operator
+// authorised Download, CPE reports failure (e.g. 9010). The
+// observer sees Authorisation populated AND IsSuccess()=false.
+// v1.16 chunk 1.
+func TestObserveTransferComplete_FaultPathStillResolves(t *testing.T) {
+	url := "https://acs.example.com/firmware/router-1.2.3.bin"
+	fws := []cwmpwrite.AllowedFirmware{{URL: url, SHA256: "deadbeef" + strings.Repeat("0", 56)}}
+	client, snap := driveSessionWithFirmwareAndObserver(t, fws)
+
+	if _, err := client.Write([]byte(postRequest(soapDownloadWithKey("fw-fail-1", url)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	if _, err := client.Write([]byte(postRequest(soapTransferComplete(
+		"fw-fail-1", "9010", "Download failed: 404 Not Found",
+		"2026-04-26T15:00:00Z", "2026-04-26T15:00:30Z",
+	)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	got := snap()
+	if len(got) != 1 {
+		t.Fatalf("observer got %d invocations, want 1", len(got))
+	}
+	f := got[0]
+	if f.IsSuccess() {
+		t.Errorf("IsSuccess() = true, want false for FaultCode=9010")
+	}
+	if f.Authorisation == nil {
+		t.Fatal("Authorisation = nil; even on fault path the gate must resolve the prior Download")
+	}
+	if f.Authorisation.CommandKey != "fw-fail-1" {
+		t.Errorf("Authorisation.CommandKey = %q", f.Authorisation.CommandKey)
+	}
+	if f.Outcome() != "failed" {
+		t.Errorf("Outcome() = %q, want failed", f.Outcome())
+	}
+}
+
+// TestObserveTransferComplete_ResolveIsOneShot — once
+// resolveDownload pops a CommandKey, a second TransferComplete
+// with the same key gets nil Authorisation. Defensive test:
+// duplicate / replayed TransferComplete shouldn't double-
+// surface the same authorisation. v1.16 chunk 1.
+func TestObserveTransferComplete_ResolveIsOneShot(t *testing.T) {
+	url := "https://acs.example.com/firmware/router-1.2.3.bin"
+	fws := []cwmpwrite.AllowedFirmware{{URL: url}}
+	client, snap := driveSessionWithFirmwareAndObserver(t, fws)
+
+	if _, err := client.Write([]byte(postRequest(soapDownloadWithKey("ck-once", url)))); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readHTTPResponseSummary(t, client)
+	time.Sleep(50 * time.Millisecond)
+
+	for i := 0; i < 2; i++ {
+		if _, err := client.Write([]byte(postRequest(soapTransferComplete(
+			"ck-once", "0", "",
+			"2026-04-26T15:00:00Z", "2026-04-26T15:05:00Z",
+		)))); err != nil {
+			t.Fatal(err)
+		}
+		_, _, _ = readHTTPResponseSummary(t, client)
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	got := snap()
+	if len(got) != 2 {
+		t.Fatalf("observer got %d invocations, want 2 (one per TransferComplete)", len(got))
+	}
+	if got[0].Authorisation == nil {
+		t.Error("first TransferComplete: Authorisation = nil; want populated")
+	}
+	if got[1].Authorisation != nil {
+		t.Errorf("second TransferComplete: Authorisation = %#v; want nil after one-shot resolve", got[1].Authorisation)
+	}
+	if got[1].Outcome() != "orphan_complete" {
+		t.Errorf("second TransferComplete: Outcome() = %q, want orphan_complete", got[1].Outcome())
 	}
 }

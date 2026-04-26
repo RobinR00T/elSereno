@@ -71,6 +71,8 @@ import (
 	neturl "net/url"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"local/elsereno/offensive/confirm"
 )
@@ -542,6 +544,15 @@ type WriteGatedHandler struct {
 	// nil disables the observation hook (TransferComplete still
 	// passes through alwaysSafeRPCs as before).
 	OnTransferComplete TransferCompleteObserver
+	// PendingDownloadCap caps the number of in-flight Download
+	// authorisations the gate tracks for later TransferComplete
+	// correlation (v1.16 chunk 1). When a new Download arrives
+	// with the cap reached, the oldest pending entry is evicted.
+	// 0 = default 256, which is generous for any realistic
+	// change-window session (typical: 1-10 firmware pushes per
+	// session). Operators with very large push batches set this
+	// explicitly.
+	PendingDownloadCap int
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -551,7 +562,28 @@ type WriteGatedHandler struct {
 
 	// authorised flips true after a successful Authorise.
 	authorised bool
+
+	// pendingMu guards pendingDownloads + pendingOrder. The
+	// state is touched only at Download authorisation time and
+	// at TransferComplete time — both rare paths — so a plain
+	// mutex is fine.
+	pendingMu sync.Mutex
+	// pendingDownloads maps CommandKey → DownloadAuthorisation
+	// for in-flight Downloads waiting on their TransferComplete
+	// echo. v1.16 chunk 1.
+	pendingDownloads map[string]DownloadAuthorisation
+	// pendingOrder is FIFO insertion order, used for cap
+	// eviction (delete the oldest entry when at cap). Older
+	// CommandKeys are at the front; the slice is rewritten on
+	// resolve to preserve order without an O(N) walk per
+	// resolve (small N — bounded by PendingDownloadCap, default
+	// 256 — so the cost is acceptable).
+	pendingOrder []string
 }
+
+// defaultPendingDownloadCap is the cap applied when
+// PendingDownloadCap is 0. Generous for any realistic session.
+const defaultPendingDownloadCap = 256
 
 // Authorise opens the proxy session. Must be called before
 // Handle.
@@ -565,6 +597,154 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	}
 	h.authorised = true
 	return nil
+}
+
+// pendingCap returns the effective cap for in-flight Downloads.
+// PendingDownloadCap == 0 → defaultPendingDownloadCap.
+func (h *WriteGatedHandler) pendingCap() int {
+	if h.PendingDownloadCap > 0 {
+		return h.PendingDownloadCap
+	}
+	return defaultPendingDownloadCap
+}
+
+// recordDownload registers an authorised Download for later
+// TransferComplete correlation. Called from handleOne after
+// the RPC + (optional) firmware-URL gates pass and before the
+// request is forwarded upstream. v1.16 chunk 1.
+//
+// Skips bodies without a CommandKey: TR-069 §A.4.1.5 makes the
+// CommandKey optional, but without it we can't correlate the
+// later TransferComplete back to this entry, so there's
+// nothing useful to record. The Download still forwards
+// upstream; the audit-trail just lacks the cross-reference.
+//
+// When at PendingDownloadCap, evicts the oldest entry FIFO so
+// a long-running session can't unbounded-leak memory.
+func (h *WriteGatedHandler) recordDownload(body []byte) {
+	cmdKey := extractDownloadCommandKey(body)
+	if cmdKey == "" {
+		return
+	}
+	url := canonicaliseFirmwareURL(extractDownloadURL(body))
+
+	auth := DownloadAuthorisation{
+		CommandKey:   cmdKey,
+		DownloadURL:  url,
+		AuthorisedAt: time.Now().UTC(),
+	}
+	// If the firmware allowlist matched, attach the operator-
+	// pinned URL + SHA256 so the TransferComplete observer can
+	// surface them.
+	if url != "" {
+		for _, f := range h.AllowedFirmware {
+			canon := canonicaliseFirmwareURL(f.URL)
+			if canon == "" || canon != url {
+				continue
+			}
+			auth.AllowlistURL = canon
+			auth.AllowlistSHA256 = strings.ToLower(strings.TrimSpace(f.SHA256))
+			break
+		}
+	}
+
+	h.pendingMu.Lock()
+	defer h.pendingMu.Unlock()
+	if h.pendingDownloads == nil {
+		h.pendingDownloads = make(map[string]DownloadAuthorisation)
+	}
+	// Replace-in-place if the operator reused a CommandKey
+	// (rare but legal). Order tracking removes the old slot.
+	if _, dup := h.pendingDownloads[cmdKey]; dup {
+		h.pendingOrder = removeFirstOrderEntry(h.pendingOrder, cmdKey)
+	}
+	// Cap eviction: if the new entry would push past cap,
+	// evict the oldest.
+	for len(h.pendingDownloads) >= h.pendingCap() && len(h.pendingOrder) > 0 {
+		oldest := h.pendingOrder[0]
+		h.pendingOrder = h.pendingOrder[1:]
+		delete(h.pendingDownloads, oldest)
+	}
+	h.pendingDownloads[cmdKey] = auth
+	h.pendingOrder = append(h.pendingOrder, cmdKey)
+}
+
+// resolveDownload looks up + removes the pending Download
+// matching cmdKey. Returns (auth, true) on a hit, (zero,
+// false) when there's no matching record (orphan
+// TransferComplete). Removal is atomic with the lookup so a
+// retried TransferComplete can't accidentally surface the same
+// authorisation twice.
+func (h *WriteGatedHandler) resolveDownload(cmdKey string) (DownloadAuthorisation, bool) {
+	if cmdKey == "" {
+		return DownloadAuthorisation{}, false
+	}
+	h.pendingMu.Lock()
+	defer h.pendingMu.Unlock()
+	auth, ok := h.pendingDownloads[cmdKey]
+	if !ok {
+		return DownloadAuthorisation{}, false
+	}
+	delete(h.pendingDownloads, cmdKey)
+	h.pendingOrder = removeFirstOrderEntry(h.pendingOrder, cmdKey)
+	return auth, true
+}
+
+// removeFirstOrderEntry returns order with the first occurrence
+// of key removed (preserves the slice ordering). Allocates a new
+// slice; pendingOrder is small (≤ PendingDownloadCap entries)
+// so the cost is acceptable for the rare-path resolve.
+func removeFirstOrderEntry(order []string, key string) []string {
+	for i, v := range order {
+		if v != key {
+			continue
+		}
+		out := make([]string, 0, len(order)-1)
+		out = append(out, order[:i]...)
+		out = append(out, order[i+1:]...)
+		return out
+	}
+	return order
+}
+
+// extractDownloadCommandKey walks a Download SOAP body and
+// returns the value of `<CommandKey>` nested under the Download
+// element. Mirrors extractDownloadURL — same streaming xml
+// decoder pattern, returns "" on parse failure or absent
+// element. v1.16 chunk 1.
+func extractDownloadCommandKey(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	dec := xml.NewDecoder(strings.NewReader(string(body)))
+	insideDownload := false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return ""
+		}
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if elem.Name.Local == rpcNameDownload {
+				insideDownload = true
+				continue
+			}
+			if !insideDownload {
+				continue
+			}
+			if elem.Name.Local == "CommandKey" {
+				var v string
+				if err := dec.DecodeElement(&v, &elem); err != nil {
+					return ""
+				}
+				return strings.TrimSpace(v)
+			}
+		case xml.EndElement:
+			if elem.Name.Local == rpcNameDownload {
+				return ""
+			}
+		}
+	}
 }
 
 // ErrSessionNotAuthorised is returned by Handle when Authorise
@@ -628,15 +808,7 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 	}
 
 	if _, safe := alwaysSafeRPCs[rpc]; safe {
-		// v1.15 chunk 1: passive observation of TransferComplete
-		// — the CPE → ACS report after a Download finishes.
-		// Fires the operator's OnTransferComplete callback if
-		// set; forwards the request unchanged either way.
-		if rpc == rpcNameTransferComplete && h.OnTransferComplete != nil {
-			if fields, ok := extractTransferComplete(body); ok {
-				h.OnTransferComplete(fields)
-			}
-		}
+		h.observeIfTransferComplete(rpc, body)
 		return h.forwardBuffered(req, body, client, upstream, upReader)
 	}
 
@@ -665,7 +837,42 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 		}
 	}
 
+	// v1.16 chunk 1: when forwarding a Download, record its
+	// CommandKey + URL so the eventual TransferComplete echo can
+	// pick up the cross-reference. Records on both firmware-
+	// gated and RPC-only paths; AllowlistURL / AllowlistSHA256
+	// stay empty when the firmware gate was inactive (operator
+	// chose RPC-level granularity only).
+	if rpc == rpcNameDownload {
+		h.recordDownload(body)
+	}
+
 	return h.forwardBuffered(req, body, client, upstream, upReader)
+}
+
+// observeIfTransferComplete fires the v1.15 chunk-1 observer
+// hook when rpc == TransferComplete and an observer is wired,
+// resolving the v1.16 chunk-1 cross-reference back to a prior
+// Download authorisation. No-op when the RPC isn't
+// TransferComplete or when the operator didn't register an
+// observer.
+//
+// Extracted from handleOne to keep that function under
+// gocyclo. The forwarding path is unaffected; this helper only
+// touches the observer side-channel.
+func (h *WriteGatedHandler) observeIfTransferComplete(rpc string, body []byte) {
+	if rpc != rpcNameTransferComplete || h.OnTransferComplete == nil {
+		return
+	}
+	fields, ok := extractTransferComplete(body)
+	if !ok {
+		return
+	}
+	if auth, found := h.resolveDownload(fields.CommandKey); found {
+		authCopy := auth
+		fields.Authorisation = &authCopy
+	}
+	h.OnTransferComplete(fields)
 }
 
 // firmwareGateActive returns true when the per-firmware gate
@@ -916,6 +1123,54 @@ type TransferCompleteFields struct {
 	// CompleteTime is the xsd:dateTime when the CPE finished
 	// (or aborted) the transfer.
 	CompleteTime string
+	// Authorisation is the cross-reference to the original
+	// Download authorisation matching this TransferComplete's
+	// CommandKey, populated by the gate when the same CommandKey
+	// was seen in a prior Download in this session. nil when
+	// the CPE reports a TransferComplete for a CommandKey we
+	// never authorised (orphan complete — see Outcome()).
+	//
+	// v1.16 chunk 1: closes the v1.15 chunk-1 observer half by
+	// letting operators correlate firmware-push outcome with the
+	// allowlist entry that authorised it (v1.12 chunk 10).
+	Authorisation *DownloadAuthorisation
+}
+
+// DownloadAuthorisation captures the gate's record of an
+// authorised Download RPC. v1.16 chunk 1: persisted in-session
+// keyed by CommandKey so that the matching CPE → ACS
+// TransferComplete envelope can carry the cross-reference back
+// to the operator's audit trail.
+//
+// All fields are populated at Download authorisation time
+// (when the gate forwards the RPC upstream). When the
+// `AllowedFirmware` allowlist is non-empty, the matched entry's
+// canonical URL + SHA256 are recorded; otherwise (RPC-level-
+// only Download permission) AllowlistURL and AllowlistSHA256
+// are empty strings and only DownloadURL carries the operator
+// trace.
+type DownloadAuthorisation struct {
+	// CommandKey is the operator-supplied identifier echoed by
+	// the CPE in TransferComplete. Drives the lookup.
+	CommandKey string
+	// DownloadURL is the canonicalised URL extracted from the
+	// Download SOAP body — what the CPE actually fetches.
+	DownloadURL string
+	// AllowlistURL is the matching `AllowedFirmware.URL` (canon
+	// form). Empty when the firmware gate was not active for
+	// this session (operator allowed Download at the RPC level
+	// only).
+	AllowlistURL string
+	// AllowlistSHA256 is the operator-pinned SHA-256 from the
+	// matching allowlist entry. Empty when the firmware gate
+	// was not active OR when the operator chose to gate by URL
+	// without a hash pin.
+	AllowlistSHA256 string
+	// AuthorisedAt is wall-clock UTC at the moment the gate
+	// recorded the authorisation. Useful for surfaces that need
+	// "how long did the firmware push take" alongside the CPE-
+	// reported StartTime / CompleteTime.
+	AuthorisedAt time.Time
 }
 
 // IsSuccess reports whether the CPE's TransferComplete
@@ -923,6 +1178,38 @@ type TransferCompleteFields struct {
 // FaultCode is treated as failure (fail-closed).
 func (t TransferCompleteFields) IsSuccess() bool {
 	return t.FaultCode == "0"
+}
+
+// Outcome classifies the TransferComplete envelope against the
+// gate's record of prior Download authorisations. v1.16 chunk 1
+// extension to the v1.15 chunk 1 observer: lets operators
+// distinguish a healthy "operator authorised X, CPE reported
+// X done" from suspicious patterns (orphan complete, fault
+// path, etc.) at the audit / log layer.
+//
+// Returns one of:
+//
+//   - "succeeded"       — IsSuccess() && Authorisation != nil
+//   - "failed"          — !IsSuccess() && Authorisation != nil
+//   - "orphan_complete" — IsSuccess() && Authorisation == nil
+//   - "orphan_fault"    — !IsSuccess() && Authorisation == nil
+//
+// Orphan outcomes are operationally suspicious: the CPE
+// reported a transfer that never traversed our gate (lost
+// session continuity, replay attack, or a CPE that contacts
+// multiple ACSes in parallel). Operators should alert.
+func (t TransferCompleteFields) Outcome() string {
+	hasAuth := t.Authorisation != nil
+	if t.IsSuccess() {
+		if hasAuth {
+			return "succeeded"
+		}
+		return "orphan_complete"
+	}
+	if hasAuth {
+		return "failed"
+	}
+	return "orphan_fault"
 }
 
 // TransferCompleteObserver is the callback signature for
