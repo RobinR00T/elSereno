@@ -1,19 +1,17 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.14.0 released · v1.15.0 cycle closed (tag pending)
+Version  : v1.15.0 (loose-end closure cycle)
 Updated  : 2026-04-26
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
 
-v1.15.0 cycle closed on main (5 chunks; tag pending operator):
-loose-end closure across CWMP observability + scanning UX +
-threat-intel interop + audit concurrency + supervisor reload.
-Highlights: new `elsereno discover --auto <CIDR>` for
-point-and-shoot inventory; `--output-format stix` for MISP /
-OpenCTI / ThreatBus; CWMP TransferComplete observer fires on
-firmware-push outcome; audit log cross-process safe via flock;
-SIGHUP triggers exit 75 for supervisor restart.
+v1.15.0 loose-end closure: new `elsereno discover --auto
+<CIDR>` for point-and-shoot inventory; `--output-format stix`
+for MISP / OpenCTI / ThreatBus; CWMP TransferComplete observer
+fires on firmware-push outcome; audit log cross-process safe
+via flock; SIGHUP on proxy listen triggers exit 75 for
+supervisor restart.
 
 v1.14.0 IPv6 cross-cutting: new internal/netutil package;
 target canonicalisation across proxy listen + every dry-run;

@@ -1,18 +1,20 @@
 ---
-phase: v1.15-closed
-status: v1.14.0 released; v1.15.0 cycle closed (5 chunks); tag pending
+phase: v1.15-released
+status: v1.15.0 published on GitHub Releases; 5-chunk cycle closed
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.15.0 cycle closed** on `main` — 5 chunks
-landed since v1.14.0. Theme: loose-end closure across CWMP
-observability, scanning UX, threat-intel interop, audit
-concurrency, and supervisor-driven reload. Tag, push, GitHub
-release pending operator. **v1.14.0 remains the latest GitHub
-release** until v1.15.0 is cut.
+**Phase**: **v1.15.0 published** on GitHub
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0).
+9 release assets: 4 archives (darwin/linux × amd64/arm64) +
+4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
+`ACE3B86BACACE7D6`. **Loose-end closure cycle complete**:
+CWMP TransferComplete observer + `discover --auto <CIDR>` +
+STIX 2.1 export sink + audit cross-process flock + SIGHUP
+reload-style exit.
 
 **v1.15 chunks landed (in-flight)**:
 - 1   `476b404` — CWMP TransferComplete observer. 6 tests.

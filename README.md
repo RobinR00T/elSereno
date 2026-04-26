@@ -35,21 +35,17 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.14.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0)**
-— IPv6 cross-cutting. New `internal/netutil` package +
-target canonicalisation at every CLI parse boundary + `scan
---input internetdb:` dispatcher fix + IPv6 bracket-stripping
-ergonomics + scope/dedupe contract pinned. See
-[`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](.context/snapshots/v1.14.0-ipv6-cross-cutting.md)
+Latest release: **[v1.15.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0)**
+— Loose-end closure cycle: CWMP TransferComplete observer +
+`elsereno discover --auto <CIDR>` + STIX 2.1 export sink +
+audit cross-process flock + SIGHUP reload-style exit. See
+[`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`](.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md)
 for the per-chunk breakdown.
 
-> **v1.15.0 cycle closed on `main`** (5 chunks; tag + GitHub
-> release pending operator). Loose-end closure: CWMP
-> TransferComplete observer + `elsereno discover --auto
-> <CIDR>` + STIX 2.1 export sink + audit cross-process flock
-> + SIGHUP reload-style exit. Build from source until v1.15.0
-> is cut. See
-> [`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`](.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md).
+Previous release: [v1.14.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0)
+— IPv6 cross-cutting (new `internal/netutil` package + target
+canonicalisation across CLI parse boundaries + scope/dedupe
+IPv6 contract pinned).
 
 Previous release: [v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)
 — BACnet completion + CWMP polish (closes all 9 BACnet
@@ -57,7 +53,7 @@ mutating services with wire-level per-target-or-state
 allowlists).
 
 ```sh
-VERSION=1.14.0
+VERSION=1.15.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -84,7 +80,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.14.0
+git tag -v v1.15.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 

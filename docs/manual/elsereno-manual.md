@@ -3,17 +3,15 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.15.0 (ciclo cerrado, tag pendiente)
-· 2026-04-26
-**Compatible con binario**: v1.14.0+ (IPv6 cross-cutting).
-**v1.15.0** añade loose-end closure en 5 frentes: CWMP
+**Versión del manual**: v1.15.0 · 2026-04-26
+**Compatible con binario**: v1.15.0+ (loose-end closure: CWMP
 TransferComplete observer, `elsereno discover --auto <CIDR>`,
 STIX 2.1 export sink, audit cross-process flock, SIGHUP
-reload-style exit.
+reload-style exit).
 
 ---
 
-## Novedades v1.15.0 (5 chunks; tag pendiente)
+## Novedades v1.15.0
 
 Loose-end closure cycle:
 
