@@ -40,12 +40,15 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-26)**: **v1.15.0 published** on
-GitHub (https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0).
-5-chunk loose-end closure cycle: CWMP TransferComplete observer
-+ `discover --auto <CIDR>` + STIX 2.1 export + audit flock +
-SIGHUP reload-style exit. 27 new tests. Snapshot:
-`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`.
+**Current phase (2026-04-27)**: **v1.16 cycle closed on `main`,
+tag pending operator**. 4 chunks: CWMP TransferComplete
+authorisation cross-reference (closes v1.15 chunk-1 observer
+half), BACnet per-(type, instance) CreateObject (svc 10),
+BACnet per-(operation, type, instance) LifeSafetyOperation
+(svc 27), BACnet token-generation cookie (foundation for
+in-process reload). 34 new tests. Snapshot:
+`.context/snapshots/v1.16.0-cwmp-bacnet-refinements-and-token-generation.md`.
+v1.15.0 still the latest published release.
 
 **Counts**: **17 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,

@@ -1518,3 +1518,77 @@ One-liner per significant change to `.context/` or the codebase.
   lifesafetyoperation.go`, `cmd/elsereno/cmd_proxy_allowfile_
   offensive.go`) from "v1.14+ if asked" → "v1.16+ if asked".
   Builds (default + offensive) green; context-check ok.
+- 2026-04-26 — **v1.16 chunk 1 landed.** CWMP TransferComplete
+  authorisation cross-reference (`33284c8`). Closes the v1.15
+  chunk-1 observer half by correlating CPE → ACS
+  TransferComplete envelopes with the prior Download
+  authorisation. New `DownloadAuthorisation` struct exposed
+  on `TransferCompleteFields.Authorisation`; `Outcome()`
+  classifies into `succeeded` / `failed` / `orphan_complete` /
+  `orphan_fault`. Default CLI observer log line gains
+  `outcome=` / `download_url=` / `allowlist_sha256=` /
+  `authorised_at=` fields. FIFO-bounded
+  `pendingDownloads` map keyed by CommandKey, default cap 256.
+  Resolution is one-shot (replayed TC sees nil
+  Authorisation). 9 new tests across
+  `transfercomplete_test.go` (E2E flows) +
+  `pendingdownload_test.go` (unit tests).
+- 2026-04-26 — **v1.16 chunk 2 landed.** BACnet per-(type,
+  instance) CreateObject scoping refinement (`83a4b69`).
+  Refines the v1.13 chunk-8 per-type list with a parallel
+  per-(type, instance) list for the [1] objectIdentifier
+  CHOICE form. New separator `0xF7` +
+  `AllowlistHashWithCreateObjectInstances` +
+  `SessionMutationWithCreateObjectInstances`. Wire parser
+  extended via `ParseCreateObjectWithInstance` returning
+  `(objType, instance, hasInstance, ok)`. Match precedence:
+  per-instance match wins; falls back to per-type list.
+  Operators wanting strict per-instance scoping leave per-
+  type empty. CLI: `--create-object-instance type=N;
+  instance=M`. YAML round-trip via
+  `create_object_instances:`. Refactor: shared
+  `parseBACnetTypeInstance` helper unifies --delete-object +
+  --create-object-instance parsing (with named constants
+  `bacnetKeyType` / `bacnetKeyInstance`). 9 new tests
+  (`createobjectinstance_test.go`).
+- 2026-04-26 — **v1.16 chunk 3 landed.** BACnet
+  per-(operation, type, instance) LifeSafetyOperation
+  scoping refinement (`ed98c71`). Refines the v1.13 chunk-11
+  per-operation list with a per-target list for the optional
+  [3] objectIdentifier. Operationally important on fire-alarm
+  panels: "may unsilence LifeSafetyPoint #3 only" is much
+  tighter than "may unsilence anything on this device". New
+  separator `0xF6` + `AllowlistHashWithLSOTargets` +
+  `SessionMutationWithLSOTargets`. Wire parser extended via
+  `ParseLifeSafetyOperationWithTarget` returning
+  `(op, target, hasTarget, ok)`. Match precedence: per-target
+  match wins; falls back to per-op list. CLI: `--lso-target
+  op=N;type=N;instance=N`. YAML round-trip via
+  `lso_targets:`. Refactor: extracted `parseBACnetProxyOpts`
+  + `buildBACnetServiceList` from `buildBACnetHandler` to
+  keep it under funlen. 9 new tests (`lsotarget_test.go`)
+  including the "HOSTILE silence attempted on Reset-only
+  target" case.
+- 2026-04-27 — **v1.16 chunk 4 landed.** BACnet
+  token-generation cookie (`c3256da`) — foundation for
+  in-process allow-file reload. New optional `Generation
+  uint32` field on `bacnet.Allowlists` + `TokenGeneration
+  uint32` on `bacnet.WriteGatedHandler` folds into the
+  session hash via new separator `0xF5`. Operators bump the
+  generation when editing the allow-file; a stale confirm-
+  token (minted at the prior generation) is rejected at
+  `Authorise()` time. New `AllowlistHashWithGeneration` /
+  `SessionMutationWithGeneration` at the new top of the
+  BACnet ladder; `Generation=0` (default) preserves every
+  v1.4 → v1.16-chunk-3 confirm-token. CLI:
+  `--token-generation N` on `proxy listen --plugin bacnet`
+  + `write bacnet dry-run`. YAML round-trip via
+  `token_generation:` field. 7 new tests
+  (`tokengeneration_test.go`) covering hash distinctness,
+  determinism, and the E2E Authorise stale-rejected /
+  fresh-accepted / chunk-3-backwards-compat matrix. The
+  actual reload signal handler + atomic allowlist swap are
+  v1.17+ (chunk 4 ships only the cryptographic foundation).
+  Cross-protocol parity (sip / iax2 / pbxhttp / modbus /
+  opcua / cwmp gaining the field) follows incrementally if
+  operators ask.

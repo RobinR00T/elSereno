@@ -1,19 +1,40 @@
 ---
-phase: v1.15-released
-status: v1.15.0 published on GitHub Releases; 5-chunk cycle closed
-last-updated: 2026-04-26
+phase: v1.16-in-flight
+status: v1.16 cycle closed on `main` (4 chunks, tag pending operator)
+last-updated: 2026-04-27
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.15.0 published** on GitHub
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0).
+**Phase**: **v1.16 cycle closed on `main`** (4 chunks, tag
+pending operator decision). v1.15.0 remains the latest
+published release on
+https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+
+**v1.16 chunks landed (in-flight)**:
+- 1   `33284c8` — CWMP TransferComplete authorisation
+  cross-reference (closes v1.15 chunk-1 observer half).
+  9 tests.
+- 2   `83a4b69` — BACnet per-(type, instance) CreateObject
+  scoping refinement (separator 0xF7). 9 tests.
+- 3   `ed98c71` — BACnet per-(operation, type, instance)
+  LifeSafetyOperation scoping refinement (separator 0xF6).
+  9 tests.
+- 4   `c3256da` — BACnet token-generation cookie (separator
+  0xF5; foundation for in-process allow-file reload).
+  7 tests.
+
+Snapshot:
+`.context/snapshots/v1.16.0-cwmp-bacnet-refinements-and-token-generation.md`.
+
+**v1.15.0 published** on
+https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
 9 release assets: 4 archives (darwin/linux × amd64/arm64) +
 4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
-`ACE3B86BACACE7D6`. **Loose-end closure cycle complete**:
-CWMP TransferComplete observer + `discover --auto <CIDR>` +
-STIX 2.1 export sink + audit cross-process flock + SIGHUP
+`ACE3B86BACACE7D6`. Loose-end closure cycle: CWMP
+TransferComplete observer + `discover --auto <CIDR>` + STIX
+2.1 export sink + audit cross-process flock + SIGHUP
 reload-style exit.
 
 **v1.15 chunks landed (released as v1.15.0)**:
@@ -104,77 +125,13 @@ futuro se restaura billing, los workflows se pueden reactivar
 editando el `on:` stanza en cada `.github/workflows/*.yml`
 (los triggers originales quedan preservados en comentarios).
 
-**Shipped releases** (in git history):
-- v1.0.0 (2026-04-20) — scaffold + supply-chain baseline.
-- v1.0.1 (2026-04-21) — release-surface polish.
-- v1.1.0 (2026-04-21) — SSE + seccomp + OPC UA + wardial.
-- v1.2.0 (2026-04-22, local) — DB panels + OPC UA write gate
-  + Handle loops × 5 + dial backends + SLSA via Attestations
-  API + SyncFromFile + SQLite retired.
-- v1.3.0 (2026-04-22, local) — PBX discovery (SIP + IAX2 +
-  pbxhttp). 16 plugins default build; 15 PBX brand
-  fingerprints.
-- **v1.4.0** (2026-04-23, local) — offensive PBX write-gates
-  + BACnet UDP relay + TR-069/CWMP fingerprint. 17 plugins
-  default build; 4 offensive write-gated proxies (up from 2).
-  See `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`.
-- **v1.5.0** (2026-04-23, local) — `elsereno proxy listen`
-  CLI goes live. All six write-gated plugins runnable via a
-  single command (--plugin {sip|iax2|pbxhttp|modbus|opcua|
-  bacnet} + per-plugin allowlist flags). First end-to-end
-  test of the full proxy stack. See
-  `.context/snapshots/v1.5.0-proxy-listen.md`.
-- **v1.6.0** (2026-04-23, local) — `--allow-file` YAML loader
-  for the proxy listen command + OPC UA per-NodeId allowlist
-  (opt-in tightening of the v1.2 write-gate from service-
-  TypeID to specific Object_Identifier NodeIds). Backwards-
-  compatible with v1.2 tokens when AllowedNodeIDs is empty.
-  See `.context/snapshots/v1.6.0-allowfile-and-nodeid.md`.
-- **v1.7.0** (2026-04-23, local) — YAML round-trip emitter
-  (`write dry-run --emit-allow-file`) + new dry-runs for opcua
-  and bacnet (`--node-id ns=N;i=M` for OPC UA honours the
-  v1.6 per-NodeId extension). Write command surface now
-  symmetric across all five proxy-session-capable plugins
-  (sip / iax2 / pbxhttp / opcua / bacnet). Modbus proxy-
-  session dry-run is a v1.8 carry-over. See
-  `.context/snapshots/v1.7.0-yaml-round-trip.md`.
-- **v1.8.0** (2026-04-23, local) — FOFA (fofa.info) +
-  ZoomEye (zoomeye.org) attack-surface input clients.
-  Library-level, matches the Shodan / Censys pattern. 10
-  tests across the two packages. CLI wire-up decision is a
-  v1.9 carry-over. See `.context/snapshots/v1.8.0-fofa-
-  zoomeye-inputs.md`.
-- **v1.10.0** (2026-04-24, local) — SIP REGISTER AOR allowlist
-  (anti-registration-hijack). Twin of v1.9 chunk 5's INVITE
-  prefix gate. Library + CLI (`--aor`) + YAML (`aors:`) +
-  proxy-listen wiring + 15 tests. Hash backwards-compat
-  preserves v1.4 / v1.9 tokens. See
-  `.context/snapshots/v1.10.0-sip-aor.md`.
-- **v1.11.0** (2026-04-24, local) — CWMP offensive proxy.
-  SOAP RPC allowlist for ACS-CPE TR-069 traffic. 14 always-
-  safe read-only + protocol-flow RPCs; operator allowlists
-  write-capable ones (SetParameterValues, Reboot, Download,
-  FactoryReset, etc.). Refusal is TR-069 Annex A SOAP Fault
-  9001 "Request denied". 20 new tests. 7 offensive write-
-  gated proxies in the default build (up from 6). See
-  `.context/snapshots/v1.11.0-cwmp-offensive.md`.
-- **v1.12.0** (2026-04-25, local) — gates tightening + input
-  pagination. Ten-chunk cycle closing every per-object /
-  per-path / pagination carry-over accumulated v1.6→v1.11.
-  100 new tests. New: CWMP per-parameter-path + per-firmware-URL
-  gates; OPC UA multi-node walks (numeric + String/GUID/
-  ByteString) + per-CallMethod gate; Modbus structured writes
-  YAML round-trip; SIP from-domain identity-spoof gate; BACnet
-  per-WriteProperty (ASN.1 BER); pagination across 5 input
-  providers; internetdb (6th, no-key). See
-  `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`.
-- **v1.9.0** (2026-04-24, local) — 5 chunks: OPC UA NodeID
-  YAML round-trip, Modbus proxy-session dry-run, CLI wire-up
-  for Shodan/Censys/FOFA/ZoomEye via `scan --input`, ONYPHE
-  input client (5th provider), SIP INVITE To-URI prefix
-  allowlist for toll-fraud mitigation. 33 new tests. See
-  `.context/snapshots/v1.9.0-roundtrip-inputs-toll.md`.
-
+**Shipped releases** (per-cycle deep dives in
+`.context/snapshots/v1.<N>.0-*.md`; one-line summaries in
+`ROADMAP.md` "Shipped highlights"):
+v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8
+→ v1.9 → v1.10 → v1.11 → v1.12 → v1.13 → v1.14 → **v1.15**
+(latest published). v1.16 cycle closed on `main`, tag pending
+operator decision.
 **Counts now**:
 - 17 protocol plugins (default build): atg, atmodem, bacnet,
   banner, cwmp, dnp3, enip, fox, hartip, iax2, iec104, modbus,
@@ -190,18 +147,23 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 for the authoritative per-cycle commit mapping. All tags v1.0.0
 → v1.15.0 on `origin/main`.
 
-**Deferred to v1.16+** (post-v1.15 backlog):
-- CWMP TransferComplete SHA-256 mismatch audit. v1.15 chunk 1
-  added the observer; remaining half is comparing the reported
-  SHA-256 against the v1.12 chunk-10 allowlist metadata and
-  emitting an audit-on-mismatch event.
-- BACnet per-instance Create + per-object LSO scoping
-  refinements. v1.13 closed all 9 services at the natural
-  granularity; per-instance CreateObject + per-object LSO are
-  v1.16+ tightenings if operators ask.
-- In-process allow-file reload (alternative to v1.15 chunk-5
-  supervisor-restart pattern). Would require a token-
-  generation cookie scheme.
+**Deferred to v1.17+** (post-v1.16 backlog):
+- **In-process allow-file reload — signal handler half**.
+  v1.16 chunk 4 ships the cryptographic foundation
+  (token-generation cookie); the SIGUSR1 signal handler,
+  atomic allowlist swap, and control-plane confirm-token
+  delivery are still pending. The supervisor-restart pattern
+  (v1.15 chunk 5) remains the operational option until this
+  lands.
+- **Cross-protocol token-generation parity**. Only BACnet has
+  the `Generation` field after v1.16 chunk 4. Cross-protocol
+  symmetry (sip / iax2 / pbxhttp / modbus / opcua / cwmp)
+  follows incrementally if operators ask.
+- **CWMP TransferComplete async firmware re-fetch**. v1.16
+  chunk 1 surfaces the allowlist SHA-256 alongside the CPE's
+  report; true on-wire SHA-256 verification post-flash would
+  need an out-of-band fetch + verify (v1.13 chunk 2's
+  `verify-firmware` already does this pre-flight).
 - macOS sandbox via `sandbox_init(3)`.
 - 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
   Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
