@@ -524,6 +524,24 @@ type WriteGatedHandler struct {
 	// Empty list restores v1.12-chunk-9 behaviour (Download
 	// gated only at RPC level).
 	AllowedFirmware []AllowedFirmware
+	// OnTransferComplete is the optional v1.15 chunk-1 hook for
+	// the CPE → ACS TransferComplete RPC. When set, the gate
+	// parses the SOAP envelope to extract CommandKey + FaultStruct
+	// + StartTime / CompleteTime and invokes the callback BEFORE
+	// forwarding the request unchanged. Invoked for both success
+	// (FaultCode == "0") and failure paths so operators can
+	// correlate the CPE's report with the prior Download
+	// authorisation (which they audited via EventOffWrite).
+	//
+	// The callback runs synchronously on the proxy's request
+	// goroutine — keep it cheap (the typical implementation
+	// emits a structured log line + Prometheus counter and
+	// returns). Errors inside the callback are silently swallowed
+	// to keep the gate forwarding deterministic.
+	//
+	// nil disables the observation hook (TransferComplete still
+	// passes through alwaysSafeRPCs as before).
+	OnTransferComplete TransferCompleteObserver
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -610,6 +628,15 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 	}
 
 	if _, safe := alwaysSafeRPCs[rpc]; safe {
+		// v1.15 chunk 1: passive observation of TransferComplete
+		// — the CPE → ACS report after a Download finishes.
+		// Fires the operator's OnTransferComplete callback if
+		// set; forwards the request unchanged either way.
+		if rpc == rpcNameTransferComplete && h.OnTransferComplete != nil {
+			if fields, ok := extractTransferComplete(body); ok {
+				h.OnTransferComplete(fields)
+			}
+		}
 		return h.forwardBuffered(req, body, client, upstream, upReader)
 	}
 
@@ -842,6 +869,169 @@ const cwmpFaultInvalidParameterName = "9005"
 // places (firmwareGateActive, extractDownloadURL, fault writer).
 // Pulled out as a const to satisfy goconst.
 const rpcNameDownload = "Download"
+
+// rpcNameTransferComplete is the CPE → ACS RPC the chunk-1
+// observer hook keys on. The CPE sends this back after it
+// completes (or aborts) a Download / Upload / ScheduleDownload —
+// it carries the operator-assigned CommandKey + FaultStruct +
+// timing.
+const rpcNameTransferComplete = "TransferComplete"
+
+// TransferCompleteFields is the parsed shape of a CPE → ACS
+// TransferComplete SOAP envelope. The gate extracts these
+// fields before forwarding the request unchanged so the
+// operator's OnTransferComplete callback can audit /
+// correlate the firmware-push outcome with the prior Download
+// authorisation.
+//
+// All fields are strings (not parsed types) on purpose:
+//
+//   - The CommandKey is operator-supplied and free-form per
+//     TR-069 §A.4.1.5 (max 32 chars). No semantic parsing
+//     adds value.
+//   - FaultCode is a numeric string in TR-069 Annex A; "0"
+//     means success, anything else is a fault code. Keeping
+//     it as a string preserves leading zeros / vendor
+//     extensions and avoids losing info via int truncation.
+//   - StartTime / CompleteTime are ISO 8601 / xsd:dateTime
+//     strings. Operators want to surface these verbatim in
+//     log lines; parsing to time.Time would lose timezone
+//     fidelity for some CPE clocks.
+type TransferCompleteFields struct {
+	// CommandKey ties this report back to the operator-issued
+	// Download / Upload / ScheduleDownload that started the
+	// transfer. Empty when the CPE didn't echo the key (rare
+	// — most CPE stacks honour it).
+	CommandKey string
+	// FaultCode is "0" on success or a TR-069 Annex A fault
+	// code on failure (e.g. "9010" download failure, "9012"
+	// download checksum mismatch).
+	FaultCode string
+	// FaultString is the human-readable error from the CPE on
+	// failure. Empty on success.
+	FaultString string
+	// StartTime is the xsd:dateTime when the CPE began the
+	// transfer.
+	StartTime string
+	// CompleteTime is the xsd:dateTime when the CPE finished
+	// (or aborted) the transfer.
+	CompleteTime string
+}
+
+// IsSuccess reports whether the CPE's TransferComplete
+// indicates a successful transfer (FaultCode == "0"). Empty
+// FaultCode is treated as failure (fail-closed).
+func (t TransferCompleteFields) IsSuccess() bool {
+	return t.FaultCode == "0"
+}
+
+// TransferCompleteObserver is the callback signature for
+// observing TransferComplete envelopes. Invoked synchronously
+// on the proxy request goroutine; implementations should be
+// lightweight (typical: emit a structured log line + bump a
+// Prometheus counter, then return).
+type TransferCompleteObserver func(TransferCompleteFields)
+
+// extractTransferComplete parses the CPE → ACS TransferComplete
+// SOAP envelope and returns the structured fields. Uses the
+// streaming xml.Decoder pattern shared with extractDownloadURL
+// + extractParameterNames to avoid materialising the full SOAP
+// tree.
+//
+// Returns (fields, true) when the envelope contains a
+// recognisable <TransferComplete> element; (zero, false) when
+// the body is unparseable or the RPC element is missing.
+// Individual fields default to empty strings if their
+// elements are absent — callers handle that gracefully (e.g.
+// missing CommandKey is rare but valid; the operator just
+// gets a less-correlatable log entry).
+func extractTransferComplete(body []byte) (TransferCompleteFields, bool) {
+	if len(body) == 0 {
+		return TransferCompleteFields{}, false
+	}
+	dec := xml.NewDecoder(strings.NewReader(string(body)))
+	var fields TransferCompleteFields
+	insideTC := false
+	insideFault := false
+	saw := false
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			if !saw {
+				return TransferCompleteFields{}, false
+			}
+			return fields, true
+		}
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if elem.Name.Local == rpcNameTransferComplete {
+				insideTC = true
+				saw = true
+				continue
+			}
+			if !insideTC {
+				continue
+			}
+			if elem.Name.Local == "FaultStruct" {
+				insideFault = true
+				continue
+			}
+			if insideFault {
+				readTransferCompleteFaultField(dec, elem, &fields)
+				continue
+			}
+			readTransferCompleteTopField(dec, elem, &fields)
+		case xml.EndElement:
+			if elem.Name.Local == "FaultStruct" {
+				insideFault = false
+				continue
+			}
+			if elem.Name.Local == rpcNameTransferComplete {
+				return fields, true
+			}
+		}
+	}
+}
+
+// readTransferCompleteFaultField decodes one FaultCode /
+// FaultString element into fields. Extracted to keep
+// extractTransferComplete under gocyclo.
+func readTransferCompleteFaultField(dec *xml.Decoder, elem xml.StartElement, fields *TransferCompleteFields) {
+	switch elem.Name.Local {
+	case "FaultCode":
+		var v string
+		if err := dec.DecodeElement(&v, &elem); err == nil {
+			fields.FaultCode = strings.TrimSpace(v)
+		}
+	case "FaultString":
+		var v string
+		if err := dec.DecodeElement(&v, &elem); err == nil {
+			fields.FaultString = strings.TrimSpace(v)
+		}
+	}
+}
+
+// readTransferCompleteTopField decodes one CommandKey /
+// StartTime / CompleteTime element into fields.
+func readTransferCompleteTopField(dec *xml.Decoder, elem xml.StartElement, fields *TransferCompleteFields) {
+	switch elem.Name.Local {
+	case "CommandKey":
+		var v string
+		if err := dec.DecodeElement(&v, &elem); err == nil {
+			fields.CommandKey = strings.TrimSpace(v)
+		}
+	case "StartTime":
+		var v string
+		if err := dec.DecodeElement(&v, &elem); err == nil {
+			fields.StartTime = strings.TrimSpace(v)
+		}
+	case "CompleteTime":
+		var v string
+		if err := dec.DecodeElement(&v, &elem); err == nil {
+			fields.CompleteTime = strings.TrimSpace(v)
+		}
+	}
+}
 
 // writeInvalidFirmwareURLFault emits the v1.12 chunk-10 firmware-
 // URL refusal: SOAP Fault 9001 "Request denied" with a per-

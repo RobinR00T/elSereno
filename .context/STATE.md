@@ -1,6 +1,6 @@
 ---
-phase: v1.14-released
-status: v1.14.0 published on GitHub Releases; 4-chunk IPv6 cycle closed
+phase: v1.15-in-flight
+status: v1.14.0 released; v1.15 cycle opened with chunk 1 (CWMP TransferComplete observer)
 last-updated: 2026-04-26
 token-budget: 300
 ---
@@ -9,12 +9,21 @@ token-budget: 300
 
 **Phase**: **v1.14.0 published** on GitHub
 (https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0).
-9 release assets: 4 archives (darwin/linux × amd64/arm64) +
-4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
-`ACE3B86BACACE7D6`. **IPv6 cross-cutting cycle complete**:
-new `internal/netutil` package + canonicalisation at every
-CLI parse boundary + `scan --input internetdb:` dispatcher
-fix + scope/dedupe contract pinned.
+**v1.15 cycle in flight on `main`** — chunk 1 lands the CWMP
+TransferComplete observer (closes loose-end from v1.12 chunk
+10's firmware-pin work). Theme TBD (CWMP polish + v1.13
+loose-ends + ICS protocol additions).
+
+**v1.15 chunks landed (in-flight)**:
+- 1   *(pending commit)* — CWMP TransferComplete observer.
+  New `OnTransferComplete` callback on `WriteGatedHandler`
+  fires when CPE → ACS TransferComplete envelopes traverse
+  the gate; default observer emits structured stderr log
+  line per envelope (target / status / command_key /
+  fault_code / fault_string / start / complete). 6 new
+  tests cover success path / fault path / non-TC RPCs not
+  invoked / nil observer no-op / missing CommandKey
+  tolerance / IsSuccess() semantics.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

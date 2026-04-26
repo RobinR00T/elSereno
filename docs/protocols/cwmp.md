@@ -59,6 +59,41 @@ The optional `sha256=` field in `--firmware` is metadata —
 written to the YAML and the dry-run output for downstream
 verification (e.g. on a syslog of the `TransferComplete` reply).
 
+### TransferComplete observer (v1.15+)
+
+The CWMP gate exposes an opt-in observer hook that fires when
+the CPE → ACS `TransferComplete` envelope traverses the proxy.
+Every `proxy listen --plugin cwmp` enables it by default —
+each TransferComplete produces a structured stderr line:
+
+```
+2026-04-26T15:05:00.123Z level=info msg=cwmp_transfer_complete \
+  target="acs.example.com:7547" status=ok \
+  command_key="firmware-push-2026-04-26" \
+  fault_code="0" fault_string="" \
+  start="2026-04-26T15:00:00Z" complete="2026-04-26T15:05:00Z"
+```
+
+Status is `ok` when `FaultCode == "0"`; anything else reports
+`status=fault` with the CPE's `FaultCode` (e.g. `9010` download
+failure, `9012` checksum mismatch). The `command_key` field
+ties the report back to the operator-issued `Download` /
+`Upload` / `ScheduleDownload` RPC; correlate with the audit
+chain entry minted at Authorise time.
+
+The observer runs synchronously on the proxy request goroutine
+and never blocks the forward path. Custom embedders can replace
+the default with their own
+`cwmpwrite.TransferCompleteObserver` callback (e.g. emit
+to a Prometheus counter, push to a Slack channel, write to
+the audit DB directly).
+
+The gate cannot byte-verify the firmware against the
+operator's pinned `sha256` because TR-069 doesn't carry a
+hash in `TransferComplete` — but the observer surfaces the
+CPE's own success/failure report so a fleet-wide change
+window has a clear post-hoc trail.
+
 ### Pre-flight verifier (v1.13+)
 
 Operators can verify the URL contents BEFORE opening the change

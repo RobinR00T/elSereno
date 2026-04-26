@@ -240,6 +240,45 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.15 chunk 1 landed.** CWMP TransferComplete
+  observer. Closes the loose-end from v1.12 chunk 10's
+  firmware-pinning work: the operator pins
+  `{URL, SHA256}` on Download authorisation, but the gate
+  never observed the CPE's eventual report on whether the
+  download completed (success or failure). v1.15 chunk 1
+  adds a passive observer hook on the CWMP gate that fires
+  when a CPE → ACS TransferComplete envelope traverses the
+  proxy. The hook is opt-in via the
+  `WriteGatedHandler.OnTransferComplete` callback field;
+  when set, the gate parses the SOAP body to extract
+  CommandKey + FaultStruct (FaultCode + FaultString) +
+  StartTime + CompleteTime, then forwards the request
+  unchanged. Default CLI observer (in
+  `cmd_proxy_offensive.go`) emits a stderr structured log
+  line per envelope:
+  `TIMESTAMP level=info msg=cwmp_transfer_complete target=…
+  status=ok|fault command_key=… fault_code=… fault_string=…
+  start=… complete=…`. New `TransferCompleteFields` struct
+  with `IsSuccess()` helper (FaultCode == "0"). Wire parser
+  uses streaming xml.Decoder pattern shared with
+  extractDownloadURL + extractParameterNames — no full SOAP
+  tree materialisation. The library
+  `internetdb.Client`-style separation is preserved: the
+  CWMP gate doesn't make HTTP calls or compute SHA-256 itself
+  (TR-069 doesn't carry a hash in TransferComplete);
+  operator-side correlation between Download authorisation
+  and TransferComplete observation happens via the audit
+  chain (CommandKey field). 6 new tests:
+  TestObserveTransferComplete_SuccessPath (FaultCode=0,
+  observer fires, request forwards),
+  TestObserveTransferComplete_FaultPath (FaultCode=9010,
+  IsSuccess=false), TestObserveTransferComplete_NotInvokedForOtherRPCs
+  (Inform/Kicked/Fault don't trigger observer),
+  TestObserveTransferComplete_NilObserverNoOps (regression
+  guard for nil-check), TestObserveTransferComplete_MissingCommandKey
+  (older CPEs send empty/missing CommandKey — gate
+  tolerates), TestTransferCompleteFields_IsSuccess (pinned
+  semantics: exactly "0" → success).
 - 2026-04-26 — **v1.14 chunk 4 landed.** IPv6 coverage tests
   for scope + dedupe paths. Audit-only chunk: confirms the
   existing `netip.Addr` + `Unmap()` infrastructure correctly

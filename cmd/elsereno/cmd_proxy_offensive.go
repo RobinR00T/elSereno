@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -613,10 +614,40 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		Allowed:               allowed,
 		AllowedParameterPaths: paths,
 		AllowedFirmware:       firmware,
-		Deriver:               rt.Vault,
-		Auditor:               rt.Auditor,
-		SessionConfirm:        c,
+		// v1.15 chunk 1: passive observer for the CPE → ACS
+		// TransferComplete RPC. Operators see the firmware-push
+		// outcome alongside their dry-run authorisation in the
+		// proxy log stream.
+		OnTransferComplete: defaultTransferCompleteObserver(opts.target),
+		Deriver:            rt.Vault,
+		Auditor:            rt.Auditor,
+		SessionConfirm:     c,
 	}, nil
+}
+
+// defaultTransferCompleteObserver writes a structured stderr
+// log line for each TransferComplete envelope seen by the
+// CWMP gate. Format mirrors the existing ElSereno operator
+// stream: TIMESTAMP level=info msg=cwmp_transfer_complete
+// target=... command_key=... fault_code=... ...
+//
+// Lightweight on purpose — runs synchronously on the proxy
+// request goroutine. Operators wanting structured ingest
+// should pipe stderr through their existing zerolog/loki/etc.
+// pipeline.
+func defaultTransferCompleteObserver(target string) cwmpwrite.TransferCompleteObserver {
+	return func(f cwmpwrite.TransferCompleteFields) {
+		status := "ok"
+		if !f.IsSuccess() {
+			status = "fault"
+		}
+		fmt.Fprintf(os.Stderr,
+			"%s level=info msg=cwmp_transfer_complete target=%q status=%s command_key=%q fault_code=%q fault_string=%q start=%q complete=%q\n",
+			time.Now().UTC().Format(time.RFC3339Nano),
+			target, status, f.CommandKey, f.FaultCode, f.FaultString,
+			f.StartTime, f.CompleteTime,
+		)
+	}
 }
 
 // parseByteFlag validates that a --function / --service-choice
