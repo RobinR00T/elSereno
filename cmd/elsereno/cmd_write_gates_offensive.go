@@ -516,7 +516,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var serviceChoices []uint
 	var objects []string
-	var deleteObjects []string
+	var deleteObjects, listElements []string
 	var createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
@@ -534,6 +534,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				dccStates:         dccStates,
 				lsoOps:            lsoOps,
 				awfFiles:          awfFiles,
+				listElements:      listElements,
 			})
 		},
 	}
@@ -546,6 +547,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
 	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
+	cmd.Flags().StringSliceVar(&listElements, "list-element", nil, "optional: per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38). v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -558,7 +560,7 @@ type bacnetDryRunInputs struct {
 	target, ppFile, emitFile                                     string
 	serviceChoices                                               []uint
 	objects                                                      []string
-	deleteObjects                                                []string
+	deleteObjects, listElements                                  []string
 	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 }
 
@@ -573,13 +575,24 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithAWF(in.target, parsed)
+	mut := bacwrite.SessionMutationWithListElements(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
 	}
 	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
-		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates, in.lsoOps, in.awfFiles))
+		return emitAllowFile(cmd, p, buildAllowFileBACnet(buildAllowFileBACnetInputs{
+			Target:            in.target,
+			Choices:           in.serviceChoices,
+			ObjectsRaw:        in.objects,
+			DeleteObjectsRaw:  in.deleteObjects,
+			CreateObjectTypes: in.createObjectTypes,
+			ReinitStates:      in.reinitStates,
+			DCCStates:         in.dccStates,
+			LSOOps:            in.lsoOps,
+			AWFFiles:          in.awfFiles,
+			ListElementsRaw:   in.listElements,
+		}))
 	}
 	return nil
 }
@@ -621,6 +634,10 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 	if err != nil {
 		return bacwrite.Allowlists{}, err
 	}
+	listEls, err := parseBACnetListElementFlags(in.listElements)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
 	return bacwrite.Allowlists{
 		Services:         svcs,
 		Objects:          objs,
@@ -630,6 +647,7 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 		DCCStates:        dccSts,
 		LSOOperations:    lsoOps,
 		AtomicWriteFiles: awfFiles,
+		ListElements:     listEls,
 	}, nil
 }
 
@@ -658,6 +676,7 @@ func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, al bacw
 	cmd.Printf("DCCStates:    %s\n", canonBACnetDCCStates(al.DCCStates))
 	cmd.Printf("LSOOps:       %s\n", canonBACnetLSOOps(al.LSOOperations))
 	cmd.Printf("AWFFiles:     %s\n", canonBACnetAWFFiles(al.AtomicWriteFiles))
+	cmd.Printf("ListElements: %s\n", canonBACnetListElements(al.ListElements))
 	cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
@@ -800,6 +819,71 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetListElementFlags parses --list-element entries
+// (same shape as --object: type=N;instance=M;property=P) into
+// AllowedListElement tuples.
+func parseBACnetListElementFlags(in []string) ([]bacwrite.AllowedListElement, error) {
+	out := make([]bacwrite.AllowedListElement, 0, len(in))
+	for _, raw := range in {
+		// Reuse the --object parser since the tuple shape is
+		// identical (type, instance, property).
+		o, err := parseBACnetObjectFlag(raw)
+		if err != nil {
+			// Re-emit the error with the --list-element prefix
+			// so operators see the right flag name in the error.
+			return nil, fmt.Errorf("--list-element %q: %w", raw, err)
+		}
+		// Identical struct fields — straight conversion.
+		out = append(out, bacwrite.AllowedListElement(o))
+	}
+	return out, nil
+}
+
+// canonBACnetListElements prints the sorted list for dry-run.
+// Reuses formatBACnetTupleList by adapting AllowedListElement
+// into the shared (T, I, P) shape.
+func canonBACnetListElements(in []bacwrite.AllowedListElement) string {
+	tuples := make([]bacnetTuple, len(in))
+	for i, e := range in {
+		tuples[i] = bacnetTuple{T: e.ObjectType, I: e.ObjectInstance, P: e.PropertyID}
+	}
+	return formatBACnetTupleList(tuples, "(none — Add/RemoveListElement accept any (object, property) when 8/9 are in services)")
+}
+
+// bacnetTuple is the canonical (Type, Instance, Property)
+// shape shared between AllowedObject and AllowedListElement
+// for the canon-list formatters. Lets the dupl-detector see
+// one body instead of two near-identical ones.
+type bacnetTuple struct {
+	T uint16
+	I uint32
+	P uint32
+}
+
+// formatBACnetTupleList sorts (T, I, P) tuples ascending +
+// prints them comma-separated as "type=N;instance=M;property=P".
+// Returns emptyMsg when in is empty.
+func formatBACnetTupleList(in []bacnetTuple, emptyMsg string) string {
+	if len(in) == 0 {
+		return emptyMsg
+	}
+	sorted := append([]bacnetTuple(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].T != sorted[j].T {
+			return sorted[i].T < sorted[j].T
+		}
+		if sorted[i].I != sorted[j].I {
+			return sorted[i].I < sorted[j].I
+		}
+		return sorted[i].P < sorted[j].P
+	})
+	out := make([]string, len(sorted))
+	for i, t := range sorted {
+		out[i] = fmt.Sprintf("type=%d;instance=%d;property=%d", t.T, t.I, t.P)
+	}
+	return strings.Join(out, ", ")
 }
 
 // parseBACnetAWFFiles converts repeated --awf-file uint values
@@ -1021,25 +1105,14 @@ func canonBACnetDeleteObjects(in []bacwrite.AllowedDeleteObject) string {
 }
 
 // canonBACnetObjects prints the sorted list for dry-run output.
+// Reuses formatBACnetTupleList for symmetry with chunk-13
+// canonBACnetListElements.
 func canonBACnetObjects(in []bacwrite.AllowedObject) string {
-	if len(in) == 0 {
-		return "(none — WriteProperty accepts any object when 15 is in services)"
+	tuples := make([]bacnetTuple, len(in))
+	for i, o := range in {
+		tuples[i] = bacnetTuple{T: o.ObjectType, I: o.ObjectInstance, P: o.PropertyID}
 	}
-	out := make([]string, len(in))
-	sorted := append([]bacwrite.AllowedObject(nil), in...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].ObjectType != sorted[j].ObjectType {
-			return sorted[i].ObjectType < sorted[j].ObjectType
-		}
-		if sorted[i].ObjectInstance != sorted[j].ObjectInstance {
-			return sorted[i].ObjectInstance < sorted[j].ObjectInstance
-		}
-		return sorted[i].PropertyID < sorted[j].PropertyID
-	})
-	for i, o := range sorted {
-		out[i] = fmt.Sprintf("type=%d;instance=%d;property=%d", o.ObjectType, o.ObjectInstance, o.PropertyID)
-	}
-	return strings.Join(out, ", ")
+	return formatBACnetTupleList(tuples, "(none — WriteProperty accepts any object when 15 is in services)")
 }
 
 // ---- elsereno write cwmp -------------------------------------
@@ -1876,71 +1949,112 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 }
 
 // buildAllowFileBACnet builds the YAML for a BACnet proxy
-// session. v1.12 chunk 7 adds `objects:` (type/instance/property
-// per entry) for WriteProperty + WritePropertyMultiple. v1.13
-// chunk 7 adds `delete_objects:` (type/instance only) for
-// DeleteObject (svc 11). v1.13 chunk 8 adds `create_object_types:`
-// (type only) for CreateObject (svc 10). v1.13 chunk 9 adds
-// `reinit_states:` (state enum) for ReinitializeDevice (svc 20).
-// v1.13 chunk 10 adds `dcc_states:` (state enum) for
-// DeviceCommunicationControl (svc 17). v1.13 chunk 11 adds
-// `lso_ops:` (operation enum) for LifeSafetyOperation (svc 27).
-// v1.13 chunk 12 adds `awf_files:` (File instance) for
-// AtomicWriteFile (svc 7).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint) proxyAllowFile {
+// buildAllowFileBACnetInputs bundles the 9-dimensions input
+// to buildAllowFileBACnet so the function signature doesn't
+// keep growing. The struct mirrors the per-service dimensions
+// the operator passes via CLI flags.
+type buildAllowFileBACnetInputs struct {
+	Target                                                       string
+	Choices                                                      []uint
+	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw                []string
+	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles []uint
+}
+
+// buildAllowFileBACnet constructs the BACnet plugin's
+// proxyAllowFile YAML with every per-service dimension the
+// operator declared. v1.12 chunk 7 added `objects:`. v1.13
+// adds `delete_objects:` (chunk 7), `create_object_types:`
+// (chunk 8), `reinit_states:` (chunk 9), `dcc_states:` (chunk
+// 10), `lso_ops:` (chunk 11), `awf_files:` (chunk 12),
+// `list_elements:` (chunk 13).
+func buildAllowFileBACnet(in buildAllowFileBACnetInputs) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
-		Target:         target,
-		ServiceChoices: canonUints(choices),
+		Target:         in.Target,
+		ServiceChoices: canonUints(in.Choices),
 	}
-	af.Objects = canonAllowFileBACnetObjects(objectsRaw)
-	af.DeleteObjects = canonAllowFileBACnetDeleteObjects(deleteObjectsRaw)
-	if len(createObjectTypes) > 0 {
-		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(createObjectTypes)
+	af.Objects = canonAllowFileBACnetObjects(in.ObjectsRaw)
+	af.DeleteObjects = canonAllowFileBACnetDeleteObjects(in.DeleteObjectsRaw)
+	if len(in.CreateObjectTypes) > 0 {
+		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(in.CreateObjectTypes)
 	}
-	if len(reinitStates) > 0 {
-		af.ReinitStates = canonAllowFileBACnetReinitStates(reinitStates)
+	if len(in.ReinitStates) > 0 {
+		af.ReinitStates = canonAllowFileBACnetReinitStates(in.ReinitStates)
 	}
-	if len(dccStates) > 0 {
-		af.DCCStates = canonAllowFileBACnetDCCStates(dccStates)
+	if len(in.DCCStates) > 0 {
+		af.DCCStates = canonAllowFileBACnetDCCStates(in.DCCStates)
 	}
-	if len(lsoOps) > 0 {
-		af.LSOOps = canonAllowFileBACnetLSOOps(lsoOps)
+	if len(in.LSOOps) > 0 {
+		af.LSOOps = canonAllowFileBACnetLSOOps(in.LSOOps)
 	}
-	if len(awfFiles) > 0 {
-		af.AWFFiles = canonAllowFileBACnetAWFFiles(awfFiles)
+	if len(in.AWFFiles) > 0 {
+		af.AWFFiles = canonAllowFileBACnetAWFFiles(in.AWFFiles)
+	}
+	if len(in.ListElementsRaw) > 0 {
+		af.ListElements = canonAllowFileBACnetListElements(in.ListElementsRaw)
 	}
 	return af
 }
 
+// canonAllowFileBACnetListElements converts repeated CLI-form
+// "type=N;instance=M;property=P" strings to sorted YAML
+// proxyBACnetListElement entries. Reuses canonAllowFileBACnetTuples
+// for the parse-+-sort body (same shape as objects).
+func canonAllowFileBACnetListElements(in []string) []proxyBACnetListElement {
+	tuples := canonAllowFileBACnetTuples(in)
+	if len(tuples) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetListElement, len(tuples))
+	for i, t := range tuples {
+		out[i] = proxyBACnetListElement{Type: t.T, Instance: t.I, Property: t.P}
+	}
+	return out
+}
+
 // canonAllowFileBACnetObjects converts repeated CLI-form
 // "type=N;instance=M;property=P" strings to sorted YAML
-// proxyBACnetObject entries. Extracted so buildAllowFileBACnet
-// stays under the funlen threshold.
+// proxyBACnetObject entries. Reuses canonAllowFileBACnetTuples
+// so the chunk-13 list-element variant doesn't duplicate this
+// body.
 func canonAllowFileBACnetObjects(in []string) []proxyBACnetObject {
+	tuples := canonAllowFileBACnetTuples(in)
+	if len(tuples) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetObject, len(tuples))
+	for i, t := range tuples {
+		out[i] = proxyBACnetObject{Type: t.T, Instance: t.I, Property: t.P}
+	}
+	return out
+}
+
+// canonAllowFileBACnetTuples is the shared parse-+-sort helper
+// for chunk-7 (objects) + chunk-13 (list_elements) YAML
+// emitters. Both flag shapes use the same
+// "type=N;instance=M;property=P" syntax — this helper parses
+// each entry, drops malformed ones, and returns the deduped
+// sorted (T, I, P) tuples.
+func canonAllowFileBACnetTuples(in []string) []bacnetTuple {
 	if len(in) == 0 {
 		return nil
 	}
-	out := make([]proxyBACnetObject, 0, len(in))
+	out := make([]bacnetTuple, 0, len(in))
 	for _, raw := range in {
 		o, err := parseBACnetObjectFlag(raw)
 		if err != nil {
 			continue
 		}
-		out = append(out, proxyBACnetObject{
-			Type:     o.ObjectType,
-			Instance: o.ObjectInstance,
-			Property: o.PropertyID,
-		})
+		out = append(out, bacnetTuple{T: o.ObjectType, I: o.ObjectInstance, P: o.PropertyID})
 	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Type != out[j].Type {
-			return out[i].Type < out[j].Type
+		if out[i].T != out[j].T {
+			return out[i].T < out[j].T
 		}
-		if out[i].Instance != out[j].Instance {
-			return out[i].Instance < out[j].Instance
+		if out[i].I != out[j].I {
+			return out[i].I < out[j].I
 		}
-		return out[i].Property < out[j].Property
+		return out[i].P < out[j].P
 	})
 	return out
 }

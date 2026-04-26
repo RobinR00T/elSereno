@@ -272,7 +272,11 @@ func TestEmitAllowFile_RoundTripBACnetWithObjects(t *testing.T) {
 		"type=2;instance=3;property=85",
 		"type=0;instance=42;property=85",
 	}
-	af := buildAllowFileBACnet("bms:47808", choices, objects, nil, nil, nil, nil, nil, nil)
+	af := buildAllowFileBACnet(buildAllowFileBACnetInputs{
+		Target:     "bms:47808",
+		Choices:    choices,
+		ObjectsRaw: objects,
+	})
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

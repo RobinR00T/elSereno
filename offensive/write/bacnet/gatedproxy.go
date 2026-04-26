@@ -168,6 +168,56 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedListElement scopes an AddListElement (service 8) or
+// RemoveListElement (service 9) confirmed-request to a specific
+// (ObjectType, ObjectInstance, PropertyID) tuple. v1.13 chunk
+// 13 closes the last BACnet mutating surface.
+//
+// Both services share the SAME request shape (per ASHRAE 135
+// §15.1 + §15.2) — `[0] objectIdentifier`, `[1]
+// propertyIdentifier`, `[2] propertyArrayIndex` (optional),
+// `[3] listOfElements`. The gate parses the first two fields
+// (which is exactly the WriteProperty prefix) and refuses
+// when the (type, instance, property) tuple isn't allowlisted.
+//
+// Why a SEPARATE list from AllowedObjects (svc 15/16
+// WriteProperty)? Different semantics:
+//
+//   - WriteProperty replaces the whole property value.
+//   - AddListElement APPENDS to a list-typed property without
+//     touching existing entries. Common targets: notification-
+//     class recipient lists (adding an unauthorised pager),
+//     exception schedules (adding a date-window override),
+//     access-zone occupant lists.
+//   - RemoveListElement REMOVES specific entries from a list-
+//     typed property.
+//
+// An operator who allowed `--object type=15;instance=1;
+// property=102` (write recipient_list on NotificationClass#1)
+// might NOT want to allow appending or removing individual
+// recipients via list-mutations. The two privileges are
+// orthogonal — keeping the lists separate enforces explicit
+// opt-in per direction.
+//
+// Empty list disables the per-element gate (svc 8/9 remain
+// gated at service-choice level if 8/9 are in Allowed).
+//
+// The allowlist applies to BOTH AddListElement (svc 8) AND
+// RemoveListElement (svc 9) since they share the request
+// shape. An operator wanting different policy for add vs
+// remove can omit one of the services from `--service-choice`
+// (the service-level gate fires first).
+type AllowedListElement struct {
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType.
+	ObjectType uint16
+	// ObjectInstance is the 22-bit instance number.
+	ObjectInstance uint32
+	// PropertyID is the BACnetPropertyIdentifier enum that
+	// identifies the list-typed property targeted by the
+	// list-mutation.
+	PropertyID uint32
+}
+
 // AllowedAtomicWriteFile scopes an AtomicWriteFile confirmed-
 // request (service 7) to a specific File object instance. v1.13
 // chunk 12 adds per-file-instance gating for the service that
@@ -773,6 +823,7 @@ type Allowlists struct {
 	DCCStates        []AllowedDCCState
 	LSOOperations    []AllowedLSOOperation
 	AtomicWriteFiles []AllowedAtomicWriteFile
+	ListElements     []AllowedListElement
 }
 
 // AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
@@ -996,6 +1047,120 @@ func SessionMutationWithAWF(target string, al Allowlists) confirm.Mutation {
 	}
 }
 
+// AllowlistHashWithListElements is the v1.13 chunk-13 hash
+// that adds the per-(object, property) list-element allowlist
+// on top of the chunk-12 layer. Backwards-compat ladder:
+//
+//   - empty ListElements → equals AllowlistHashWithAWF
+//     (v1.13 chunk 12).
+//   - all-empty → equals AllowlistHash (v1.4).
+//
+// All v1.4 → v1.13-chunk-12 confirm-tokens remain valid for
+// operators who don't opt into per-element gating.
+//
+// Hash layout (when ListElements is non-empty):
+//
+//	AllowlistHashWithAWF output
+//	  || 0xF8 || (type BE16 || instance BE32 || property BE32) × sorted_ListElements
+//
+// Separator 0xF8 is below 0xF9 (AWF), 0xFA (LSO), 0xFB (DCC),
+// 0xFC (reinit), 0xFD (creates), 0xFE (deletes), and 0xFF
+// (per-property objects). Per-entry is 10 bytes (2 type + 4
+// instance + 4 property — same shape as AllowedObjects). The
+// allowlist applies to BOTH svc 8 (AddListElement) and svc 9
+// (RemoveListElement) since their request shapes are identical.
+func AllowlistHashWithListElements(target string, al Allowlists) [32]byte {
+	if len(al.ListElements) == 0 {
+		return AllowlistHashWithAWF(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := sortAllowedLSOOps(al.LSOOperations)
+	sortedAWF := sortAllowedAtomicWriteFiles(al.AtomicWriteFiles)
+	sortedLE := append([]AllowedListElement(nil), al.ListElements...)
+	sort.Slice(sortedLE, func(i, j int) bool {
+		if sortedLE[i].ObjectType != sortedLE[j].ObjectType {
+			return sortedLE[i].ObjectType < sortedLE[j].ObjectType
+		}
+		if sortedLE[i].ObjectInstance != sortedLE[j].ObjectInstance {
+			return sortedLE[i].ObjectInstance < sortedLE[j].ObjectInstance
+		}
+		return sortedLE[i].PropertyID < sortedLE[j].PropertyID
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	if len(sortedLSO) > 0 {
+		writeLSOOpsBlock(h, sortedLSO)
+	}
+	if len(sortedAWF) > 0 {
+		writeAWFBlock(h, sortedAWF)
+	}
+	writeListElementsBlock(h, sortedLE)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithListElements is the v1.13 chunk-13
+// mutation. Empty ListElements → degrades to
+// SessionMutationWithAWF.
+func SessionMutationWithListElements(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithListElements(target, al),
+	}
+}
+
+// sortAllowedAtomicWriteFiles returns a deterministically
+// sorted copy (by Instance ascending). Helper introduced
+// alongside chunk 13 so AllowlistHashWithListElements can
+// reuse the chunk-12 sort logic.
+func sortAllowedAtomicWriteFiles(in []AllowedAtomicWriteFile) []AllowedAtomicWriteFile {
+	out := append([]AllowedAtomicWriteFile(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Instance < out[j].Instance })
+	return out
+}
+
+// writeListElementsBlock writes the per-element block.
+// Separator 0xF8 (v1.13 chunk 13). Caller must have already
+// established len(sorted) > 0.
+func writeListElementsBlock(h hashWriter, sorted []AllowedListElement) {
+	_, _ = h.Write([]byte{0xF8})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, e := range sorted {
+		binary.BigEndian.PutUint16(u16[:], e.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], e.ObjectInstance)
+		_, _ = h.Write(u32[:])
+		binary.BigEndian.PutUint32(u32[:], e.PropertyID)
+		_, _ = h.Write(u32[:])
+	}
+}
+
 // sortAllowedLSOOps returns a deterministically sorted copy
 // (by Operation ascending). Helper introduced alongside chunk
 // 12 so AllowlistHashWithAWF can reuse the chunk-11 sort
@@ -1124,9 +1289,15 @@ type WriteGatedHandler struct {
 	// 7). See AllowedAtomicWriteFile for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedAtomicWriteFiles []AllowedAtomicWriteFile
-	Deriver                 confirm.KeyDeriver
-	Auditor                 confirm.Auditor
-	SessionConfirm          confirm.Confirm
+	// AllowedListElements is the optional v1.13 chunk-13
+	// per-(object, property) allowlist for AddListElement
+	// (service 8) AND RemoveListElement (service 9). See
+	// AllowedListElement for semantics. Empty list preserves
+	// service-choice-only gating for those services.
+	AllowedListElements []AllowedListElement
+	Deriver             confirm.KeyDeriver
+	Auditor             confirm.Auditor
+	SessionConfirm      confirm.Confirm
 
 	authorised bool
 }
@@ -1137,7 +1308,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithAWF(h.Target, Allowlists{
+	m := SessionMutationWithListElements(h.Target, Allowlists{
 		Services:         h.Allowed,
 		Objects:          h.AllowedObjects,
 		DeleteObjects:    h.AllowedDeleteObjects,
@@ -1146,6 +1317,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 		DCCStates:        h.AllowedDCCStates,
 		LSOOperations:    h.AllowedLSOOperations,
 		AtomicWriteFiles: h.AllowedAtomicWriteFiles,
+		ListElements:     h.AllowedListElements,
 	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
@@ -1259,8 +1431,23 @@ func (h *WriteGatedHandler) perObjectGatesAllow(svc wire.ConfirmedService, apdu 
 // objectListGatesAllow runs the object-tuple-style gates: per-
 // property writes (svc 15/16), per-target deletes (svc 11),
 // per-create-types (svc 10), per-File-instance AtomicWriteFile
-// (svc 7).
+// (svc 7), per-(object, property) Add/RemoveListElement (svc
+// 8/9). Split into two halves to keep gocyclo under threshold
+// as we keep adding dimensions.
 func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
+	if !h.propertyTupleGatesAllow(svc, apdu) {
+		return false
+	}
+	return h.objectIdentityGatesAllow(svc, apdu)
+}
+
+// propertyTupleGatesAllow checks the (type, instance, property)
+// tuple-shaped gates: WriteProperty / WPM (svc 15/16) +
+// Add/RemoveListElement (svc 8/9). Both pairs share the
+// WriteProperty wire prefix; we keep AllowedObjects (svc
+// 15/16) separate from AllowedListElements (svc 8/9) per the
+// chunk-13 design.
+func (h *WriteGatedHandler) propertyTupleGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedObjects) > 0 {
 		switch svc { //nolint:exhaustive // services not listed don't carry a per-property body the gate inspects
 		case wire.ConfirmedSvcWriteProperty:
@@ -1273,6 +1460,20 @@ func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu
 			}
 		}
 	}
+	if len(h.AllowedListElements) > 0 &&
+		(svc == wire.ConfirmedSvcAddListElement || svc == wire.ConfirmedSvcRemoveListElement) {
+		if !h.listElementAllowed(apdu) {
+			return false
+		}
+	}
+	return true
+}
+
+// objectIdentityGatesAllow checks the object-identity-shaped
+// gates that don't carry a property dimension: per-target
+// deletes (svc 11), per-create-types (svc 10), per-File AWF
+// (svc 7).
+func (h *WriteGatedHandler) objectIdentityGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedDeleteObjects) > 0 && svc == wire.ConfirmedSvcDeleteObject {
 		if !h.deleteObjectAllowed(apdu) {
 			return false
@@ -1289,6 +1490,33 @@ func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu
 		}
 	}
 	return true
+}
+
+// listElementAllowed parses the AddListElement / RemoveListElement
+// body and reports whether the (ObjectType, ObjectInstance,
+// PropertyID) tuple is in the operator's per-element allowlist.
+// Fail-closed on unparseable BER. Both svc 8 and svc 9 share
+// the same request shape (per ASHRAE 135 §15.1 / §15.2), which
+// is also the WriteProperty prefix — we reuse
+// wire.ParseWriteProperty to extract the (object, property)
+// target.
+func (h *WriteGatedHandler) listElementAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	target, ok := wire.ParseWriteProperty(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedListElements {
+		if a.ObjectType == target.ObjectType &&
+			a.ObjectInstance == target.ObjectInstance &&
+			a.PropertyID == target.PropertyID {
+			return true
+		}
+	}
+	return false
 }
 
 // atomicWriteFileAllowed parses the AtomicWriteFile body and

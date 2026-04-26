@@ -119,6 +119,7 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
 	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses.")
 	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
+	cmd.Flags().StringSliceVar(&opts.bacnetListElements, "list-element", nil, "bacnet: optional per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38).")
 }
 
 // registerProxyListenCWMPFlags adds the cwmp flags.
@@ -201,6 +202,13 @@ type proxyListenOpts struct {
 	// when the parsed fileIdentifier's instance matches one of
 	// these.
 	bacnetAWFFiles []uint
+	// bacnetListElements holds the bacnet per-(object, property)
+	// allowlist for AddListElement (svc 8) AND RemoveListElement
+	// (svc 9), v1.13+. CLI-friendly "type=N;instance=M;property=P"
+	// form. When non-empty, both services forward only when the
+	// parsed (type, instance, property) tuple matches one of
+	// these entries.
+	bacnetListElements []string
 	// callMethods holds the opcua per-CallMethod allowlist in
 	// the CLI-friendly "object=<NodeId>;method=<NodeId>" form
 	// (v1.12+). When non-empty, a CallRequest MSG is forwarded
@@ -553,6 +561,10 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	listEls, err := parseBACnetListElementFlags(opts.bacnetListElements)
+	if err != nil {
+		return nil, err
+	}
 	return &bacwrite.WriteGatedHandler{
 		Target:                  opts.target,
 		Allowed:                 allowed,
@@ -563,6 +575,7 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		AllowedDCCStates:        dccSts,
 		AllowedLSOOperations:    lsoOps,
 		AllowedAtomicWriteFiles: awfFiles,
+		AllowedListElements:     listEls,
 		Deriver:                 rt.Vault,
 		Auditor:                 rt.Auditor,
 		SessionConfirm:          c,

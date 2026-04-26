@@ -87,6 +87,17 @@ ASN.1 BER encoding particulars used by the per-object gate:
   (`[0]` streamAccess or `[1]` recordAccess, both
   CONSTRUCTED) — the gate ignores the access specifier
   entirely (no per-byte-range scoping).
+- AddListElement (svc 8) and RemoveListElement (svc 9) share
+  the IDENTICAL request shape per ASHRAE 135 §15.1 + §15.2 —
+  `[0] objectIdentifier`, `[1] propertyIdentifier`, `[2]
+  propertyArrayIndex` (optional), `[3] listOfElements`. The
+  first two fields are EXACTLY the WriteProperty prefix, so
+  the gate reuses `wire.ParseWriteProperty` to extract the
+  (type, instance, property) target — no separate parser
+  needed. The same `AllowedListElements` list applies to
+  BOTH services; an operator wanting different policy for
+  add vs remove must omit one from `--service-choice` (the
+  service-level gate fires first).
 - WPM SEQUENCE-OF-WriteAccessSpecification structure:
   ```
   SEQUENCE {
@@ -177,6 +188,16 @@ Three layers of allowlist (cumulative):
    Useful for distinguishing destructive overwrites: when
    File#1 is the device firmware blob and File#5 is a log,
    allow only File#5. v1.13 chunk 12.
+9. **Per-list-elements** (`--list-element type=N;instance=M;
+   property=P`) — exact (type, instance, property) tuple
+   match. Applies to BOTH AddListElement (svc 8) AND
+   RemoveListElement (svc 9). Same shape as `AllowedObjects`
+   (svc 15/16) but a SEPARATE list — property writes don't
+   auto-grant list-mutations. The two services share an
+   identical wire prefix so we reuse `wire.ParseWriteProperty`
+   for the parser. Common targets: NotificationClass#N.
+   recipient_list (102), Schedule#N.exception_schedule (38).
+   v1.13 chunk 13 — closes the last BACnet mutating service.
 
 Chunk 10 introduced the `Allowlists` bundle struct (was
 `BACnetAllowlists` before linter caught the package stutter):
@@ -186,21 +207,29 @@ parameters every cycle. The pre-existing chunk-1..9 functions
 retain their per-dimension signatures for backwards-compat with
 operator code that constructs sessions piecewise.
 
-Other mutating services (svc 8/9 Add/RemoveListElement) keep
-service-only gating; per-object layers for those services
-are v1.14+ follow-ups (their request shapes differ).
+**v1.13 closes every BACnet mutating service.** The full set
+covered: svc 7 AtomicWriteFile (chunk 12), svc 8 AddListElement
++ svc 9 RemoveListElement (chunk 13), svc 10 CreateObject
+(chunk 8), svc 11 DeleteObject (chunk 7), svc 15 WriteProperty
+(v1.12 chunk 7), svc 16 WritePropertyMultiple (chunk 3), svc
+17 DeviceCommunicationControl (chunk 10), svc 20
+ReinitializeDevice (chunk 9), svc 27 LifeSafetyOperation
+(chunk 11). All 9 mutating services have wire-level per-
+target-or-state allowlists.
 
 Refusal: BVLC-wrapped Abort-PDU with reason 5 (security-error).
 
-Hash ladder (`AllowlistHashWithAWF` →
-`AllowlistHashWithLSOOps` → `AllowlistHashWithDCCStates` →
-`AllowlistHashWithReinitStates` → `AllowlistHashWithCreateObjects`
-→ `AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
-→ `AllowlistHash`): each successive empty dimension degrades to
-the prior-version hash. Separators: 0xF9 (AWF files), 0xFA
-(LSO ops), 0xFB (DCC states), 0xFC (reinit states), 0xFD
-(creates), 0xFE (deletes), 0xFF (per-property objects).
-Operator confirm-tokens minted before v1.12 / v1.13 stay valid.
+Hash ladder (`AllowlistHashWithListElements` →
+`AllowlistHashWithAWF` → `AllowlistHashWithLSOOps` →
+`AllowlistHashWithDCCStates` → `AllowlistHashWithReinitStates`
+→ `AllowlistHashWithCreateObjects` →
+`AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
+→ `AllowlistHash`): each successive empty dimension degrades
+to the prior-version hash. Separators: 0xF8 (list elements),
+0xF9 (AWF files), 0xFA (LSO ops), 0xFB (DCC states), 0xFC
+(reinit states), 0xFD (creates), 0xFE (deletes), 0xFF (per-
+property objects). Operator confirm-tokens minted before
+v1.12 / v1.13 stay valid.
 
 ## REPL commands (planned F4 chunk 2)
 - See the generic REPL framework.

@@ -50,6 +50,7 @@ Two layers of allowlist:
 | Per-DCC-state | `--dcc-state N` | `DeviceCommunicationControl` (svc 17) | exact enableDisable enum value (0..2 per ASHRAE 135 §16.1) | v1.13 |
 | Per-LSO-op | `--lso-op N` | `LifeSafetyOperation` (svc 27) | exact BACnetLifeSafetyOperation enum value (0..9 per ASHRAE 135 §21) — **CRITICAL: silencing variants 1/2/3 can be lethal on fire-alarm panels** | v1.13 |
 | Per-AWF-file | `--awf-file N` | `AtomicWriteFile` (svc 7) | exact File-object instance number (ObjectType implicitly 10 = File per ASHRAE 135 §15.8) — useful when File#1 is firmware blob and File#5 is a log file | v1.13 |
+| Per-list-element | `--list-element type=N;instance=M;property=P` | `AddListElement` (svc 8) AND `RemoveListElement` (svc 9) | exact (type, instance, property) tuple match — same shape as `--object` but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38) | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -121,16 +122,29 @@ pattern: when File#1 is the device firmware blob and File#5 is
 a rotating log file, allow `--awf-file 5` to permit log
 overwrites + REFUSE firmware overwrites.
 
-Other mutating services (8 AddListElement, 9 RemoveListElement)
-keep service-only gating in v1.13; per-object layers for those
-services are v1.14+ follow-ups (their request shapes differ).
+**AddListElement (svc 8)** and **RemoveListElement (svc 9)**
+are gated **per-(object, property)** with a SHARED allowlist:
+both services have identical request shapes per ASHRAE 135
+§15.1 + §15.2 (the WriteProperty prefix), so one
+`--list-element` allowlist applies to both. An operator who
+wants to allow only adds (not removes) can omit svc 9 from
+`--service-choice`; the service-level gate fires first.
+**Separate from AllowedObjects** (svc 15/16 WriteProperty) —
+property writes don't auto-grant list-mutations. Common
+targets: NotificationClass#N.recipient_list (102) — adding
+an unauthorised pager; Schedule#N.exception_schedule (38) —
+appending a date-window override.
+
+**v1.13 closes every BACnet mutating service** — the cycle
+covers all 9 mutating services (svc 7, 8, 9, 10, 11, 15, 16,
+17, 20, 27).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
   --target bms.internal:47808 \
-  --service-choice 7 --service-choice 10 --service-choice 11 \
-  --service-choice 15 --service-choice 17 --service-choice 20 \
-  --service-choice 27 \
+  --service-choice 7 --service-choice 8 --service-choice 9 \
+  --service-choice 10 --service-choice 11 --service-choice 15 \
+  --service-choice 17 --service-choice 20 --service-choice 27 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --delete-object "type=2;instance=99" \
@@ -139,6 +153,7 @@ elsereno-offensive write bacnet dry-run \
   --dcc-state 0 \
   --lso-op 7 --lso-op 8 --lso-op 9 \
   --awf-file 5 \
+  --list-element "type=15;instance=1;property=102" \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 ```
@@ -148,7 +163,8 @@ YAML keys: `service_choices:`, `objects:` (`{type, instance,
 property}`), `delete_objects:` (`{type, instance}`),
 `create_object_types:` (`{type}`), `reinit_states:` (uint8 list),
 `dcc_states:` (uint8 list), `lso_ops:` (uint8 list),
-`awf_files:` (uint32 list).
+`awf_files:` (uint32 list), `list_elements:` (`{type,
+instance, property}`).
 
 ## Scope
 

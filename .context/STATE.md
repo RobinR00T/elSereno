@@ -1,6 +1,6 @@
 ---
 phase: v1.13-in-flight
-status: v1.12.0 released; 12 chunks of v1.13 landed on main, no tag yet
+status: v1.12.0 released; 13 chunks of v1.13 landed on main, no tag yet
 last-updated: 2026-04-26
 token-budget: 300
 ---
@@ -9,8 +9,11 @@ token-budget: 300
 
 **Phase**: **v1.12.0 released** to GitHub
 (https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0).
-**v1.13 cycle in flight on main** — 12 chunks landed since
+**v1.13 cycle in flight on main** — 13 chunks landed since
 v1.12.0 close, no tag yet (operator decides when to cut).
+v1.13 chunk 13 **CLOSES every BACnet mutating service** — all
+9 (svc 7/8/9/10/11/15/16/17/20/27) have wire-level per-target-
+or-state allowlists.
 
 v1.13 is "post-v1.12 carry-over closure": each chunk fixes a
 small gap or adds a missing CLI surface that v1.12 left for
@@ -44,9 +47,13 @@ Snapshots:
 - 11  `6a10a70` — BACnet LifeSafetyOperation (svc 27)
   per-operation allowlist (0..9 incl. silence/reset/unsilence
   variants — fire-alarm safety guard).
-- 12  *(pending commit)* — BACnet AtomicWriteFile (svc 7)
+- 12  `830ce02` — BACnet AtomicWriteFile (svc 7)
   per-File-instance allowlist (firmware blob vs log file
   separation).
+- 13  *(pending commit)* — BACnet Add/RemoveListElement (svc
+  8/9) per-(object, property) allowlist (recipient lists,
+  exception schedules — closes all 9 BACnet mutating
+  services).
 
 Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
 to native `// #nosec G<NNN>` markers — `make sec` now exit-0.

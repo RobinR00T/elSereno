@@ -240,6 +240,49 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.13 chunk 13 landed.** BACnet
+  Add/RemoveListElement (svc 8/9) per-(object, property)
+  allowlist. **CLOSES every BACnet mutating service** — all
+  9 (svc 7/8/9/10/11/15/16/17/20/27) now have wire-level
+  per-target-or-state allowlists. AddListElement and
+  RemoveListElement share the SAME request shape per ASHRAE
+  135 §15.1 + §15.2 — `[0] objectIdentifier`, `[1]
+  propertyIdentifier`, `[2] propertyArrayIndex` (optional),
+  `[3] listOfElements`. The first two fields are exactly the
+  WriteProperty prefix, so the gate reuses
+  `wire.ParseWriteProperty` to extract the (type, instance,
+  property) target — no separate parser needed. The same
+  `AllowedListElements` list applies to BOTH services; an
+  operator wanting different policy for add vs remove must
+  omit one from `--service-choice`. **Separate from
+  AllowedObjects** (svc 15/16 WriteProperty) — property
+  writes don't auto-grant list-mutations. Common targets:
+  NotificationClass#N.recipient_list (102) — adding an
+  unauthorised pager; Schedule#N.exception_schedule (38) —
+  appending a date-window override; access-zone occupant
+  lists. New CLI flag `--list-element type=N;instance=M;
+  property=P` (repeatable); YAML field `list_elements:`
+  (`{type, instance, property}`). New
+  `AllowlistHashWithListElements` (separator 0xF8) extends
+  the chunk-12 ladder; backwards-compat ladder degrades
+  through chunks 12/11/10/9/8/7/v1.12-chunk-7/v1.4. Refactor:
+  introduced `sortAllowedAtomicWriteFiles` helper; the
+  `Allowlists` bundle gains a `ListElements` field;
+  `parseAllowlists` adds the list-element dispatch step.
+  `objectListGatesAllow` was split into
+  `propertyTupleGatesAllow` (svc 8/9/15/16 — share the
+  WriteProperty wire prefix) + `objectIdentityGatesAllow`
+  (svc 7/10/11 — object-identity-only, no property
+  dimension) for gocyclo. `buildAllowFileBACnet` now takes a
+  `buildAllowFileBACnetInputs` struct (was 9 positional args)
+  for readability. Extracted shared helpers
+  `formatBACnetTupleList` + `bacnetTuple` +
+  `canonAllowFileBACnetTuples` so chunk-7
+  (canonBACnetObjects) and chunk-13 (canonBACnetListElements)
+  share the parse/sort/format body — eliminates 4 dupl
+  warnings. 9 new tests (4 hash ladder + 5 e2e covering both
+  add and remove paths + the canonical "AllowedObjects entry
+  doesn't auto-grant list-mutation" separation invariant).
 - 2026-04-26 — **v1.13 chunk 12 landed.** BACnet
   AtomicWriteFile (svc 7) per-File-instance allowlist.
   Closes the file-overwrite surface: AtomicWriteFile is what

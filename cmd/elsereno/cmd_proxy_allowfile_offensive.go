@@ -141,6 +141,29 @@ type proxyBACnetDeleteObject struct {
 	Instance uint32 `yaml:"instance"`
 }
 
+// proxyBACnetListElement is the YAML form of an
+// AllowedListElement (v1.13 chunk 13). Same shape as
+// proxyBACnetObject (Type + Instance + Property) but applies
+// only to AddListElement (svc 8) + RemoveListElement (svc 9).
+//
+// Example:
+//
+//	list_elements:
+//	  - type: 15        # NotificationClass
+//	    instance: 1
+//	    property: 102   # recipient_list
+//	  - type: 17        # Schedule
+//	    instance: 3
+//	    property: 38    # exception_schedule
+//
+// Operator allowlists specific list-typed properties that
+// may be appended-to (svc 8) or removed-from (svc 9).
+type proxyBACnetListElement struct {
+	Type     uint16 `yaml:"type"`
+	Instance uint32 `yaml:"instance"`
+	Property uint32 `yaml:"property"`
+}
+
 // proxyBACnetCreateObject is the YAML form of an
 // AllowedCreateObject (v1.13 chunk 8). One field — Type only.
 // Instance is intentionally absent: the most common
@@ -229,6 +252,7 @@ type proxyAllowFile struct {
 	DCCStates         []uint8                   `yaml:"dcc_states,omitempty"`          // bacnet (v1.13+) — per-state DeviceCommControl allowlist
 	LSOOps            []uint8                   `yaml:"lso_ops,omitempty"`             // bacnet (v1.13+) — per-operation LifeSafetyOperation allowlist
 	AWFFiles          []uint32                  `yaml:"awf_files,omitempty"`           // bacnet (v1.13+) — per-File-instance AtomicWriteFile allowlist
+	ListElements      []proxyBACnetListElement  `yaml:"list_elements,omitempty"`       // bacnet (v1.13+) — per-(object, property) Add/RemoveListElement allowlist
 	RPCs              []string                  `yaml:"rpcs,omitempty"`                // cwmp (v1.11+) — SOAP RPC allowlist
 	ParamPrefixes     []string                  `yaml:"param_prefixes,omitempty"`      // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
 	Firmware          []proxyCWMPFirmware       `yaml:"firmware,omitempty"`            // cwmp (v1.12+) — per-image allowlist for Download
@@ -313,6 +337,11 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	}
 	for _, f := range af.AWFFiles {
 		opts.bacnetAWFFiles = append(opts.bacnetAWFFiles, uint(f))
+	}
+	for _, e := range af.ListElements {
+		opts.bacnetListElements = append(opts.bacnetListElements,
+			fmt.Sprintf("type=%d;instance=%d;property=%d",
+				e.Type, e.Instance, e.Property))
 	}
 }
 
