@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.16 chunk 2 — BACnet per-(type, instance) CreateObject
+  scoping**: refines the v1.13 chunk-8 per-type CreateObject
+  (svc 10) allowlist with a parallel per-(type, instance) list.
+  When the ACS uses the `[1]` objectIdentifier CHOICE form (the
+  ACS pre-declares which exact instance the device should
+  create), the gate matches against the operator's
+  `AllowedCreateObjectInstances` list; the v1.13 per-type list
+  remains as fallback so operators can mix grains. Per-instance
+  match wins; falls back to per-type. New
+  `wire.ParseCreateObjectWithInstance` returns
+  `(objType, instance, hasInstance, ok)` — wire parser change is
+  internal-only (`ParseCreateObject` retained as a thin wrapper
+  for backwards compat). New separator `0xF7` extends the
+  BACnet hash ladder; empty `CreateObjectInstances` preserves
+  every v1.4 → v1.13-chunk-13 confirm-token. CLI:
+  `--create-object-instance type=N;instance=M` (repeatable).
+  YAML round-trip via `create_object_instances:` block. 9 new
+  tests across `createobjectinstance_test.go` (hash-ladder
+  degradation, wire parser, E2E gate matrix).
 - **v1.16 chunk 1 — CWMP TransferComplete authorisation
   cross-reference**: closes the v1.15 chunk-1 observer half by
   correlating the CPE → ACS TransferComplete envelope with the

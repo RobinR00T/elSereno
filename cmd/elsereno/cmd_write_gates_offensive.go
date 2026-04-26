@@ -548,25 +548,26 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var serviceChoices []uint
 	var objects []string
-	var deleteObjects, listElements []string
+	var deleteObjects, listElements, createObjectInstances []string
 	var createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runBACnetDryRun(cmd, bacnetDryRunInputs{
-				target:            target,
-				ppFile:            ppFile,
-				emitFile:          emitFile,
-				serviceChoices:    serviceChoices,
-				objects:           objects,
-				deleteObjects:     deleteObjects,
-				createObjectTypes: createObjectTypes,
-				reinitStates:      reinitStates,
-				dccStates:         dccStates,
-				lsoOps:            lsoOps,
-				awfFiles:          awfFiles,
-				listElements:      listElements,
+				target:                target,
+				ppFile:                ppFile,
+				emitFile:              emitFile,
+				serviceChoices:        serviceChoices,
+				objects:               objects,
+				deleteObjects:         deleteObjects,
+				createObjectTypes:     createObjectTypes,
+				createObjectInstances: createObjectInstances,
+				reinitStates:          reinitStates,
+				dccStates:             dccStates,
+				lsoOps:                lsoOps,
+				awfFiles:              awfFiles,
+				listElements:          listElements,
 			})
 		},
 	}
@@ -575,6 +576,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
 	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
 	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
+	cmd.Flags().StringSliceVar(&createObjectInstances, "create-object-instance", nil, "optional: per-(type, instance) allowlist for CreateObject (svc 10). Format: type=N;instance=M (repeatable, exact match). Refines --create-object-type when the ACS uses the [1] objectIdentifier CHOICE. v1.16+.")
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
@@ -592,7 +594,7 @@ type bacnetDryRunInputs struct {
 	target, ppFile, emitFile                                     string
 	serviceChoices                                               []uint
 	objects                                                      []string
-	deleteObjects, listElements                                  []string
+	deleteObjects, listElements, createObjectInstances           []string
 	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 }
 
@@ -608,23 +610,24 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithListElements(in.target, parsed)
+	mut := bacwrite.SessionMutationWithCreateObjectInstances(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
 	}
 	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
 		return emitAllowFile(cmd, p, buildAllowFileBACnet(buildAllowFileBACnetInputs{
-			Target:            in.target,
-			Choices:           in.serviceChoices,
-			ObjectsRaw:        in.objects,
-			DeleteObjectsRaw:  in.deleteObjects,
-			CreateObjectTypes: in.createObjectTypes,
-			ReinitStates:      in.reinitStates,
-			DCCStates:         in.dccStates,
-			LSOOps:            in.lsoOps,
-			AWFFiles:          in.awfFiles,
-			ListElementsRaw:   in.listElements,
+			Target:                   in.target,
+			Choices:                  in.serviceChoices,
+			ObjectsRaw:               in.objects,
+			DeleteObjectsRaw:         in.deleteObjects,
+			CreateObjectTypes:        in.createObjectTypes,
+			CreateObjectInstancesRaw: in.createObjectInstances,
+			ReinitStates:             in.reinitStates,
+			DCCStates:                in.dccStates,
+			LSOOps:                   in.lsoOps,
+			AWFFiles:                 in.awfFiles,
+			ListElementsRaw:          in.listElements,
 		}))
 	}
 	return nil
@@ -651,6 +654,10 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 	if err != nil {
 		return bacwrite.Allowlists{}, err
 	}
+	creObjInst, err := parseBACnetCreateObjectInstanceFlags(in.createObjectInstances)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
 	reiSts, err := parseBACnetReinitStates(in.reinitStates)
 	if err != nil {
 		return bacwrite.Allowlists{}, err
@@ -672,15 +679,16 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 		return bacwrite.Allowlists{}, err
 	}
 	return bacwrite.Allowlists{
-		Services:         svcs,
-		Objects:          objs,
-		DeleteObjects:    delObjs,
-		CreateObjects:    creObjs,
-		ReinitStates:     reiSts,
-		DCCStates:        dccSts,
-		LSOOperations:    lsoOps,
-		AtomicWriteFiles: awfFiles,
-		ListElements:     listEls,
+		Services:              svcs,
+		Objects:               objs,
+		DeleteObjects:         delObjs,
+		CreateObjects:         creObjs,
+		CreateObjectInstances: creObjInst,
+		ReinitStates:          reiSts,
+		DCCStates:             dccSts,
+		LSOOperations:         lsoOps,
+		AtomicWriteFiles:      awfFiles,
+		ListElements:          listEls,
 	}, nil
 }
 
@@ -796,12 +804,43 @@ func parseBACnetDeleteObjectFlags(in []string) ([]bacwrite.AllowedDeleteObject, 
 // Format: type=N;instance=M. Same shape as --object minus the
 // property field.
 func parseBACnetDeleteObjectFlag(s string) (bacwrite.AllowedDeleteObject, error) {
+	objType, instance, err := parseBACnetTypeInstance("--delete-object", s)
+	if err != nil {
+		return bacwrite.AllowedDeleteObject{}, err
+	}
+	return bacwrite.AllowedDeleteObject{ObjectType: objType, ObjectInstance: instance}, nil
+}
+
+// bacnetKeyType / bacnetKeyInstance are the canonical KEY=VALUE
+// names accepted by --delete-object / --create-object-instance
+// CLI flags. Pulled out as constants to satisfy goconst.
+const (
+	bacnetKeyType     = "type"
+	bacnetKeyInstance = "instance"
+)
+
+// parseBACnetTypeInstance parses a "type=N;instance=M" string
+// into the underlying (ObjectType, ObjectInstance) values. The
+// flagName argument is prepended to error messages so callers
+// (--delete-object, --create-object-instance) can share the
+// validation body without losing user-facing flag context.
+//
+// Returns:
+//   - objType:  10-bit BACnet ObjectType (0..1023).
+//   - instance: 22-bit BACnet ObjectInstance (0..4194303).
+//   - err:      non-nil on empty input, malformed token, or
+//     out-of-range value.
+func parseBACnetTypeInstance(flagName, s string) (uint16, uint32, error) {
 	raw := strings.TrimSpace(s)
 	if raw == "" {
-		return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: empty", s)
+		return 0, 0, fmt.Errorf("%s %q: empty", flagName, s)
 	}
-	var out bacwrite.AllowedDeleteObject
-	var typeSeen, instSeen bool
+	var (
+		objType  uint16
+		instance uint32
+		typeSeen bool
+		instSeen bool
+	)
 	for _, p := range strings.Split(raw, ";") {
 		p = strings.TrimSpace(p)
 		if p == "" {
@@ -809,35 +848,35 @@ func parseBACnetDeleteObjectFlag(s string) (bacwrite.AllowedDeleteObject, error)
 		}
 		kv := strings.SplitN(p, "=", 2)
 		if len(kv) != 2 {
-			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: each token is KEY=VALUE", s)
+			return 0, 0, fmt.Errorf("%s %q: each token is KEY=VALUE", flagName, s)
 		}
 		key := strings.ToLower(strings.TrimSpace(kv[0]))
 		val := strings.TrimSpace(kv[1])
 		n, err := strconv.ParseUint(val, 10, 32)
 		if err != nil {
-			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: %s %q is not a number", s, key, val)
+			return 0, 0, fmt.Errorf("%s %q: %s %q is not a number", flagName, s, key, val)
 		}
 		switch key {
-		case "type":
+		case bacnetKeyType:
 			if n > 0x3FF {
-				return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: type must be 0-1023 (10 bits)", s)
+				return 0, 0, fmt.Errorf("%s %q: type must be 0-1023 (10 bits)", flagName, s)
 			}
-			out.ObjectType = uint16(n & 0x3FF)
+			objType = uint16(n & 0x3FF)
 			typeSeen = true
-		case "instance":
+		case bacnetKeyInstance:
 			if n > 0x3FFFFF {
-				return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: instance must be 0-4194303 (22 bits)", s)
+				return 0, 0, fmt.Errorf("%s %q: instance must be 0-4194303 (22 bits)", flagName, s)
 			}
-			out.ObjectInstance = uint32(n & 0x3FFFFF)
+			instance = uint32(n & 0x3FFFFF)
 			instSeen = true
 		default:
-			return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: unknown key %q (expected type or instance)", s, key)
+			return 0, 0, fmt.Errorf("%s %q: unknown key %q (expected type or instance)", flagName, s, key)
 		}
 	}
 	if !typeSeen || !instSeen {
-		return bacwrite.AllowedDeleteObject{}, fmt.Errorf("--delete-object %q: must specify both type= and instance=", s)
+		return 0, 0, fmt.Errorf("%s %q: must specify both type= and instance=", flagName, s)
 	}
-	return out, nil
+	return objType, instance, nil
 }
 
 // parseBACnetCreateObjectTypes converts repeated --create-object-type
@@ -852,6 +891,32 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetCreateObjectInstanceFlags parses --create-object-instance
+// entries (format: type=N;instance=M). v1.16 chunk 2.
+func parseBACnetCreateObjectInstanceFlags(in []string) ([]bacwrite.AllowedCreateObjectInstance, error) {
+	out := make([]bacwrite.AllowedCreateObjectInstance, 0, len(in))
+	for _, raw := range in {
+		o, err := parseBACnetCreateObjectInstanceFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+// parseBACnetCreateObjectInstanceFlag parses one
+// --create-object-instance value. Format: type=N;instance=M.
+// Same shape as --delete-object; reuses parseBACnetTypeInstance
+// so the validation stays in one place. v1.16 chunk 2.
+func parseBACnetCreateObjectInstanceFlag(s string) (bacwrite.AllowedCreateObjectInstance, error) {
+	objType, instance, err := parseBACnetTypeInstance("--create-object-instance", s)
+	if err != nil {
+		return bacwrite.AllowedCreateObjectInstance{}, err
+	}
+	return bacwrite.AllowedCreateObjectInstance{ObjectType: objType, ObjectInstance: instance}, nil
 }
 
 // parseBACnetListElementFlags parses --list-element entries
@@ -1988,10 +2053,10 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // keep growing. The struct mirrors the per-service dimensions
 // the operator passes via CLI flags.
 type buildAllowFileBACnetInputs struct {
-	Target                                                       string
-	Choices                                                      []uint
-	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw                []string
-	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles []uint
+	Target                                                                  string
+	Choices                                                                 []uint
+	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw, CreateObjectInstancesRaw []string
+	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles            []uint
 }
 
 // buildAllowFileBACnet constructs the BACnet plugin's
@@ -2011,6 +2076,9 @@ func buildAllowFileBACnet(in buildAllowFileBACnetInputs) proxyAllowFile {
 	af.DeleteObjects = canonAllowFileBACnetDeleteObjects(in.DeleteObjectsRaw)
 	if len(in.CreateObjectTypes) > 0 {
 		af.CreateObjectTypes = canonAllowFileBACnetCreateTypes(in.CreateObjectTypes)
+	}
+	if len(in.CreateObjectInstancesRaw) > 0 {
+		af.CreateObjectInstances = canonAllowFileBACnetCreateInstances(in.CreateObjectInstancesRaw)
 	}
 	if len(in.ReinitStates) > 0 {
 		af.ReinitStates = canonAllowFileBACnetReinitStates(in.ReinitStates)
@@ -2109,6 +2177,33 @@ func canonAllowFileBACnetDeleteObjects(in []string) []proxyBACnetDeleteObject {
 		out = append(out, proxyBACnetDeleteObject{
 			Type:     d.ObjectType,
 			Instance: d.ObjectInstance,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		return out[i].Instance < out[j].Instance
+	})
+	return out
+}
+
+// canonAllowFileBACnetCreateInstances converts repeated CLI-form
+// "type=N;instance=M" strings to sorted YAML
+// proxyBACnetCreateObjectInstance entries. v1.16 chunk 2.
+func canonAllowFileBACnetCreateInstances(in []string) []proxyBACnetCreateObjectInstance {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetCreateObjectInstance, 0, len(in))
+	for _, raw := range in {
+		c, err := parseBACnetCreateObjectInstanceFlag(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, proxyBACnetCreateObjectInstance{
+			Type:     c.ObjectType,
+			Instance: c.ObjectInstance,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {

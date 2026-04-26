@@ -121,7 +121,8 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15, v1.12+) and WritePropertyMultiple (svc 16, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Both gates walk every (object, property) tuple in the request. Other mutating services keep service-only gating.")
 	cmd.Flags().StringSliceVar(&opts.bacnetDeleteObjects, "delete-object", nil, "bacnet: optional per-target allowlist for DeleteObject (svc 11, v1.13+). Format: type=N;instance=M (repeatable, exact match). Object-level only.")
-	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only — instance ignored at gate level.")
+	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only — instance ignored at gate level. Pair with --create-object-instance for per-(type,instance) tightening (v1.16+).")
+	cmd.Flags().StringSliceVar(&opts.bacnetCreateObjectInstances, "create-object-instance", nil, "bacnet: optional per-(type, instance) allowlist for CreateObject (svc 10, v1.16+). Format: type=N;instance=M (repeatable, exact match). Refines --create-object-type when the ACS uses the [1] objectIdentifier CHOICE form (operator pre-declares which exact instance the device should create). When this list is set AND the request uses CHOICE [0] objectType (no explicit instance), the per-type list governs.")
 	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
 	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses.")
@@ -180,6 +181,13 @@ type proxyListenOpts struct {
 	// requests are forwarded only when the inferred ObjectType
 	// matches one of these entries (instance is ignored).
 	bacnetCreateObjectTypes []uint
+	// bacnetCreateObjectInstances holds the bacnet per-(type,
+	// instance) CreateObject allowlist (v1.16+). Each entry is
+	// a "type=N;instance=M" string. Refines the per-type list
+	// for CHOICE [1] objectIdentifier requests where the ACS
+	// pre-declares which exact instance the device should
+	// create.
+	bacnetCreateObjectInstances []string
 	// bacnetReinitStates holds the bacnet per-state
 	// ReinitializeDevice allowlist (v1.13+). Numeric ASHRAE 135
 	// §16.4 reinitializedStateOfDevice enum (0..7). When
@@ -592,6 +600,10 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	creObjInst, err := parseBACnetCreateObjectInstanceFlags(opts.bacnetCreateObjectInstances)
+	if err != nil {
+		return nil, err
+	}
 	reiSts, err := parseBACnetReinitStates(opts.bacnetReinitStates)
 	if err != nil {
 		return nil, err
@@ -613,19 +625,20 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		return nil, err
 	}
 	return &bacwrite.WriteGatedHandler{
-		Target:                  opts.target,
-		Allowed:                 allowed,
-		AllowedObjects:          objs,
-		AllowedDeleteObjects:    delObjs,
-		AllowedCreateObjects:    creObjs,
-		AllowedReinitStates:     reiSts,
-		AllowedDCCStates:        dccSts,
-		AllowedLSOOperations:    lsoOps,
-		AllowedAtomicWriteFiles: awfFiles,
-		AllowedListElements:     listEls,
-		Deriver:                 rt.Vault,
-		Auditor:                 rt.Auditor,
-		SessionConfirm:          c,
+		Target:                       opts.target,
+		Allowed:                      allowed,
+		AllowedObjects:               objs,
+		AllowedDeleteObjects:         delObjs,
+		AllowedCreateObjects:         creObjs,
+		AllowedCreateObjectInstances: creObjInst,
+		AllowedReinitStates:          reiSts,
+		AllowedDCCStates:             dccSts,
+		AllowedLSOOperations:         lsoOps,
+		AllowedAtomicWriteFiles:      awfFiles,
+		AllowedListElements:          listEls,
+		Deriver:                      rt.Vault,
+		Auditor:                      rt.Auditor,
+		SessionConfirm:               c,
 	}, nil
 }
 

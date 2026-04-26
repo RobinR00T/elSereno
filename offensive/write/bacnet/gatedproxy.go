@@ -168,6 +168,46 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedCreateObjectInstance is the v1.16 chunk-2 refinement
+// of AllowedCreateObject: scopes a CreateObject confirmed-
+// request (service 10) to a specific (ObjectType,
+// ObjectInstance) tuple instead of just an object type.
+//
+// Use case: ACS uses the [1] objectIdentifier CHOICE to pre-
+// declare which exact instance the device should create
+// (rather than letting the device pick). v1.13 chunk 8's
+// per-type allowlist covered the [0] objectType CHOICE
+// adequately ("any new Schedule"); v1.16 chunk 2 adds the
+// per-instance grain for the explicit form ("only
+// Schedule.42").
+//
+// Semantics (combined with AllowedCreateObjects):
+//
+//   - When AllowedCreateObjectInstances is non-empty AND the
+//     request uses CHOICE [1] objectIdentifier: pass iff
+//     (type, instance) is in this list. Per-type list is also
+//     consulted as a fallback so operators can mix grains.
+//   - When AllowedCreateObjectInstances is non-empty BUT the
+//     request uses CHOICE [0] objectType (no explicit
+//     instance): per-type list governs (operator's intent for
+//     the explicit-instance grain doesn't apply when the ACS
+//     didn't specify one).
+//   - Empty AllowedCreateObjectInstances: no behaviour change
+//     from v1.13 chunk 8 (per-type-only gating).
+//
+// Wire-level both CHOICEs are inspected — see
+// wire.ParseCreateObjectWithInstance for the parser the gate
+// uses.
+type AllowedCreateObjectInstance struct {
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// enum.
+	ObjectType uint16
+	// ObjectInstance is the 22-bit BACnet ObjectInstance per
+	// ASHRAE 135 §13.2 (packed alongside ObjectType into the
+	// 32-bit BACnetObjectIdentifier on the wire).
+	ObjectInstance uint32
+}
+
 // AllowedListElement scopes an AddListElement (service 8) or
 // RemoveListElement (service 9) confirmed-request to a specific
 // (ObjectType, ObjectInstance, PropertyID) tuple. v1.13 chunk
@@ -815,15 +855,16 @@ func SessionMutationWithReinitStates(target string, allowed []AllowedService, ob
 // per-dimension signatures for backwards-compat with operator
 // code that constructs sessions piecewise.
 type Allowlists struct {
-	Services         []AllowedService
-	Objects          []AllowedObject
-	DeleteObjects    []AllowedDeleteObject
-	CreateObjects    []AllowedCreateObject
-	ReinitStates     []AllowedReinitState
-	DCCStates        []AllowedDCCState
-	LSOOperations    []AllowedLSOOperation
-	AtomicWriteFiles []AllowedAtomicWriteFile
-	ListElements     []AllowedListElement
+	Services              []AllowedService
+	Objects               []AllowedObject
+	DeleteObjects         []AllowedDeleteObject
+	CreateObjects         []AllowedCreateObject
+	CreateObjectInstances []AllowedCreateObjectInstance
+	ReinitStates          []AllowedReinitState
+	DCCStates             []AllowedDCCState
+	LSOOperations         []AllowedLSOOperation
+	AtomicWriteFiles      []AllowedAtomicWriteFile
+	ListElements          []AllowedListElement
 }
 
 // AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
@@ -1134,6 +1175,132 @@ func SessionMutationWithListElements(target string, al Allowlists) confirm.Mutat
 	}
 }
 
+// AllowlistHashWithCreateObjectInstances is the v1.16 chunk-2
+// hash that adds per-(ObjectType, ObjectInstance) CreateObject
+// gating on top of the v1.13 chunk-13 layer. Backwards-compat
+// ladder: empty CreateObjectInstances → equals
+// AllowlistHashWithListElements (v1.13 chunk 13). All v1.4 →
+// v1.13-chunk-13 confirm-tokens remain valid for operators who
+// don't opt into per-instance Create gating.
+//
+// Hash layout (when CreateObjectInstances is non-empty):
+//
+//	AllowlistHashWithListElements output
+//	  || 0xF7 || (uint16 type || uint32 instance) × sorted_create_instances
+//
+// Separator 0xF7 is below 0xF8 (list-elements), 0xF9 (AWF),
+// 0xFA (LSO), 0xFB (DCC), 0xFC (reinit), 0xFD (creates types),
+// 0xFE (deletes), and 0xFF (per-property objects). Per-entry
+// is 6 bytes (uint16 type + uint32 instance).
+func AllowlistHashWithCreateObjectInstances(target string, al Allowlists) [32]byte {
+	if len(al.CreateObjectInstances) == 0 {
+		return AllowlistHashWithListElements(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := sortAllowedLSOOps(al.LSOOperations)
+	sortedAWF := sortAllowedAtomicWriteFiles(al.AtomicWriteFiles)
+	sortedLE := sortAllowedListElements(al.ListElements)
+	sortedCreInst := sortAllowedCreateObjectInstances(al.CreateObjectInstances)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	if len(sortedLSO) > 0 {
+		writeLSOOpsBlock(h, sortedLSO)
+	}
+	if len(sortedAWF) > 0 {
+		writeAWFBlock(h, sortedAWF)
+	}
+	if len(sortedLE) > 0 {
+		writeListElementsBlock(h, sortedLE)
+	}
+	writeCreateObjectInstancesBlock(h, sortedCreInst)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithCreateObjectInstances is the v1.16 chunk-2
+// mutation, the new top of the BACnet allowlist hash ladder.
+// Empty CreateObjectInstances → degrades to
+// SessionMutationWithListElements.
+func SessionMutationWithCreateObjectInstances(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithCreateObjectInstances(target, al),
+	}
+}
+
+// sortAllowedListElements returns a deterministically sorted
+// copy of the per-(object, property) list. Helper introduced
+// alongside chunk 2 of v1.16 so AllowlistHashWithCreate-
+// ObjectInstances can reuse the chunk-13 sort logic without
+// re-stating it inline.
+func sortAllowedListElements(in []AllowedListElement) []AllowedListElement {
+	out := append([]AllowedListElement(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ObjectType != out[j].ObjectType {
+			return out[i].ObjectType < out[j].ObjectType
+		}
+		if out[i].ObjectInstance != out[j].ObjectInstance {
+			return out[i].ObjectInstance < out[j].ObjectInstance
+		}
+		return out[i].PropertyID < out[j].PropertyID
+	})
+	return out
+}
+
+// sortAllowedCreateObjectInstances returns a deterministically
+// sorted copy (by ObjectType then ObjectInstance ascending).
+// v1.16 chunk 2.
+func sortAllowedCreateObjectInstances(in []AllowedCreateObjectInstance) []AllowedCreateObjectInstance {
+	out := append([]AllowedCreateObjectInstance(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ObjectType != out[j].ObjectType {
+			return out[i].ObjectType < out[j].ObjectType
+		}
+		return out[i].ObjectInstance < out[j].ObjectInstance
+	})
+	return out
+}
+
+// writeCreateObjectInstancesBlock writes the per-(type,
+// instance) Create block. Separator 0xF7 (v1.16 chunk 2).
+// Caller must have already established len(sorted) > 0.
+func writeCreateObjectInstancesBlock(h hashWriter, sorted []AllowedCreateObjectInstance) {
+	_, _ = h.Write([]byte{0xF7})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, c := range sorted {
+		binary.BigEndian.PutUint16(u16[:], c.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], c.ObjectInstance)
+		_, _ = h.Write(u32[:])
+	}
+}
+
 // sortAllowedAtomicWriteFiles returns a deterministically
 // sorted copy (by Instance ascending). Helper introduced
 // alongside chunk 13 so AllowlistHashWithListElements can
@@ -1269,6 +1436,12 @@ type WriteGatedHandler struct {
 	// See AllowedCreateObject for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedCreateObjects []AllowedCreateObject
+	// AllowedCreateObjectInstances is the optional v1.16 chunk-2
+	// per-(type, instance) allowlist for CreateObject — refines
+	// the v1.13 chunk-8 per-type list when the ACS uses the [1]
+	// objectIdentifier CHOICE. See AllowedCreateObjectInstance
+	// for semantics. Empty list preserves chunk-8 behaviour.
+	AllowedCreateObjectInstances []AllowedCreateObjectInstance
 	// AllowedReinitStates is the optional v1.13 chunk-9
 	// per-state allowlist for ReinitializeDevice (service 20).
 	// See AllowedReinitState for semantics. Empty list preserves
@@ -1308,16 +1481,17 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithListElements(h.Target, Allowlists{
-		Services:         h.Allowed,
-		Objects:          h.AllowedObjects,
-		DeleteObjects:    h.AllowedDeleteObjects,
-		CreateObjects:    h.AllowedCreateObjects,
-		ReinitStates:     h.AllowedReinitStates,
-		DCCStates:        h.AllowedDCCStates,
-		LSOOperations:    h.AllowedLSOOperations,
-		AtomicWriteFiles: h.AllowedAtomicWriteFiles,
-		ListElements:     h.AllowedListElements,
+	m := SessionMutationWithCreateObjectInstances(h.Target, Allowlists{
+		Services:              h.Allowed,
+		Objects:               h.AllowedObjects,
+		DeleteObjects:         h.AllowedDeleteObjects,
+		CreateObjects:         h.AllowedCreateObjects,
+		CreateObjectInstances: h.AllowedCreateObjectInstances,
+		ReinitStates:          h.AllowedReinitStates,
+		DCCStates:             h.AllowedDCCStates,
+		LSOOperations:         h.AllowedLSOOperations,
+		AtomicWriteFiles:      h.AllowedAtomicWriteFiles,
+		ListElements:          h.AllowedListElements,
 	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
@@ -1479,7 +1653,7 @@ func (h *WriteGatedHandler) objectIdentityGatesAllow(svc wire.ConfirmedService, 
 			return false
 		}
 	}
-	if len(h.AllowedCreateObjects) > 0 && svc == wire.ConfirmedSvcCreateObject {
+	if (len(h.AllowedCreateObjects) > 0 || len(h.AllowedCreateObjectInstances) > 0) && svc == wire.ConfirmedSvcCreateObject {
 		if !h.createObjectAllowed(apdu) {
 			return false
 		}
@@ -1627,20 +1801,38 @@ func (h *WriteGatedHandler) reinitStateAllowed(apdu []byte) bool {
 }
 
 // createObjectAllowed parses the CreateObject body and reports
-// whether the requested ObjectType is in the operator's
-// per-create-type allowlist. Fail-closed on unparseable BER.
+// whether the request is in the operator's allowlists. Fail-
+// closed on unparseable BER.
 //
-// The gate matches by type only — instance is ignored even
-// when the [1] choice form encodes one. See AllowedCreateObject
-// for the design rationale.
+// Match order (v1.16 chunk 2):
+//
+//  1. If the request uses CHOICE [1] objectIdentifier (explicit
+//     type+instance) and AllowedCreateObjectInstances has the
+//     exact (type, instance), pass.
+//  2. Otherwise consult AllowedCreateObjects (v1.13 chunk 8 per-
+//     type list); pass if `type` is listed.
+//  3. Otherwise refuse.
+//
+// Operators wanting only per-instance gating set
+// AllowedCreateObjects = nil and populate
+// AllowedCreateObjectInstances; CHOICE [0] requests
+// (type-only) then refuse because they don't carry an instance
+// to match against — see AllowedCreateObjectInstance.
 func (h *WriteGatedHandler) createObjectAllowed(apdu []byte) bool {
 	const crHeader = 4
 	if len(apdu) <= crHeader {
 		return false
 	}
-	objType, ok := wire.ParseCreateObject(apdu[crHeader:])
+	objType, instance, hasInstance, ok := wire.ParseCreateObjectWithInstance(apdu[crHeader:])
 	if !ok {
 		return false
+	}
+	if hasInstance {
+		for _, c := range h.AllowedCreateObjectInstances {
+			if c.ObjectType == objType && c.ObjectInstance == instance {
+				return true
+			}
+		}
 	}
 	for _, a := range h.AllowedCreateObjects {
 		if a.ObjectType == objType {
