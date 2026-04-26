@@ -240,6 +240,45 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.13 chunk 11 landed.** BACnet
+  LifeSafetyOperation (svc 27) per-operation allowlist.
+  Closes the most safety-critical BACnet service: silencing
+  a fire-alarm panel during an active incident can be lethal.
+  The 10-value ASHRAE 135 §21 BACnetLifeSafetyOperation enum
+  has very different blast radii: 1/2/3 silence variants are
+  HOSTILE (potentially lethal on production life-safety
+  buses), 4/5/6 reset variants are operationally significant
+  (clear alarm/fault state), 7/8/9 unsilence variants are
+  the SAFE recovery direction. Typical operator pattern:
+  allow 7/8/9 freely, allow 4/5/6 case-by-case after manual
+  verification, REFUSE 1/2/3 outright. New CLI flag
+  `--lso-op N` (0..9, repeatable); YAML field `lso_ops:`
+  (uint8 list). Wire parser at `internal/protocols/bacnet/
+  wire/lifesafetyoperation.go` walks the four-field request
+  envelope (`[0] requestingProcessIdentifier`, `[1]
+  requestingSource` CharacterString, `[2] request` ENUMERATED,
+  `[3] objectIdentifier` OPTIONAL) using a generic
+  `skipContextPrimitiveField` helper that handles inline
+  length 0..4 + extended-length form (low-bits == 5 + length-
+  byte-follows). The helper is reusable for future BACnet
+  services with similar envelope structures. The optional
+  [3] objectIdentifier is ignored at gate level (per-object
+  scoping for LSO is a v1.14+ extension if asked); the
+  process identifier and requesting source are operator-side
+  metadata, not security-relevant. New
+  `AllowlistHashWithLSOOps` (separator 0xFA) extends the
+  v1.13-chunk-10 ladder; backwards-compat ladder degrades
+  through chunks 10/9/8/7/v1.12-chunk-7/v1.4. Refactor:
+  introduced `sortAllowedDCCStates` helper; the
+  `Allowlists` bundle gains an `LSOOperations` field;
+  `parseAllowlists` adds the lso-op dispatch step. 14 new
+  tests (4 hash ladder + 7 wire parser including
+  inline/length-2 processID + extended-length CharacterString
+  + truncated/wrong-tag/out-of-range fail-closed + 5 e2e
+  including the canonical "silence REFUSED when only
+  unsilence is allowed" safety invariant + an "all silence
+  variants refuse under recovery-only policy" sweep + a
+  "reset+unsilence mix passes" composition test).
 - 2026-04-25 — **v1.13 chunk 10 landed.** BACnet
   DeviceCommunicationControl (svc 17) per-state allowlist.
   The 3-value ASHRAE 135 §16.1 enableDisable enum has a clear

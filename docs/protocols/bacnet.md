@@ -48,6 +48,7 @@ Two layers of allowlist:
 | Per-create-type | `--create-object-type N` | `CreateObject` (svc 10) | type-only after BER walk (instance ignored) | v1.13 |
 | Per-reinit-state | `--reinit-state N` | `ReinitializeDevice` (svc 20) | exact enum value (0..7 per ASHRAE 135 §16.4) | v1.13 |
 | Per-DCC-state | `--dcc-state N` | `DeviceCommunicationControl` (svc 17) | exact enableDisable enum value (0..2 per ASHRAE 135 §16.1) | v1.13 |
+| Per-LSO-op | `--lso-op N` | `LifeSafetyOperation` (svc 27) | exact BACnetLifeSafetyOperation enum value (0..9 per ASHRAE 135 §21) — **CRITICAL: silencing variants 1/2/3 can be lethal on fire-alarm panels** | v1.13 |
 
 The per-object check on **WritePropertyMultiple** walks every
 `(ObjectIdentifier, PropertyIdentifier)` pair in the
@@ -96,22 +97,35 @@ direction) and refuse 1/2 to prevent device silencing. The
 optional timeDuration ([0]) and password ([2]) fields are
 ignored at gate level.
 
-Other mutating services (27 LifeSafetyOperation, 7
-AtomicWriteFile, 8 AddListElement, 9 RemoveListElement) keep
-service-only gating in v1.13; per-object layers for those
-services are v1.14+ follow-ups (their request shapes differ).
+**LifeSafetyOperation (svc 27)** is gated **per-operation**
+across the 10-value BACnetLifeSafetyOperation enum: 0 none, 1/2/3
+silence variants (HOSTILE — silencing a fire-alarm panel during
+an active incident can be lethal), 4/5/6 reset variants
+(operationally significant — clear alarm/fault state), 7/8/9
+unsilence variants (SAFE recovery direction). Operators
+typically allow 7/8/9 freely + 4/5/6 case-by-case + REFUSE
+1/2/3 outright on production life-safety buses. The
+requestingProcessIdentifier ([0]), requestingSource ([1]) and
+optional objectIdentifier ([3]) fields are ignored at gate
+level.
+
+Other mutating services (7 AtomicWriteFile, 8 AddListElement,
+9 RemoveListElement) keep service-only gating in v1.13; per-
+object layers for those services are v1.14+ follow-ups (their
+request shapes differ).
 
 ```sh
 elsereno-offensive write bacnet dry-run \
   --target bms.internal:47808 \
   --service-choice 10 --service-choice 11 --service-choice 15 \
-  --service-choice 17 --service-choice 20 \
+  --service-choice 17 --service-choice 20 --service-choice 27 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --delete-object "type=2;instance=99" \
   --create-object-type 17 \
   --reinit-state 7 \
   --dcc-state 0 \
+  --lso-op 7 --lso-op 8 --lso-op 9 \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 ```
@@ -120,7 +134,7 @@ Refusal is a BACnet `Abort-PDU` with reason `5` (security-error).
 YAML keys: `service_choices:`, `objects:` (`{type, instance,
 property}`), `delete_objects:` (`{type, instance}`),
 `create_object_types:` (`{type}`), `reinit_states:` (uint8 list),
-`dcc_states:` (uint8 list).
+`dcc_states:` (uint8 list), `lso_ops:` (uint8 list).
 
 ## Scope
 

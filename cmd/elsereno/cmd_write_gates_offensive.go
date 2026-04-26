@@ -517,7 +517,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var serviceChoices []uint
 	var objects []string
 	var deleteObjects []string
-	var createObjectTypes, reinitStates, dccStates []uint
+	var createObjectTypes, reinitStates, dccStates, lsoOps []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -532,6 +532,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				createObjectTypes: createObjectTypes,
 				reinitStates:      reinitStates,
 				dccStates:         dccStates,
+				lsoOps:            lsoOps,
 			})
 		},
 	}
@@ -542,6 +543,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
+	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -551,11 +553,11 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 // arg so runBACnetDryRun stays under the gocyclo / funlen
 // thresholds as we add v1.13+ per-service dimensions.
 type bacnetDryRunInputs struct {
-	target, ppFile, emitFile                   string
-	serviceChoices                             []uint
-	objects                                    []string
-	deleteObjects                              []string
-	createObjectTypes, reinitStates, dccStates []uint
+	target, ppFile, emitFile                           string
+	serviceChoices                                     []uint
+	objects                                            []string
+	deleteObjects                                      []string
+	createObjectTypes, reinitStates, dccStates, lsoOps []uint
 }
 
 // runBACnetDryRun parses every per-service allowlist, computes
@@ -569,13 +571,13 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithDCCStates(in.target, parsed)
+	mut := bacwrite.SessionMutationWithLSOOps(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
 	}
 	if p, err := ensureAllowFilePath(in.emitFile); err == nil {
-		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates))
+		return emitAllowFile(cmd, p, buildAllowFileBACnet(in.target, in.serviceChoices, in.objects, in.deleteObjects, in.createObjectTypes, in.reinitStates, in.dccStates, in.lsoOps))
 	}
 	return nil
 }
@@ -609,6 +611,10 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 	if err != nil {
 		return bacwrite.Allowlists{}, err
 	}
+	lsoOps, err := parseBACnetLSOOps(in.lsoOps)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
 	return bacwrite.Allowlists{
 		Services:      svcs,
 		Objects:       objs,
@@ -616,6 +622,7 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 		CreateObjects: creObjs,
 		ReinitStates:  reiSts,
 		DCCStates:     dccSts,
+		LSOOperations: lsoOps,
 	}, nil
 }
 
@@ -642,6 +649,7 @@ func printBACnetDryRunSummary(cmd *cobra.Command, in bacnetDryRunInputs, al bacw
 	cmd.Printf("CreateObjects: %s\n", canonBACnetCreateObjects(al.CreateObjects))
 	cmd.Printf("ReinitStates: %s\n", canonBACnetReinitStates(al.ReinitStates))
 	cmd.Printf("DCCStates:    %s\n", canonBACnetDCCStates(al.DCCStates))
+	cmd.Printf("LSOOps:       %s\n", canonBACnetLSOOps(al.LSOOperations))
 	cmd.Printf("Always-safe:  unconfirmed-requests + acks + confirmed-reads + non-BACnet\n")
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
@@ -784,6 +792,64 @@ func parseBACnetCreateObjectTypes(in []uint) ([]bacwrite.AllowedCreateObject, er
 		out = append(out, bacwrite.AllowedCreateObject{ObjectType: uint16(v & 0x3FF)})
 	}
 	return out, nil
+}
+
+// parseBACnetLSOOps converts repeated --lso-op uint values into
+// AllowedLSOOperation entries. Each value must be a known enum
+// (0..9 per ASHRAE 135 §21 BACnetLifeSafetyOperation).
+func parseBACnetLSOOps(in []uint) ([]bacwrite.AllowedLSOOperation, error) {
+	out := make([]bacwrite.AllowedLSOOperation, 0, len(in))
+	for _, v := range in {
+		if v > 9 {
+			return nil, fmt.Errorf("--lso-op %d: must be 0-9 (ASHRAE 135 §21 BACnetLifeSafetyOperation enum)", v)
+		}
+		out = append(out, bacwrite.AllowedLSOOperation{Operation: uint8(v & 0x0F)})
+	}
+	return out, nil
+}
+
+// canonBACnetLSOOps prints the sorted list for dry-run.
+func canonBACnetLSOOps(in []bacwrite.AllowedLSOOperation) string {
+	if len(in) == 0 {
+		return "(none — LifeSafetyOperation accepts any operation when 27 is in services)"
+	}
+	out := make([]string, len(in))
+	sorted := append([]bacwrite.AllowedLSOOperation(nil), in...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Operation < sorted[j].Operation })
+	for i, l := range sorted {
+		out[i] = fmt.Sprintf("%d (%s)", l.Operation, lsoOpLabel(l.Operation))
+	}
+	return strings.Join(out, ", ")
+}
+
+// lsoOpLabel returns the spec name for a BACnetLifeSafetyOperation
+// enum value. Unknown values render as "?" — never expected
+// since the parser validates the range.
+func lsoOpLabel(v uint8) string {
+	switch v {
+	case 0:
+		return "none"
+	case 1:
+		return "silence"
+	case 2:
+		return "silence-audible"
+	case 3:
+		return "silence-visual"
+	case 4:
+		return "reset"
+	case 5:
+		return "reset-alarm"
+	case 6:
+		return "reset-fault"
+	case 7:
+		return "unsilence"
+	case 8:
+		return "unsilence-audible"
+	case 9:
+		return "unsilence-visual"
+	default:
+		return "?"
+	}
 }
 
 // parseBACnetDCCStates converts repeated --dcc-state uint
@@ -1781,8 +1847,9 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // (type only) for CreateObject (svc 10). v1.13 chunk 9 adds
 // `reinit_states:` (state enum) for ReinitializeDevice (svc 20).
 // v1.13 chunk 10 adds `dcc_states:` (state enum) for
-// DeviceCommunicationControl (svc 17).
-func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates []uint) proxyAllowFile {
+// DeviceCommunicationControl (svc 17). v1.13 chunk 11 adds
+// `lso_ops:` (operation enum) for LifeSafetyOperation (svc 27).
+func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjectsRaw []string, createObjectTypes, reinitStates, dccStates, lsoOps []uint) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:         pluginNameBACnet,
 		Target:         target,
@@ -1839,7 +1906,26 @@ func buildAllowFileBACnet(target string, choices []uint, objectsRaw, deleteObjec
 	if len(dccStates) > 0 {
 		af.DCCStates = canonAllowFileBACnetDCCStates(dccStates)
 	}
+	if len(lsoOps) > 0 {
+		af.LSOOps = canonAllowFileBACnetLSOOps(lsoOps)
+	}
 	return af
+}
+
+// canonAllowFileBACnetLSOOps converts repeated raw uint
+// operation values to YAML uint8 entries, dropping out-of-range
+// values + sorting ascending. Extracted so buildAllowFileBACnet
+// stays under the funlen threshold.
+func canonAllowFileBACnetLSOOps(in []uint) []uint8 {
+	out := make([]uint8, 0, len(in))
+	for _, v := range in {
+		if v > 9 {
+			continue
+		}
+		out = append(out, uint8(v&0x0F))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 // canonAllowFileBACnetReinitStates converts repeated raw uint

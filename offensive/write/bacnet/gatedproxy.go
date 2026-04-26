@@ -168,6 +168,62 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedLSOOperation scopes a LifeSafetyOperation confirmed-
+// request (service 27) to a specific BACnetLifeSafetyOperation
+// enum value. v1.13 chunk 11 adds operation-level gating for
+// the most safety-critical BACnet service: silencing a fire-
+// alarm panel during a real incident can lead to deaths.
+//
+// Semantics: when AllowedLSOOperations is non-empty, a
+// LifeSafetyOperation (svc 27) confirmed-request is forwarded
+// ONLY when:
+//
+//   - its service choice is in Allowed (the v1.4 service-
+//     level gate), AND
+//   - the parsed request enum value is in this list.
+//
+// Empty list disables the per-operation gate (LSO remains
+// gated at service-choice level if 27 is in Allowed).
+//
+// Why operation-level? The 10-value enum has very different
+// safety blast radii:
+//
+//   - 0 none: no-op marker (operationally safe but useless).
+//   - 1/2/3 silence/silence-audible/silence-visual: HOSTILE
+//     direction. Silencing a fire-alarm panel during an active
+//     incident can cause loss of life. Operators on production
+//     life-safety buses should NEVER allow these.
+//   - 4/5/6 reset/reset-alarm/reset-fault: operationally
+//     significant. Clear alarm/fault state — useful for post-
+//     incident cleanup, dangerous if performed on an ACTIVE
+//     alarm before the underlying cause is addressed.
+//   - 7/8/9 unsilence/unsilence-audible/unsilence-visual: SAFE
+//     direction. Undoes a prior silence — allows audible/
+//     visual indicators to resume. Typical recovery action
+//     when a panel was wrongly silenced.
+//
+// Typical operator pattern: allow 7/8/9 (unsilence — recovery
+// direction) freely, allow 4/5/6 (reset) during incident
+// response after manual verification, REFUSE 1/2/3 (silence)
+// outright on production life-safety systems.
+//
+// The optional [3] objectIdentifier (which life-safety object
+// the operation targets) is ignored at gate level — per-object
+// scoping for LSO is a v1.14+ extension if operators ask. The
+// requestingProcessIdentifier ([0]) and requestingSource ([1])
+// are also ignored — those are operator-side metadata, not
+// security-relevant at the gate.
+//
+// Kept SEPARATE from all other allowlists: this is a service-
+// internal scoping dimension, orthogonal to property /
+// delete / create / reinit / DCC lists.
+type AllowedLSOOperation struct {
+	// Operation is the ASHRAE 135 §21 BACnetLifeSafetyOperation
+	// enum (0..9). See the wire.LSOOp* constants for the
+	// labelled values.
+	Operation uint8
+}
+
 // AllowedDCCState scopes a DeviceCommunicationControl
 // confirmed-request (service 17) to a specific enableDisable
 // enum value. v1.13 chunk 10 adds state-level gating for the
@@ -671,6 +727,7 @@ type Allowlists struct {
 	CreateObjects []AllowedCreateObject
 	ReinitStates  []AllowedReinitState
 	DCCStates     []AllowedDCCState
+	LSOOperations []AllowedLSOOperation
 }
 
 // AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
@@ -740,6 +797,99 @@ func SessionMutationWithDCCStates(target string, al Allowlists) confirm.Mutation
 		Operation:   "proxy_session",
 		Target:      target,
 		PayloadHash: AllowlistHashWithDCCStates(target, al),
+	}
+}
+
+// AllowlistHashWithLSOOps is the v1.13 chunk-11 hash that adds
+// the per-LifeSafetyOperation allowlist on top of the v1.13
+// chunk-10 layer. Backwards-compat ladder:
+//
+//   - empty LSOOperations → equals AllowlistHashWithDCCStates
+//     (v1.13 chunk 10).
+//   - all-empty (no LSO + no DCC + no reinit + no create + no
+//     delete + no objects) → equals AllowlistHash (v1.4).
+//
+// All v1.4 → v1.13-chunk-10 confirm-tokens remain valid for
+// operators who don't opt into per-LSO-operation gating.
+//
+// Hash layout (when LSOOperations is non-empty):
+//
+//	AllowlistHashWithDCCStates output
+//	  || 0xFA || (op byte) × sorted_LSOOperations
+//
+// Separator 0xFA is below 0xFB (DCC), 0xFC (reinit), 0xFD
+// (creates), 0xFE (deletes), and 0xFF (per-property objects).
+// Per-entry is 1 byte (operation enum 0..9).
+func AllowlistHashWithLSOOps(target string, al Allowlists) [32]byte {
+	if len(al.LSOOperations) == 0 {
+		return AllowlistHashWithDCCStates(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := append([]AllowedLSOOperation(nil), al.LSOOperations...)
+	sort.Slice(sortedLSO, func(i, j int) bool {
+		return sortedLSO[i].Operation < sortedLSO[j].Operation
+	})
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	writeLSOOpsBlock(h, sortedLSO)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithLSOOps is the v1.13 chunk-11 mutation
+// that mixes every per-service dimension (services + per-
+// object + per-delete + per-create + per-reinit + per-DCC +
+// per-LSO) into the PayloadHash. Empty LSOOperations →
+// degrades to SessionMutationWithDCCStates.
+func SessionMutationWithLSOOps(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithLSOOps(target, al),
+	}
+}
+
+// sortAllowedDCCStates returns a deterministically sorted copy
+// (by State ascending). Helper introduced alongside chunk 11
+// so AllowlistHashWithLSOOps can reuse the chunk-10 sort logic
+// without re-stating it inline.
+func sortAllowedDCCStates(in []AllowedDCCState) []AllowedDCCState {
+	out := append([]AllowedDCCState(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].State < out[j].State })
+	return out
+}
+
+// writeLSOOpsBlock writes the per-operation block. Separator
+// 0xFA (v1.13 chunk 11). Caller must have already established
+// len(sorted) > 0.
+func writeLSOOpsBlock(h hashWriter, sorted []AllowedLSOOperation) {
+	_, _ = h.Write([]byte{0xFA})
+	for _, l := range sorted {
+		_, _ = h.Write([]byte{l.Operation})
 	}
 }
 
@@ -819,9 +969,14 @@ type WriteGatedHandler struct {
 	// See AllowedDCCState for semantics. Empty list preserves
 	// service-choice-only gating for that service.
 	AllowedDCCStates []AllowedDCCState
-	Deriver          confirm.KeyDeriver
-	Auditor          confirm.Auditor
-	SessionConfirm   confirm.Confirm
+	// AllowedLSOOperations is the optional v1.13 chunk-11
+	// per-operation allowlist for LifeSafetyOperation (service
+	// 27). See AllowedLSOOperation for semantics. Empty list
+	// preserves service-choice-only gating for that service.
+	AllowedLSOOperations []AllowedLSOOperation
+	Deriver              confirm.KeyDeriver
+	Auditor              confirm.Auditor
+	SessionConfirm       confirm.Confirm
 
 	authorised bool
 }
@@ -832,13 +987,14 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithDCCStates(h.Target, Allowlists{
+	m := SessionMutationWithLSOOps(h.Target, Allowlists{
 		Services:      h.Allowed,
 		Objects:       h.AllowedObjects,
 		DeleteObjects: h.AllowedDeleteObjects,
 		CreateObjects: h.AllowedCreateObjects,
 		ReinitStates:  h.AllowedReinitStates,
 		DCCStates:     h.AllowedDCCStates,
+		LSOOperations: h.AllowedLSOOperations,
 	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
@@ -979,8 +1135,9 @@ func (h *WriteGatedHandler) objectListGatesAllow(svc wire.ConfirmedService, apdu
 }
 
 // stateListGatesAllow runs the enum-state-style gates: reinit
-// states (svc 20), DCC states (svc 17). These check a single
-// enum byte each.
+// states (svc 20), DCC states (svc 17), LSO operations (svc 27).
+// These check a single enum byte each (LSO additionally walks
+// past two preceding context-tagged primitives).
 func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu []byte) bool {
 	if len(h.AllowedReinitStates) > 0 && svc == wire.ConfirmedSvcReinitializeDevice {
 		if !h.reinitStateAllowed(apdu) {
@@ -992,7 +1149,33 @@ func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu 
 			return false
 		}
 	}
+	if len(h.AllowedLSOOperations) > 0 && svc == wire.ConfirmedSvcLifeSafetyOperation {
+		if !h.lsoOperationAllowed(apdu) {
+			return false
+		}
+	}
 	return true
+}
+
+// lsoOperationAllowed parses the LifeSafetyOperation body and
+// reports whether the requested BACnetLifeSafetyOperation enum
+// value is in the operator's per-operation allowlist. Fail-
+// closed on unparseable BER or unknown enum value.
+func (h *WriteGatedHandler) lsoOperationAllowed(apdu []byte) bool {
+	const crHeader = 4
+	if len(apdu) <= crHeader {
+		return false
+	}
+	op, ok := wire.ParseLifeSafetyOperation(apdu[crHeader:])
+	if !ok {
+		return false
+	}
+	for _, a := range h.AllowedLSOOperations {
+		if a.Operation == op {
+			return true
+		}
+	}
+	return false
 }
 
 // dccStateAllowed parses the DeviceCommunicationControl body

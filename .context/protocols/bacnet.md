@@ -64,6 +64,20 @@ ASN.1 BER encoding particulars used by the per-object gate:
     3-value enum (0 enable, 1 disable, 2 disableInitiation).
   - Optional `[2]` password CharacterString — ignored.
   The gate inspects only the enableDisable enum.
+- LifeSafetyOperation (svc 27) has the structure
+  `[0] requestingProcessIdentifier  [1] requestingSource
+   [2] request  [3] objectIdentifier?` per ASHRAE 135 §16.1A:
+  - Required `[0]` Unsigned (length 1..4 inline).
+  - Required `[1]` CharacterString (length 1..4 inline OR
+    extended-length form `0x1D LL` for length 5..253).
+  - Required `[2]` ENUMERATED (`0x29 NN` length 1) — the
+    BACnetLifeSafetyOperation enum (0..9).
+  - Optional `[3]` BACnetObjectIdentifier — ignored at gate
+    level (per-object scoping is v1.14+ if asked).
+  The gate parser uses a generic `skipContextPrimitiveField`
+  helper that walks the inline-length and extended-length
+  forms uniformly so future BACnet services with similar
+  envelope structures can reuse it.
 - WPM SEQUENCE-OF-WriteAccessSpecification structure:
   ```
   SEQUENCE {
@@ -134,31 +148,43 @@ Three layers of allowlist (cumulative):
    1/2 to prevent device silencing. The optional timeDuration
    ([0]) and password ([2]) fields are ignored at gate level.
    v1.13 chunk 10.
+7. **Per-LSO-operations** (`--lso-op N`) — exact enum match.
+   Applies to LifeSafetyOperation (svc 27) only. The 10-value
+   BACnetLifeSafetyOperation enum has very different SAFETY
+   blast radii: 1/2/3 silence variants can be LETHAL on
+   fire-alarm panels (silencing a panel during an active
+   incident); 4/5/6 reset variants clear alarm/fault state;
+   7/8/9 unsilence variants are the SAFE recovery direction.
+   Operators on production life-safety buses typically allow
+   7/8/9 freely + 4/5/6 case-by-case + REFUSE 1/2/3 outright.
+   The requestingProcessIdentifier ([0]), requestingSource
+   ([1]), and optional objectIdentifier ([3]) fields are all
+   ignored at gate level. v1.13 chunk 11.
 
-Chunk 10 also introduced the `Allowlists` bundle struct
-(was `BACnetAllowlists` before linter caught the package
-stutter): collects every per-service dimension into a single
-arg so the chunk-10+ hash + mutation factories don't need to
-grow function parameters every cycle. The pre-existing
-chunk-1..9 functions retain their per-dimension signatures
-for backwards-compat with operator code that constructs
-sessions piecewise.
+Chunk 10 introduced the `Allowlists` bundle struct (was
+`BACnetAllowlists` before linter caught the package stutter):
+collects every per-service dimension into a single arg so the
+chunk-10+ hash + mutation factories don't need to grow function
+parameters every cycle. The pre-existing chunk-1..9 functions
+retain their per-dimension signatures for backwards-compat with
+operator code that constructs sessions piecewise.
 
-Other mutating services (svc 27 LifeSafetyOperation, svc 7
-AtomicWriteFile, svc 8/9 Add/RemoveListElement) keep
-service-only gating; per-object layers for those services
-are v1.14+ follow-ups (their request shapes differ).
+Other mutating services (svc 7 AtomicWriteFile, svc 8/9
+Add/RemoveListElement) keep service-only gating; per-object
+layers for those services are v1.14+ follow-ups (their
+request shapes differ).
 
 Refusal: BVLC-wrapped Abort-PDU with reason 5 (security-error).
 
-Hash ladder (`AllowlistHashWithDCCStates` →
-`AllowlistHashWithReinitStates` → `AllowlistHashWithCreateObjects`
-→ `AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
+Hash ladder (`AllowlistHashWithLSOOps` →
+`AllowlistHashWithDCCStates` → `AllowlistHashWithReinitStates`
+→ `AllowlistHashWithCreateObjects` →
+`AllowlistHashWithDeleteObjects` → `AllowlistHashWithObjects`
 → `AllowlistHash`): each successive empty dimension degrades to
-the prior-version hash. Separators: 0xFB (DCC states), 0xFC
-(reinit states), 0xFD (creates), 0xFE (deletes), 0xFF (per-
-property objects). Operator confirm-tokens minted before v1.12
-/ v1.13 stay valid.
+the prior-version hash. Separators: 0xFA (LSO ops), 0xFB (DCC
+states), 0xFC (reinit states), 0xFD (creates), 0xFE (deletes),
+0xFF (per-property objects). Operator confirm-tokens minted
+before v1.12 / v1.13 stay valid.
 
 ## REPL commands (planned F4 chunk 2)
 - See the generic REPL framework.

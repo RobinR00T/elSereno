@@ -81,6 +81,7 @@ The proxy runs until SIGINT / SIGTERM.`,
 	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only — instance ignored at gate level.")
 	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
+	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses.")
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
@@ -139,6 +140,15 @@ type proxyListenOpts struct {
 	// forward only when the parsed state value matches one of
 	// these.
 	bacnetDCCStates []uint
+	// bacnetLSOOps holds the bacnet per-operation
+	// LifeSafetyOperation allowlist (v1.13+). Numeric ASHRAE
+	// 135 §21 BACnetLifeSafetyOperation enum (0..9). When
+	// non-empty, LifeSafetyOperation (svc 27) requests forward
+	// only when the parsed operation value matches one of
+	// these. CRITICAL for life-safety systems: silencing
+	// operations can be life-threatening on production
+	// fire-alarm panels.
+	bacnetLSOOps []uint
 	// callMethods holds the opcua per-CallMethod allowlist in
 	// the CLI-friendly "object=<NodeId>;method=<NodeId>" form
 	// (v1.12+). When non-empty, a CallRequest MSG is forwarded
@@ -483,6 +493,10 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	lsoOps, err := parseBACnetLSOOps(opts.bacnetLSOOps)
+	if err != nil {
+		return nil, err
+	}
 	return &bacwrite.WriteGatedHandler{
 		Target:               opts.target,
 		Allowed:              allowed,
@@ -491,6 +505,7 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		AllowedCreateObjects: creObjs,
 		AllowedReinitStates:  reiSts,
 		AllowedDCCStates:     dccSts,
+		AllowedLSOOperations: lsoOps,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,

@@ -227,6 +227,7 @@ type proxyAllowFile struct {
 	CreateObjectTypes []proxyBACnetCreateObject `yaml:"create_object_types,omitempty"` // bacnet (v1.13+) — per-type CreateObject allowlist
 	ReinitStates      []uint8                   `yaml:"reinit_states,omitempty"`       // bacnet (v1.13+) — per-state ReinitializeDevice allowlist
 	DCCStates         []uint8                   `yaml:"dcc_states,omitempty"`          // bacnet (v1.13+) — per-state DeviceCommControl allowlist
+	LSOOps            []uint8                   `yaml:"lso_ops,omitempty"`             // bacnet (v1.13+) — per-operation LifeSafetyOperation allowlist
 	RPCs              []string                  `yaml:"rpcs,omitempty"`                // cwmp (v1.11+) — SOAP RPC allowlist
 	ParamPrefixes     []string                  `yaml:"param_prefixes,omitempty"`      // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
 	Firmware          []proxyCWMPFirmware       `yaml:"firmware,omitempty"`            // cwmp (v1.12+) — per-image allowlist for Download
@@ -284,7 +285,8 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 // plugin's YAML. Extracted so loadAllowFile stays under funlen.
 // Walks every BACnet allowlist field (services, per-property
 // objects, per-target deletes, per-type creates, per-state
-// reinitializeDevice, per-state DeviceCommControl).
+// reinitializeDevice, per-state DeviceCommControl, per-operation
+// LifeSafetyOperation).
 func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	opts.serviceChoices = af.ServiceChoices
 	for _, o := range af.Objects {
@@ -304,6 +306,9 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	}
 	for _, s := range af.DCCStates {
 		opts.bacnetDCCStates = append(opts.bacnetDCCStates, uint(s))
+	}
+	for _, o := range af.LSOOps {
+		opts.bacnetLSOOps = append(opts.bacnetLSOOps, uint(o))
 	}
 }
 
