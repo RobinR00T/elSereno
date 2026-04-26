@@ -1,6 +1,6 @@
 % ELSERENO-SECURITY(7) ElSereno security model | Miscellaneous
 % ElSereno project
-% 2026-04-19
+% 2026-04-26
 
 # NAME
 
@@ -20,9 +20,16 @@ jump host. The primary adversaries are:
   the encrypted vault (*elsereno creds store*).
 - **Audit tampering** — the audit log is a JCS hash chain with a genesis
   marker, tombstoning purge, and an auditable rebase on compact.
+  Cross-process safety: writers acquire **flock(LOCK_EX)** before
+  Append / appendVerbatim and resume from the latest tail under the
+  lock so two ElSereno processes (e.g. **serve** + **proxy listen**)
+  cannot race the chain (Linux + macOS, v1.15+).
 - **Supply-chain** — reproducible builds (**-trimpath**,
-  **-buildvcs=false**); releases signed with **cosign**; SLSA L3
-  provenance; CycloneDX SBOM; **go-licenses** enforced in CI.
+  **-buildvcs=false**); free-tier flow since v1.8 ships GPG-signed
+  tag (key **ACE3B86BACACE7D6**) + SHA-256 + CycloneDX SBOM via
+  **goreleaser local + gh release create**; **cosign** keyless +
+  SLSA L3 + GHCR remain available behind GitHub Actions billing.
+  **go-licenses** enforced in **make sec**.
 
 # CONTROLS
 
@@ -74,6 +81,12 @@ jump host. The primary adversaries are:
 Signals exit with **128 + signum**: SIGINT → **130**, SIGTERM →
 **143**. A second signal during drain exits immediately with the same
 code.
+
+**proxy listen** (offensive build) additionally maps **SIGHUP →
+exit 75** (*EX_TEMPFAIL*) so a supervisor (systemd / runit / s6)
+can distinguish reload-style exit from a real crash via
+**RestartPreventExitStatus=** and re-execute with a fresh
+allowlist + freshly minted confirm-token (v1.15+).
 
 # SEE ALSO
 

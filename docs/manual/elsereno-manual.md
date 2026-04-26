@@ -183,10 +183,10 @@ vault). Cada acción se auditéa en cadena hash.
 
 ## 1. Instalación + primer arranque
 
-### 1.1 Instalación desde release firmada (v1.8.0+)
+### 1.1 Instalación desde release firmada (v1.15.0+)
 
 ```sh
-VERSION=1.8.0
+VERSION=1.15.0
 OS=darwin          # o linux
 ARCH=arm64         # o amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -213,7 +213,8 @@ tar xzf "elsereno_${VERSION}.tar.gz"
 
 ### 1.2 Verificar el tag GPG firmado
 
-El tag `v1.8.0` está firmado con la clave del maintainer. Es el
+El tag `v1.15.0` está firmado con la clave del maintainer
+(GPG key `ACE3B86BACACE7D6` — Daniel Solís Agea). Es el
 método de verificación canónico desde v1.8.0 (cosign keyless /
 SLSA requieren CI facturada y no aplican al free-tier flow).
 
@@ -227,7 +228,7 @@ gpg --keyserver keys.openpgp.org --recv-keys ACE3B86BACACE7D6
 # Clonar + verificar
 git clone https://github.com/RobinR00T/elSereno.git
 cd elSereno
-git tag -v v1.8.0
+git tag -v v1.15.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 
@@ -236,7 +237,7 @@ git tag -v v1.8.0
 ```sh
 git clone https://github.com/RobinR00T/elSereno.git
 cd elSereno
-git checkout v1.8.0
+git checkout v1.15.0
 
 # Build default
 make build          # → bin/elsereno
@@ -250,16 +251,18 @@ shasum -a 256 dist/elsereno_*.tar.gz
 # → debe coincidir con checksums.txt de la release publicada
 ```
 
-### 1.4 Docker (v1.1–v1.7 — sólo si restaurás Actions billing)
+### 1.4 Docker (v1.1.0 fue la última con imagen pública)
 
-El docker image en `ghcr.io/robinr00t/elsereno:*` queda en
-releases anteriores con Actions activo. Para v1.8.0 no hay
-imagen pública (sin CI billing). Para build local:
+El docker image en `ghcr.io/robinr00t/elsereno:*` quedó en
+releases con GitHub Actions activo (hasta v1.1.0). Desde
+v1.8.0 (incluye v1.15.0) no hay imagen pública porque
+GHCR/buildx requieren GHA facturada y el proyecto opera en
+free-tier. Para build local:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t local/elsereno:v1.8.0 .
-docker run --rm local/elsereno:v1.8.0 version
+  -t local/elsereno:v1.15.0 .
+docker run --rm local/elsereno:v1.15.0 version
 ```
 
 ### 1.5 Primer arranque — vault + dashboard
@@ -353,6 +356,29 @@ elsereno serve
 ---
 
 ## 2. Descubrimiento (defensive, build default)
+
+### 2.0 Inventario rápido con `discover --auto <CIDR>` (v1.15+)
+
+Antes de tener una lista de targets pre-armada, `discover
+--auto` hace un TCP-connect sweep contra un CIDR y emite los
+`(host, port)` que respondieron, cruzando el well-known port
+de cada plugin registrado. Es pipe-friendly con `scan
+--input list:-`:
+
+```sh
+# Inventario sobre 192.168.1.0/24 → directamente al scanner
+elsereno discover --auto 192.168.1.0/24 --format list \
+  | elsereno scan --input list:-
+
+# Output de discover en NDJSON (default)
+elsereno discover --auto 10.0.0.0/24 \
+  --concurrency 64 --timeout 1s > inventory.ndjson
+```
+
+Útil para el flujo "punto y dispara" cuando no tienes Shodan /
+Censys ni nmap-scriptless. La sweep es **defensive**: solo
+TCP-connect, no envía bytes adicionales — la fingerprint
+detallada (banner, parser por protocolo) queda en `scan`.
 
 ### 2.1 Flujo E2E: Shodan → scope → scan → findings → report
 
@@ -514,7 +540,22 @@ elsereno scan --input-file t.txt --cef-file findings.cef
 elsereno scan --input-file t.txt \
   --webhook-url https://ops.example/hook \
   --webhook-secret-file ~/.elsereno/wh.pp
+
+# STIX 2.1 (v1.15+) — feed MISP / OpenCTI / ThreatBus
+elsereno scan --input-file t.txt --output-format stix > findings.stix.json
 ```
+
+El bundle STIX 2.1 emite por finding:
+- Un `ipv4-addr` o `ipv6-addr` SCO (con UUIDv5 determinístico)
+- Un `network-traffic` SCO referenciando puerto + transporte
+- Un `observed-data` SDO atando todo con `first_observed` /
+  `last_observed` + count
+
+Bundle envuelto con `"type": "bundle", "id": "bundle--<uuid>"`.
+Los IDs de los SCO/SDO internos son **determinísticos**
+(UUIDv5 sobre namespace + canonical key) — diff entre runs
+solo cambia las timestamps del bundle wrapper, lo cual hace
+fácil regression-test sobre la salida.
 
 ### 2.2 Dashboard SSE en vivo (v1.1+)
 
@@ -900,12 +941,13 @@ elsereno-offensive proxy listen \
   --confirm-token <hex> --vault-passphrase-file ~/.elsereno/dev.pp
 ```
 
-Opcionalmente en el dry-run puedes endurecer con `--unit N`,
-`--address-from N`, `--address-to N`. Atención: esa
-combinación NO es compatible con `--emit-allow-file` porque el
-schema YAML hoy solo persiste `functions:` (unit + address-
-range tightening llega en v1.10). Si usas esos flags, pasa el
-gate al proxy vía flags directos en lugar de `--allow-file`.
+Para tightening por unit + address-range, v1.12 chunk 4 añadió
+la forma estructurada `--write unit=N;fc=M;start=A;end=B`
+con round-trip lossless al `--emit-allow-file`. Los flags
+legacy `--unit`/`--address-from`/`--address-to` siguen
+soportados y se materializan internamente como entradas
+`writes:` estructuradas; ya no hay emit-guard que los rechace
+contra `--emit-allow-file`.
 
 ### 6.2 Exploit CVE (catálogo reducido)
 
@@ -1295,6 +1337,103 @@ parsee la negativa limpiamente y la muestre en su GUI como "CPE
 returned fault 9001 Request denied" en lugar de un error de
 transporte ambiguo.
 
+#### 6.5.9 SIGHUP reload-style exit (v1.15+, supervisor pattern)
+
+`proxy listen` distingue tres señales:
+
+| Señal     | Exit | Semántica |
+|-----------|------|-----------|
+| SIGINT    | 130  | Clean stop. El supervisor NO reinicia (exit ≠ 0 si se usa systemd `Restart=on-failure`, pero limpio para `Restart=always`). |
+| SIGTERM   | 143  | Clean stop, idéntico a SIGINT. |
+| **SIGHUP**| **75**| **EX_TEMPFAIL** — el supervisor reinicia. Workflow de reload sin perder allowlist-vivo: |
+
+Workflow operator (systemd / runit / s6):
+
+```sh
+# 1. Edita el allow-file con la nueva config
+sudo vim /etc/elsereno/sip-gate.yaml
+
+# 2. Re-mint del confirm-token contra el nuevo allow-file
+elsereno-offensive write sip dry-run \
+  --allow-file /etc/elsereno/sip-gate.yaml \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+# → ConfirmToken: <NUEVO-hex>
+
+# 3. Escribe el nuevo token en el EnvironmentFile del supervisor
+sudo vim /etc/systemd/system/elsereno-sip-gate.service.d/token.conf
+# Environment="ELSERENO_CONFIRM_TOKEN=<NUEVO-hex>"
+
+# 4. Trigger reload
+sudo systemctl kill -s SIGHUP elsereno-sip-gate.service
+# → exit 75; systemd ve EX_TEMPFAIL; reinicia con la nueva config
+```
+
+Configuración recomendada de unit systemd:
+
+```ini
+[Service]
+Restart=always
+RestartPreventExitStatus=0   # exit 0 (SIGINT/SIGTERM) NO reinicia
+# exit 75 (SIGHUP / EX_TEMPFAIL) sí reinicia → reload
+```
+
+Se eligió el patrón "supervisor restart" en lugar de in-process
+reload porque el confirm-token actual está derivado del hash
+del allowlist; cambiar el allowlist en caliente invalidaría el
+token vivo y forzaría una repentina re-autorización. La variante
+in-process (token-generation cookie scheme) es backlog v1.16+.
+
+#### 6.5.10 CWMP TransferComplete observer (v1.15+)
+
+Cierra el loop de v1.12 chunk-10 firmware-pin: cuando autorizas
+una RPC `Download` con `--firmware url=...;sha256=...`, el ACS
+le pide al CPE que se descargue + flashee la imagen. El CPE
+luego reporta el outcome con `TransferComplete`. v1.15 añade un
+observer pasivo en el gate que parsea ese envelope CPE → ACS y
+emite una línea structured log a stderr:
+
+```
+2026-04-26T22:00:00Z level=info msg=cwmp_transfer_complete
+  target=acs.example:7547 status=ok command_key=fw-update-1
+  fault_code=0 fault_string=
+  start=2026-04-26T21:55:00Z complete=2026-04-26T22:00:00Z
+```
+
+Cuando el CPE reporta fault (`status=fault`, `fault_code=9010`
+"DownloadFailure" / `9011` "MD5Hash mismatch" / `9012`
+"DownloadTimeout"), el observer lo señala. Útil para:
+
+- Correlar la autorización Download con su resultado real
+  (la chain de audit ya lleva el token de Download autorizado;
+  el observer cierra con el outcome).
+- Detectar inestabilidad del parque CPE (muchos fault_code=9012
+  = upstream bandwidth saturada).
+- Tarjetar firmware-corrupción on-wire (fault_code=9011 +
+  CommandKey conocido).
+
+**Implementación**: el observer es opt-in via
+`WriteGatedHandler.OnTransferComplete` callback. La CLI default
+(`elsereno-offensive proxy listen --plugin cwmp`) registra el
+observer que escribe a stderr. Para uso programático (operator
+ACS-side wrapping):
+
+```go
+import "local/elsereno/offensive/write/cwmp"
+
+handler.OnTransferComplete = func(ctx context.Context, fields cwmp.TransferCompleteFields) {
+    if !fields.IsSuccess() {
+        // emit alert / SIEM / pager
+    }
+    // ... custom audit decoration ...
+}
+```
+
+La SHA-256 mismatch audit (correlar el TransferComplete con la
+entrada audit del Download autorizado y emitir un evento
+explícito si la firmware reportada NO matchea la pin) es
+backlog v1.16+ — la primera mitad (parser + observer) ya
+está cableada.
+
 ### 6.6 Sandbox seccomp-bpf (Linux)
 
 Todos los verbs ofensivos instalan un filtro BPF por-perfil
@@ -1390,6 +1529,15 @@ Audit chain:
 elsereno audit verify-file       # valida ~/.elsereno/audit.jsonl
 elsereno audit export --out audit.jsonl.asc   # firma con GPG
 ```
+
+**Audit cross-process flock (v1.15+)**: dos procesos ElSereno
+escribiendo simultáneamente a `~/.elsereno/audit.jsonl` (típico
+si corres `serve` + `proxy listen` en la misma workstation)
+ya no rompen la chain. El writer adquiere `flock(LOCK_EX)`
+antes de cada `Append` / `appendVerbatim` y resume el tail
+desde el latest hash bajo el lock. Linux + macOS via
+`golang.org/x/sys/unix.Flock`. Windows: `flock_windows.go` es
+stub (Windows support es backlog v1.16+).
 
 ---
 

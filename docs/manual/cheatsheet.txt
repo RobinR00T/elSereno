@@ -80,11 +80,19 @@ elsereno scan --input-file out.xml --input-type nmapxml
 # Plain list
 elsereno scan --input-file targets.txt --scope scope.yaml
 
+# discover --auto <CIDR> (v1.15+) — TCP-connect sweep + plugin
+# port mix; pipe-friendly:
+elsereno discover --auto 192.168.1.0/24 --format list \
+  | elsereno scan --input list:-
+
 # Outputs
 elsereno scan --input-file t.txt \
   --out-ndjson f.ndjson --out-csv f.csv --out-html f.html \
   --syslog udp://siem:514 \
   --webhook-url https://hook --webhook-secret-file wh.pp
+
+# STIX 2.1 bundle (v1.15+) — feed MISP / OpenCTI / ThreatBus
+elsereno scan --input-file t.txt --output-format stix > findings.stix.json
 
 
 ----------------- Protocol fingerprints (17) ------------------
@@ -224,26 +232,36 @@ elsereno-offensive write opcua dry-run \
 # v1.12 walks every WriteValue (no más first-only); CallRequest
 # se autoriza solo cuando todos los (object, method) coinciden.
 
-# BACnet service-choice + per-WriteProperty object (v1.12+) +
-# per-WritePropertyMultiple (v1.13+, walk de cada tupla en el
-# batch — fail-closed si UNA sola tupla está fuera) +
-# per-target DeleteObject (v1.13+, --delete-object).
+# BACnet — los 9 servicios mutating cierran a wire-level con
+# allowlists de granularidad natural (v1.13 chunks 7-13):
+#   svc 7  AtomicWriteFile           --awf-file N
+#   svc 8  AddListElement            --list-element type=N;instance=M;property=P
+#   svc 9  RemoveListElement         (compartido con svc 8)
+#   svc 10 CreateObject              --create-object-type N
+#   svc 11 DeleteObject              --delete-object type=N;instance=M
+#   svc 15 WriteProperty             --object type=N;instance=M;property=P
+#   svc 16 WritePropertyMultiple     (compartido con svc 15)
+#   svc 17 DeviceCommunicationCtrl   --dcc-state N
+#   svc 20 ReinitializeDevice        --reinit-state N
+#   svc 27 LifeSafetyOperation       --lso-op N
 elsereno-offensive write bacnet dry-run \
   --target bms:47808 \
   --service-choice 11 --service-choice 15 --service-choice 16 --service-choice 20 \
   --object "type=0;instance=42;property=85" \
   --object "type=2;instance=3;property=85" \
   --delete-object "type=2;instance=99" \
+  --awf-file 1 --reinit-state 0 \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 # AllowedObjects (writes) y AllowedDeleteObjects (delete) son
 # listas SEPARADAS — un operador puede permitir writes a (2,99)
 # sin permitir su deletion; tiene que añadir cada uno explícito.
 # Tuplas (ObjectType, ObjectInstance, PropertyID) parseadas vía
-# ASN.1 BER. v1.13+ extiende el walker a WritePropertyMultiple
-# (svc 16). Otros mutating-services (10 CreateObject, 17 DCC,
-# 20 Reinit, 27 LSO, 7 AWF, 8/9 List*) siguen gateados solo a
-# service-choice level (v1.14+ extiende uno por uno).
+# ASN.1 BER. WritePropertyMultiple (svc 16) y AddRemoveListElement
+# (svc 8/9) caminan cada tupla en el batch — fail-closed si UNA
+# sola tupla está fuera. Refinamientos v1.16+ pendientes:
+# per-instance CreateObject (hoy per-type) + per-object LSO
+# (hoy per-operation).
 
 # Modbus per-request (legacy, v1.2)
 elsereno-offensive write modbus dry-run \
@@ -282,6 +300,14 @@ elsereno-offensive write cwmp dry-run \
 # 9005 "Invalid parameter name" (per-path refusal), o 9001 con
 # header "firmware URL not in session allowlist" (Download).
 
+# CWMP TransferComplete observer (v1.15+) — cuando el CPE
+# reporta TransferComplete post-firmware-push, el gate emite
+# una línea structured log a stderr:
+#   level=info msg=cwmp_transfer_complete target=… status=ok|fault
+#     command_key=… fault_code=… fault_string=…
+#     start=… complete=…
+# Útil para correlar la autorización Download con el outcome.
+
 # Modbus proxy-session dry-run (v1.9+, simétrico con los demás)
 # Legacy --function (cualquier unit / addr) o estructurado
 # --write (v1.12+, round-trip lossless con --emit-allow-file):
@@ -313,6 +339,14 @@ elsereno-offensive proxy listen \
   --listen 127.0.0.1:5060 \
   --accept-writes --confirm-target pbx:5060 --confirm-token <hex> \
   --vault-passphrase-file ~/.elsereno/dev.pp
+
+# Reload allowlist via SIGHUP (v1.15+, supervisor pattern):
+#   1. edita /etc/elsereno/<plugin>-gate.yaml
+#   2. dry-run con la nueva allowlist → mint nuevo --confirm-token
+#   3. write al supervisor (systemd EnvironmentFile / runit env)
+#   4. kill -HUP $pid → exit 75 (EX_TEMPFAIL) → supervisor restart
+#      con config nueva. SIGINT/SIGTERM siguen exit 0 (clean stop).
+#   `RestartPreventExitStatus=` en systemd distingue del crash.
 
 
 -- Refusal codes por plugin ----------------------------------
@@ -395,18 +429,18 @@ docs/openapi.yaml            API 3.1 spec snapshot
 dist/*.tar.gz                goreleaser output (release build)
 
 
------------ Verificación de release v1.12.0 (free-tier) --------
+----------- Verificación de release v1.15.0 (free-tier) --------
 
 # SHA-256
-curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.12.0/checksums.txt
+curl -fLO https://github.com/RobinR00T/elSereno/releases/download/v1.15.0/checksums.txt
 shasum -a 256 -c checksums.txt --ignore-missing
 
 # Tag GPG-signed (ACE3B86BACACE7D6 / Daniel Solís Agea)
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.9.0
+git tag -v v1.15.0
 
 # SBOM inspection
-jq '.components | length' elsereno_1.9.0_linux_amd64.tar.gz.cyclonedx.json
+jq '.components | length' elsereno_1.15.0_linux_amd64.tar.gz.cyclonedx.json
 
 
 ----- Verificación legacy (releases con CI billing activa) ----

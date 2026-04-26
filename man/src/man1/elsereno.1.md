@@ -1,6 +1,6 @@
 % ELSERENO(1) ElSereno user commands | Commands
 % ElSereno project
-% 2026-04-25
+% 2026-04-26
 
 # NAME
 
@@ -82,7 +82,13 @@ The default-build subcommand list is below. Run
 
 **plugins**
 :   Manage protocol plugins. **plugins list** prints the
-    compiled-in set (17 in the v1.12 default build).
+    compiled-in set (17 in the v1.15 default build).
+
+**discover**
+:   `discover --auto <CIDR>` runs a TCP-connect sweep across
+    the CIDR + the well-known port of every registered plugin.
+    Pipe-friendly: `--format list` emits `host:port` lines for
+    `scan --input list:-` (v1.15+).
 
 **proxy**
 :   Protocol-aware interception proxy. **proxy listen** runs a
@@ -95,6 +101,9 @@ The default-build subcommand list is below. Run
     `stdin`, `shodan:`, `censys:`, `fofa:`, `zoomeye:`,
     `onyphe:`, `internetdb:`. The first 5 require
     `--api-creds-file <0600.yaml>`; **internetdb** is no-key.
+    `--output-format` accepts `ndjson`, `csv`, `html`, `cef`,
+    `syslog`, and `stix` (STIX 2.1 bundle for MISP / OpenCTI /
+    ThreatBus, v1.15+).
 
 **scoring**
 :   Inspect the scoring weights and severity thresholds.
@@ -216,6 +225,13 @@ The seven write-gated proxies all share the `--allow-file
 
 `128 + signum`
 :   killed by a signal (e.g. SIGINT → **130**, SIGTERM → **143**).
+
+`75`
+:   *EX_TEMPFAIL* — only emitted by `proxy listen` (offensive
+    build) on SIGHUP. Distinguishable from a real crash via
+    systemd's `RestartPreventExitStatus=`; supervisor restarts
+    with the new allowlist + freshly minted confirm-token
+    (v1.15+).
 
 # ENVIRONMENT
 
