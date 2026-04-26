@@ -550,6 +550,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var objects []string
 	var deleteObjects, listElements, createObjectInstances, lsoTargets []string
 	var createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -569,6 +570,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				lsoTargets:            lsoTargets,
 				awfFiles:              awfFiles,
 				listElements:          listElements,
+				tokenGeneration:       tokenGeneration,
 			})
 		},
 	}
@@ -582,6 +584,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
 	cmd.Flags().StringSliceVar(&lsoTargets, "lso-target", nil, "optional: per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier. v1.16+.")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump this when editing the allow-file to invalidate stale tokens. 0 (default) preserves the chunk-3 hash for backwards-compat.")
 	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
 	cmd.Flags().StringSliceVar(&listElements, "list-element", nil, "optional: per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38). v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
@@ -598,6 +601,7 @@ type bacnetDryRunInputs struct {
 	objects                                                        []string
 	deleteObjects, listElements, createObjectInstances, lsoTargets []string
 	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles   []uint
+	tokenGeneration                                                uint32
 }
 
 // runBACnetDryRun parses every per-service allowlist, computes
@@ -612,7 +616,8 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithLSOTargets(in.target, parsed)
+	parsed.Generation = in.tokenGeneration
+	mut := bacwrite.SessionMutationWithGeneration(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
@@ -631,6 +636,7 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 			LSOTargetsRaw:            in.lsoTargets,
 			AWFFiles:                 in.awfFiles,
 			ListElementsRaw:          in.listElements,
+			TokenGeneration:          in.tokenGeneration,
 		}))
 	}
 	return nil
@@ -2141,6 +2147,7 @@ type buildAllowFileBACnetInputs struct {
 	Choices                                                                                []uint
 	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw, CreateObjectInstancesRaw, LSOTargetsRaw []string
 	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles                           []uint
+	TokenGeneration                                                                        uint32
 }
 
 // buildAllowFileBACnet constructs the BACnet plugin's
@@ -2166,6 +2173,9 @@ func buildAllowFileBACnet(in buildAllowFileBACnetInputs) proxyAllowFile {
 	}
 	if len(in.LSOTargetsRaw) > 0 {
 		af.LSOTargets = canonAllowFileBACnetLSOTargets(in.LSOTargetsRaw)
+	}
+	if in.TokenGeneration > 0 {
+		af.TokenGeneration = in.TokenGeneration
 	}
 	if len(in.ReinitStates) > 0 {
 		af.ReinitStates = canonAllowFileBACnetReinitStates(in.ReinitStates)

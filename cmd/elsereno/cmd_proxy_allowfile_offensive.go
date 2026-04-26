@@ -304,6 +304,7 @@ type proxyAllowFile struct {
 	DCCStates             []uint8                           `yaml:"dcc_states,omitempty"`              // bacnet (v1.13+) — per-state DeviceCommControl allowlist
 	LSOOps                []uint8                           `yaml:"lso_ops,omitempty"`                 // bacnet (v1.13+) — per-operation LifeSafetyOperation allowlist
 	LSOTargets            []proxyBACnetLSOTarget            `yaml:"lso_targets,omitempty"`             // bacnet (v1.16+) — per-(operation, type, instance) LifeSafetyOperation allowlist
+	TokenGeneration       uint32                            `yaml:"token_generation,omitempty"`        // bacnet (v1.16+) — token-generation cookie; bump on allow-file edit to invalidate stale tokens
 	AWFFiles              []uint32                          `yaml:"awf_files,omitempty"`               // bacnet (v1.13+) — per-File-instance AtomicWriteFile allowlist
 	ListElements          []proxyBACnetListElement          `yaml:"list_elements,omitempty"`           // bacnet (v1.13+) — per-(object, property) Add/RemoveListElement allowlist
 	RPCs                  []string                          `yaml:"rpcs,omitempty"`                    // cwmp (v1.11+) — SOAP RPC allowlist
@@ -395,6 +396,9 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	for _, t := range af.LSOTargets {
 		opts.bacnetLSOTargets = append(opts.bacnetLSOTargets,
 			fmt.Sprintf("op=%d;type=%d;instance=%d", t.Op, t.Type, t.Instance))
+	}
+	if af.TokenGeneration > 0 {
+		opts.bacnetTokenGeneration = af.TokenGeneration
 	}
 	for _, f := range af.AWFFiles {
 		opts.bacnetAWFFiles = append(opts.bacnetAWFFiles, uint(f))

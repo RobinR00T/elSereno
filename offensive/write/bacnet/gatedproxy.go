@@ -904,6 +904,15 @@ type Allowlists struct {
 	LSOTargets            []AllowedLSOTarget
 	AtomicWriteFiles      []AllowedAtomicWriteFile
 	ListElements          []AllowedListElement
+	// Generation is the optional v1.16 chunk-4 token-generation
+	// cookie. When non-zero it folds into the session hash so a
+	// dry-run + run with a different generation produce
+	// different confirm-tokens — the foundation for in-process
+	// allow-file reload (operator bumps generation when
+	// editing the allow-file; the proxy sees a fresh token at
+	// reload time and rejects stale ones). When zero (default)
+	// the hash equals the chunk-3 layer for backwards-compat.
+	Generation uint32
 }
 
 // AllowlistHashWithDCCStates is the v1.13 chunk-10 hash that
@@ -1395,10 +1404,9 @@ func writeLSOTargetsBlock(h hashWriter, sorted []AllowedLSOTarget) {
 	}
 }
 
-// SessionMutationWithLSOTargets is the v1.16 chunk-3 mutation,
-// the new top of the BACnet allowlist hash ladder. Empty
-// LSOTargets → degrades to SessionMutationWithCreateObject-
-// Instances.
+// SessionMutationWithLSOTargets is the v1.16 chunk-3 mutation.
+// Empty LSOTargets → degrades to
+// SessionMutationWithCreateObjectInstances.
 func SessionMutationWithLSOTargets(target string, al Allowlists) confirm.Mutation {
 	return confirm.Mutation{
 		Category:    confirm.CategoryWrite,
@@ -1407,6 +1415,107 @@ func SessionMutationWithLSOTargets(target string, al Allowlists) confirm.Mutatio
 		Target:      target,
 		PayloadHash: AllowlistHashWithLSOTargets(target, al),
 	}
+}
+
+// AllowlistHashWithGeneration is the v1.16 chunk-4 hash that
+// adds the token-generation cookie on top of the v1.16 chunk-3
+// layer. Backwards-compat ladder: Generation == 0 → equals
+// AllowlistHashWithLSOTargets. All v1.4 → v1.16-chunk-3
+// confirm-tokens remain valid for operators who don't bump
+// the generation (the default).
+//
+// Hash layout (when Generation != 0): the same lower-layer
+// block sequence as chunk-3 followed by:
+//
+//	|| 0xF5 || u32 generation (big-endian)
+//
+// Separator 0xF5 is below 0xF6 (LSO targets), 0xF7 (per-instance
+// Create), 0xF8 (list-elements), 0xF9 (AWF), 0xFA (LSO ops),
+// 0xFB (DCC), 0xFC (reinit), 0xFD (creates types), 0xFE
+// (deletes), and 0xFF (per-property objects). 5-byte block.
+//
+// Use case: in-process allow-file reload. The operator
+// editing the allow-file bumps the generation; their dry-run
+// computes a new token incorporating the new generation; the
+// running proxy on reload rejects any stale (generation < new)
+// tokens. The full reload machinery (signal handler, atomic
+// allowlist swap, control-plane token delivery) is a follow-up
+// chunk; this chunk is the cryptographic foundation.
+func AllowlistHashWithGeneration(target string, al Allowlists) [32]byte {
+	if al.Generation == 0 {
+		return AllowlistHashWithLSOTargets(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := sortAllowedLSOOps(al.LSOOperations)
+	sortedAWF := sortAllowedAtomicWriteFiles(al.AtomicWriteFiles)
+	sortedLE := sortAllowedListElements(al.ListElements)
+	sortedCreInst := sortAllowedCreateObjectInstances(al.CreateObjectInstances)
+	sortedTgt := sortAllowedLSOTargets(al.LSOTargets)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	if len(sortedLSO) > 0 {
+		writeLSOOpsBlock(h, sortedLSO)
+	}
+	if len(sortedAWF) > 0 {
+		writeAWFBlock(h, sortedAWF)
+	}
+	if len(sortedLE) > 0 {
+		writeListElementsBlock(h, sortedLE)
+	}
+	if len(sortedCreInst) > 0 {
+		writeCreateObjectInstancesBlock(h, sortedCreInst)
+	}
+	if len(sortedTgt) > 0 {
+		writeLSOTargetsBlock(h, sortedTgt)
+	}
+	writeGenerationBlock(h, al.Generation)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithGeneration is the v1.16 chunk-4 mutation,
+// the new top of the BACnet allowlist hash ladder. Generation
+// == 0 → degrades to SessionMutationWithLSOTargets.
+func SessionMutationWithGeneration(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, al),
+	}
+}
+
+// writeGenerationBlock writes the v1.16 chunk-4 generation
+// cookie. Separator 0xF5. Caller must have already established
+// generation > 0.
+func writeGenerationBlock(h hashWriter, generation uint32) {
+	_, _ = h.Write([]byte{0xF5})
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write(u32[:])
 }
 
 // sortAllowedListElements returns a deterministically sorted
@@ -1620,6 +1729,11 @@ type WriteGatedHandler struct {
 	// AllowedLSOTarget for semantics. Empty list preserves
 	// chunk-11 behaviour.
 	AllowedLSOTargets []AllowedLSOTarget
+	// TokenGeneration is the v1.16 chunk-4 token-generation
+	// cookie. Operators bump this when editing the allow-file
+	// to invalidate pre-existing confirm-tokens. Default 0
+	// preserves the v1.16-chunk-3 hash for backwards-compat.
+	TokenGeneration uint32
 	// AllowedAtomicWriteFiles is the optional v1.13 chunk-12
 	// per-File-instance allowlist for AtomicWriteFile (service
 	// 7). See AllowedAtomicWriteFile for semantics. Empty list
@@ -1644,7 +1758,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithLSOTargets(h.Target, Allowlists{
+	m := SessionMutationWithGeneration(h.Target, Allowlists{
 		Services:              h.Allowed,
 		Objects:               h.AllowedObjects,
 		DeleteObjects:         h.AllowedDeleteObjects,
@@ -1656,6 +1770,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 		LSOTargets:            h.AllowedLSOTargets,
 		AtomicWriteFiles:      h.AllowedAtomicWriteFiles,
 		ListElements:          h.AllowedListElements,
+		Generation:            h.TokenGeneration,
 	})
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err

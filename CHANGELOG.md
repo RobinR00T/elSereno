@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.16 chunk 4 — BACnet token-generation cookie**: lays the
+  cryptographic foundation for in-process allow-file reload.
+  New optional `Generation uint32` field on `bacnet.Allowlists`
+  + `TokenGeneration uint32` field on `bacnet.WriteGatedHandler`
+  folds into the session hash via new separator `0xF5`.
+  Operators bump the generation when editing the allow-file;
+  a stale confirm-token (minted at the prior generation) is
+  rejected at `Authorise()` time. New
+  `AllowlistHashWithGeneration` /
+  `SessionMutationWithGeneration` at the new top of the BACnet
+  hash ladder; Generation=0 (default) preserves every v1.4 →
+  v1.16-chunk-3 confirm-token. CLI:
+  `--token-generation N` on `proxy listen --plugin bacnet` and
+  `write bacnet dry-run`. YAML round-trip via
+  `token_generation:` field. 7 new tests
+  (`tokengeneration_test.go`) covering the hash-ladder
+  degradation, cryptographic distinctness across generations,
+  determinism, and the E2E Authorise stale-rejected /
+  fresh-accepted / chunk-3-backwards-compat matrix.
+  Foundational chunk: future chunks add the SIGUSR1-driven
+  in-process reload + atomic allowlist swap. Other plugins
+  (sip, iax2, pbxhttp, modbus, opcua, cwmp) gain the same
+  field in subsequent chunks if operators need cross-protocol
+  reload symmetry.
 - **v1.16 chunk 3 — BACnet per-(operation, type, instance)
   LifeSafetyOperation scoping**: refines the v1.13 chunk-11
   per-operation LSO (svc 27) allowlist with a parallel per-

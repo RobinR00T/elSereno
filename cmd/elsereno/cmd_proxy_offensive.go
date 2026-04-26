@@ -129,6 +129,7 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.bacnetLSOTargets, "lso-target", nil, "bacnet: optional per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27, v1.16+). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier (operator-scoped LSO at a specific Life-Safety-Point object). Per-target match wins; falls back to --lso-op for device-wide requests (those without [3]).")
 	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
 	cmd.Flags().StringSliceVar(&opts.bacnetListElements, "list-element", nil, "bacnet: optional per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38).")
+	cmd.Flags().Uint32Var(&opts.bacnetTokenGeneration, "token-generation", 0, "bacnet: optional token-generation cookie (v1.16+). Folds into the session hash so confirm-tokens minted with a different generation are rejected. Operators bump this when editing the allow-file to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload. 0 (default) preserves the v1.16-chunk-3 hash for backwards-compat.")
 }
 
 // registerProxyListenCWMPFlags adds the cwmp flags.
@@ -195,6 +196,12 @@ type proxyListenOpts struct {
 	// per-operation list when the ACS includes the [3]
 	// objectIdentifier on a per-LSP-scoped request.
 	bacnetLSOTargets []string
+	// bacnetTokenGeneration is the bacnet token-generation
+	// cookie (v1.16+). Folds into the session hash so a
+	// confirm-token minted with a different generation is
+	// rejected. Operators bump this when editing the allow-
+	// file to invalidate stale tokens.
+	bacnetTokenGeneration uint32
 	// bacnetReinitStates holds the bacnet per-state
 	// ReinitializeDevice allowlist (v1.13+). Numeric ASHRAE 135
 	// §16.4 reinitializedStateOfDevice enum (0..7). When
@@ -608,6 +615,7 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		AllowedLSOTargets:            parsed.lsoTargets,
 		AllowedAtomicWriteFiles:      parsed.awfFiles,
 		AllowedListElements:          parsed.listEls,
+		TokenGeneration:              opts.bacnetTokenGeneration,
 		Deriver:                      rt.Vault,
 		Auditor:                      rt.Auditor,
 		SessionConfirm:               c,
