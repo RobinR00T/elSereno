@@ -40,13 +40,15 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-26)**: **v1.13.0 published** on
-GitHub (https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
-9 release assets, GPG-signed tag (`ACE3B86BACACE7D6`).
-13-chunk cycle closes every BACnet mutating service (9/9: svc
-7/8/9/10/11/15/16/17/20/27 with wire-level per-target-or-state
-allowlists). Snapshot:
-`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`.
+**Current phase (2026-04-26)**: **v1.14.0 cycle closed** on
+`main` — 4 chunks (IPv6 foundation `internal/netutil` →
+target canonicalisation across proxy listen + dry-run →
+`scan --input internetdb:` IPv6 fixes incl. dispatcher
+regression → scope/dedupe IPv6 coverage). Tag + GitHub
+release pending operator. **v1.13.0 remains the latest GitHub
+release**. Snapshots:
+`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`,
+`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`.
 
 **Counts**: **17 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,

@@ -1,18 +1,17 @@
 ---
-phase: v1.14-in-flight
-status: v1.13.0 released; v1.14 cycle opened with chunk 1 (IPv6 foundation)
+phase: v1.14-closed
+status: v1.13.0 released; v1.14.0 cycle closed (4 chunks); tag pending
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.13.0 published** on GitHub
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
-**v1.14 cycle in flight on `main`** — chunk 1 lands the IPv6
-foundation (operator-requested 2026-04-25). Theme: cross-cutting
-IPv6 audit + canonicalisation across the proxy, scan, inputs,
-write-gate paths.
+**Phase**: **v1.14.0 cycle closed** on `main` — 4 chunks
+landed since v1.13.0. Theme: IPv6 cross-cutting (operator-
+requested 2026-04-25). Tag, push, GitHub release pending
+operator. **v1.13.0 remains the latest GitHub release** until
+v1.14.0 is cut.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating
@@ -38,14 +37,10 @@ Snapshots:
   BACnet runner). 9 new tests.
 - 3   `e0cae6f` — `scan --input internetdb:` IPv6 fixes (+
   missing dispatcher case from v1.13 chunk 1). 14 new tests.
-- 4   *(pending commit)* — IPv6 coverage tests for scope +
-  dedupe paths. Confirms `scope.Check` correctly gates IPv6
-  targets against IPv6 CIDRs (incl. `::1/128` host-prefix +
-  IPv4-mapped-IPv6 collapse via `Unmap()`); confirms
-  `scanner.Dedupe` collapses equivalent IPv6 forms. 9 new
-  tests pin the contract (no code change needed — the
-  infrastructure was already correct via `netip.Addr` +
-  `Unmap()`).
+- 4   `59e7d76` — IPv6 coverage tests for scope + dedupe paths
+  (audit-only). 9 tests pin the contract.
+
+Snapshot: `.context/snapshots/v1.14.0-ipv6-cross-cutting.md`.
 
 **v1.13 chunks landed (released as v1.13.0)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.

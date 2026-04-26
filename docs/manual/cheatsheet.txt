@@ -1,17 +1,22 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.13.0 (BACnet completion + CWMP polish)
+Version  : v1.13.0 released · v1.14.0 cycle closed (tag pending)
 Updated  : 2026-04-26
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
 
+v1.14.0 cycle closed on main (4 chunks; tag pending operator):
+IPv6 cross-cutting. New internal/netutil package; target
+canonicalisation across proxy listen + every dry-run; scan
+--input internetdb: dispatcher fix + IPv6 bracket-stripping
+([2001:db8::1] now works); scope + dedupe IPv6 contract
+tests. Build from source until v1.14.0 is cut.
+
 v1.13.0 closes every BACnet mutating service (svc 7/8/9/10/11/
-15/16/17/20/27) with wire-level per-target-or-state allowlists.
-New CLI flags: --awf-file, --list-element, --create-object-type,
---reinit-state, --dcc-state, --lso-op, --delete-object. Plus
-CWMP firmware pre-flight verifier, RPC case-warning, over-TLS
-recipe; InternetDB bulk lookup; triage utility bucket.
+15/16/17/20/27). New CLI flags: --awf-file, --list-element,
+--create-object-type, --reinit-state, --dcc-state, --lso-op,
+--delete-object.
 ===============================================================
 
 

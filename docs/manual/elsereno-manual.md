@@ -3,12 +3,48 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.13.0 · 2026-04-26
+**Versión del manual**: v1.14.0 (ciclo cerrado, tag pendiente)
+· 2026-04-26
 **Compatible con binario**: v1.13.0+ (cierra TODOS los
-servicios mutating BACnet — svc 7/8/9/10/11/15/16/17/20/27 con
-wire-level per-target-or-state allowlists). Plus CWMP firmware
-verifier, RPC case-warning, over-TLS recipe, InternetDB bulk
-lookup, triage `utility` bucket.
+servicios mutating BACnet — svc 7/8/9/10/11/15/16/17/20/27).
+**v1.14.0** añade soporte IPv6 cross-cutting: nuevo paquete
+`internal/netutil`, canonicalización IPv6 en `--target` /
+`--listen` / `--confirm-target`, fix del dispatcher
+`scan --input internetdb:`, bracket-stripping para
+`[2001:db8::1]`, scope + dedupe IPv6 contract tests.
+
+---
+
+## Novedades v1.14.0 (IPv6 cross-cutting)
+
+Cycle de 4 chunks operator-requested 2026-04-25.
+
+- **Chunk 1** — Nuevo paquete `internal/netutil` con
+  helpers IsLoopbackHostPort / CanonicalHostPort /
+  ParseAddrPort. Reemplaza la fragile substring-based
+  loopback check de `cmd_serve.go` (no detectaba `[0:0:0:0:
+  0:0:0:1]`, `[::1%lo0]`, ni 127.0.0.5/8).
+- **Chunk 2** — Canonicalización de target / listen /
+  confirm-target. Operador que escribe
+  `[0:0:0:0:0:0:0:1]:7547` en dry-run y `[::1]:7547` en
+  proxy listen ahora ve ambas formas convergir al mismo
+  string canónico (RFC 5952). Hash matches → confirm-token
+  works.
+- **Chunk 3** — `scan --input internetdb:` dispatcher fix
+  (regression de v1.13 chunk 1) + bracket-stripping para
+  IPv6 literals (`[2001:db8::1]` ahora funciona).
+- **Chunk 4** — IPv6 coverage tests para scope + dedupe
+  paths. Audit-only: la infraestructura `netip.Addr` +
+  `Unmap()` ya estaba correcta; los tests pinnan el
+  contrato.
+
+Backwards compat: IPv4 sin cambios; IPv6 already-canonical
+sin cambios. Solo operadores con tokens minted desde IPv6
+longform / uppercase necesitan re-mint.
+
+Snapshot completo:
+[`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](
+../../.context/snapshots/v1.14.0-ipv6-cross-cutting.md).
 
 ---
 

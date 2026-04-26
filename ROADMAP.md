@@ -1,13 +1,15 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-26**. **v1.13.0 is the latest release**
-(13 chunks, published on GitHub Releases).
+State as of **2026-04-26**. **v1.14.0 cycle closed** on `main`
+(4 chunks); tag + GitHub release pending. **v1.13.0 remains
+the latest GitHub release** until v1.14.0 is cut.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
-→ v1.10 → v1.11 → v1.12 → **v1.13**. Each release has a
-per-cycle snapshot under `.context/snapshots/`.
+→ v1.10 → v1.11 → v1.12 → v1.13 → **v1.14 (cycle closed, tag
+pending)**. Each release has a per-cycle snapshot under
+`.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -45,7 +47,12 @@ the long-running roadmap so the delta between **shipped** and
   with wire-level per-target-or-state allowlists. Plus CWMP
   firmware pre-flight verifier, RPC case-warning, over-TLS
   recipe; InternetDB bulk lookup; triage `utility` bucket.
-  13 chunks. Tag pending operator.
+  13 chunks.
+- **v1.14** — IPv6 cross-cutting. New `internal/netutil`
+  package + `canonicaliseTarget` at CLI parse boundaries +
+  `scan --input internetdb:` dispatcher fix +
+  bracket-stripping ergonomics + scope/dedupe IPv6 contract
+  tests. 4 chunks. Tag pending operator.
 
 ## v1.13 cycle closed on `main` (tag pending)
 
@@ -77,12 +84,27 @@ for the full breakdown.
 Supporting: `b611f5c` swapped 18 `//nolint:gosec` → native
 `// #nosec G<NNN>` so `make sec` exits 0.
 
-## v1.14+ proposed backlog
+## v1.14 cycle closed on `main` (tag pending)
 
-- **IPv6 cross-cutting** support across proxy listen / scan /
-  inputs / write gates (`netip.Addr` audit, bind/listen
-  v6-aware, allowlist canonicalisation for v6 host literals
-  `[::1]:port`). Operator-requested 2026-04-25; ~1 cycle.
+4 chunks; operator decides when to cut. See
+`.context/snapshots/v1.14.0-ipv6-cross-cutting.md` for the
+full breakdown.
+
+- **1** `8824885` — IPv6 foundation: `internal/netutil`
+  package (IsLoopbackHostPort + CanonicalHostPort +
+  ParseAddrPort).
+- **2** `0de0923` — Target canonicalisation across proxy
+  listen + every dry-run command (sip / iax2 / pbxhttp /
+  modbus / opcua / cwmp + BACnet runner).
+- **3** `e0cae6f` — `scan --input internetdb:` IPv6 fixes
+  (missing dispatcher case from v1.13 chunk 1 + bracket-
+  stripping ergonomics).
+- **4** `59e7d76` — IPv6 coverage tests for scope + dedupe
+  paths (audit-only — infrastructure was already correct;
+  contract pinned).
+
+## v1.15+ proposed backlog
+
 - **CWMP TransferComplete-side SHA-256 verification** —
   v1.12 chunk 10 stores the SHA-256 as audit metadata; v1.14
   parses the CPE → ACS TransferComplete envelope and compares

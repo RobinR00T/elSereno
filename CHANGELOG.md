@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] — 2026-04-26
+
+Four-chunk cycle covering operator-requested IPv6 cross-
+cutting work (request 2026-04-25). Audit + canonicalise IPv6
+paths across proxy listen, dry-run, scan input, scope-gate,
+and target-dedup layers. Two real bugs fixed; rest is
+contract-pinning tests on infrastructure that was already
+correct.
+
+### Added
+
+- New `internal/netutil` package with `IsLoopbackHostPort`,
+  `CanonicalHostPort`, `ParseAddrPort` helpers — replaces
+  fragile substring-based loopback detection with delegation
+  to `netip.ParseAddrPort` + `Addr.IsLoopback()`.
+- `canonicaliseTarget` helper applied at every CLI parse
+  boundary (proxy listen + 6 dry-run commands + BACnet
+  runner) — IPv6 longform/uppercase variants now collapse
+  to the canonical RFC 5952 form before flowing into
+  hashes / byte-for-byte compares / YAML emits.
+- `scan --input internetdb:` dispatcher case (was missing
+  in v1.13 chunk 1 — CLI accepted the prefix but
+  `readTargets` errored as "unknown input kind").
+- `stripIPv6Brackets` helper at the InternetDB CLI boundary —
+  `--input internetdb:[2001:db8::1]` now works, mirroring
+  the host:port bracket convention used by `--target`.
+- 50+ new tests across the cycle (netutil unit + per-plugin
+  hash equivalence + dispatcher regression guard + scope/
+  dedupe IPv6 contract).
+
+### Changed
+
+- `cmd_serve.go` `isLoopbackAddr` delegates to
+  `netutil.IsLoopbackHostPort` — now correctly recognises
+  IPv6 longform `[0:0:0:0:0:0:0:1]:port`, zone-scoped
+  `[::1%lo0]:port`, and IPv4 anywhere-in-127/8.
+
+### Backwards compat
+
+- IPv4 forms unchanged (already canonical).
+- IPv6 already-canonical forms unchanged.
+- Only operators using IPv6 longform / uppercase hex need to
+  re-mint confirm-tokens.
+
+### Deferred to v1.15+
+
+- CWMP TransferComplete-side SHA-256 verification.
+- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS, …).
+- BACnet per-instance Create + per-object LSO refinements.
+- Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
+
 ## [1.13.0] — 2026-04-26
 
 Thirteen-chunk cycle. **Closes every BACnet mutating service**

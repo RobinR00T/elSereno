@@ -44,6 +44,15 @@ recipe; InternetDB bulk lookup; triage `utility` bucket. See
 [`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`](.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md)
 for the per-chunk breakdown.
 
+> **v1.14.0 cycle closed on `main`** (4 chunks; tag + GitHub
+> release pending operator). Operator-requested IPv6 cross-
+> cutting work: new `internal/netutil` package + target
+> canonicalisation at every CLI parse boundary + `scan --input
+> internetdb:` dispatcher fix + IPv6 bracket-stripping
+> ergonomics + scope/dedupe IPv6 contract tests. Build from
+> source until v1.14.0 is cut. See
+> [`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](.context/snapshots/v1.14.0-ipv6-cross-cutting.md).
+
 ```sh
 VERSION=1.13.0
 OS=darwin       # or linux
