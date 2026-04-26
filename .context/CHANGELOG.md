@@ -240,6 +240,36 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.15 chunk 3 landed.** STIX 2.1 export sink.
+  Findings can now flow into MISP / OpenCTI / ThreatBus / any
+  STIX 2.1 consumer via `elsereno scan --output-format stix`.
+  Each finding maps to three STIX objects bundled together:
+  ipv4-addr or ipv6-addr SCO (target's address), network-
+  traffic SCO (target's port + protocols list), observed-data
+  SDO (timestamps + severity/protocol labels referencing the
+  network-traffic SCO). Wire format: JSON per STIX 2.1 §10
+  with 2-space indent. Deterministic UUIDv5 IDs keyed on the
+  finding ID + ElSereno-private namespace UUID
+  (`0a8b1d4e-3f6c-5a7d-9e2f-7c1b3d4e5f60`) — re-running a
+  scan over the same fixture produces byte-identical inner
+  objects (the bundle ID itself is timestamp-bound, so the
+  outer envelope differs by run, but the inner SCOs/SDOs are
+  stable for diff-based regression testing). Transport-layer
+  protocol selection: BACnet + IAX2 → "udp", everything else
+  → "tcp" (the application-layer protocol is appended in the
+  protocols array). Empty addr (caller couldn't resolve)
+  emits 2 objects instead of 3 — net-traffic SCO + observed-
+  data SDO without dst_ref. 9 new tests:
+  TestWriteFinding_BundleEmitsThreeObjects (3 objects per
+  finding), TestWriteFinding_IPv4AddrSCO + TestWriteFinding_IPv6AddrSCO
+  (address-family selection), TestWriteFinding_NetworkTrafficSCO
+  (port + protocols), TestWriteFinding_BACnetUsesUDPTransport
+  (UDP-only protocol), TestWriteFinding_ObservedDataSDO
+  (timestamps + labels), TestWriteFinding_DeterministicIDs
+  (same input → same inner-object IDs across runs),
+  TestWriteFinding_EmptyAddrSkipsAddrSCO (graceful fallback),
+  TestWriteFinding_RequiresID (empty Finding.ID errors),
+  TestWriteFinding_BundleSpecVersion (2.1 conformance pin).
 - 2026-04-26 — **v1.15 chunk 2 landed.** `elsereno discover
   --auto <CIDR>` TCP-connect sweep. Operator-UX win:
   point-and-shoot scanning. The sweep iterates the CIDR,

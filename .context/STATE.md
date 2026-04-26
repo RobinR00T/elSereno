@@ -16,14 +16,18 @@ loose-ends + ICS protocol additions).
 
 **v1.15 chunks landed (in-flight)**:
 - 1   `476b404` — CWMP TransferComplete observer. 6 tests.
-- 2   *(pending commit)* — `elsereno discover --auto <CIDR>`
-  TCP-connect sweep. Iterates the CIDR, probes the well-known
-  port of every registered plugin, emits responsive
-  (host, port) pairs as NDJSON or `host:port` list. Bounded
-  by `--max-hosts` (default 256) and `--parallel` (default
-  64). 9 new tests covering CIDR expansion (v4 + v6), port-
-  registry collisions, sweep responsiveness detection, and
-  output format dispatch.
+- 2   `389ff5d` — `elsereno discover --auto <CIDR>` TCP-connect
+  sweep. 9 tests.
+- 3   *(pending commit)* — STIX 2.1 export sink. New
+  `internal/outputs/stix` package emits findings as a STIX
+  2.1 bundle (ipv4/ipv6-addr SCO + network-traffic SCO +
+  observed-data SDO per finding). Wired into
+  `scan --output-format stix`. Deterministic UUIDv5 IDs
+  keyed on finding ID + ElSereno namespace UUID. 9 new
+  tests cover bundle layout, IPv4/IPv6 SCO selection,
+  TCP/UDP transport mapping (BACnet/IAX2 → udp), label
+  population, deterministic IDs across runs, empty-addr
+  fallback, missing-ID error path, spec_version assertion.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

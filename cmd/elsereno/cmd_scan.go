@@ -17,6 +17,7 @@ import (
 	"local/elsereno/internal/inputs/stdin"
 	csvout "local/elsereno/internal/outputs/csv"
 	ndjsonout "local/elsereno/internal/outputs/ndjson"
+	stixout "local/elsereno/internal/outputs/stix"
 	"local/elsereno/internal/protocols/banner"
 	"local/elsereno/internal/scanner"
 	"local/elsereno/internal/scope"
@@ -145,8 +146,17 @@ func scanOutput(out io.Writer, format string) (func(core.Finding) error, func(),
 			}, func() {
 				_ = w.Close()
 			}, nil
+	case "stix":
+		// STIX 2.1 bundle: buffered in memory + flushed on
+		// cleanup. v1.15 chunk 3.
+		w := stixout.NewWriter(out)
+		return func(f core.Finding) error {
+				return w.WriteFinding(f, "", 0)
+			}, func() {
+				_ = w.Close()
+			}, nil
 	default:
-		return nil, nil, fail(core.ExitUsage, fmt.Errorf("unknown --output-format %q (ndjson|csv)", format))
+		return nil, nil, fail(core.ExitUsage, fmt.Errorf("unknown --output-format %q (ndjson|csv|stix)", format))
 	}
 }
 
