@@ -16,7 +16,7 @@ CWMP TransferComplete observer + `discover --auto <CIDR>` +
 STIX 2.1 export sink + audit cross-process flock + SIGHUP
 reload-style exit.
 
-**v1.15 chunks landed (in-flight)**:
+**v1.15 chunks landed (released as v1.15.0)**:
 - 1   `476b404` — CWMP TransferComplete observer. 6 tests.
 - 2   `389ff5d` — `elsereno discover --auto <CIDR>` TCP-connect
   sweep. 9 tests.
@@ -41,7 +41,7 @@ Snapshots:
   (13-chunk v1.13 cycle — full breakdown + per-chunk delta +
   hash separator allocation).
 
-**v1.14 chunks landed (in-flight)**:
+**v1.14 chunks landed (released as v1.14.0)**:
 - 1   `8824885` — IPv6 foundation: `internal/netutil` package
   with `IsLoopbackHostPort` + `CanonicalHostPort` +
   `ParseAddrPort`. Replaces fragile substring-based loopback
@@ -95,12 +95,6 @@ RPCs (SetParameterValues, Reboot, FactoryReset, Download,
 Upload, etc.) requieren allowlist explícito. Refusal es SOAP
 Fault 9001 "Request denied" (TR-069 Annex A) + X-Elsereno-
 Gate-Reason header.
-
-v1.10.0 sigue publicado en GitHub Releases. v1.11.0 pendiente
-de build local + gh release upload.
-
-v1.8.0 sigue publicado en
-https://github.com/RobinR00T/elSereno/releases/tag/v1.8.0.
 
 GitHub Actions workflows quedaron desactivados (trigger
 cambiado a `workflow_dispatch` only) después de que todos
@@ -194,22 +188,26 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 
 **Per-cycle commits**: see `.context/snapshots/v1.<N>.0-*.md`
 for the authoritative per-cycle commit mapping. All tags v1.0.0
-→ v1.12.0 on `origin/main`.
+→ v1.15.0 on `origin/main`.
 
-**Deferred to v1.14+** (post-v1.13 backlog):
-- IPv6 cross-cutting support (audit `netip.Addr` paths;
-  bind/listen v6-aware; allowlist canonicalisation for `[::1]:
-  port` literals). Operator-requested 2026-04-25; ~1 cycle.
-- Per-object scoping for the rest of the BACnet mutating
-  services (svc 10 / 17 / 20 / 27 / 7 / 8 / 9). v1.13 closed
-  WPM (svc 16) + DeleteObject (svc 11).
-- CWMP TransferComplete-side SHA-256 verification.
-- SIGHUP reload of proxy listen allowlist.
-- `elsereno discover --auto <CIDR>` scriptless nmap+probe.
-- Audit chain cross-process merge (flock).
+**Deferred to v1.16+** (post-v1.15 backlog):
+- CWMP TransferComplete SHA-256 mismatch audit. v1.15 chunk 1
+  added the observer; remaining half is comparing the reported
+  SHA-256 against the v1.12 chunk-10 allowlist metadata and
+  emitting an audit-on-mismatch event.
+- BACnet per-instance Create + per-object LSO scoping
+  refinements. v1.13 closed all 9 services at the natural
+  granularity; per-instance CreateObject + per-object LSO are
+  v1.16+ tightenings if operators ask.
+- In-process allow-file reload (alternative to v1.15 chunk-5
+  supervisor-restart pattern). Would require a token-
+  generation cookie scheme.
 - macOS sandbox via `sandbox_init(3)`.
-- 12 legacy ICS protocols.
-- Big-picture: TUI, Windows, OIDC, record-&-replay, STIX 2.1.
+- 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
+  Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
+  KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM).
+- Big-picture: TUI (bubbletea), Windows support, OIDC + roles,
+  record-&-replay proxy sessions.
 
 **GitHub Actions status**: still gated to `workflow_dispatch:`
 only (billing limit reached after v1.0.0). Local build flow
@@ -217,12 +215,12 @@ only (billing limit reached after v1.0.0). Local build flow
 release path since v1.8. Cosign+SLSA+GHCR remain available
 behind GHA billing restore.
 
-**Bootstrap PAT**: still live. Operator asked to keep it
-until all v1.1/v1.2/v1.3/v1.4 work is pushed; revoke after at
+**Bootstrap PAT**: still live. All v1.0–v1.15 work is shipped;
+revoke now at
 https://github.com/settings/personal-access-tokens.
 
 **Repo**: `RobinR00T/elSereno`, **private**. Flip to public
-is a post-push operator decision.
+is a pending operator decision.
 
 **Live services** (preview-start / dev-db helper):
 - dashboard 127.0.0.1:8787
@@ -230,9 +228,8 @@ is a post-push operator decision.
 
 ## Open questions
 
-- Operator: revoke the v1.8-era PAT + rm ~/.elsereno/gh-token
-  once v1.12 ships (still live; session tokens unrevoked
-  carry exfil risk).
-- Repo public flip: still private. Post-v1.12 decision?
+- Operator: revoke the bootstrap PAT + rm ~/.elsereno/gh-token
+  (v1.15.0 ships; session tokens unrevoked carry exfil risk).
+- Repo public flip: still private; awaiting operator decision.
 - Restore Actions billing: would re-enable cosign+SLSA+GHCR
   supply-chain layer. Cost vs value call.

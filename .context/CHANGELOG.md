@@ -1,7 +1,7 @@
 ---
 phase: any
 status: living
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 ---
 
 # Context changelog
@@ -1471,3 +1471,27 @@ One-liner per significant change to `.context/` or the codebase.
   VoIP delivery lands with v1.2's modem / VoIP backends. E2E
   verified: 5-number input → 3 allow / 2 short, audit chain
   verified with `audit verify-file`.
+- 2026-04-26 — **v1.15.0 PUBLISHED on GitHub Releases**
+  (https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0).
+  9 assets (4 archives + 4 CycloneDX SBOMs + checksums.txt).
+  Tag GPG-signed with `ACE3B86BACACE7D6`. Free-tier flow
+  (goreleaser local + `gh release create`). Cycle-close
+  commit `51572f2`; v1.15.0-released memory commit `27422dd`.
+- 2026-04-26 — **ROADMAP.md drift purge.** Post-v1.15.0
+  hygiene pass: deleted obsolete `🔴 v1.0.1 release-surface
+  polish (queued)` section + its legend entry; deleted
+  `v1.13/v1.14 cycle closed (tag pending)` per-chunk lists
+  (snapshots have the breakdown; both shipped & released);
+  renamed `v1.15+ proposed backlog` → `v1.16+ proposed
+  backlog` and dropped shipped items (SIGHUP reload,
+  `discover --auto <CIDR>`, STIX 2.1 export); added
+  in-process allow-file reload as a v1.16+ candidate
+  (alternative to v1.15 chunk-5 supervisor pattern); flipped
+  v1.15 line in "Shipped highlights" from "Tag pending
+  operator" → "Released on GitHub". Rewrote bottom priority
+  matrix from "next 90 days" to "v1.16+ horizon": dropped
+  `Cut v1.0.1` + the v1.1 P1/P2 rows (DB writer, SSE,
+  WriteGatedHandler, GHCR, seccomp, OPC UA — all shipped);
+  dropped P3 STIX 2.1 export (shipped); added P0 operator
+  rows (revoke bootstrap PAT, restore GH Actions billing).
+  Net: `-107 / +34` lines on ROADMAP.md. context-check ok.

@@ -55,84 +55,41 @@ the long-running roadmap so the delta between **shipped** and
 - **v1.15** — Loose-end closure: CWMP TransferComplete
   observer + `elsereno discover --auto <CIDR>` + STIX 2.1
   export sink + audit cross-process flock + SIGHUP
-  reload-style exit. 5 chunks. Tag pending operator.
+  reload-style exit. 5 chunks. Released on GitHub
+  ([v1.15.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0)).
 
-## v1.13 cycle closed on `main` (tag pending)
+## v1.16+ proposed backlog
 
-13 chunks; operator decides when to cut. See
-`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`
-for the full breakdown.
-
-- **C** `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
-- **1** `781ee50` — InternetDB bulk lookup.
-- **2** `781ee50` — CWMP firmware pre-flight verifier.
-- **3** `38dedff` — BACnet WPM (svc 16) per-object gate.
-- **4** `861aa8d` — CWMP RPC-name case-warning.
-- **5** `861aa8d` — CWMP-over-TLS operator recipe (docs).
-- **6** `20f6215` — Triage `utility` bucket.
-- **7** `934c4f7` — BACnet DeleteObject (svc 11) per-target.
-- **8** `3f570e3` — BACnet CreateObject (svc 10) per-type.
-- **9** `b51f488` — BACnet ReinitializeDevice (svc 20)
-  per-state.
-- **10** `14a7451` — BACnet DeviceCommunicationControl (svc
-  17) per-state.
-- **11** `6a10a70` — BACnet LifeSafetyOperation (svc 27)
-  per-operation (fire-alarm safety guard).
-- **12** `830ce02` — BACnet AtomicWriteFile (svc 7)
-  per-File-instance.
-- **13** `5952c55` — BACnet Add/RemoveListElement (svc 8/9)
-  per-(object, property) — closes all 9 BACnet mutating
-  services.
-
-Supporting: `b611f5c` swapped 18 `//nolint:gosec` → native
-`// #nosec G<NNN>` so `make sec` exits 0.
-
-## v1.14 cycle closed on `main` (tag pending)
-
-4 chunks; operator decides when to cut. See
-`.context/snapshots/v1.14.0-ipv6-cross-cutting.md` for the
-full breakdown.
-
-- **1** `8824885` — IPv6 foundation: `internal/netutil`
-  package (IsLoopbackHostPort + CanonicalHostPort +
-  ParseAddrPort).
-- **2** `0de0923` — Target canonicalisation across proxy
-  listen + every dry-run command (sip / iax2 / pbxhttp /
-  modbus / opcua / cwmp + BACnet runner).
-- **3** `e0cae6f` — `scan --input internetdb:` IPv6 fixes
-  (missing dispatcher case from v1.13 chunk 1 + bracket-
-  stripping ergonomics).
-- **4** `59e7d76` — IPv6 coverage tests for scope + dedupe
-  paths (audit-only — infrastructure was already correct;
-  contract pinned).
-
-## v1.15+ proposed backlog
-
-- **CWMP TransferComplete-side SHA-256 verification** —
-  v1.12 chunk 10 stores the SHA-256 as audit metadata; v1.14
-  parses the CPE → ACS TransferComplete envelope and compares
-  against the allowlist. Audit on mismatch (firmware corrupted
-  or supply-chain swap).
+- **CWMP TransferComplete SHA-256 mismatch audit** — v1.15
+  chunk 1 added the observer that parses CPE → ACS
+  TransferComplete envelopes; the remaining half is comparing
+  the reported SHA-256 against the v1.12 chunk-10 allowlist
+  metadata and emitting an audit-on-mismatch event (firmware
+  corrupted or supply-chain swap).
 - **BACnet per-instance Create + per-object LSO** scoping
   refinements — v1.13 closed all 9 services at the natural
   granularity, but per-instance CreateObject + per-object
-  LifeSafetyOperation are possible v1.14+ tightenings if
+  LifeSafetyOperation are possible v1.16+ tightenings if
   operators ask.
+- **In-process allow-file reload** — v1.15 chunk 5 chose the
+  supervisor-restart pattern (SIGHUP → exit 75) to side-step
+  per-session confirm-token invalidation; the in-process
+  alternative would require a token-generation cookie scheme
+  (cf. web cookie `token_generation` in `web_state`).
 - **12 legacy ICS protocols** (PROFINET DCP / GOOSE / SV,
   CoDeSys, Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC
   61850 MMS, KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM, +1).
-- Bigger-picture deferrals: SIGHUP reload of proxy listen
-  allowlist, `discover --auto <CIDR>`, TUI front-end, record-&-
-  replay proxy sessions, Windows support, multi-user OIDC +
-  roles, STIX 2.1 export.
+- Bigger-picture deferrals: TUI front-end (bubbletea),
+  record-&-replay proxy sessions, Windows support, multi-user
+  OIDC + roles.
 
 ---
 
 ## Historical deferral list (v1.1 era)
 
 The notes below preserve the original v1.1-era checklist for
-provenance. Most line items have shipped in v1.2–v1.12; what
-remains is mirrored above in "v1.13+ proposed backlog".
+provenance. Most line items have shipped in v1.2–v1.15; what
+remains is mirrored above in "v1.16+ proposed backlog".
 
 ## v1.1 shipped (closed — see `.context/snapshots/v1.1-sse-sandbox-opcua-wardial.md`)
 
@@ -182,7 +139,6 @@ remains is mirrored above in "v1.13+ proposed backlog".
 
 ## Legend
 
-- 🔴 — **v1.0.1 release-surface** fixes, queued on main.
 - 🟠 — **v1.1 carry-overs** already tracked in snapshots / ADRs.
 - 🟡 — **v1.2 expansions** — natural next step, still within the
   brief's scope.
@@ -190,29 +146,6 @@ remains is mirrored above in "v1.13+ proposed backlog".
   brief but high-leverage.
 - ⚪ — **research / speculative** — needs a design doc before
   implementation.
-
----
-
-## 🔴 v1.0.1 — release-surface polish (queued)
-
-- **cosign bundle publishing**
-  (`checksums.txt.bundle` shipped alongside `.sig` so operators
-  can run `cosign verify-blob --bundle checksums.txt.bundle`
-  without fetching the signing cert out-of-band). Configured in
-  `.goreleaser.yml`; validates on next tag push.
-- **SLSA provenance generator v2.1.0**. v2.0.0 had a finaliser
-  bug that emitted exit 27 after a successful upload. v1.0.0
-  shipped without `.intoto.jsonl` assets because of it.
-- **Pandoc 3.9.0.2 pin** from the upstream `.deb` instead of
-  distro apt-get. Byte-reproducible man-page generation lets us
-  re-enable the strict "man pages in sync" release-gate step.
-- **README badges + signed-install snippet**. Release shield,
-  CI shield, licence, Go version, SLSA-3 badge. Quick-install
-  recipe with `curl + shasum -c` + optional cosign verify.
-
-Tag re-cut blocked on a local `make release-gate` pass + a clean
-CI run on `main`. Zero source-level changes between 1.0.0 and
-1.0.1.
 
 ---
 
@@ -474,30 +407,24 @@ Still apply from `NON-GOALS.md`:
 
 ---
 
-## Priority matrix for the next 90 days
+## Priority matrix for the v1.16+ horizon
 
 | Priority | Item | Category | Rough effort |
 |----------|------|----------|--------------|
-| P0 | Cut v1.0.1 | 🔴 | 1 hr |
 | P0 | Repo flip to public | operator | 5 min |
-| P1 | DB-backed audit writer + network delivery wiring | 🟠 v1.1 | ~4 days |
-| P1 | Per-plugin offensive WriteGatedHandler (×8) | 🟠 v1.1 | ~2 days |
-| P1 | SSE feed + findings/triage DB panels | 🟠 v1.1 | ~3 days |
-| P2 | GHCR image + buildx | 🟠 v1.1 | 1 day |
-| P2 | seccomp BPF filter bytecode | 🟠 v1.1 | ~2 days |
-| P2 | OPC UA plugin (most-asked next protocol) | 🟢 vNext | ~3 days |
+| P0 | Revoke bootstrap PAT | operator | 5 min |
+| P0 | Restore GH Actions billing (re-enables GHCR + cosign + SLSA) | operator | -- |
+| P1 | CWMP TransferComplete SHA-256 mismatch audit | 🟢 v1.16 | ~1 day |
+| P1 | BACnet per-instance Create + per-object LSO refinements | 🟢 v1.16 | ~1 day |
+| P2 | In-process allow-file reload | 🟢 v1.16 | ~3 days |
 | P2 | Wardialing batch | 🟢 vNext | ~2 days |
-| P3 | Gremlins mutation | 🟡 v1.2 | 1 day |
-| P3 | STIX 2.1 export | 🟢 vNext | ~3 days |
+| P3 | Gremlins mutation | 🟡 v1.16+ | 1 day |
 | P3 | OIDC + roles | 🟢 vNext | ~1 week |
-| P4 | TUI bubbletea | 🟡 v1.2 | ~1 week |
+| P4 | TUI bubbletea | 🟡 v1.16+ | ~1 week |
 | P4 | Record & replay | 🟢 vNext | ~3 days |
 | P4 | L2 PROFINET / GOOSE / SV | 🟢 vNext | ~2 weeks |
+| P4 | Windows support | 🟢 vNext | ~2 weeks |
 
-Best order: **P0 (release-polish + public flip) → P1 (offensive
-delivery + dashboard live) → P2 (image + sandbox + OPC UA)**.
-That produces a v1.1 that feels like the brief's promise fully
-realised.
-
-The P3/P4 band is operator-driven — prioritise whichever pops
-up first as a real pentest need.
+Best order: **P0 (operator action — public flip + revoke PAT +
+restore Actions billing) → P1 (close v1.15 loose ends) → P2
+(reload + wardialing) → P3+ (operator-driven priorities)**.
