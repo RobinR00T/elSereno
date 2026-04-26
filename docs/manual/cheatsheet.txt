@@ -1,16 +1,19 @@
 ===============================================================
                      ElSereno — Cheatsheet
 ===============================================================
-Version  : v1.12.0 released · v1.13 in flight on `main` (untag)
-Updated  : 2026-04-25
+Version  : v1.12.0 released · v1.13.0 cycle closed (tag pending)
+Updated  : 2026-04-26
 Binary   : elsereno (default) | elsereno-offensive (write-capable)
 Repo     : https://github.com/RobinR00T/elSereno
 
-v1.13 in flight (no tag): InternetDB bulk lookup; CWMP firmware
-pre-flight verifier; BACnet WPM (svc 16) + DeleteObject (svc 11)
-per-target gates; CWMP RPC-name case-warning; CWMP-over-TLS
-operator recipe; triage utility bucket. Build from source until
-v1.13.0 is cut.
+v1.13.0 cycle closed on main (13 chunks; tag pending operator):
+CLOSES every BACnet mutating service (svc 7/8/9/10/11/15/16/17/
+20/27) with wire-level per-target-or-state allowlists. New CLI
+flags: --awf-file, --list-element, --create-object-type,
+--reinit-state, --dcc-state, --lso-op, --delete-object. Plus
+CWMP firmware pre-flight verifier, RPC case-warning, over-TLS
+recipe; InternetDB bulk lookup; triage utility bucket. Build
+from source until v1.13.0 is cut.
 ===============================================================
 
 

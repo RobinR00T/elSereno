@@ -1,14 +1,16 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-25**. **v1.12.0 is the latest release.**
-**v1.13 is in flight on `main`** with 7 chunks landed; operator
-decides when to tag.
+State as of **2026-04-26**. **v1.13.0 cycle closed** on `main`
+(13 chunks); tag + GitHub release pending operator.
+**v1.12.0 remains the latest GitHub release** until v1.13.0
+is cut.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
-→ v1.10 → v1.11 → **v1.12** → *(v1.13 in flight)*. Each
-release has a per-cycle snapshot under `.context/snapshots/`.
+→ v1.10 → v1.11 → v1.12 → **v1.13 (cycle closed, tag pending)**.
+Each release has a per-cycle snapshot under
+`.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -41,26 +43,39 @@ the long-running roadmap so the delta between **shipped** and
   per-path scoping across all 7 gates; pagination across the 5
   paid input providers; Shodan InternetDB joins as the 6th
   no-key provider.
+- **v1.13** — BACnet completion + CWMP polish. **Closes every
+  BACnet mutating service** (svc 7/8/9/10/11/15/16/17/20/27)
+  with wire-level per-target-or-state allowlists. Plus CWMP
+  firmware pre-flight verifier, RPC case-warning, over-TLS
+  recipe; InternetDB bulk lookup; triage `utility` bucket.
+  13 chunks. Tag pending operator.
 
-## v1.13 in flight on `main` (no tag yet)
+## v1.13 cycle closed on `main` (tag pending)
 
-Seven chunks landed; operator decides when to cut.
+13 chunks; operator decides when to cut. See
+`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`
+for the full breakdown.
 
 - **C** `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
-- **1** `781ee50` — InternetDB bulk lookup
-  (`internetdb:file:<path>` + `internetdb:-` stdin).
-- **2** `781ee50` — CWMP firmware pre-flight verifier
-  (`elsereno-offensive write cwmp verify-firmware`).
-- **3** `38dedff` — BACnet WPM (svc 16) per-object gate
-  with depth-aware BER walker.
-- **4** `861aa8d` — CWMP RPC-name case-warning in dry-run
-  (TR-069 §A.4 case-sensitivity guard).
-- **5** `861aa8d` — CWMP-over-TLS operator recipe
-  (nginx / HAProxy / Caddy front-proxy, docs only).
-- **6** `20f6215` — Triage `utility` bucket (4th priority
-  bucket between strategic and routine).
-- **7** `934c4f7` — BACnet DeleteObject (svc 11) per-target
-  gate with separate `AllowedDeleteObjects` list.
+- **1** `781ee50` — InternetDB bulk lookup.
+- **2** `781ee50` — CWMP firmware pre-flight verifier.
+- **3** `38dedff` — BACnet WPM (svc 16) per-object gate.
+- **4** `861aa8d` — CWMP RPC-name case-warning.
+- **5** `861aa8d` — CWMP-over-TLS operator recipe (docs).
+- **6** `20f6215` — Triage `utility` bucket.
+- **7** `934c4f7` — BACnet DeleteObject (svc 11) per-target.
+- **8** `3f570e3` — BACnet CreateObject (svc 10) per-type.
+- **9** `b51f488` — BACnet ReinitializeDevice (svc 20)
+  per-state.
+- **10** `14a7451` — BACnet DeviceCommunicationControl (svc
+  17) per-state.
+- **11** `6a10a70` — BACnet LifeSafetyOperation (svc 27)
+  per-operation (fire-alarm safety guard).
+- **12** `830ce02` — BACnet AtomicWriteFile (svc 7)
+  per-File-instance.
+- **13** `5952c55` — BACnet Add/RemoveListElement (svc 8/9)
+  per-(object, property) — closes all 9 BACnet mutating
+  services.
 
 Supporting: `b611f5c` swapped 18 `//nolint:gosec` → native
 `// #nosec G<NNN>` so `make sec` exits 0.
@@ -71,18 +86,16 @@ Supporting: `b611f5c` swapped 18 `//nolint:gosec` → native
   inputs / write gates (`netip.Addr` audit, bind/listen
   v6-aware, allowlist canonicalisation for v6 host literals
   `[::1]:port`). Operator-requested 2026-04-25; ~1 cycle.
-- **Per-object scoping for the rest of the BACnet mutating
-  services** — v1.13 chunks 3 + 7 closed WPM (svc 16) +
-  DeleteObject (svc 11). Still pending: CreateObject (svc 10),
-  DeviceCommunicationControl (svc 17), ReinitializeDevice
-  (svc 20), LifeSafetyOperation (svc 27), AtomicWriteFile
-  (svc 7), Add/RemoveListElement (svc 8/9). Each request
-  shape differs — 1 chunk per service.
 - **CWMP TransferComplete-side SHA-256 verification** —
   v1.12 chunk 10 stores the SHA-256 as audit metadata; v1.14
   parses the CPE → ACS TransferComplete envelope and compares
   against the allowlist. Audit on mismatch (firmware corrupted
   or supply-chain swap).
+- **BACnet per-instance Create + per-object LSO** scoping
+  refinements — v1.13 closed all 9 services at the natural
+  granularity, but per-instance CreateObject + per-object
+  LifeSafetyOperation are possible v1.14+ tightenings if
+  operators ask.
 - **12 legacy ICS protocols** (PROFINET DCP / GOOSE / SV,
   CoDeSys, Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC
   61850 MMS, KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM, +1).

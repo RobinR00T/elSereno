@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-25
+last-updated: 2026-04-26
 token-budget: 900
 ---
 
@@ -40,13 +40,13 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-25)**: **v1.12.0 released** on GitHub
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0). 9
-release assets: 4 archives (darwin/linux × amd64/arm64) + 4
-CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
-`ACE3B86BACACE7D6` (Daniel Solís Agea). **v1.13 cycle in flight
-on `main`** — 7 chunks landed since v1.12.0 close, no tag yet
-(operator decides when to cut).
+**Current phase (2026-04-26)**: **v1.13.0 cycle closed** on
+`main` — 13 chunks landed since v1.12.0; tag + GitHub release
+pending operator. **Closes every BACnet mutating service**
+(9/9: svc 7/8/9/10/11/15/16/17/20/27 have wire-level per-
+target-or-state allowlists). v1.12.0 remains the latest GitHub
+release until v1.13.0 is cut. Snapshot:
+`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`.
 
 **Counts**: **17 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,

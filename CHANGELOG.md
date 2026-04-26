@@ -7,97 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### v1.13 in flight on `main` (no tag yet)
+## [1.13.0] — 2026-04-26
 
-Seven chunks landed since v1.12.0 close. Operator decides when
-to cut.
+Thirteen-chunk cycle. **Closes every BACnet mutating service**
+(svc 7/8/9/10/11/15/16/17/20/27) with wire-level per-target-or-
+state allowlists. Plus CWMP polish + operator-UX improvements.
 
-#### Added
+### Added
 
-- **InternetDB bulk lookup** (`scan --input internetdb:file:<path>`
-  + `internetdb:-` stdin). v1.12 shipped single-IP only; v1.13
-  chunk 1 closes the bulk form. Rate-limit clamps to upstream's
-  ~10 rps.
+- **All 9 BACnet mutating services gated at wire-level**:
+  - svc 7 AtomicWriteFile — per-File-instance (`--awf-file N`).
+  - svc 8 AddListElement + svc 9 RemoveListElement — shared
+    per-(object, property) allowlist (`--list-element
+    type=N;instance=M;property=P`).
+  - svc 10 CreateObject — per-type (`--create-object-type N`).
+  - svc 11 DeleteObject — per-(type, instance)
+    (`--delete-object type=N;instance=M`).
+  - svc 16 WritePropertyMultiple — per-(type, instance,
+    property) batch walker (`--object` shared with svc 15).
+  - svc 17 DeviceCommunicationControl — per-state enableDisable
+    enum (`--dcc-state N`).
+  - svc 20 ReinitializeDevice — per-state reinitializedStateOfDevice
+    enum (`--reinit-state N`).
+  - svc 27 LifeSafetyOperation — per-operation
+    BACnetLifeSafetyOperation enum (`--lso-op N`).
+- **InternetDB bulk lookup** (`--input internetdb:file:<path>`
+  + `internetdb:-` stdin).
 - **CWMP firmware pre-flight verifier**
-  (`elsereno-offensive write cwmp verify-firmware --firmware
-  url=…;sha256=…`). HEAD → GET, SHA-256 over body, compare to
-  pin. Output OK / MISMATCH / UNREACHABLE. Catches typos and
-  supply-chain swaps before the operator commits the firmware
-  allowlist.
-- **BACnet WritePropertyMultiple (svc 16) per-object gate**.
-  WPM has nested SEQUENCE-OF-WriteAccessSpecification structures
-  with constructed BER values (BACnetWeeklySchedule etc.) — the
-  walker is depth-aware (`skipUntilDepthZero`/`skipOneTagBody`).
-  Any single forbidden tuple refuses the entire batch (fail-
-  closed multi-target gate, analogous to the OPC UA WriteRequest
-  walker). Uses context tag 0 for inner PropertyId (vs tag 1
-  for the v1.12 WriteProperty path).
-- **BACnet DeleteObject (svc 11) per-target gate**. New
-  `--delete-object type=N;instance=M` flag + YAML
-  `delete_objects:` field. Kept as a SEPARATE list from
-  `AllowedObjects` so the typical BAS pattern "writes ok,
-  delete forbidden" is naturally expressible.
-- **CWMP RPC-name case-warning in dry-run**. TR-069 §A.4 RPC
-  names are case-sensitive; `emitCWMPRPCCaseWarnings` walks
-  the operator's `--rpc` list against the canonical 24-name
-  set and warns on case-mismatches. The gate itself stays
-  case-sensitive; the warning is UX-only.
-- **CWMP-over-TLS operator recipe** (docs only). Three front-
-  proxy patterns documented in `docs/protocols/cwmp.md`:
-  nginx (`stream`), HAProxy (`mode tcp`), Caddy (`layer4`).
-  Each terminates TLS on `:7548` and forwards plaintext to
-  the gate on `:7547`. The gate stays TLS-agnostic.
-- **Triage `utility` bucket**. Fourth priority bucket between
-  `strategic` and `routine`. Heuristic: severity ∈ {info, low}
-  AND (Protocol ∈ {banner, atmodem} OR `impact_class < 20`).
-  Catches old SSH banners, HTTP-HEAD `Server: nginx/1.10`, AT
-  modem chatter — useful fingerprint info that isn't a direct
-  nail. Existing `routine` items demote to `utility` when the
-  heuristic fires; `quick_win` / `strategic` are never
-  reclassified.
+  (`elsereno-offensive write cwmp verify-firmware`).
+- **CWMP RPC-name case-warning** in dry-run (TR-069 §A.4
+  case-sensitivity guard).
+- **CWMP-over-TLS operator recipe** (docs only — nginx /
+  HAProxy / Caddy front-proxy patterns).
+- **Triage `utility` bucket** — fourth priority bucket
+  between `strategic` and `routine` for inventory-style
+  findings (banner/atmodem fingerprints).
 
-#### Changed
+### Changed
 
-- BACnet `WriteGatedHandler.AllowlistHash` extended via
-  `AllowlistHashWithDeleteObjects` (0xFE separator).
-  Backwards-compat ladder: empty delete_objects → v1.12 hash;
-  empty objects + delete_objects → v1.4 hash.
-- `make sec` ratcheted from "expected fail" to exit 0. The
-  standalone gosec binary doesn't honour `//nolint:gosec`
-  (golangci-lint convention); swapped 18 annotations to
-  native `// #nosec G<NNN>` markers across the codebase.
+- BACnet `Allowlists` bundle struct (chunk 10) consolidates
+  every per-service dimension into a single arg.
+- `objectListGatesAllow` split into `propertyTupleGatesAllow`
+  + `objectIdentityGatesAllow` (chunk 13) for gocyclo.
+- `buildAllowFileBACnet` takes a `buildAllowFileBACnetInputs`
+  struct (chunk 13) instead of 9 positional args.
+- Hash ladder: 8 separator bytes (0xF8 list-elements →
+  0xFF per-property objects) preserve operator confirm-tokens
+  across the upgrade.
+- `make sec` exit-0 (`b611f5c` swapped 18 `//nolint:gosec` to
+  native `// #nosec G<NNN>` markers).
 
-#### Tooling / docs
+### Tooling / docs
 
-- **TODO.md** trimmed 203 → 65 lines, closed-checklist tone
-  removed, brief delivery table added.
-- **TODO-vNext.md** restructured with `## ✅ Shipped during
-  v1.3-v1.12` archive section + concise active items.
-- **ROADMAP.md** gained "Shipped highlights post-v1.1"
-  condensed lineup; v1.13 in-flight section added.
-- **`man/src/man1/elsereno.1.md`** — first man1 page (197
-  lines) covering default + offensive command sets, write-
-  gate flag summaries, global flags, files, exit codes.
-  `scripts/gen-manpages.sh` loop now `for section in 1 5 7`.
-- 5 new per-protocol pages under `docs/protocols/` (sip,
-  iax2, pbxhttp, cwmp, opcua). BACnet + Modbus pages
-  extended with v1.12/v1.13 per-object sections.
+- New `man/src/man1/elsereno.1.md` — first man1 page.
+- 5 new per-protocol pages under `docs/protocols/` (sip, iax2,
+  pbxhttp, cwmp, opcua).
+- TODO.md trimmed 203 → 65 lines.
+- TODO-vNext.md restructured with shipped-archive section.
 
 ### Deferred to v1.14+
 
-- Per-object scoping for the rest of the BACnet mutating
-  services (CreateObject svc 10, DeviceCommunicationControl
-  svc 17, ReinitializeDevice svc 20, LifeSafetyOperation svc
-  27, AtomicWriteFile svc 7, Add/RemoveListElement svc 8/9).
-  Each request shape differs.
-- IPv6 cross-cutting cycle (operator-requested 2026-04-25):
-  `netip.Addr` audit, bind/listen v6-aware, allowlist
-  canonicalisation for `[::1]:port` literals.
-- CWMP TransferComplete-side SHA-256 verification (currently
-  the gate stores the SHA-256 as audit metadata only;
-  parsing the CPE → ACS TransferComplete envelope and
-  comparing against the allowlist is a v1.14 chunk).
-- SIGHUP reload of proxy listen allowlist.
+- IPv6 cross-cutting support (operator-requested 2026-04-25).
+- CWMP TransferComplete-side SHA-256 verification.
+- BACnet per-instance Create + per-object LSO scoping (currently
+  type-only / operation-only).
+- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS, …).
+- SIGHUP reload, `discover --auto <CIDR>`, TUI, Windows, OIDC
+  + roles, STIX 2.1 export, record-&-replay.
 
 ## [1.12.0] — 2026-04-25
 

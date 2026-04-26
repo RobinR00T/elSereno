@@ -1,31 +1,36 @@
 ---
-phase: v1.13-in-flight
-status: v1.12.0 released; 13 chunks of v1.13 landed on main, no tag yet
+phase: v1.13-closed
+status: v1.13.0 cycle closed — 13 chunks landed; tag pending operator
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.12.0 released** to GitHub
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0).
-**v1.13 cycle in flight on main** — 13 chunks landed since
-v1.12.0 close, no tag yet (operator decides when to cut).
-v1.13 chunk 13 **CLOSES every BACnet mutating service** — all
-9 (svc 7/8/9/10/11/15/16/17/20/27) have wire-level per-target-
-or-state allowlists.
+**Phase**: **v1.13.0 cycle closed**. 13 chunks landed since
+v1.12.0 close — every BACnet mutating service now has wire-
+level per-target-or-state allowlists (9/9: svc 7/8/9/10/11/15/
+16/17/20/27). Tag, push, and GitHub release pending operator.
 
-v1.13 is "post-v1.12 carry-over closure": each chunk fixes a
-small gap or adds a missing CLI surface that v1.12 left for
-later. Theme is incremental hardening + operator UX, not big
-new features.
+**v1.12.0 remains the latest GitHub release**
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0)
+until v1.13.0 is cut.
+
+v1.13 closes the BACnet leg of the per-RPC scoping work
+started in v1.12 chunk 7. Theme: every BACnet mutating
+service now has a wire-level per-target-or-state allowlist
+(9 services × 8 hash separator bytes 0xF8–0xFF). Plus CWMP
+polish (firmware verifier, RPC case-warning, over-TLS recipe),
+InternetDB bulk lookup, and a 4th triage bucket (utility).
 
 Snapshots:
 - `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
-  (10-chunk v1.12 cycle, full breakdown).
-- v1.13.0 snapshot will be written when the cycle is cut.
+  (10-chunk v1.12 cycle).
+- `.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`
+  (13-chunk v1.13 cycle — full breakdown + per-chunk delta +
+  hash separator allocation).
 
-**v1.13 chunks landed (no tag yet)**:
+**v1.13 chunks landed (tag pending)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
 - 1   `781ee50` — InternetDB bulk lookup (`file:` + stdin).
 - 2   `781ee50` — CWMP firmware pre-flight verifier
@@ -50,8 +55,8 @@ Snapshots:
 - 12  `830ce02` — BACnet AtomicWriteFile (svc 7)
   per-File-instance allowlist (firmware blob vs log file
   separation).
-- 13  *(pending commit)* — BACnet Add/RemoveListElement (svc
-  8/9) per-(object, property) allowlist (recipient lists,
+- 13  `5952c55` — BACnet Add/RemoveListElement (svc 8/9)
+  per-(object, property) allowlist (recipient lists,
   exception schedules — closes all 9 BACnet mutating
   services).
 
