@@ -35,25 +35,17 @@ able to open every portal in the neighbourhood.
 
 ## Quick install (signed release)
 
-Latest release: **[v1.12.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0)**
-— gates tightening + input pagination. Per-object / per-path
-allowlists across all 7 write-gated proxies, paged search
-across 5 attack-surface providers, plus Shodan InternetDB as a
-6th no-key provider.
-
-> **v1.13.0 cycle closed on `main`** (13 chunks; tag + GitHub
-> release pending operator). **Closes every BACnet mutating
-> service** — all 9 (svc 7/8/9/10/11/15/16/17/20/27) now have
-> wire-level per-target-or-state allowlists. Plus CWMP firmware
-> pre-flight verifier, RPC case-warning, over-TLS recipe;
-> InternetDB bulk lookup; triage `utility` bucket.
-> Build from source (`go install ./cmd/elsereno{,-offensive}`)
-> until v1.13.0 is cut. See
-> [`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`](.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md)
-> for the per-chunk breakdown.
+Latest release: **[v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)**
+— BACnet completion + CWMP polish. **Closes every BACnet
+mutating service** — all 9 (svc 7/8/9/10/11/15/16/17/20/27)
+now have wire-level per-target-or-state allowlists. Plus CWMP
+firmware pre-flight verifier, RPC case-warning, over-TLS
+recipe; InternetDB bulk lookup; triage `utility` bucket. See
+[`.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`](.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md)
+for the per-chunk breakdown.
 
 ```sh
-VERSION=1.12.0
+VERSION=1.13.0
 OS=darwin       # or linux
 ARCH=arm64      # or amd64
 BASE="https://github.com/RobinR00T/elSereno/releases/download/v${VERSION}"
@@ -80,7 +72,7 @@ curl -fL https://github.com/RobinR00T.gpg | gpg --import
 
 # Clone + verify
 git clone https://github.com/RobinR00T/elSereno.git && cd elSereno
-git tag -v v1.12.0
+git tag -v v1.13.0
 # → "Good signature from Daniel Solís Agea <daniel.solis@zynap.com>"
 ```
 

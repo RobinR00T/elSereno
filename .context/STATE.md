@@ -1,20 +1,19 @@
 ---
-phase: v1.13-closed
-status: v1.13.0 cycle closed — 13 chunks landed; tag pending operator
+phase: v1.13-released
+status: v1.13.0 published on GitHub Releases; 13-chunk cycle closed
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.13.0 cycle closed**. 13 chunks landed since
-v1.12.0 close — every BACnet mutating service now has wire-
-level per-target-or-state allowlists (9/9: svc 7/8/9/10/11/15/
-16/17/20/27). Tag, push, and GitHub release pending operator.
-
-**v1.12.0 remains the latest GitHub release**
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.12.0)
-until v1.13.0 is cut.
+**Phase**: **v1.13.0 published** on GitHub
+(https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
+9 release assets: 4 archives (darwin/linux × amd64/arm64) +
+4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
+`ACE3B86BACACE7D6`. **Closes every BACnet mutating service**
+(9/9: svc 7/8/9/10/11/15/16/17/20/27 with wire-level per-
+target-or-state allowlists).
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

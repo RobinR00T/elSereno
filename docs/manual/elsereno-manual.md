@@ -3,20 +3,16 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.13 (ciclo cerrado, tag pendiente) ·
-2026-04-26
-**Compatible con binario**: v1.12.0+ (per-object gates en los
-7 write-gated proxies + paginación across 5 input providers +
-Shodan InternetDB sin API key). **v1.13 cierra TODOS los
-servicios mutating BACnet** (svc 7/8/9/10/11/15/16/17/20/27)
-con wire-level per-target-or-state allowlists. Plus CWMP
-firmware verifier, RPC case-warning, over-TLS recipe,
-InternetDB bulk lookup, triage `utility` bucket. Build from
-source hasta que se corte el tag v1.13.0.
+**Versión del manual**: v1.13.0 · 2026-04-26
+**Compatible con binario**: v1.13.0+ (cierra TODOS los
+servicios mutating BACnet — svc 7/8/9/10/11/15/16/17/20/27 con
+wire-level per-target-or-state allowlists). Plus CWMP firmware
+verifier, RPC case-warning, over-TLS recipe, InternetDB bulk
+lookup, triage `utility` bucket.
 
 ---
 
-## Novedades v1.13.0 (ciclo cerrado, tag pendiente)
+## Novedades v1.13.0
 
 Trece chunks han aterrizado. **Cierre completo de la dimensión
 BACnet** — los 9 servicios destructivos (svc 7/8/9/10/11/15/16/

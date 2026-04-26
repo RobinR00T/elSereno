@@ -40,12 +40,12 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-26)**: **v1.13.0 cycle closed** on
-`main` — 13 chunks landed since v1.12.0; tag + GitHub release
-pending operator. **Closes every BACnet mutating service**
-(9/9: svc 7/8/9/10/11/15/16/17/20/27 have wire-level per-
-target-or-state allowlists). v1.12.0 remains the latest GitHub
-release until v1.13.0 is cut. Snapshot:
+**Current phase (2026-04-26)**: **v1.13.0 published** on
+GitHub (https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
+9 release assets, GPG-signed tag (`ACE3B86BACACE7D6`).
+13-chunk cycle closes every BACnet mutating service (9/9: svc
+7/8/9/10/11/15/16/17/20/27 with wire-level per-target-or-state
+allowlists). Snapshot:
 `.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`.
 
 **Counts**: **17 protocol plugins** in the default build; **7
