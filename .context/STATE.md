@@ -15,15 +15,15 @@ TransferComplete observer (closes loose-end from v1.12 chunk
 loose-ends + ICS protocol additions).
 
 **v1.15 chunks landed (in-flight)**:
-- 1   *(pending commit)* — CWMP TransferComplete observer.
-  New `OnTransferComplete` callback on `WriteGatedHandler`
-  fires when CPE → ACS TransferComplete envelopes traverse
-  the gate; default observer emits structured stderr log
-  line per envelope (target / status / command_key /
-  fault_code / fault_string / start / complete). 6 new
-  tests cover success path / fault path / non-TC RPCs not
-  invoked / nil observer no-op / missing CommandKey
-  tolerance / IsSuccess() semantics.
+- 1   `476b404` — CWMP TransferComplete observer. 6 tests.
+- 2   *(pending commit)* — `elsereno discover --auto <CIDR>`
+  TCP-connect sweep. Iterates the CIDR, probes the well-known
+  port of every registered plugin, emits responsive
+  (host, port) pairs as NDJSON or `host:port` list. Bounded
+  by `--max-hosts` (default 256) and `--parallel` (default
+  64). 9 new tests covering CIDR expansion (v4 + v6), port-
+  registry collisions, sweep responsiveness detection, and
+  output format dispatch.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

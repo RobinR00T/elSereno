@@ -138,6 +138,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newAuditCmd())
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newScanCmd())
+	root.AddCommand(newDiscoverCmd())
 	root.AddCommand(newExplainCmd())
 	root.AddCommand(newWhyCmd())
 	root.AddCommand(newTriageCmd())

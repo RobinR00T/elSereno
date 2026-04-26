@@ -240,6 +240,29 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.15 chunk 2 landed.** `elsereno discover
+  --auto <CIDR>` TCP-connect sweep. Operator-UX win:
+  point-and-shoot scanning. The sweep iterates the CIDR,
+  probes the well-known port of every registered plugin
+  (built from `core.RegisteredPlugins()`), and emits
+  responsive `(host, port)` pairs as NDJSON (default) or
+  `host:port` list. Output goes to stdout for pipe-friendly
+  composition: `elsereno discover --auto 192.168.1.0/24
+  --format list | elsereno scan --input list:-`.
+  Implementation: parallel TCP-connect (default 64
+  concurrent) with per-attempt dial-timeout (default 1 s).
+  Bounded by `--max-hosts` (default 256, /24-sized) so a
+  bare `--auto 10.0.0.0/8` doesn't accidentally fire 16 M
+  connects. CIDR expansion goes through `netip.ParsePrefix`
+  + `Prefix.Masked()` + iterative `Addr.Next()` — IPv4 and
+  IPv6 prefixes both work (chunk-4-of-v1.14 contract). Port-
+  registry collisions (e.g. future IEC 61850 MMS sharing 102
+  with S7) emit ALL claiming plugins in `protocol_hints`.
+  9 new tests: CIDR expansion (v4 /30, v6 /126, max-hosts
+  cap, malformed input), port-registry helpers (shared port
+  lists all, no-match returns nil), sweep e2e (responding
+  port detected, dead port ignored), output format
+  (ndjson, list, bad format errors).
 - 2026-04-26 — **v1.15 chunk 1 landed.** CWMP TransferComplete
   observer. Closes the loose-end from v1.12 chunk 10's
   firmware-pinning work: the operator pins
