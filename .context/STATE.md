@@ -36,15 +36,16 @@ Snapshots:
 - 2   `0de0923` — Target canonicalisation across proxy listen +
   every dry-run command (sip/iax2/pbxhttp/modbus/opcua/cwmp +
   BACnet runner). 9 new tests.
-- 3   *(pending commit)* — `scan --input internetdb:` IPv6
-  fixes: (a) wire the missing dispatcher case in `cmd_scan.go`
-  (regression introduced in v1.13 chunk 1 — the CLI accepted
-  the prefix but `readTargets` had no case for it); (b) strip
-  IPv6 brackets at the CLI boundary so
-  `--input internetdb:[2001:db8::1]` works (mirrors the
-  `--target [2001:db8::1]:port` convention). 14 new tests
-  including a httptest-driven IPv6 round-trip + dispatcher
-  regression guard.
+- 3   `e0cae6f` — `scan --input internetdb:` IPv6 fixes (+
+  missing dispatcher case from v1.13 chunk 1). 14 new tests.
+- 4   *(pending commit)* — IPv6 coverage tests for scope +
+  dedupe paths. Confirms `scope.Check` correctly gates IPv6
+  targets against IPv6 CIDRs (incl. `::1/128` host-prefix +
+  IPv4-mapped-IPv6 collapse via `Unmap()`); confirms
+  `scanner.Dedupe` collapses equivalent IPv6 forms. 9 new
+  tests pin the contract (no code change needed — the
+  infrastructure was already correct via `netip.Addr` +
+  `Unmap()`).
 
 **v1.13 chunks landed (released as v1.13.0)**:
 - C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.

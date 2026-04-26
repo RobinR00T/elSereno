@@ -240,6 +240,31 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.14 chunk 4 landed.** IPv6 coverage tests
+  for scope + dedupe paths. Audit-only chunk: confirms the
+  existing `netip.Addr` + `Unmap()` infrastructure correctly
+  handles IPv6 across the scope-gate and target-deduplication
+  layers. No code change needed — the infrastructure was
+  already correct; chunk 4 pins the contract via tests so a
+  future refactor can't silently break the v6 path.
+  - `internal/scope/scope_ipv6_test.go` (5 tests):
+    `TestCheck_IPv6_InRange` (target inside 2001:db8::/32),
+    `TestCheck_IPv6_LoopbackHostPrefix` (::1/128 host-prefix
+    match), `TestCheck_IPv6_OutOfRange` (link-local
+    fe80::/10 out-of-scope), `TestCheck_IPv4MappedIPv6_MatchesV4Range`
+    (`::ffff:192.168.1.5` matches v4 CIDR via `.Unmap()` — the
+    canonical safety invariant: scope cannot be bypassed by
+    using the v4-mapped form), `TestCheck_IPv4Target_DoesNotMatchIPv6Range`
+    (no cross-family leakage).
+  - `internal/scanner/dedupe_ipv6_test.go` (4 tests):
+    `TestDedupe_IPv4MappedIPv6CollapsesWithBareV4`
+    (`::ffff:1.2.3.4` + `1.2.3.4` collapse to one target),
+    `TestDedupe_IPv6FormsCollapse` (longform/shortform both
+    canonicalise via `netip.Addr` storage),
+    `TestDedupe_IPv6vsIPv4DistinctTargets` (`::1` and
+    `127.0.0.1` stay separate — different address families),
+    `TestDedupe_DifferentPortsKept` (same IPv6 + different
+    ports stay separate).
 - 2026-04-26 — **v1.14 chunk 3 landed.** `scan --input
   internetdb:` IPv6 fixes. Two real bugs: (a) the dispatcher
   in `cmd_scan.go` had no case for `internetdb:` — the CLI
