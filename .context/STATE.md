@@ -18,16 +18,15 @@ loose-ends + ICS protocol additions).
 - 1   `476b404` — CWMP TransferComplete observer. 6 tests.
 - 2   `389ff5d` — `elsereno discover --auto <CIDR>` TCP-connect
   sweep. 9 tests.
-- 3   *(pending commit)* — STIX 2.1 export sink. New
-  `internal/outputs/stix` package emits findings as a STIX
-  2.1 bundle (ipv4/ipv6-addr SCO + network-traffic SCO +
-  observed-data SDO per finding). Wired into
-  `scan --output-format stix`. Deterministic UUIDv5 IDs
-  keyed on finding ID + ElSereno namespace UUID. 9 new
-  tests cover bundle layout, IPv4/IPv6 SCO selection,
-  TCP/UDP transport mapping (BACnet/IAX2 → udp), label
-  population, deterministic IDs across runs, empty-addr
-  fallback, missing-ID error path, spec_version assertion.
+- 3   `e205cd8` — STIX 2.1 export sink. 9 tests.
+- 4   *(pending commit)* — Audit chain cross-process merge.
+  `unix.Flock(LOCK_EX)` guards `Append`/`appendVerbatim`'s
+  read-then-write critical section + resume() re-reads the
+  tail under the lock so two ElSereno processes appending
+  to the same `~/.elsereno/audit.jsonl` serialise + merge
+  cleanly (strictly increasing IDs + chain invariant
+  preserved). 2 new tests including a 50-entry concurrent
+  interleave that fails immediately under the old code.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

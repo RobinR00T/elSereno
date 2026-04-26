@@ -152,11 +152,30 @@ var ErrBadEventType = errors.New("audit: event type not in enum")
 
 // Append implements Writer. It mutates e (sets ID / OccurredAt /
 // PrevHash / EntryHash) and returns the updated copy.
+//
+// v1.15 chunk 4: an exclusive flock guards the read-then-write
+// critical section so two ElSereno processes appending to the
+// same audit log serialise. Inside the lock, resume() re-reads
+// any entries another process may have appended since our last
+// Append, advancing nextID + prevHash so our entry continues
+// the merged chain.
 func (w *FileWriter) Append(_ context.Context, e Entry) (Entry, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.f == nil {
 		return Entry{}, errors.New("audit: writer closed")
+	}
+	if err := w.lockExclusive(); err != nil {
+		return Entry{}, fmt.Errorf("audit: flock: %w", err)
+	}
+	defer func() { _ = w.unlockExclusive() }()
+	// Pick up any entries another process may have appended
+	// while we were idle. resume() walks the file from offset 0
+	// — for typical operator-driven audit logs (KB-scale) this
+	// is fine; high-volume scenarios should switch to
+	// incremental tail-reads.
+	if err := w.resume(); err != nil {
+		return Entry{}, fmt.Errorf("audit: refresh tail: %w", err)
 	}
 	if !isKnownEventType(e.EventType) {
 		return Entry{}, fmt.Errorf("%w: %q", ErrBadEventType, e.EventType)
@@ -211,6 +230,10 @@ func (w *FileWriter) appendVerbatim(_ context.Context, e Entry) error {
 	if w.f == nil {
 		return errors.New("audit: file writer closed")
 	}
+	if err := w.lockExclusive(); err != nil {
+		return fmt.Errorf("audit: flock: %w", err)
+	}
+	defer func() { _ = w.unlockExclusive() }()
 	if e.ID == 0 || len(e.EntryHash) != 32 || len(e.PrevHash) != 32 {
 		return errors.New("audit: verbatim entry missing id/hashes")
 	}

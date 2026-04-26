@@ -240,6 +240,30 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.15 chunk 4 landed.** Audit chain cross-
+  process merge. The race that prompted the chunk: two
+  ElSereno processes (e.g. `serve` + `proxy listen` on the
+  same operator workstation) both opening
+  `~/.elsereno/audit.jsonl` and appending concurrently
+  could produce two entries claiming the same prev_hash —
+  the chain invariant breaks the moment the operator runs
+  `audit verify-file`. Fix: an exclusive `unix.Flock(LOCK_EX)`
+  guards the `Append`/`appendVerbatim` read-then-write
+  critical section. Inside the lock, `resume()` re-reads
+  the file from offset 0 to pick up entries another process
+  may have appended since our last operation, advancing
+  `nextID` + `prevHash` so our entry continues the merged
+  chain. Linux + macOS only via `golang.org/x/sys/unix`
+  (already a dep); Windows stub returns nil from both
+  lock/unlock methods (Windows support is tracked in the
+  v1.15+ backlog as a cross-cutting cycle including
+  AppContainer / Job Objects in addition to flock). 2 new
+  tests: TestFlock_TwoWritersInterleaveCleanly (50 entries
+  across two FileWriters, asserts strictly increasing IDs +
+  chain invariant + both actors represented),
+  TestFlock_AppendVerbatimAlsoLocked (5 sequential appends
+  through the public path proves unlock fires correctly —
+  we'd deadlock on the second call without it).
 - 2026-04-26 — **v1.15 chunk 3 landed.** STIX 2.1 export sink.
   Findings can now flow into MISP / OpenCTI / ThreatBus / any
   STIX 2.1 consumer via `elsereno scan --output-format stix`.
