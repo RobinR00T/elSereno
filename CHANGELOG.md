@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.16 chunk 3 — BACnet per-(operation, type, instance)
+  LifeSafetyOperation scoping**: refines the v1.13 chunk-11
+  per-operation LSO (svc 27) allowlist with a parallel per-
+  target list. When the ACS includes the optional `[3]`
+  objectIdentifier (operator-scoped form: "silence
+  LifeSafetyPoint #3", not "silence the whole device"), the
+  gate now scopes to specific (op, type, instance) tuples;
+  device-wide requests (no `[3]`) fall back to the per-
+  operation list. The wire parser
+  `wire.ParseLifeSafetyOperationWithTarget` returns the new
+  `(op, target, hasTarget, ok)` shape (existing
+  `ParseLifeSafetyOperation` retained as a thin wrapper). New
+  separator `0xF6` extends the BACnet hash ladder; empty
+  `LSOTargets` preserves every v1.4 → v1.16-chunk-2 confirm-
+  token. CLI: `--lso-target op=N;type=N;instance=N`
+  (repeatable). YAML round-trip via `lso_targets:` block. 9
+  new tests across `lsotarget_test.go` (hash-ladder
+  degradation, wire parser including the `[3]`-bearing form,
+  E2E gate matrix). Operationally important for fire-alarm
+  panel deployments where "operator may unsilence
+  LifeSafetyPoint #3 only" is much tighter than "operator may
+  unsilence anything on this device".
 - **v1.16 chunk 2 — BACnet per-(type, instance) CreateObject
   scoping**: refines the v1.13 chunk-8 per-type CreateObject
   (svc 10) allowlist with a parallel per-(type, instance) list.

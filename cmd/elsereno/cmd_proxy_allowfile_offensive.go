@@ -209,6 +209,31 @@ type proxyBACnetCreateObjectInstance struct {
 	Instance uint32 `yaml:"instance"`
 }
 
+// proxyBACnetLSOTarget is the v1.16 chunk-3 YAML form of an
+// AllowedLSOTarget: scopes a LifeSafetyOperation request
+// (service 27) to a specific (Operation, ObjectType,
+// ObjectInstance) tuple. Round-tripped from
+// `--lso-target op=N;type=N;instance=N` CLI flags.
+//
+// Example:
+//
+//	lso_targets:
+//	  - op: 7           # Unsilence
+//	    type: 21        # LifeSafetyPoint
+//	    instance: 3
+//	  - op: 4           # Reset
+//	    type: 21
+//	    instance: 3
+//
+// See offensive/write/bacnet.AllowedLSOTarget for the
+// matching-precedence rules (per-target match wins; falls back
+// to per-operation list).
+type proxyBACnetLSOTarget struct {
+	Op       uint8  `yaml:"op"`
+	Type     uint16 `yaml:"type"`
+	Instance uint32 `yaml:"instance"`
+}
+
 // proxyCallMethod is the YAML-structured form of an OPC UA
 // AllowedCallMethod for per-session CallRequest gating (v1.12+).
 // Both fields are canonical-string NodeIds (ns=N;i=M | s= |
@@ -278,6 +303,7 @@ type proxyAllowFile struct {
 	ReinitStates          []uint8                           `yaml:"reinit_states,omitempty"`           // bacnet (v1.13+) — per-state ReinitializeDevice allowlist
 	DCCStates             []uint8                           `yaml:"dcc_states,omitempty"`              // bacnet (v1.13+) — per-state DeviceCommControl allowlist
 	LSOOps                []uint8                           `yaml:"lso_ops,omitempty"`                 // bacnet (v1.13+) — per-operation LifeSafetyOperation allowlist
+	LSOTargets            []proxyBACnetLSOTarget            `yaml:"lso_targets,omitempty"`             // bacnet (v1.16+) — per-(operation, type, instance) LifeSafetyOperation allowlist
 	AWFFiles              []uint32                          `yaml:"awf_files,omitempty"`               // bacnet (v1.13+) — per-File-instance AtomicWriteFile allowlist
 	ListElements          []proxyBACnetListElement          `yaml:"list_elements,omitempty"`           // bacnet (v1.13+) — per-(object, property) Add/RemoveListElement allowlist
 	RPCs                  []string                          `yaml:"rpcs,omitempty"`                    // cwmp (v1.11+) — SOAP RPC allowlist
@@ -365,6 +391,10 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	}
 	for _, o := range af.LSOOps {
 		opts.bacnetLSOOps = append(opts.bacnetLSOOps, uint(o))
+	}
+	for _, t := range af.LSOTargets {
+		opts.bacnetLSOTargets = append(opts.bacnetLSOTargets,
+			fmt.Sprintf("op=%d;type=%d;instance=%d", t.Op, t.Type, t.Instance))
 	}
 	for _, f := range af.AWFFiles {
 		opts.bacnetAWFFiles = append(opts.bacnetAWFFiles, uint(f))

@@ -125,7 +125,8 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.bacnetCreateObjectInstances, "create-object-instance", nil, "bacnet: optional per-(type, instance) allowlist for CreateObject (svc 10, v1.16+). Format: type=N;instance=M (repeatable, exact match). Refines --create-object-type when the ACS uses the [1] objectIdentifier CHOICE form (operator pre-declares which exact instance the device should create). When this list is set AND the request uses CHOICE [0] objectType (no explicit instance), the per-type list governs.")
 	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
-	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses.")
+	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. Pair with --lso-target for per-(op, type, instance) tightening (v1.16+).")
+	cmd.Flags().StringSliceVar(&opts.bacnetLSOTargets, "lso-target", nil, "bacnet: optional per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27, v1.16+). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier (operator-scoped LSO at a specific Life-Safety-Point object). Per-target match wins; falls back to --lso-op for device-wide requests (those without [3]).")
 	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
 	cmd.Flags().StringSliceVar(&opts.bacnetListElements, "list-element", nil, "bacnet: optional per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38).")
 }
@@ -188,6 +189,12 @@ type proxyListenOpts struct {
 	// pre-declares which exact instance the device should
 	// create.
 	bacnetCreateObjectInstances []string
+	// bacnetLSOTargets holds the bacnet per-(operation, type,
+	// instance) LifeSafetyOperation allowlist (v1.16+). Each
+	// entry is an "op=N;type=N;instance=N" string. Refines the
+	// per-operation list when the ACS includes the [3]
+	// objectIdentifier on a per-LSP-scoped request.
+	bacnetLSOTargets []string
 	// bacnetReinitStates holds the bacnet per-state
 	// ReinitializeDevice allowlist (v1.13+). Numeric ASHRAE 135
 	// §16.4 reinitializedStateOfDevice enum (0..7). When
@@ -580,66 +587,104 @@ func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 }
 
 func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*bacwrite.WriteGatedHandler, error) {
-	allowed := make([]bacwrite.AllowedService, 0, len(opts.serviceChoices))
-	for _, s := range opts.serviceChoices {
-		sc, err := parseByteFlag("--service-choice", s)
-		if err != nil {
-			return nil, err
-		}
-		allowed = append(allowed, bacwrite.AllowedService{ServiceChoice: sc})
-	}
-	objs, err := parseBACnetObjectFlags(opts.bacnetObjects)
+	allowed, err := buildBACnetServiceList(opts.serviceChoices)
 	if err != nil {
 		return nil, err
 	}
-	delObjs, err := parseBACnetDeleteObjectFlags(opts.bacnetDeleteObjects)
-	if err != nil {
-		return nil, err
-	}
-	creObjs, err := parseBACnetCreateObjectTypes(opts.bacnetCreateObjectTypes)
-	if err != nil {
-		return nil, err
-	}
-	creObjInst, err := parseBACnetCreateObjectInstanceFlags(opts.bacnetCreateObjectInstances)
-	if err != nil {
-		return nil, err
-	}
-	reiSts, err := parseBACnetReinitStates(opts.bacnetReinitStates)
-	if err != nil {
-		return nil, err
-	}
-	dccSts, err := parseBACnetDCCStates(opts.bacnetDCCStates)
-	if err != nil {
-		return nil, err
-	}
-	lsoOps, err := parseBACnetLSOOps(opts.bacnetLSOOps)
-	if err != nil {
-		return nil, err
-	}
-	awfFiles, err := parseBACnetAWFFiles(opts.bacnetAWFFiles)
-	if err != nil {
-		return nil, err
-	}
-	listEls, err := parseBACnetListElementFlags(opts.bacnetListElements)
+	parsed, err := parseBACnetProxyOpts(opts)
 	if err != nil {
 		return nil, err
 	}
 	return &bacwrite.WriteGatedHandler{
 		Target:                       opts.target,
 		Allowed:                      allowed,
-		AllowedObjects:               objs,
-		AllowedDeleteObjects:         delObjs,
-		AllowedCreateObjects:         creObjs,
-		AllowedCreateObjectInstances: creObjInst,
-		AllowedReinitStates:          reiSts,
-		AllowedDCCStates:             dccSts,
-		AllowedLSOOperations:         lsoOps,
-		AllowedAtomicWriteFiles:      awfFiles,
-		AllowedListElements:          listEls,
+		AllowedObjects:               parsed.objs,
+		AllowedDeleteObjects:         parsed.delObjs,
+		AllowedCreateObjects:         parsed.creObjs,
+		AllowedCreateObjectInstances: parsed.creObjInst,
+		AllowedReinitStates:          parsed.reiSts,
+		AllowedDCCStates:             parsed.dccSts,
+		AllowedLSOOperations:         parsed.lsoOps,
+		AllowedLSOTargets:            parsed.lsoTargets,
+		AllowedAtomicWriteFiles:      parsed.awfFiles,
+		AllowedListElements:          parsed.listEls,
 		Deriver:                      rt.Vault,
 		Auditor:                      rt.Auditor,
 		SessionConfirm:               c,
 	}, nil
+}
+
+// buildBACnetServiceList parses --service-choice values into
+// AllowedService entries. Extracted from buildBACnetHandler so
+// the latter stays under the funlen threshold.
+func buildBACnetServiceList(in []uint) ([]bacwrite.AllowedService, error) {
+	out := make([]bacwrite.AllowedService, 0, len(in))
+	for _, s := range in {
+		sc, err := parseByteFlag("--service-choice", s)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, bacwrite.AllowedService{ServiceChoice: sc})
+	}
+	return out, nil
+}
+
+// parsedBACnetProxyOpts holds the parsed per-service-dimension
+// allowlists for buildBACnetHandler. Pulled into its own struct
+// so the parser helper can return them all without growing the
+// signature past readability.
+type parsedBACnetProxyOpts struct {
+	objs       []bacwrite.AllowedObject
+	delObjs    []bacwrite.AllowedDeleteObject
+	creObjs    []bacwrite.AllowedCreateObject
+	creObjInst []bacwrite.AllowedCreateObjectInstance
+	reiSts     []bacwrite.AllowedReinitState
+	dccSts     []bacwrite.AllowedDCCState
+	lsoOps     []bacwrite.AllowedLSOOperation
+	lsoTargets []bacwrite.AllowedLSOTarget
+	awfFiles   []bacwrite.AllowedAtomicWriteFile
+	listEls    []bacwrite.AllowedListElement
+}
+
+// parseBACnetProxyOpts parses every per-service-dimension flag
+// from the proxy listen opts struct and returns them bundled.
+// Extracted from buildBACnetHandler so the latter stays under
+// the funlen threshold (v1.16 chunk 3 added the LSOTargets
+// dimension which pushed it over).
+func parseBACnetProxyOpts(opts proxyListenOpts) (parsedBACnetProxyOpts, error) {
+	var p parsedBACnetProxyOpts
+	var err error
+	if p.objs, err = parseBACnetObjectFlags(opts.bacnetObjects); err != nil {
+		return p, err
+	}
+	if p.delObjs, err = parseBACnetDeleteObjectFlags(opts.bacnetDeleteObjects); err != nil {
+		return p, err
+	}
+	if p.creObjs, err = parseBACnetCreateObjectTypes(opts.bacnetCreateObjectTypes); err != nil {
+		return p, err
+	}
+	if p.creObjInst, err = parseBACnetCreateObjectInstanceFlags(opts.bacnetCreateObjectInstances); err != nil {
+		return p, err
+	}
+	if p.reiSts, err = parseBACnetReinitStates(opts.bacnetReinitStates); err != nil {
+		return p, err
+	}
+	if p.dccSts, err = parseBACnetDCCStates(opts.bacnetDCCStates); err != nil {
+		return p, err
+	}
+	if p.lsoOps, err = parseBACnetLSOOps(opts.bacnetLSOOps); err != nil {
+		return p, err
+	}
+	if p.lsoTargets, err = parseBACnetLSOTargetFlags(opts.bacnetLSOTargets); err != nil {
+		return p, err
+	}
+	if p.awfFiles, err = parseBACnetAWFFiles(opts.bacnetAWFFiles); err != nil {
+		return p, err
+	}
+	if p.listEls, err = parseBACnetListElementFlags(opts.bacnetListElements); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 // buildCWMPHandler wires opts.rpcs onto a CWMP WriteGatedHandler.

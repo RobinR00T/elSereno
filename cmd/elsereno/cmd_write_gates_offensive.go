@@ -548,7 +548,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var serviceChoices []uint
 	var objects []string
-	var deleteObjects, listElements, createObjectInstances []string
+	var deleteObjects, listElements, createObjectInstances, lsoTargets []string
 	var createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
 	cmd := &cobra.Command{
 		Use:   "dry-run",
@@ -566,6 +566,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 				reinitStates:          reinitStates,
 				dccStates:             dccStates,
 				lsoOps:                lsoOps,
+				lsoTargets:            lsoTargets,
 				awfFiles:              awfFiles,
 				listElements:          listElements,
 			})
@@ -580,6 +581,7 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
 	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
+	cmd.Flags().StringSliceVar(&lsoTargets, "lso-target", nil, "optional: per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier. v1.16+.")
 	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
 	cmd.Flags().StringSliceVar(&listElements, "list-element", nil, "optional: per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38). v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
@@ -591,11 +593,11 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 // arg so runBACnetDryRun stays under the gocyclo / funlen
 // thresholds as we add v1.13+ per-service dimensions.
 type bacnetDryRunInputs struct {
-	target, ppFile, emitFile                                     string
-	serviceChoices                                               []uint
-	objects                                                      []string
-	deleteObjects, listElements, createObjectInstances           []string
-	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles []uint
+	target, ppFile, emitFile                                       string
+	serviceChoices                                                 []uint
+	objects                                                        []string
+	deleteObjects, listElements, createObjectInstances, lsoTargets []string
+	createObjectTypes, reinitStates, dccStates, lsoOps, awfFiles   []uint
 }
 
 // runBACnetDryRun parses every per-service allowlist, computes
@@ -610,7 +612,7 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
-	mut := bacwrite.SessionMutationWithCreateObjectInstances(in.target, parsed)
+	mut := bacwrite.SessionMutationWithLSOTargets(in.target, parsed)
 	printBACnetDryRunSummary(cmd, in, parsed, mut)
 	if err := maybeMintToken(cmd, mut, in.ppFile); err != nil {
 		return err
@@ -626,6 +628,7 @@ func runBACnetDryRun(cmd *cobra.Command, in bacnetDryRunInputs) error {
 			ReinitStates:             in.reinitStates,
 			DCCStates:                in.dccStates,
 			LSOOps:                   in.lsoOps,
+			LSOTargetsRaw:            in.lsoTargets,
 			AWFFiles:                 in.awfFiles,
 			ListElementsRaw:          in.listElements,
 		}))
@@ -658,6 +661,10 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 	if err != nil {
 		return bacwrite.Allowlists{}, err
 	}
+	lsoTargets, err := parseBACnetLSOTargetFlags(in.lsoTargets)
+	if err != nil {
+		return bacwrite.Allowlists{}, err
+	}
 	reiSts, err := parseBACnetReinitStates(in.reinitStates)
 	if err != nil {
 		return bacwrite.Allowlists{}, err
@@ -687,6 +694,7 @@ func parseAllowlists(in bacnetDryRunInputs) (bacwrite.Allowlists, error) {
 		ReinitStates:          reiSts,
 		DCCStates:             dccSts,
 		LSOOperations:         lsoOps,
+		LSOTargets:            lsoTargets,
 		AtomicWriteFiles:      awfFiles,
 		ListElements:          listEls,
 	}, nil
@@ -917,6 +925,82 @@ func parseBACnetCreateObjectInstanceFlag(s string) (bacwrite.AllowedCreateObject
 		return bacwrite.AllowedCreateObjectInstance{}, err
 	}
 	return bacwrite.AllowedCreateObjectInstance{ObjectType: objType, ObjectInstance: instance}, nil
+}
+
+// parseBACnetLSOTargetFlags parses repeated --lso-target values
+// (format: op=N;type=N;instance=N). v1.16 chunk 3.
+func parseBACnetLSOTargetFlags(in []string) ([]bacwrite.AllowedLSOTarget, error) {
+	out := make([]bacwrite.AllowedLSOTarget, 0, len(in))
+	for _, raw := range in {
+		t, err := parseBACnetLSOTargetFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+// bacnetKeyOp is the canonical KEY=VALUE name for the
+// LifeSafetyOperation enum on --lso-target. Pulled out as a
+// constant alongside bacnetKeyType / bacnetKeyInstance.
+const bacnetKeyOp = "op"
+
+// parseBACnetLSOTargetFlag parses one --lso-target value.
+// Format: op=N;type=N;instance=N. Three required fields:
+// op (0..9), type (0..1023, 10-bit), instance (0..4194303,
+// 22-bit). v1.16 chunk 3.
+func parseBACnetLSOTargetFlag(s string) (bacwrite.AllowedLSOTarget, error) {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: empty", s)
+	}
+	var (
+		out                        bacwrite.AllowedLSOTarget
+		opSeen, typeSeen, instSeen bool
+	)
+	for _, p := range strings.Split(raw, ";") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		kv := strings.SplitN(p, "=", 2)
+		if len(kv) != 2 {
+			return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: each token is KEY=VALUE", s)
+		}
+		key := strings.ToLower(strings.TrimSpace(kv[0]))
+		val := strings.TrimSpace(kv[1])
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: %s %q is not a number", s, key, val)
+		}
+		switch key {
+		case bacnetKeyOp:
+			if n > 9 {
+				return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: op must be 0-9 (BACnetLifeSafetyOperation)", s)
+			}
+			out.Operation = uint8(n & 0x0F)
+			opSeen = true
+		case bacnetKeyType:
+			if n > 0x3FF {
+				return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: type must be 0-1023 (10 bits)", s)
+			}
+			out.ObjectType = uint16(n & 0x3FF)
+			typeSeen = true
+		case bacnetKeyInstance:
+			if n > 0x3FFFFF {
+				return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: instance must be 0-4194303 (22 bits)", s)
+			}
+			out.ObjectInstance = uint32(n & 0x3FFFFF)
+			instSeen = true
+		default:
+			return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: unknown key %q (expected op, type, or instance)", s, key)
+		}
+	}
+	if !opSeen || !typeSeen || !instSeen {
+		return bacwrite.AllowedLSOTarget{}, fmt.Errorf("--lso-target %q: must specify op=, type=, and instance=", s)
+	}
+	return out, nil
 }
 
 // parseBACnetListElementFlags parses --list-element entries
@@ -2053,10 +2137,10 @@ func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRa
 // keep growing. The struct mirrors the per-service dimensions
 // the operator passes via CLI flags.
 type buildAllowFileBACnetInputs struct {
-	Target                                                                  string
-	Choices                                                                 []uint
-	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw, CreateObjectInstancesRaw []string
-	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles            []uint
+	Target                                                                                 string
+	Choices                                                                                []uint
+	ObjectsRaw, DeleteObjectsRaw, ListElementsRaw, CreateObjectInstancesRaw, LSOTargetsRaw []string
+	CreateObjectTypes, ReinitStates, DCCStates, LSOOps, AWFFiles                           []uint
 }
 
 // buildAllowFileBACnet constructs the BACnet plugin's
@@ -2079,6 +2163,9 @@ func buildAllowFileBACnet(in buildAllowFileBACnetInputs) proxyAllowFile {
 	}
 	if len(in.CreateObjectInstancesRaw) > 0 {
 		af.CreateObjectInstances = canonAllowFileBACnetCreateInstances(in.CreateObjectInstancesRaw)
+	}
+	if len(in.LSOTargetsRaw) > 0 {
+		af.LSOTargets = canonAllowFileBACnetLSOTargets(in.LSOTargetsRaw)
 	}
 	if len(in.ReinitStates) > 0 {
 		af.ReinitStates = canonAllowFileBACnetReinitStates(in.ReinitStates)
@@ -2137,6 +2224,8 @@ func canonAllowFileBACnetObjects(in []string) []proxyBACnetObject {
 // "type=N;instance=M;property=P" syntax — this helper parses
 // each entry, drops malformed ones, and returns the deduped
 // sorted (T, I, P) tuples.
+//
+//nolint:dupl // surface-similar to canonAllowFileBACnetLSOTargets but operates on a (T, I, P) tuple vs (Op, T, I); a generic refactor would obscure intent.
 func canonAllowFileBACnetTuples(in []string) []bacnetTuple {
 	if len(in) == 0 {
 		return nil
@@ -2207,6 +2296,44 @@ func canonAllowFileBACnetCreateInstances(in []string) []proxyBACnetCreateObjectI
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].Type != out[j].Type {
+			return out[i].Type < out[j].Type
+		}
+		return out[i].Instance < out[j].Instance
+	})
+	return out
+}
+
+// canonAllowFileBACnetLSOTargets converts repeated CLI-form
+// "op=N;type=N;instance=N" strings to sorted YAML
+// proxyBACnetLSOTarget entries. v1.16 chunk 3. Shape parallels
+// canonAllowFileBACnetTuples / canonAllowFileBACnetDeleteObjects
+// (parse + drop malformed + sort) but operates on a distinct
+// (Op, Type, Instance) tuple — the dupl-lint similarity is
+// surface-level, not refactorable without generics + the
+// surrounding callers use distinct YAML struct types.
+//
+//nolint:dupl // tuple shape differs (Op vs ObjectInstance prefix) — generic refactor would obscure intent.
+func canonAllowFileBACnetLSOTargets(in []string) []proxyBACnetLSOTarget {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]proxyBACnetLSOTarget, 0, len(in))
+	for _, raw := range in {
+		t, err := parseBACnetLSOTargetFlag(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, proxyBACnetLSOTarget{
+			Op:       t.Operation,
+			Type:     t.ObjectType,
+			Instance: t.ObjectInstance,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Op != out[j].Op {
+			return out[i].Op < out[j].Op
+		}
 		if out[i].Type != out[j].Type {
 			return out[i].Type < out[j].Type
 		}

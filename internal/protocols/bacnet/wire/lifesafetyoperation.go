@@ -49,8 +49,9 @@ const (
 // All four fields are context-tagged primitives. The first two
 // are skipped (the gate doesn't care about the operator's
 // process ID or display name); the third is read; the fourth
-// is ignored at gate level (per-object scoping for LSO is a
-// v1.16+ extension if anyone asks).
+// is ignored by this entry-point — see
+// ParseLifeSafetyOperationWithTarget for the v1.16 chunk-3
+// variant that also extracts the optional [3] field.
 //
 // Wire-level structure of the field we care about:
 //
@@ -59,36 +60,74 @@ const (
 // Returns (op, true) on success, (0, false) on any parse error
 // or unknown enum value — the gate fails closed.
 func ParseLifeSafetyOperation(apdu []byte) (uint8, bool) {
+	op, _, _, ok := ParseLifeSafetyOperationWithTarget(apdu)
+	return op, ok
+}
+
+// ParseLifeSafetyOperationWithTarget extends
+// ParseLifeSafetyOperation by also extracting the optional
+// [3] objectIdentifier when the ACS includes one. Used by the
+// v1.16 chunk-3 per-object LSO gate to scope which Life-Safety-
+// Point objects an authorised silence/reset/etc. may affect.
+//
+// Per ASHRAE 135 §16.1A the [3] field is OPTIONAL: a request
+// without it targets the device-wide LSO scope (default for
+// silence/unsilence broadcast). Per-object requests carry the
+// explicit objectIdentifier.
+//
+// Returns:
+//   - op:        BACnet LifeSafetyOperation enum (validated).
+//   - target:    parsed (type, instance) when [3] is present.
+//   - hasTarget: true iff [3] objectIdentifier was present.
+//   - ok:        false on any parse error.
+func ParseLifeSafetyOperationWithTarget(apdu []byte) (uint8, ObjectIdentifier, bool, bool) {
 	off := 0
 	// [0] requestingProcessIdentifier — Unsigned, length 1..4.
 	next, ok := skipContextPrimitiveField(apdu, off, 0)
 	if !ok {
-		return 0, false
+		return 0, ObjectIdentifier{}, false, false
 	}
 	off = next
 	// [1] requestingSource — CharacterString, length 1..4 inline
 	// or extended (length-byte form).
 	next, ok = skipContextPrimitiveField(apdu, off, 1)
 	if !ok {
-		return 0, false
+		return 0, ObjectIdentifier{}, false, false
 	}
 	off = next
 	// [2] request — ENUMERATED, length 1.
 	if off+1 >= len(apdu) {
-		return 0, false
+		return 0, ObjectIdentifier{}, false, false
 	}
 	if apdu[off] != 0x29 { // context 2, primitive, length 1
-		return 0, false
+		return 0, ObjectIdentifier{}, false, false
 	}
 	op := apdu[off+1]
-	// Validate against the canonical 0..9 range. ASHRAE 135-2020
-	// stops at 9; future revisions may extend, but the gate
-	// fails closed on unknown ops (operator can opt in
-	// explicitly when a vendor extends the enum).
 	if op > LSOOpUnsilenceVisual {
-		return 0, false
+		return 0, ObjectIdentifier{}, false, false
 	}
-	return op, true
+	off += 2
+	// [3] objectIdentifier — OPTIONAL, primitive, length 4 packed.
+	// Wire shape: 0x3C  PP PP PP PP  (context 3, primitive, len 4).
+	// Absent (off >= len(apdu)) → hasTarget=false.
+	if off >= len(apdu) {
+		return op, ObjectIdentifier{}, false, true
+	}
+	if apdu[off] != 0x3C { // context 3, primitive, length 4
+		// Bytes remain but they're not [3] — ignore (forward-compat
+		// for vendor-extended fields). hasTarget stays false.
+		return op, ObjectIdentifier{}, false, true
+	}
+	if off+5 > len(apdu) {
+		return 0, ObjectIdentifier{}, false, false
+	}
+	raw := uint32(apdu[off+1])<<24 | uint32(apdu[off+2])<<16 |
+		uint32(apdu[off+3])<<8 | uint32(apdu[off+4])
+	target := ObjectIdentifier{
+		ObjectType:     uint16((raw >> 22) & 0x3FF),
+		ObjectInstance: raw & 0x3FFFFF,
+	}
+	return op, target, true, true
 }
 
 // skipContextPrimitiveField skips a primitive context-tagged

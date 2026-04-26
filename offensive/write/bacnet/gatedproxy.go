@@ -168,6 +168,44 @@ type AllowedCreateObject struct {
 	ObjectType uint16
 }
 
+// AllowedLSOTarget is the v1.16 chunk-3 refinement of
+// AllowedLSOOperation: scopes a LifeSafetyOperation request
+// (service 27) to a specific (ObjectType, ObjectInstance)
+// Life-Safety-Point. v1.13 chunk 11 closed LSO at the per-
+// operation grain ("operator may silence + unsilence" — affects
+// the entire device); v1.16 chunk 3 lets operators allow
+// per-object reset/unsilence ("only zone-3 fire-alarm panel
+// may receive ResetAlarm").
+//
+// Semantics (combined with AllowedLSOOperations):
+//
+//   - When AllowedLSOTargets is non-empty AND the request
+//     includes the [3] objectIdentifier (operator-scoped form):
+//     pass iff (op, type, instance) is in AllowedLSOTargets.
+//     The per-operation list is also consulted as a fallback so
+//     operators can mix grains.
+//   - When AllowedLSOTargets is non-empty BUT the request omits
+//     the [3] objectIdentifier (device-wide LSO): the per-
+//     operation list governs (operator's intent for the
+//     explicit-target grain doesn't apply when the ACS sends
+//     a broadcast).
+//   - Empty AllowedLSOTargets: no behaviour change from v1.13
+//     chunk 11 (per-operation-only gating).
+//
+// Wire-level both shapes are inspected — see
+// wire.ParseLifeSafetyOperationWithTarget for the parser the
+// gate uses.
+type AllowedLSOTarget struct {
+	// Operation is the BACnet LifeSafetyOperation enum (0..9).
+	Operation uint8
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// enum (e.g. 21 = LifeSafetyPoint, 22 = LifeSafetyZone).
+	ObjectType uint16
+	// ObjectInstance is the 22-bit BACnet ObjectInstance per
+	// ASHRAE 135 §13.2.
+	ObjectInstance uint32
+}
+
 // AllowedCreateObjectInstance is the v1.16 chunk-2 refinement
 // of AllowedCreateObject: scopes a CreateObject confirmed-
 // request (service 10) to a specific (ObjectType,
@@ -863,6 +901,7 @@ type Allowlists struct {
 	ReinitStates          []AllowedReinitState
 	DCCStates             []AllowedDCCState
 	LSOOperations         []AllowedLSOOperation
+	LSOTargets            []AllowedLSOTarget
 	AtomicWriteFiles      []AllowedAtomicWriteFile
 	ListElements          []AllowedListElement
 }
@@ -1240,8 +1279,7 @@ func AllowlistHashWithCreateObjectInstances(target string, al Allowlists) [32]by
 }
 
 // SessionMutationWithCreateObjectInstances is the v1.16 chunk-2
-// mutation, the new top of the BACnet allowlist hash ladder.
-// Empty CreateObjectInstances → degrades to
+// mutation. Empty CreateObjectInstances → degrades to
 // SessionMutationWithListElements.
 func SessionMutationWithCreateObjectInstances(target string, al Allowlists) confirm.Mutation {
 	return confirm.Mutation{
@@ -1250,6 +1288,124 @@ func SessionMutationWithCreateObjectInstances(target string, al Allowlists) conf
 		Operation:   "proxy_session",
 		Target:      target,
 		PayloadHash: AllowlistHashWithCreateObjectInstances(target, al),
+	}
+}
+
+// AllowlistHashWithLSOTargets is the v1.16 chunk-3 hash that
+// adds per-(operation, type, instance) LifeSafetyOperation
+// gating on top of the v1.16 chunk-2 layer. Backwards-compat
+// ladder: empty LSOTargets → equals
+// AllowlistHashWithCreateObjectInstances (v1.16 chunk 2). All
+// v1.4 → v1.16-chunk-2 confirm-tokens remain valid for
+// operators who don't opt into per-object LSO gating.
+//
+// Hash layout (when LSOTargets is non-empty): the same lower-
+// layer block sequence as chunk-2 (services, objects, deletes,
+// optional create-types / reinit / DCC / LSO-ops / AWF / list-
+// elements / create-instances) followed by:
+//
+//	|| 0xF6 || (op || u16 type || u32 instance) × sorted_lso_targets
+//
+// Separator 0xF6 is below 0xF7 (per-instance Create), 0xF8
+// (list-elements), 0xF9 (AWF), 0xFA (LSO ops), 0xFB (DCC),
+// 0xFC (reinit), 0xFD (creates types), 0xFE (deletes), and
+// 0xFF (per-property objects). Per-entry is 7 bytes (uint8 op
+// + uint16 type + uint32 instance).
+func AllowlistHashWithLSOTargets(target string, al Allowlists) [32]byte {
+	if len(al.LSOTargets) == 0 {
+		return AllowlistHashWithCreateObjectInstances(target, al)
+	}
+	sortedSvc := sortAllowedServices(al.Services)
+	sortedObj := sortAllowedObjects(al.Objects)
+	sortedDel := sortAllowedDeleteObjects(al.DeleteObjects)
+	sortedCre := sortAllowedCreateObjects(al.CreateObjects)
+	sortedRei := sortAllowedReinitStates(al.ReinitStates)
+	sortedDCC := sortAllowedDCCStates(al.DCCStates)
+	sortedLSO := sortAllowedLSOOps(al.LSOOperations)
+	sortedAWF := sortAllowedAtomicWriteFiles(al.AtomicWriteFiles)
+	sortedLE := sortAllowedListElements(al.ListElements)
+	sortedCreInst := sortAllowedCreateObjectInstances(al.CreateObjectInstances)
+	sortedTgt := sortAllowedLSOTargets(al.LSOTargets)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, a := range sortedSvc {
+		_, _ = h.Write([]byte{a.ServiceChoice})
+	}
+	writeObjectsBlock(h, sortedObj)
+	writeDeleteObjectsBlock(h, sortedDel)
+	if len(sortedCre) > 0 {
+		writeCreateObjectsBlock(h, sortedCre)
+	}
+	if len(sortedRei) > 0 {
+		writeReinitStatesBlock(h, sortedRei)
+	}
+	if len(sortedDCC) > 0 {
+		writeDCCStatesBlock(h, sortedDCC)
+	}
+	if len(sortedLSO) > 0 {
+		writeLSOOpsBlock(h, sortedLSO)
+	}
+	if len(sortedAWF) > 0 {
+		writeAWFBlock(h, sortedAWF)
+	}
+	if len(sortedLE) > 0 {
+		writeListElementsBlock(h, sortedLE)
+	}
+	if len(sortedCreInst) > 0 {
+		writeCreateObjectInstancesBlock(h, sortedCreInst)
+	}
+	writeLSOTargetsBlock(h, sortedTgt)
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// sortAllowedLSOTargets returns a deterministically sorted
+// copy (by Operation, ObjectType, ObjectInstance ascending).
+// v1.16 chunk 3.
+func sortAllowedLSOTargets(in []AllowedLSOTarget) []AllowedLSOTarget {
+	out := append([]AllowedLSOTarget(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Operation != out[j].Operation {
+			return out[i].Operation < out[j].Operation
+		}
+		if out[i].ObjectType != out[j].ObjectType {
+			return out[i].ObjectType < out[j].ObjectType
+		}
+		return out[i].ObjectInstance < out[j].ObjectInstance
+	})
+	return out
+}
+
+// writeLSOTargetsBlock writes the per-(operation, type,
+// instance) block. Separator 0xF6 (v1.16 chunk 3). Caller must
+// have already established len(sorted) > 0.
+func writeLSOTargetsBlock(h hashWriter, sorted []AllowedLSOTarget) {
+	_, _ = h.Write([]byte{0xF6})
+	var u16 [2]byte
+	var u32 [4]byte
+	for _, t := range sorted {
+		_, _ = h.Write([]byte{t.Operation})
+		binary.BigEndian.PutUint16(u16[:], t.ObjectType)
+		_, _ = h.Write(u16[:])
+		binary.BigEndian.PutUint32(u32[:], t.ObjectInstance)
+		_, _ = h.Write(u32[:])
+	}
+}
+
+// SessionMutationWithLSOTargets is the v1.16 chunk-3 mutation,
+// the new top of the BACnet allowlist hash ladder. Empty
+// LSOTargets → degrades to SessionMutationWithCreateObject-
+// Instances.
+func SessionMutationWithLSOTargets(target string, al Allowlists) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "bacnet",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithLSOTargets(target, al),
 	}
 }
 
@@ -1457,6 +1613,13 @@ type WriteGatedHandler struct {
 	// 27). See AllowedLSOOperation for semantics. Empty list
 	// preserves service-choice-only gating for that service.
 	AllowedLSOOperations []AllowedLSOOperation
+	// AllowedLSOTargets is the optional v1.16 chunk-3 per-
+	// (operation, type, instance) allowlist for LifeSafety-
+	// Operation — refines the v1.13 chunk-11 per-operation list
+	// when the ACS includes the [3] objectIdentifier. See
+	// AllowedLSOTarget for semantics. Empty list preserves
+	// chunk-11 behaviour.
+	AllowedLSOTargets []AllowedLSOTarget
 	// AllowedAtomicWriteFiles is the optional v1.13 chunk-12
 	// per-File-instance allowlist for AtomicWriteFile (service
 	// 7). See AllowedAtomicWriteFile for semantics. Empty list
@@ -1481,7 +1644,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithCreateObjectInstances(h.Target, Allowlists{
+	m := SessionMutationWithLSOTargets(h.Target, Allowlists{
 		Services:              h.Allowed,
 		Objects:               h.AllowedObjects,
 		DeleteObjects:         h.AllowedDeleteObjects,
@@ -1490,6 +1653,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 		ReinitStates:          h.AllowedReinitStates,
 		DCCStates:             h.AllowedDCCStates,
 		LSOOperations:         h.AllowedLSOOperations,
+		LSOTargets:            h.AllowedLSOTargets,
 		AtomicWriteFiles:      h.AllowedAtomicWriteFiles,
 		ListElements:          h.AllowedListElements,
 	})
@@ -1729,7 +1893,7 @@ func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu 
 			return false
 		}
 	}
-	if len(h.AllowedLSOOperations) > 0 && svc == wire.ConfirmedSvcLifeSafetyOperation {
+	if (len(h.AllowedLSOOperations) > 0 || len(h.AllowedLSOTargets) > 0) && svc == wire.ConfirmedSvcLifeSafetyOperation {
 		if !h.lsoOperationAllowed(apdu) {
 			return false
 		}
@@ -1738,17 +1902,39 @@ func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu 
 }
 
 // lsoOperationAllowed parses the LifeSafetyOperation body and
-// reports whether the requested BACnetLifeSafetyOperation enum
-// value is in the operator's per-operation allowlist. Fail-
-// closed on unparseable BER or unknown enum value.
+// reports whether the request is in the operator's allowlists.
+// Fail-closed on unparseable BER or unknown enum value.
+//
+// Match order (v1.16 chunk 3):
+//
+//  1. If the request includes the [3] objectIdentifier and
+//     AllowedLSOTargets has the exact (op, type, instance),
+//     pass.
+//  2. Otherwise consult AllowedLSOOperations (v1.13 chunk 11
+//     per-operation list); pass if `op` is listed.
+//  3. Otherwise refuse.
+//
+// Operators wanting strict per-object scoping leave
+// AllowedLSOOperations empty and populate AllowedLSOTargets;
+// device-wide LSO requests (no [3] field) then refuse because
+// they don't carry an object to match against — see
+// AllowedLSOTarget.
 func (h *WriteGatedHandler) lsoOperationAllowed(apdu []byte) bool {
 	const crHeader = 4
 	if len(apdu) <= crHeader {
 		return false
 	}
-	op, ok := wire.ParseLifeSafetyOperation(apdu[crHeader:])
+	op, target, hasTarget, ok := wire.ParseLifeSafetyOperationWithTarget(apdu[crHeader:])
 	if !ok {
 		return false
+	}
+	if hasTarget {
+		for _, t := range h.AllowedLSOTargets {
+			if t.Operation == op && t.ObjectType == target.ObjectType &&
+				t.ObjectInstance == target.ObjectInstance {
+				return true
+			}
+		}
 	}
 	for _, a := range h.AllowedLSOOperations {
 		if a.Operation == op {
