@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] — 2026-04-26
+
+Five-chunk cycle covering loose-end closure on multiple
+surfaces: CWMP firmware-pin observability, operator-UX
+scanning, threat-intel interop, audit concurrency hardening,
+and supervisor-driven reload.
+
+### Added
+
+- **CWMP TransferComplete observer**: `WriteGatedHandler`
+  gains an opt-in `OnTransferComplete` callback that fires
+  when CPE → ACS TransferComplete envelopes traverse the gate.
+  Default CLI observer emits structured stderr log lines
+  (`status=ok|fault command_key=… fault_code=…`). Closes
+  the v1.12 chunk-10 firmware-pin loop.
+- **`elsereno discover --auto <CIDR>`**: TCP-connect sweep
+  iterates the CIDR + probes the well-known port of every
+  registered plugin, emits responsive (host, port) pairs
+  as NDJSON or `host:port` list. Pipe-friendly with
+  `scan --input list:-`.
+- **STIX 2.1 export**: new `--output-format stix` emits
+  findings as a STIX bundle (ipv4/ipv6-addr SCO + network-
+  traffic SCO + observed-data SDO per finding). Deterministic
+  UUIDv5 IDs for diff-based regression testing. MISP /
+  OpenCTI / ThreatBus ingest-ready.
+- **SIGHUP reload-style exit**: proxy listen distinguishes
+  SIGHUP (exit 75 / EX_TEMPFAIL — supervisor restart signal)
+  from SIGINT/SIGTERM (exit 0 — clean stop). Operator
+  workflow: edit allow-file, mint fresh confirm-token,
+  `kill -HUP` → systemd / runit / s6 restarts with new config.
+
+### Changed
+
+- **Audit chain cross-process merge** via `unix.Flock(LOCK_EX)`.
+  The `Append`/`appendVerbatim` read-then-write critical
+  section is now guarded by an exclusive flock + tail-resume,
+  so two ElSereno processes appending to the same
+  `~/.elsereno/audit.jsonl` serialise + merge cleanly. Linux
+  + macOS only; Windows stub returns nil (Windows support
+  is a v1.16+ cross-cutting cycle).
+
+### Tooling / docs
+
+- New `internal/outputs/stix` + `internal/audit/flock_unix.go`
+  + `internal/audit/flock_windows.go` packages.
+- `cmd_discover.go` adds the new top-level subcommand.
+- Proxy listen long-help text gains a "SIGHUP reload via
+  supervisor restart" section.
+- `docs/protocols/cwmp.md` gains a "TransferComplete observer
+  (v1.15+)" section.
+
+### Deferred to v1.16+
+
+- BACnet per-instance Create + per-object LSO refinements.
+- 12 legacy ICS protocols (PROFINET, CoDeSys, Omron FINS, …).
+- TUI bubbletea, Windows support, OIDC + roles, record-&-
+  replay.
+- In-process allow-file reload (alternative to the chunk-5
+  supervisor-restart pattern).
+
 ## [1.14.0] — 2026-04-26
 
 Four-chunk cycle covering operator-requested IPv6 cross-

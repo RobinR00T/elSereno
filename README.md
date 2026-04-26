@@ -43,6 +43,14 @@ ergonomics + scope/dedupe contract pinned. See
 [`.context/snapshots/v1.14.0-ipv6-cross-cutting.md`](.context/snapshots/v1.14.0-ipv6-cross-cutting.md)
 for the per-chunk breakdown.
 
+> **v1.15.0 cycle closed on `main`** (5 chunks; tag + GitHub
+> release pending operator). Loose-end closure: CWMP
+> TransferComplete observer + `elsereno discover --auto
+> <CIDR>` + STIX 2.1 export sink + audit cross-process flock
+> + SIGHUP reload-style exit. Build from source until v1.15.0
+> is cut. See
+> [`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`](.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md).
+
 Previous release: [v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)
 — BACnet completion + CWMP polish (closes all 9 BACnet
 mutating services with wire-level per-target-or-state

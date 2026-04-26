@@ -1,18 +1,18 @@
 ---
-phase: v1.15-in-flight
-status: v1.14.0 released; v1.15 cycle opened with chunk 1 (CWMP TransferComplete observer)
+phase: v1.15-closed
+status: v1.14.0 released; v1.15.0 cycle closed (5 chunks); tag pending
 last-updated: 2026-04-26
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.14.0 published** on GitHub
-(https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0).
-**v1.15 cycle in flight on `main`** — chunk 1 lands the CWMP
-TransferComplete observer (closes loose-end from v1.12 chunk
-10's firmware-pin work). Theme TBD (CWMP polish + v1.13
-loose-ends + ICS protocol additions).
+**Phase**: **v1.15.0 cycle closed** on `main` — 5 chunks
+landed since v1.14.0. Theme: loose-end closure across CWMP
+observability, scanning UX, threat-intel interop, audit
+concurrency, and supervisor-driven reload. Tag, push, GitHub
+release pending operator. **v1.14.0 remains the latest GitHub
+release** until v1.15.0 is cut.
 
 **v1.15 chunks landed (in-flight)**:
 - 1   `476b404` — CWMP TransferComplete observer. 6 tests.
@@ -21,13 +21,9 @@ loose-ends + ICS protocol additions).
 - 3   `e205cd8` — STIX 2.1 export sink. 9 tests.
 - 4   `dd92a39` — Audit chain cross-process merge via flock.
   2 tests.
-- 5   *(pending commit)* — SIGHUP reload-style exit. Proxy
-  listen now distinguishes SIGHUP (exit 75 / EX_TEMPFAIL,
-  reload signal for supervisor) from SIGINT/SIGTERM (exit
-  0, clean stop). Operators wrap proxy listen in systemd
-  `Restart=always` (or runit/s6) + edit allow-file + mint
-  fresh confirm-token + `kill -HUP $pid` → supervisor
-  restarts with updated config. 1 sentinel-contract test.
+- 5   `1264998` — SIGHUP reload-style graceful exit. 1 test.
+
+Snapshot: `.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

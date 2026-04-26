@@ -3,14 +3,46 @@
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
 
-**Versión del manual**: v1.14.0 · 2026-04-26
-**Compatible con binario**: v1.14.0+ (IPv6 cross-cutting:
-nuevo paquete `internal/netutil`, canonicalización IPv6 en
-`--target` / `--listen` / `--confirm-target`, fix del
-dispatcher `scan --input internetdb:`, bracket-stripping para
-`[2001:db8::1]`, scope + dedupe IPv6 contract tests). v1.13.0
-sigue cerrando TODOS los servicios mutating BACnet (svc 7/8/9/
-10/11/15/16/17/20/27).
+**Versión del manual**: v1.15.0 (ciclo cerrado, tag pendiente)
+· 2026-04-26
+**Compatible con binario**: v1.14.0+ (IPv6 cross-cutting).
+**v1.15.0** añade loose-end closure en 5 frentes: CWMP
+TransferComplete observer, `elsereno discover --auto <CIDR>`,
+STIX 2.1 export sink, audit cross-process flock, SIGHUP
+reload-style exit.
+
+---
+
+## Novedades v1.15.0 (5 chunks; tag pendiente)
+
+Loose-end closure cycle:
+
+- **CWMP TransferComplete observer**: cuando el CPE reporta
+  `TransferComplete` post-firmware-push, el gate emite una
+  línea de log estructurada (status=ok|fault, command_key,
+  fault_code…). Cierra el loop de v1.12 chunk-10 firmware-pin.
+- **`elsereno discover --auto <CIDR>`**: TCP-connect sweep
+  punto-a-shoot. Itera el CIDR, prueba el puerto well-known
+  de cada plugin registrado, emite responsive (host, port)
+  como NDJSON o `host:port` list. Pipe-friendly:
+  `elsereno discover --auto 192.168.1.0/24 --format list |
+  elsereno scan --input list:-`.
+- **STIX 2.1 export sink**: `--output-format stix` emite
+  findings como bundle STIX (ipv4/ipv6-addr SCO + network-
+  traffic SCO + observed-data SDO). Listo para MISP /
+  OpenCTI / ThreatBus.
+- **Audit cross-process merge via flock**: dos procesos
+  ElSereno appendeando a `~/.elsereno/audit.jsonl` ya no
+  rompen la chain. Linux + macOS via `unix.Flock(LOCK_EX)`.
+- **SIGHUP reload-style exit**: `proxy listen` distingue
+  SIGHUP (exit 75 / EX_TEMPFAIL — supervisor restart signal)
+  de SIGINT/SIGTERM (exit 0 — clean stop). Workflow:
+  edit allow-file, mint fresh confirm-token, `kill -HUP $pid`
+  → systemd / runit / s6 reinicia con config nueva.
+
+Snapshot completo:
+[`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`](
+../../.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md).
 
 ---
 

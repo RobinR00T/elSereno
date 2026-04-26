@@ -1,14 +1,15 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-26**. **v1.14.0 is the latest release**
-(4-chunk IPv6 cross-cutting cycle, published on GitHub
-Releases).
+State as of **2026-04-26**. **v1.15.0 cycle closed** on
+`main` (5 chunks); tag + GitHub release pending. **v1.14.0
+remains the latest GitHub release** until v1.15.0 is cut.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
-→ v1.10 → v1.11 → v1.12 → v1.13 → **v1.14**. Each release has
-a per-cycle snapshot under `.context/snapshots/`.
+→ v1.10 → v1.11 → v1.12 → v1.13 → v1.14 → **v1.15 (cycle
+closed, tag pending)**. Each release has a per-cycle snapshot
+under `.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -51,7 +52,11 @@ the long-running roadmap so the delta between **shipped** and
   package + `canonicaliseTarget` at CLI parse boundaries +
   `scan --input internetdb:` dispatcher fix +
   bracket-stripping ergonomics + scope/dedupe IPv6 contract
-  tests. 4 chunks. Tag pending operator.
+  tests. 4 chunks.
+- **v1.15** — Loose-end closure: CWMP TransferComplete
+  observer + `elsereno discover --auto <CIDR>` + STIX 2.1
+  export sink + audit cross-process flock + SIGHUP
+  reload-style exit. 5 chunks. Tag pending operator.
 
 ## v1.13 cycle closed on `main` (tag pending)
 
