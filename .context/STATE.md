@@ -19,14 +19,15 @@ loose-ends + ICS protocol additions).
 - 2   `389ff5d` — `elsereno discover --auto <CIDR>` TCP-connect
   sweep. 9 tests.
 - 3   `e205cd8` — STIX 2.1 export sink. 9 tests.
-- 4   *(pending commit)* — Audit chain cross-process merge.
-  `unix.Flock(LOCK_EX)` guards `Append`/`appendVerbatim`'s
-  read-then-write critical section + resume() re-reads the
-  tail under the lock so two ElSereno processes appending
-  to the same `~/.elsereno/audit.jsonl` serialise + merge
-  cleanly (strictly increasing IDs + chain invariant
-  preserved). 2 new tests including a 50-entry concurrent
-  interleave that fails immediately under the old code.
+- 4   `dd92a39` — Audit chain cross-process merge via flock.
+  2 tests.
+- 5   *(pending commit)* — SIGHUP reload-style exit. Proxy
+  listen now distinguishes SIGHUP (exit 75 / EX_TEMPFAIL,
+  reload signal for supervisor) from SIGINT/SIGTERM (exit
+  0, clean stop). Operators wrap proxy listen in systemd
+  `Restart=always` (or runit/s6) + edit allow-file + mint
+  fresh confirm-token + `kill -HUP $pid` → supervisor
+  restarts with updated config. 1 sentinel-contract test.
 
 v1.13 closes the BACnet leg of the per-RPC scoping work
 started in v1.12 chunk 7. Theme: every BACnet mutating

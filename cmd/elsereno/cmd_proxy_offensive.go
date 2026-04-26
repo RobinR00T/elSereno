@@ -57,7 +57,13 @@ rejects otherwise):
   --confirm-token   (derived via ` + "`elsereno write <plugin> dry-run --vault-passphrase-file ...`" + `)
   --vault-passphrase-file <0600 path>  (for audit + key derivation)
 
-The proxy runs until SIGINT / SIGTERM.`,
+The proxy runs until SIGINT / SIGTERM (clean shutdown, exit 0)
+or SIGHUP (reload-style exit 75 / EX_TEMPFAIL). The SIGHUP path
+is for operators wrapping the proxy in a supervisor (systemd
+` + "`Restart=always`" + `, runit, s6, etc.): edit the allow-file, mint
+a fresh confirm-token, then ` + "`kill -HUP`" + ` — the supervisor
+restarts the proxy and the new instance picks up the updated
+config.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProxyListen(cmd, opts)
 		},
@@ -320,19 +326,51 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 		return fail(core.ExitError, err)
 	}
 
-	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+	// v1.15 chunk 5: distinguish SIGHUP (reload-style exit 75)
+	// from SIGINT/SIGTERM (clean exit 0). Wrap the existing
+	// signal.NotifyContext with a side-channel that captures
+	// which signal fired; we still cancel the same context so
+	// the server-stop path is unchanged.
+	ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
+	hupCh := make(chan os.Signal, 1)
+	signal.Notify(hupCh, syscall.SIGHUP)
+	defer signal.Stop(hupCh)
 
 	cmd.Printf("proxy: plugin=%s listen=%s target=%s\n", opts.plugin, opts.listen, opts.target)
-	cmd.Printf("proxy: authorised; waiting for client connections (SIGINT to stop)\n")
+	cmd.Printf("proxy: authorised; waiting for client connections (SIGINT/SIGTERM stop, SIGHUP reloads via supervisor restart)\n")
 	cmd.Printf("proxy: audit: %s\n", rt.AuditPath())
 
 	if rerr := srv.Run(ctx); rerr != nil && !errors.Is(rerr, context.Canceled) {
 		return fail(core.ExitError, rerr)
 	}
+	return finishProxyListen(cmd, hupCh)
+}
+
+// finishProxyListen distinguishes SIGHUP (exit 75) from
+// SIGINT/SIGTERM (exit 0) after the proxy server returns.
+// Extracted from runProxyListen so the parent stays under
+// funlen as the v1.15 chunk-5 SIGHUP path adds plumbing.
+func finishProxyListen(cmd *cobra.Command, hupCh <-chan os.Signal) error {
+	// If SIGHUP fired, signal the supervisor that this is a
+	// reload (exit 75 / EX_TEMPFAIL). systemd's Restart=always
+	// + RestartPreventExitStatus= can distinguish this from a
+	// real crash; runit / s6 just restart unconditionally.
+	select {
+	case <-hupCh:
+		cmd.Printf("proxy: stopping for SIGHUP reload (exit %d — supervisor should restart)\n", core.ExitTempFail)
+		return fail(core.ExitTempFail, errReloadRequested)
+	default:
+	}
 	cmd.Printf("proxy: stopped cleanly\n")
 	return nil
 }
+
+// errReloadRequested is the sentinel returned when SIGHUP triggers
+// a graceful exit. The exit-code wrapper translates this into
+// core.ExitTempFail (75) so supervisors can distinguish reload
+// from crash.
+var errReloadRequested = errors.New("proxy: SIGHUP reload requested (operator should restart with updated config)")
 
 // validateProxyListenOpts returns a typed error describing the
 // first missing required flag, or nil when the options are

@@ -240,6 +240,28 @@ One-liner per significant change to `.context/` or the codebase.
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
+- 2026-04-26 — **v1.15 chunk 5 landed.** SIGHUP reload-style
+  graceful exit on `proxy listen`. The constraint that
+  prompted the design choice: each per-session
+  confirm-token is computed from the operator-supplied
+  allowlist's hash, so any in-process allow-file reload
+  invalidates the existing token (operator must re-mint
+  before the new allowlist activates). Rather than
+  building a token-generation cookie scheme + re-authorise-
+  in-place plumbing, chunk 5 takes the supervisor-restart
+  path: SIGHUP triggers a clean exit with code 75 / EX_TEMPFAIL
+  (distinguishable from a real crash via systemd's
+  `RestartPreventExitStatus=`); SIGINT + SIGTERM keep the
+  existing exit-0 behaviour. Operator workflow: edit
+  /etc/elsereno/<plugin>-gate.yaml, run
+  `elsereno-offensive write <plugin> dry-run` to mint the
+  new confirm-token, write the new token to the supervisor's
+  systemd-environment / runit env, `kill -HUP $(pidof …)`,
+  supervisor restarts with updated config. The proxy
+  long-help text gains a "SIGHUP reload via supervisor
+  restart" section. 1 new test
+  (TestErrReloadRequested_Sentinel) pins the typed-sentinel
+  contract for the SIGHUP-exit error.
 - 2026-04-26 — **v1.15 chunk 4 landed.** Audit chain cross-
   process merge. The race that prompted the chunk: two
   ElSereno processes (e.g. `serve` + `proxy listen` on the
