@@ -133,9 +133,10 @@ type proxyBACnetObject struct {
 //	  - type: 19         # MultiStateValue
 //	    instance: 7
 //
-// Operator allowlists specific DeleteObject targets. Other
-// destructive services (ReinitializeDevice, etc.) keep
-// service-only gating in v1.13; v1.14+ extensions follow.
+// Operator allowlists specific DeleteObject targets. v1.13
+// chunks 7-13 closed every BACnet mutating service at natural
+// granularity; per-instance Create + per-object LSO are
+// v1.16+ tightenings if anyone asks.
 type proxyBACnetDeleteObject struct {
 	Type     uint16 `yaml:"type"`
 	Instance uint32 `yaml:"instance"`

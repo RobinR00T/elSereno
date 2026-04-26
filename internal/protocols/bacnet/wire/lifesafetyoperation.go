@@ -50,7 +50,7 @@ const (
 // are skipped (the gate doesn't care about the operator's
 // process ID or display name); the third is read; the fourth
 // is ignored at gate level (per-object scoping for LSO is a
-// v1.14+ extension if anyone asks).
+// v1.16+ extension if anyone asks).
 //
 // Wire-level structure of the field we care about:
 //

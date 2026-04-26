@@ -73,7 +73,7 @@ ASN.1 BER encoding particulars used by the per-object gate:
   - Required `[2]` ENUMERATED (`0x29 NN` length 1) — the
     BACnetLifeSafetyOperation enum (0..9).
   - Optional `[3]` BACnetObjectIdentifier — ignored at gate
-    level (per-object scoping is v1.14+ if asked).
+    level (per-object scoping is v1.16+ if asked).
   The gate parser uses a generic `skipContextPrimitiveField`
   helper that walks the inline-length and extended-length
   forms uniformly so future BACnet services with similar

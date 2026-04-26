@@ -10,12 +10,12 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-25** (post-v1.12). Items shipped during
-v1.3 → v1.12 archived to keep this file actionable.
+Last refresh: **2026-04-26** (post-v1.15). Items shipped during
+v1.3 → v1.15 archived to keep this file actionable.
 
 ---
 
-## ✅ Shipped during v1.3–v1.12
+## ✅ Shipped during v1.3–v1.15
 
 - ✅ **PBX discovery (Asterisk / FreePBX / Cisco UCM / 3CX /
   Mitel / Avaya / Yeastar / Grandstream)** — v1.3 chunks 1-3 +
@@ -43,60 +43,89 @@ v1.3 → v1.12 archived to keep this file actionable.
   (`elsereno-offensive write cwmp verify-firmware`).
 - ✅ **BACnet per-object for WritePropertyMultiple (svc 16)** —
   v1.13 chunk 3.
-- ✅ **BACnet per-target for DeleteObject (svc 11)** — v1.13
-  chunk 7. Separate `AllowedDeleteObjects` list (kept distinct
-  from property-level `AllowedObjects`).
 - ✅ **CWMP RPC-name case-warning in dry-run** — v1.13 chunk 4.
 - ✅ **CWMP-over-TLS operator recipe** — v1.13 chunk 5 (docs
   only; nginx + HAProxy + Caddy front-proxy patterns).
+- ✅ **Triage bucket "utility"** — v1.13 chunk 6 (4th bucket
+  alongside quick-win / strategic / routine).
+- ✅ **BACnet per-target / per-state / per-operation /
+  per-instance / per-(object,property) scoping for the
+  remaining 7 mutating services** — v1.13 chunks 7-13 closes
+  every BACnet mutating service (svc 7/8/9/10/11/15/16/17/20/27)
+  at natural granularity (per-target DeleteObject, per-type
+  CreateObject, per-state ReinitializeDevice and DCC, per-op
+  LSO, per-File AtomicWriteFile, per-(object,property)
+  Add/RemoveListElement). Per-instance Create + per-object LSO
+  refinements remain v1.16+ tightenings if operators ask.
+- ✅ **IPv6 cross-cutting support** — v1.14 (4 chunks).
+  `internal/netutil` package with `IsLoopbackHostPort` +
+  `CanonicalHostPort` + `ParseAddrPort`; target
+  canonicalisation across proxy listen + every dry-run command;
+  `scan --input internetdb:` v6 dispatcher fix +
+  bracket-stripping ergonomics; scope/dedupe IPv6 contract
+  tests pinned.
+- ✅ **CWMP TransferComplete observer (parsing half)** — v1.15
+  chunk 1. Opt-in callback fires when CPE → ACS
+  TransferComplete envelopes traverse the gate; default CLI
+  observer emits structured stderr log lines. The remaining
+  half — comparing the reported success against the v1.12
+  chunk-10 firmware-allowlist metadata and emitting an
+  audit-on-mismatch event — is the v1.16+ candidate below.
+- ✅ **`elsereno discover --auto <CIDR>`** — v1.15 chunk 2.
+  TCP-connect sweep iterates the CIDR + probes the well-known
+  port of every registered plugin. Pipe-friendly with
+  `scan --input list:-` for the point-and-shoot inventory
+  workflow.
+- ✅ **STIX 2.1 export** — v1.15 chunk 3.
+  `--output-format stix` emits findings as a STIX bundle
+  (ipv4/ipv6-addr SCO + network-traffic SRO + indicator SDO)
+  with deterministic UUIDv5 IDs. Feeds into MISP / OpenCTI /
+  ThreatBus.
+- ✅ **Audit chain cross-process merge via flock** — v1.15
+  chunk 4. POSIX `flock(LOCK_EX)` serialises Append +
+  appendVerbatim; second writer resumes from the latest tail
+  under the lock so the chain stays consistent across
+  concurrent processes.
+- ✅ **SIGHUP reload of proxy listen allowlist (supervisor
+  variant)** — v1.15 chunk 5. SIGHUP triggers a clean exit
+  with code 75 / EX_TEMPFAIL distinguishable from real crashes
+  via `RestartPreventExitStatus=`; supervisor restarts with the
+  new allowlist + freshly minted confirm-token. The in-process
+  reload variant (token-generation cookie scheme that avoids
+  the restart) is the v1.16+ candidate below.
 
 ---
 
-## 🎯 High-leverage — siguiente ciclo (v1.13)
+## 🎯 High-leverage — siguiente ciclo (v1.16)
 
-- [ ] **IPv6 cross-cutting support** (operator-requested
-  2026-04-25). Audit `netip.Addr` paths + bind/listen + audit
-  log paths + allowlist canonicalisation for v6 host literals
-  `[::1]:port`. Likely splits across 3-4 chunks (scan / proxy /
-  inputs / write-gates). Estimación: ~1 ciclo completo.
+- [ ] **CWMP TransferComplete SHA-256 mismatch audit** — v1.15
+  chunk 1 added the parsing half; falta correlar el envelope
+  contra la entrada de audit del Download autorizado (v1.12
+  chunk 10 guarda el `firmware_url` + `sha256` allowlisted) y
+  emitir un evento de audit enriquecido (`outcome=succeeded`
+  con cross-reference al Download, `outcome=failed` con
+  fault_code/fault_string, `outcome=orphan_complete` si la
+  CommandKey no aparece en la cadena). Estimación: 1 chunk
+  medio.
 
-- [ ] **BACnet per-object para los demás mutating services**.
-  v1.12 chunk 7 cubre WriteProperty (svc 15). v1.13 chunk 3
-  añade WritePropertyMultiple (svc 16). v1.13 chunk 7 añade
-  DeleteObject (svc 11). Falta:
-    - svc 10 CreateObject — request: choice ObjectType vs
-      ObjectIdentifier + opcional listOfInitialValues.
-    - svc 17 DeviceCommunicationControl — devices Disable /
-      Disable-Initiation (silenciar dispositivo).
-    - svc 20 ReinitializeDevice — coldstart / warmstart.
-    - svc 27 LifeSafetyOperation — silence / unsilence alarmas.
-    - svc 7 AtomicWriteFile — file Object writes.
-    - svc 8/9 Add/RemoveListElement — recipient lists, schedules.
-  Cada uno necesita su BER walker + tests. Estimación: 1
-  chunk por servicio (6 chunks restantes).
+- [ ] **BACnet per-instance CreateObject + per-object
+  LifeSafetyOperation scoping** — v1.13 cerró los 9 servicios
+  al "natural granularity" (CreateObject por tipo,
+  LifeSafetyOperation por operación). Refinar a per-instance
+  CreateObject (`type+instance` exact-match) + per-object LSO
+  (`type+instance` para acotar el silenciado/reset a un
+  Life-Safety-Point específico). Estimación: 1 chunk pequeño
+  por servicio (2 chunks).
 
-- [ ] **Bulk InternetDB lookup** — v1.12 chunk 9 cubre
-  single-IP. Faltan `internetdb:file:<path>` y `internetdb:-`
-  (stdin), uno por línea, con rate-limit upstream ~10 rps.
-  Estimación: 1 chunk pequeño.
-
-- [ ] **CWMP TransferComplete-side SHA-256 verification** —
-  v1.12 chunk 10 almacena SHA-256 como metadata; falta parsear
-  el TransferComplete del CPE → ACS y comparar contra la
-  allowlist. Audit on mismatch (firmware corrupto / supply-chain
-  attack). Estimación: 1 chunk medio.
+- [ ] **In-process allow-file reload (alternative to v1.15
+  chunk 5 supervisor pattern)** — el supervisor-restart cierra
+  el caso operativo, pero requiere systemd / runit / similar.
+  La alternativa in-process necesita un esquema de cookie de
+  generación de confirm-token (paralelo al `web_state.
+  token_generation` del dashboard) para invalidar tokens
+  vivos al recargar. Estimación: 1 chunk medio.
 
 ## 🧰 Herramientas operativas
-
-- [ ] **`elsereno discover --auto`** — dado un CIDR, ejecuta una
-  secuencia nmap-scriptless + port-discovery que combina los
-  puertos well-known de todos los plugins y prioriza los que
-  responden. Chunk ~1 día.
-
-- [ ] **Triage bucket "utility"** — además de quick-wins /
-  strategic / routine añadir un bucket "utility" para servicios
-  que exponen información útil pero no son aguja directa (ej.
-  banner SSH viejo, HTTP-HEAD con Server: nginx/1.10).
 
 - [ ] **Dashboard: vista de diff entre runs** — comparar dos run
   IDs y resaltar findings nuevos / resueltos / re-apareciendo.
@@ -104,12 +133,6 @@ v1.3 → v1.12 archived to keep this file actionable.
 
 - [ ] **Dashboard: filtro por severity + export a CSV en el UI**
   (actualmente sólo vía CLI o `/api/v1/findings`).
-
-- [ ] **SIGHUP reload de proxy listen allowlist** — hoy el
-  allowlist se carga al arranque y se mintea el confirm-token
-  de la sesión. Permitir SIGHUP con re-mint del token requiere
-  un redesign del esquema (cookie de generación). Documentado
-  en `.context/STATE.md` "Deferred to v1.13+".
 
 ## 🔐 Supply-chain + hardening
 
@@ -124,13 +147,15 @@ v1.3 → v1.12 archived to keep this file actionable.
   no `exec`) es factible si salimos del modelo pure-Go (cgo a
   `sandbox_init`).
 
-- [ ] **Audit chain cross-process merge** — si dos procesos
-  escriben a `~/.elsereno/audit.jsonl` simultáneamente, hay
-  race. Implementar flock + reintento con backoff, o
-  idealmente un daemon `elsereno audit serve` al que los
-  binarios ofensivos se conectan via uds.
+- [ ] **`elsereno audit serve` daemon (UDS)** — v1.15 chunk 4
+  cierra el race entre procesos vía flock; un daemon
+  centralizado al que los binarios ofensivos se conecten via
+  Unix domain socket es la alternativa más limpia para
+  fan-in masivo (un único writer single-threaded; los demás
+  procesos solo emiten via UDS). v1.16+ si flock se queda
+  corto en escala.
 
-## 🔬 Protocolos legacy no cubiertos (11 restantes)
+## 🔬 Protocolos legacy no cubiertos (12 restantes)
 
 Cada uno = un ciclo tipo v1.4 chunk 5 + 6.
 
@@ -165,17 +190,14 @@ Cada uno = un ciclo tipo v1.4 chunk 5 + 6.
 ## 🪟 Plataforma
 
 - [ ] **Windows support**. El bloqueador principal son los
-  `syscall.*` por-plataforma en `internal/audit` (file lock) +
+  `syscall.*` por-plataforma en `internal/audit` (file lock —
+  v1.15 chunk 4 ya cablea el stub `flock_windows.go`) +
   el sandbox (Windows no tiene seccomp; podríamos usar
   AppContainer / Job Objects).
 
 - [ ] **Multi-user OIDC + roles**. Actualmente el dashboard
   tiene un solo operador por proceso. Para SOCs multi-analyst:
   OIDC (Keycloak/Azure AD) + roles (viewer / analyst / admin).
-
-- [ ] **STIX 2.1 export** — cada finding → un `indicator` +
-  `observed-data` SDO. Permitiría compartir hallazgos con
-  plataformas threat-intel.
 
 ---
 

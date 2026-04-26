@@ -1495,3 +1495,26 @@ One-liner per significant change to `.context/` or the codebase.
   dropped P3 STIX 2.1 export (shipped); added P0 operator
   rows (revoke bootstrap PAT, restore GH Actions billing).
   Net: `-107 / +34` lines on ROADMAP.md. context-check ok.
+- 2026-04-26 — **TODO-vNext.md + protocols/bacnet.md drift
+  purge.** Second hygiene pass: rewrote `TODO-vNext.md`
+  end-to-end. Last-refresh 2026-04-25 (post-v1.12) →
+  2026-04-26 (post-v1.15). `## ✅ Shipped during v1.3–v1.12`
+  → `v1.3–v1.15` with 9 new entries (BACnet svc 7/8/9/10/17/
+  20/27 closures, IPv6 cross-cutting, CWMP TransferComplete
+  observer-half, `discover --auto <CIDR>`, STIX 2.1, audit
+  flock, SIGHUP supervisor variant). Section `🎯 High-leverage
+  — siguiente ciclo (v1.13)` (4 items, all shipped) → `(v1.16)`
+  (3 items: CWMP SHA-256 mismatch audit, BACnet per-instance
+  Create + per-object LSO refinements, in-process allow-file
+  reload as alternative to v1.15 chunk-5 supervisor pattern).
+  Removed shipped items from "Herramientas operativas"
+  (discover, triage utility, SIGHUP), "Supply-chain"
+  (audit cross-process merge — replaced with optional
+  `audit serve` daemon UDS as v1.16+), and "Plataforma"
+  (STIX 2.1). Updated Windows-support note to reference v1.15
+  chunk-4's `flock_windows.go` stub. Also bumped
+  `.context/protocols/bacnet.md` per-object-LSO note + 2
+  source-comment annotations (`internal/protocols/bacnet/wire/
+  lifesafetyoperation.go`, `cmd/elsereno/cmd_proxy_allowfile_
+  offensive.go`) from "v1.14+ if asked" → "v1.16+ if asked".
+  Builds (default + offensive) green; context-check ok.
