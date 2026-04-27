@@ -1649,3 +1649,28 @@ One-liner per significant change to `.context/` or the codebase.
   `.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
   v1.16 cycle also closed (4 chunks); v1.15.0 still the
   latest published release.
+- 2026-04-27 — **v1.18 chunk 1 landed.** Dashboard CSV export
+  from UI (`cc157d4`). New `?format=csv` query param on
+  `GET /api/v1/findings` returns RFC-4180 CSV with
+  Content-Disposition attachment + filename
+  `findings-<RFC3339>.csv`. Columns: id, run_id, target_id,
+  protocol, severity, score, created_at (RFC3339Nano UTC),
+  factors (`name=value;…` semicolon-separated, factor names
+  sorted alphabetically for stable diffs). Dashboard Findings
+  panel gains a "Download CSV (top 500)" link. Backwards
+  compat: no format param → JSON envelope (v1.2). 3 new
+  tests.
+- 2026-04-27 — **v1.18 chunk 2 landed.** Dashboard diff
+  between runs (`1225312`). New
+  `GET /api/v1/findings/diff?old=&new=` returns categorised
+  envelope with three buckets (`new` / `resolved` /
+  `persisting`); match key (target_id, protocol). New
+  `repo.DiffFindings` + `repo.FindingsQuery.RunID` filter.
+  Dashboard gains "Diff between runs" panel with two-input
+  form + per-bucket result tables. 9 new tests (6 in repo
+  unit + 4 in HTTP handler).
+- 2026-04-27 — **v1.18 cycle closed on `main`** (2 chunks,
+  tag pending operator decision). Snapshot:
+  `.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
+  v1.17 + v1.16 cycles also closed; v1.15.0 still the latest
+  published release.

@@ -40,15 +40,15 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-27)**: **v1.17 cycle closed on `main`,
-tag pending operator**. 5 chunks: token-generation cookie
-roll-out across all 7 offensive write-gated proxies (chunks
-1-3) + SIGUSR1 in-process allow-file reload + atomic swap
-(chunk 4) + `proxy_allowlist_reload` audit event (chunk 5).
-47 new tests. Snapshot:
-`.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
-v1.16 cycle also closed on main (tag pending). v1.15.0 still
-the latest published release.
+**Current phase (2026-04-27)**: **v1.18 cycle closed on `main`,
+tag pending operator**. 2 chunks: dashboard CSV export from
+UI (`?format=csv` on `/api/v1/findings`, "Download CSV"
+link) + diff between runs (`/api/v1/findings/diff?old=&new=`,
+new dashboard panel with 3 buckets: new / resolved /
+persisting). 12 new tests. Snapshot:
+`.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
+v1.16 + v1.17 cycles also closed (tags pending). v1.15.0
+still the latest published release.
 
 **Counts**: **17 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,

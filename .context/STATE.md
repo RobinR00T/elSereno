@@ -1,16 +1,29 @@
 ---
-phase: v1.17-in-flight
-status: v1.17 cycle closed on `main` (5 chunks, tag pending operator); v1.16 also closed
+phase: v1.18-in-flight
+status: v1.18 cycle closed on `main` (2 chunks, tag pending operator); v1.17 + v1.16 also closed
 last-updated: 2026-04-27
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.17 cycle closed on `main`** (5 chunks, tag
-pending operator decision). v1.16 also closed (4 chunks, tag
-pending). v1.15.0 remains the latest published release on
+**Phase**: **v1.18 cycle closed on `main`** (2 chunks, tag
+pending operator decision). v1.17 also closed (5 chunks).
+v1.16 also closed (4 chunks). v1.15.0 remains the latest
+published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+
+**v1.18 chunks landed (in-flight)**:
+- 1   `cc157d4` — Dashboard CSV export from UI
+  (`?format=csv` on `/api/v1/findings`, "Download CSV (top
+  500)" link). 3 tests.
+- 2   `1225312` — Dashboard diff between runs
+  (`/api/v1/findings/diff?old=&new=`, new "Diff between runs"
+  panel with new / resolved / persisting buckets matched by
+  (target_id, protocol)). 9 tests.
+
+Snapshot:
+`.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
 
 **v1.17 chunks landed (in-flight)**:
 - 1   `ed868af` — CWMP token-generation cookie + shared
@@ -169,20 +182,16 @@ operator decision.
 for the authoritative per-cycle commit mapping. All tags v1.0.0
 → v1.15.0 on `origin/main`.
 
-**Deferred to v1.18+** (post-v1.17 backlog):
+**Deferred to v1.19+** (post-v1.18 backlog):
 - **Operator dashboard surfaces for `proxy_allowlist_reload`
   audit rows** — filter / chart of reload cadence by plugin
   (the audit rows are emitted starting v1.17 chunk 5; the
-  dashboard side is still pending).
+  dashboard surface is still pending).
 - **CWMP TransferComplete async firmware re-fetch**. v1.16
   chunk 1 surfaces the allowlist SHA-256 alongside the CPE's
   report; true on-wire SHA-256 verification post-flash would
   need an out-of-band fetch + verify (v1.13 chunk 2's
   `verify-firmware` already does this pre-flight).
-- **Dashboard CSV export from UI** (TODO-vNext: today only via
-  CLI / `/api/v1/findings`).
-- **Dashboard diff between runs** — compare two run IDs and
-  highlight new / resolved / re-appearing findings.
 - macOS sandbox via `sandbox_init(3)`.
 - 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
   Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
