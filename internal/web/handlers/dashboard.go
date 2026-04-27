@@ -393,6 +393,7 @@ const overviewHTML = `<!doctype html>
       <div class="sub">
         Loaded from <code>/api/v1/findings</code>. Returns 503 if
         <code>DATABASE_URL</code> isn't set; panel stays empty in that case.
+        v1.18+: <a id="findings-csv" href="/api/v1/findings?format=csv&amp;limit=500" download>Download CSV (top 500)</a>
       </div>
       <table id="findings-table">
         <thead>

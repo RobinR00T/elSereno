@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.18 chunk 1 — Dashboard CSV export from UI**: closes a
+  long-standing TODO-vNext item — operators can now export
+  the findings table as CSV directly from the dashboard
+  instead of cobbling together `curl /api/v1/findings | jq …`
+  pipelines. New `?format=csv` query parameter on
+  `GET /api/v1/findings` returns `text/csv; charset=utf-8`
+  with `Content-Disposition: attachment;
+  filename="findings-<RFC3339>.csv"`. Body is RFC-4180 with
+  the column order id, run_id, target_id, protocol,
+  severity, score, created_at (RFC3339Nano UTC), factors
+  (`name=value;…` semicolon-separated, factor names sorted
+  alphabetically for stable diffs across exports). The
+  dashboard's findings panel gains a "Download CSV (top 500)"
+  link that respects the existing limit cap.
+  Backwards compat: no format param → JSON envelope (the v1.2
+  default), byte-identical to pre-v1.18 behaviour.
+  3 new tests in `internal/web/handlers/findings_test.go`
+  (CSV format / case-insensitive `format=CSV` / no-format
+  default to JSON).
 - **v1.17 chunk 5 — `proxy_allowlist_reload` audit event**:
   every SIGUSR1 in-process reload (introduced in chunk 4) now
   emits a dedicated audit-chain entry with the swap status

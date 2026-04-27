@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,6 +124,72 @@ func TestFindings_HappyPath(t *testing.T) {
 	}
 	if len(env.Data) != 1 {
 		t.Fatalf("rows = %d, want 1", len(env.Data))
+	}
+}
+
+// TestFindings_CSVFormat — v1.18 chunk 1: the CSV format
+// emits text/csv with a download disposition + RFC-4180 body.
+func TestFindings_CSVFormat(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet, "/api/v1/findings?format=csv&severity=high", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
+		t.Errorf("Content-Type = %q, want text/csv prefix", ct)
+	}
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, `attachment; filename="findings-`) {
+		t.Errorf("Content-Disposition = %q, want attachment with findings- filename", cd)
+	}
+	body := rec.Body.String()
+	// Header row + 1 data row; final empty line is RFC4180.
+	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("CSV has %d lines, want >= 2 (header + 1 data row): %q", len(lines), body)
+	}
+	if !strings.HasPrefix(lines[0], "id,run_id,target_id,protocol,severity,score,created_at,factors") {
+		t.Errorf("CSV header = %q; want canonical column order", lines[0])
+	}
+	// Data row contains the canned high-severity finding.
+	if !strings.Contains(lines[1], "f1,r1,t1,modbus,high,77,2026-04-21T00:00:00Z") {
+		t.Errorf("CSV data row = %q; want canned f1/r1/t1/modbus/high/77/2026-04-21 row", lines[1])
+	}
+	// Factors are rendered as name=value;... — canned factors
+	// has only `exposure=80`.
+	if !strings.Contains(lines[1], "exposure=80") {
+		t.Errorf("CSV factors column missing exposure=80: %q", lines[1])
+	}
+}
+
+// TestFindings_CSVCaseInsensitive — `format=CSV` (any case)
+// also triggers CSV.
+func TestFindings_CSVCaseInsensitive(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet, "/api/v1/findings?format=CSV", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
+		t.Errorf("Content-Type = %q for format=CSV; want text/csv (case-insensitive match)", ct)
+	}
+}
+
+// TestFindings_NoFormatDefaultsToJSON — backwards-compat: no
+// format param keeps the v1.2 JSON envelope.
+func TestFindings_NoFormatDefaultsToJSON(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet, "/api/v1/findings", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("default Content-Type = %q, want application/json (backwards-compat)", ct)
 	}
 }
 

@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"encoding/csv"
+	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/repo"
@@ -21,6 +25,9 @@ import (
 //	min_score=<int>
 //	created_after=<rfc3339>
 //	limit=<int>
+//	format=json|csv     v1.18 chunk 1: csv → text/csv body +
+//	                    `Content-Disposition: attachment` so the
+//	                    browser downloads `findings-<RFC3339>.csv`.
 func Findings(q repo.Querier) http.Handler {
 	if q == nil {
 		return unavailableHandler("findings backend unavailable")
@@ -32,8 +39,67 @@ func Findings(q repo.Querier) http.Handler {
 			http.Error(w, "findings: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if strings.EqualFold(r.URL.Query().Get("format"), "csv") {
+			writeFindingsCSV(w, rows)
+			return
+		}
 		writeJSON(w, envelope{Schema: "api:" + APIVersion, Data: rows})
 	})
+}
+
+// writeFindingsCSV emits rows as RFC 4180 CSV with a leading
+// header row. Columns: id, run_id, target_id, protocol,
+// severity, score, created_at (RFC3339Nano UTC), factors
+// (`name=value;...` semicolon-separated, factor names sorted
+// alphabetically for stable diffs).
+//
+// Content-Disposition is set so curl-default-stdout AND browser
+// "Save Link As" both produce a sensibly-named file. Filename
+// includes the wall-clock UTC for traceability — operators
+// often grab multiple snapshots during a single change window.
+func writeFindingsCSV(w http.ResponseWriter, rows []repo.Finding) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="findings-%s.csv"`, time.Now().UTC().Format("20060102T150405Z")))
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{"id", "run_id", "target_id", "protocol", "severity", "score", "created_at", "factors"})
+	for _, r := range rows {
+		_ = cw.Write([]string{
+			r.ID,
+			r.RunID,
+			r.TargetID,
+			r.Protocol,
+			r.Severity,
+			strconv.Itoa(r.Score),
+			r.CreatedAt.UTC().Format(time.RFC3339Nano),
+			canonFactorsCSVField(r.Factors),
+		})
+	}
+	cw.Flush()
+}
+
+// canonFactorsCSVField renders the per-finding factor map as
+// `name=value;name=value` with names sorted alphabetically.
+// Empty map → empty string. Stable across calls so diffs of
+// CSV exports are clean.
+func canonFactorsCSVField(factors map[string]int) string {
+	if len(factors) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(factors))
+	for k := range factors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteByte(';')
+		}
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(strconv.Itoa(factors[k]))
+	}
+	return b.String()
 }
 
 // Runs returns the `GET /api/v1/runs` handler.
