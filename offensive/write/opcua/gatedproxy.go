@@ -441,6 +441,103 @@ func SessionMutationWithCallMethods(target string, services []AllowedService, no
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-3 hash that
+// adds the token-generation cookie. generation == 0 → equals
+// AllowlistHashWithCallMethods. Mirrors the BACnet/CWMP/SIP/
+// Modbus/IAX2/pbxhttp design.
+//
+// Hash layout (when generation != 0): same lower-layer bytes
+// as chunk-6 (services + optional 0xFF nodeIDs + optional 0xFD
+// canonical + optional 0xFC callMethods) followed by:
+//
+//	|| 0xFB || u32 generation (big-endian)
+//
+// Separator 0xFB is below 0xFC (callMethods), 0xFD (canonical
+// NodeIDs), and 0xFF (numeric NodeIDs). 5-byte block.
+func AllowlistHashWithGeneration(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID, callMethods []AllowedCallMethod, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHashWithCallMethods(target, services, nodeIDs, canonicalNodeIDs, callMethods)
+	}
+	sortedSvc, sortedNodes, sortedCanon, sortedCalls := canonOPCUAAllowlist(services, nodeIDs, canonicalNodeIDs, callMethods)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var u16 [2]byte
+	for _, a := range sortedSvc {
+		binary.BigEndian.PutUint16(u16[:], a.TypeID)
+		_, _ = h.Write(u16[:])
+	}
+	if len(sortedNodes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		var u32 [4]byte
+		for _, n := range sortedNodes {
+			binary.BigEndian.PutUint16(u16[:], n.Namespace)
+			_, _ = h.Write(u16[:])
+			binary.BigEndian.PutUint32(u32[:], n.Identifier)
+			_, _ = h.Write(u32[:])
+		}
+	}
+	if len(sortedCanon) > 0 {
+		_, _ = h.Write([]byte{0xFD})
+		for _, c := range sortedCanon {
+			writeLengthPrefixedString(h, string(c))
+		}
+	}
+	if len(sortedCalls) > 0 {
+		_, _ = h.Write([]byte{0xFC})
+		for _, cm := range sortedCalls {
+			writeLengthPrefixedString(h, cm.ObjectID)
+			writeLengthPrefixedString(h, cm.MethodID)
+		}
+	}
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFB})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// canonOPCUAAllowlist canonicalises + sorts the four allowlist
+// dimensions for hash inclusion. Extracted from
+// AllowlistHashWithGeneration to keep that function under
+// funlen.
+func canonOPCUAAllowlist(services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID, callMethods []AllowedCallMethod) ([]AllowedService, []AllowedNodeID, []AllowedCanonicalNodeID, []AllowedCallMethod) {
+	sortedSvc := append([]AllowedService(nil), services...)
+	sort.Slice(sortedSvc, func(i, j int) bool { return sortedSvc[i].TypeID < sortedSvc[j].TypeID })
+	sortedNodes := append([]AllowedNodeID(nil), nodeIDs...)
+	sort.Slice(sortedNodes, func(i, j int) bool {
+		if sortedNodes[i].Namespace != sortedNodes[j].Namespace {
+			return sortedNodes[i].Namespace < sortedNodes[j].Namespace
+		}
+		return sortedNodes[i].Identifier < sortedNodes[j].Identifier
+	})
+	sortedCanon := append([]AllowedCanonicalNodeID(nil), canonicalNodeIDs...)
+	sort.Slice(sortedCanon, func(i, j int) bool { return sortedCanon[i] < sortedCanon[j] })
+	sortedCalls := append([]AllowedCallMethod(nil), callMethods...)
+	sort.Slice(sortedCalls, func(i, j int) bool {
+		if sortedCalls[i].ObjectID != sortedCalls[j].ObjectID {
+			return sortedCalls[i].ObjectID < sortedCalls[j].ObjectID
+		}
+		return sortedCalls[i].MethodID < sortedCalls[j].MethodID
+	})
+	return sortedSvc, sortedNodes, sortedCanon, sortedCalls
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-3 Mutation,
+// the new top of the OPC UA hash ladder.
+func SessionMutationWithGeneration(target string, services []AllowedService, nodeIDs []AllowedNodeID, canonicalNodeIDs []AllowedCanonicalNodeID, callMethods []AllowedCallMethod, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "opcua",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, services, nodeIDs, canonicalNodeIDs, callMethods, generation),
+	}
+}
+
 // WriteGatedHandler is the offensive replacement for the default
 // UA deny-all proxy. Construction requires triple-confirm
 // authorised session context (Deriver, Auditor, and the
@@ -475,6 +572,9 @@ type WriteGatedHandler struct {
 	// per-method gate but leaves CallRequest allowed if 704 is
 	// in the service Allowed list (v1.2 behaviour).
 	AllowedCallMethods []AllowedCallMethod
+	// TokenGeneration is the v1.17 chunk-3 cookie. Default 0
+	// preserves the v1.12-chunk-6 hash for backwards-compat.
+	TokenGeneration uint32
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -493,7 +593,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithCallMethods(h.Target, h.Allowed, h.AllowedNodeIDs, h.AllowedCanonicalNodeIDs, h.AllowedCallMethods)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.AllowedNodeIDs, h.AllowedCanonicalNodeIDs, h.AllowedCallMethods, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}

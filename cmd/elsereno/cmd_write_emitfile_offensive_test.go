@@ -55,7 +55,7 @@ func TestEmitAllowFile_SIPStdout(t *testing.T) {
 func TestEmitAllowFile_IAX2Stdout(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileIAX2("pbx:4569", []string{"new", "REGREQ"})
+	af := buildAllowFileIAX2("pbx:4569", []string{"new", "REGREQ"}, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestEmitAllowFile_IAX2Stdout(t *testing.T) {
 func TestEmitAllowFile_PBXHTTPStdout(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFilePBXHTTP("pbx:443", []string{"POST:/admin/config.php", "DELETE:/admin/user/42"})
+	af := buildAllowFilePBXHTTP("pbx:443", []string{"POST:/admin/config.php", "DELETE:/admin/user/42"}, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCallMethods(t *testing.T) {
 		"object=ns=2;i=100;method=ns=2;i=101",
 		"object=ns=3;s=DeviceFolder;method=ns=3;s=Restart",
 	}
-	af := buildAllowFileOPCUA("plc:4840", services, nil, callMethods)
+	af := buildAllowFileOPCUA("plc:4840", services, nil, callMethods, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -505,7 +505,7 @@ func TestEmitAllowFile_RoundTripPBXHTTP(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
 	entries := []string{"POST:/admin/config.php", "DELETE:/admin/user/42"}
-	if err := emitAllowFile(cmd, path, buildAllowFilePBXHTTP("pbx:443", entries)); err != nil {
+	if err := emitAllowFile(cmd, path, buildAllowFilePBXHTTP("pbx:443", entries, 0)); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	var opts proxyListenOpts
@@ -532,7 +532,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithNodeIDs(t *testing.T) {
 
 	services := []uint{673, 704}
 	nodeIDs := []string{"ns=3;i=100", "ns=2;i=42"} // unordered on purpose
-	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil)
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -578,7 +578,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs(t *testing.T) {
 		"ns=1;g=6b29fc40-ca47-1067-b31d-00dd010662da",
 		"ns=4;b=DEADBEEF",
 	}
-	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil)
+	af := buildAllowFileOPCUA("plc.example.com:4840", services, nodeIDs, nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -614,7 +614,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs(t *testing.T) {
 func TestEmitAllowFile_OPCUAOmitsNodeIDsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileOPCUA("plc:4840", []uint{673}, nil, nil)
+	af := buildAllowFileOPCUA("plc:4840", []uint{673}, nil, nil, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

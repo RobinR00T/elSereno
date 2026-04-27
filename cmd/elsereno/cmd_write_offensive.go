@@ -154,6 +154,7 @@ type modbusProxyFlags struct {
 	unit                     uint8
 	addrFrom, addrTo         uint16
 	writes                   []string // v1.12+: structured "unit=N;fc=M;start=A;end=B"
+	tokenGeneration          uint32   // v1.17+: token-generation cookie
 }
 
 // newWriteModbusProxyDryRunCmd — v1.9 chunk 2.
@@ -188,6 +189,8 @@ Function codes: 5 (WriteSingleCoil), 6 (WriteSingleRegister),
 	cmd.Flags().Uint16Var(&f.addrFrom, "address-from", 0, "optional: inclusive start of address range")
 	cmd.Flags().Uint16Var(&f.addrTo, "address-to", 0, "optional: inclusive end of address range")
 	cmd.Flags().StringSliceVar(&f.writes, "write", nil, "v1.12+: structured per-entry allowlist unit=N;fc=M;start=A;end=B (repeatable). fc= is required; unit/start/end default to 0 (any). Round-trips through --emit-allow-file.")
+	cmd.Flags().Uint32Var(&f.tokenGeneration, "token-generation", 0,
+		"optional: token-generation cookie (v1.17+). 0 (default) preserves the v1.2 hash for backwards-compat. Mirrors bacnet/cwmp/sip.")
 	addPassphraseFileFlag(cmd, &f.ppFile)
 	addEmitAllowFileFlag(cmd, &f.emitFile)
 	return cmd
@@ -204,7 +207,7 @@ func runWriteModbusProxyDryRun(cmd *cobra.Command, f modbusProxyFlags) error {
 	if err != nil {
 		return err
 	}
-	mut := modwrite.SessionMutation(f.target, allowed)
+	mut := modwrite.SessionMutationWithGeneration(f.target, allowed, f.tokenGeneration)
 	printModbusProxySummary(cmd, f, mut)
 	if err := maybeMintToken(cmd, mut, f.ppFile); err != nil {
 		return err
@@ -319,6 +322,9 @@ func buildAllowFileModbus(f modbusProxyFlags) proxyAllowFile {
 	// Sort `writes:` for determinism (by unit, fc, start, end).
 	if len(af.Writes) > 0 {
 		sortProxyModbusWrites(af.Writes)
+	}
+	if f.tokenGeneration > 0 {
+		af.TokenGeneration = f.tokenGeneration
 	}
 	return af
 }

@@ -107,6 +107,45 @@ func SessionMutation(target string, allowed []AllowedSubclass) confirm.Mutation 
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-3 hash that
+// adds the token-generation cookie. generation == 0 → equals
+// AllowlistHash. Mirrors the BACnet/CWMP/SIP/Modbus design.
+func AllowlistHashWithGeneration(target string, allowed []AllowedSubclass, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHash(target, allowed)
+	}
+	sorted := make([]uint8, 0, len(allowed))
+	for _, a := range allowed {
+		sorted = append(sorted, uint8(a.Subclass))
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, s := range sorted {
+		_, _ = h.Write([]byte{s})
+	}
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFC})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-3 Mutation,
+// the new top of the IAX2 hash ladder.
+func SessionMutationWithGeneration(target string, allowed []AllowedSubclass, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "iax2",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, allowed, generation),
+	}
+}
+
 // alwaysSafeIAXSubclasses: IAX control messages that always pass,
 // regardless of the operator's allowlist.
 var alwaysSafeIAXSubclasses = map[wire.IAXSubclass]struct{}{
@@ -129,11 +168,14 @@ var alwaysSafeIAXSubclasses = map[wire.IAXSubclass]struct{}{
 // WriteGatedHandler is the offensive replacement for the default
 // IAX2 deny-all proxy.
 type WriteGatedHandler struct {
-	Target         string
-	Allowed        []AllowedSubclass
-	Deriver        confirm.KeyDeriver
-	Auditor        confirm.Auditor
-	SessionConfirm confirm.Confirm
+	Target  string
+	Allowed []AllowedSubclass
+	// TokenGeneration is the v1.17 chunk-3 cookie. Default 0
+	// preserves the v1.5 hash for backwards-compat.
+	TokenGeneration uint32
+	Deriver         confirm.KeyDeriver
+	Auditor         confirm.Auditor
+	SessionConfirm  confirm.Confirm
 
 	authorised bool
 }
@@ -144,7 +186,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}

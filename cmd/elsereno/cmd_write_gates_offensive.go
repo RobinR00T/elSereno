@@ -234,6 +234,7 @@ HANGUP addressed to the client's SrcCallNum.`,
 func newWriteIAX2DryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var subclasses []string
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -250,7 +251,7 @@ func newWriteIAX2DryRunCmd() *cobra.Command {
 				}
 				allowed = append(allowed, iaxwrite.AllowedSubclass{Subclass: sub})
 			}
-			mut := iaxwrite.SessionMutation(target, allowed)
+			mut := iaxwrite.SessionMutationWithGeneration(target, allowed, tokenGeneration)
 			cmd.Printf("Protocol:     iax2\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -261,13 +262,15 @@ func newWriteIAX2DryRunCmd() *cobra.Command {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileIAX2(target, subclasses))
+				return emitAllowFile(cmd, p, buildAllowFileIAX2(target, subclasses, tokenGeneration))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the IAX2 server we'll proxy to)")
 	cmd.Flags().StringSliceVar(&subclasses, "subclass", nil, "one or more gated subclasses (NEW / REGREQ / AUTHREP / ACCEPT)")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0,
+		"optional: token-generation cookie (v1.17+). 0 (default) preserves the v1.5 hash for backwards-compat. Mirrors bacnet/cwmp/sip.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -293,6 +296,7 @@ refused — the gate can't inspect tunnelled traffic.`,
 func newWritePBXHTTPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var entries []string
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -312,7 +316,7 @@ path is case-sensitive (RFC 3986).`,
 				}
 				allowed = append(allowed, aw)
 			}
-			mut := pbxwrite.SessionMutation(target, allowed)
+			mut := pbxwrite.SessionMutationWithGeneration(target, allowed, tokenGeneration)
 			cmd.Printf("Protocol:     pbxhttp\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -323,13 +327,15 @@ path is case-sensitive (RFC 3986).`,
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFilePBXHTTP(target, entries))
+				return emitAllowFile(cmd, p, buildAllowFilePBXHTTP(target, entries, tokenGeneration))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the HTTP(S) PBX admin server)")
 	cmd.Flags().StringSliceVar(&entries, "allow", nil, "one or more METHOD:/path pairs (repeat or comma-separated)")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0,
+		"optional: token-generation cookie (v1.17+). 0 (default) preserves the v1.4 hash for backwards-compat. Mirrors bacnet/cwmp/sip.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -479,6 +485,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 	var services []uint
 	var nodeIDs []string
 	var callMethods []string
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -502,7 +509,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			mut := opwrite.SessionMutationWithCallMethods(target, svcs, nids, canonNids, calls)
+			mut := opwrite.SessionMutationWithGeneration(target, svcs, nids, canonNids, calls, tokenGeneration)
 			cmd.Printf("Protocol:     opcua\n")
 			cmd.Printf("Operation:    proxy_session\n")
 			cmd.Printf("Target:       %s\n", target)
@@ -514,7 +521,7 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileOPCUA(target, services, nodeIDs, callMethods))
+				return emitAllowFile(cmd, p, buildAllowFileOPCUA(target, services, nodeIDs, callMethods, tokenGeneration))
 			}
 			return nil
 		},
@@ -523,6 +530,8 @@ func newWriteOPCUADryRunCmd() *cobra.Command {
 	cmd.Flags().UintSliceVar(&services, "service", nil, "service TypeID(s) to allow (e.g. 673 WriteRequest, 704 CallRequest)")
 	cmd.Flags().StringSliceVar(&nodeIDs, "node-id", nil, "optional NodeId(s) to restrict WriteRequests to; accepts ns=N;i=M (numeric), ns=N;s=STR (string), ns=N;g=HEX (guid), ns=N;b=HEX (bytestring)")
 	cmd.Flags().StringSliceVar(&callMethods, "call-method", nil, "optional: per-CallMethod allowlist. Format: object=<NodeId>;method=<NodeId>  where each <NodeId> is a canonical-string form (ns=N;i=M | s=STR | g=HEX | b=HEX). Repeatable; exact match only. v1.12+.")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0,
+		"optional: token-generation cookie (v1.17+). 0 (default) preserves the v1.12-chunk-6 hash for backwards-compat. Mirrors bacnet/cwmp/sip.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd
@@ -2069,77 +2078,88 @@ func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedC
 // loadAllowFile. v1.12 chunk 3 extends node_ids with s= / g= /
 // b= canonical-form entries (see proxyNodeID for schema). v1.12
 // chunk 6 adds call_methods for per-CallMethod gating.
-func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRaw []string) proxyAllowFile {
+func buildAllowFileOPCUA(target string, services []uint, nodeIDRaw, callMethodRaw []string, tokenGeneration uint32) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:   pluginNameOPCUA,
 		Target:   target,
 		Services: canonUints(services),
 	}
-	if len(callMethodRaw) > 0 {
-		af.CallMethods = make([]proxyCallMethod, 0, len(callMethodRaw))
-		for _, raw := range callMethodRaw {
-			cm, err := parseCallMethodFlag(raw)
-			if err != nil {
-				continue
-			}
-			af.CallMethods = append(af.CallMethods, proxyCallMethod{
-				Object: cm.ObjectID,
-				Method: cm.MethodID,
-			})
+	if tokenGeneration > 0 {
+		af.TokenGeneration = tokenGeneration
+	}
+	af.CallMethods = canonAllowFileOPCUACallMethods(callMethodRaw)
+	af.NodeIDs = canonAllowFileOPCUANodeIDs(nodeIDRaw)
+	return af
+}
+
+// canonAllowFileOPCUACallMethods parses + sorts CallMethod
+// entries for buildAllowFileOPCUA. Extracted to keep the
+// builder under gocyclo.
+func canonAllowFileOPCUACallMethods(callMethodRaw []string) []proxyCallMethod {
+	if len(callMethodRaw) == 0 {
+		return nil
+	}
+	out := make([]proxyCallMethod, 0, len(callMethodRaw))
+	for _, raw := range callMethodRaw {
+		cm, err := parseCallMethodFlag(raw)
+		if err != nil {
+			continue
 		}
-		sort.Slice(af.CallMethods, func(i, j int) bool {
-			if af.CallMethods[i].Object != af.CallMethods[j].Object {
-				return af.CallMethods[i].Object < af.CallMethods[j].Object
-			}
-			return af.CallMethods[i].Method < af.CallMethods[j].Method
+		out = append(out, proxyCallMethod{
+			Object: cm.ObjectID,
+			Method: cm.MethodID,
 		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Object != out[j].Object {
+			return out[i].Object < out[j].Object
+		}
+		return out[i].Method < out[j].Method
+	})
+	return out
+}
+
+// canonAllowFileOPCUANodeIDs parses + sorts NodeID entries for
+// buildAllowFileOPCUA. Extracted to keep the builder under
+// gocyclo. Numeric entries (Canonical == "") sort before
+// canonical-string entries.
+func canonAllowFileOPCUANodeIDs(nodeIDRaw []string) []proxyNodeID {
 	if len(nodeIDRaw) == 0 {
-		return af
+		return nil
 	}
-	af.NodeIDs = make([]proxyNodeID, 0, len(nodeIDRaw))
+	out := make([]proxyNodeID, 0, len(nodeIDRaw))
 	for _, raw := range nodeIDRaw {
 		parsed, err := parseNodeIDFlag(raw)
 		if err != nil {
-			// Parse error surfaced upstream by the dry-run's
-			// pre-check; if we got here the flag is valid.
 			continue
 		}
 		if parsed.Numeric != nil {
-			af.NodeIDs = append(af.NodeIDs, proxyNodeID{
+			out = append(out, proxyNodeID{
 				Namespace:  parsed.Numeric.Namespace,
 				Identifier: parsed.Numeric.Identifier,
 			})
 			continue
 		}
-		// Canonical entry: stash as the single Canonical field.
-		af.NodeIDs = append(af.NodeIDs, proxyNodeID{
+		out = append(out, proxyNodeID{
 			Canonical: string(parsed.Canonical),
 		})
 	}
-	// Sort for determinism — loadAllowFile + hash functions
-	// already sort, but the emitted file should be stable
-	// across invocations too.
-	sort.Slice(af.NodeIDs, func(i, j int) bool {
-		// Numeric entries (Canonical == "") before canonical-
-		// string entries; within numeric, by (ns, id); within
-		// canonical, by canonical string.
-		if af.NodeIDs[i].Canonical == "" && af.NodeIDs[j].Canonical != "" {
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Canonical == "" && out[j].Canonical != "" {
 			return true
 		}
-		if af.NodeIDs[i].Canonical != "" && af.NodeIDs[j].Canonical == "" {
+		if out[i].Canonical != "" && out[j].Canonical == "" {
 			return false
 		}
-		if af.NodeIDs[i].Canonical == "" {
-			// both numeric
-			if af.NodeIDs[i].Namespace != af.NodeIDs[j].Namespace {
-				return af.NodeIDs[i].Namespace < af.NodeIDs[j].Namespace
+		if out[i].Canonical == "" {
+			if out[i].Namespace != out[j].Namespace {
+				return out[i].Namespace < out[j].Namespace
 			}
-			return af.NodeIDs[i].Identifier < af.NodeIDs[j].Identifier
+			return out[i].Identifier < out[j].Identifier
 		}
-		return af.NodeIDs[i].Canonical < af.NodeIDs[j].Canonical
+		return out[i].Canonical < out[j].Canonical
 	})
-	return af
+	return out
 }
 
 // buildAllowFileBACnet builds the YAML for a BACnet proxy

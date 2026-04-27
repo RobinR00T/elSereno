@@ -342,9 +342,6 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		opts.toPrefixes = af.ToPrefixes
 		opts.aors = af.AORs
 		opts.fromDomains = af.FromDomains
-		if af.TokenGeneration > 0 {
-			opts.tokenGeneration = af.TokenGeneration
-		}
 	case pluginNameIAX2:
 		opts.subclasses = af.Subclasses
 	case pluginNamePBXHTTP:
@@ -359,6 +356,13 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		applyCWMPAllowFile(&af, opts)
 	default:
 		return fmt.Errorf("--allow-file: unsupported plugin %q", af.Plugin)
+	}
+	// Plugin-agnostic token-generation cookie (v1.16+ for bacnet,
+	// v1.17+ for cwmp / sip / iax2 / pbxhttp / modbus / opcua).
+	// Each plugin's handler builder consumes opts.tokenGeneration;
+	// plugins without per-plugin generation support ignore it.
+	if af.TokenGeneration > 0 {
+		opts.tokenGeneration = af.TokenGeneration
 	}
 	return nil
 }
@@ -400,9 +404,6 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 		opts.bacnetLSOTargets = append(opts.bacnetLSOTargets,
 			fmt.Sprintf("op=%d;type=%d;instance=%d", t.Op, t.Type, t.Instance))
 	}
-	if af.TokenGeneration > 0 {
-		opts.tokenGeneration = af.TokenGeneration
-	}
 	for _, f := range af.AWFFiles {
 		opts.bacnetAWFFiles = append(opts.bacnetAWFFiles, uint(f))
 	}
@@ -424,9 +425,6 @@ func applyCWMPAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 			entry += ";sha256=" + f.SHA256
 		}
 		opts.cwmpFirmware = append(opts.cwmpFirmware, entry)
-	}
-	if af.TokenGeneration > 0 {
-		opts.tokenGeneration = af.TokenGeneration
 	}
 }
 

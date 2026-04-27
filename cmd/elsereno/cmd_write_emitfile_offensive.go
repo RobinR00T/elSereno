@@ -128,12 +128,16 @@ func trimmedDedupLowerSorted(in []string) []string {
 }
 
 // buildAllowFileIAX2 returns the YAML struct for an IAX2 dry-run.
-func buildAllowFileIAX2(target string, subclasses []string) proxyAllowFile {
-	return proxyAllowFile{
+func buildAllowFileIAX2(target string, subclasses []string, tokenGeneration uint32) proxyAllowFile {
+	af := proxyAllowFile{
 		Plugin:     pluginNameIAX2,
 		Target:     target,
 		Subclasses: canonicaliseMethodList(subclasses),
 	}
+	if tokenGeneration > 0 {
+		af.TokenGeneration = tokenGeneration
+	}
+	return af
 }
 
 // buildAllowFileCWMP returns the YAML struct for a CWMP dry-run.
@@ -220,16 +224,20 @@ func cleanCWMPFirmware(firmwareRaw []string) []proxyCWMPFirmware {
 // buildAllowFilePBXHTTP returns the YAML struct for a pbxhttp
 // dry-run. The `Allow` list items keep their METHOD:/path form
 // so loadAllowFile + parseAllowEntry round-trip cleanly.
-func buildAllowFilePBXHTTP(target string, entries []string) proxyAllowFile {
+func buildAllowFilePBXHTTP(target string, entries []string, tokenGeneration uint32) proxyAllowFile {
 	out := make([]string, len(entries))
 	for i, e := range entries {
 		out[i] = strings.TrimSpace(e)
 	}
-	return proxyAllowFile{
+	af := proxyAllowFile{
 		Plugin: pluginNamePBXHTTP,
 		Target: target,
 		Allow:  out,
 	}
+	if tokenGeneration > 0 {
+		af.TokenGeneration = tokenGeneration
+	}
+	return af
 }
 
 // canonicaliseMethodList upper-cases, trims, dedupes and sorts.

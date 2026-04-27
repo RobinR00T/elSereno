@@ -45,6 +45,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -109,6 +110,48 @@ func SessionMutation(target string, allowed []AllowedWrite) confirm.Mutation {
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-3 hash that
+// adds the token-generation cookie. generation == 0 → equals
+// AllowlistHash. Mirrors the BACnet/CWMP/SIP/Modbus design.
+func AllowlistHashWithGeneration(target string, allowed []AllowedWrite, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHash(target, allowed)
+	}
+	keys := make([]string, 0, len(allowed))
+	for _, a := range allowed {
+		m := strings.ToUpper(strings.TrimSpace(a.Method))
+		p := strings.TrimSpace(a.Path)
+		keys = append(keys, m+"\x00"+p)
+	}
+	sort.Strings(keys)
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, k := range keys {
+		_, _ = h.Write([]byte(k))
+		_, _ = h.Write([]byte{0x00})
+	}
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFC})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-3 Mutation,
+// the new top of the pbxhttp hash ladder.
+func SessionMutationWithGeneration(target string, allowed []AllowedWrite, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "pbxhttp",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, allowed, generation),
+	}
+}
+
 // readOnlyMethods lists the HTTP methods that always pass,
 // regardless of the operator's allowlist. Canonical upper-case.
 var readOnlyMethods = map[string]struct{}{
@@ -127,6 +170,9 @@ type WriteGatedHandler struct {
 	// Allowed is the (method, path) allowlist authorised at
 	// session open. Empty → only read-only methods pass.
 	Allowed []AllowedWrite
+	// TokenGeneration is the v1.17 chunk-3 cookie. Default 0
+	// preserves the v1.4 hash for backwards-compat.
+	TokenGeneration uint32
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -144,7 +190,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}

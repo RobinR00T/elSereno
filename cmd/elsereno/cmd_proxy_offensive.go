@@ -499,11 +499,12 @@ func buildIAX2Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		allowed = append(allowed, iaxwrite.AllowedSubclass{Subclass: sub})
 	}
 	return &iaxwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:          opts.target,
+		Allowed:         allowed,
+		TokenGeneration: opts.tokenGeneration,
+		Deriver:         rt.Vault,
+		Auditor:         rt.Auditor,
+		SessionConfirm:  c,
 	}, nil
 }
 
@@ -517,11 +518,12 @@ func buildPBXHTTPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.C
 		allowed = append(allowed, aw)
 	}
 	return &pbxwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:          opts.target,
+		Allowed:         allowed,
+		TokenGeneration: opts.tokenGeneration,
+		Deriver:         rt.Vault,
+		Auditor:         rt.Auditor,
+		SessionConfirm:  c,
 	}, nil
 }
 
@@ -531,11 +533,12 @@ func buildModbusHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		return nil, err
 	}
 	return &modwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:          opts.target,
+		Allowed:         allowed,
+		TokenGeneration: opts.tokenGeneration,
+		Deriver:         rt.Vault,
+		Auditor:         rt.Auditor,
+		SessionConfirm:  c,
 	}, nil
 }
 
@@ -594,6 +597,7 @@ func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		AllowedNodeIDs:          nodeIDs,
 		AllowedCanonicalNodeIDs: canonNodeIDs,
 		AllowedCallMethods:      calls,
+		TokenGeneration:         opts.tokenGeneration,
 		Deriver:                 rt.Vault,
 		Auditor:                 rt.Auditor,
 		SessionConfirm:          c,

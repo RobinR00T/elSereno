@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.17 chunk 3 — token-generation cookie cross-protocol
+  rollout (Modbus / IAX2 / pbxhttp / OPC UA)**: completes the
+  v1.17 token-generation parity work — every offensive write-
+  gated proxy now supports the `--token-generation N` cookie.
+  Each plugin gains:
+  (a) a new `AllowlistHashWithGeneration` /
+  `SessionMutationWithGeneration` at the top of its hash
+  ladder (separator 0xFC for modbus / iax2 / pbxhttp; 0xFB
+  for opcua, below the 0xFC callMethods layer);
+  (b) a `TokenGeneration uint32` field on the `WriteGatedHandler`;
+  (c) `--token-generation N` flag on the corresponding
+  `write <plugin> dry-run` (modbus proxy-dry-run, iax2,
+  pbxhttp, opcua);
+  (d) shared YAML `token_generation:` field via a single
+  loader-side assignment after the plugin switch (replaces
+  the per-plugin if-blocks that were pushing `loadAllowFile`
+  past gocyclo);
+  (e) `proxy listen --token-generation N` already shared from
+  chunk 1, no new flag.
+  Backwards compat: every plugin's `generation=0` (default)
+  hash equals the prior top-of-ladder byte-for-byte. New
+  helpers `canonOPCUAAllowlist` (extracted from
+  `AllowlistHashWithGeneration` for funlen) and
+  `canonAllowFileOPCUACallMethods` /
+  `canonAllowFileOPCUANodeIDs` (extracted from
+  `buildAllowFileOPCUA` for gocyclo). 20 new tests across 4
+  test files (`offensive/write/{modbus,iax2,pbxhttp,opcua}/
+  tokengeneration_test.go`), each covering hash-ladder
+  degradation, gen distinctness, and the E2E Authorise
+  stale-rejected / fresh-accepted / prior-cycle-backwards-
+  compat matrix. With this chunk, all 7 offensive write-
+  gated proxies (bacnet / cwmp / sip / iax2 / pbxhttp /
+  modbus / opcua) carry the same token-generation surface,
+  setting the stage for a cross-protocol SIGUSR1 reload
+  handler in v1.17 chunk 4.
 - **v1.17 chunk 2 — SIP token-generation cookie**: extends
   the v1.16-chunk-4 BACnet / v1.17-chunk-1 CWMP token-
   generation pattern to SIP. New `AllowlistHashWithGeneration`

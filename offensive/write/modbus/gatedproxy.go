@@ -112,6 +112,71 @@ func SessionMutation(target string, allowed []AllowedWrite) confirm.Mutation {
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-3 hash that
+// adds the token-generation cookie on top of the v1.2 base
+// hash. Backwards-compat ladder: generation == 0 → equals
+// AllowlistHash. All v1.2 → v1.16-chunk-4 confirm-tokens
+// remain valid for operators who don't bump the generation.
+//
+// Hash layout (when generation != 0):
+//
+//	AllowlistHash output || 0xFC || u32 generation (big-endian)
+//
+// Mirrors the BACnet / CWMP / SIP token-generation design.
+func AllowlistHashWithGeneration(target string, allowed []AllowedWrite, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHash(target, allowed)
+	}
+	// Recompute from scratch + add the generation block — keeps
+	// the inner-block layout identical to AllowlistHash so
+	// generation=0 / generation>0 hashes share the same lower
+	// bytes verbatim (just with the extra trailer).
+	sorted := append([]AllowedWrite(nil), allowed...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Unit != sorted[j].Unit {
+			return sorted[i].Unit < sorted[j].Unit
+		}
+		if sorted[i].FC != sorted[j].FC {
+			return sorted[i].FC < sorted[j].FC
+		}
+		if sorted[i].StartAddr != sorted[j].StartAddr {
+			return sorted[i].StartAddr < sorted[j].StartAddr
+		}
+		return sorted[i].EndAddr < sorted[j].EndAddr
+	})
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var buf [6]byte
+	for _, a := range sorted {
+		buf[0] = a.Unit
+		buf[1] = byte(a.FC)
+		binary.BigEndian.PutUint16(buf[2:4], a.StartAddr)
+		binary.BigEndian.PutUint16(buf[4:6], a.EndAddr)
+		_, _ = h.Write(buf[:])
+	}
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFC})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-3 Mutation,
+// the new top of the Modbus allowlist hash ladder.
+// generation == 0 → degrades to SessionMutation.
+func SessionMutationWithGeneration(target string, allowed []AllowedWrite, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "modbus",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, allowed, generation),
+	}
+}
+
 // WriteGatedHandler is the offensive replacement for the default
 // write-ban proxy. Construction requires triple-confirm authorised
 // session context (Deriver, Auditor, and the session-level Confirm
@@ -126,6 +191,11 @@ type WriteGatedHandler struct {
 	// operator authorised at session open. Empty list forbids all
 	// writes (equivalent to the default write-ban handler).
 	Allowed []AllowedWrite
+	// TokenGeneration is the v1.17 chunk-3 token-generation
+	// cookie. Operators bump this when editing the allow-file
+	// to invalidate pre-existing confirm-tokens. Default 0
+	// preserves the v1.2 hash for backwards-compat.
+	TokenGeneration uint32
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -147,7 +217,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
