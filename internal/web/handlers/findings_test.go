@@ -205,6 +205,93 @@ func TestFindings_QueryErrorReturns500(t *testing.T) {
 	}
 }
 
+// TestFindingsDiff_NilQuerierReturns503 — same dashboard
+// resilience contract as Findings: no DB → 503.
+func TestFindingsDiff_NilQuerierReturns503(t *testing.T) {
+	h := handlers.APIV1(handlers.APIV1Deps{})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet,
+		"/api/v1/findings/diff?old=r1&new=r2", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", rec.Code)
+	}
+}
+
+// TestFindingsDiff_RequiresBothRunIDs — missing old= or new=
+// returns 400 with a usage hint.
+func TestFindingsDiff_RequiresBothRunIDs(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	for _, qs := range []string{"", "old=r1", "new=r2"} {
+		t.Run(qs, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(
+				context.Background(), http.MethodGet,
+				"/api/v1/findings/diff?"+qs, nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d for query %q, want 400", rec.Code, qs)
+			}
+		})
+	}
+}
+
+// TestFindingsDiff_RejectsSameRunID — old == new is a usage
+// error (the diff would be trivially empty, which is more
+// likely an operator typo than intentional).
+func TestFindingsDiff_RejectsSameRunID(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet,
+		"/api/v1/findings/diff?old=r1&new=r1", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d for old==new, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "distinct run ids") {
+		t.Errorf("body = %q; want mention of distinct run ids", rec.Body.String())
+	}
+}
+
+// TestFindingsDiff_HappyPath — both runs populated, returns
+// the categorised envelope.
+func TestFindingsDiff_HappyPath(t *testing.T) {
+	fq := &findingsFake{rows: []any{1}}
+	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})
+	req := httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet,
+		"/api/v1/findings/diff?old=r1&new=r2", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var env struct {
+		Schema string `json:"schema"`
+		Data   struct {
+			New        []any `json:"new"`
+			Resolved   []any `json:"resolved"`
+			Persisting []any `json:"persisting"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Schema != "api:v1" {
+		t.Errorf("schema = %q, want api:v1", env.Schema)
+	}
+	// The fake returns 1 row per query; both old and new
+	// queries share the canned (target_id=t1, protocol=modbus)
+	// shape, so both rows fall in the persisting bucket.
+	if len(env.Data.Persisting) != 1 {
+		t.Errorf("persisting = %d, want 1 (the canned fake makes both runs return the same (target,protocol))", len(env.Data.Persisting))
+	}
+}
+
 func TestRuns_HappyPath(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}
 	h := handlers.APIV1(handlers.APIV1Deps{Querier: fq})

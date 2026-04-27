@@ -102,6 +102,45 @@ func canonFactorsCSVField(factors map[string]int) string {
 	return b.String()
 }
 
+// FindingsDiff returns the `GET /api/v1/findings/diff` handler.
+// v1.18 chunk 2: operators running weekly scans see what
+// changed between two runs without grepping JSON. Required
+// query params: `old=<run_id>` + `new=<run_id>`. Match across
+// runs is by (target_id, protocol) — the same exposure
+// rediscovered on the next scan is "persisting" even though
+// its DB row gets a fresh UUID.
+//
+// Response envelope mirrors the other v1 endpoints:
+//
+//	{
+//	  "schema": "api:v1",
+//	  "data":   { "new": [...], "resolved": [...], "persisting": [...] }
+//	}
+func FindingsDiff(q repo.Querier) http.Handler {
+	if q == nil {
+		return unavailableHandler("findings_diff backend unavailable")
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v := r.URL.Query()
+		oldRun := strings.TrimSpace(v.Get("old"))
+		newRun := strings.TrimSpace(v.Get("new"))
+		if oldRun == "" || newRun == "" {
+			http.Error(w, "findings/diff: required query params: old=<run_id>&new=<run_id>", http.StatusBadRequest)
+			return
+		}
+		if oldRun == newRun {
+			http.Error(w, "findings/diff: old and new must be distinct run ids", http.StatusBadRequest)
+			return
+		}
+		diff, err := repo.DiffFindings(r.Context(), q, oldRun, newRun)
+		if err != nil {
+			http.Error(w, "findings/diff: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, envelope{Schema: "api:" + APIVersion, Data: diff})
+	})
+}
+
 // Runs returns the `GET /api/v1/runs` handler.
 func Runs(q repo.Querier) http.Handler {
 	if q == nil {

@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.18 chunk 2 — Dashboard diff between runs**: closes
+  another long-standing TODO-vNext item — operators running
+  weekly scans can now see what changed between two runs
+  without grepping JSON. New
+  `GET /api/v1/findings/diff?old=<run_id>&new=<run_id>`
+  returns a categorised JSON envelope with three buckets:
+  `new` (in new run, no match in old), `resolved` (in old run,
+  no match in new), `persisting` (in both). Match key is
+  (target_id, protocol) — same exposure rediscovered on the
+  next scan is "persisting" even though its DB row gets a
+  fresh UUID. The Persisting bucket carries the new-run row
+  so the operator sees the freshest score / factors.
+  New `repo.DiffFindings` library function + new
+  `RunID` filter on `repo.FindingsQuery`. Added a "Diff
+  between runs" panel to the dashboard with a two-input form
+  (old / new run ID) + per-bucket result tables. 9 new tests:
+  6 in `internal/repo/findings_diff_test.go` covering the
+  pure-bucketise logic (all-new, all-resolved, persisting,
+  mixed, protocol-mismatch-doesn't-fold, both-empty); 4 in
+  `internal/web/handlers/findings_test.go` covering the HTTP
+  handler (nil querier → 503, missing run IDs → 400, same
+  ID → 400, happy-path JSON envelope shape).
 - **v1.18 chunk 1 — Dashboard CSV export from UI**: closes a
   long-standing TODO-vNext item — operators can now export
   the findings table as CSV directly from the dashboard

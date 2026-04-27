@@ -45,6 +45,9 @@ type FindingsQuery struct {
 	Severity string
 	// Protocol, if non-empty, restricts to one protocol.
 	Protocol string
+	// RunID, if non-empty, restricts to findings from a single
+	// run (v1.18 chunk 2 — used by the diff endpoint).
+	RunID string
 	// MinScore filters score ≥ N.
 	MinScore int
 	// CreatedAfter filters created_at > T. Pair with a cursor
@@ -118,6 +121,10 @@ func buildFindingsQuery(fq FindingsQuery, limit int) (string, []any) {
 		args = append(args, fq.Protocol)
 		filters = append(filters, fmt.Sprintf("protocol = $%d", len(args)))
 	}
+	if fq.RunID != "" {
+		args = append(args, fq.RunID)
+		filters = append(filters, fmt.Sprintf("run_id = $%d", len(args)))
+	}
 	if fq.MinScore > 0 {
 		args = append(args, fq.MinScore)
 		filters = append(filters, fmt.Sprintf("score >= $%d", len(args)))
@@ -137,6 +144,83 @@ func buildFindingsQuery(fq FindingsQuery, limit int) (string, []any) {
 		%s
 		ORDER BY created_at DESC
 		LIMIT $%d`, where, len(args)), args
+}
+
+// FindingsDiff is the categorised diff between two runs'
+// findings. v1.18 chunk 2: powers `GET /api/v1/findings/diff?
+// old=<old_run_id>&new=<new_run_id>` so operators running
+// weekly scans can see what changed (new exposures, fixed
+// findings, persisting issues) without grepping JSON.
+//
+// Match key for cross-run identity is (target_id, protocol):
+// the same exposure rediscovered on the next scan is
+// "persisting" even though its DB row gets a fresh UUID. The
+// per-bucket `Finding.RunID` carries the run that produced the
+// exact row included.
+type FindingsDiff struct {
+	// New are findings in the new run that have no
+	// (target_id, protocol) match in the old run.
+	New []Finding `json:"new"`
+	// Resolved are findings from the old run with no match in
+	// the new run — the operator's remediation worked.
+	Resolved []Finding `json:"resolved"`
+	// Persisting are findings present in both runs (matched by
+	// target_id + protocol). The Finding included is from the
+	// NEW run so the operator sees the freshest score / factors.
+	Persisting []Finding `json:"persisting"`
+}
+
+// DiffFindings runs two ListFindings queries (one per run id)
+// and categorises the union into new / resolved / persisting.
+// Both runs are capped at the same row limit to bound the
+// in-memory diff (default 500; clamped to [1, 500]).
+//
+// Returns an error iff either underlying query fails. Empty
+// inputs (one or both runs have no findings) produce a valid
+// FindingsDiff with the appropriate buckets empty.
+func DiffFindings(ctx context.Context, q Querier, oldRunID, newRunID string) (FindingsDiff, error) {
+	const cap = findingsMaxLimit
+	oldRows, err := ListFindings(ctx, q, FindingsQuery{RunID: oldRunID, Limit: cap})
+	if err != nil {
+		return FindingsDiff{}, fmt.Errorf("diff: list old run: %w", err)
+	}
+	newRows, err := ListFindings(ctx, q, FindingsQuery{RunID: newRunID, Limit: cap})
+	if err != nil {
+		return FindingsDiff{}, fmt.Errorf("diff: list new run: %w", err)
+	}
+	return diffFindingsByTargetProtocol(oldRows, newRows), nil
+}
+
+// diffFindingsByTargetProtocol bucketises old + new finding
+// slices into FindingsDiff. Pure (no DB), exported via
+// DiffFindings; extracted so unit tests can exercise the
+// matching logic without a Querier.
+func diffFindingsByTargetProtocol(oldRows, newRows []Finding) FindingsDiff {
+	type key struct {
+		targetID, protocol string
+	}
+	oldByKey := make(map[key]Finding, len(oldRows))
+	for _, f := range oldRows {
+		oldByKey[key{f.TargetID, f.Protocol}] = f
+	}
+	newByKey := make(map[key]Finding, len(newRows))
+	for _, f := range newRows {
+		newByKey[key{f.TargetID, f.Protocol}] = f
+	}
+	var d FindingsDiff
+	for k, f := range newByKey {
+		if _, found := oldByKey[k]; found {
+			d.Persisting = append(d.Persisting, f)
+		} else {
+			d.New = append(d.New, f)
+		}
+	}
+	for k, f := range oldByKey {
+		if _, found := newByKey[k]; !found {
+			d.Resolved = append(d.Resolved, f)
+		}
+	}
+	return d
 }
 
 // scanFinding pulls one row into a Finding, decoding the JSONB

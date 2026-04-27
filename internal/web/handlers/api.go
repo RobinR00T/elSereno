@@ -50,6 +50,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 		})
 	}
 	mux.Handle("GET /api/v1/findings", Findings(deps.Querier))
+	mux.Handle("GET /api/v1/findings/diff", FindingsDiff(deps.Querier))
 	mux.Handle("GET /api/v1/runs", Runs(deps.Querier))
 	mux.Handle("GET /api/v1/triage", Triage(deps.Querier))
 	return mux

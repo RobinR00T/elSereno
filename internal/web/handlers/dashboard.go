@@ -428,6 +428,23 @@ const overviewHTML = `<!doctype html>
         </tbody>
       </table>
     </section>
+
+    <section class="panel">
+      <h2>Diff between runs <span class="sub">v1.18+ · what changed</span></h2>
+      <div class="sub">
+        Compare two runs by ID. Match key is (target, protocol):
+        rediscovered exposures land in <em>persisting</em>, fixed
+        ones in <em>resolved</em>, fresh ones in <em>new</em>.
+      </div>
+      <form id="diff-form" onsubmit="return runDiff(event);" style="margin: 0.5em 0;">
+        <label>Old run: <input type="text" id="diff-old" size="36" placeholder="run id" required></label>
+        &nbsp;
+        <label>New run: <input type="text" id="diff-new" size="36" placeholder="run id" required></label>
+        &nbsp;
+        <button type="submit">Diff</button>
+      </form>
+      <div id="diff-result" class="sub">No diff requested yet.</div>
+    </section>
   </div>
 
   <aside>
@@ -652,6 +669,50 @@ const overviewHTML = `<!doctype html>
       var body = document.getElementById("runs-body");
       if (body) body.innerHTML = '<tr class="empty"><td colspan="5">error: ' + escText(e.message) + '</td></tr>';
     });
+  }
+
+  // v1.18 chunk 2: diff between runs. Operator types two run
+  // IDs; we hit /api/v1/findings/diff and render new /
+  // resolved / persisting buckets in the panel below the form.
+  function runDiff(ev) {
+    ev.preventDefault();
+    var oldRun = document.getElementById("diff-old").value.trim();
+    var newRun = document.getElementById("diff-new").value.trim();
+    var out = document.getElementById("diff-result");
+    if (!oldRun || !newRun) { out.textContent = "both run IDs are required"; return false; }
+    if (oldRun === newRun) { out.textContent = "old and new must be distinct run IDs"; return false; }
+    out.innerHTML = "computing diff…";
+    fetchJSON("/api/v1/findings/diff?old=" + encodeURIComponent(oldRun) + "&new=" + encodeURIComponent(newRun))
+      .then(function (res) {
+        if (res.unavailable) { out.textContent = "backend unavailable (no DATABASE_URL)"; return; }
+        var d = res.data || {};
+        var n = (d.new || []).length;
+        var r = (d.resolved || []).length;
+        var p = (d.persisting || []).length;
+        out.innerHTML =
+          '<strong>new:</strong> ' + n + ' &nbsp; ' +
+          '<strong>resolved:</strong> ' + r + ' &nbsp; ' +
+          '<strong>persisting:</strong> ' + p +
+          renderDiffSection("New (added)", d.new) +
+          renderDiffSection("Resolved (fixed)", d.resolved) +
+          renderDiffSection("Persisting", d.persisting);
+      })
+      .catch(function (e) { out.textContent = "error: " + e.message; });
+    return false;
+  }
+  function renderDiffSection(label, rows) {
+    if (!rows || rows.length === 0) return '';
+    var trs = rows.map(function (f) {
+      return '<tr>' +
+        '<td><span class="sev-chip ' + escText(f.severity) + '">' + escText(f.severity) + '</span></td>' +
+        '<td>' + escText(f.protocol) + '</td>' +
+        '<td>' + escText(f.score) + '</td>' +
+        '<td>' + escText(f.target_id) + '</td>' +
+      '</tr>';
+    }).join("");
+    return '<h4>' + escText(label) + ' (' + rows.length + ')</h4>' +
+      '<table class="findings-table"><thead><tr><th>Severity</th><th>Protocol</th><th>Score</th><th>Target</th></tr></thead><tbody>' +
+      trs + '</tbody></table>';
   }
 
   // Initial load.
