@@ -482,6 +482,7 @@ func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confi
 		AllowedToURIPrefixes: prefixes,
 		AllowedAORs:          aors,
 		AllowedFromDomains:   fromDomains,
+		TokenGeneration:      opts.tokenGeneration,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,

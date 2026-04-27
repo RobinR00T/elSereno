@@ -342,6 +342,9 @@ func loadAllowFile(path string, opts *proxyListenOpts) error {
 		opts.toPrefixes = af.ToPrefixes
 		opts.aors = af.AORs
 		opts.fromDomains = af.FromDomains
+		if af.TokenGeneration > 0 {
+			opts.tokenGeneration = af.TokenGeneration
+		}
 	case pluginNameIAX2:
 		opts.subclasses = af.Subclasses
 	case pluginNamePBXHTTP:

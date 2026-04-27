@@ -66,6 +66,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -495,6 +496,71 @@ func SessionMutationWithFromDomains(target string, methods []AllowedMethod, pref
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-2 hash that
+// adds the token-generation cookie on top of the v1.12 chunk-5
+// layer. Backwards-compat ladder: generation == 0 → equals
+// AllowlistHashWithFromDomains. All v1.4 → v1.12-chunk-5
+// confirm-tokens remain valid for operators who don't bump
+// the generation (the default).
+//
+// Hash layout (when generation != 0): the same lower-layer
+// bytes (target || 0x00 || methods || optional 0xFF prefixes
+// || optional 0xFE AORs || optional 0xFD fromDomains) followed
+// by:
+//
+//	|| 0xFC || u32 generation (big-endian)
+//
+// Separator 0xFC is below 0xFD (fromDomains) and the upper
+// layers. 5-byte block. Mirrors the BACnet v1.16-chunk-4 +
+// CWMP v1.17-chunk-1 token-generation design.
+func AllowlistHashWithGeneration(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR, fromDomains []AllowedFromDomain, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHashWithFromDomains(target, methods, prefixes, aors, fromDomains)
+	}
+	sortedMethods := sortedMethodList(methods)
+	sortedPrefixes := sortedPrefixList(prefixes)
+	sortedAORs := sortedAORList(aors)
+	sortedFromDomains := sortedFromDomainList(fromDomains)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	writeNulTerminatedList(h, sortedMethods)
+	if len(sortedPrefixes) > 0 {
+		_, _ = h.Write([]byte{0xFF})
+		writeNulTerminatedList(h, sortedPrefixes)
+	}
+	if len(sortedAORs) > 0 {
+		_, _ = h.Write([]byte{0xFE})
+		writeNulTerminatedList(h, sortedAORs)
+	}
+	if len(sortedFromDomains) > 0 {
+		_, _ = h.Write([]byte{0xFD})
+		writeNulTerminatedList(h, sortedFromDomains)
+	}
+	// v1.17 chunk 2: generation cookie.
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFC})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-2 Mutation,
+// the new top of the SIP allowlist hash ladder. generation ==
+// 0 → degrades to SessionMutationWithFromDomains.
+func SessionMutationWithGeneration(target string, methods []AllowedMethod, prefixes []AllowedToURIPrefix, aors []AllowedAOR, fromDomains []AllowedFromDomain, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "sip",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, methods, prefixes, aors, fromDomains, generation),
+	}
+}
+
 // AllowedFromDomain is one source-domain the operator has
 // authorised for the session's From: header. v1.12 chunk 5:
 // complements the REGISTER AOR gate (which controls WHO can
@@ -653,6 +719,13 @@ type WriteGatedHandler struct {
 	// Empty list restores v1.10 behaviour (no from-domain
 	// check).
 	AllowedFromDomains []AllowedFromDomain
+	// TokenGeneration is the v1.17 chunk-2 token-generation
+	// cookie. Operators bump this when editing the allow-file
+	// to invalidate pre-existing confirm-tokens. Default 0
+	// preserves the v1.12-chunk-5 hash for backwards-compat.
+	// Mirrors the BACnet v1.16-chunk-4 + CWMP v1.17-chunk-1
+	// design for cross-protocol reload symmetry.
+	TokenGeneration uint32
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -671,7 +744,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithFromDomains(h.Target, h.Allowed, h.AllowedToURIPrefixes, h.AllowedAORs, h.AllowedFromDomains)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.AllowedToURIPrefixes, h.AllowedAORs, h.AllowedFromDomains, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}

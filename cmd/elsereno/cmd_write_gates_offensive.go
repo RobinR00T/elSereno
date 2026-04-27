@@ -88,6 +88,7 @@ into the eventual proxy-run verb.`,
 func newWriteSIPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var methods, toPrefixes, aors, fromDomains []string
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -112,13 +113,13 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 			for _, d := range fromDomains {
 				fromDomainList = append(fromDomainList, sipwrite.AllowedFromDomain{Domain: d})
 			}
-			mut := sipwrite.SessionMutationWithFromDomains(target, allowed, prefixes, aorList, fromDomainList)
+			mut := sipwrite.SessionMutationWithGeneration(target, allowed, prefixes, aorList, fromDomainList, tokenGeneration)
 			printSIPDryRunSummary(cmd, target, methods, toPrefixes, aors, fromDomains, mut)
 			if err := maybeMintToken(cmd, mut, ppFile); err != nil {
 				return err
 			}
 			if p, err := ensureAllowFilePath(emitFile); err == nil {
-				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes, aors, fromDomains))
+				return emitAllowFile(cmd, p, buildAllowFileSIP(target, methods, toPrefixes, aors, fromDomains, tokenGeneration))
 			}
 			return nil
 		},
@@ -131,6 +132,8 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 		"optional: REGISTER AOR allowlist — exact AoRs (e.g. sip:alice@pbx.internal). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	cmd.Flags().StringSliceVar(&fromDomains, "from-domain", nil,
 		"optional: From-header domain allowlist — exact host match (e.g. internal.pbx). Applies to every gated method. Identity-spoof mitigation (v1.12+).")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0,
+		"optional: token-generation cookie (v1.17+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens. 0 (default) preserves the v1.12-chunk-5 hash for backwards-compat. Mirrors the bacnet/cwmp flag.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd

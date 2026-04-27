@@ -28,7 +28,7 @@ func helperCmd(buf *bytes.Buffer) *cobra.Command {
 func TestEmitAllowFile_SIPStdout(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil, nil, nil)
+	af := buildAllowFileSIP("pbx.example.com:5060", []string{"invite", "REGISTER", "invite"}, nil, nil, nil, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestEmitAllowFile_WritesFile(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestEmitAllowFile_RoundTripSIP(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, nil)); err != nil {
+	if err := emitAllowFile(cmd, path, buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, nil, 0)); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 	var opts proxyListenOpts
@@ -144,7 +144,7 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixes(t *testing.T) {
 	af := buildAllowFileSIP("pbx:5060",
 		[]string{"INVITE"},
 		[]string{"+34", "+44"},
-		nil, nil)
+		nil, nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestEmitAllowFile_RoundTripSIPWithAORs(t *testing.T) {
 		"sip:bob@pbx.internal",
 		"sip:alice@pbx.internal", // unordered on purpose
 	}
-	af := buildAllowFileSIP("pbx:5060", []string{"REGISTER"}, nil, aors, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"REGISTER"}, nil, aors, nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 		[]string{"INVITE", "REGISTER"},
 		[]string{"+34"},
 		[]string{"sip:alice@pbx.internal"},
-		nil)
+		nil, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -344,7 +344,7 @@ func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
 	cmd := helperCmd(&buf)
 	// Mixed-case on purpose — emitter lowercases.
 	fromDomains := []string{"VoIP.Example.com", "internal.pbx"}
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, fromDomains)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, fromDomains, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
 func TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty(t *testing.T) {
 func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil)
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil, 0)
 	if err := emitAllowFile(cmd, "-", af); err != nil {
 		t.Fatalf("emit: %v", err)
 	}

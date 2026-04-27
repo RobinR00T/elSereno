@@ -65,7 +65,7 @@ func addEmitAllowFileFlag(cmd *cobra.Command, dest *string) {
 //
 // Empty input lists are omitted from the emitted YAML so v1.4-
 // era operators keep the compact method-only shape.
-func buildAllowFileSIP(target string, methods, toPrefixes, aors, fromDomains []string) proxyAllowFile {
+func buildAllowFileSIP(target string, methods, toPrefixes, aors, fromDomains []string, tokenGeneration uint32) proxyAllowFile {
 	af := proxyAllowFile{
 		Plugin:  pluginNameSIP,
 		Target:  target,
@@ -79,6 +79,9 @@ func buildAllowFileSIP(target string, methods, toPrefixes, aors, fromDomains []s
 	}
 	if sorted := trimmedDedupLowerSorted(fromDomains); len(sorted) > 0 {
 		af.FromDomains = sorted
+	}
+	if tokenGeneration > 0 {
+		af.TokenGeneration = tokenGeneration
 	}
 	return af
 }

@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.17 chunk 2 — SIP token-generation cookie**: extends
+  the v1.16-chunk-4 BACnet / v1.17-chunk-1 CWMP token-
+  generation pattern to SIP. New `AllowlistHashWithGeneration`
+  / `SessionMutationWithGeneration` at the top of the SIP
+  hash ladder; separator `0xFC` (below 0xFD fromDomains, 0xFE
+  AORs, 0xFF prefixes). New `TokenGeneration uint32` field on
+  `sip.WriteGatedHandler`. The shared `--token-generation N`
+  CLI flag (registered in the session flags from chunk 1) now
+  applies to `proxy listen --plugin sip` invocations too.
+  `write sip dry-run --token-generation N` flag added.
+  `buildAllowFileSIP` signature gains the trailing
+  `tokenGeneration uint32` parameter; YAML round-trip via the
+  shared `token_generation:` field. 7 new tests covering the
+  hash-ladder degradation (gen=0 matches chunk-5 hash byte-
+  for-byte), cryptographic distinctness, determinism, and the
+  E2E Authorise stale-rejected / fresh-accepted / chunk-5-
+  backwards-compat matrix.
 - **v1.17 chunk 1 — CWMP token-generation cookie**: extends
   the v1.16-chunk-4 BACnet token-generation pattern to CWMP
   (TR-069). New optional `Generation uint32` arg on
