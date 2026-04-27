@@ -1592,3 +1592,60 @@ One-liner per significant change to `.context/` or the codebase.
   Cross-protocol parity (sip / iax2 / pbxhttp / modbus /
   opcua / cwmp gaining the field) follows incrementally if
   operators ask.
+- 2026-04-27 — **v1.17 chunk 1 landed.** CWMP token-generation
+  cookie + shared `--token-generation` flag promoted to the
+  session-flag registrar (`ed868af`). Separator 0xFC (below
+  0xFD firmware, 0xFE paths) at the top of the CWMP hash
+  ladder. New `TokenGeneration uint32` field on
+  `cwmp.WriteGatedHandler`. Refactor: shared
+  `parseBACnetTypeInstance` helper (drops 40+ lines of
+  duplication). 7 new tests (`tokengeneration_test.go`).
+- 2026-04-27 — **v1.17 chunk 2 landed.** SIP token-generation
+  cookie (`59ff0a2`). Separator 0xFC (below 0xFD fromDomains).
+  `buildAllowFileSIP` signature gains trailing
+  `tokenGeneration uint32`; 5 existing call sites updated.
+  7 new tests.
+- 2026-04-27 — **v1.17 chunk 3 landed.** Token-generation
+  cookie roll-out across remaining 4 plugins (modbus / iax2
+  / pbxhttp / opcua). Completes cross-protocol parity — every
+  offensive write-gated proxy now carries the
+  `--token-generation N` cookie surface. Separators 0xFC for
+  modbus/iax2/pbxhttp; 0xFB for opcua (below the 0xFC
+  callMethods layer). 14 buildAllowFile* call sites updated
+  in cmd_write_emitfile_offensive_test.go for the new
+  trailing argument. Refactor: `loadAllowFile` consolidates
+  per-plugin token-gen blocks into one shared assignment
+  (gocyclo 17 → under 15); `AllowlistHashWithGeneration` in
+  opcua extracts `canonOPCUAAllowlist` for funlen;
+  `buildAllowFileOPCUA` extracts
+  `canonAllowFileOPCUACallMethods` +
+  `canonAllowFileOPCUANodeIDs` for gocyclo. 20 new tests
+  across 4 test files.
+- 2026-04-27 — **v1.17 chunk 4 landed.** SIGUSR1 in-process
+  allow-file reload + atomic swap. New `reloadableHandler`
+  (atomic.Pointer wrapper), `--reload-allow-file` flag
+  (requires --allow-file), sidecar `<allow-file>.token`
+  (0600) for fresh confirm-token, `performReload` re-loads +
+  rebuilds + authorises + atomic-swaps. Co-exists with v1.15
+  chunk-5 SIGHUP supervisor-restart pattern: SIGHUP still
+  exits 75; SIGUSR1 reloads in-place. Refactor: extracted
+  `runProxyServer` from `runProxyListen` for funlen. 11 new
+  tests (cmd_proxy_reload_offensive_test.go) covering
+  wrapper delegation, atomic-swap semantics, sidecar-token
+  mode enforcement, validation, fresh-opts immutability, and
+  pass-through for non-reload runs.
+- 2026-04-27 — **v1.17 chunk 5 landed.** `proxy_allowlist_
+  reload` audit event (`02fef1e`) + migration `00003_*`.
+  Every SIGUSR1 reload firing emits a row with status
+  (`ok`/`failed`), plugin, target, allow_file, old/new
+  hash-prefix, token_generation, and reason (on failure).
+  Audit emit is best-effort — a failed audit-chain write
+  doesn't block the swap. The internal/audit/events_test.go
+  migration-sync test picks up the new event automatically.
+  2 new tests (defensive nil-writer no-op + hash-prefix
+  stability).
+- 2026-04-27 — **v1.17 cycle closed on `main`** (5 chunks,
+  tag pending operator decision). Snapshot:
+  `.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
+  v1.16 cycle also closed (4 chunks); v1.15.0 still the
+  latest published release.

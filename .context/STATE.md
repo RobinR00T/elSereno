@@ -1,18 +1,40 @@
 ---
-phase: v1.16-in-flight
-status: v1.16 cycle closed on `main` (4 chunks, tag pending operator)
+phase: v1.17-in-flight
+status: v1.17 cycle closed on `main` (5 chunks, tag pending operator); v1.16 also closed
 last-updated: 2026-04-27
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.16 cycle closed on `main`** (4 chunks, tag
-pending operator decision). v1.15.0 remains the latest
-published release on
+**Phase**: **v1.17 cycle closed on `main`** (5 chunks, tag
+pending operator decision). v1.16 also closed (4 chunks, tag
+pending). v1.15.0 remains the latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
 
-**v1.16 chunks landed (in-flight)**:
+**v1.17 chunks landed (in-flight)**:
+- 1   `ed868af` — CWMP token-generation cookie + shared
+  `--token-generation` flag promoted to session-flag
+  registrar. Separator 0xFC. 7 tests.
+- 2   `59ff0a2` — SIP token-generation cookie. Separator
+  0xFC (below 0xFD fromDomains). 7 tests.
+- 3   `(chunk 3)` — token-generation cookie roll-out across
+  modbus / iax2 / pbxhttp / opcua. Completes cross-protocol
+  parity (all 7 offensive write-gated proxies). Separators
+  0xFC for modbus/iax2/pbxhttp, 0xFB for opcua. 20 tests.
+- 4   `(chunk 4)` — SIGUSR1 in-process allow-file reload +
+  atomic swap. New `--reload-allow-file` flag,
+  `reloadableHandler` (atomic.Pointer wrapper), sidecar
+  `<allow-file>.token` (0600) for fresh confirm-token. 11
+  tests.
+- 5   `02fef1e` — `proxy_allowlist_reload` audit event +
+  migration 00003. Every SIGUSR1 firing emits a row with
+  status / plugin / hash-prefixes / reason. 2 tests.
+
+Snapshot:
+`.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
+
+**v1.16 chunks landed (in-flight, tag pending)**:
 - 1   `33284c8` — CWMP TransferComplete authorisation
   cross-reference (closes v1.15 chunk-1 observer half).
   9 tests.
@@ -147,23 +169,20 @@ operator decision.
 for the authoritative per-cycle commit mapping. All tags v1.0.0
 → v1.15.0 on `origin/main`.
 
-**Deferred to v1.17+** (post-v1.16 backlog):
-- **In-process allow-file reload — signal handler half**.
-  v1.16 chunk 4 ships the cryptographic foundation
-  (token-generation cookie); the SIGUSR1 signal handler,
-  atomic allowlist swap, and control-plane confirm-token
-  delivery are still pending. The supervisor-restart pattern
-  (v1.15 chunk 5) remains the operational option until this
-  lands.
-- **Cross-protocol token-generation parity**. Only BACnet has
-  the `Generation` field after v1.16 chunk 4. Cross-protocol
-  symmetry (sip / iax2 / pbxhttp / modbus / opcua / cwmp)
-  follows incrementally if operators ask.
+**Deferred to v1.18+** (post-v1.17 backlog):
+- **Operator dashboard surfaces for `proxy_allowlist_reload`
+  audit rows** — filter / chart of reload cadence by plugin
+  (the audit rows are emitted starting v1.17 chunk 5; the
+  dashboard side is still pending).
 - **CWMP TransferComplete async firmware re-fetch**. v1.16
   chunk 1 surfaces the allowlist SHA-256 alongside the CPE's
   report; true on-wire SHA-256 verification post-flash would
   need an out-of-band fetch + verify (v1.13 chunk 2's
   `verify-firmware` already does this pre-flight).
+- **Dashboard CSV export from UI** (TODO-vNext: today only via
+  CLI / `/api/v1/findings`).
+- **Dashboard diff between runs** — compare two run IDs and
+  highlight new / resolved / re-appearing findings.
 - macOS sandbox via `sandbox_init(3)`.
 - 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
   Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
