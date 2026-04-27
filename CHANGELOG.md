@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.17 chunk 4 — SIGUSR1 in-process allow-file reload**:
+  delivers the operator-facing in-process reload that the v1.16-
+  chunk-4 token-generation foundation + v1.17 chunks 1-3 cross-
+  protocol parity made possible. New `--reload-allow-file` flag
+  on `proxy listen` (requires `--allow-file`) wraps the
+  concrete write-gated handler in a `reloadableHandler`
+  (atomic.Pointer-based). On SIGUSR1 the proxy:
+  (a) re-reads the YAML allow-file; (b) reads the new confirm-
+  token from a sidecar `<allow-file>.token` (0600 enforced);
+  (c) builds + authorises a new handler with the new
+  allowlist; (d) atomically swaps it into the wrapper. In-flight
+  connections finish with the old allowlist; new connections
+  use the new one. On any failure (parse error, sidecar
+  permission, authorise mismatch) the old handler is preserved
+  unchanged and the operator sees a structured stderr message.
+  Operator workflow: edit allow-file (typically bumping
+  `token_generation:`) → dry-run with new state to mint fresh
+  token → write token to `<allow-file>.token` (chmod 600) →
+  `kill -USR1 $pid`. Co-exists with v1.15 chunk-5 SIGHUP
+  supervisor-restart pattern: SIGHUP still exits 75; SIGUSR1
+  reloads in-place. 11 new tests covering wrapper delegation,
+  atomic-swap semantics, sidecar-token mode enforcement,
+  validation (`--reload-allow-file` requires `--allow-file`),
+  fresh-opts immutability, and pass-through of plain proxy
+  listen runs (no behaviour change when --reload-allow-file
+  isn't set).
 - **v1.17 chunk 3 — token-generation cookie cross-protocol
   rollout (Modbus / IAX2 / pbxhttp / OPC UA)**: completes the
   v1.17 token-generation parity work — every offensive write-

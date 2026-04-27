@@ -149,13 +149,14 @@ func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 	cmd.Flags().DurationVar(&opts.dialTimeout, "dial-timeout", 5*time.Second, "upstream dial timeout")
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
+	cmd.Flags().BoolVar(&opts.reloadAllowFile, "reload-allow-file", false, "v1.17+: enable in-process SIGUSR1 reload of --allow-file. On SIGUSR1 the proxy re-reads the allow-file, re-reads the sidecar `<allow-file>.token` (0600) for the new confirm-token, builds + authorises the new handler, and atomically swaps it. In-flight connections finish with the old allowlist; new connections use the new. Requires --allow-file. Mutually-exclusive with the v1.15 SIGHUP supervisor-restart pattern only insofar as SIGHUP still exits 75 — operators choose: USR1 in-process or HUP supervisor restart.")
 	// Shared across plugins that ship a token-generation cookie
 	// (v1.16+ for bacnet; v1.17+ adding cwmp + others). Each
 	// plugin's handler builder picks this up — only the active
 	// --plugin's gate consumes it. Folds into the session hash
 	// so confirm-tokens minted with a different generation are
 	// rejected.
-	cmd.Flags().Uint32Var(&opts.tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+ bacnet, v1.17+ cwmp). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload. 0 (default) preserves the prior-cycle hash for backwards-compat. Plugins without per-plugin generation support ignore this flag.")
+	cmd.Flags().Uint32Var(&opts.tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+ bacnet, v1.17+ all 7 write-gated plugins). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload (paired with --reload-allow-file). 0 (default) preserves the prior-cycle hash for backwards-compat. Plugins without per-plugin generation support ignore this flag.")
 }
 
 type proxyListenOpts struct {
@@ -298,6 +299,9 @@ type proxyListenOpts struct {
 	confirmTarget, confirmToken, ppFile string
 	dialTimeout, idleTimeout            time.Duration
 	maxConns                            int
+	// reloadAllowFile enables the v1.17 chunk-4 SIGUSR1
+	// in-process reload. Requires allowFile to be set.
+	reloadAllowFile bool
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -342,10 +346,16 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 		return fail(core.ExitError, fmt.Errorf("authorise: %w", err))
 	}
 
+	// v1.17 chunk 4: when --reload-allow-file is set, wrap the
+	// handler in a reloadableHandler so SIGUSR1 can swap the
+	// allowlist atomically. Plain runs (no flag) install the
+	// concrete handler directly — same as pre-v1.17 behaviour.
+	servedHandler := wrapForReload(opts, handler)
+
 	srv, err := proxy.New(proxy.Options{
 		Listen:      opts.listen,
 		Upstream:    opts.target,
-		Handler:     handler,
+		Handler:     servedHandler,
 		DialTimeout: opts.dialTimeout,
 		IdleTimeout: opts.idleTimeout,
 		MaxConns:    opts.maxConns,
@@ -353,7 +363,14 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 	if err != nil {
 		return fail(core.ExitError, err)
 	}
+	return runProxyServer(cmd, opts, rt, srv, servedHandler)
+}
 
+// runProxyServer wires the signal handlers (SIGINT/SIGTERM/SIGHUP
+// + v1.17-chunk-4 SIGUSR1) and runs the proxy.Server. Extracted
+// from runProxyListen so the parent stays under funlen as the
+// chunk-4 reload-watcher plumbing adds branches.
+func runProxyServer(cmd *cobra.Command, opts proxyListenOpts, rt *offensiveRuntime, srv *proxy.Server, servedHandler gatedProxyHandler) error {
 	// v1.15 chunk 5: distinguish SIGHUP (reload-style exit 75)
 	// from SIGINT/SIGTERM (clean exit 0). Wrap the existing
 	// signal.NotifyContext with a side-channel that captures
@@ -365,14 +382,61 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 	signal.Notify(hupCh, syscall.SIGHUP)
 	defer signal.Stop(hupCh)
 
+	// v1.17 chunk 4: SIGUSR1 → in-process reload. Only active
+	// when --reload-allow-file is set (signalled by servedHandler
+	// being a *reloadableHandler).
+	if reloader, ok := servedHandler.(*reloadableHandler); ok {
+		startReloadWatcher(ctx, cmd, opts, rt, reloader)
+	}
+
 	cmd.Printf("proxy: plugin=%s listen=%s target=%s\n", opts.plugin, opts.listen, opts.target)
-	cmd.Printf("proxy: authorised; waiting for client connections (SIGINT/SIGTERM stop, SIGHUP reloads via supervisor restart)\n")
+	if opts.reloadAllowFile {
+		cmd.Printf("proxy: authorised; waiting for client connections (SIGINT/SIGTERM stop, SIGHUP supervisor-reload, SIGUSR1 in-process reload of --allow-file via sidecar token)\n")
+	} else {
+		cmd.Printf("proxy: authorised; waiting for client connections (SIGINT/SIGTERM stop, SIGHUP reloads via supervisor restart)\n")
+	}
 	cmd.Printf("proxy: audit: %s\n", rt.AuditPath())
 
 	if rerr := srv.Run(ctx); rerr != nil && !errors.Is(rerr, context.Canceled) {
 		return fail(core.ExitError, rerr)
 	}
 	return finishProxyListen(cmd, hupCh)
+}
+
+// wrapForReload returns a gatedProxyHandler suitable for
+// proxy.Server. When --reload-allow-file is set, returns a
+// reloadableHandler wrapping h. Otherwise returns h directly
+// so non-reload runs are byte-identical to pre-v1.17 behaviour.
+func wrapForReload(opts proxyListenOpts, h gatedProxyHandler) gatedProxyHandler {
+	if !opts.reloadAllowFile {
+		return h
+	}
+	return newReloadableHandler(h)
+}
+
+// startReloadWatcher spawns a goroutine that listens for
+// SIGUSR1 and triggers performReload. The goroutine exits when
+// ctx is canceled. v1.17 chunk 4.
+//
+// On reload failure the old handler stays installed; the
+// operator sees the failure on stderr and can retry after
+// fixing the allow-file or sidecar token.
+func startReloadWatcher(ctx context.Context, cmd *cobra.Command, opts proxyListenOpts, rt *offensiveRuntime, target *reloadableHandler) {
+	usrCh := make(chan os.Signal, 1)
+	signal.Notify(usrCh, syscall.SIGUSR1)
+	go func() {
+		defer signal.Stop(usrCh)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-usrCh:
+				if err := performReload(ctx, cmd, opts, rt, target); err != nil {
+					cmd.PrintErrf("proxy: SIGUSR1 reload failed: %v\n", err)
+				}
+			}
+		}
+	}()
 }
 
 // finishProxyListen distinguishes SIGHUP (exit 75) from
@@ -418,6 +482,9 @@ func validateProxyListenOpts(opts proxyListenOpts) error {
 	}
 	if opts.ppFile == "" {
 		return errors.New("--vault-passphrase-file is required (for key derivation + audit)")
+	}
+	if opts.reloadAllowFile && opts.allowFile == "" {
+		return errors.New("--reload-allow-file requires --allow-file (the SIGUSR1 reload path re-reads the YAML)")
 	}
 	return nil
 }
