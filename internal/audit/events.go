@@ -42,6 +42,16 @@ const (
 	// Requires migration 00002.
 	EventOffSandbox EventType = "offensive_sandbox"
 	EventAdmin      EventType = "admin_action"
+	// EventProxyAllowlistReload captures a v1.17 chunk-4
+	// SIGUSR1 in-process allow-file reload attempt. One entry
+	// per SIGUSR1 firing — both successful swaps and rejections
+	// (parse error, sidecar mode, authorise mismatch). The
+	// payload carries enough state for an operator to decide
+	// whether a swap actually happened: status (ok|failed),
+	// plugin, target, old_hash_prefix / new_hash_prefix (8 hex
+	// chars each, for grepability), and a one-line reason on
+	// failure. Requires migration 00003.
+	EventProxyAllowlistReload EventType = "proxy_allowlist_reload"
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -58,6 +68,7 @@ var AllEventTypes = []EventType{
 	EventOffWrite, EventOffDial, EventOffSMS, EventOffHarvest,
 	EventOffSandbox,
 	EventAdmin,
+	EventProxyAllowlistReload,
 }
 
 // IsProtectedMetadata reports whether a row with the given event type

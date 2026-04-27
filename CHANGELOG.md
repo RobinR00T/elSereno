@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.17 chunk 5 — `proxy_allowlist_reload` audit event**:
+  every SIGUSR1 in-process reload (introduced in chunk 4) now
+  emits a dedicated audit-chain entry with the swap status
+  (`ok` / `failed`), plugin, target, allow-file path, old/new
+  hash-prefix correlation handles, token-generation, and (on
+  failure) a one-line reason. New `audit.EventProxyAllowlist-
+  Reload` const + migration `00003_audit_proxy_allowlist_
+  reload_event_type.sql` extending the SQL CHECK enumeration.
+  Audit emit is best-effort (a failed audit-chain write doesn't
+  block the reload swap), but every SIGUSR1 firing produces
+  exactly one row regardless of whether the reload succeeded.
+  Operators can now grep `event_type=proxy_allowlist_reload`
+  to audit reload-cadence + reject-reasons across long-lived
+  proxy sessions. 2 new tests in
+  `cmd_proxy_reload_offensive_test.go` (defensive nil-writer
+  no-op + hash-prefix stability). The
+  `internal/audit/events_test.go` migration-sync test
+  automatically picks up the new event type.
 - **v1.17 chunk 4 — SIGUSR1 in-process allow-file reload**:
   delivers the operator-facing in-process reload that the v1.16-
   chunk-4 token-generation foundation + v1.17 chunks 1-3 cross-

@@ -246,3 +246,36 @@ func TestReloadableHandler_HandleWithNilInnerErrors(t *testing.T) {
 		t.Errorf("error = %q; want mention of nil handler", err.Error())
 	}
 }
+
+// TestEmitReloadAudit_NilWriterNoOps — defensive: when the
+// runtime has no audit writer (rare but possible during early
+// shutdown / setup error paths), the audit emit silently no-ops
+// without panicking.
+func TestEmitReloadAudit_NilWriterNoOps(_ *testing.T) {
+	// Should not panic — t is unused because the tests are
+	// purely "doesn't crash" assertions.
+	emitReloadAudit(context.Background(), nil, proxyListenOpts{plugin: "sip"}, "old", "new", nil)
+	emitReloadAudit(context.Background(), &offensiveRuntime{}, proxyListenOpts{plugin: "sip"}, "old", "new", nil)
+}
+
+// TestCurrentHandlerHashPrefix_Stable — pin the hash-prefix
+// extraction shape: same handler → same prefix; different
+// handler instances → different prefixes (modulo address
+// reuse, which is rare in a process).
+func TestCurrentHandlerHashPrefix_Stable(t *testing.T) {
+	v1 := &stubGatedHandler{id: "v1"}
+	r := newReloadableHandler(v1)
+	p1 := currentHandlerHashPrefix(r)
+	p2 := currentHandlerHashPrefix(r)
+	if p1 != p2 {
+		t.Errorf("currentHandlerHashPrefix not stable for same inner: %q vs %q", p1, p2)
+	}
+	if p1 == "" {
+		t.Error("currentHandlerHashPrefix returned empty for installed inner")
+	}
+	// Empty wrapper → empty prefix.
+	empty := &reloadableHandler{}
+	if got := currentHandlerHashPrefix(empty); got != "" {
+		t.Errorf("currentHandlerHashPrefix on empty wrapper = %q, want empty", got)
+	}
+}

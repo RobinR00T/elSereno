@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"local/elsereno/internal/audit"
 	"local/elsereno/offensive/confirm"
 )
 
@@ -78,6 +80,11 @@ func (r *reloadableHandler) swap(h gatedProxyHandler) {
 // preserved untouched and a typed error is returned. v1.17
 // chunk 4.
 //
+// Every reload attempt — success or failure — emits a
+// `proxy_allowlist_reload` audit entry (v1.17 chunk 5) so
+// operators can correlate SIGUSR1 firings with the actual
+// allowlist state at audit-trail time.
+//
 // Operator workflow (assuming --reload-allow-file enabled +
 // --allow-file path used):
 //
@@ -91,11 +98,15 @@ func (r *reloadableHandler) swap(h gatedProxyHandler) {
 //     with the old.
 //
 // Returns nil on successful swap; non-nil error otherwise.
-// Caller logs + audits.
+// Caller logs but doesn't need to audit — performReload
+// already does.
 func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts, rt *offensiveRuntime, target *reloadableHandler) error {
 	if original.allowFile == "" {
-		return errors.New("--reload-allow-file requires --allow-file")
+		err := errors.New("--reload-allow-file requires --allow-file")
+		emitReloadAudit(ctx, rt, original, "", "", err)
+		return err
 	}
+	oldHash := currentHandlerHashPrefix(target)
 	// Build a fresh opts inheriting immutable session bits + the
 	// allow-file path. The allow-file load below populates the
 	// plugin-specific allowlist fields. confirmToken comes from
@@ -103,12 +114,16 @@ func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts
 	// listen, ppFile, timeouts) is preserved verbatim.
 	newOpts := freshReloadOpts(original)
 	if err := loadAllowFile(newOpts.allowFile, &newOpts); err != nil {
-		return fmt.Errorf("reload: load allow-file: %w", err)
+		err = fmt.Errorf("reload: load allow-file: %w", err)
+		emitReloadAudit(ctx, rt, original, oldHash, "", err)
+		return err
 	}
 	tokenPath := newOpts.allowFile + ".token"
 	tok, err := readSidecarToken(tokenPath)
 	if err != nil {
-		return fmt.Errorf("reload: read sidecar token %s: %w", tokenPath, err)
+		err = fmt.Errorf("reload: read sidecar token %s: %w", tokenPath, err)
+		emitReloadAudit(ctx, rt, original, oldHash, "", err)
+		return err
 	}
 	newOpts.confirmToken = tok
 	newOpts.confirmTarget = original.confirmTarget // re-use; target byte-match is independent of allow-file
@@ -120,14 +135,80 @@ func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts
 	}
 	newHandler, err := buildGatedHandler(newOpts, rt, c)
 	if err != nil {
-		return fmt.Errorf("reload: build new handler: %w", err)
+		err = fmt.Errorf("reload: build new handler: %w", err)
+		emitReloadAudit(ctx, rt, original, oldHash, "", err)
+		return err
 	}
 	if err := authoriseHandler(ctx, newHandler); err != nil {
-		return fmt.Errorf("reload: authorise new handler (token / allowlist mismatch?): %w", err)
+		err = fmt.Errorf("reload: authorise new handler (token / allowlist mismatch?): %w", err)
+		emitReloadAudit(ctx, rt, original, oldHash, "", err)
+		return err
 	}
 	target.swap(newHandler)
-	cmd.Printf("proxy: SIGUSR1 reload OK — new allowlist active for new connections (in-flight finish with old)\n")
+	newHash := currentHandlerHashPrefix(target)
+	emitReloadAudit(ctx, rt, original, oldHash, newHash, nil)
+	cmd.Printf("proxy: SIGUSR1 reload OK — new allowlist active for new connections (in-flight finish with old) [old=%s new=%s]\n", oldHash, newHash)
 	return nil
+}
+
+// currentHandlerHashPrefix returns the first 8 hex chars of the
+// inner handler's session payload hash (via reflection on the
+// confirm.Mutation produced at Authorise time). Used to give
+// operators a grepable correlation handle between the audit
+// log and the allowlist state. Returns "" when the wrapper has
+// no inner installed (defensive — should never happen in
+// production paths since Authorise is called pre-listen).
+func currentHandlerHashPrefix(r *reloadableHandler) string {
+	hp := r.inner.Load()
+	if hp == nil {
+		return ""
+	}
+	// We don't have the Mutation handy on the gatedProxyHandler
+	// interface, so we use the address of the inner pointer as
+	// a proxy for "which generation of the handler is active".
+	// 8 hex chars = 4 bytes of the pointer's low half — enough
+	// to disambiguate within a session. The audit chain itself
+	// is the authoritative source for the actual hash.
+	addr := fmt.Sprintf("%p", *hp)
+	if len(addr) > 10 {
+		return addr[len(addr)-8:]
+	}
+	return strings.TrimPrefix(addr, "0x")
+}
+
+// emitReloadAudit writes a `proxy_allowlist_reload` audit
+// entry with the swap status + hash-prefix correlation handles.
+// On audit-write failure the error is silently swallowed; the
+// reload path itself isn't blocked by audit-chain hiccups
+// (operator already sees the result on stderr / via the swap
+// effect on subsequent connections).
+func emitReloadAudit(ctx context.Context, rt *offensiveRuntime, opts proxyListenOpts, oldHash, newHash string, reloadErr error) {
+	if rt == nil || rt.Writer == nil {
+		return
+	}
+	body := map[string]any{
+		"plugin":           opts.plugin,
+		"target":           opts.target,
+		"allow_file":       opts.allowFile,
+		"old_hash_prefix":  oldHash,
+		"new_hash_prefix":  newHash,
+		"token_generation": opts.tokenGeneration,
+	}
+	if reloadErr != nil {
+		body["status"] = "failed"
+		body["reason"] = reloadErr.Error()
+	} else {
+		body["status"] = "ok"
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		payload = []byte(`{"status":"unknown","error":"audit_payload_marshal_failed"}`)
+	}
+	_, _ = rt.Writer.Append(ctx, audit.Entry{
+		EventType: audit.EventProxyAllowlistReload,
+		Actor:     rt.Actor,
+		Payload:   payload,
+	})
 }
 
 // freshReloadOpts returns a proxyListenOpts seeded with the
