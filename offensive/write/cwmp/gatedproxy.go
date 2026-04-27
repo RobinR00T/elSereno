@@ -467,6 +467,119 @@ func SessionMutationWithFirmware(target string, rpcs []AllowedRPC, paths []Allow
 	}
 }
 
+// AllowlistHashWithGeneration is the v1.17 chunk-1 hash that
+// adds the token-generation cookie on top of the v1.12 chunk-10
+// layer. Backwards-compat ladder: generation == 0 → equals
+// AllowlistHashWithFirmware. All v1.11 → v1.12 confirm-tokens
+// remain valid for operators who don't bump the generation
+// (the default).
+//
+// Hash layout (when generation != 0): the same lower-layer
+// bytes (target || 0x00 || RPCs || optional 0xFE paths ||
+// optional 0xFD firmware) followed by:
+//
+//	|| 0xFC || u32 generation (big-endian)
+//
+// Separator 0xFC is below 0xFD (firmware) and 0xFE (paths).
+// 5-byte block.
+//
+// Use case: in-process allow-file reload — operator bumps the
+// generation when editing the allow-file; their dry-run
+// computes a new token incorporating the new generation; the
+// running proxy on reload rejects any stale (generation < new)
+// tokens. Mirrors the BACnet v1.16-chunk-4 design for cross-
+// protocol reload symmetry.
+func AllowlistHashWithGeneration(target string, rpcs []AllowedRPC, paths []AllowedParameterPath, firmware []AllowedFirmware, generation uint32) [32]byte {
+	if generation == 0 {
+		return AllowlistHashWithFirmware(target, rpcs, paths, firmware)
+	}
+	sortedRPCs, sortedPaths, sortedFirmware := canonCWMPAllowlist(rpcs, paths, firmware)
+
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	for _, r := range sortedRPCs {
+		_, _ = h.Write([]byte(r))
+		_, _ = h.Write([]byte{0x00})
+	}
+	if len(sortedPaths) > 0 {
+		_, _ = h.Write([]byte{0xFE})
+		for _, p := range sortedPaths {
+			_, _ = h.Write([]byte(p))
+			_, _ = h.Write([]byte{0x00})
+		}
+	}
+	if len(sortedFirmware) > 0 {
+		_, _ = h.Write([]byte{0xFD})
+		for _, f := range sortedFirmware {
+			writeLengthPrefixedString(h, f.URL)
+			writeLengthPrefixedString(h, f.SHA256)
+		}
+	}
+	// v1.17 chunk 1: generation cookie.
+	var u32 [4]byte
+	binary.BigEndian.PutUint32(u32[:], generation)
+	_, _ = h.Write([]byte{0xFC})
+	_, _ = h.Write(u32[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// canonCWMPAllowlist canonicalises + sorts the three allowlist
+// dimensions (RPCs, paths, firmware) for hash inclusion.
+// Extracted from AllowlistHashWithGeneration to keep that
+// function under funlen.
+func canonCWMPAllowlist(rpcs []AllowedRPC, paths []AllowedParameterPath, firmware []AllowedFirmware) ([]string, []string, []AllowedFirmware) {
+	sortedRPCs := make([]string, 0, len(rpcs))
+	for _, r := range rpcs {
+		if c := canonicaliseRPC(r.Name); c != "" {
+			sortedRPCs = append(sortedRPCs, c)
+		}
+	}
+	sort.Strings(sortedRPCs)
+
+	sortedPaths := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if c := canonicaliseParameterPath(p.Prefix); c != "" {
+			sortedPaths = append(sortedPaths, c)
+		}
+	}
+	sort.Strings(sortedPaths)
+
+	sortedFirmware := make([]AllowedFirmware, 0, len(firmware))
+	for _, f := range firmware {
+		canon := canonicaliseFirmwareURL(f.URL)
+		if canon == "" {
+			continue
+		}
+		sortedFirmware = append(sortedFirmware, AllowedFirmware{
+			URL:    canon,
+			SHA256: strings.ToLower(strings.TrimSpace(f.SHA256)),
+		})
+	}
+	sort.Slice(sortedFirmware, func(i, j int) bool {
+		if sortedFirmware[i].URL != sortedFirmware[j].URL {
+			return sortedFirmware[i].URL < sortedFirmware[j].URL
+		}
+		return sortedFirmware[i].SHA256 < sortedFirmware[j].SHA256
+	})
+	return sortedRPCs, sortedPaths, sortedFirmware
+}
+
+// SessionMutationWithGeneration is the v1.17 chunk-1 Mutation,
+// the new top of the CWMP allowlist hash ladder. generation ==
+// 0 → degrades to SessionMutationWithFirmware.
+func SessionMutationWithGeneration(target string, rpcs []AllowedRPC, paths []AllowedParameterPath, firmware []AllowedFirmware, generation uint32) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "cwmp",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithGeneration(target, rpcs, paths, firmware, generation),
+	}
+}
+
 // alwaysSafeRPCs lists the CWMP RPC names that always pass,
 // regardless of the operator's allowlist. Reads, protocol-flow,
 // and CPE→ACS informational RPCs that are required for the CPE
@@ -553,6 +666,13 @@ type WriteGatedHandler struct {
 	// session). Operators with very large push batches set this
 	// explicitly.
 	PendingDownloadCap int
+	// TokenGeneration is the v1.17 chunk-1 token-generation
+	// cookie. Operators bump this when editing the allow-file
+	// to invalidate pre-existing confirm-tokens. Default 0
+	// preserves the v1.12-chunk-10 hash for backwards-compat.
+	// Mirrors the BACnet v1.16-chunk-4 design for cross-
+	// protocol reload symmetry.
+	TokenGeneration uint32
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -591,7 +711,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithFirmware(h.Target, h.Allowed, h.AllowedParameterPaths, h.AllowedFirmware)
+	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.AllowedParameterPaths, h.AllowedFirmware, h.TokenGeneration)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}

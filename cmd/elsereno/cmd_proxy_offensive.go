@@ -129,7 +129,6 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.bacnetLSOTargets, "lso-target", nil, "bacnet: optional per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27, v1.16+). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier (operator-scoped LSO at a specific Life-Safety-Point object). Per-target match wins; falls back to --lso-op for device-wide requests (those without [3]).")
 	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
 	cmd.Flags().StringSliceVar(&opts.bacnetListElements, "list-element", nil, "bacnet: optional per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38).")
-	cmd.Flags().Uint32Var(&opts.bacnetTokenGeneration, "token-generation", 0, "bacnet: optional token-generation cookie (v1.16+). Folds into the session hash so confirm-tokens minted with a different generation are rejected. Operators bump this when editing the allow-file to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload. 0 (default) preserves the v1.16-chunk-3 hash for backwards-compat.")
 }
 
 // registerProxyListenCWMPFlags adds the cwmp flags.
@@ -150,6 +149,13 @@ func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 	cmd.Flags().DurationVar(&opts.dialTimeout, "dial-timeout", 5*time.Second, "upstream dial timeout")
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
+	// Shared across plugins that ship a token-generation cookie
+	// (v1.16+ for bacnet; v1.17+ adding cwmp + others). Each
+	// plugin's handler builder picks this up — only the active
+	// --plugin's gate consumes it. Folds into the session hash
+	// so confirm-tokens minted with a different generation are
+	// rejected.
+	cmd.Flags().Uint32Var(&opts.tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+ bacnet, v1.17+ cwmp). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload. 0 (default) preserves the prior-cycle hash for backwards-compat. Plugins without per-plugin generation support ignore this flag.")
 }
 
 type proxyListenOpts struct {
@@ -163,6 +169,12 @@ type proxyListenOpts struct {
 	// SHA256 is metadata only (TR-069 reports it later via
 	// TransferComplete).
 	cwmpFirmware []string
+	// tokenGeneration is the shared --token-generation cookie
+	// (v1.16+ for bacnet; v1.17+ for cwmp; rolling out to
+	// other plugins as cycles proceed). Each plugin's handler
+	// builder picks this up; plugins without generation support
+	// ignore it.
+	tokenGeneration uint32
 	// bacnetObjects holds the bacnet per-object WriteProperty
 	// allowlist in the CLI-friendly
 	// "type=N;instance=M;property=P" form (v1.12+). Restricts
@@ -196,12 +208,6 @@ type proxyListenOpts struct {
 	// per-operation list when the ACS includes the [3]
 	// objectIdentifier on a per-LSP-scoped request.
 	bacnetLSOTargets []string
-	// bacnetTokenGeneration is the bacnet token-generation
-	// cookie (v1.16+). Folds into the session hash so a
-	// confirm-token minted with a different generation is
-	// rejected. Operators bump this when editing the allow-
-	// file to invalidate stale tokens.
-	bacnetTokenGeneration uint32
 	// bacnetReinitStates holds the bacnet per-state
 	// ReinitializeDevice allowlist (v1.13+). Numeric ASHRAE 135
 	// §16.4 reinitializedStateOfDevice enum (0..7). When
@@ -615,7 +621,7 @@ func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		AllowedLSOTargets:            parsed.lsoTargets,
 		AllowedAtomicWriteFiles:      parsed.awfFiles,
 		AllowedListElements:          parsed.listEls,
-		TokenGeneration:              opts.bacnetTokenGeneration,
+		TokenGeneration:              opts.tokenGeneration,
 		Deriver:                      rt.Vault,
 		Auditor:                      rt.Auditor,
 		SessionConfirm:               c,
@@ -718,6 +724,7 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		Allowed:               allowed,
 		AllowedParameterPaths: paths,
 		AllowedFirmware:       firmware,
+		TokenGeneration:       opts.tokenGeneration,
 		// v1.15 chunk 1: passive observer for the CPE → ACS
 		// TransferComplete RPC. Operators see the firmware-push
 		// outcome alongside their dry-run authorisation in the

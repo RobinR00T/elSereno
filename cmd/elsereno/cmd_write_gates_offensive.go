@@ -1389,6 +1389,7 @@ Exit code: 0 all match, 1 any mismatch, 2 usage / fetch error.`,
 func newWriteCWMPDryRunCmd() *cobra.Command {
 	var target, ppFile, emitFile string
 	var rpcs, paramPrefixes, firmware []string
+	var tokenGeneration uint32
 	cmd := &cobra.Command{
 		Use:   "dry-run",
 		Short: "Print session PayloadHash + allowlist (optional --vault-passphrase-file mints the confirm-token)",
@@ -1409,7 +1410,7 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
-			mut := cwmpwrite.SessionMutationWithFirmware(target, allowed, paths, fws)
+			mut := cwmpwrite.SessionMutationWithGeneration(target, allowed, paths, fws, tokenGeneration)
 			// v1.13 chunk 4: warn when an --rpc value differs from
 			// the canonical TR-069 §A.4 spelling only by case. The
 			// gate is case-sensitive (per TR-069 §A.4), so a
@@ -1443,6 +1444,7 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow — case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
 	cmd.Flags().StringSliceVar(&paramPrefixes, "param-prefix", nil, "optional: per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Only applies to SetParameterValues / SetParameterAttributes; other RPCs unaffected. Case-sensitive. Registration-hijack / partition mitigation (v1.12+).")
 	cmd.Flags().StringSliceVar(&firmware, "firmware", nil, "optional: per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional, repeatable). URL must EXACTLY match the <URL> the ACS sends; SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
+	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.17+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump this when editing the allow-file to invalidate stale tokens. 0 (default) preserves the v1.12-chunk-10 hash for backwards-compat. Mirrors the BACnet --token-generation flag.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
 	return cmd

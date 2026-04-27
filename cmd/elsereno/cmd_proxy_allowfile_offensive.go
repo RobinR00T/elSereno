@@ -398,7 +398,7 @@ func applyBACnetAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 			fmt.Sprintf("op=%d;type=%d;instance=%d", t.Op, t.Type, t.Instance))
 	}
 	if af.TokenGeneration > 0 {
-		opts.bacnetTokenGeneration = af.TokenGeneration
+		opts.tokenGeneration = af.TokenGeneration
 	}
 	for _, f := range af.AWFFiles {
 		opts.bacnetAWFFiles = append(opts.bacnetAWFFiles, uint(f))
@@ -421,6 +421,9 @@ func applyCWMPAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 			entry += ";sha256=" + f.SHA256
 		}
 		opts.cwmpFirmware = append(opts.cwmpFirmware, entry)
+	}
+	if af.TokenGeneration > 0 {
+		opts.tokenGeneration = af.TokenGeneration
 	}
 }
 

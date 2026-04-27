@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.17 chunk 1 — CWMP token-generation cookie**: extends
+  the v1.16-chunk-4 BACnet token-generation pattern to CWMP
+  (TR-069). New optional `Generation uint32` arg on
+  `AllowlistHashWithGeneration` /
+  `SessionMutationWithGeneration` + `TokenGeneration uint32`
+  field on `cwmp.WriteGatedHandler`. Folds into the session
+  hash via new separator `0xFC` (below 0xFD firmware, 0xFE
+  paths). Operators bump the generation when editing the
+  allow-file; a stale confirm-token (minted at the prior
+  generation) is rejected at `Authorise()` time. Default
+  `generation=0` preserves every v1.11 → v1.12 confirm-token.
+  CLI: the existing `--token-generation N` flag (v1.16+ for
+  bacnet) was promoted from the BACnet-specific flag
+  registrar to the shared session-flag registrar so both
+  bacnet + cwmp `proxy listen --plugin <name>` invocations
+  pick it up; `write cwmp dry-run --token-generation N`
+  added. YAML round-trip via the existing
+  `token_generation:` field in `proxyAllowFile`. 7 new tests
+  (`tokengeneration_test.go`) covering the hash-ladder
+  degradation, cryptographic distinctness, determinism, and
+  the E2E Authorise stale-rejected / fresh-accepted /
+  chunk-10-backwards-compat matrix.
 - **v1.16 chunk 4 — BACnet token-generation cookie**: lays the
   cryptographic foundation for in-process allow-file reload.
   New optional `Generation uint32` field on `bacnet.Allowlists`
