@@ -430,6 +430,24 @@ const overviewHTML = `<!doctype html>
     </section>
 
     <section class="panel">
+      <h2>Reload cadence <span class="sub">v1.19+ · proxy_allowlist_reload · last 7 days</span></h2>
+      <div class="sub">
+        Per-day count of v1.17-chunk-5 SIGUSR1 reload audit
+        entries. Spikes correlate to operator change-window
+        activity; sustained zeroes mean no in-process reloads.
+        Loaded from <code>/api/v1/audit/cadence</code>.
+      </div>
+      <table id="reload-cadence-table">
+        <thead>
+          <tr><th>Day (UTC)</th><th>Event</th><th>Count</th><th>Bar</th></tr>
+        </thead>
+        <tbody id="reload-cadence-body">
+          <tr class="empty"><td colspan="4">loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
       <h2>Audit feed <span class="sub">v1.19+ · newest first · top 50</span></h2>
       <div class="sub">
         Loaded from <code>/api/v1/audit</code>. Filter by event_type or actor.
@@ -715,6 +733,45 @@ const overviewHTML = `<!doctype html>
     });
   }
 
+  // v1.19 chunk 2: reload cadence summary. Per-day count of
+  // proxy_allowlist_reload events for the last 7 days, with a
+  // text-based bar chart so operators see spikes at a glance
+  // without pulling in a chart library.
+  function renderReloadCadence() {
+    fetchJSON("/api/v1/audit/cadence?event_type=proxy_allowlist_reload&days=7").then(function (res) {
+      var body = document.getElementById("reload-cadence-body");
+      if (!body) return;
+      if (res.unavailable) { body.innerHTML = '<tr class="empty"><td colspan="4">backend unavailable (no DATABASE_URL)</td></tr>'; return; }
+      var rows = res.data || [];
+      if (rows.length === 0) { body.innerHTML = '<tr class="empty"><td colspan="4">no reload audit rows in the last 7 days</td></tr>'; return; }
+      // Find the max for bar scaling.
+      var maxN = 0;
+      rows.forEach(function (r) { if (r.count > maxN) maxN = r.count; });
+      body.innerHTML = rows.map(function (r) {
+        var dayLabel = (r.day || "").slice(0, 10);
+        var bar = makeAsciiBar(r.count, maxN);
+        return '<tr>' +
+          '<td>' + escText(dayLabel) + '</td>' +
+          '<td><code>' + escText(r.event_type) + '</code></td>' +
+          '<td>' + escText(r.count) + '</td>' +
+          '<td><code>' + escText(bar) + '</code></td>' +
+        '</tr>';
+      }).join("");
+    }).catch(function (e) {
+      var body = document.getElementById("reload-cadence-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="4">error: ' + escText(e.message) + '</td></tr>';
+    });
+  }
+  function makeAsciiBar(count, max) {
+    if (max <= 0) return "";
+    var width = 30;
+    var n = Math.round((count / max) * width);
+    if (n < 1 && count > 0) n = 1;
+    var s = "";
+    for (var i = 0; i < n; i++) s += "█";
+    return s;
+  }
+
   // v1.19 chunk 1: audit feed. Loads /api/v1/audit, applying
   // event_type + actor filters from the form. Tombstoned rows
   // render as [redacted] per ADR-013.
@@ -800,7 +857,7 @@ const overviewHTML = `<!doctype html>
   }
 
   // Initial load.
-  renderTriage(); renderFindings(); renderRuns(); refreshAudit();
+  renderTriage(); renderFindings(); renderRuns(); refreshAudit(); renderReloadCadence();
 
   // Re-fetch the DB-backed panels on SSE signals so the page
   // reacts to live scans without a full reload. We debounce by

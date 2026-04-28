@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.19 chunk 2 — Reload cadence dashboard panel**: surfaces
+  the v1.17-chunk-5 `proxy_allowlist_reload` audit rows as a
+  per-day count for the last 7 days. Operators see spikes
+  during change-window activity + sustained zeroes when no
+  in-process reloads happen. Reuses the
+  `/api/v1/audit/cadence?event_type=proxy_allowlist_reload`
+  endpoint from chunk 1; renders a text-based bar chart
+  (`█` width-30 scaled to the max count) so the dashboard
+  doesn't pull in a chart library. Pure dashboard addition;
+  no new API surface, no new test (chunk 1's
+  `TestAuditCadence_HappyPath` already covers the underlying
+  endpoint).
 - **v1.19 chunk 1 — Audit log API endpoint + dashboard panel**:
   closes a long-running observability gap — operators can
   finally see audit-chain entries on the dashboard without
