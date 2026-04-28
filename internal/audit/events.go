@@ -52,6 +52,18 @@ const (
 	// chars each, for grepability), and a one-line reason on
 	// failure. Requires migration 00003.
 	EventProxyAllowlistReload EventType = "proxy_allowlist_reload"
+	// EventCWMPFirmwareVerify captures a v1.19 chunk-3 async
+	// firmware re-fetch attempt. Triggered by the CWMP
+	// TransferComplete observer when --verify-firmware-on-
+	// complete is set + the TransferComplete carries a
+	// resolved Authorisation with a non-empty AllowlistSHA256.
+	// Payload: status (`match`/`mismatch`/`unreachable`),
+	// url, expected_sha256, got_sha256 (when measured),
+	// command_key, target. Emit is async (the goroutine
+	// outlives the request); a network failure produces a
+	// `unreachable` row, not a missed audit. Requires
+	// migration 00004.
+	EventCWMPFirmwareVerify EventType = "cwmp_firmware_verify"
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -69,6 +81,7 @@ var AllEventTypes = []EventType{
 	EventOffSandbox,
 	EventAdmin,
 	EventProxyAllowlistReload,
+	EventCWMPFirmwareVerify,
 }
 
 // IsProtectedMetadata reports whether a row with the given event type

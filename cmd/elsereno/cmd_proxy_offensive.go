@@ -136,6 +136,8 @@ func registerProxyListenCWMPFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
 	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
 	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
+	cmd.Flags().BoolVar(&opts.cwmpVerifyFirmwareOnComplete, "verify-firmware-on-complete", false, "cwmp: opt-in async post-flash firmware re-fetch (v1.19+). On every successful TransferComplete with a resolved Authorisation + non-empty AllowlistSHA256, the proxy spawns a goroutine that re-downloads the URL, hashes it, and emits a `cwmp_firmware_verify` audit row with status match/mismatch/unreachable. Catches firmware swaps on the source server (supply-chain attack) that the CPE-side TC report alone can't surface. Async — doesn't block the proxy.")
+	cmd.Flags().DurationVar(&opts.cwmpVerifyFirmwareTimeout, "verify-firmware-timeout", 5*time.Minute, "cwmp: timeout for the v1.19+ async firmware re-fetch (only used when --verify-firmware-on-complete is set). Default 5m; bump for slow links / large images. A timeout produces a `cwmp_firmware_verify` audit row with status `unreachable`.")
 }
 
 // registerProxyListenSessionFlags adds the session-control
@@ -170,6 +172,16 @@ type proxyListenOpts struct {
 	// SHA256 is metadata only (TR-069 reports it later via
 	// TransferComplete).
 	cwmpFirmware []string
+	// cwmpVerifyFirmwareOnComplete enables the v1.19 chunk-3
+	// post-flash firmware re-fetch. When set + the
+	// TransferComplete observer fires with a resolved
+	// Authorisation + non-empty AllowlistSHA256, the proxy
+	// spawns a goroutine that re-downloads the URL + hashes
+	// it + emits a `cwmp_firmware_verify` audit row.
+	cwmpVerifyFirmwareOnComplete bool
+	// cwmpVerifyFirmwareTimeout caps the connection + body-
+	// read for the v1.19 chunk-3 re-fetch. Default 5 minutes.
+	cwmpVerifyFirmwareTimeout time.Duration
 	// tokenGeneration is the shared --token-generation cookie
 	// (v1.16+ for bacnet; v1.17+ for cwmp; rolling out to
 	// other plugins as cycles proceed). Each plugin's handler
@@ -801,11 +813,25 @@ func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		// TransferComplete RPC. Operators see the firmware-push
 		// outcome alongside their dry-run authorisation in the
 		// proxy log stream.
-		OnTransferComplete: defaultTransferCompleteObserver(opts.target),
+		// v1.19 chunk 3: when --verify-firmware-on-complete is
+		// set, wrap the default observer with the verifying
+		// variant that spawns the async re-fetch.
+		OnTransferComplete: chooseTransferCompleteObserver(opts, rt),
 		Deriver:            rt.Vault,
 		Auditor:            rt.Auditor,
 		SessionConfirm:     c,
 	}, nil
+}
+
+// chooseTransferCompleteObserver returns the default observer
+// when --verify-firmware-on-complete is off (v1.15 chunk 1
+// behaviour), or the verifying wrapper when it's on (v1.19
+// chunk 3). Extracted to keep buildCWMPHandler under funlen.
+func chooseTransferCompleteObserver(opts proxyListenOpts, rt *offensiveRuntime) cwmpwrite.TransferCompleteObserver {
+	if opts.cwmpVerifyFirmwareOnComplete {
+		return verifyingTransferCompleteObserver(opts.target, rt, opts.cwmpVerifyFirmwareTimeout)
+	}
+	return defaultTransferCompleteObserver(opts.target)
 }
 
 // defaultTransferCompleteObserver writes a structured stderr

@@ -133,7 +133,7 @@ func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts
 		ConfirmTarget: newOpts.confirmTarget,
 		ConfirmToken:  newOpts.confirmToken,
 	}
-	newHandler, err := buildGatedHandler(newOpts, rt, c)
+	newHandler, err := buildGatedHandler(newOpts, rt, c) //nolint:contextcheck // buildGatedHandler is a pure constructor; the v1.19-chunk-3 firmware-verify goroutine chain it can install uses its own context.WithTimeout (post-request).
 	if err != nil {
 		err = fmt.Errorf("reload: build new handler: %w", err)
 		emitReloadAudit(ctx, rt, original, oldHash, "", err)

@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.19 chunk 3 — CWMP TransferComplete async firmware
+  re-fetch**: closes the long-running v1.16 chunk-1 loose end
+  by adding a post-flash supply-chain integrity check.
+  TR-069 doesn't carry the SHA-256 in TransferComplete — the
+  CPE just reports success/failure — so a firmware swap on
+  the source server (e.g. compromised ACS staging host) can
+  pass undetected if the operator only relied on the v1.13
+  chunk-2 pre-flight `verify-firmware` recipe. v1.19 chunk 3
+  closes this by re-fetching + hashing the URL post-flash.
+  Opt-in via the new `--verify-firmware-on-complete` flag on
+  `proxy listen --plugin cwmp` (off by default — async re-
+  fetch isn't free; operators turn it on for high-stakes
+  ISP-grade fleets). Wraps the v1.15-chunk-1 default
+  TransferComplete observer in a `verifyingTransferComplete-
+  Observer` that, on every successful TC carrying a resolved
+  Authorisation with a non-empty AllowlistSHA256, spawns a
+  goroutine that:
+  (a) HTTP-fetches AllowlistURL with a caller-supplied
+  timeout (default 5m via new `--verify-firmware-timeout`);
+  (b) streams + SHA-256-hashes the body (no full-image
+  buffering — firmware can be tens of MiB);
+  (c) compares against AllowlistSHA256 (case-insensitive);
+  (d) emits a `cwmp_firmware_verify` audit row with status
+  `match` / `mismatch` / `unreachable` + url + expected and
+  measured SHA-256 + command_key + target.
+  Async — the proxy request finishes before the verification;
+  network failures produce an `unreachable` audit row, not a
+  missed audit. New `audit.EventCWMPFirmwareVerify` const +
+  migration `00004_audit_cwmp_firmware_verify_event_type.sql`.
+  Reuses the v1.13-chunk-2 `fetchFirmwareSHA256` /
+  `firmwareStatusMatch|Mismatch` primitives from
+  `cmd_write_gates_offensive.go`. 9 new tests covering the
+  status classifier (match / mismatch / unreachable), the
+  observer-skip cases (no auth / empty SHA-256 / fault path),
+  defensive nil-runtime no-ops, and the chooseTransferComplete-
+  Observer opt-in/opt-out switch.
 - **v1.19 chunk 2 — Reload cadence dashboard panel**: surfaces
   the v1.17-chunk-5 `proxy_allowlist_reload` audit rows as a
   per-day count for the last 7 days. Operators see spikes
