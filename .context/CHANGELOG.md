@@ -8,6 +8,26 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.20 (chunk 2) — **MELSEC SLMP TCP fingerprint
+  plugin on TCP/5007.** Second of three legacy-ICS fingerprint
+  plugins scheduled for v1.20. `internal/protocols/slmp/wire/` carries
+  the from-scratch READ CPU MODEL NAME (command 0x0101, subcommand
+  0x0000) request builder + 3E-frame response parser per Mitsubishi
+  Electric SLMP Reference Manual SH(NA)-080956ENG; validates
+  subheader 0xD000, declared-length consistency, end-code zero;
+  caps the declared-length field at 8192 to defuse oversized-length
+  attacks; trims NUL/space padding off 16-byte ASCII Model. Plugin
+  layer dials TCP, reads the 9-byte header first to learn the body
+  length, then reads the body (with growth fallback if the initial
+  buffer was too small). ProxyHandler is wire-layer write-ban: reads
+  the request header + body, replies with a 13-byte error frame
+  carrying SLMP end code 0xC059 ("command unsupported" per §6.6
+  end-code table); does NOT forward to upstream. Score
+  factors{protocol_risk:80, exposure:75, auth_state:95, capability:
+  30→75 on SLMP reply, impact_class:75, cve_exposure:0}. 19 protocol
+  plugins now register in the default build (18 → 19); 9 wire tests
+  + 11 plugin tests; `make ci` green, 0 lint, 0 sec.
+
 - 2026-04-28 — v1.20 (chunk 1) — **Omron FINS UDP fingerprint plugin
   on UDP/9600.** First of three legacy-ICS fingerprint plugins
   scheduled for v1.20. `internal/protocols/finsudp/wire/` carries

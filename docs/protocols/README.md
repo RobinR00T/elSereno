@@ -1,10 +1,10 @@
 # Protocol support
 
-ElSereno ships **18 protocol plugins** in the default build (as
+ElSereno ships **19 protocol plugins** in the default build (as
 of v1.20.0, 2026-04-28). Every TCP-based plugin enforces a wire-
 layer write-ban in the default build; writes land only under
 `-tags offensive` and must clear the ADR-039 triple-confirm
-wrapper. **7 of the 18** carry write-gated proxies with per-
+wrapper. **7 of the 19** carry write-gated proxies with per-
 object / per-path scoping (rows in **bold**).
 
 | Protocol | Port(s) | Probe | Proxy default | Writes (offensive) |
@@ -26,6 +26,7 @@ object / per-path scoping (rows in **bold**).
 | [**pbxhttp**](pbxhttp.md) | 443, 80, 8088, 5001, 8443, 411 | HTTP admin probe | HTTP 405 / 403 | per-(method, path) |
 | [**CWMP / TR-069**](cwmp.md) | 7547 | ACS Inform fingerprint | SOAP Fault 9001 "Request denied" | per-SOAP-RPC + per-parameter-path (v1.12) + per-firmware-URL for Download (v1.12) |
 | Omron FINS ([finsudp.md](finsudp.md)) | 9600/udp | CONTROLLER DATA READ (MRC=0x05 SRC=0x01) | fail-closed (TCP framework) | (vNext — memory writes / RUN-STOP) |
+| MELSEC SLMP ([slmp.md](slmp.md)) | 5007 | READ CPU MODEL NAME (cmd 0x0101 sub 0x0000) | wire write-ban (end code 0xC059) | (vNext — Batch Write / Remote RUN-STOP) |
 | Banner / dictionary ([banner.md](banner.md)) | many | TCP read, vendor match | read-only | n/a |
 
 ## Proxy default-build policy

@@ -19,6 +19,7 @@ import (
 	"local/elsereno/internal/protocols/pbxhttp"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
+	"local/elsereno/internal/protocols/slmp"
 	"local/elsereno/internal/protocols/xot"
 )
 
@@ -44,4 +45,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: pbxhttp.Default().Metadata(), Factory: func() core.Protocol { return pbxhttp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: finsudp.Default().Metadata(), Factory: func() core.Protocol { return finsudp.Default() }})
+	core.Register(core.Plugin{PluginMetadata: slmp.Default().Metadata(), Factory: func() core.Protocol { return slmp.Default() }})
 }
