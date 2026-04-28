@@ -11,6 +11,7 @@ import (
 	"local/elsereno/internal/protocols/enip"
 	"local/elsereno/internal/protocols/finsudp"
 	"local/elsereno/internal/protocols/fox"
+	"local/elsereno/internal/protocols/gesrtp"
 	"local/elsereno/internal/protocols/hartip"
 	"local/elsereno/internal/protocols/iax2"
 	"local/elsereno/internal/protocols/iec104"
@@ -46,4 +47,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: finsudp.Default().Metadata(), Factory: func() core.Protocol { return finsudp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: slmp.Default().Metadata(), Factory: func() core.Protocol { return slmp.Default() }})
+	core.Register(core.Plugin{PluginMetadata: gesrtp.Default().Metadata(), Factory: func() core.Protocol { return gesrtp.Default() }})
 }

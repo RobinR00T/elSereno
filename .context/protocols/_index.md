@@ -22,10 +22,11 @@ token-budget: 800
 | ATG Veeder-Root | 10001/tcp | F4 | implemented | [atg.md](atg.md) |
 | Omron FINS UDP | 9600/udp | v1.20 | implemented | [finsudp.md](finsudp.md) |
 | MELSEC SLMP | 5007/tcp | v1.20 | implemented | [slmp.md](slmp.md) |
+| GE-SRTP | 18245/tcp | v1.20 | implemented | [gesrtp.md](gesrtp.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **19 plugins** registered in the default build (read-only) as of v1.20 chunk 2.
+- **20 plugins** registered in the default build (read-only) as of v1.20 chunk 3.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in

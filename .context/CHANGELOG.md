@@ -8,6 +8,30 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.20 (chunk 3) — **GE-SRTP TCP fingerprint plugin
+  on TCP/18245.** Third of three legacy-ICS fingerprint plugins
+  scheduled for v1.20. `internal/protocols/gesrtp/wire/` carries
+  the 56-byte CONNECTION INIT mailbox builder + ClassifyResponse
+  function reverse-engineered from Rapid7's nmap NSE script
+  `gesrtp-info` and Conpot's GE simulator fixtures. Probe sends
+  byte 0 = 0x02, reads exactly 56 bytes, classifies by the
+  response type byte (0x03 = response). Public protocol
+  documentation is sparse so deeper service-code probing (CPU
+  model identification via service 0x21) is deferred — the plugin
+  captures "56-byte SRTP mailbox came back" as the fingerprint
+  signal and surfaces shape errors via classifyParseError ("short
+  SRTP frame (N bytes)" / "SRTP response type byte not 0x03").
+  ProxyHandler is wire-layer write-ban: reads the client mailbox,
+  replies with a 56-byte mailbox carrying byte 0 = 0x03 + byte 42
+  = 0x01 (non-zero status indicator); does NOT forward to upstream.
+  Score factors{protocol_risk:80, exposure:75, auth_state:95,
+  capability:30→70 on SRTP reply (slightly lower than finsudp/slmp
+  because the connection-init classifier doesn't decode the
+  response payload — operators get less actionable detail), impact_
+  class:75, cve_exposure:0}. 20 protocol plugins now register in
+  the default build (19 → 20); 6 wire tests + 7 plugin tests;
+  `make ci` green, 0 lint, 0 sec.
+
 - 2026-04-28 — v1.20 (chunk 2) — **MELSEC SLMP TCP fingerprint
   plugin on TCP/5007.** Second of three legacy-ICS fingerprint
   plugins scheduled for v1.20. `internal/protocols/slmp/wire/` carries
