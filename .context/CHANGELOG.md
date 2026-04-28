@@ -8,6 +8,22 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.21 (chunk 1) — **KNXnet/IP UDP fingerprint
+  plugin on UDP/3671.** First chunk of the v1.21 cycle (continuing
+  the legacy ICS fingerprint roll-out from v1.20).
+  `internal/protocols/knxip/wire/` carries the from-scratch
+  DESCRIPTION_REQUEST builder + DESCRIPTION_RESPONSE parser per
+  KNX Standard 03.08.02 §2.2; validates header bytes 0x06 0x10,
+  service type 0x0205, total-length consistency, device-info DIB
+  type 0x01 at offset 7. Trims NUL/space padding off the 30-byte
+  ASCII friendly name with a single-pass cutset. Plugin uses an
+  anonymous control HPAI (0.0.0.0:0) which is the canonical
+  shape for unsolicited probes. ProxyHandler is fail-closed
+  (UDP). Score factors{protocol_risk:75, exposure:75, auth_state:90,
+  capability:30→75 on KNX reply, impact_class:70, cve_exposure:0}.
+  21 protocol plugins now register in the default build (20 → 21);
+  9 wire tests + 7 plugin tests; `make ci` green, 0 lint, 0 sec.
+
 - 2026-04-28 — v1.20 (chunk 3) — **GE-SRTP TCP fingerprint plugin
   on TCP/18245.** Third of three legacy-ICS fingerprint plugins
   scheduled for v1.20. `internal/protocols/gesrtp/wire/` carries
