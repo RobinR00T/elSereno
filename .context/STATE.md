@@ -1,17 +1,38 @@
 ---
-phase: v1.19-in-flight
-status: v1.19 cycle closed on `main` (3 chunks, tag pending operator); v1.18 + v1.17 + v1.16 also closed
+phase: v1.20-in-flight
+status: v1.20 cycle closed on `main` (3 chunks, tag pending operator); v1.19 + v1.18 + v1.17 + v1.16 also closed
 last-updated: 2026-04-28
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.19 cycle closed on `main`** (3 chunks, tag
-pending operator decision). v1.18 also closed (2 chunks).
-v1.17 also closed (5 chunks). v1.16 also closed (4 chunks).
+**Phase**: **v1.20 cycle closed on `main`** (3 chunks, tag
+pending operator decision). Adds the legacy ICS fingerprint
+trio: Omron FINS UDP, MELSEC SLMP TCP, GE-SRTP TCP. Default
+build now registers **20 protocol plugins** (was 17). v1.19
+also closed (3 chunks). v1.18 also closed (2 chunks). v1.17
+also closed (5 chunks). v1.16 also closed (4 chunks).
 v1.15.0 remains the latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+
+**v1.20 chunks landed (in-flight)**:
+- 1   `96c5453` — Omron FINS UDP fingerprint plugin (UDP/9600).
+  CONTROLLER DATA READ (MRC=0x05 SRC=0x01) per OMRON CPU
+  manual W421 §5.1/§5.4. Fail-closed UDP proxy. 12 wire +
+  11 plugin tests.
+- 2   `fcf5931` — MELSEC SLMP TCP fingerprint plugin (TCP/5007).
+  READ CPU MODEL NAME (cmd 0x0101 sub 0x0000) per Mitsubishi
+  Electric SLMP Reference Manual SH(NA)-080956ENG. Wire-layer
+  write-ban (end code 0xC059). 9 wire + 11 plugin tests.
+- 3   `8a89baa` — GE-SRTP TCP fingerprint plugin (TCP/18245).
+  56-byte CONNECTION INIT mailbox reverse-engineered from
+  Rapid7's nmap NSE script gesrtp-info + Conpot fixtures.
+  Wire-layer write-ban (mailbox response with non-zero
+  status byte). 6 wire + 7 plugin tests.
+
+Snapshot:
+`.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
 
 **v1.19 chunks landed (in-flight)**:
 - 1   Audit log API endpoint (`/api/v1/audit` +
@@ -179,33 +200,26 @@ futuro se restaura billing, los workflows se pueden reactivar
 editando el `on:` stanza en cada `.github/workflows/*.yml`
 (los triggers originales quedan preservados en comentarios).
 
-**Shipped releases** (per-cycle deep dives in
-`.context/snapshots/v1.<N>.0-*.md`; one-line summaries in
-`ROADMAP.md` "Shipped highlights"):
-v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8
-→ v1.9 → v1.10 → v1.11 → v1.12 → v1.13 → v1.14 → **v1.15**
-(latest published). v1.16 cycle closed on `main`, tag pending
-operator decision.
+**Shipped releases** (deep dives in
+`.context/snapshots/v1.<N>.0-*.md`; ROADMAP.md highlights):
+v1.0 → … → **v1.15** (latest published). v1.16 → v1.20 cycles
+closed on `main`, tags pending operator.
 **Counts now**:
-- 17 protocol plugins (default build): atg, atmodem, bacnet,
-  banner, cwmp, dnp3, enip, fox, hartip, iax2, iec104, modbus,
-  opcua, pbxhttp, s7, sip, xot.
+- **20 protocol plugins** (default build): atg, atmodem, bacnet,
+  banner, cwmp, dnp3, enip, finsudp, fox, gesrtp, hartip, iax2,
+  iec104, modbus, opcua, pbxhttp, s7, sip, slmp, xot.
 - 7 offensive write-gated proxies: modbus, opcua, sip, iax2,
   pbxhttp, bacnet, cwmp.
 - 6 attack-surface input providers: shodan, censys, fofa,
-  zoomeye, onyphe, internetdb (last is no-key + bulk lookup).
-- All 7 gates ship per-object / per-path scoping (closed v1.12
-  + v1.13).
+  zoomeye, onyphe, internetdb (last no-key + bulk lookup).
+- All 7 gates ship per-object / per-path scoping (v1.12 + v1.13).
 
-**Per-cycle commits**: see `.context/snapshots/v1.<N>.0-*.md`
-for the authoritative per-cycle commit mapping. All tags v1.0.0
-→ v1.15.0 on `origin/main`.
-
-**Deferred to v1.20+** (post-v1.19 backlog):
+**Deferred to v1.21+** (post-v1.20 backlog):
 - macOS sandbox via `sandbox_init(3)`.
-- 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
-  Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
-  KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM).
+- 9 remaining legacy ICS protocols (PROFINET DCP / GOOSE / SV,
+  CoDeSys, Red Lion, IEC 61850 MMS, KNX, M-Bus TCP, OPC UA
+  HTTPS, DLMS/COSEM).
+- Offensive plugins for the v1.20 trio (FINS / SLMP / SRTP).
 - Big-picture: TUI (bubbletea), Windows support, OIDC + roles,
   record-&-replay proxy sessions.
 

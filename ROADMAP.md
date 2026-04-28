@@ -1,14 +1,15 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-26**. **v1.15.0 is the latest release**
-(5-chunk loose-end closure cycle, published on GitHub
-Releases).
+State as of **2026-04-28**. **v1.15.0 is the latest published
+release** (5-chunk loose-end closure cycle on GitHub Releases).
+v1.16 → v1.17 → v1.18 → v1.19 → v1.20 cycles closed on `main`
+with tags pending operator decision.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
-→ v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9
-→ v1.10 → v1.11 → v1.12 → v1.13 → v1.14 → **v1.15**. Each
-release has a per-cycle snapshot under `.context/snapshots/`.
+→ v1.1 → … → **v1.15** (published) → v1.16 → v1.17 → v1.18 →
+v1.19 → v1.20 (closed on main, tags pending). Each release has a
+per-cycle snapshot under `.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -57,28 +58,51 @@ the long-running roadmap so the delta between **shipped** and
   export sink + audit cross-process flock + SIGHUP
   reload-style exit. 5 chunks. Released on GitHub
   ([v1.15.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0)).
+- **v1.16** — CWMP/BACnet refinements + token-generation
+  cookie groundwork. CWMP TransferComplete authorisation
+  cross-reference + BACnet per-(type, instance) CreateObject
+  + per-(operation, type, instance) LifeSafetyOperation +
+  BACnet token-generation cookie (foundation for in-process
+  reload). 4 chunks.
+- **v1.17** — Token-generation parity + SIGUSR1 in-process
+  reload. Cross-protocol token-generation cookie (CWMP / SIP
+  / Modbus / IAX2 / pbxhttp / OPC UA), `--reload-allow-file`
+  + `reloadableHandler` (atomic.Pointer wrapper) + sidecar
+  `<allow-file>.token` (0600) + `proxy_allowlist_reload`
+  audit event. 5 chunks.
+- **v1.18** — Dashboard CSV export + run-diff. `?format=csv`
+  on `/api/v1/findings` + `/api/v1/findings/diff?old=&new=`
+  with new / resolved / persisting buckets matched by
+  (target_id, protocol). 2 chunks.
+- **v1.19** — Observability completion. Audit log API
+  (`/api/v1/audit` + `/api/v1/audit/cadence`) + dashboard
+  "Audit feed" panel + reload-cadence bar-chart panel + CWMP
+  TransferComplete async firmware re-fetch (opt-in via
+  `--verify-firmware-on-complete`). 3 chunks.
+- **v1.20** — Legacy ICS fingerprint trio. Omron FINS UDP
+  (UDP/9600) + MELSEC SLMP TCP (TCP/5007) + GE-SRTP TCP
+  (TCP/18245). Default build now registers **20 protocol
+  plugins** (was 17). 3 chunks.
 
-## v1.16+ proposed backlog
+## v1.21+ proposed backlog
 
-- **CWMP TransferComplete SHA-256 mismatch audit** — v1.15
-  chunk 1 added the observer that parses CPE → ACS
-  TransferComplete envelopes; the remaining half is comparing
-  the reported SHA-256 against the v1.12 chunk-10 allowlist
-  metadata and emitting an audit-on-mismatch event (firmware
-  corrupted or supply-chain swap).
-- **BACnet per-instance Create + per-object LSO** scoping
-  refinements — v1.13 closed all 9 services at the natural
-  granularity, but per-instance CreateObject + per-object
-  LifeSafetyOperation are possible v1.16+ tightenings if
-  operators ask.
-- **In-process allow-file reload** — v1.15 chunk 5 chose the
-  supervisor-restart pattern (SIGHUP → exit 75) to side-step
-  per-session confirm-token invalidation; the in-process
-  alternative would require a token-generation cookie scheme
-  (cf. web cookie `token_generation` in `web_state`).
-- **12 legacy ICS protocols** (PROFINET DCP / GOOSE / SV,
-  CoDeSys, Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC
-  61850 MMS, KNX, M-Bus TCP, OPC UA HTTPS, DLMS/COSEM, +1).
+- **9 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
+  / SV, CoDeSys, Red Lion, IEC 61850 MMS, KNX, M-Bus TCP, OPC
+  UA HTTPS, DLMS/COSEM). The v1.20 cycle landed the first 3
+  (FINS / SLMP / SRTP); the rest follow the same pattern
+  (from-scratch wire parser + read-only fingerprint plugin +
+  fail-closed proxy).
+- **Offensive plugins for the v1.20 trio** — FINS memory-area
+  writes / RUN-STOP, SLMP Batch Write / Remote RUN-STOP /
+  Password Lock-Unlock, SRTP write memory / program block
+  transfer / RUN-STOP-RESET. Each needs the per-target
+  gating pattern + triple-confirm + audit-chain emission per
+  ADR-009.
+- **GE-SRTP service-0x21 fingerprint** — Read CPU Long Status
+  decoder. Would lift gesrtp's capability factor on positive
+  identification from 70 to 75 (operators get a real model
+  string instead of just "responded with SRTP shape").
+- **macOS sandbox** via `sandbox_init(3)`.
 - Bigger-picture deferrals: TUI front-end (bubbletea),
   record-&-replay proxy sessions, Windows support, multi-user
   OIDC + roles.

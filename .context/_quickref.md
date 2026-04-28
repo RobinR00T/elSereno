@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-26
+last-updated: 2026-04-28
 token-budget: 900
 ---
 
@@ -40,19 +40,17 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-28)**: **v1.19 cycle closed on `main`,
-tag pending operator**. 3 chunks: audit log API
-(`/api/v1/audit` + `/api/v1/audit/cadence`) + dashboard
-"Audit feed" panel (chunk 1) + reload-cadence bar-chart
-panel (chunk 2) + CWMP TransferComplete async firmware
-re-fetch with new `cwmp_firmware_verify` audit event
-(chunk 3, opt-in via `--verify-firmware-on-complete`).
-15 new tests. Snapshot:
-`.context/snapshots/v1.19.0-observability-completion.md`.
-v1.16 / v1.17 / v1.18 cycles also closed (tags pending).
-v1.15.0 still the latest published release.
+**Current phase (2026-04-28)**: **v1.20 cycle closed on `main`,
+tag pending operator**. 3 chunks: legacy ICS fingerprint
+trio — Omron FINS UDP/9600 (chunk 1), MELSEC SLMP TCP/5007
+(chunk 2), GE-SRTP TCP/18245 (chunk 3). Default build now
+registers **20 protocol plugins** (was 17). 56 new tests.
+Snapshot:
+`.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
+v1.16 / v1.17 / v1.18 / v1.19 cycles also closed (tags
+pending). v1.15.0 still the latest published release.
 
-**Counts**: **17 protocol plugins** in the default build; **7
+**Counts**: **20 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,
 pbxhttp, bacnet, cwmp); **6 attack-surface input clients**
 (shodan, censys, fofa, zoomeye, onyphe, internetdb — last is
