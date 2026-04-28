@@ -1,10 +1,10 @@
 # Protocol support
 
-ElSereno ships **22 protocol plugins** in the default build (as
+ElSereno ships **23 protocol plugins** in the default build (as
 of v1.21.0, 2026-04-28). Every TCP-based plugin enforces a wire-
 layer write-ban in the default build; writes land only under
 `-tags offensive` and must clear the ADR-039 triple-confirm
-wrapper. **7 of the 22** carry write-gated proxies with per-
+wrapper. **7 of the 23** carry write-gated proxies with per-
 object / per-path scoping (rows in **bold**).
 
 | Protocol | Port(s) | Probe | Proxy default | Writes (offensive) |
@@ -30,6 +30,7 @@ object / per-path scoping (rows in **bold**).
 | GE-SRTP ([gesrtp.md](gesrtp.md)) | 18245 | 56-byte CONNECTION INIT mailbox (type 0x02) | wire write-ban (mailbox response with status byte) | (vNext — write memory / RUN-STOP / program block transfer) |
 | KNXnet/IP ([knxip.md](knxip.md)) | 3671/udp | DESCRIPTION_REQUEST (svc 0x0204) | fail-closed (TCP framework) | (vNext — TUNNELLING_REQUEST / DEVICE_CONFIGURATION) |
 | M-Bus over TCP ([mbustcp.md](mbustcp.md)) | 10001 | REQ_UD2 to broadcast (0xFE) | wire write-ban (single-byte ACK 0xE5) | (vNext — SND_UD parameter writes / SET_BAUDRATE) |
+| DLMS/COSEM ([dlms.md](dlms.md)) | 4059 | wrapper-framed AARQ (LN-no-ciphering) | wire write-ban (wrapper-framed AARE rejected-permanent) | (vNext — SET-Request / ACTION-Request remote_disconnect) |
 | Banner / dictionary ([banner.md](banner.md)) | many | TCP read, vendor match | read-only | n/a |
 
 ## Proxy default-build policy

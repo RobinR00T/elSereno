@@ -7,6 +7,7 @@ import (
 	"local/elsereno/internal/protocols/bacnet"
 	"local/elsereno/internal/protocols/banner"
 	"local/elsereno/internal/protocols/cwmp"
+	"local/elsereno/internal/protocols/dlms"
 	"local/elsereno/internal/protocols/dnp3"
 	"local/elsereno/internal/protocols/enip"
 	"local/elsereno/internal/protocols/finsudp"
@@ -52,4 +53,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: gesrtp.Default().Metadata(), Factory: func() core.Protocol { return gesrtp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: knxip.Default().Metadata(), Factory: func() core.Protocol { return knxip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mbustcp.Default().Metadata(), Factory: func() core.Protocol { return mbustcp.Default() }})
+	core.Register(core.Plugin{PluginMetadata: dlms.Default().Metadata(), Factory: func() core.Protocol { return dlms.Default() }})
 }

@@ -8,6 +8,24 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.21 (chunk 3) — **DLMS/COSEM TCP fingerprint
+  plugin on TCP/4059.** Third chunk of v1.21. Sends a 37-byte
+  DLMS-wrapper-framed AARQ probe (8-byte wrapper + 29-byte
+  canonical minimal AARQ APDU referencing OID 2.16.756.5.8.1.1
+  LN-no-ciphering) per IEC 62056-46 §8.4 + IEC 62056-53.
+  Classifies by wrapper version (0x0001) + AARE tag (0x61).
+  Wrapper-only responses also count as positive identification
+  (the server speaks DLMS-wrapper but rejected our AARQ —
+  common with HLS-locked deployments). ProxyHandler is
+  wire-layer write-ban: reads the wrapper header + APDU body,
+  replies with a 16-byte wrapper-framed AARE (0xA2 0x03 0x02
+  0x01 0x01 = associate-result rejected-permanent) padded with a
+  BER end-of-content byte. Score factors{protocol_risk:75,
+  exposure:70, auth_state:85, capability:30→70 on DLMS reply,
+  impact_class:65, cve_exposure:0}. 23 protocol plugins now
+  register in the default build (22 → 23); 7 wire tests + 9
+  plugin tests; `make ci` green, 0 lint, 0 sec.
+
 - 2026-04-28 — v1.21 (chunk 2) — **M-Bus over TCP fingerprint
   plugin on TCP/10001.** Second chunk of v1.21. Sends a 5-byte
   REQ_UD2 short frame to broadcast primary address 0xFE per
