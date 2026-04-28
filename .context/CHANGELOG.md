@@ -8,6 +8,23 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.22 (chunk 1) — **CI hygiene: fuzz-flake retry
+  + explicit timeout in `scripts/run-fuzz.sh`.** Closes a
+  pre-existing intermittent failure where `xot/wire
+  FuzzParseHeader` and `render FuzzSafeBytes` would report
+  "context deadline exceeded" at the end of their fuzztime
+  budget on macOS — Go's fuzz worker scheduling occasionally
+  races GC / GOMAXPROCS pressure and reports a deadline even
+  though no real fuzz crash occurred. Two fixes: (1) explicit
+  `-timeout` 4× the fuzz duration (capped at 60s minimum),
+  giving Go's per-test default 10m headroom no chance to fight
+  short fuzz budgets; (2) up to MAX_ATTEMPTS=3 retries per
+  target when the failure pattern is "context deadline
+  exceeded" specifically — genuine fuzz failures (panic / fail
+  line not matching the deadline pattern) short-circuit the
+  retry loop. Smoke-test pass on all 6 Fuzz* targets with both
+  5s and 30s budgets.
+
 - 2026-04-28 — v1.21 (chunk 4) — **GE-SRTP model-hint extraction
   refinement.** Refines the v1.20 chunk 3 connection-init-only
   fingerprint by scanning the 56-byte mailbox response payload
