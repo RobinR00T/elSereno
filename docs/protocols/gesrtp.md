@@ -13,11 +13,19 @@ PACSystems also bind 18246 for a backup/extended frame.
   request and response is exactly 56 bytes for the basic
   service-request set).
 - Expect a 56-byte response with byte 0 = 0x03 (response
-  indicator). Any 56-byte response with the right type byte is a
-  positive identification — public protocol documentation is
-  sparse, so deeper service-code probing (CPU model
-  identification via service 0x21) is deferred to a future
-  cycle that can carry test vectors against real PLCs.
+  indicator).
+- **v1.21 chunk 4 refinement**: scan the response payload (bytes
+  1..55) for printable-ASCII runs matching the canonical GE PLC
+  family prefixes (PACSystems / IC693 / IC695 / IC697 / IC200 /
+  RX3i / RX7i). When a model hint is extracted (e.g.,
+  "IC695CPE330"), it folds into the finding hash and lifts the
+  capability factor from 70 to 75 — same delta finsudp / slmp
+  get for parsed model strings.
+
+Service 0x21 (Read PLC Long Status) probing — a richer follow-up
+that explicitly asks the CPU for its model + firmware version —
+is left for a future cycle that can carry test vectors against
+real PLCs.
 
 The probe is idempotent and side-effect-free: CONNECTION INIT is
 the SRTP equivalent of a TCP handshake — no memory areas, no

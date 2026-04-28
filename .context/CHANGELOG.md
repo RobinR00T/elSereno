@@ -8,6 +8,26 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.21 (chunk 4) — **GE-SRTP model-hint extraction
+  refinement.** Refines the v1.20 chunk 3 connection-init-only
+  fingerprint by scanning the 56-byte mailbox response payload
+  for embedded GE PLC family strings (PACSystems / IC693 / IC695
+  / IC697 / IC200 / RX3i / RX7i) and folding the matched hint
+  into the finding note. New `wire.ExtractModelHint` greedy-
+  matches printable-ASCII runs (letters / digits / dash /
+  underscore) starting on uppercase boundaries; rejects runs
+  shorter than 5 chars and runs without a canonical-prefix
+  match. Plugin's `buildFinding` now takes a `modelHint string`
+  parameter — when non-empty, capability lifts from 70 to 75 (so
+  gesrtp now matches finsudp / slmp on positive-id capability,
+  with a graceful 70-floor when no hint is recoverable). 7 new
+  wire tests cover all canonical prefixes, no-match cases (nil /
+  empty / all-zero / lowercase / wrong-vendor), first-wins
+  ordering, and stops-at-non-printable. New plugin test asserts
+  the capability lift on a 56-byte response carrying an
+  IC695CPE330 hint at offset 16. `make ci` green; no API
+  changes; no migration.
+
 - 2026-04-28 — v1.21 (chunk 3) — **DLMS/COSEM TCP fingerprint
   plugin on TCP/4059.** Third chunk of v1.21. Sends a 37-byte
   DLMS-wrapper-framed AARQ probe (8-byte wrapper + 29-byte

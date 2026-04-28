@@ -70,12 +70,21 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	buf := make([]byte, 64)
 	n, err := io.ReadFull(conn, buf[:wire.MailboxLen])
 	if err != nil {
-		return buildFinding(target, "no usable reply", false), nil
+		return buildFinding(target, "no usable reply", false, ""), nil
 	}
 	if cerr := wire.ClassifyResponse(buf[:n]); cerr != nil {
-		return buildFinding(target, classifyParseError(cerr, n), false), nil
+		return buildFinding(target, classifyParseError(cerr, n), false, ""), nil
 	}
-	return buildFinding(target, "SRTP mailbox response", true), nil
+	// v1.21 chunk 4: scan the connection-init response payload
+	// for an embedded GE PLC model hint (IC693 / IC695 / IC697 /
+	// IC200 / RX3i / RX7i / PACSystems family). When present,
+	// fold the hint into the finding note and lift the capability
+	// factor.
+	hint := wire.ExtractModelHint(buf[:n])
+	if hint != "" {
+		return buildFinding(target, "SRTP model="+hint, true, hint), nil
+	}
+	return buildFinding(target, "SRTP mailbox response", true, ""), nil
 }
 
 // REPL stub; the generic REPL framework lands later. A future
@@ -142,7 +151,12 @@ func classifyParseError(err error, n int) string {
 	}
 }
 
-func buildFinding(target core.Target, note string, isSRTP bool) *core.Finding {
+// buildFinding builds the SRTP finding. modelHint, when non-
+// empty, both folds into the finding hash via note (already done
+// by the caller) and lifts capability from 70 to 75 — the
+// extracted hint is real, decoded, actionable model info, the
+// same delta finsudp/slmp get for their parsed model strings.
+func buildFinding(target core.Target, note string, isSRTP bool, modelHint string) *core.Finding {
 	factors := map[string]int{
 		"protocol_risk": 80, // legacy ICS, no auth
 		"exposure":      75,
@@ -151,7 +165,10 @@ func buildFinding(target core.Target, note string, isSRTP bool) *core.Finding {
 		"impact_class":  75, // factory-floor PLCs
 		"cve_exposure":  0,
 	}
-	if isSRTP {
+	switch {
+	case isSRTP && modelHint != "":
+		factors["capability"] = 75
+	case isSRTP:
 		factors["capability"] = 70
 	}
 	score := scoreFor(factors)

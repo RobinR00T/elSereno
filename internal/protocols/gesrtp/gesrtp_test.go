@@ -57,17 +57,40 @@ func TestBuildFindingFactors(t *testing.T) {
 		Address: netip.MustParseAddr("203.0.113.7"),
 		Port:    18245,
 	}
-	cdYes := buildFinding(target, "SRTP mailbox response", true)
-	cdNo := buildFinding(target, "no usable reply", false)
+	cdYes := buildFinding(target, "SRTP mailbox response", true, "")
+	cdNo := buildFinding(target, "no usable reply", false, "")
+	cdHint := buildFinding(target, "SRTP model=IC693CPU374", true, "IC693CPU374")
 	if cdYes.Factors["capability"] <= cdNo.Factors["capability"] {
 		t.Fatalf("capability should jump when SRTP responds: yes=%d no=%d",
 			cdYes.Factors["capability"], cdNo.Factors["capability"])
+	}
+	if cdHint.Factors["capability"] <= cdYes.Factors["capability"] {
+		t.Fatalf("capability should jump again when a model hint is extracted: hint=%d yes=%d",
+			cdHint.Factors["capability"], cdYes.Factors["capability"])
+	}
+	if cdHint.Factors["capability"] != 75 {
+		t.Fatalf("hint capability: got %d want 75", cdHint.Factors["capability"])
 	}
 	if cdYes.Score == 0 {
 		t.Fatalf("score should be non-zero")
 	}
 	if cdYes.Protocol != Name {
 		t.Fatalf("Protocol: got %q", cdYes.Protocol)
+	}
+}
+
+func TestProbeWithModelHintLiftsCapability(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, func() []byte {
+		// 56-byte response with byte 0 = 0x03 + an embedded
+		// "IC695CPE330" hint at offset 16.
+		resp := make([]byte, 56)
+		resp[0] = 0x03
+		copy(resp[16:], []byte("IC695CPE330"))
+		return resp
+	})
+	if f.Factors["capability"] != 75 {
+		t.Fatalf("capability factor with hint: got %d want 75", f.Factors["capability"])
 	}
 }
 

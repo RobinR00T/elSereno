@@ -48,6 +48,12 @@ sparse, so deeper service-code probing (CPU model identification
 via service 0x21) is deferred — the plugin captures the fact that
 "a 56-byte SRTP mailbox came back" as the fingerprint signal.
 
+**v1.21 chunk 4**: model-hint extraction. After classification, the
+plugin runs `ExtractModelHint` on the full response buffer to
+recover any embedded GE PLC family string (PACSystems / IC693 /
+IC695 / IC697 / IC200 / RX3i / RX7i). When a hint is found, it
+folds into the finding hash and lifts capability from 70 to 75.
+
 ## Read operations (default build)
 - `probe`: dials TCP/18245, sends BuildConnectionInit (56 bytes,
   byte 0 = 0x02), reads exactly 56 bytes, classifies via
@@ -85,16 +91,18 @@ proxy idioms.
 
 ## Scoring contribution
 factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
-(70 on SRTP reply), impact_class:75, cve_exposure:0}. impact_class
-75 reflects factory-floor + SCADA blast radius (RUN/STOP, write
-program block / system memory). auth_state 95 because SRTP has no
-native authentication.
+(70 on SRTP reply, **75 when a model hint is extracted**),
+impact_class:75, cve_exposure:0}. impact_class 75 reflects
+factory-floor + SCADA blast radius (RUN/STOP, write program block
+/ system memory). auth_state 95 because SRTP has no native
+authentication.
 
-Note: capability lift on positive identification is **70** for
-gesrtp (vs 75 for finsudp/slmp) because the connection-init
-classifier doesn't yet decode the response payload — operators
-have less actionable detail on the controller model. A future
-service-0x21 read would push this to 75.
+Capability lift breakdown:
+- 30: no SRTP reply.
+- 70: SRTP-shape reply with no embedded model hint.
+- 75: SRTP-shape reply with a recognised GE PLC family hint
+  (IC693 / IC695 / IC697 / IC200 / RX3i / RX7i / PACSystems) —
+  parity with finsudp / slmp.
 
 ## Sentinel errors (wire package)
 - ErrShortFrame: < 56-byte response.

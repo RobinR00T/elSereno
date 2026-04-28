@@ -66,6 +66,90 @@ func TestClassifyResponseLongerThan56AcceptsPrefix(t *testing.T) {
 	}
 }
 
+func TestExtractModelHintCanonicalPrefixes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   []byte
+		want string
+	}{
+		{
+			name: "IC693 in payload",
+			in:   appendBytes(make([]byte, 8), []byte("IC693CPU374\x00\x00")...),
+			want: "IC693CPU374",
+		},
+		{
+			name: "IC695 with dash",
+			in:   appendBytes(make([]byte, 12), []byte("IC695CPE330-AB\x00")...),
+			want: "IC695CPE330-AB",
+		},
+		{
+			name: "PACSystems marketing string",
+			in:   appendBytes(make([]byte, 16), []byte("PACSystems_RX3i\x00")...),
+			want: "PACSystems_RX3i",
+		},
+		{
+			name: "RX7i short form",
+			in:   appendBytes(make([]byte, 4), []byte("RX7iCPU\x00")...),
+			want: "RX7iCPU",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			got := wire.ExtractModelHint(c.in)
+			if got != c.want {
+				t.Fatalf("ExtractModelHint: got %q want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestExtractModelHintNoMatch(t *testing.T) {
+	t.Parallel()
+	cases := [][]byte{
+		nil,
+		make([]byte, 0),
+		make([]byte, 56),                  // all zeros
+		[]byte("ABCDE12345"),              // no canonical prefix
+		[]byte("\x01\x02\x03IC69\x00"),    // truncated prefix (4 chars)
+		[]byte("\x00\x00\x00ic693cpu374"), // lowercase doesn't start a run
+		append([]byte("\x01\x02"), []byte("Modicon-PLC")...), // wrong vendor family
+	}
+	for i, in := range cases {
+		got := wire.ExtractModelHint(in)
+		if got != "" {
+			t.Fatalf("case %d: expected empty string, got %q", i, got)
+		}
+	}
+}
+
+func TestExtractModelHintFirstWins(t *testing.T) {
+	t.Parallel()
+	// Two candidate prefixes — the scanner should return the
+	// first one it encounters.
+	in := appendBytes(make([]byte, 4), []byte("IC693CPU\x00\x00\x00IC695CPE\x00")...)
+	got := wire.ExtractModelHint(in)
+	if got != "IC693CPU" {
+		t.Fatalf("first-wins: got %q want IC693CPU", got)
+	}
+}
+
+func TestExtractModelHintStopsAtNonPrintable(t *testing.T) {
+	t.Parallel()
+	// Run terminates at the first non-letter / non-digit / non-
+	// dash / non-underscore byte. Spaces are NOT included.
+	in := []byte("\x00\x00\x00IC693CPU374 backplane\x00")
+	got := wire.ExtractModelHint(in)
+	if got != "IC693CPU374" {
+		t.Fatalf("ExtractModelHint: got %q want IC693CPU374", got)
+	}
+}
+
+func appendBytes(prefix []byte, suffix ...byte) []byte {
+	return append(prefix, suffix...)
+}
+
 func TestIsMailboxResponseTrueOnly(t *testing.T) {
 	t.Parallel()
 	resp := make([]byte, 56)
