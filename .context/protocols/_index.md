@@ -20,10 +20,11 @@ token-budget: 800
 | HART-IP | 5094/tcp+udp | F4 | implemented | [hartip.md](hartip.md) |
 | Niagara Fox | 1911, 4911/tcp | F4 | implemented | [fox.md](fox.md) |
 | ATG Veeder-Root | 10001/tcp | F4 | implemented | [atg.md](atg.md) |
+| Omron FINS UDP | 9600/udp | v1.20 | implemented | [finsudp.md](finsudp.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **12 plugins** registered in the default build (read-only).
+- **18 plugins** registered in the default build (read-only) as of v1.20 chunk 1.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in

@@ -9,6 +9,7 @@ import (
 	"local/elsereno/internal/protocols/cwmp"
 	"local/elsereno/internal/protocols/dnp3"
 	"local/elsereno/internal/protocols/enip"
+	"local/elsereno/internal/protocols/finsudp"
 	"local/elsereno/internal/protocols/fox"
 	"local/elsereno/internal/protocols/hartip"
 	"local/elsereno/internal/protocols/iax2"
@@ -42,4 +43,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: iax2.Default().Metadata(), Factory: func() core.Protocol { return iax2.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pbxhttp.Default().Metadata(), Factory: func() core.Protocol { return pbxhttp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
+	core.Register(core.Plugin{PluginMetadata: finsudp.Default().Metadata(), Factory: func() core.Protocol { return finsudp.Default() }})
 }

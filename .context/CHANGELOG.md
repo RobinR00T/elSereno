@@ -1,12 +1,29 @@
 ---
 phase: any
 status: living
-last-updated: 2026-04-26
+last-updated: 2026-04-28
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-04-28 — v1.20 (chunk 1) — **Omron FINS UDP fingerprint plugin
+  on UDP/9600.** First of three legacy-ICS fingerprint plugins
+  scheduled for v1.20. `internal/protocols/finsudp/wire/` carries
+  the from-scratch CONTROLLER DATA READ (MRC=0x05, SRC=0x01) request
+  builder + response parser per OMRON CPU manual W421 §5.1/§5.4;
+  validates ICF response bit, SID echo, MRC/SRC match, end-code
+  zero; trims NUL/space padding off 20-byte ASCII Model. Plugin
+  layer dials UDP, fresh non-zero SID via `crypto/rand`, classifies
+  parse errors into operator-facing notes (short FINS frame / SID
+  echo mismatch / FINS end-code non-zero / not-a-response).
+  ProxyHandler is fail-closed (TCP framework can't relay UDP) — a
+  dedicated UDP relay arrives with the future offensive write
+  plugin. Score factors{protocol_risk:80, exposure:80, auth_state:95,
+  capability:30→75 on FINS reply, impact_class:75, cve_exposure:0}.
+  18 protocol plugins now register in the default build; 17 wire
+  tests + 11 plugin tests; `make ci` green, 0 lint, 0 sec.
 
 - 2026-04-19 — F0 — Scaffolding initialised. Context system populated with
   36 PITFs, 26 ADRs, templates, and per-topic canonical docs. Repository
