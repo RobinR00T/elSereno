@@ -8,6 +8,25 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.21 (chunk 2) — **M-Bus over TCP fingerprint
+  plugin on TCP/10001.** Second chunk of v1.21. Sends a 5-byte
+  REQ_UD2 short frame to broadcast primary address 0xFE per
+  EN 13757-3 §5.2 and folds the parsed manufacturer code +
+  medium byte from the RSP_UD long-frame response into the
+  finding hash. ACK-only responses (single byte 0xE5) also count
+  as positive identification. `internal/protocols/mbustcp/wire/`
+  carries the from-scratch frame parser including BCD ID
+  extraction + M-Bus 16-bit-packed-3-letter manufacturer-code
+  decoder (canonical ABB / KAM / ELS / SEN families).
+  ProxyHandler is wire-layer write-ban: reads the request and
+  replies with a single-byte ACK (0xE5) — matches the protocol's
+  own link-layer ACK idiom, the closest "request denied" surface
+  M-Bus has. Score factors{protocol_risk:70, exposure:70,
+  auth_state:90, capability:30→70 on M-Bus reply, impact_class:60,
+  cve_exposure:0}. 22 protocol plugins now register in the
+  default build (21 → 22); 11 wire tests + 9 plugin tests;
+  `make ci` green, 0 lint, 0 sec.
+
 - 2026-04-28 — v1.21 (chunk 1) — **KNXnet/IP UDP fingerprint
   plugin on UDP/3671.** First chunk of the v1.21 cycle (continuing
   the legacy ICS fingerprint roll-out from v1.20).

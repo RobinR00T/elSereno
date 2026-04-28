@@ -24,10 +24,11 @@ token-budget: 800
 | MELSEC SLMP | 5007/tcp | v1.20 | implemented | [slmp.md](slmp.md) |
 | GE-SRTP | 18245/tcp | v1.20 | implemented | [gesrtp.md](gesrtp.md) |
 | KNXnet/IP | 3671/udp | v1.21 | implemented | [knxip.md](knxip.md) |
+| M-Bus over TCP | 10001/tcp | v1.21 | implemented | [mbustcp.md](mbustcp.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **21 plugins** registered in the default build (read-only) as of v1.21 chunk 1.
+- **22 plugins** registered in the default build (read-only) as of v1.21 chunk 2.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in

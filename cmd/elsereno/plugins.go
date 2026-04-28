@@ -16,6 +16,7 @@ import (
 	"local/elsereno/internal/protocols/iax2"
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/knxip"
+	"local/elsereno/internal/protocols/mbustcp"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/pbxhttp"
@@ -50,4 +51,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: slmp.Default().Metadata(), Factory: func() core.Protocol { return slmp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: gesrtp.Default().Metadata(), Factory: func() core.Protocol { return gesrtp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: knxip.Default().Metadata(), Factory: func() core.Protocol { return knxip.Default() }})
+	core.Register(core.Plugin{PluginMetadata: mbustcp.Default().Metadata(), Factory: func() core.Protocol { return mbustcp.Default() }})
 }
