@@ -1674,3 +1674,43 @@ One-liner per significant change to `.context/` or the codebase.
   `.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
   v1.17 + v1.16 cycles also closed; v1.15.0 still the latest
   published release.
+- 2026-04-28 — **v1.19 chunk 1 landed.** Audit log API
+  endpoint + dashboard panel. New
+  `GET /api/v1/audit?event_type=&actor=&occurred_after=&
+  limit=` returns the newest 50 (clamped [1, 500]) audit
+  entries; new
+  `GET /api/v1/audit/cadence?event_type=&days=N` returns
+  per-day counts (clamped [1, 90]). New `internal/repo/
+  audit.go` with `AuditEntry` / `AuditQuery` /
+  `ListAuditLog` / `ListAuditCadence`. Tombstoned rows
+  (audit-purge per ADR-013) come back with `payload=null` +
+  `tombstoned=true`. Dashboard gains "Audit feed" panel with
+  event_type dropdown + actor filter + payload-excerpt
+  rendering (`[redacted]` for tombstoned). 6 new tests.
+- 2026-04-28 — **v1.19 chunk 2 landed.** Reload cadence
+  dashboard panel (`d2ebb0f`). Surfaces v1.17-chunk-5
+  `proxy_allowlist_reload` audit rows as a per-day text-
+  based bar chart (last 7 days). Pure dashboard; reuses
+  chunk-1's `/api/v1/audit/cadence` endpoint. No new tests
+  (chunk-1's TestAuditCadence_HappyPath already covers the
+  underlying contract).
+- 2026-04-28 — **v1.19 chunk 3 landed.** CWMP
+  TransferComplete async firmware re-fetch. Closes the
+  v1.16-chunk-1 loose end. Opt-in via
+  `--verify-firmware-on-complete` (default off) +
+  `--verify-firmware-timeout` (default 5m). On every
+  successful TransferComplete carrying a resolved
+  Authorisation with non-empty AllowlistSHA256, the proxy
+  spawns a goroutine that re-fetches AllowlistURL, hashes
+  the body, compares against AllowlistSHA256, emits a
+  `cwmp_firmware_verify` audit row with status `match` /
+  `mismatch` / `unreachable`. New `audit.EventCWMPFirmware-
+  Verify` const + migration `00004_*`. Reuses
+  `fetchFirmwareSHA256` from v1.13 chunk 2. 9 new tests
+  covering classifier + observer-skip cases + opt-in/opt-
+  out switch.
+- 2026-04-28 — **v1.19 cycle closed on `main`** (3 chunks,
+  tag pending operator decision). Snapshot:
+  `.context/snapshots/v1.19.0-observability-completion.md`.
+  v1.16 / v1.17 / v1.18 cycles also closed; v1.15.0 still
+  the latest published release.

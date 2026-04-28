@@ -1,19 +1,38 @@
 ---
-phase: v1.18-in-flight
-status: v1.18 cycle closed on `main` (2 chunks, tag pending operator); v1.17 + v1.16 also closed
-last-updated: 2026-04-27
+phase: v1.19-in-flight
+status: v1.19 cycle closed on `main` (3 chunks, tag pending operator); v1.18 + v1.17 + v1.16 also closed
+last-updated: 2026-04-28
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.18 cycle closed on `main`** (2 chunks, tag
-pending operator decision). v1.17 also closed (5 chunks).
-v1.16 also closed (4 chunks). v1.15.0 remains the latest
-published release on
+**Phase**: **v1.19 cycle closed on `main`** (3 chunks, tag
+pending operator decision). v1.18 also closed (2 chunks).
+v1.17 also closed (5 chunks). v1.16 also closed (4 chunks).
+v1.15.0 remains the latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
 
-**v1.18 chunks landed (in-flight)**:
+**v1.19 chunks landed (in-flight)**:
+- 1   Audit log API endpoint (`/api/v1/audit` +
+  `/api/v1/audit/cadence`) + dashboard "Audit feed" panel
+  with event_type/actor filters + payload excerpts.
+  Tombstoned rows render as `[redacted]`. 6 tests.
+- 2   `d2ebb0f` — Reload cadence dashboard panel surfaces
+  the v1.17-chunk-5 `proxy_allowlist_reload` audit rows as a
+  per-day text-based bar chart (last 7 days). Pure dashboard;
+  reuses chunk-1's `/api/v1/audit/cadence`.
+- 3   CWMP TransferComplete async firmware re-fetch
+  (opt-in via `--verify-firmware-on-complete`). New
+  `cwmp_firmware_verify` audit event + migration 00004.
+  Goroutine-detached; closes the v1.16-chunk-1 loose end
+  by detecting source-server firmware swaps post-flash.
+  9 tests.
+
+Snapshot:
+`.context/snapshots/v1.19.0-observability-completion.md`.
+
+**v1.18 chunks landed (in-flight, tag pending)**:
 - 1   `cc157d4` — Dashboard CSV export from UI
   (`?format=csv` on `/api/v1/findings`, "Download CSV (top
   500)" link). 3 tests.
@@ -182,16 +201,7 @@ operator decision.
 for the authoritative per-cycle commit mapping. All tags v1.0.0
 → v1.15.0 on `origin/main`.
 
-**Deferred to v1.19+** (post-v1.18 backlog):
-- **Operator dashboard surfaces for `proxy_allowlist_reload`
-  audit rows** — filter / chart of reload cadence by plugin
-  (the audit rows are emitted starting v1.17 chunk 5; the
-  dashboard surface is still pending).
-- **CWMP TransferComplete async firmware re-fetch**. v1.16
-  chunk 1 surfaces the allowlist SHA-256 alongside the CPE's
-  report; true on-wire SHA-256 verification post-flash would
-  need an out-of-band fetch + verify (v1.13 chunk 2's
-  `verify-firmware` already does this pre-flight).
+**Deferred to v1.20+** (post-v1.19 backlog):
 - macOS sandbox via `sandbox_init(3)`.
 - 12 legacy ICS protocols (PROFINET DCP / GOOSE / SV, CoDeSys,
   Omron FINS, MELSEC SLMP, Red Lion, GE-SRTP, IEC 61850 MMS,
