@@ -40,17 +40,17 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-28)**: **v1.20 cycle closed on `main`,
-tag pending operator**. 3 chunks: legacy ICS fingerprint
-trio — Omron FINS UDP/9600 (chunk 1), MELSEC SLMP TCP/5007
-(chunk 2), GE-SRTP TCP/18245 (chunk 3). Default build now
-registers **20 protocol plugins** (was 17). 56 new tests.
-Snapshot:
-`.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
-v1.16 / v1.17 / v1.18 / v1.19 cycles also closed (tags
-pending). v1.15.0 still the latest published release.
+**Current phase (2026-04-28)**: **v1.21 cycle closed on `main`,
+tag pending operator**. 4 chunks: KNXnet/IP UDP/3671 (chunk 1),
+M-Bus over TCP/10001 (chunk 2), DLMS/COSEM TCP/4059 (chunk 3),
+GE-SRTP model-hint extraction refinement (chunk 4). Default
+build now registers **23 protocol plugins** (was 20). 60 new
+tests. Snapshot:
+`.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
+v1.16 / v1.17 / v1.18 / v1.19 / v1.20 cycles also closed
+(tags pending). v1.15.0 still the latest published release.
 
-**Counts**: **20 protocol plugins** in the default build; **7
+**Counts**: **23 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,
 pbxhttp, bacnet, cwmp); **6 attack-surface input clients**
 (shodan, censys, fofa, zoomeye, onyphe, internetdb — last is

@@ -1,20 +1,43 @@
 ---
-phase: v1.20-in-flight
-status: v1.20 cycle closed on `main` (3 chunks, tag pending operator); v1.19 + v1.18 + v1.17 + v1.16 also closed
+phase: v1.21-in-flight
+status: v1.21 cycle closed on `main` (4 chunks, tag pending operator); v1.16-v1.20 also closed
 last-updated: 2026-04-28
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.20 cycle closed on `main`** (3 chunks, tag
-pending operator decision). Adds the legacy ICS fingerprint
-trio: Omron FINS UDP, MELSEC SLMP TCP, GE-SRTP TCP. Default
-build now registers **20 protocol plugins** (was 17). v1.19
-also closed (3 chunks). v1.18 also closed (2 chunks). v1.17
-also closed (5 chunks). v1.16 also closed (4 chunks).
+**Phase**: **v1.21 cycle closed on `main`** (4 chunks, tag
+pending operator decision). Adds three more legacy ICS
+fingerprint plugins (KNXnet/IP UDP, M-Bus over TCP, DLMS/COSEM)
+plus a GE-SRTP refinement that extracts embedded model hints
+from the connection-init response. Default build now registers
+**23 protocol plugins** (was 20). v1.20 also closed (3 chunks).
+v1.19 also closed (3 chunks). v1.18 also closed (2 chunks).
+v1.17 also closed (5 chunks). v1.16 also closed (4 chunks).
 v1.15.0 remains the latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+
+**v1.21 chunks landed (in-flight)**:
+- 1   `9cd8700` — KNXnet/IP UDP fingerprint plugin (UDP/3671).
+  DESCRIPTION_REQUEST (svc 0x0204) per KNX Standard 03.08.02
+  §2.2. Fail-closed UDP proxy. 9 wire + 7 plugin tests.
+- 2   `1f0f75b` — M-Bus over TCP fingerprint plugin (TCP/10001).
+  REQ_UD2 to broadcast (0xFE) per EN 13757-3 §5.2; decodes the
+  16-bit-packed manufacturer code. Wire-layer write-ban (single-
+  byte ACK 0xE5). 11 wire + 9 plugin tests.
+- 3   `86e1034` — DLMS/COSEM TCP fingerprint plugin (TCP/4059).
+  Wrapper-framed AARQ (LN-no-ciphering) per IEC 62056-46 §8.4.
+  Wire-layer write-ban (wrapper-framed AARE rejected-permanent).
+  7 wire + 9 plugin tests.
+- 4   `3edaad1` — GE-SRTP model-hint extraction refinement.
+  ExtractModelHint scans connection-init response for embedded
+  GE PLC family strings (PACSystems / IC693 / IC695 / IC697 /
+  IC200 / RX3i / RX7i); capability 70→75 on positive hint. 7 +
+  1 = 8 new tests.
+
+Snapshot:
+`.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
 
 **v1.20 chunks landed (in-flight)**:
 - 1   `96c5453` — Omron FINS UDP fingerprint plugin (UDP/9600).
@@ -65,43 +88,18 @@ Snapshot:
 Snapshot:
 `.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
 
-**v1.17 chunks landed (in-flight)**:
-- 1   `ed868af` — CWMP token-generation cookie + shared
-  `--token-generation` flag promoted to session-flag
-  registrar. Separator 0xFC. 7 tests.
-- 2   `59ff0a2` — SIP token-generation cookie. Separator
-  0xFC (below 0xFD fromDomains). 7 tests.
-- 3   `(chunk 3)` — token-generation cookie roll-out across
-  modbus / iax2 / pbxhttp / opcua. Completes cross-protocol
-  parity (all 7 offensive write-gated proxies). Separators
-  0xFC for modbus/iax2/pbxhttp, 0xFB for opcua. 20 tests.
-- 4   `(chunk 4)` — SIGUSR1 in-process allow-file reload +
-  atomic swap. New `--reload-allow-file` flag,
-  `reloadableHandler` (atomic.Pointer wrapper), sidecar
-  `<allow-file>.token` (0600) for fresh confirm-token. 11
-  tests.
-- 5   `02fef1e` — `proxy_allowlist_reload` audit event +
-  migration 00003. Every SIGUSR1 firing emits a row with
-  status / plugin / hash-prefixes / reason. 2 tests.
+**v1.17 cycle (5 chunks)**: Token-generation cookie parity across
+all 7 offensive proxies (CWMP/SIP/Modbus/IAX2/pbxhttp/OPC UA) +
+SIGUSR1 in-process allow-file reload (`reloadableHandler`,
+`<allow-file>.token` sidecar 0600) + `proxy_allowlist_reload`
+audit event (migration 00003). 47 tests.
+Snapshot: `.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
 
-Snapshot:
-`.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
-
-**v1.16 chunks landed (in-flight, tag pending)**:
-- 1   `33284c8` — CWMP TransferComplete authorisation
-  cross-reference (closes v1.15 chunk-1 observer half).
-  9 tests.
-- 2   `83a4b69` — BACnet per-(type, instance) CreateObject
-  scoping refinement (separator 0xF7). 9 tests.
-- 3   `ed98c71` — BACnet per-(operation, type, instance)
-  LifeSafetyOperation scoping refinement (separator 0xF6).
-  9 tests.
-- 4   `c3256da` — BACnet token-generation cookie (separator
-  0xF5; foundation for in-process allow-file reload).
-  7 tests.
-
-Snapshot:
-`.context/snapshots/v1.16.0-cwmp-bacnet-refinements-and-token-generation.md`.
+**v1.16 cycle (4 chunks)**: CWMP TransferComplete authorisation
+cross-reference + BACnet per-(type, instance) CreateObject + per-
+(op, type, instance) LSO refinements + BACnet token-generation
+cookie groundwork. 34 tests.
+Snapshot: `.context/snapshots/v1.16.0-cwmp-bacnet-refinements-and-token-generation.md`.
 
 **v1.15.0 published** on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
@@ -200,26 +198,27 @@ futuro se restaura billing, los workflows se pueden reactivar
 editando el `on:` stanza en cada `.github/workflows/*.yml`
 (los triggers originales quedan preservados en comentarios).
 
-**Shipped releases** (deep dives in
-`.context/snapshots/v1.<N>.0-*.md`; ROADMAP.md highlights):
-v1.0 → … → **v1.15** (latest published). v1.16 → v1.20 cycles
+**Shipped releases** (deep dives in `.context/snapshots/`):
+v1.0 → … → **v1.15** (latest published). v1.16 → v1.21 cycles
 closed on `main`, tags pending operator.
 **Counts now**:
-- **20 protocol plugins** (default build): atg, atmodem, bacnet,
-  banner, cwmp, dnp3, enip, finsudp, fox, gesrtp, hartip, iax2,
-  iec104, modbus, opcua, pbxhttp, s7, sip, slmp, xot.
+- **23 protocol plugins** (default build): atg, atmodem, bacnet,
+  banner, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp, hartip,
+  iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp, s7, sip,
+  slmp, xot.
 - 7 offensive write-gated proxies: modbus, opcua, sip, iax2,
   pbxhttp, bacnet, cwmp.
 - 6 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, internetdb (last no-key + bulk lookup).
 - All 7 gates ship per-object / per-path scoping (v1.12 + v1.13).
 
-**Deferred to v1.21+** (post-v1.20 backlog):
+**Deferred to v1.22+** (post-v1.21 backlog):
 - macOS sandbox via `sandbox_init(3)`.
-- 9 remaining legacy ICS protocols (PROFINET DCP / GOOSE / SV,
-  CoDeSys, Red Lion, IEC 61850 MMS, KNX, M-Bus TCP, OPC UA
-  HTTPS, DLMS/COSEM).
-- Offensive plugins for the v1.20 trio (FINS / SLMP / SRTP).
+- 6 remaining legacy ICS protocols: PROFINET DCP / GOOSE / SV
+  (Layer-2 only), CoDeSys, Red Lion, IEC 61850 MMS, OPC UA HTTPS.
+- Offensive plugins for the v1.20 + v1.21 fingerprint trios
+  (FINS / SLMP / SRTP / KNX / M-Bus / DLMS write services).
+- GE-SRTP service-0x21 follow-up (richer firmware-version probe).
 - Big-picture: TUI (bubbletea), Windows support, OIDC + roles,
   record-&-replay proxy sessions.
 

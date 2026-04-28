@@ -2,14 +2,14 @@
 
 State as of **2026-04-28**. **v1.15.0 is the latest published
 release** (5-chunk loose-end closure cycle on GitHub Releases).
-v1.16 → v1.17 → v1.18 → v1.19 → v1.20 cycles closed on `main`
-with tags pending operator decision.
+v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 cycles closed on
+`main` with tags pending operator decision.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → … → **v1.15** (published) → v1.16 → v1.17 → v1.18 →
-v1.19 → v1.20 (closed on main, tags pending). Each release has a
-per-cycle snapshot under `.context/snapshots/`.
+v1.19 → v1.20 → v1.21 (closed on main, tags pending). Each
+release has a per-cycle snapshot under `.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -81,27 +81,39 @@ the long-running roadmap so the delta between **shipped** and
   `--verify-firmware-on-complete`). 3 chunks.
 - **v1.20** — Legacy ICS fingerprint trio. Omron FINS UDP
   (UDP/9600) + MELSEC SLMP TCP (TCP/5007) + GE-SRTP TCP
-  (TCP/18245). Default build now registers **20 protocol
-  plugins** (was 17). 3 chunks.
+  (TCP/18245). Default build now registers 20 protocol plugins
+  (was 17). 3 chunks.
+- **v1.21** — Legacy ICS trio + GE-SRTP refinement. KNXnet/IP
+  UDP/3671 + M-Bus over TCP/10001 + DLMS/COSEM TCP/4059 (3 new
+  read-only fingerprint plugins) + GE-SRTP model-hint extraction
+  (capability lift 70→75 when an embedded GE PLC family string
+  is recoverable from the connection-init reply). Default build
+  now registers **23 protocol plugins** (was 20). 4 chunks.
 
-## v1.21+ proposed backlog
+## v1.22+ proposed backlog
 
-- **9 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
-  / SV, CoDeSys, Red Lion, IEC 61850 MMS, KNX, M-Bus TCP, OPC
-  UA HTTPS, DLMS/COSEM). The v1.20 cycle landed the first 3
-  (FINS / SLMP / SRTP); the rest follow the same pattern
-  (from-scratch wire parser + read-only fingerprint plugin +
-  fail-closed proxy).
-- **Offensive plugins for the v1.20 trio** — FINS memory-area
-  writes / RUN-STOP, SLMP Batch Write / Remote RUN-STOP /
-  Password Lock-Unlock, SRTP write memory / program block
-  transfer / RUN-STOP-RESET. Each needs the per-target
-  gating pattern + triple-confirm + audit-chain emission per
-  ADR-009.
-- **GE-SRTP service-0x21 fingerprint** — Read CPU Long Status
-  decoder. Would lift gesrtp's capability factor on positive
-  identification from 70 to 75 (operators get a real model
-  string instead of just "responded with SRTP shape").
+- **6 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
+  / SV — Layer-2 multicast, framework requires IP-rework; CoDeSys,
+  Red Lion — proprietary, sketchy public docs without test
+  vectors; IEC 61850 MMS — port-102 share with S7 + complex
+  ASN.1 stack; OPC UA HTTPS). v1.20 + v1.21 cycles together
+  shipped 6 legacy-ICS fingerprint plugins (FINS / SLMP / SRTP /
+  KNX / M-Bus / DLMS); the rest are deferred for the reasons
+  above.
+- **Offensive plugins for the v1.20 + v1.21 fingerprint trios**
+  — FINS memory-area writes / RUN-STOP, SLMP Batch Write /
+  Remote RUN-STOP / Password Lock-Unlock, SRTP write memory /
+  program block transfer / RUN-STOP-RESET, KNX TUNNELLING_REQUEST
+  / DEVICE_CONFIGURATION, M-Bus SND_UD parameter writes /
+  SET_BAUDRATE, DLMS SET-Request / ACTION-Request remote_disconnect.
+  Each needs the per-target gating pattern + triple-confirm +
+  audit-chain emission per ADR-009.
+- **GE-SRTP service-0x21 follow-up probe** — Read PLC Long
+  Status as a richer second exchange after the connection-init.
+  v1.21 chunk 4 shipped the model-hint extractor (decodes
+  embedded ASCII from the existing connection-init response);
+  service-0x21 would yield richer firmware-version + CPU-type
+  info but needs test vectors against real PLCs.
 - **macOS sandbox** via `sandbox_init(3)`.
 - Bigger-picture deferrals: TUI front-end (bubbletea),
   record-&-replay proxy sessions, Windows support, multi-user
