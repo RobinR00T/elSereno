@@ -430,6 +430,50 @@ const overviewHTML = `<!doctype html>
     </section>
 
     <section class="panel">
+      <h2>Audit feed <span class="sub">v1.19+ · newest first · top 50</span></h2>
+      <div class="sub">
+        Loaded from <code>/api/v1/audit</code>. Filter by event_type or actor.
+        Tombstoned rows show as <em>[redacted]</em>; the chain entry stays.
+      </div>
+      <form id="audit-filter" onsubmit="return refreshAudit(event);" style="margin: 0.5em 0;">
+        <label>event_type:
+          <select id="audit-event-type">
+            <option value="">— any —</option>
+            <option value="vault_unlock">vault_unlock</option>
+            <option value="vault_lock">vault_lock</option>
+            <option value="serve_start">serve_start</option>
+            <option value="offensive_write">offensive_write</option>
+            <option value="offensive_dial">offensive_dial</option>
+            <option value="offensive_harvest">offensive_harvest</option>
+            <option value="offensive_sandbox">offensive_sandbox</option>
+            <option value="proxy_allowlist_reload">proxy_allowlist_reload</option>
+            <option value="protocol_probe">protocol_probe</option>
+            <option value="scope_applied">scope_applied</option>
+            <option value="token_rotate">token_rotate</option>
+            <option value="admin_action">admin_action</option>
+          </select>
+        </label>
+        &nbsp;
+        <label>actor: <input type="text" id="audit-actor" size="20" placeholder="any"></label>
+        &nbsp;
+        <button type="submit">Refresh</button>
+      </form>
+      <table id="audit-table">
+        <thead>
+          <tr>
+            <th>Occurred</th>
+            <th>Event</th>
+            <th>Actor</th>
+            <th>Payload (excerpt)</th>
+          </tr>
+        </thead>
+        <tbody id="audit-body">
+          <tr class="empty"><td colspan="4">loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
       <h2>Diff between runs <span class="sub">v1.18+ · what changed</span></h2>
       <div class="sub">
         Compare two runs by ID. Match key is (target, protocol):
@@ -671,6 +715,46 @@ const overviewHTML = `<!doctype html>
     });
   }
 
+  // v1.19 chunk 1: audit feed. Loads /api/v1/audit, applying
+  // event_type + actor filters from the form. Tombstoned rows
+  // render as [redacted] per ADR-013.
+  function refreshAudit(ev) {
+    if (ev) ev.preventDefault();
+    var eventType = (document.getElementById("audit-event-type") || {}).value || "";
+    var actor = ((document.getElementById("audit-actor") || {}).value || "").trim();
+    var url = "/api/v1/audit?limit=50";
+    if (eventType) url += "&event_type=" + encodeURIComponent(eventType);
+    if (actor) url += "&actor=" + encodeURIComponent(actor);
+    fetchJSON(url).then(function (res) {
+      var body = document.getElementById("audit-body");
+      if (!body) return;
+      if (res.unavailable) { body.innerHTML = '<tr class="empty"><td colspan="4">backend unavailable (no DATABASE_URL)</td></tr>'; return; }
+      var rows = res.data || [];
+      if (rows.length === 0) { body.innerHTML = '<tr class="empty"><td colspan="4">no audit rows</td></tr>'; return; }
+      body.innerHTML = rows.map(function (r) {
+        var when = new Date(r.occurred_at).toLocaleString();
+        var payloadCell = r.tombstoned ? '<em>[redacted]</em>' : escText(payloadExcerpt(r.payload));
+        return '<tr>' +
+          '<td>' + escText(when) + '</td>' +
+          '<td><code>' + escText(r.event_type) + '</code></td>' +
+          '<td>' + escText(r.actor) + '</td>' +
+          '<td class="rid">' + payloadCell + '</td>' +
+        '</tr>';
+      }).join("");
+    }).catch(function (e) {
+      var body = document.getElementById("audit-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="4">error: ' + escText(e.message) + '</td></tr>';
+    });
+    return false;
+  }
+  function payloadExcerpt(p) {
+    // p is JSON; render up to 120 chars to keep the row narrow.
+    if (p == null) return "";
+    var s = (typeof p === "string") ? p : JSON.stringify(p);
+    if (s.length > 120) s = s.slice(0, 117) + "…";
+    return s;
+  }
+
   // v1.18 chunk 2: diff between runs. Operator types two run
   // IDs; we hit /api/v1/findings/diff and render new /
   // resolved / persisting buckets in the panel below the form.
@@ -716,7 +800,7 @@ const overviewHTML = `<!doctype html>
   }
 
   // Initial load.
-  renderTriage(); renderFindings(); renderRuns();
+  renderTriage(); renderFindings(); renderRuns(); refreshAudit();
 
   // Re-fetch the DB-backed panels on SSE signals so the page
   // reacts to live scans without a full reload. We debounce by

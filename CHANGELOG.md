@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **v1.19 chunk 1 — Audit log API endpoint + dashboard panel**:
+  closes a long-running observability gap — operators can
+  finally see audit-chain entries on the dashboard without
+  shelling into the host and `tail -f
+  ~/.elsereno/audit.jsonl`. New
+  `GET /api/v1/audit?event_type=&actor=&occurred_after=&limit=`
+  returns the newest 50 (clamped [1, 500]) audit entries in
+  descending occurred_at order. New
+  `GET /api/v1/audit/cadence?event_type=&days=N` returns
+  per-day counts for the last N days (clamped [1, 90]) — used
+  by v1.19 chunk 2's reload-cadence panel + future "events
+  over time" charts. New `repo.AuditEntry` /
+  `repo.AuditQuery` / `repo.AuditCadence` /
+  `repo.ListAuditLog` / `repo.ListAuditCadence`. Tombstoned
+  rows (purged via `audit purge` per ADR-013) come back with
+  `payload = null` and `tombstoned = true` so the dashboard
+  can render them as `[redacted]` while preserving the chain
+  entry. New "Audit feed" dashboard panel with event_type
+  dropdown + actor text filter + a per-row payload excerpt
+  (≤120 chars). 6 new tests in
+  `internal/web/handlers/audit_test.go` covering the nil-
+  querier 503, happy-path JSON envelope, invalid-int filter
+  fallback, and the cadence endpoint variants.
 - **v1.18 chunk 2 — Dashboard diff between runs**: closes
   another long-standing TODO-vNext item — operators running
   weekly scans can now see what changed between two runs
