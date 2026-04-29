@@ -8,6 +8,22 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.24 (chunk 2) — **Engineering notes for the
+  5 missing plugins in `.context/protocols/`.** Plugin coverage
+  in the engineering-notes directory was 20 of 25 after v1.22
+  (cwmp / opcua / sip / iax2 / pbxhttp had no notes despite
+  being shipped years ago). This chunk fills them in with the
+  same shape as the other 20: TL;DR + spec references + wire
+  format + fingerprint strategy + read operations + write/dial
+  ops + REPL plan + proxy hooks + scoring contribution +
+  sentinel cases. Each note's last-updated timestamp + status
+  is current; cwmp.md notes the v1.16/v1.17/v1.19 chunk
+  history (TransferComplete observer + async firmware
+  re-fetch); opcua.md notes the v1.6/v1.12/v1.17 chunk
+  history (per-NodeId + per-CallMethod gating + token-
+  generation cookie). All 25 plugins now have engineering
+  notes.
+
 - 2026-04-29 — v1.24 (chunk 1) — **CVE-exposure expansion to
   7 more plugins.** Closes the cve_exposure non-zero coverage
   gap on the remaining ICS + PBX plugins (was 9 of 25 after

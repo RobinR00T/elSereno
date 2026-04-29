@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-19
+last-updated: 2026-04-29
 token-budget: 800
 ---
 
@@ -20,6 +20,11 @@ token-budget: 800
 | HART-IP | 5094/tcp+udp | F4 | implemented | [hartip.md](hartip.md) |
 | Niagara Fox | 1911, 4911/tcp | F4 | implemented | [fox.md](fox.md) |
 | ATG Veeder-Root | 10001/tcp | F4 | implemented | [atg.md](atg.md) |
+| CWMP / TR-069 | 7547/tcp | F4 | implemented | [cwmp.md](cwmp.md) |
+| OPC UA | 4840/tcp | F4 | implemented | [opcua.md](opcua.md) |
+| SIP | 5060/udp+tcp | F3 | implemented | [sip.md](sip.md) |
+| IAX2 | 4569/udp | F3 | implemented | [iax2.md](iax2.md) |
+| PBX HTTP | 443, 80, 8088, 5001, 8443, 411/tcp | F3 | implemented | [pbxhttp.md](pbxhttp.md) |
 | Omron FINS UDP | 9600/udp | v1.20 | implemented | [finsudp.md](finsudp.md) |
 | MELSEC SLMP | 5007/tcp | v1.20 | implemented | [slmp.md](slmp.md) |
 | GE-SRTP | 18245/tcp | v1.20 | implemented | [gesrtp.md](gesrtp.md) |
@@ -31,7 +36,7 @@ token-budget: 800
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **25 plugins** registered in the default build (read-only) as of v1.22 chunk 3.
+- **25 plugins** registered in the default build (read-only) as of v1.24 chunk 2 — engineering notes complete for all 25.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in
