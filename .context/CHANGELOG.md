@@ -8,6 +8,24 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.23 (chunk 2) — **Banner dictionary
+  expansion: 21 new vendor patterns.** Vendor count climbs
+  from 9 (v1.0 baseline) to 30 across three categories:
+  industrial controller / HMI / RTU vendors (Siemens
+  SIMATIC + RUGGEDCOM, Rockwell Automation / Allen-Bradley,
+  Schneider Modicon, ABB AC500 / Robotics, WAGO PFC, Beckhoff
+  CX/BX, Phoenix Contact AXC / ME-PLC, Hirschmann / Belden,
+  Westermo, Advantech EKI, Sealevel, Honeywell Experion,
+  Johnson Controls Metasys, Tridium Niagara), and
+  network-gear adjacent to ICS (Cisco IOS / IOS-XE, MikroTik
+  RouterOS, Ubiquiti EdgeOS / UniFi, pfSense / OPNsense,
+  Dropbear SSH, RomPager). Order-sensitivity guarded by a
+  dedicated test asserting that a banner referencing both
+  SIMATIC and Cisco IOS matches Siemens first (most-specific
+  rule wins). 24 new test cases bring the banner-dictionary
+  test count from 8 to 32 — every new vendor has at least
+  one exemplar banner string.
+
 - 2026-04-29 — v1.23 (chunk 1) — **CVE-exposure factor
   expansion for 7 plugins.** Set non-zero cve_exposure values
   on plugins with well-documented CVE families (previously all
