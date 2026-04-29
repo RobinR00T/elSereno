@@ -206,50 +206,40 @@ editando el `on:` stanza en cada `.github/workflows/*.yml`
 (los triggers originales quedan preservados en comentarios).
 
 **Shipped releases** (deep dives in `.context/snapshots/`):
-v1.0 → … → **v1.15** (latest published). v1.16 → v1.21 cycles
-closed on `main`, tags pending operator.
+v1.0 → … → **v1.15** (latest published). v1.16 → v1.24 cycles
+closed on `main`, tags pending operator push.
+
 **Counts now**:
-- **23 protocol plugins** (default build): atg, atmodem, bacnet,
-  banner, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp, hartip,
-  iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp, s7, sip,
-  slmp, xot.
+- **25 protocol plugins** (default build): atg, atmodem, bacnet,
+  banner, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp,
+  hartip, iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp,
+  redlion, s7, sip, slmp, xot.
 - 7 offensive write-gated proxies: modbus, opcua, sip, iax2,
-  pbxhttp, bacnet, cwmp.
+  pbxhttp, bacnet, cwmp. All ship per-object / per-path scoping.
 - 6 attack-surface input providers: shodan, censys, fofa,
-  zoomeye, onyphe, internetdb (last no-key + bulk lookup).
-- All 7 gates ship per-object / per-path scoping (v1.12 + v1.13).
+  zoomeye, onyphe, internetdb.
+- 16 / 25 plugins publish a non-zero `cve_exposure` score
+  (post v1.24 chunk 1).
+- 25 / 25 plugins have engineering notes in
+  `.context/protocols/` (post v1.24 chunk 2).
 
-**Deferred to v1.22+** (post-v1.21 backlog):
+**Deferred to v1.25+**:
+- cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
+  dlms once their CVE histories harden.
+- Offensive plugins for the v1.20 / v1.21 fingerprint trios.
+- GE-SRTP service-0x21 follow-up.
 - macOS sandbox via `sandbox_init(3)`.
-- 6 remaining legacy ICS protocols: PROFINET DCP / GOOSE / SV
-  (Layer-2 only), CoDeSys, Red Lion, IEC 61850 MMS, OPC UA HTTPS.
-- Offensive plugins for the v1.20 + v1.21 fingerprint trios
-  (FINS / SLMP / SRTP / KNX / M-Bus / DLMS write services).
-- GE-SRTP service-0x21 follow-up (richer firmware-version probe).
-- Big-picture: TUI (bubbletea), Windows support, OIDC + roles,
-  record-&-replay proxy sessions.
+- IEC 61850 MMS, OPC UA HTTPS, PROFINET (L2 with gopacket).
+- Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
-**GitHub Actions status**: still gated to `workflow_dispatch:`
-only (billing limit reached after v1.0.0). Local build flow
-(goreleaser + syft + `gh release upload`) is the canonical
-release path since v1.8. Cosign+SLSA+GHCR remain available
-behind GHA billing restore.
+**GitHub Actions**: gated to `workflow_dispatch:` (billing).
+Local goreleaser + syft + `gh release upload` is the canonical
+release path since v1.8.
 
-**Bootstrap PAT**: still live. All v1.0–v1.15 work is shipped;
-revoke now at
-https://github.com/settings/personal-access-tokens.
+**Operator-pending**:
+- Push main + sign + push tags v1.16.0 → v1.24.0.
+- Revoke bootstrap PAT, `rm ~/.elsereno/gh-token`.
+- Repo public-flip decision.
 
-**Repo**: `RobinR00T/elSereno`, **private**. Flip to public
-is a pending operator decision.
-
-**Live services** (preview-start / dev-db helper):
-- dashboard 127.0.0.1:8787
-- dev-db (pg 16) 127.0.0.1:5433 (via scripts/dev-db.sh)
-
-## Open questions
-
-- Operator: revoke the bootstrap PAT + rm ~/.elsereno/gh-token
-  (v1.15.0 ships; session tokens unrevoked carry exfil risk).
-- Repo public flip: still private; awaiting operator decision.
-- Restore Actions billing: would re-enable cosign+SLSA+GHCR
-  supply-chain layer. Cost vs value call.
+**Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
+127.0.0.1:5433 via `scripts/dev-db.sh`.
