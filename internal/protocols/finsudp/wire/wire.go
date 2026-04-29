@@ -161,10 +161,16 @@ func ParseControllerDataRead(buf []byte, wantSID byte) (ControllerData, error) {
 	return cd, nil
 }
 
-// trimASCII strips trailing NULs + spaces and returns the
-// remaining string. Embedded printable bytes are preserved.
+// trimASCII strips trailing NULs and spaces and returns the
+// remaining string. The cutset is "any of NUL/space" applied in
+// a single pass — the order-dependent two-call form
+// (TrimRight("\x00") then TrimRight(" ")) leaves embedded NULs
+// when padding interleaves NUL and space, e.g. "MODEL\x00 \x00 "
+// → after trim NUL: "MODEL\x00 \x00 " (no trailing NUL — last is
+// space) → after trim space: "MODEL\x00 \x00" (still trailing NUL).
+// Embedded printable bytes mid-string are preserved.
 func trimASCII(b []byte) string {
-	return strings.TrimRight(strings.TrimRight(string(b), "\x00"), " ")
+	return strings.TrimRight(string(b), "\x00 ")
 }
 
 // IsResponse returns true iff the datagram looks like a FINS

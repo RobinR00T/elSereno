@@ -8,6 +8,28 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.22 (chunk 4) — **Fuzz coverage for v1.20 +
+  v1.21 + v1.22 wire packages + finsudp trimASCII fix.** Added
+  Fuzz* targets to all 8 new wire packages: finsudp, slmp,
+  gesrtp, knxip, mbustcp, dlms, codesys, redlion. Each has a
+  parser fuzz (asserts no panic + per-package contract on
+  success) and a builder fuzz (asserts frame-length stability
+  across input). Doubles the in-tree Fuzz* target count from
+  6 to 14 — every from-scratch wire parser shipped since v1.20
+  is now under fuzz.
+
+  **Fuzz found a real bug** in finsudp's `trimASCII` —
+  exact duplicate of the slmp bug fixed in v1.21 chunk 2 but
+  shipped earlier (v1.20 chunk 1) and missed at the time.
+  trimASCII used the order-dependent two-call form
+  `strings.TrimRight(strings.TrimRight(s, "\x00"), " ")` which
+  leaves trailing NULs when padding interleaves `0x00` and
+  ` `. Fixed with the single-pass cutset
+  `strings.TrimRight(string(b), "\x00 ")`. Regression seed
+  preserved at testdata/fuzz/FuzzParseControllerDataRead/.
+  No public release ever shipped the buggy v1.20 finsudp —
+  v1.20 cycle is closed on `main` with tag pending operator.
+
 - 2026-04-29 — v1.22 (chunk 3) — **Red Lion Crimson / RLN
   fingerprint plugin on TCP/789.** Banner-substring fingerprint
   for Red Lion's G3 / G3 Kadet / Graphite / FlexEdge / DA-50N
