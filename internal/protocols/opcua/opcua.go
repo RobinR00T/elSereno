@@ -214,7 +214,12 @@ func buildFinding(target core.Target, note string, uaTCP bool, detail, extra str
 		"auth_state":    60, // anonymous HEL is always allowed
 		"capability":    30, // probe-only; write gating is v1.2
 		"impact_class":  85, // PLC control plane
-		"cve_exposure":  0,
+		// cve_exposure 8: CVE-2017-12069 (Siemens OPC UA stack
+		// auth bypass), CVE-2019-10936 (open62541 cert
+		// validation), CVE-2022-29862 (Unified Automation OPC
+		// UA C++ DoS) — modest but well-documented across the
+		// OPC UA stack landscape.
+		"cve_exposure": 8,
 	}
 	if uaTCP {
 		factors["capability"] = 60

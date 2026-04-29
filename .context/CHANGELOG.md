@@ -8,6 +8,35 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.23 (chunk 1) — **CVE-exposure factor
+  expansion for 7 plugins.** Set non-zero cve_exposure values
+  on plugins with well-documented CVE families (previously all
+  zero except codesys=10 + redlion=5 from v1.22). New values
+  with rationale:
+  - cwmp: 15 (CVE-2014-9222 Misfortune Cookie / RomPager +
+    TR-064 NewNTPServer command-injection family — broad legacy
+    CPE exposure on the same port 7547 ACS endpoint).
+  - dnp3: 12 (CVE-2013-2825 CRC bypass + CVE-2013-2829 TCP
+    frame stack overflow + CVE-2014-5410 Triangle MicroWorks
+    DNP3 implementation flaws).
+  - iec104: 10 (CVE-2015-7906 SIPROTEC + CVE-2017-12089 SICAM
+    PAS + CVE-2019-13548 SICAM PAS — substation automation
+    family). Pushes scoring into highest severity bucket on
+    positive ID since impact_class is already 90.
+  - bacnet: 8 (CVE-2018-10628 BAS auth bypass + CVE-2019-12480
+    Wago I/O System + CVE-2020-12511 Schneider U.motion).
+  - opcua: 8 (CVE-2017-12069 Siemens OPC UA + CVE-2019-10936
+    open62541 cert validation + CVE-2022-29862 Unified
+    Automation OPC UA C++ DoS).
+  - hartip: 7 (CVE-2014-7494 Honeywell XYR + CVE-2015-7905
+    Yokogawa STARDOM + CVE-2019-9869 Phoenix Contact HART-IP).
+  - atg: 6 (CVE-2017-14432/14433 Veeder-Root TLS-450 +
+    CVE-2018-5443 — gas-station-tank-gauge family).
+  Each value cites specific CVEs in code comments so future
+  maintainers can validate. cve_exposure remains weighted at
+  0.10 in `scoreFor`. No behaviour changes beyond scoring.
+  All affected plugin tests still pass; `make ci` green.
+
 - 2026-04-29 — v1.22 (chunk 4) — **Fuzz coverage for v1.20 +
   v1.21 + v1.22 wire packages + finsudp trimASCII fix.** Added
   Fuzz* targets to all 8 new wire packages: finsudp, slmp,

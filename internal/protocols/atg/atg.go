@@ -166,7 +166,12 @@ func buildFinding(target core.Target, note string, isATG bool) *core.Finding {
 		"auth_state":    95, // ATG has no auth
 		"capability":    30,
 		"impact_class":  60, // fuel dispensing impact
-		"cve_exposure":  0,
+		// cve_exposure 6: CVE-2017-14432 (Veeder-Root TLS-450
+		// authentication bypass), CVE-2017-14433 (TLS-450
+		// information disclosure), CVE-2018-5443 — known
+		// gas-station-tank-gauge family. Lower than DNP3/CWMP
+		// because the affected device population is smaller.
+		"cve_exposure": 6,
 	}
 	if isATG {
 		factors["capability"] = 70

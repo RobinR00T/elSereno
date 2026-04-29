@@ -210,7 +210,11 @@ func buildFinding(target core.Target, statusCode int, vendor Vendor, cwmpLikely 
 		"auth_state":    60,
 		"capability":    30,
 		"impact_class":  50, // HTTP alone isn't catastrophic without CWMP confirmation
-		"cve_exposure":  0,
+		// cve_exposure 15: CVE-2014-9222 (Misfortune Cookie /
+		// RomPager) + TR-064 NewNTPServer command-injection
+		// family — broad legacy CPE exposure, exploitable via
+		// the same port 7547 ACS endpoint when CWMP is confirmed.
+		"cve_exposure": 15,
 	}
 	note := "non-cwmp-http"
 	if cwmpLikely {
