@@ -141,7 +141,13 @@ func buildFinding(target core.Target, note string, iax2Confirmed bool, subclass 
 		"auth_state":    60,
 		"capability":    30,
 		"impact_class":  75,
-		"cve_exposure":  0,
+		// cve_exposure 9: Asterisk IAX2 family (CVE-2007-3764
+		// AUTHRESP signed-int wrap, CVE-2008-3263 IAX2 NEW
+		// frame DoS, CVE-2009-3727 IAX2 firmware download path
+		// traversal, CVE-2014-9374 Asterisk IAX2 retransmit
+		// DoS). IAX2 is Asterisk-specific so the CVE family
+		// is narrower than SIP but with high toll-fraud value.
+		"cve_exposure": 9,
 	}
 	if iax2Confirmed {
 		factors["protocol_risk"] = 90

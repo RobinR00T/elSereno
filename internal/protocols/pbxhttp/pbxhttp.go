@@ -239,7 +239,13 @@ func buildFinding(target core.Target, statusCode int, vendor Vendor, title, body
 		"auth_state":    60, // unknown — most PBX logins challenge but allow OPTIONS to pass
 		"capability":    30,
 		"impact_class":  40, // HTTP alone isn't a full PBX — scoring bumps on vendor match
-		"cve_exposure":  0,
+		// cve_exposure 11: FreePBX RCE family (CVE-2014-7235
+		// admin shell injection + CVE-2019-19006 + CVE-2020-
+		// 25822), Asterisk Manager web (CVE-2017-9358), 3CX
+		// (CVE-2023-29059), Mitel MiCollab (CVE-2024-41713).
+		// Web admin UIs are a direct RCE path into call
+		// infrastructure.
+		"cve_exposure": 11,
 	}
 	note := "non-pbx-http"
 	if pbxLikely {

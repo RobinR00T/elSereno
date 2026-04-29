@@ -8,6 +8,36 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.24 (chunk 1) — **CVE-exposure expansion to
+  7 more plugins.** Closes the cve_exposure non-zero coverage
+  gap on the remaining ICS + PBX plugins (was 9 of 25 after
+  v1.23; is now 16 of 25). New values:
+  - s7: 14 (CVE-2014-2249 stack overflow + CVE-2016-4785
+    auth bypass + CVE-2018-13815 PLC crash + Stuxnet-era
+    CVE-2010-2772 — broadest CVE surface in the ICS plugin
+    set, reflects Siemens PLC market share).
+  - fox: 13 (CVE-2012-3024 Niagara hardcoded creds,
+    CVE-2015-2916 directory traversal, CVE-2017-16744 Niagara
+    AX — Tridium dominates large-scale BMS).
+  - sip: 12 (Asterisk SIP CVE-2009-1207 + decades of
+    follow-ups, Cisco SPA + UC CVE-2017-3881, FreeSWITCH
+    CVE-2021-33611, 3CX CVE-2023-29059 supply-chain).
+  - enip: 11 (CVE-2017-7898 + CVE-2018-19009 + CVE-2020-
+    12029 Rockwell stack + CVE-2021-22681 hardcoded crypto).
+  - pbxhttp: 11 (FreePBX RCE family CVE-2014-7235 + 2019-
+    19006 + 2020-25822, Asterisk Manager web CVE-2017-9358,
+    3CX 2023-29059, Mitel MiCollab CVE-2024-41713).
+  - iax2: 9 (Asterisk IAX2 family CVE-2007-3764 + CVE-2008-
+    3263 + CVE-2009-3727 + CVE-2014-9374).
+  - modbus: 9 (CVE-2015-1015 Schneider Modicon DoS, CVE-
+    2017-9853 M340/M580 stack, CVE-2018-7240 Premium /
+    Quantum, CVE-2021-22779 auth bypass — vendor stacks atop
+    the auth-free protocol).
+  Combined v1.22 + v1.23 + v1.24: 16 of 25 plugins now
+  publish a non-zero cve_exposure score (was 0 at v1.21).
+  Remaining plugins without cve_exposure: atmodem, banner
+  (meta), xot — all have either no notable CVEs or n/a.
+
 - 2026-04-29 — v1.23 (chunk 2) — **Banner dictionary
   expansion: 21 new vendor patterns.** Vendor count climbs
   from 9 (v1.0 baseline) to 30 across three categories:

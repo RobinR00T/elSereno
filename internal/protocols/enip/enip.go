@@ -134,7 +134,12 @@ func buildFinding(target core.Target, note string, it *wire.IdentityItem) *core.
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  80,
-		"cve_exposure":  0,
+		// cve_exposure 11: CVE-2017-7898 (Rockwell open ports),
+		// CVE-2018-19009 (Rockwell stack), CVE-2020-12029
+		// (Rockwell ENIP DoS), CVE-2021-22681 (Rockwell
+		// hardcoded crypto key — Studio 5000 Logix Designer).
+		// Rockwell-dominant family.
+		"cve_exposure": 11,
 	}
 	if it != nil {
 		factors["capability"] = 70

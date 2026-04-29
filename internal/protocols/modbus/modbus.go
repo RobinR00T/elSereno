@@ -225,7 +225,13 @@ func buildFinding(target core.Target, note, vendor, product, revision string) *c
 		"auth_state":    90, // Modbus has no native auth.
 		"capability":    60, // read-confirmed devices surface state.
 		"impact_class":  70,
-		"cve_exposure":  0,
+		// cve_exposure 9: CVE-2015-1015 (Schneider Modicon DoS),
+		// CVE-2017-9853 (Schneider M340 / M580 stack), CVE-
+		// 2018-7240 (Schneider Modicon Premium / Quantum),
+		// CVE-2021-22779 (Schneider Modbus auth-bypass).
+		// Modbus protocol itself is auth-free; CVEs here track
+		// vendor-stack issues atop the protocol.
+		"cve_exposure": 9,
 	}
 	score := scoreFor(factors)
 	detail := note
