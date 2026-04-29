@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-28
+last-updated: 2026-04-29
 token-budget: 900
 ---
 
@@ -40,17 +40,19 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-28)**: **v1.21 cycle closed on `main`,
-tag pending operator**. 4 chunks: KNXnet/IP UDP/3671 (chunk 1),
-M-Bus over TCP/10001 (chunk 2), DLMS/COSEM TCP/4059 (chunk 3),
-GE-SRTP model-hint extraction refinement (chunk 4). Default
-build now registers **23 protocol plugins** (was 20). 60 new
-tests. Snapshot:
-`.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
-v1.16 / v1.17 / v1.18 / v1.19 / v1.20 cycles also closed
-(tags pending). v1.15.0 still the latest published release.
+**Current phase (2026-04-29)**: **v1.22 cycle closed on `main`,
+tag pending operator**. 4 chunks: CI fuzz-flake retry +
+`-timeout` in run-fuzz.sh (chunk 1), CoDeSys V3 TCP/1217
+(chunk 2), Red Lion Crimson/RLN TCP/789 (chunk 3), fuzz
+coverage for v1.20+v1.21+v1.22 wire packages + finsudp
+trimASCII bug fix found by fuzz (chunk 4). Default build now
+registers **25 protocol plugins** (was 23); in-tree Fuzz*
+target count doubles 6→14. Snapshot:
+`.context/snapshots/v1.22.0-ci-hygiene-codesys-redlion-fuzz.md`.
+v1.16-v1.21 cycles also closed (tags pending). v1.15.0 still
+the latest published release.
 
-**Counts**: **23 protocol plugins** in the default build; **7
+**Counts**: **25 protocol plugins** in the default build; **7
 offensive write-gated proxies** (modbus, opcua, sip, iax2,
 pbxhttp, bacnet, cwmp); **6 attack-surface input clients**
 (shodan, censys, fofa, zoomeye, onyphe, internetdb — last is

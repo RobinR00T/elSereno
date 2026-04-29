@@ -1,40 +1,53 @@
 ---
-phase: v1.21-in-flight
-status: v1.21 cycle closed on `main` (4 chunks, tag pending operator); v1.16-v1.20 also closed
-last-updated: 2026-04-28
+phase: v1.22-in-flight
+status: v1.22 cycle closed on `main` (4 chunks, tag pending operator); v1.16-v1.21 also closed
+last-updated: 2026-04-29
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.21 cycle closed on `main`** (4 chunks, tag
-pending operator decision). Adds three more legacy ICS
-fingerprint plugins (KNXnet/IP UDP, M-Bus over TCP, DLMS/COSEM)
-plus a GE-SRTP refinement that extracts embedded model hints
-from the connection-init response. Default build now registers
-**23 protocol plugins** (was 20). v1.20 also closed (3 chunks).
-v1.19 also closed (3 chunks). v1.18 also closed (2 chunks).
-v1.17 also closed (5 chunks). v1.16 also closed (4 chunks).
-v1.15.0 remains the latest published release on
+**Phase**: **v1.22 cycle closed on `main`** (4 chunks, tag
+pending operator decision). One CI-hygiene fix, two new
+fingerprint plugins (CoDeSys V3, Red Lion Crimson/RLN), and a
+fuzz-coverage push that surfaced a real bug in v1.20 finsudp.
+Default build now registers **25 protocol plugins** (was 23);
+in-tree Fuzz* count doubles 6 → 14. v1.21 also closed (4
+chunks). v1.20 also closed (3 chunks). v1.19 also closed (3
+chunks). v1.18 also closed (2 chunks). v1.17 also closed (5
+chunks). v1.16 also closed (4 chunks). v1.15.0 remains the
+latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
 
+**v1.22 chunks landed (in-flight)**:
+- 1   `e1e3f25` — CI hygiene: fuzz-flake retry + explicit
+  -timeout in scripts/run-fuzz.sh. Closes the macOS fuzz
+  scheduler "context deadline exceeded" flake on xot/render.
+- 2   `5aedb05` — CoDeSys V3 TCP fingerprint plugin (TCP/1217).
+  4-byte BlockDriver magic hello + banner substring match
+  (CoDeSys / CODESYS / 3S-Smart / CmpHostname / CmpAppBP /
+  CmpRuntime). First plugin to set cve_exposure non-zero
+  (ICSA-12-242-01 / 19-080-01 / 21-014-04). Fail-closed proxy.
+  6 wire + 7 plugin tests.
+- 3   `0f474e9` — Red Lion Crimson/RLN fingerprint plugin
+  (TCP/789). Unsolicited banner read + 3-byte zero-hello
+  fallback + 12-substring classifier. cve_exposure 5
+  (ICSA-21-103-01 / 22-088-01). Fail-closed proxy. 6 wire +
+  7 plugin tests.
+- 4   `03683a4` — Fuzz coverage for v1.20+v1.21+v1.22 wire
+  packages (8 plugins × 2 fuzz targets = 16 new). Doubles
+  in-tree Fuzz* count 6→14. Fuzz found and fixed a real
+  trimASCII bug in v1.20 finsudp (same shape as the slmp bug
+  fixed in v1.21 chunk 2 but missed at the time).
+
+Snapshot:
+`.context/snapshots/v1.22.0-ci-hygiene-codesys-redlion-fuzz.md`.
+
 **v1.21 chunks landed (in-flight)**:
-- 1   `9cd8700` — KNXnet/IP UDP fingerprint plugin (UDP/3671).
-  DESCRIPTION_REQUEST (svc 0x0204) per KNX Standard 03.08.02
-  §2.2. Fail-closed UDP proxy. 9 wire + 7 plugin tests.
-- 2   `1f0f75b` — M-Bus over TCP fingerprint plugin (TCP/10001).
-  REQ_UD2 to broadcast (0xFE) per EN 13757-3 §5.2; decodes the
-  16-bit-packed manufacturer code. Wire-layer write-ban (single-
-  byte ACK 0xE5). 11 wire + 9 plugin tests.
-- 3   `86e1034` — DLMS/COSEM TCP fingerprint plugin (TCP/4059).
-  Wrapper-framed AARQ (LN-no-ciphering) per IEC 62056-46 §8.4.
-  Wire-layer write-ban (wrapper-framed AARE rejected-permanent).
-  7 wire + 9 plugin tests.
-- 4   `3edaad1` — GE-SRTP model-hint extraction refinement.
-  ExtractModelHint scans connection-init response for embedded
-  GE PLC family strings (PACSystems / IC693 / IC695 / IC697 /
-  IC200 / RX3i / RX7i); capability 70→75 on positive hint. 7 +
-  1 = 8 new tests.
+- 1   `9cd8700` — KNXnet/IP UDP/3671. 9 wire + 7 plugin tests.
+- 2   `1f0f75b` — M-Bus over TCP/10001. 11 wire + 9 plugin tests.
+- 3   `86e1034` — DLMS/COSEM TCP/4059. 7 wire + 9 plugin tests.
+- 4   `3edaad1` — GE-SRTP model-hint refinement. 8 new tests.
 
 Snapshot:
 `.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
@@ -57,33 +70,17 @@ Snapshot:
 Snapshot:
 `.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
 
-**v1.19 chunks landed (in-flight)**:
-- 1   Audit log API endpoint (`/api/v1/audit` +
-  `/api/v1/audit/cadence`) + dashboard "Audit feed" panel
-  with event_type/actor filters + payload excerpts.
-  Tombstoned rows render as `[redacted]`. 6 tests.
-- 2   `d2ebb0f` — Reload cadence dashboard panel surfaces
-  the v1.17-chunk-5 `proxy_allowlist_reload` audit rows as a
-  per-day text-based bar chart (last 7 days). Pure dashboard;
-  reuses chunk-1's `/api/v1/audit/cadence`.
-- 3   CWMP TransferComplete async firmware re-fetch
-  (opt-in via `--verify-firmware-on-complete`). New
-  `cwmp_firmware_verify` audit event + migration 00004.
-  Goroutine-detached; closes the v1.16-chunk-1 loose end
-  by detecting source-server firmware swaps post-flash.
-  9 tests.
+**v1.19 cycle (3 chunks)**: Audit log API (`/api/v1/audit` +
+`/api/v1/audit/cadence`) + dashboard "Audit feed" panel +
+reload-cadence bar chart + CWMP TransferComplete async
+firmware re-fetch (opt-in `--verify-firmware-on-complete`,
+new `cwmp_firmware_verify` audit event, migration 00004).
+15 tests.
+Snapshot: `.context/snapshots/v1.19.0-observability-completion.md`.
 
-Snapshot:
-`.context/snapshots/v1.19.0-observability-completion.md`.
-
-**v1.18 chunks landed (in-flight, tag pending)**:
-- 1   `cc157d4` — Dashboard CSV export from UI
-  (`?format=csv` on `/api/v1/findings`, "Download CSV (top
-  500)" link). 3 tests.
-- 2   `1225312` — Dashboard diff between runs
-  (`/api/v1/findings/diff?old=&new=`, new "Diff between runs"
-  panel with new / resolved / persisting buckets matched by
-  (target_id, protocol)). 9 tests.
+**v1.18 cycle (2 chunks)**: Dashboard CSV export
+(`?format=csv` on `/api/v1/findings`) + run-diff
+(`/api/v1/findings/diff?old=&new=`). 12 tests.
 
 Snapshot:
 `.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.

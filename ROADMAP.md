@@ -1,15 +1,15 @@
 # ElSereno — Roadmap
 
-State as of **2026-04-28**. **v1.15.0 is the latest published
+State as of **2026-04-29**. **v1.15.0 is the latest published
 release** (5-chunk loose-end closure cycle on GitHub Releases).
-v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 cycles closed on
-`main` with tags pending operator decision.
+v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 → v1.22 cycles
+closed on `main` with tags pending operator decision.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → … → **v1.15** (published) → v1.16 → v1.17 → v1.18 →
-v1.19 → v1.20 → v1.21 (closed on main, tags pending). Each
-release has a per-cycle snapshot under `.context/snapshots/`.
+v1.19 → v1.20 → v1.21 → v1.22 (closed on main, tags pending).
+Each release has a per-cycle snapshot under `.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -88,26 +88,37 @@ the long-running roadmap so the delta between **shipped** and
   read-only fingerprint plugins) + GE-SRTP model-hint extraction
   (capability lift 70→75 when an embedded GE PLC family string
   is recoverable from the connection-init reply). Default build
-  now registers **23 protocol plugins** (was 20). 4 chunks.
+  now registers 23 protocol plugins (was 20). 4 chunks.
+- **v1.22** — CI hygiene + CoDeSys + Red Lion + fuzz coverage.
+  Fuzz-flake retry + explicit `-timeout` in run-fuzz.sh
+  (chunk 1) + CoDeSys V3 TCP/1217 (chunk 2, first plugin to
+  set cve_exposure non-zero) + Red Lion Crimson/RLN TCP/789
+  (chunk 3) + Fuzz* targets across all 8 v1.20+v1.21+v1.22
+  wire packages (chunk 4 — fuzz found a real trimASCII bug in
+  v1.20 finsudp; same shape as the slmp bug fixed in v1.21
+  chunk 2 but missed at the time). Default build now
+  registers **25 protocol plugins** (was 23); in-tree Fuzz*
+  count doubles 6→14. 4 chunks.
 
-## v1.22+ proposed backlog
+## v1.23+ proposed backlog
 
-- **6 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
-  / SV — Layer-2 multicast, framework requires IP-rework; CoDeSys,
-  Red Lion — proprietary, sketchy public docs without test
-  vectors; IEC 61850 MMS — port-102 share with S7 + complex
-  ASN.1 stack; OPC UA HTTPS). v1.20 + v1.21 cycles together
-  shipped 6 legacy-ICS fingerprint plugins (FINS / SLMP / SRTP /
-  KNX / M-Bus / DLMS); the rest are deferred for the reasons
-  above.
-- **Offensive plugins for the v1.20 + v1.21 fingerprint trios**
-  — FINS memory-area writes / RUN-STOP, SLMP Batch Write /
-  Remote RUN-STOP / Password Lock-Unlock, SRTP write memory /
-  program block transfer / RUN-STOP-RESET, KNX TUNNELLING_REQUEST
-  / DEVICE_CONFIGURATION, M-Bus SND_UD parameter writes /
-  SET_BAUDRATE, DLMS SET-Request / ACTION-Request remote_disconnect.
-  Each needs the per-target gating pattern + triple-confirm +
-  audit-chain emission per ADR-009.
+- **4 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
+  / SV — Layer-2 multicast, framework requires IP-rework; IEC
+  61850 MMS — port-102 share with S7 + complex ASN.1 stack;
+  OPC UA HTTPS). v1.20 + v1.21 + v1.22 cycles together shipped
+  8 legacy-ICS fingerprint plugins (FINS / SLMP / SRTP / KNX /
+  M-Bus / DLMS / CoDeSys / RLN); the rest are deferred for the
+  reasons above.
+- **Offensive plugins for the v1.20 + v1.21 + v1.22 fingerprint
+  trios** — FINS memory-area writes / RUN-STOP, SLMP Batch
+  Write / Remote RUN-STOP / Password Lock-Unlock, SRTP write
+  memory / program block transfer / RUN-STOP-RESET, KNX
+  TUNNELLING_REQUEST / DEVICE_CONFIGURATION, M-Bus SND_UD
+  parameter writes / SET_BAUDRATE, DLMS SET-Request /
+  ACTION-Request remote_disconnect, CoDeSys Cmp* service
+  requests, RLN per-tag/object writes. Each needs the per-
+  target gating pattern + triple-confirm + audit-chain
+  emission per ADR-009.
 - **GE-SRTP service-0x21 follow-up probe** — Read PLC Long
   Status as a richer second exchange after the connection-init.
   v1.21 chunk 4 shipped the model-hint extractor (decodes
