@@ -1,24 +1,38 @@
 ---
-phase: v1.23-in-flight
-status: v1.23 cycle closed on `main` (2 chunks, tag pending operator); v1.16-v1.22 also closed
+phase: v1.24-closed
+status: v1.16 → v1.24 cycles closed on `main`; tags pending operator push
 last-updated: 2026-04-29
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.23 cycle closed on `main`** (2 chunks, tag
-pending operator decision). Refinement cycle: CVE-exposure
-factor expansion across 7 plugins + banner dictionary growth
-+21 vendors. No new plugins; default-build count stays at
-**25**. Banner-dictionary vendor count climbs 9 → 30; non-zero
-cve_exposure plugin count climbs 2 → 9. v1.22 also closed
-(4 chunks; CoDeSys, Red Lion, fuzz coverage). v1.21 also
-closed (4 chunks). v1.20 also closed (3 chunks). v1.19 also
-closed (3 chunks). v1.18 also closed (2 chunks). v1.17 also
-closed (5 chunks). v1.16 also closed (4 chunks). v1.15.0
-remains the latest published release on
-https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+**Phase**: **v1.24 cycle closed on `main`** (2 chunks +
+close commit). Long-running CVE coverage + engineering-notes
+completion. After v1.24 chunk 1, **16 of 25 plugins** publish
+a non-zero `cve_exposure` score (was 9 post-v1.23, was 2
+post-v1.22, was 0 pre-v1.22). After v1.24 chunk 2,
+engineering notes in `.context/protocols/` are **complete for
+all 25 plugins** (was 20 of 25). Default-build plugin count
+stays at **25**.
+
+**v1.16 → v1.23 are also closed** on `main` with snapshots
+under `.context/snapshots/`. Tags `v1.16.0` → `v1.24.0` are
+pending the operator push. v1.15.0 remains the latest
+published release on
+https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0
+until the push goes through.
+
+Snapshot:
+`.context/snapshots/v1.24.0-cve-coverage-and-engineering-notes.md`.
+
+**v1.24 chunks landed (closed)**:
+- 1   `4ee8017` — CVE-exposure expansion to 7 more plugins
+  (s7=14, fox=13, sip=12, enip=11, pbxhttp=11, modbus=10,
+  iax2=9). Each value cites concrete CVEs in code comments.
+- 2   `3e64b03` — engineering notes for the 5 missing
+  plugins (cwmp / opcua / sip / iax2 / pbxhttp). Coverage in
+  `.context/protocols/` now complete for all 25 plugins.
 
 **v1.23 chunks landed (in-flight)**:
 - 1   `e262b8d` — CVE-exposure factor expansion for 7 plugins
