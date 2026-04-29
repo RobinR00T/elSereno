@@ -26,10 +26,11 @@ token-budget: 800
 | KNXnet/IP | 3671/udp | v1.21 | implemented | [knxip.md](knxip.md) |
 | M-Bus over TCP | 10001/tcp | v1.21 | implemented | [mbustcp.md](mbustcp.md) |
 | DLMS/COSEM | 4059/tcp | v1.21 | implemented | [dlms.md](dlms.md) |
+| CoDeSys V3 | 1217/tcp | v1.22 | implemented | [codesys.md](codesys.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **23 plugins** registered in the default build (read-only) as of v1.21 chunk 3.
+- **24 plugins** registered in the default build (read-only) as of v1.22 chunk 2.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in

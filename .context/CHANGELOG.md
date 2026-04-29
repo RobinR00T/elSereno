@@ -8,6 +8,23 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-28 — v1.22 (chunk 2) — **CoDeSys V3 TCP fingerprint
+  plugin on TCP/1217.** Continues the legacy-ICS roll-out from
+  v1.20 + v1.21. Sends the 4-byte BlockDriver magic hello
+  (0xCD 0xCD 0xCD 0xCD) and classifies the response by either
+  the magic echo or canonical banner substring (CoDeSys /
+  CODESYS / 3S-Smart / 3S-CoDeSys / CmpHostname / CmpAppBP /
+  CmpRuntime). Reverse-engineered from libcodesys-py +
+  codesys-rs + ICS-CERT advisory captures (ICSA-12-242-01 /
+  19-080-01 / 21-014-04). Fail-closed proxy — proprietary
+  Layer-3/4/7 APDU stack out of scope for chunk 2. Score
+  factors{protocol_risk:80, exposure:75, auth_state:85,
+  capability:30→70 on CoDeSys reply, impact_class:75,
+  cve_exposure:10}. **First plugin to set cve_exposure
+  non-zero** — reflects the well-known CVE family. 24 protocol
+  plugins now register in the default build (23 → 24); 6 wire
+  tests + 7 plugin tests; `make ci` green.
+
 - 2026-04-28 — v1.22 (chunk 1) — **CI hygiene: fuzz-flake retry
   + explicit timeout in `scripts/run-fuzz.sh`.** Closes a
   pre-existing intermittent failure where `xot/wire
