@@ -22,6 +22,7 @@ import (
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/pbxhttp"
+	"local/elsereno/internal/protocols/redlion"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
 	"local/elsereno/internal/protocols/slmp"
@@ -56,4 +57,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: mbustcp.Default().Metadata(), Factory: func() core.Protocol { return mbustcp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: dlms.Default().Metadata(), Factory: func() core.Protocol { return dlms.Default() }})
 	core.Register(core.Plugin{PluginMetadata: codesys.Default().Metadata(), Factory: func() core.Protocol { return codesys.Default() }})
+	core.Register(core.Plugin{PluginMetadata: redlion.Default().Metadata(), Factory: func() core.Protocol { return redlion.Default() }})
 }

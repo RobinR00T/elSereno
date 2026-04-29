@@ -8,6 +8,24 @@ last-updated: 2026-04-28
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-04-29 — v1.22 (chunk 3) — **Red Lion Crimson / RLN
+  fingerprint plugin on TCP/789.** Banner-substring fingerprint
+  for Red Lion's G3 / G3 Kadet / Graphite / FlexEdge / DA-50N
+  HMI families and the post-2010-acquisition Sixnet RTU line.
+  Plugin connects, reads any unsolicited banner (Crimson
+  firmware typically announces itself on connect), falls back
+  to a 3-byte zero hello if nothing arrives in IOTimeout/2,
+  then classifies by 12 canonical banner substrings (Red Lion
+  Controls / Red Lion / Crimson 3 / CRIMSON 3 / Crimson 2 /
+  FlexEdge / Graphite / DA-50N / DA50N / G3 Kadet / G3 HMI /
+  Sixnet) ordered most-specific first. Fail-closed proxy.
+  Score factors{protocol_risk:75, exposure:75, auth_state:85,
+  capability:30→70 on Red Lion reply, impact_class:70,
+  cve_exposure:5}. cve_exposure 5 reflects ICSA-21-103-01
+  (hardcoded crypto key) + ICSA-22-088-01 (path traversal). 25
+  protocol plugins now register in the default build (24 → 25);
+  6 wire tests + 7 plugin tests; `make ci` green.
+
 - 2026-04-28 — v1.22 (chunk 2) — **CoDeSys V3 TCP fingerprint
   plugin on TCP/1217.** Continues the legacy-ICS roll-out from
   v1.20 + v1.21. Sends the 4-byte BlockDriver magic hello

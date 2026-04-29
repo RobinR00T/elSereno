@@ -1,10 +1,10 @@
 # Protocol support
 
-ElSereno ships **24 protocol plugins** in the default build (as
-of v1.22.0, 2026-04-28). Every TCP-based plugin enforces a wire-
+ElSereno ships **25 protocol plugins** in the default build (as
+of v1.22.0, 2026-04-29). Every TCP-based plugin enforces a wire-
 layer write-ban in the default build; writes land only under
 `-tags offensive` and must clear the ADR-039 triple-confirm
-wrapper. **7 of the 24** carry write-gated proxies with per-
+wrapper. **7 of the 25** carry write-gated proxies with per-
 object / per-path scoping (rows in **bold**).
 
 | Protocol | Port(s) | Probe | Proxy default | Writes (offensive) |
@@ -32,6 +32,7 @@ object / per-path scoping (rows in **bold**).
 | M-Bus over TCP ([mbustcp.md](mbustcp.md)) | 10001 | REQ_UD2 to broadcast (0xFE) | wire write-ban (single-byte ACK 0xE5) | (vNext — SND_UD parameter writes / SET_BAUDRATE) |
 | DLMS/COSEM ([dlms.md](dlms.md)) | 4059 | wrapper-framed AARQ (LN-no-ciphering) | wire write-ban (wrapper-framed AARE rejected-permanent) | (vNext — SET-Request / ACTION-Request remote_disconnect) |
 | CoDeSys V3 ([codesys.md](codesys.md)) | 1217 | 4-byte BlockDriver magic + banner substring match | fail-closed (proprietary stack) | (vNext — Cmp* service-request gating) |
+| Red Lion / RLN ([redlion.md](redlion.md)) | 789 | unsolicited banner read + 3-byte hello fallback + Crimson/Sixnet substring match | fail-closed (proprietary RLN TLV) | (vNext — RLN per-command + per-tag gating) |
 | Banner / dictionary ([banner.md](banner.md)) | many | TCP read, vendor match | read-only | n/a |
 
 ## Proxy default-build policy

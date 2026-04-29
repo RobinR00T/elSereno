@@ -27,10 +27,11 @@ token-budget: 800
 | M-Bus over TCP | 10001/tcp | v1.21 | implemented | [mbustcp.md](mbustcp.md) |
 | DLMS/COSEM | 4059/tcp | v1.21 | implemented | [dlms.md](dlms.md) |
 | CoDeSys V3 | 1217/tcp | v1.22 | implemented | [codesys.md](codesys.md) |
+| Red Lion / RLN | 789/tcp | v1.22 | implemented | [redlion.md](redlion.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **24 plugins** registered in the default build (read-only) as of v1.22 chunk 2.
+- **25 plugins** registered in the default build (read-only) as of v1.22 chunk 3.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in
