@@ -1,44 +1,50 @@
 ---
-phase: v1.22-in-flight
-status: v1.22 cycle closed on `main` (4 chunks, tag pending operator); v1.16-v1.21 also closed
+phase: v1.23-in-flight
+status: v1.23 cycle closed on `main` (2 chunks, tag pending operator); v1.16-v1.22 also closed
 last-updated: 2026-04-29
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.22 cycle closed on `main`** (4 chunks, tag
-pending operator decision). One CI-hygiene fix, two new
-fingerprint plugins (CoDeSys V3, Red Lion Crimson/RLN), and a
-fuzz-coverage push that surfaced a real bug in v1.20 finsudp.
-Default build now registers **25 protocol plugins** (was 23);
-in-tree Fuzz* count doubles 6 → 14. v1.21 also closed (4
-chunks). v1.20 also closed (3 chunks). v1.19 also closed (3
-chunks). v1.18 also closed (2 chunks). v1.17 also closed (5
-chunks). v1.16 also closed (4 chunks). v1.15.0 remains the
-latest published release on
+**Phase**: **v1.23 cycle closed on `main`** (2 chunks, tag
+pending operator decision). Refinement cycle: CVE-exposure
+factor expansion across 7 plugins + banner dictionary growth
++21 vendors. No new plugins; default-build count stays at
+**25**. Banner-dictionary vendor count climbs 9 → 30; non-zero
+cve_exposure plugin count climbs 2 → 9. v1.22 also closed
+(4 chunks; CoDeSys, Red Lion, fuzz coverage). v1.21 also
+closed (4 chunks). v1.20 also closed (3 chunks). v1.19 also
+closed (3 chunks). v1.18 also closed (2 chunks). v1.17 also
+closed (5 chunks). v1.16 also closed (4 chunks). v1.15.0
+remains the latest published release on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
+
+**v1.23 chunks landed (in-flight)**:
+- 1   `e262b8d` — CVE-exposure factor expansion for 7 plugins
+  (cwmp=15, dnp3=12, iec104=10, bacnet=8, opcua=8, hartip=7,
+  atg=6). Each value cites concrete CVEs in code comments.
+- 2   `20f7d1e` — Banner dictionary expansion +21 vendors
+  (industrial controllers + HMIs + RTUs: Siemens, Rockwell,
+  Schneider, ABB, WAGO, Beckhoff, Phoenix Contact,
+  Hirschmann, Westermo, Advantech, Sealevel, Honeywell,
+  Johnson Controls, Tridium; network gear: Cisco IOS,
+  MikroTik, Ubiquiti, pfSense, Dropbear, RomPager). 24 new
+  test cases.
+
+Snapshot:
+`.context/snapshots/v1.23.0-scoring-refinements.md`.
 
 **v1.22 chunks landed (in-flight)**:
 - 1   `e1e3f25` — CI hygiene: fuzz-flake retry + explicit
-  -timeout in scripts/run-fuzz.sh. Closes the macOS fuzz
-  scheduler "context deadline exceeded" flake on xot/render.
-- 2   `5aedb05` — CoDeSys V3 TCP fingerprint plugin (TCP/1217).
-  4-byte BlockDriver magic hello + banner substring match
-  (CoDeSys / CODESYS / 3S-Smart / CmpHostname / CmpAppBP /
-  CmpRuntime). First plugin to set cve_exposure non-zero
-  (ICSA-12-242-01 / 19-080-01 / 21-014-04). Fail-closed proxy.
-  6 wire + 7 plugin tests.
-- 3   `0f474e9` — Red Lion Crimson/RLN fingerprint plugin
-  (TCP/789). Unsolicited banner read + 3-byte zero-hello
-  fallback + 12-substring classifier. cve_exposure 5
-  (ICSA-21-103-01 / 22-088-01). Fail-closed proxy. 6 wire +
-  7 plugin tests.
+  -timeout in scripts/run-fuzz.sh.
+- 2   `5aedb05` — CoDeSys V3 TCP/1217. cve_exposure 10. 13
+  tests.
+- 3   `0f474e9` — Red Lion Crimson/RLN TCP/789. cve_exposure
+  5. 13 tests.
 - 4   `03683a4` — Fuzz coverage for v1.20+v1.21+v1.22 wire
-  packages (8 plugins × 2 fuzz targets = 16 new). Doubles
-  in-tree Fuzz* count 6→14. Fuzz found and fixed a real
-  trimASCII bug in v1.20 finsudp (same shape as the slmp bug
-  fixed in v1.21 chunk 2 but missed at the time).
+  packages (16 new fuzz targets). Found + fixed real
+  trimASCII bug in v1.20 finsudp.
 
 Snapshot:
 `.context/snapshots/v1.22.0-ci-hygiene-codesys-redlion-fuzz.md`.
@@ -52,23 +58,13 @@ Snapshot:
 Snapshot:
 `.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
 
-**v1.20 chunks landed (in-flight)**:
-- 1   `96c5453` — Omron FINS UDP fingerprint plugin (UDP/9600).
-  CONTROLLER DATA READ (MRC=0x05 SRC=0x01) per OMRON CPU
-  manual W421 §5.1/§5.4. Fail-closed UDP proxy. 12 wire +
-  11 plugin tests.
-- 2   `fcf5931` — MELSEC SLMP TCP fingerprint plugin (TCP/5007).
-  READ CPU MODEL NAME (cmd 0x0101 sub 0x0000) per Mitsubishi
-  Electric SLMP Reference Manual SH(NA)-080956ENG. Wire-layer
-  write-ban (end code 0xC059). 9 wire + 11 plugin tests.
-- 3   `8a89baa` — GE-SRTP TCP fingerprint plugin (TCP/18245).
-  56-byte CONNECTION INIT mailbox reverse-engineered from
-  Rapid7's nmap NSE script gesrtp-info + Conpot fixtures.
-  Wire-layer write-ban (mailbox response with non-zero
-  status byte). 6 wire + 7 plugin tests.
-
-Snapshot:
-`.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
+**v1.20 cycle (3 chunks)**: Legacy-ICS fingerprint trio —
+Omron FINS UDP/9600 (CONTROLLER DATA READ MRC=0x05 SRC=0x01),
+MELSEC SLMP TCP/5007 (READ CPU MODEL NAME cmd 0x0101 sub
+0x0000), GE-SRTP TCP/18245 (56-byte CONNECTION INIT mailbox
+reverse-engineered from Rapid7 NSE + Conpot fixtures). 56
+new tests.
+Snapshot: `.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
 
 **v1.19 cycle (3 chunks)**: Audit log API (`/api/v1/audit` +
 `/api/v1/audit/cadence`) + dashboard "Audit feed" panel +

@@ -40,16 +40,17 @@ token-budget: 900
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-29)**: **v1.22 cycle closed on `main`,
-tag pending operator**. 4 chunks: CI fuzz-flake retry +
-`-timeout` in run-fuzz.sh (chunk 1), CoDeSys V3 TCP/1217
-(chunk 2), Red Lion Crimson/RLN TCP/789 (chunk 3), fuzz
-coverage for v1.20+v1.21+v1.22 wire packages + finsudp
-trimASCII bug fix found by fuzz (chunk 4). Default build now
-registers **25 protocol plugins** (was 23); in-tree Fuzz*
-target count doubles 6→14. Snapshot:
-`.context/snapshots/v1.22.0-ci-hygiene-codesys-redlion-fuzz.md`.
-v1.16-v1.21 cycles also closed (tags pending). v1.15.0 still
+**Current phase (2026-04-29)**: **v1.23 cycle closed on `main`,
+tag pending operator**. 2 chunks (refinement cycle): CVE-
+exposure factor expansion across 7 plugins (cwmp=15, dnp3=12,
+iec104=10, bacnet=8, opcua=8, hartip=7, atg=6) plus banner
+dictionary expansion +21 vendors (industrial controllers +
+HMIs + RTUs + adjacent network gear). Default build still
+**25 protocol plugins**; banner-dictionary vendor count
+climbs 9→30; non-zero cve_exposure plugin count climbs 2→9.
+Snapshot:
+`.context/snapshots/v1.23.0-scoring-refinements.md`.
+v1.16-v1.22 cycles also closed (tags pending). v1.15.0 still
 the latest published release.
 
 **Counts**: **25 protocol plugins** in the default build; **7

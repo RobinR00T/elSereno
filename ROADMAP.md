@@ -2,14 +2,15 @@
 
 State as of **2026-04-29**. **v1.15.0 is the latest published
 release** (5-chunk loose-end closure cycle on GitHub Releases).
-v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 → v1.22 cycles
-closed on `main` with tags pending operator decision.
+v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 → v1.22 → v1.23
+cycles closed on `main` with tags pending operator decision.
 
 The shipped lineup (each tag GPG-signed with key
 `ACE3B86BACACE7D6`, free-tier local-build flow since v1.8): v1.0
 → v1.1 → … → **v1.15** (published) → v1.16 → v1.17 → v1.18 →
-v1.19 → v1.20 → v1.21 → v1.22 (closed on main, tags pending).
-Each release has a per-cycle snapshot under `.context/snapshots/`.
+v1.19 → v1.20 → v1.21 → v1.22 → v1.23 (closed on main, tags
+pending). Each release has a per-cycle snapshot under
+`.context/snapshots/`.
 
 For the live state see `.context/STATE.md`. For per-cycle deep
 dives see `.context/snapshots/v1.<N>.0-*.md`. This file keeps
@@ -97,10 +98,19 @@ the long-running roadmap so the delta between **shipped** and
   wire packages (chunk 4 — fuzz found a real trimASCII bug in
   v1.20 finsudp; same shape as the slmp bug fixed in v1.21
   chunk 2 but missed at the time). Default build now
-  registers **25 protocol plugins** (was 23); in-tree Fuzz*
+  registers 25 protocol plugins (was 23); in-tree Fuzz*
   count doubles 6→14. 4 chunks.
+- **v1.23** — Scoring refinements. CVE-exposure factor
+  expansion across 7 plugins (cwmp=15, dnp3=12, iec104=10,
+  bacnet=8, opcua=8, hartip=7, atg=6 — each citing concrete
+  CVEs in code comments) + banner dictionary expansion +21
+  vendors (industrial controllers + HMIs + RTUs +
+  adjacent network gear). No new plugins; default-build
+  count stays at **25**; banner-dictionary vendor count
+  climbs 9→30; non-zero cve_exposure plugin count climbs
+  2→9. 2 chunks.
 
-## v1.23+ proposed backlog
+## v1.24+ proposed backlog
 
 - **4 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
   / SV — Layer-2 multicast, framework requires IP-rework; IEC
