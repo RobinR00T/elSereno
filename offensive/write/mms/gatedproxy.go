@@ -60,6 +60,7 @@ import (
 	"strings"
 
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedIntent is the operator's free-text rationale for the
@@ -130,6 +131,13 @@ type WriteGatedHandler struct {
 	Auditor        confirm.Auditor
 	SessionConfirm confirm.Confirm
 
+	// Recorder is the optional v1.28-chunk-3 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder. Nil disables recording — the gate behaves exactly
+	// as it did pre-v1.28.
+	Recorder *replay.Recorder
+
 	authorised bool
 }
 
@@ -173,6 +181,10 @@ var ErrSessionNotAuthorised = errors.New("mms: write-gated proxy requires Author
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	errs := make(chan error, 2)
 	go func() {

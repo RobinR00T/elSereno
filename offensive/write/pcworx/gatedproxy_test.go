@@ -6,12 +6,15 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 	pcwrite "local/elsereno/offensive/write/pcworx"
 )
 
@@ -192,5 +195,95 @@ func TestDescription_NonEmpty(t *testing.T) {
 	}
 	if d := h.Description(); !strings.Contains(d, "session-level") {
 		t.Errorf("Description should mention session-level scope: %q", d)
+	}
+}
+
+// TestHandle_RecordsBytesWhenRecorderSet — v1.28 chunk 3
+// proof-of-concept: setting the Recorder field on the gate
+// captures every byte that crosses Handle into an NDJSON file.
+// On nil Recorder the gate behaves identically to v1.27.
+func TestHandle_RecordsBytesWhenRecorderSet(t *testing.T) {
+	target := "ilc:1962"
+	allowed := []pcwrite.AllowedIntent{{Description: "v1.28 chunk-3 record-replay POC"}}
+
+	dir := t.TempDir()
+	recPath := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(recPath, "pcworx", target)
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = rec.Close() })
+
+	h := &pcwrite.WriteGatedHandler{
+		Target:   target,
+		Allowed:  allowed,
+		Deriver:  &fakeDeriver{key: []byte(testDeriverKey)},
+		Auditor:  &fakeAuditor{},
+		Recorder: rec,
+		SessionConfirm: confirm.Confirm{
+			AcceptsWrites: true,
+			ConfirmTarget: target,
+			ConfirmToken:  mintToken(t, target, allowed),
+		},
+	}
+	if err := h.Authorise(context.Background()); err != nil {
+		t.Fatalf("Authorise: %v", err)
+	}
+
+	clientPipe, handlerClient := net.Pipe()
+	upstreamReader, handlerUpstream := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientPipe.Close()
+		_ = handlerClient.Close()
+		_ = upstreamReader.Close()
+		_ = handlerUpstream.Close()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = h.Handle(ctx, handlerClient, handlerUpstream) }()
+
+	clientToUpstream := []byte{0x01, 0x01, 0x00, 0x1C, 'I', 'B', 'E', 'T', 'H', '0', '1', 0x00}
+	go func() { _, _ = clientPipe.Write(clientToUpstream) }()
+	got := make([]byte, len(clientToUpstream))
+	_ = upstreamReader.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, err := upstreamReader.Read(got); err != nil {
+		t.Fatalf("upstream read: %v", err)
+	}
+
+	// Close the recorder so the NDJSON file is finalised before
+	// we replay it.
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Verify the file exists, has 0600 perms, and the recording
+	// contains at least one ChunkEvent in the
+	// client_to_upstream direction.
+	info, err := os.Stat(recPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		t.Errorf("recording perms = %v, want no group/world bits", info.Mode().Perm())
+	}
+
+	hdr, err := replay.SeekHeader(recPath)
+	if err != nil {
+		t.Fatalf("SeekHeader: %v", err)
+	}
+	if hdr.Protocol != "pcworx" {
+		t.Errorf("recorded protocol = %q", hdr.Protocol)
+	}
+
+	var sawClientToUpstream bool
+	_ = replay.Replay(context.Background(), recPath, func(ev replay.ChunkEvent) error {
+		if ev.Dir == replay.DirClientToUpstream && ev.Len > 0 {
+			sawClientToUpstream = true
+		}
+		return nil
+	})
+	if !sawClientToUpstream {
+		t.Errorf("recording did not capture a client_to_upstream chunk")
 	}
 }
