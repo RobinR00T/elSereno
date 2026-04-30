@@ -65,6 +65,9 @@ type syscallNums struct {
 	Sendmsg    uint32
 	Sendmmsg   uint32
 	Setsockopt uint32
+
+	// v1.26 chunk 2 — arg-filter targets.
+	Openat uint32
 }
 
 // syscallsAMD64 is the x86_64 Linux syscall number table. Source:
@@ -121,6 +124,8 @@ var syscallsAMD64 = syscallNums{
 	Sendmsg:    46,
 	Sendmmsg:   307,
 	Setsockopt: 54,
+
+	Openat: 257,
 }
 
 // syscallsARM64 is the aarch64 Linux syscall number table. Source:
@@ -179,6 +184,8 @@ var syscallsARM64 = syscallNums{
 	Sendmsg:    211,
 	Sendmmsg:   269,
 	Setsockopt: 208,
+
+	Openat: 56,
 }
 
 // blockedSyscalls returns the deduped, zero-filtered list of
