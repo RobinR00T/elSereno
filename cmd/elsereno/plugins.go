@@ -19,6 +19,7 @@ import (
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/knxip"
 	"local/elsereno/internal/protocols/mbustcp"
+	"local/elsereno/internal/protocols/mms"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/pbxhttp"
@@ -60,4 +61,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: codesys.Default().Metadata(), Factory: func() core.Protocol { return codesys.Default() }})
 	core.Register(core.Plugin{PluginMetadata: redlion.Default().Metadata(), Factory: func() core.Protocol { return redlion.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pcworx.Default().Metadata(), Factory: func() core.Protocol { return pcworx.Default() }})
+	core.Register(core.Plugin{PluginMetadata: mms.Default().Metadata(), Factory: func() core.Protocol { return mms.Default() }})
 }
