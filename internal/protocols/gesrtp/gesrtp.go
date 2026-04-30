@@ -77,14 +77,57 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	// v1.21 chunk 4: scan the connection-init response payload
 	// for an embedded GE PLC model hint (IC693 / IC695 / IC697 /
-	// IC200 / RX3i / RX7i / PACSystems family). When present,
-	// fold the hint into the finding note and lift the capability
-	// factor.
+	// IC200 / RX3i / RX7i / PACSystems family).
 	hint := wire.ExtractModelHint(buf[:n])
-	if hint != "" {
+
+	// v1.28 chunk 2: optional service-0x21 (Read PLC Long Status)
+	// follow-up. Many GE PLCs respond to the connection-init
+	// with a short payload but reveal richer model + firmware-
+	// version info on the second exchange. The follow-up is
+	// best-effort — the response field-layout varies across
+	// firmwares and the parser is heuristic. On any error
+	// (timeout, short frame, missing markers) the probe falls
+	// back to the v1.21 chunk-4 model-hint result.
+	firmware := tryReadLongStatus(conn, p.IOTimeout)
+
+	switch {
+	case hint != "" && firmware != "":
+		return buildFinding(target, "SRTP model="+hint+" fw="+firmware, true, hint), nil
+	case hint != "":
 		return buildFinding(target, "SRTP model="+hint, true, hint), nil
 	}
 	return buildFinding(target, "SRTP mailbox response", true, ""), nil
+}
+
+// tryReadLongStatus issues a Read PLC Long Status (service 0x21)
+// follow-up against an already-connected SRTP server + tries to
+// extract a firmware-version tag from the response payload.
+// Returns "" on any error or missing-marker outcome — the
+// follow-up is purely additive enrichment over the v1.21-chunk-4
+// connection-init model hint.
+//
+// HONEST SCOPE NOTE: this code path has not been validated
+// against a physical Mark VIe / RX3i / PACSystems device by the
+// ElSereno team. The byte layout follows the public nmap NSE
+// + metasploit references; lab confirmation is recommended
+// before relying on the firmware string in operational
+// decisions.
+func tryReadLongStatus(conn io.ReadWriter, timeout time.Duration) string {
+	if d, ok := conn.(interface{ SetDeadline(time.Time) error }); ok {
+		_ = d.SetDeadline(time.Now().Add(timeout))
+	}
+	if _, err := conn.Write(wire.BuildReadLongStatus()); err != nil {
+		return ""
+	}
+	buf := make([]byte, wire.MailboxLen)
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		return ""
+	}
+	if !wire.IsMailboxResponse(buf) {
+		return ""
+	}
+	info := wire.ParseLongStatus(buf)
+	return info.Firmware
 }
 
 // REPL stub; the generic REPL framework lands later. A future

@@ -110,6 +110,167 @@ func IsMailboxResponse(buf []byte) bool {
 	return len(buf) >= MailboxLen && buf[0] == TypeResponse
 }
 
+// ServiceLongStatus is the SRTP service code 0x21 (Read PLC Long
+// Status). Sent in the canonical service-request mailbox at
+// offset 42; the response's mailbox payload carries richer
+// model + firmware version data than the bare CONNECTION INIT
+// reply.
+const ServiceLongStatus byte = 0x21
+
+// BuildReadLongStatus builds the canonical 56-byte SRTP
+// service-request mailbox carrying the Read PLC Long Status
+// service code (0x21). The byte layout follows the nmap
+// `gesrtp-info` NSE script (the most credible public reference)
+// + the metasploit auxiliary scanner module:
+//
+//	byte[0]      = 0x02        // mailbox type = request
+//	byte[1..41]  = zeros / reserved / packet-sequence fields
+//	byte[42]     = 0x21        // service code = Read Long Status
+//	byte[43]     = 0x01        // service-specific arg
+//	byte[44]     = 0x03        // service-specific arg
+//	byte[45]     = 0x01        // service-specific arg
+//	byte[46..55] = zeros
+//
+// **HONEST SCOPE NOTE**: this builder follows the public nmap +
+// metasploit reference. It has not been validated against a
+// physical Mark VIe / RX3i / PACSystems device by the ElSereno
+// team; lab confirmation is recommended before relying on the
+// builder for anything beyond the v1.28 chunk-2 fingerprint
+// enrichment. Operators with access to a real GE PLC are
+// encouraged to capture a known-good Read Long Status response
+// + share with the project so the parser tightens.
+func BuildReadLongStatus() []byte {
+	frame := make([]byte, MailboxLen)
+	frame[0] = TypeRequest
+	// bytes 1..41 stay zero (reserved per nmap reference).
+	frame[42] = ServiceLongStatus
+	frame[43] = 0x01
+	frame[44] = 0x03
+	frame[45] = 0x01
+	// bytes 46..55 stay zero.
+	return frame
+}
+
+// LongStatusInfo is the parsed form of a service-0x21 response
+// payload. Two fields populated when present in the response
+// bytes; both empty when the responder didn't carry the marker.
+//
+// Fields ship as plain strings rather than structured numerics
+// because the response field-layout varies enough across
+// firmwares (Series 90-30 vs RX3i vs PACSystems) that an exact
+// schema would lock-in a single vendor's encoding. The
+// scanner-grade extractor returns whatever printable-ASCII
+// runs look like a model+firmware tag.
+type LongStatusInfo struct {
+	// Model is the first printable-ASCII run that begins with
+	// one of the canonical GE PLC family prefixes (PACSystems /
+	// IC693 / IC695 / IC697 / IC200 / RX3i / RX7i). Empty when
+	// the response payload doesn't carry a model marker.
+	Model string
+	// Firmware is the first printable-ASCII run after Model
+	// that matches a "V<digit>(\.\d+)+" version pattern. Empty
+	// when no version-like substring follows the model. Note:
+	// this is a HEURISTIC because the response layout isn't
+	// authoritatively documented; consider it a best-effort
+	// extraction.
+	Firmware string
+}
+
+// ParseLongStatus reads a service-0x21 response mailbox + scans
+// the payload for model + firmware markers. Returns an empty
+// LongStatusInfo (no error) when the buffer is shorter than
+// MailboxLen or doesn't carry recognisable markers.
+//
+// Validation surface:
+//
+//   - Empty buffer / short frame → empty info (no error; the
+//     v1.20-chunk-3 connection-init fingerprint already gates
+//     for buffer length, so this just skips silently).
+//   - Buffer ≥ MailboxLen with no model marker → empty Model.
+//   - Buffer with model but no version pattern → Model
+//     populated, Firmware empty.
+//
+// Because the response field-layout varies across firmwares,
+// the parser does NOT assume specific offsets. It scans the
+// entire buffer for the first canonical model prefix + the
+// first version-like ASCII run that follows.
+func ParseLongStatus(buf []byte) LongStatusInfo {
+	if len(buf) < MailboxLen {
+		return LongStatusInfo{}
+	}
+	model := ExtractModelHint(buf)
+	if model == "" {
+		return LongStatusInfo{}
+	}
+	// Find the model substring's end + scan forward for a
+	// version-like ASCII run.
+	idx := indexOf(buf, []byte(model))
+	if idx < 0 {
+		return LongStatusInfo{Model: model}
+	}
+	tail := buf[idx+len(model):]
+	firmware := extractFirmwareTag(tail)
+	return LongStatusInfo{Model: model, Firmware: firmware}
+}
+
+// extractFirmwareTag scans the buffer for the first printable-
+// ASCII run beginning with 'V' followed by a digit, then
+// allowing additional digits + dots (e.g. "V5.0.40", "V12.34").
+// Returns "" when no such run exists in the first 32 bytes
+// after the call site.
+func extractFirmwareTag(buf []byte) string {
+	const scanWindow = 32
+	limit := len(buf)
+	if limit > scanWindow {
+		limit = scanWindow
+	}
+	for i := 0; i < limit; i++ {
+		// Need at least 'V' + digit.
+		if i+2 > limit {
+			break
+		}
+		if buf[i] != 'V' {
+			continue
+		}
+		if !isDigit(buf[i+1]) {
+			continue
+		}
+		// Greedy-match V + digits + dots.
+		j := i + 1
+		for j < limit && (isDigit(buf[j]) || buf[j] == '.') {
+			j++
+		}
+		// Reject 1-byte runs ("V0", "V1") — too noisy.
+		if j-i < 4 {
+			i = j
+			continue
+		}
+		return string(buf[i:j])
+	}
+	return ""
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
+
+// indexOf returns the offset of the first match of needle in
+// buf, or -1 if absent. Tiny helper to avoid an additional
+// `bytes` import for one call.
+func indexOf(buf, needle []byte) int {
+	if len(needle) == 0 || len(buf) < len(needle) {
+		return -1
+	}
+outer:
+	for i := 0; i+len(needle) <= len(buf); i++ {
+		for j := 0; j < len(needle); j++ {
+			if buf[i+j] != needle[j] {
+				continue outer
+			}
+		}
+		return i
+	}
+	return -1
+}
+
 // gePLCFamilyPrefixes is the ordered list of canonical GE PLC
 // model prefixes the extractor recognises. Order matters: the
 // scanner returns the first match, so longer / more-specific
