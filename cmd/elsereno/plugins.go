@@ -24,6 +24,7 @@ import (
 	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/pbxhttp"
 	"local/elsereno/internal/protocols/pcworx"
+	"local/elsereno/internal/protocols/proconos"
 	"local/elsereno/internal/protocols/redlion"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
@@ -62,4 +63,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: redlion.Default().Metadata(), Factory: func() core.Protocol { return redlion.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pcworx.Default().Metadata(), Factory: func() core.Protocol { return pcworx.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mms.Default().Metadata(), Factory: func() core.Protocol { return mms.Default() }})
+	core.Register(core.Plugin{PluginMetadata: proconos.Default().Metadata(), Factory: func() core.Protocol { return proconos.Default() }})
 }
