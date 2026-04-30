@@ -166,7 +166,15 @@ func buildFinding(target core.Target, note string, isDLMS bool) *core.Finding {
 		"auth_state":    85, // DLMS supports HLS authentication but unauth probes still respond
 		"capability":    30,
 		"impact_class":  65, // billing accuracy + privacy + remote disconnect of supply
-		"cve_exposure":  0,
+		// cve_exposure: 7 — DLMS/COSEM family has the richest
+		// CVE record of the v1.20-v1.21 trio. Smart-meter
+		// deployments touch billions of endpoints worldwide.
+		// Anchor CVEs:
+		//   CVE-2017-14441 (Iskra / EMH smart meters DLMS spoofing).
+		//   CVE-2020-15782 (Siemens SIMATIC DLMS auth bypass).
+		//   CVE-2022-30315 (DLMS/COSEM library RCE — multi-vendor).
+		//   CVE-2023-29501 (gurux.dlms parsing OOB read).
+		"cve_exposure": 7,
 	}
 	if isDLMS {
 		factors["capability"] = 70

@@ -163,7 +163,12 @@ func buildFinding(target core.Target, note string, isFINS bool) *core.Finding {
 		"auth_state":    95, // FINS has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs control real machinery
-		"cve_exposure":  0,
+		// cve_exposure: 5 — sparse public CVE history but
+		// high-impact when found. Anchor CVEs:
+		//   CVE-2019-13533 (Omron NJ/NX-series PLC FINS auth bypass).
+		//   CVE-2019-18259 (Omron CJ2M / NJ501 / CS1H FINS-related).
+		//   CVE-2022-31204 (Omron NX102 / NX1P2 improper authentication).
+		"cve_exposure": 5,
 	}
 	if isFINS {
 		factors["capability"] = 75

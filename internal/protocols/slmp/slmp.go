@@ -205,7 +205,13 @@ func buildFinding(target core.Target, note string, isSLMP bool) *core.Finding {
 		"auth_state":    95, // SLMP has no native authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		"cve_exposure":  0,
+		// cve_exposure: 6 — Mitsubishi MELSEC family carries a
+		// modest but recurring CVE history. Anchor CVEs:
+		//   CVE-2017-14924 (Mitsubishi MELSEC Q DoS).
+		//   CVE-2018-15745 (Mitsubishi FX series unauth-write).
+		//   CVE-2019-13555 (MELSEC iQ-R / iQ-F auth bypass).
+		//   CVE-2022-26318 (MELSEC GOT2000 series — HMI sibling).
+		"cve_exposure": 6,
 	}
 	if isSLMP {
 		factors["capability"] = 75

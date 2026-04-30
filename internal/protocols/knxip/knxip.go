@@ -137,7 +137,14 @@ func buildFinding(target core.Target, note string, isKNX bool) *core.Finding {
 		"auth_state":    90, // KNX/IP unicast has no native auth in 3671 mode (KNXnet/IP Secure is a 2018+ optional layer)
 		"capability":    30,
 		"impact_class":  70, // BAS impact: HVAC, lighting, blinds, access control
-		"cve_exposure":  0,
+		// cve_exposure: 6 — KNX/IP family has a recurring stream
+		// of CVEs across vendors (Gira, JUNG, MDT, ABB i-bus,
+		// Schneider). Anchor CVEs:
+		//   CVE-2018-15795 (KNX devices weak password).
+		//   CVE-2018-19416 (KNXnet/IP routing flood).
+		//   CVE-2018-19417 (KNXnet/IP search-request flood).
+		//   CVE-2022-27193 (KNX/IP Secure routing replay).
+		"cve_exposure": 6,
 	}
 	if isKNX {
 		factors["capability"] = 75
