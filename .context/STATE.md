@@ -1,41 +1,35 @@
 ---
-phase: v1.25-closed
-status: v1.16 → v1.25 closed on `main`; v1.16-v1.24 published; v1.25 tag pending push
+phase: v1.26-closed
+status: v1.16 → v1.26 closed on `main`; v1.16-v1.25 published; v1.26 tag pending push
 last-updated: 2026-04-30
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.25 cycle closed on `main`** (3 chunks +
-close commit). CVE-coverage closure on the v1.20+v1.21
-fingerprint trios + 2 new fingerprint plugins (PCWorx + IEC
-61850 MMS with S7 disambig). Default-build plugin count:
-**25 → 27**. cve_exposure non-zero plugin count: **16/25 →
-24/27** (only atmodem / xot / banner remain at 0 — niche
-serial / X.25-over-TCP / meta plugin).
+**Phase**: **v1.26 cycle closed on `main`** (2 chunks + close
+commit). Cross-process audit daemon (UDS) + seccomp-bpf arg-
+level filtering primitives. No new fingerprint plugins;
+default-build count stays at **27**. cve_exposure non-zero
+plugin count unchanged at **24/27**.
 
-**v1.16 → v1.24 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.25.0 tag +
+**v1.16 → v1.25 are published** on
+https://github.com/RobinR00T/elSereno/releases. v1.26.0 tag +
 release pending the close-commit push below.
 
-Snapshot: `.context/snapshots/v1.25.0-cve-coverage-and-two-new-plugins.md`.
+Snapshot: `.context/snapshots/v1.26.0-audit-daemon-and-seccomp-args.md`.
 
-**v1.25 chunks landed (closed)**:
-- 1   `ce649ed` — CVE-exposure for the v1.20+v1.21 fingerprint
-  trios (finsudp=5, slmp=6, gesrtp=5, knxip=6, mbustcp=4,
-  dlms=7).
-- 2   `4e36201` — pcworx plugin (Phoenix Contact ILC fingerprint
-  on TCP/1962). 32-byte IBETH01 hello + banner classifier;
-  cve_exposure:8.
-- 3   `89f4344` — mms plugin (IEC 61850 MMS fingerprint on
-  TCP/102 with S7 disambig via MMS-specific TSAPs); COTP-CR/CC
-  layer; cve_exposure:9, impact_class:85 (grid-scale).
-
-Skipped this cycle (deferred to v1.26+ due to thin public
-wire-references):
-- GE-SRTP service-0x21 richer firmware-version probe.
-- ProConOS (TCP/20547).
+**v1.26 chunks landed (closed)**:
+- 1   `c870858` — `elsereno audit serve` daemon. Cross-process
+  audit chain coordinator over UDS. Replaces the v1.15-chunk-4
+  flock at SOC scale (1 tail-read instead of N). audit.Server
+  + audit.Client (Writer-implementing). 8 new tests.
+- 2   `aa78f60` — seccomp-bpf arg-level filtering primitives
+  (Linux). ArgDenyRule + Equal-mode + MaskAny-mode + ArgFilter-
+  Presets (openat-no-write, socket-deny-AF_PACKET-AF_NETLINK).
+  CompileFilterWithArgs composes existing syscall-denylist with
+  arg-level rules. Profile integration deferred to v1.27.
+  11 new tests.
 
 Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
 for the v1.16 through v1.24 chunk-level detail. They're also

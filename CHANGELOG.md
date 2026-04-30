@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] — 2026-04-30
+
+### Added
+
+- **`elsereno audit serve`** — centralised single-writer audit
+  daemon listening on a Unix domain socket. Replaces the v1.15-
+  chunk-4 flock at SOC scale: instead of N tail-reads per N
+  appends, the daemon holds the FileWriter once + writes once.
+  `audit.Server` + `audit.Client` types; `Client` implements
+  `audit.Writer` so callers can swap a `FileWriter` for a daemon
+  client without code changes. Wire protocol: line-delimited
+  JSON (debuggable with `nc -U`). Socket file mode 0600 +
+  stale-socket recovery on startup.
+- **seccomp-bpf arg-level filtering primitives** (Linux) —
+  closes the ADR-042 follow-up. `ArgDenyRule` type + Equal-mode
+  + MaskAny-mode constructors. `ArgFilterPresets` returns the
+  two canonical rules: openat-no-write (deny when flags has
+  any of O_WRONLY / O_RDWR / O_CREAT / O_TRUNC / O_APPEND set)
+  and socket-deny-AF_PACKET-AF_NETLINK. `CompileFilterWithArgs`
+  composes the existing v1.1-chunk-6 syscall denylist with the
+  new arg-level rules; arg rules run FIRST so a matching arg-
+  deny returns ERRNO|EPERM before the syscall denylist gets to
+  ALLOW. Cross-compiles cleanly to linux/amd64 + linux/arm64.
+
+### Notes
+
+- Audit-daemon: Unix-only (server uses `net.Listen "unix"`).
+  Windows builds keep the v1.15-chunk-4 flock fallback.
+- Seccomp arg-filter: profile integration (which preset is
+  enforced for ProfileExploit / ProfileHarvest / ProfileDial)
+  is deferred to v1.27. Primitives + presets ship now.
+- 19 new tests across the two chunks.
+
+### Deferred to v1.27+
+
+- Wire seccomp arg-filter into specific sandbox profiles.
+- All v1.25 carry-overs remain valid: GE-SRTP service-0x21,
+  ProConOS, offensive plugin trios for v1.20+v1.21 fingerprints,
+  MMS ACSE association layer, offensive pcworx/mms gates.
+- macOS sandbox via `sandbox_init(3)` — operator decision (cgo).
+- TUI with bubbletea — operator decision (new dep).
+- Record & replay of proxy sessions.
+- Windows support, OIDC + roles, PROFINET L2, OPC UA HTTPS.
+
 ## [1.25.0] — 2026-04-30
 
 ### Added

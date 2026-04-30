@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-30** (post-v1.25). Items shipped during
-v1.3 → v1.25 archived to keep this file actionable.
+Last refresh: **2026-04-30** (post-v1.26). Items shipped during
+v1.3 → v1.26 archived to keep this file actionable.
 
 ---
 
@@ -100,6 +100,17 @@ v1.3 → v1.25 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.26 (audit daemon + seccomp arg-filter primitives)
+
+- ✅ **`elsereno audit serve` daemon (UDS)** — v1.26 chunk 1.
+  Centralised single-writer audit daemon over Unix domain
+  socket. `audit.Server` + `audit.Client` (Writer-implementing).
+  Replaces v1.15-chunk-4 flock at SOC scale.
+- ✅ **seccomp-bpf arg-level filtering primitives** — v1.26
+  chunk 2 (Linux). ArgDenyRule + Equal/MaskAny modes +
+  ArgFilterPresets + CompileFilterWithArgs. Profile integration
+  deferred to v1.27.
+
 ### v1.25 (CVE coverage closure + 2 new fingerprint plugins)
 
 - ✅ **`cve_exposure` for the v1.20+v1.21 fingerprint trios** —
@@ -179,23 +190,23 @@ v1.3 → v1.25 archived to keep this file actionable.
 
 ## 🧰 Herramientas operativas
 
-- [ ] **`elsereno audit serve` daemon (UDS)** — v1.15 chunk 4
-  closed the cross-process race via POSIX flock; a centralised
-  daemon over a Unix domain socket is the cleaner alternative
-  for SOC-scale fan-in (a single single-threaded writer; other
-  processes emit-only). v1.26 candidate.
-
 - [ ] **Record & replay de sesiones de proxy** — graba el
   tráfico cliente↔server en sesiones offensive con timestamps
-  para post-mortem + capacitación en lab. v1.26+ candidate.
+  para post-mortem + capacitación en lab. Pairs naturally with
+  the v1.26 audit daemon (the daemon could fan-in not just
+  audit events but also wire-tapped proxy session bytes).
+  v1.27+ candidate.
 
 ## 🔐 Supply-chain + hardening
 
-- [ ] **seccomp-bpf arg-filtering** — the v1.1 chunk 6 denylist
-  blocks syscalls whole-cloth; arg-level filters tighten further
-  (e.g. `openat` permitted only with `O_RDONLY`; `socket`
-  permitted only with `AF_INET` / `AF_INET6`, refusing
-  `AF_PACKET`). Linux only. Estimación: 1 chunk medio.
+- [ ] **Wire seccomp arg-filter presets into specific
+  sandbox profiles** — v1.26 chunk 2 shipped the building
+  blocks (ArgDenyRule + ArgFilterPresets + CompileFilterWithArgs).
+  v1.27 candidate: decide which preset goes into which profile
+  (ProfileHarvest → openat-no-write; ProfileDial →
+  socket-deny-AF_PACKET-AF_NETLINK; ProfileExploit → likely
+  no preset because exploits sometimes legitimately need
+  openat(O_CREAT)). Estimación: ~3-4h for the wiring + tests.
 
 - [ ] **Sandbox para macOS via `sandbox_init(3)`** — currently
   macOS degrades to "unavailable". A `.sb` Scheme policy
