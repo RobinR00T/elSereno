@@ -50,7 +50,18 @@ func Load(profile Profile) (LoadResult, error) {
 	// and subsequent syscalls would not be filtered.
 	runtime.LockOSThread()
 
-	prog, progErr := FilterProgram(profile)
+	// v1.27 chunk 1: compose the syscall-level denylist with the
+	// per-profile arg-filter preset. argRulesFor returns an empty
+	// slice for ProfileExploit (no preset) and the canonical rules
+	// for ProfileHarvest (openat-no-write) + ProfileDial (socket-
+	// deny-AF_PACKET-AF_NETLINK).
+	nums, archErr := syscallNumsForCurrentArch()
+	var argRules []ArgDenyRule
+	if archErr == nil {
+		argRules = argRulesFor(profile, nums)
+	}
+
+	prog, progErr := CompileFilterWithArgs(profile, argRules)
 	if errors.Is(progErr, ErrArchUnsupported) {
 		// Degraded mode: we can still install NO_NEW_PRIVS.
 		if err := setNoNewPrivs(); err != nil {
@@ -76,10 +87,31 @@ func Load(profile Profile) (LoadResult, error) {
 		Availability: Availability{
 			Available: true,
 			Kind:      "seccomp-bpf",
-			Reason: fmt.Sprintf("profile=%s arch=%s blocklist-size=%d",
-				profile, runtime.GOARCH, (len(prog) - 5)),
+			Reason: fmt.Sprintf("profile=%s arch=%s blocklist-size=%d arg-rules=%d",
+				profile, runtime.GOARCH, (len(prog) - 5 - argFilterInsnCount(argRules)), len(argRules)),
 		},
 	}, nil
+}
+
+// syscallNumsForCurrentArch returns the syscallNums table that
+// matches runtime.GOARCH, or ErrArchUnsupported. Used by Load
+// to thread the architecture-specific NRs into the arg-rule
+// composer without duplicating the archFor switch.
+func syscallNumsForCurrentArch() (syscallNums, error) {
+	_, nums, err := archFor(runtime.GOARCH)
+	return nums, err
+}
+
+// argFilterInsnCount returns the BPF instruction count
+// CompileArgFilter would emit for argRules, used to subtract
+// from the total program length for the audit Reason's
+// blocklist-size figure (so the figure reflects the syscall-
+// level denylist alone).
+func argFilterInsnCount(argRules []ArgDenyRule) int {
+	if len(argRules) == 0 {
+		return 0
+	}
+	return len(CompileArgFilter(argRules))
 }
 
 // setNoNewPrivs is the single-step degraded install when the

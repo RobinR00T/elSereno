@@ -195,6 +195,45 @@ func TestCompileFilterWithArgs_RejectsBadProfile(t *testing.T) {
 	}
 }
 
+func TestArgRulesFor_PerProfile(t *testing.T) {
+	// ProfileHarvest → openat-no-write only.
+	got := argRulesFor(ProfileHarvest, syscallsAMD64)
+	if len(got) != 1 {
+		t.Fatalf("ProfileHarvest len = %d, want 1 (openat preset)", len(got))
+	}
+	if got[0].Syscall != 257 { // openat on amd64
+		t.Errorf("ProfileHarvest Syscall = %d, want 257 (openat)", got[0].Syscall)
+	}
+	if got[0].MaskBits == 0 {
+		t.Error("ProfileHarvest should be mask-mode")
+	}
+
+	// ProfileDial → socket-deny-AF_PACKET-AF_NETLINK only.
+	got = argRulesFor(ProfileDial, syscallsAMD64)
+	if len(got) != 1 {
+		t.Fatalf("ProfileDial len = %d, want 1 (socket preset)", len(got))
+	}
+	if got[0].Syscall != 41 { // socket on amd64
+		t.Errorf("ProfileDial Syscall = %d, want 41 (socket)", got[0].Syscall)
+	}
+	if len(got[0].EqualValues) != 2 {
+		t.Errorf("ProfileDial EqualValues len = %d, want 2", len(got[0].EqualValues))
+	}
+
+	// ProfileExploit → empty.
+	got = argRulesFor(ProfileExploit, syscallsAMD64)
+	if len(got) != 0 {
+		t.Errorf("ProfileExploit len = %d, want 0 (no preset)", len(got))
+	}
+}
+
+func TestArgRulesFor_UnknownProfileEmpty(t *testing.T) {
+	got := argRulesFor(Profile("bogus"), syscallsAMD64)
+	if len(got) != 0 {
+		t.Errorf("unknown profile len = %d, want 0", len(got))
+	}
+}
+
 func TestRuleBodyLen_Matches_Emitted(t *testing.T) {
 	// The Pass-1 length predictor must equal the actual emit
 	// count, otherwise jump offsets are wrong.

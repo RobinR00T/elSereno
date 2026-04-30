@@ -67,19 +67,66 @@ func NewArgDenyMaskAny(syscall uint32, argIdx uint8, maskBits uint32) ArgDenyRul
 	}
 }
 
-// ArgFilterPresets returns operator-friendly default arg rules:
+// argRulesFor returns the arg-filter rules that should be
+// installed for a given profile (v1.27 chunk 1 wire-up). The
+// per-profile mapping reflects the operational needs:
 //
-//   - openat: deny when flags has any write / create / truncate
-//     bits set. Effectively "openat read-only or fail".
-//   - socket: deny AF_PACKET + AF_NETLINK families.
+//   - ProfileHarvest: harvest helpers emit findings to stdout
+//     and never legitimately write files in the harvest
+//     sandbox. Installing the openat-no-write preset prevents
+//     a compromised harvest helper from dropping a file (e.g.
+//     for offline exfil) without changing legitimate
+//     behaviour.
+//   - ProfileDial: dial subprocesses need AF_INET / AF_INET6
+//     sockets to reach SIP / RTP endpoints, but they never
+//     legitimately need AF_PACKET (raw L2) or AF_NETLINK
+//     (kernel-config socket family). Installing the socket-
+//     family preset prevents both as escape vectors.
+//   - ProfileExploit: NO arg-filter preset. CVE exploits
+//     legitimately need to call openat with O_CREAT (e.g. for
+//     state files, output captures, dropped artefacts) and
+//     the more aggressive flag list would break valid
+//     exploit subprocess use-cases. The syscall-level
+//     denylist remains in force.
 //
-// Caller picks the syscall numbers from the running architecture's
-// table (syscallsAMD64 / syscallsARM64) — they aren't compile-
-// time constants per ARCH inside this file because the rule list
-// crosses architectures.
+// Returns the empty slice (not nil) when the profile has no
+// preset assigned.
+func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
+	const (
+		oWronly   uint32 = 0x0001
+		oRdwr     uint32 = 0x0002
+		oCreat    uint32 = 0x0040
+		oTrunc    uint32 = 0x0200
+		oAppend   uint32 = 0x0400
+		writeBits        = oWronly | oRdwr | oCreat | oTrunc | oAppend
+
+		afPacket  uint32 = 17
+		afNetlink uint32 = 16
+	)
+	out := []ArgDenyRule{}
+	switch p {
+	case ProfileHarvest:
+		if nums.Openat != 0 {
+			out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
+		}
+	case ProfileDial:
+		if nums.Socket != 0 {
+			out = append(out, NewArgDenyEqual(nums.Socket, 0, afPacket, afNetlink))
+		}
+	case ProfileExploit:
+		// No arg-filter preset — see argRulesFor's docstring.
+	}
+	return out
+}
+
+// ArgFilterPresets returns the union of every per-profile rule
+// set. Operators reaching for the full block (e.g. an audit
+// printout that lists "what would the daemon block on each
+// profile") use this view.
 //
-// Returns rules referencing syscall numbers from `nums`; the
-// caller compiles them via CompileArgFilter.
+// The per-profile list is what `Load(profile)` installs in v1.27
+// chunk 1. argRulesFor(profile, nums) returns the subset for one
+// profile.
 func ArgFilterPresets(nums syscallNums) []ArgDenyRule {
 	const (
 		// open(2) flags relevant to write / mutate.
