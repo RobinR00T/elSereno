@@ -136,7 +136,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newCredsCmd())
 	root.AddCommand(newDbCmd())
 	root.AddCommand(newAuditCmd())
-	root.AddCommand(newServeCmd())
+	registerWebVerbs(root)
 	root.AddCommand(newScanCmd())
 	root.AddCommand(newDiscoverCmd())
 	root.AddCommand(newExplainCmd())
@@ -144,7 +144,6 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTriageCmd())
 	root.AddCommand(newLintCmd())
 	root.AddCommand(newFmtCmd())
-	root.AddCommand(newAPICmd())
 	root.AddCommand(newBackupCmd())
 
 	for _, c := range newStubCmds() {

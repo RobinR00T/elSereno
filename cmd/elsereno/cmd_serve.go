@@ -1,3 +1,5 @@
+//go:build !mini
+
 package main
 
 import (
@@ -13,7 +15,6 @@ import (
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/core"
-	"local/elsereno/internal/creds"
 	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/web"
 	"local/elsereno/internal/web/stream"
@@ -142,23 +143,9 @@ func dashboardAuditPath() (string, error) {
 // unlockVault loads the file-backed vault and sources the
 // passphrase either from passphraseFile (when non-empty; ADR-026 /
 // PITF-016) or by prompting. Returns the unlocked Vault on success.
-func unlockVault(cmd *cobra.Command, passphraseFile string) (*creds.Vault, error) {
-	v, _, err := loadVault(cmd.Context())
-	if err != nil {
-		return nil, err
-	}
-	pp, err := readPassphraseFromFileOrPrompt(cmd, passphraseFile, "Vault passphrase: ")
-	if err != nil {
-		return nil, fail(core.ExitUsage, err)
-	}
-	if err := v.Unlock(cmd.Context(), pp); err != nil {
-		if errors.Is(err, creds.ErrBadPassphrase) {
-			return nil, fail(core.ExitNoPerm, err)
-		}
-		return nil, fail(core.ExitSoftware, err)
-	}
-	return v, nil
-}
+//
+// Lives in vault_unlock.go (extracted v1.29 chunk 1 so the mini
+// build keeps the helper available; cmd_serve.go is `!mini`).
 
 // isLoopbackAddr returns true iff addr binds only to loopback.
 // Delegates to netutil.IsLoopbackHostPort which catches every

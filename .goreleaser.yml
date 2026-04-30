@@ -43,6 +43,31 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
+  # v1.29 chunk 1: mini variant for embedded / device deployments.
+  # Built with -tags=mini, which excludes the dashboard HTTP
+  # server, the OpenAPI machinery, and (after v1.29 chunks 2-5)
+  # the TUI. The remaining surface (28 plugins, scanner, audit
+  # chain, NDJSON / CSV / CEF / syslog / JIRA / GitHub / webhook
+  # outputs, vault, discover, triage, all 9 input providers) is
+  # identical to the default build.
+  - id: elsereno-mini
+    main: ./cmd/elsereno
+    binary: elsereno-mini
+    env:
+      - CGO_ENABLED=0
+      - GOFLAGS=-mod=readonly
+    flags:
+      - -trimpath
+      - -buildvcs=false
+      - -tags=mini
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
 archives:
   - id: default
     # goreleaser v2: `builds` was renamed to `ids` for archive filters.
@@ -60,6 +85,21 @@ archives:
       - man/man5/*.5
       - man/man7/*.7
       - completions/*
+
+  # v1.29 chunk 1: mini archive — separate tarball so device
+  # operators don't pull the full default + offensive binaries
+  # they don't need. Smaller dependency surface = smaller
+  # attack surface.
+  - id: mini
+    ids:
+      - elsereno-mini
+    name_template: "{{ .ProjectName }}-mini_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - SECURITY.md
+      - NON-GOALS.md
+      - man/man1/elsereno.1
 
 checksum:
   name_template: "checksums.txt"

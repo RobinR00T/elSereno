@@ -1,4 +1,4 @@
-.PHONY: all build build-offensive install install-man \
+.PHONY: all build build-offensive build-mini install install-man \
         test test-race test-cover test-fuzz test-integration test-e2e test-all \
         bench sec lint fmt tidy clean run docker \
         db-up db-down db-migrate db-reset \
@@ -19,6 +19,14 @@ build:
 build-offensive:
 	CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
 	  -tags offensive -ldflags="$(LDFLAGS)" -o bin/elsereno-offensive ./cmd/elsereno
+
+# v1.29 chunk 1: mini variant for embedded / device deployments.
+# Excludes the dashboard HTTP server, the OpenAPI machinery, and
+# (post v1.29 chunks 2-5) the TUI. Same scanner / plugins / audit
+# / outputs / vault as the default build.
+build-mini:
+	CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
+	  -tags mini -ldflags="$(LDFLAGS)" -o bin/elsereno-mini ./cmd/elsereno
 
 install:
 	go install ./cmd/elsereno
@@ -124,7 +132,7 @@ context-check:
 # before push (PITF-031). Covers the default + offensive build variants,
 # test-race, test-cover, test-fuzz smoke, sec (including go-licenses),
 # and context-check.
-ci: lint build build-offensive test-race test-cover test-fuzz sec context-check
+ci: lint build build-offensive build-mini test-race test-cover test-fuzz sec context-check
 
 # release-gate runs the 1.0 preconditions (scripts/release-gate.sh):
 # tests + lint × 2 build variants, sec-suite, context-check, docs
