@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] — 2026-04-30
+
+### Added
+
+- **Seccomp arg-filter wire-up into ProfileHarvest +
+  ProfileDial**. Closes the v1.26 chunk-2 follow-up: the arg-
+  filter primitives are now actually installed by
+  `sandbox.Load()`. `ProfileHarvest` denies `openat` with any
+  of {O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND}; `ProfileDial`
+  denies `socket(AF_PACKET, …)` and `socket(AF_NETLINK, …)`.
+  `ProfileExploit` left unchanged (CVE exploits sometimes
+  legitimately need openat with O_CREAT for state files).
+- **`pcworx` offensive write-gate** (session-level). Triple-
+  confirm fence + audit row + byte relay. Per-frame PCWorx
+  command gating waits for a future cycle once real-ILC test
+  vectors are available; the chunk ships the protective fence
+  + audit lineage now.
+- **`mms` offensive write-gate** (session-level). Same shape
+  as the pcworx gate. Full ASN.1 BER walk through OSI session
+  + ACSE + MMS PDUs is the v1.35 candidate (MMS ACSE association
+  layer in TODO-vNext.md).
+- **Record & replay primitive** (`offensive/replay`). NDJSON
+  proxy-session capture with HeaderEvent + ChunkEvent (RFC3339-
+  microsecond timestamps + direction tags + hex payloads).
+  `Recorder.Open / Wrap / WrapClient / WrapUpstream / Close` +
+  `Replay(ctx, path, cb)` + `SeekHeader(path)`. Files at mode
+  0600. Wire-into-each-gated-proxy is a v1.28+ task.
+
+### Changed
+
+- Offensive write-gate count: 7 → **9** (pcworx + mms join the
+  v1.4-era set).
+
+### Notes
+
+- 35 new tests across the 4 chunks.
+- The pcworx and mms gates ship as **session-level** with an
+  explicit honest-scope note in the package docstrings: full
+  per-command wire-level gating needs test vectors against real
+  hardware.
+
+### Deferred to v1.28+
+
+- Wire record-replay primitive into each gated WriteGatedHandler.
+- All v1.25-v1.26 carry-overs remain valid: GE-SRTP service-0x21,
+  ProConOS, offensive plugin trios, MMS ACSE association layer,
+  OPC UA HTTPS, Windows support, OIDC + roles, PROFINET L2,
+  macOS sandbox (cgo), TUI bubbletea (new dep).
+
 ## [1.26.0] — 2026-04-30
 
 ### Added

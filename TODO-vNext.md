@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-30** (post-v1.26). Items shipped during
-v1.3 → v1.26 archived to keep this file actionable.
+Last refresh: **2026-04-30** (post-v1.27). Items shipped during
+v1.3 → v1.27 archived to keep this file actionable.
 
 ---
 
@@ -100,6 +100,17 @@ v1.3 → v1.26 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.27 (seccomp wire-up + pcworx/mms gates + record-replay)
+
+- ✅ **Wire seccomp arg-filter presets into ProfileHarvest +
+  ProfileDial** — v1.27 chunk 1.
+- ✅ **Offensive `pcworx` write-gate** — v1.27 chunk 2 (session-
+  level; per-frame deferred).
+- ✅ **Offensive `mms` write-gate** — v1.27 chunk 3 (session-
+  level; full ASN.1 BER PDU walk is v1.35 MMS-ACSE candidate).
+- ✅ **Record & replay primitive** — v1.27 chunk 4 (NDJSON
+  capture + replay; integration into each gated proxy is v1.28+).
+
 ### v1.26 (audit daemon + seccomp arg-filter primitives)
 
 - ✅ **`elsereno audit serve` daemon (UDS)** — v1.26 chunk 1.
@@ -183,10 +194,12 @@ v1.3 → v1.26 archived to keep this file actionable.
   context name OID 1.0.9506.2.3 and verify the ACSE accept.
   Estimación: ~6-8h.
 
-- [ ] **Offensive `pcworx` / `mms` write-gated proxies** — v1.25
-  chunks 2-3 ship fail-closed default proxies for both new
-  plugins. The offensive write-gated variants follow the
-  ADR-040 template. Estimación: ~1 día each.
+- [ ] **Wire record-replay primitive into each gated
+  WriteGatedHandler** — v1.27 chunk 4 ships the primitive
+  (offensive/replay package). v1.28 candidate: add an optional
+  `Recorder *replay.Recorder` field to each gated handler;
+  when non-nil, Wrap*/Replay drives the recording transparently
+  during Handle(). Estimación: ~4-6h for all 9 gates.
 
 ## 🧰 Herramientas operativas
 
@@ -198,15 +211,6 @@ v1.3 → v1.26 archived to keep this file actionable.
   v1.27+ candidate.
 
 ## 🔐 Supply-chain + hardening
-
-- [ ] **Wire seccomp arg-filter presets into specific
-  sandbox profiles** — v1.26 chunk 2 shipped the building
-  blocks (ArgDenyRule + ArgFilterPresets + CompileFilterWithArgs).
-  v1.27 candidate: decide which preset goes into which profile
-  (ProfileHarvest → openat-no-write; ProfileDial →
-  socket-deny-AF_PACKET-AF_NETLINK; ProfileExploit → likely
-  no preset because exploits sometimes legitimately need
-  openat(O_CREAT)). Estimación: ~3-4h for the wiring + tests.
 
 - [ ] **Sandbox para macOS via `sandbox_init(3)`** — currently
   macOS degrades to "unavailable". A `.sb` Scheme policy

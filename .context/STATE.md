@@ -1,35 +1,39 @@
 ---
-phase: v1.26-closed
-status: v1.16 → v1.26 closed on `main`; v1.16-v1.25 published; v1.26 tag pending push
+phase: v1.27-closed
+status: v1.16 → v1.27 closed on `main`; v1.16-v1.26 published; v1.27 tag pending push
 last-updated: 2026-04-30
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.26 cycle closed on `main`** (2 chunks + close
-commit). Cross-process audit daemon (UDS) + seccomp-bpf arg-
-level filtering primitives. No new fingerprint plugins;
-default-build count stays at **27**. cve_exposure non-zero
-plugin count unchanged at **24/27**.
+**Phase**: **v1.27 cycle closed on `main`** (4 chunks + close
+commit). Seccomp arg-filter wire-up into Harvest+Dial profiles
++ pcworx and mms session-level offensive write-gates +
+record/replay primitive. Default-build plugin count stays at
+**27**. **9 offensive write-gates** (was 7): modbus, opcua, sip,
+iax2, pbxhttp, bacnet, cwmp, **pcworx**, **mms**.
 
-**v1.16 → v1.25 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.26.0 tag +
+**v1.16 → v1.26 are published** on
+https://github.com/RobinR00T/elSereno/releases. v1.27.0 tag +
 release pending the close-commit push below.
 
-Snapshot: `.context/snapshots/v1.26.0-audit-daemon-and-seccomp-args.md`.
+Snapshot: `.context/snapshots/v1.27.0-seccomp-wireup-pcworx-mms-replay.md`.
 
-**v1.26 chunks landed (closed)**:
-- 1   `c870858` — `elsereno audit serve` daemon. Cross-process
-  audit chain coordinator over UDS. Replaces the v1.15-chunk-4
-  flock at SOC scale (1 tail-read instead of N). audit.Server
-  + audit.Client (Writer-implementing). 8 new tests.
-- 2   `aa78f60` — seccomp-bpf arg-level filtering primitives
-  (Linux). ArgDenyRule + Equal-mode + MaskAny-mode + ArgFilter-
-  Presets (openat-no-write, socket-deny-AF_PACKET-AF_NETLINK).
-  CompileFilterWithArgs composes existing syscall-denylist with
-  arg-level rules. Profile integration deferred to v1.27.
-  11 new tests.
+**v1.27 chunks landed (closed)**:
+- 1   `5533856` — wire seccomp arg-filter presets into Harvest
+  (openat-no-write) + Dial (socket-deny-AF_PACKET-AF_NETLINK)
+  profiles. ProfileExploit unchanged. 2 new tests.
+- 2   `d4489f2` — pcworx offensive write-gate. Session-level
+  (triple-confirm fence + audit row + byte relay; per-frame
+  command gating defers to a future cycle once real-ILC
+  test vectors are available). 9 tests.
+- 3   `cec5ab9` — mms offensive write-gate. Same session-level
+  shape; full ASN.1 BER walk through OSI session + ACSE +
+  MMS PDUs is the v1.35 candidate. 9 tests.
+- 4   `986f3c2` — record & replay primitive. NDJSON proxy-
+  session capture with HeaderEvent + ChunkEvent. Wrap /
+  WrapClient / WrapUpstream + Replay(ctx, path, cb). 8 tests.
 
 Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
 for the v1.16 through v1.24 chunk-level detail. They're also
