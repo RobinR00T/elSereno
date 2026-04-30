@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-30** (post-v1.24). Items shipped during
-v1.3 → v1.24 archived to keep this file actionable.
+Last refresh: **2026-04-30** (post-v1.25). Items shipped during
+v1.3 → v1.25 archived to keep this file actionable.
 
 ---
 
@@ -100,6 +100,20 @@ v1.3 → v1.24 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.25 (CVE coverage closure + 2 new fingerprint plugins)
+
+- ✅ **`cve_exposure` for the v1.20+v1.21 fingerprint trios** —
+  v1.25 chunk 1. finsudp=5, slmp=6, gesrtp=5, knxip=6,
+  mbustcp=4, dlms=7. 24/27 plugins now publish a non-zero
+  cve_exposure (was 16/25 post-v1.24).
+- ✅ **PCWorx fingerprint plugin (TCP/1962)** — v1.25 chunk 2.
+  Phoenix Contact ILC family + AXC F + RFC PN PLCs.
+  cve_exposure:8.
+- ✅ **IEC 61850 MMS fingerprint with S7 disambig (TCP/102)** —
+  v1.25 chunk 3. COTP TSAP-based disambiguation
+  (MMS `00 01`/`00 01` vs S7 `01 00`/`01 02`). cve_exposure:9,
+  impact_class:85 (grid-scale).
+
 ### v1.22 → v1.24 (CI hygiene + new fingerprints + scoring + docs)
 
 - ✅ **CI hygiene — fuzz-flake retry + explicit `-timeout`** —
@@ -123,15 +137,21 @@ v1.3 → v1.24 archived to keep this file actionable.
 
 ---
 
-## 🎯 High-leverage — siguiente ciclo (v1.25)
+## 🎯 High-leverage — siguiente ciclo (v1.26)
 
-- [ ] **`cve_exposure` for the v1.20 / v1.21 fingerprint trios** —
-  finsudp / slmp / gesrtp / knxip / mbustcp / dlms still publish
-  0 (unchanged from v1.20 introduction). Public CVE histories
-  are sparse on these (proprietary protocols, low public scan
-  visibility), but a conservative non-zero score per plugin is
-  better than 0 once a single anchor CVE family lands. Target
-  cve_exposure ∈ [3, 8] each. Estimación: 1 chunk pequeño.
+- [ ] **GE-SRTP service-0x21 follow-up** — v1.21 chunk 4 added
+  the model-hint extraction; service 0x21 carries richer
+  firmware-version data that's currently parsed shallowly.
+  **Blocked**: needs real-PLC test vectors (Mark VIe / RX3i /
+  PACSystems) — public references differ on the byte layout.
+  Estimación: ~4-6h once vectors are available.
+
+- [ ] **ProConOS fingerprint (TCP/20547)** — Phoenix Contact /
+  KW-Software runtime, ships on multiple PLC brands.
+  **Blocked**: conflicting public wire-layer references
+  (`ca fe / de ca de c0` vs `01 06 00 10 + "PROCONOS"`); needs
+  disambig research + test vectors. Estimación: ~6h once
+  vectors are available.
 
 - [ ] **Offensive plugin trio — FINS / SLMP / GE-SRTP** —
   v1.20 shipped read-only fingerprints; the offensive write
@@ -145,25 +165,17 @@ v1.3 → v1.24 archived to keep this file actionable.
   same shape as the FINS/SLMP/SRTP trio above for the v1.21
   fingerprints. Estimación: ~3-4 días total.
 
-- [ ] **GE-SRTP service-0x21 follow-up** — v1.21 chunk 4 added
-  the model-hint extraction; service 0x21 carries richer
-  firmware-version data that's currently parsed shallowly.
-  Estimación: ~4-6h.
+- [ ] **MMS ACSE association layer** — v1.25 chunk 3 ships
+  COTP-CR-level disambig only. A higher-confidence MMS
+  identification would send the OSI session-connect SPDU +
+  ACSE A-ASSOCIATE-REQUEST with the IEC 61850-8-1 application-
+  context name OID 1.0.9506.2.3 and verify the ACSE accept.
+  Estimación: ~6-8h.
 
-- [ ] **PCWorx / Phoenix Contact ILC fingerprint (TCP/1962)** —
-  follows the v1.20-v1.22 plugin shape. Phoenix Contact's
-  ILC PLC family. Estimación: ~6h.
-
-- [ ] **ProConOS fingerprint (TCP/20547)** — same shape.
-  Phoenix Contact / KW-Software runtime, ships on multiple
-  PLC brands. Estimación: ~6h.
-
-- [ ] **IEC 61850 MMS fingerprint (TCP/102, disambig vs S7)** —
-  port 102 is shared with S7 (TPKT/COTP wrapper). Disambig is
-  on the COTP-CR Connect-Request: S7 uses a specific
-  Calling/Called TSAP pair, MMS uses the IEC 61850 ACSE
-  initiate-request. Estimación: ~8h (more careful than the
-  v1.21 trio because of the disambig logic).
+- [ ] **Offensive `pcworx` / `mms` write-gated proxies** — v1.25
+  chunks 2-3 ship fail-closed default proxies for both new
+  plugins. The offensive write-gated variants follow the
+  ADR-040 template. Estimación: ~1 día each.
 
 ## 🧰 Herramientas operativas
 
@@ -171,8 +183,11 @@ v1.3 → v1.24 archived to keep this file actionable.
   closed the cross-process race via POSIX flock; a centralised
   daemon over a Unix domain socket is the cleaner alternative
   for SOC-scale fan-in (a single single-threaded writer; other
-  processes emit-only). v1.25+ if flock's contention curve
-  bites in field deployments.
+  processes emit-only). v1.26 candidate.
+
+- [ ] **Record & replay de sesiones de proxy** — graba el
+  tráfico cliente↔server en sesiones offensive con timestamps
+  para post-mortem + capacitación en lab. v1.26+ candidate.
 
 ## 🔐 Supply-chain + hardening
 
@@ -189,7 +204,7 @@ v1.3 → v1.24 archived to keep this file actionable.
   **Decisión operador**: aceptar el cgo break o quedarnos en
   unavailable.
 
-## 🔬 Protocolos legacy todavía sin cubrir (4 restantes)
+## 🔬 Protocolos legacy todavía sin cubrir (2 restantes)
 
 Cada uno = ~6-12h.
 
@@ -207,10 +222,9 @@ Cada uno = ~6-12h.
   mencionó en F4 chunk 2. Decisión operador: aceptar la nueva
   dependencia bubbletea + tcell. ~2-3 días.
 
-- [ ] **Record & replay de sesiones de proxy** — grabar el
-  tráfico cliente↔server cuando un operador acepta writes,
-  con timestamps, para replay en laboratorio. Útil para
-  post-mortems + capacitación. ~1-2 días.
+- [ ] **Record & replay de sesiones de proxy** — *moved to
+  Herramientas operativas above* (more natural fit alongside
+  audit daemon).
 
 ## 🪟 Plataforma
 
