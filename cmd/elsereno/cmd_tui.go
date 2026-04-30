@@ -84,7 +84,17 @@ func pickFeed(replayPath, feedFlag, watchURL, watchBearer string) (tui.Mode, tui
 	}
 	switch {
 	case hasReplay:
-		return tui.ModeReplay, nil, errors.New("tui: --replay arrives in v1.29 chunk 3 (chunk 2 ships interactive scaffolding only)")
+		// Pre-flight stat. We don't open here — the feed
+		// goroutine does that — but a missing file is the
+		// common operator typo, and surfacing it before the
+		// alt screen takes over saves them from a confusing
+		// "feed closed with error" line on a still-blank TUI.
+		if info, statErr := os.Stat(replayPath); statErr != nil {
+			return "", nil, fmt.Errorf("tui: --replay: %w", statErr)
+		} else if info.IsDir() {
+			return "", nil, fmt.Errorf("tui: --replay: %s is a directory", replayPath)
+		}
+		return tui.ModeReplay, feeds.Replay{Path: replayPath}, nil
 	case hasFeed:
 		return tui.ModeFeed, nil, errors.New("tui: --feed arrives in v1.29 chunk 4 (chunk 2 ships interactive scaffolding only)")
 	case hasWatch:
