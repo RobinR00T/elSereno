@@ -77,13 +77,21 @@ func entrypoint(args []string) int {
 	if err == nil {
 		return 0
 	}
-	// Already-printed errors from subcommands returning a typed ExitCode.
+	// Typed exit code from a subcommand. Print the error so the
+	// operator sees *why* — cobra's SilenceErrors:true suppresses
+	// its own print, and most call sites of fail() don't print
+	// before returning, so without this the binary would exit
+	// silently on every typed-exit error path.
 	var ce cliError
 	if errors.As(err, &ce) {
+		if msg := ce.Error(); msg != "" {
+			fmt.Fprintln(os.Stderr, "elsereno:", msg)
+		}
 		return int(ce.code)
 	}
 	// Cobra itself flagged an usage error.
 	if errors.Is(err, errUsage) {
+		fmt.Fprintln(os.Stderr, "elsereno:", err)
 		return int(core.ExitUsage)
 	}
 	fmt.Fprintln(os.Stderr, "elsereno:", err)
@@ -145,6 +153,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newLintCmd())
 	root.AddCommand(newFmtCmd())
 	root.AddCommand(newBackupCmd())
+	root.AddCommand(newTUICmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

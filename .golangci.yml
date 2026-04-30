@@ -95,6 +95,12 @@ linters:
       - path: internal/web/handlers/
         linters:
           - misspell
+      # The TUI calls into charmbracelet/lipgloss whose API exposes
+      # `lipgloss.Color(...)` — an upstream symbol we can't rename.
+      # Same situation as CSS: locale-invariant external API.
+      - path: internal/tui/
+        linters:
+          - misspell
 
 formatters:
   enable:
