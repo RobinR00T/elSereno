@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-30** (post-v1.27). Items shipped during
-v1.3 → v1.27 archived to keep this file actionable.
+Last refresh: **2026-04-30** (post-v1.28). Items shipped during
+v1.3 → v1.28 archived to keep this file actionable.
 
 ---
 
@@ -100,6 +100,15 @@ v1.3 → v1.27 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.28 (ProConOS + SRTP service-0x21 + record-replay POC)
+
+- ✅ **ProConOS fingerprint** — v1.28 chunk 1 (best-effort,
+  needs real-PLC validation).
+- ✅ **GE-SRTP service-0x21 follow-up** — v1.28 chunk 2 (richer
+  firmware-version probe; needs real-PLC validation).
+- ✅ **Wire record-replay into pcworx + mms gates (POC)** —
+  v1.28 chunk 3.
+
 ### v1.27 (seccomp wire-up + pcworx/mms gates + record-replay)
 
 - ✅ **Wire seccomp arg-filter presets into ProfileHarvest +
@@ -160,20 +169,6 @@ v1.3 → v1.27 archived to keep this file actionable.
 ---
 
 ## 🎯 High-leverage — siguiente ciclo (v1.26)
-
-- [ ] **GE-SRTP service-0x21 follow-up** — v1.21 chunk 4 added
-  the model-hint extraction; service 0x21 carries richer
-  firmware-version data that's currently parsed shallowly.
-  **Blocked**: needs real-PLC test vectors (Mark VIe / RX3i /
-  PACSystems) — public references differ on the byte layout.
-  Estimación: ~4-6h once vectors are available.
-
-- [ ] **ProConOS fingerprint (TCP/20547)** — Phoenix Contact /
-  KW-Software runtime, ships on multiple PLC brands.
-  **Blocked**: conflicting public wire-layer references
-  (`ca fe / de ca de c0` vs `01 06 00 10 + "PROCONOS"`); needs
-  disambig research + test vectors. Estimación: ~6h once
-  vectors are available.
 
 - [ ] **Offensive plugin trio — FINS / SLMP / GE-SRTP** —
   v1.20 shipped read-only fingerprints; the offensive write

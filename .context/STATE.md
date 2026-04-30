@@ -1,39 +1,40 @@
 ---
-phase: v1.27-closed
-status: v1.16 → v1.27 closed on `main`; v1.16-v1.26 published; v1.27 tag pending push
+phase: v1.28-closed
+status: v1.16 → v1.28 closed on `main`; v1.16-v1.27 published; v1.28 tag pending push
 last-updated: 2026-04-30
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.27 cycle closed on `main`** (4 chunks + close
-commit). Seccomp arg-filter wire-up into Harvest+Dial profiles
-+ pcworx and mms session-level offensive write-gates +
-record/replay primitive. Default-build plugin count stays at
-**27**. **9 offensive write-gates** (was 7): modbus, opcua, sip,
-iax2, pbxhttp, bacnet, cwmp, **pcworx**, **mms**.
+**Phase**: **v1.28 cycle closed on `main`** (3 chunks + close
+commit). ProConOS fingerprint (best-effort) + GE-SRTP
+service-0x21 follow-up + record-replay POC wire-up into
+pcworx + mms gates. Default-build plugin count: **27 → 28**.
+9 offensive write-gates. cve_exposure non-zero: **24/27 →
+25/28**.
 
-**v1.16 → v1.26 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.27.0 tag +
+**v1.16 → v1.27 are published** on
+https://github.com/RobinR00T/elSereno/releases. v1.28.0 tag +
 release pending the close-commit push below.
 
-Snapshot: `.context/snapshots/v1.27.0-seccomp-wireup-pcworx-mms-replay.md`.
+Snapshot: `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`.
 
-**v1.27 chunks landed (closed)**:
-- 1   `5533856` — wire seccomp arg-filter presets into Harvest
-  (openat-no-write) + Dial (socket-deny-AF_PACKET-AF_NETLINK)
-  profiles. ProfileExploit unchanged. 2 new tests.
-- 2   `d4489f2` — pcworx offensive write-gate. Session-level
-  (triple-confirm fence + audit row + byte relay; per-frame
-  command gating defers to a future cycle once real-ILC
-  test vectors are available). 9 tests.
-- 3   `cec5ab9` — mms offensive write-gate. Same session-level
-  shape; full ASN.1 BER walk through OSI session + ACSE +
-  MMS PDUs is the v1.35 candidate. 9 tests.
-- 4   `986f3c2` — record & replay primitive. NDJSON proxy-
-  session capture with HeaderEvent + ChunkEvent. Wrap /
-  WrapClient / WrapUpstream + Replay(ctx, path, cb). 8 tests.
+**v1.28 chunks landed (closed)**:
+- 1   `7842351` — proconos fingerprint plugin (best-effort,
+  TCP/20547). KW-Software runtime kernel; hello frame matches
+  Wireshark + metasploit reference. Permissive banner
+  classifier. **Honest scope**: confidence ~0.7 vs ~0.95
+  baseline; needs real-PLC validation. 18 tests.
+- 2   `bd70cb8` — GE-SRTP service-0x21 (Read PLC Long Status)
+  follow-up. ServiceLongStatus + BuildReadLongStatus +
+  LongStatusInfo + ParseLongStatus. Probe now does
+  connection-init + service-0x21; finding note grows a
+  "fw=Vx.y.z" suffix on success. 7 tests.
+- 3   `0242d68` — wire record-replay into pcworx + mms gates
+  (POC). Optional Recorder *replay.Recorder field on the two
+  session-level gates. Wire-aware gates (sip / iax2 / pbxhttp
+  / modbus / opcua / bacnet / cwmp) wire-up is v1.29+.
 
 Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
 for the v1.16 through v1.24 chunk-level detail. They're also

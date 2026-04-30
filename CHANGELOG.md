@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] — 2026-04-30
+
+### Added
+
+- **`proconos` fingerprint plugin** (TCP/20547, best-effort).
+  KW-Software ProConOS runtime kernel that ships under multiple
+  PLC brands (Phoenix Contact ILC + Berghof + IPC2u + ABB / B&R
+  / Lenze re-skins). 16-byte canonical hello (variant matching
+  Wireshark dissector + metasploit auxiliary scanner).
+  Permissive banner classifier accepts both the v2 hello echo
+  and the older `0xCA 0xFE 0x00 0x00 0xCE 0xFA 0xDE 0xC0`
+  alt-prefix form found in Berghof + Lenze captures. **Honest
+  scope**: confidence ≈ 0.7 (vs ≈ 0.95 for v1.20-v1.25 plugins);
+  needs real-PLC validation. Plugin count: 27 → 28.
+- **GE-SRTP service-0x21 (Read PLC Long Status) follow-up**.
+  v1.21 chunk 4 shipped the connection-init probe + model-hint
+  extractor; v1.28 adds an opt-in second exchange that asks
+  the PLC for its long status. Wire layer gains
+  `ServiceLongStatus`, `BuildReadLongStatus`, `LongStatusInfo`,
+  `ParseLongStatus`. Probe now produces "SRTP model=PACSystems
+  fw=V12.45.7" finding notes when both probes succeed; falls
+  back to the v1.21 result on follow-up failure (no
+  regression). **Honest scope**: needs real Mark VIe / RX3i /
+  PACSystems validation.
+- **Record-replay wire-up into pcworx + mms gates (POC)**.
+  Optional `Recorder *replay.Recorder` field on
+  `WriteGatedHandler`. When non-nil, Handle() wraps both
+  client + upstream io.ReadWriter pairs through the recorder
+  before the io.Copy goroutines start. Bytes flow through
+  transparently while being timestamped + direction-tagged
+  + persisted to NDJSON. Defaults to nil (no behavioural
+  change for existing operators). Wire-aware gates (sip /
+  iax2 / pbxhttp / modbus / opcua / bacnet / cwmp) wire-up
+  + CLI integration is v1.29+.
+
+### Notes
+
+- 26 new tests across the 3 chunks.
+- cve_exposure non-zero plugin count: 24/27 → 25/28 (proconos
+  ships with cve_exposure=7).
+- Both new fingerprints (proconos + GE-SRTP service-0x21)
+  carry explicit "needs validation" callouts in package
+  docstrings + plugin Description.
+
+### Deferred to v1.29+
+
+- Wire record-replay into the 7 wire-aware gates (sip / iax2
+  / pbxhttp / modbus / opcua / bacnet / cwmp).
+- CLI integration: `elsereno proxy listen --record FILE` flag.
+- Offensive plugin trios for v1.20+v1.21 fingerprints (FINS /
+  SLMP / SRTP / KNX / M-Bus / DLMS write services) — blocked
+  on real-PLC test vectors.
+- MMS ACSE association layer (full ASN.1 BER walk).
+- OPC UA HTTPS, Windows support, Multi-user OIDC + roles,
+  PROFINET DCP/GOOSE/SV (L2), macOS sandbox via cgo, TUI with
+  bubbletea — all multi-day or operator-decision items.
+
 ## [1.27.0] — 2026-04-30
 
 ### Added
