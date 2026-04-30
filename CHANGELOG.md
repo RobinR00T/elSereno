@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] — 2026-04-30
+
+### Added
+
+- **Two new fingerprint plugins**, default-build plugin count
+  25 → 27:
+  - **`pcworx`** (TCP/1962) — Phoenix Contact PCWorx runtime
+    protocol used by ILC-series PLCs (ILC 130 / 150 / 170 / 191
+    / 350 / 370 / 390) plus AXC F 1152/2152/3152 distributed-
+    control PLCs and RFC 460R/470S Profinet-IO PLCs. 32-byte
+    "IBETH01" canonical hello + banner classifier. Fail-closed
+    proxy. cve_exposure:8.
+  - **`mms`** (TCP/102) — IEC 61850 Manufacturing Message
+    Specification. Disambiguates from S7 (which shares port
+    102) via MMS-specific TSAPs in the COTP Connect-Request:
+    MMS uses source/destination TSAP `00 01`; S7 uses `01 00`
+    /`01 02`. COTP-CC = MMS positive; COTP-DR = likely S7.
+    Fail-closed proxy. cve_exposure:9, impact_class:85
+    (grid-scale: protective relays govern transmission +
+    distribution circuit-breaker trips).
+- **`cve_exposure` rollout to the v1.20+v1.21 fingerprint trios**
+  (finsudp=5, slmp=6, gesrtp=5, knxip=6, mbustcp=4, dlms=7).
+  Each value cites anchor CVEs in code comments. Closes the
+  v1.24 chunk-1 carry-over.
+
+### Stats
+
+- 24 / 27 plugins now publish a non-zero `cve_exposure` score
+  (was 16/25 post-v1.24). Remaining 3: atmodem / xot / banner.
+- ~46 new tests across the 3 chunks.
+
+### Deferred to v1.26+
+
+- GE-SRTP service-0x21 richer firmware-version probe — needs
+  real-PLC test vectors to validate the byte layout.
+- ProConOS (TCP/20547) — conflicting public wire-layer
+  references; needs disambig research.
+- Offensive plugin trios for the v1.20+v1.21 fingerprints
+  (FINS / SLMP / SRTP / KNX / M-Bus / DLMS write services).
+- `elsereno audit serve` daemon (UDS).
+- seccomp-bpf arg-filtering.
+- macOS sandbox via `sandbox_init(3)` — operator decision
+  (cgo break).
+- TUI with bubbletea — operator decision (new dep).
+- Record & replay of proxy sessions.
+- Windows support, multi-user OIDC + roles.
+- PROFINET DCP / GOOSE / SV (L2; needs CAP_NET_RAW).
+- OPC UA HTTPS.
+
 ### Added
 
 - **v1.19 chunk 3 — CWMP TransferComplete async firmware

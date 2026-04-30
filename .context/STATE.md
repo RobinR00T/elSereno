@@ -1,67 +1,46 @@
 ---
-phase: v1.24-closed
-status: v1.16 → v1.24 cycles closed on `main`; tags pending operator push
-last-updated: 2026-04-29
+phase: v1.25-closed
+status: v1.16 → v1.25 closed on `main`; v1.16-v1.24 published; v1.25 tag pending push
+last-updated: 2026-04-30
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.24 cycle closed on `main`** (2 chunks +
-close commit). Long-running CVE coverage + engineering-notes
-completion. After v1.24 chunk 1, **16 of 25 plugins** publish
-a non-zero `cve_exposure` score (was 9 post-v1.23, was 2
-post-v1.22, was 0 pre-v1.22). After v1.24 chunk 2,
-engineering notes in `.context/protocols/` are **complete for
-all 25 plugins** (was 20 of 25). Default-build plugin count
-stays at **25**.
+**Phase**: **v1.25 cycle closed on `main`** (3 chunks +
+close commit). CVE-coverage closure on the v1.20+v1.21
+fingerprint trios + 2 new fingerprint plugins (PCWorx + IEC
+61850 MMS with S7 disambig). Default-build plugin count:
+**25 → 27**. cve_exposure non-zero plugin count: **16/25 →
+24/27** (only atmodem / xot / banner remain at 0 — niche
+serial / X.25-over-TCP / meta plugin).
 
-**v1.16 → v1.23 are also closed** on `main` with snapshots
-under `.context/snapshots/`. Tags `v1.16.0` → `v1.24.0` are
-pending the operator push. v1.15.0 remains the latest
-published release on
-https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0
-until the push goes through.
+**v1.16 → v1.24 are published** on
+https://github.com/RobinR00T/elSereno/releases. v1.25.0 tag +
+release pending the close-commit push below.
 
-Snapshot:
-`.context/snapshots/v1.24.0-cve-coverage-and-engineering-notes.md`.
+Snapshot: `.context/snapshots/v1.25.0-cve-coverage-and-two-new-plugins.md`.
 
-**v1.24 chunks landed (closed)**:
-- 1   `4ee8017` — CVE-exposure expansion to 7 more plugins
-  (s7=14, fox=13, sip=12, enip=11, pbxhttp=11, modbus=10,
-  iax2=9). Each value cites concrete CVEs in code comments.
-- 2   `3e64b03` — engineering notes for the 5 missing
-  plugins (cwmp / opcua / sip / iax2 / pbxhttp). Coverage in
-  `.context/protocols/` now complete for all 25 plugins.
+**v1.25 chunks landed (closed)**:
+- 1   `ce649ed` — CVE-exposure for the v1.20+v1.21 fingerprint
+  trios (finsudp=5, slmp=6, gesrtp=5, knxip=6, mbustcp=4,
+  dlms=7).
+- 2   `4e36201` — pcworx plugin (Phoenix Contact ILC fingerprint
+  on TCP/1962). 32-byte IBETH01 hello + banner classifier;
+  cve_exposure:8.
+- 3   `89f4344` — mms plugin (IEC 61850 MMS fingerprint on
+  TCP/102 with S7 disambig via MMS-specific TSAPs); COTP-CR/CC
+  layer; cve_exposure:9, impact_class:85 (grid-scale).
 
-**v1.23 chunks landed (in-flight)**:
-- 1   `e262b8d` — CVE-exposure factor expansion for 7 plugins
-  (cwmp=15, dnp3=12, iec104=10, bacnet=8, opcua=8, hartip=7,
-  atg=6). Each value cites concrete CVEs in code comments.
-- 2   `20f7d1e` — Banner dictionary expansion +21 vendors
-  (industrial controllers + HMIs + RTUs: Siemens, Rockwell,
-  Schneider, ABB, WAGO, Beckhoff, Phoenix Contact,
-  Hirschmann, Westermo, Advantech, Sealevel, Honeywell,
-  Johnson Controls, Tridium; network gear: Cisco IOS,
-  MikroTik, Ubiquiti, pfSense, Dropbear, RomPager). 24 new
-  test cases.
+Skipped this cycle (deferred to v1.26+ due to thin public
+wire-references):
+- GE-SRTP service-0x21 richer firmware-version probe.
+- ProConOS (TCP/20547).
 
-Snapshot:
-`.context/snapshots/v1.23.0-scoring-refinements.md`.
-
-**v1.22 chunks landed (in-flight)**:
-- 1   `e1e3f25` — CI hygiene: fuzz-flake retry + explicit
-  -timeout in scripts/run-fuzz.sh.
-- 2   `5aedb05` — CoDeSys V3 TCP/1217. cve_exposure 10. 13
-  tests.
-- 3   `0f474e9` — Red Lion Crimson/RLN TCP/789. cve_exposure
-  5. 13 tests.
-- 4   `03683a4` — Fuzz coverage for v1.20+v1.21+v1.22 wire
-  packages (16 new fuzz targets). Found + fixed real
-  trimASCII bug in v1.20 finsudp.
-
-Snapshot:
-`.context/snapshots/v1.22.0-ci-hygiene-codesys-redlion-fuzz.md`.
+Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
+for the v1.16 through v1.24 chunk-level detail. They're also
+embedded in each tag's release notes on
+https://github.com/RobinR00T/elSereno/releases.
 
 **v1.21 chunks landed (in-flight)**:
 - 1   `9cd8700` — KNXnet/IP UDP/3671. 9 wire + 7 plugin tests.
