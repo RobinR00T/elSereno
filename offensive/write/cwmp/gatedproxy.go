@@ -75,6 +75,7 @@ import (
 	"time"
 
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedRPC is one CWMP SOAP RPC name the operator has
@@ -680,6 +681,20 @@ type WriteGatedHandler struct {
 	// from --accept-writes / --confirm-target / --confirm-token.
 	SessionConfirm confirm.Confirm
 
+	// Recorder is the optional v1.30-chunk-1 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder so every CPE → ACS HTTP request + response that
+	// crosses the gate is timestamped + direction-tagged +
+	// persisted. Wrapping happens BEFORE the bufio.NewReader /
+	// http.ReadRequest / SOAP-envelope parser chain, so per-RPC
+	// + per-parameter-path + per-firmware-URL allowlist routing
+	// is captured intact. Useful for forensic post-mortems of
+	// TR-069 sessions where the operator authorised a Download
+	// or SetParameterValues. Nil disables recording — the gate
+	// behaves exactly as it did pre-v1.30.
+	Recorder *replay.Recorder
+
 	// authorised flips true after a successful Authorise.
 	authorised bool
 
@@ -877,6 +892,10 @@ var ErrSessionNotAuthorised = errors.New("cwmp: write-gated proxy requires Autho
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	br := bufio.NewReader(client)
 	upReader := bufio.NewReader(upstream)

@@ -10,6 +10,8 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 
 	mbwire "local/elsereno/internal/protocols/modbus/wire"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 type stubDeriver2 struct{ master []byte }
@@ -309,5 +312,90 @@ func TestAllowedWrite_UnitZeroMatchesAny(t *testing.T) {
 	f2.MBAP.Unit = 99
 	if !a.Matches(f1) || !a.Matches(f2) {
 		t.Fatal("Unit=0 should match any unit")
+	}
+}
+
+// TestHandle_RecordsBytesWhenRecorderSet — v1.30 chunk 1
+// proves the optional Recorder field captures bytes that cross
+// the wire-aware modbus gate. The wrap happens BEFORE the frame
+// parser reads, so allowlist routing is preserved + the
+// recording reflects what arrived from the client (not what
+// the gate decided to forward, which is also valuable for
+// post-mortems of refused frames).
+func TestHandle_RecordsBytesWhenRecorderSet(t *testing.T) {
+	target := "10.0.0.1:502"
+	allowed := []AllowedWrite{{Unit: 1, FC: mbwire.FCWriteSingleRegister}}
+	h, _ := buildGatedHandler(t, target, allowed)
+
+	dir := t.TempDir()
+	recPath := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(recPath, "modbus", target)
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = rec.Close() })
+	h.Recorder = rec
+
+	clientPipe, handlerClient := net.Pipe()
+	upstreamReader, handlerUpstream := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientPipe.Close()
+		_ = handlerClient.Close()
+		_ = upstreamReader.Close()
+		_ = handlerUpstream.Close()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = h.Handle(ctx, handlerClient, handlerUpstream) }()
+
+	// Send one allowed write (FC=06 WriteSingleRegister, unit=1).
+	frame := writeSingleRegister(0x0010, 0xBEEF)
+	frame.MBAP.Unit = 1
+	frame.MBAP.TxID = 1
+	go func() {
+		_ = mbwire.WriteFrame(clientPipe, frame)
+	}()
+
+	got := make([]byte, mbwire.MBAPLen+len(frame.PDU))
+	_ = upstreamReader.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, err := upstreamReader.Read(got); err != nil {
+		t.Fatalf("upstream read: %v", err)
+	}
+
+	// Close the recorder so the NDJSON is finalised before replay.
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Permissions must be 0600 (operator-private capture).
+	info, err := os.Stat(recPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		t.Errorf("recording perms = %v, want no group/world bits", info.Mode().Perm())
+	}
+
+	// Header carries protocol="modbus" — distinguishes captures
+	// across protocols when an operator has many recordings.
+	hdr, err := replay.SeekHeader(recPath)
+	if err != nil {
+		t.Fatalf("SeekHeader: %v", err)
+	}
+	if hdr.Protocol != "modbus" {
+		t.Errorf("recorded protocol = %q, want %q", hdr.Protocol, "modbus")
+	}
+
+	// At least one client→upstream chunk with the expected length.
+	var sawClientToUpstream bool
+	_ = replay.Replay(context.Background(), recPath, func(ev replay.ChunkEvent) error {
+		if ev.Dir == replay.DirClientToUpstream && ev.Len > 0 {
+			sawClientToUpstream = true
+		}
+		return nil
+	})
+	if !sawClientToUpstream {
+		t.Errorf("recording did not capture a client_to_upstream chunk")
 	}
 }

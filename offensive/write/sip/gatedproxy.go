@@ -76,6 +76,7 @@ import (
 	"strings"
 
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedMethod is one SIP method the operator has authorised for
@@ -733,6 +734,18 @@ type WriteGatedHandler struct {
 	// from --accept-writes / --confirm-target / --confirm-token.
 	SessionConfirm confirm.Confirm
 
+	// Recorder is the optional v1.30-chunk-1 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder so every SIP request + response that crosses the
+	// gate is timestamped + direction-tagged + persisted.
+	// Wrapping happens BEFORE the bufio.NewReader / textproto
+	// wrap, so per-method + per-prefix + per-AOR + per-from-
+	// domain routing decisions are all captured intact. Nil
+	// disables recording — the gate behaves exactly as it did
+	// pre-v1.30.
+	Recorder *replay.Recorder
+
 	// authorised flips true after a successful Authorise.
 	authorised bool
 }
@@ -765,6 +778,10 @@ var ErrSessionNotAuthorised = errors.New("sip: write-gated proxy requires Author
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- h.forward(client, upstream, client) }()

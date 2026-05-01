@@ -12,6 +12,7 @@ import (
 
 	mbwire "local/elsereno/internal/protocols/modbus/wire"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedWrite scopes a single function-code + unit + address-range
@@ -204,6 +205,17 @@ type WriteGatedHandler struct {
 	// across every frame of the session.
 	SessionConfirm confirm.Confirm
 
+	// Recorder is the optional v1.30-chunk-1 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder so every byte that crosses the gate is timestamped
+	// + direction-tagged + persisted. Wrapping happens BEFORE the
+	// frame parser reads from client, so wire-aware gating
+	// (allowed-fc routing, refusals) is captured intact. Nil
+	// disables recording — the gate behaves exactly as it did
+	// pre-v1.30.
+	Recorder *replay.Recorder
+
 	// authorised flips true after the first successful Authorize
 	// call. A failed session-open short-circuits every subsequent
 	// frame.
@@ -233,6 +245,10 @@ var ErrSessionNotAuthorised = errors.New("modbus: write-gated proxy requires Aut
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- h.forward(client, upstream, client) }()

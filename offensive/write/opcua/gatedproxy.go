@@ -41,6 +41,7 @@ import (
 
 	"local/elsereno/internal/protocols/opcua/wire"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedService names one UA service the operator has
@@ -582,6 +583,17 @@ type WriteGatedHandler struct {
 	// from --accept-writes / --confirm-target / --confirm-token.
 	SessionConfirm confirm.Confirm
 
+	// Recorder is the optional v1.30-chunk-1 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder so every chunk that crosses the gate is
+	// timestamped + direction-tagged + persisted. Wrapping
+	// happens BEFORE the OPC UA chunk parser reads, so HEL /
+	// OPN / MSG (with all the v1.6/v1.12 NodeId + CallMethod
+	// gating) / CLO routing is captured intact. Nil disables
+	// recording — the gate behaves exactly as it did pre-v1.30.
+	Recorder *replay.Recorder
+
 	// authorised flips true after a successful Authorise.
 	authorised bool
 }
@@ -609,6 +621,10 @@ var ErrSessionNotAuthorised = errors.New("opcua: write-gated proxy requires Auth
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- h.forward(client, upstream, client) }()

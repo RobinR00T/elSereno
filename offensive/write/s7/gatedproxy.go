@@ -11,6 +11,7 @@ import (
 
 	s7wire "local/elsereno/internal/protocols/s7/wire"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 )
 
 // AllowedFunction scopes the S7 function codes the operator
@@ -58,7 +59,18 @@ type WriteGatedHandler struct {
 	Deriver        confirm.KeyDeriver
 	Auditor        confirm.Auditor
 	SessionConfirm confirm.Confirm
-	authorised     bool
+
+	// Recorder is the optional v1.30-chunk-1 hook for capturing
+	// the proxy session to an NDJSON file. When non-nil, Handle
+	// wraps both client + upstream io.ReadWriter through the
+	// recorder so every TPKT envelope that crosses the gate is
+	// timestamped + direction-tagged + persisted. Wrapping
+	// happens BEFORE the TPKT/COTP parser reads, so wire-aware
+	// allowlist routing is captured intact. Nil disables
+	// recording — the gate behaves exactly as it did pre-v1.30.
+	Recorder *replay.Recorder
+
+	authorised bool
 }
 
 // Authorise opens the proxy session.
@@ -78,6 +90,10 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
 		return ErrSessionNotAuthorised
+	}
+	if h.Recorder != nil {
+		client = h.Recorder.WrapClient(client)
+		upstream = h.Recorder.WrapUpstream(upstream)
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- h.forward(client, upstream, client) }()
