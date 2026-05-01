@@ -1,15 +1,19 @@
 ---
-phase: v1.29-in-flight
-status: v1.16-v1.27 published; v1.28 tag pending push; v1.29 chunks 1-6 landed; close commit + tag pending
+phase: v1.29-closed
+status: v1.16-v1.27 published; v1.28 + v1.29 tags pending push
 last-updated: 2026-05-01
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.29 cycle in flight** — TUI verb (bubbletea) +
-mini build variant. 6 chunks landed on `main`; close commit +
-tag pending. v1.28 tag also still pending push.
+**Phase**: **v1.29 cycle closed on `main`** (6 chunks + close
+commit). TUI verb (bubbletea Model/View/Update + 4 modes:
+interactive / replay / feed / watch) + mini build variant (3-
+variant goreleaser: default + offensive + mini). 44 new tests.
+v1.28.0 + v1.29.0 tags pending push.
+
+Snapshot: `.context/snapshots/v1.29.0-tui-and-mini-build.md`.
 
 **v1.29 chunks landed (in-flight)**:
 - 1 `f70bbd5` — mini build-tag scaffolding + 3-variant
@@ -31,16 +35,17 @@ tag pending. v1.28 tag also still pending push.
 - 5 `33260c6` — TUI watch mode: `feeds.Watch` consumes
   `/api/v1/stream` SSE, routes 4 event kinds. Auto-reconnect
   with auth-failure short-circuit. 13 tests.
-- 6 (this) — Docs: `.context/tui.md` (architecture + key
-  bindings + wire formats + build-tag matrix).
+- 6 `f147cde` — Docs: `.context/tui.md` (architecture + key
+  bindings + wire formats + build-tag matrix). STATE / INDEX /
+  CHANGELOG mirrored.
 
 **v1.16 → v1.27 are published** on
 https://github.com/RobinR00T/elSereno/releases. v1.28.0 +
 v1.29.0 tags + releases pending push.
 
-Snapshot:
+Snapshots:
 - `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`
-- v1.29.0 snapshot pending close commit.
+- `.context/snapshots/v1.29.0-tui-and-mini-build.md`
 
 **v1.28 chunks landed (closed)**:
 - 1   `7842351` — proconos fingerprint plugin (best-effort,
