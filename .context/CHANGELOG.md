@@ -1,12 +1,21 @@
 ---
 phase: any
 status: living
-last-updated: 2026-04-28
+last-updated: 2026-05-01
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-05-01 — v1.29 (chunks 1-6) — **TUI verb (`elsereno tui`) +
+  mini build variant.** Bubbletea Model/View/Update + 4-pane
+  layout (findings / triage / audit / scan); 4 modes via
+  flags (interactive / replay / feed / watch). Mini variant
+  excludes the bubbletea/lipgloss/web stack; goreleaser ships
+  3 archives per OS/arch. New `.context/tui.md` (architecture +
+  key bindings + wire formats + build-tag matrix). 44 unit
+  tests across `internal/tui/` + `internal/tui/feeds/`.
 
 - 2026-04-29 — v1.24 (chunk 2) — **Engineering notes for the
   5 missing plugins in `.context/protocols/`.** Plugin coverage

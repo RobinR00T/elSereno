@@ -21,6 +21,7 @@ guían la carga: cargar sólo lo necesario; `_quickref` + `STATE` + `conventions
 | `scoring.md` | Scoring factors, weights, severities | any | 1500 | 2026-04-19 | Scoring work |
 | `persistence.md` | Schema, migrations, retention | any | 2000 | 2026-04-19 | DB / audit work |
 | `web.md` | HTTP server, auth, CSRF, rate limits | any | 1800 | 2026-04-19 | Web work |
+| `tui.md` | TUI architecture, modes, key bindings, build-tag matrix | any | 2200 | 2026-05-01 | TUI work |
 | `testing-strategy.md` | Unit / fuzz / integration / e2e | any | 1200 | 2026-04-19 | Test work |
 | `security-model.md` | Threat model, controls, sandbox | any | 1500 | 2026-04-19 | Security-sensitive change |
 | `CHANGELOG.md` | One-liners per significant change | any | — | 2026-04-19 | After significant edit |

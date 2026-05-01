@@ -1,24 +1,46 @@
 ---
-phase: v1.28-closed
-status: v1.16 → v1.28 closed on `main`; v1.16-v1.27 published; v1.28 tag pending push
-last-updated: 2026-04-30
+phase: v1.29-in-flight
+status: v1.16-v1.27 published; v1.28 tag pending push; v1.29 chunks 1-6 landed; close commit + tag pending
+last-updated: 2026-05-01
 token-budget: 300
 ---
 
 # Current state
 
-**Phase**: **v1.28 cycle closed on `main`** (3 chunks + close
-commit). ProConOS fingerprint (best-effort) + GE-SRTP
-service-0x21 follow-up + record-replay POC wire-up into
-pcworx + mms gates. Default-build plugin count: **27 → 28**.
-9 offensive write-gates. cve_exposure non-zero: **24/27 →
-25/28**.
+**Phase**: **v1.29 cycle in flight** — TUI verb (bubbletea) +
+mini build variant. 6 chunks landed on `main`; close commit +
+tag pending. v1.28 tag also still pending push.
+
+**v1.29 chunks landed (in-flight)**:
+- 1 `f70bbd5` — mini build-tag scaffolding + 3-variant
+  goreleaser. New `-tags mini` target excludes the dashboard +
+  `serve`/`api` verbs (replaced by stub printing
+  EX_UNAVAILABLE 69). Makefile gains `build-mini`. 3 archives
+  per OS/arch in goreleaser.
+- 2 `dc15e69` — TUI core: Model/View/Update + 4-pane layout
+  (findings / triage / audit / scan), bubbletea program runner,
+  Feed interface, mini stub. Side fix: cliError now prints to
+  stderr before exit (cobra's SilenceErrors was masking it).
+  16 tests in `internal/tui/`.
+- 3 `ac10f03` — TUI replay mode: `feeds.Replay` reads
+  `ndjson:v1` capture files, emits FindingMsgs, optional Rate
+  for slow playback. Pre-flight stat in cmd_tui.go. 8 tests.
+- 4 `7332de1` — TUI feed mode: `feeds.Stdin` consumes NDJSON
+  from any io.Reader (default os.Stdin). Refactored
+  `streamNDJSON` shared helper. 7 tests.
+- 5 `33260c6` — TUI watch mode: `feeds.Watch` consumes
+  `/api/v1/stream` SSE, routes 4 event kinds. Auto-reconnect
+  with auth-failure short-circuit. 13 tests.
+- 6 (this) — Docs: `.context/tui.md` (architecture + key
+  bindings + wire formats + build-tag matrix).
 
 **v1.16 → v1.27 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.28.0 tag +
-release pending the close-commit push below.
+https://github.com/RobinR00T/elSereno/releases. v1.28.0 +
+v1.29.0 tags + releases pending push.
 
-Snapshot: `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`.
+Snapshot:
+- `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`
+- v1.29.0 snapshot pending close commit.
 
 **v1.28 chunks landed (closed)**:
 - 1   `7842351` — proconos fingerprint plugin (best-effort,
