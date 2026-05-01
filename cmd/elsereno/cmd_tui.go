@@ -96,7 +96,14 @@ func pickFeed(replayPath, feedFlag, watchURL, watchBearer string) (tui.Mode, tui
 		}
 		return tui.ModeReplay, feeds.Replay{Path: replayPath}, nil
 	case hasFeed:
-		return tui.ModeFeed, nil, errors.New("tui: --feed arrives in v1.29 chunk 4 (chunk 2 ships interactive scaffolding only)")
+		// Only `-` is supported (stdin). `--feed FILE` is
+		// redundant with `--replay FILE`; rejecting it here
+		// keeps the two flags' intent distinct (replay = file
+		// playback; feed = live producer).
+		if feedFlag != "-" {
+			return "", nil, fmt.Errorf("tui: --feed accepts only `-` (stdin); use --replay for files (got %q)", feedFlag)
+		}
+		return tui.ModeFeed, feeds.Stdin{In: os.Stdin}, nil
 	case hasWatch:
 		_ = watchBearer
 		return tui.ModeWatch, nil, errors.New("tui: --watch arrives in v1.29 chunk 5 (chunk 2 ships interactive scaffolding only)")

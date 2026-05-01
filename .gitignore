@@ -4,6 +4,12 @@
 *.test
 *.out
 coverage.*
+# Top-level binary dropped by `go build ./cmd/elsereno` without -o.
+# (The Makefile uses -o bin/elsereno, so this is just a safety net
+# for ad-hoc builds.)
+/elsereno
+/elsereno-mini
+/elsereno-offensive
 .idea/
 .vscode/*
 !.vscode/settings.json
