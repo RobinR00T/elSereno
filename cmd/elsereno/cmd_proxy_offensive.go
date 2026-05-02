@@ -20,6 +20,7 @@ import (
 	mbwire "local/elsereno/internal/protocols/modbus/wire"
 	"local/elsereno/internal/proxy"
 	"local/elsereno/offensive/confirm"
+	"local/elsereno/offensive/replay"
 	bacwrite "local/elsereno/offensive/write/bacnet"
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	iaxwrite "local/elsereno/offensive/write/iax2"
@@ -152,6 +153,7 @@ func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
 	cmd.Flags().BoolVar(&opts.reloadAllowFile, "reload-allow-file", false, "v1.17+: enable in-process SIGUSR1 reload of --allow-file. On SIGUSR1 the proxy re-reads the allow-file, re-reads the sidecar `<allow-file>.token` (0600) for the new confirm-token, builds + authorises the new handler, and atomically swaps it. In-flight connections finish with the old allowlist; new connections use the new. Requires --allow-file. Mutually-exclusive with the v1.15 SIGHUP supervisor-restart pattern only insofar as SIGHUP still exits 75 — operators choose: USR1 in-process or HUP supervisor restart.")
+	cmd.Flags().StringVar(&opts.recordPath, "record", "", "v1.30+: capture every byte that crosses the gate to FILE as `elsereno-replay/v1` NDJSON (one line per chunk, both directions, RFC3339 microsecond timestamps). The file is created 0600. Operators replay later with `elsereno proxy replay FILE`. Empty (default) disables recording. Recording adds zero overhead to the bytes flowing — the recorder is a tee — but expect FILE to grow at line-rate. Pair with `--max-conns 1` for clean per-session captures.")
 	// Shared across plugins that ship a token-generation cookie
 	// (v1.16+ for bacnet; v1.17+ adding cwmp + others). Each
 	// plugin's handler builder picks this up — only the active
@@ -314,6 +316,13 @@ type proxyListenOpts struct {
 	// reloadAllowFile enables the v1.17 chunk-4 SIGUSR1
 	// in-process reload. Requires allowFile to be set.
 	reloadAllowFile bool
+	// recordPath is the v1.30-chunk-2 capture-to-file flag.
+	// When non-empty, the proxy opens a replay.Recorder for
+	// the lifetime of the listener, wraps the constructed
+	// handler's Recorder field, and emits one NDJSON line
+	// per byte chunk that crosses the gate (both directions,
+	// timestamped). Empty (default) disables recording.
+	recordPath string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -349,6 +358,23 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 	handler, err := buildGatedHandler(opts, rt, c)
 	if err != nil {
 		return fail(core.ExitUsage, err)
+	}
+
+	// v1.30 chunk 2: --record FILE → wire a Recorder on the
+	// handler. Open BEFORE Authorise so a permission failure on
+	// the capture file fails fast (no audit entry yet for an
+	// unstartable session). Close on every exit path; the proxy
+	// runtime owns the recorder for the listener's lifetime.
+	if opts.recordPath != "" {
+		rec, err := replay.Open(opts.recordPath, opts.plugin, opts.target)
+		if err != nil {
+			return fail(core.ExitOSErr, fmt.Errorf("--record %s: %w", opts.recordPath, err))
+		}
+		defer func() { _ = rec.Close() }()
+		if !attachRecorder(handler, rec) {
+			return fail(core.ExitUsage, fmt.Errorf("--record: plugin %q does not support recording (supported: sip, iax2, pbxhttp, modbus, opcua, bacnet, cwmp)", opts.plugin))
+		}
+		cmd.Printf("proxy: recording to %s (NDJSON, schema=elsereno-replay/v1)\n", opts.recordPath)
 	}
 
 	// Authorise now (before the listener binds) so the operator
@@ -900,3 +926,34 @@ func authoriseHandler(ctx context.Context, h gatedProxyHandler) error {
 // _ ensure iaxwire is referenced so the import isn't dropped on
 // refactors (it's implicitly used via iaxSubclassByName).
 var _ = iaxwire.IAXNew
+
+// attachRecorder threads the open Recorder onto the concrete
+// handler's Recorder field. Returns true if the plugin supports
+// recording (one of the 7 wire-aware gates wired in v1.30
+// chunk 1). Returns false for plugins that don't yet have the
+// Recorder field — the caller surfaces a usage error.
+//
+// We type-switch rather than extending the gatedProxyHandler
+// interface because the interface should stay narrow (Authorise
+// + Handle) — recording is an orthogonal capture concern.
+func attachRecorder(h gatedProxyHandler, rec *replay.Recorder) bool {
+	switch t := h.(type) {
+	case *sipwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *iaxwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *pbxwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *modwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *opwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *bacwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *cwmpwrite.WriteGatedHandler:
+		t.Recorder = rec
+	default:
+		return false
+	}
+	return true
+}

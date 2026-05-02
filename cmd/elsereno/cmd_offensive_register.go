@@ -37,5 +37,6 @@ func replaceProxyStubWithOffensiveCmd(root *cobra.Command) {
 		Short: "Protocol-aware interception proxy (offensive — run a write-gated proxy)",
 	}
 	cmd.AddCommand(newProxyListenCmd())
+	cmd.AddCommand(newProxyReplayCmd())
 	root.AddCommand(cmd)
 }
