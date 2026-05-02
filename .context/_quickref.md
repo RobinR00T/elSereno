@@ -1,13 +1,13 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-04-29
-token-budget: 900
+last-updated: 2026-05-02
+token-budget: 950
 ---
 
 # ElSereno — Quick Reference
 
-**What**: ICS/OT legacy exposure scanner + fingerprinter + proxy + REPL + dashboard. Defensive default; `-tags offensive` for writes/exploits/harvest/dial.
+**What**: ICS/OT legacy exposure scanner + fingerprinter + proxy + REPL + dashboard + interactive TUI. Defensive default; `-tags offensive` for writes/exploits/harvest/dial. Three build variants since v1.29: default / offensive / mini (mini excludes dashboard + TUI for device deployments).
 
 **Stack**: Go 1.25+, Postgres 16, HTMX+Alpine+Tailwind, single static binary (pure Go, no CGO). Linux + macOS only.
 
@@ -80,7 +80,18 @@ writer, SSE feed, dashboard live-feed all shipped. CWMP
 firmware pre-flight verifier
 (`elsereno-offensive write cwmp verify-firmware`) since v1.13
 chunk 2. `--vault-passphrase-file <0600 path>` unblocks CI/
-preview.
+preview. **Proxy session capture**: `proxy listen --record FILE`
+(v1.30) wires `replay.Recorder` into all 9 wire-aware gates;
+`elsereno proxy replay FILE` renders captures.
+
+**Interactive TUI** (`elsereno tui`, default + offensive
+builds; not in mini): bubbletea-based 4-pane layout (findings /
+triage / audit / scan progress). Five modes: interactive
+(default empty; or `--input list:FILE` runs Scanner inside
+TUI as of v1.30), `--replay FILE.ndjson`, `--feed -` (stdin),
+`--watch URL --bearer TOKEN` (SSE). `/` filters audit pane
+substring (case-insensitive); Tab cycles focus; j/k/g/G
+navigate findings; q quits.
 
 **Supply chain**: Free-tier release flow since v1.8 (GPG-signed
 tag + SHA-256 + CycloneDX SBOM via local goreleaser + `gh

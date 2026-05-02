@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] — 2026-05-02
+
+### Added
+
+- **Record-replay wire-up into 9 wire-aware gates**. Closes the
+  v1.28 chunk-3 deferral. Extends the optional
+  `Recorder *replay.Recorder` field from the two session-level
+  POC gates (pcworx, mms) to all 9 wire-aware gates that parse
+  the `io.ReadWriter` internally: sip, iax2, pbxhttp, modbus,
+  opcua, bacnet, cwmp (the 7 explicitly listed in the v1.28
+  commit message) plus enip and s7 (also wire-aware, missed
+  by the original count). Wrapping happens AFTER the auth
+  check + BEFORE any reader is constructed (`bufio.NewReader`,
+  `wire.ReadFrame`, `http.ReadRequest`, etc.), so allowlist
+  routing decisions read from the wrapped reader and the
+  recording captures every byte the client sent — including
+  refused frames + pre-parse junk, useful for forensic
+  post-mortems where "what did the attacker actually send?"
+  matters more than "what was forwarded".
+- **`--record FILE` flag on `proxy listen`**. Operator-facing
+  half of the wire-up. Opens `replay.Recorder` BEFORE
+  `Authorise()` so a permission failure on the capture file
+  fails fast (no audit row for an unstartable session).
+  Threads the recorder onto the concrete handler via
+  `attachRecorder()` type-switch. File is created 0600 with
+  schema `elsereno-replay/v1`. Prints `proxy: recording to
+  <path>` on listener bind. Closed on every exit path.
+- **`elsereno proxy replay FILE` sub-verb**. Renders an
+  `elsereno-replay/v1` capture as human-readable lines:
+  `[HH:MM:SS.uuuuuu] c→u  NNB  hex-preview…`. Header preamble
+  shows protocol + target + start-time. `--dir
+  client|upstream|both` filter (default both; aliases `c`/`u`
+  accepted). `--hex-limit N` truncates the per-chunk hex
+  preview at N bytes (default 32; 0 = full).
+- **TUI scan launcher (`feeds.Interactive`)**. Closes the
+  v1.29 chunk-2 deferral (interactive mode previously used
+  `feeds.Empty` placeholder). Runs `scanner.Scanner` from
+  inside the TUI; emits FindingMsg per finding +
+  ScanProgressMsg per advance + AuditMsg per scanner error
+  (warn-and-continue, mirroring batch `scan`). Initial 0/N
+  progress so the bar renders immediately rather than "idle";
+  final `ScanProgressMsg{Total: 0}` on close. New
+  `--input list:FILE` + `--default-port` flags on
+  `elsereno tui`.
+- **TUI audit-pane substring filter**. `/` enters edit mode
+  (only when the audit pane is focused), type substring,
+  Enter commits to `AuditFilter`, Esc cancels (preserves
+  previous filter). Esc outside edit mode clears any active
+  filter. Backspace pops one rune from the draft. Match is
+  case-insensitive `strings.Contains`. Pane header shows
+  live draft while editing + active filter when committed +
+  empty-state distinguishes "no events yet" from "no events
+  match /<filter>".
+
+### Changed
+
+- `pickFeed` in `cmd/elsereno/cmd_tui.go` now takes a
+  `pickFeedArgs` struct rather than 6 positional arguments —
+  the `--input` + `--default-port` additions pushed the count
+  past the linter's argument-count ceiling.
+- `feeds.Replay`'s NDJSON streaming logic was refactored into
+  `streamNDJSON` in `feeds/ndjson_stream.go` (already in v1.29
+  chunk 4); v1.30 reuses the helper for `feeds.Stdin` and
+  doesn't change the protocol.
+
+### Tests
+
+- `offensive/write/modbus/gatedproxy_test.go`:
+  `TestHandle_RecordsBytesWhenRecorderSet` (canonical
+  wire-aware shape; the 8 other gates share the wrap point).
+- `cmd/elsereno/cmd_proxy_replay_offensive_test.go`: 4
+  cases (header roundtrip, --dir parser, arrows, hex truncation).
+- `internal/tui/feeds/interactive_test.go`: 5 cases
+  (happy path, empty targets, probe error, ctx cancel, name).
+- `internal/tui/filter_test.go`: 9 cases (filter logic +
+  edit-mode key handling).
+
+**+19 tests this cycle.** All pass under `-race`; lint clean
+across all 3 build variants.
+
+### Build
+
+3-variant matrix unchanged from v1.29:
+default 22.9 MB / offensive 23.6 MB / mini 21.3 MB
+(stripped `-s -w`). Mini variant continues to exclude
+`internal/tui/` via `//go:build !mini`, so the new
+`Interactive` feed + filter logic doesn't grow the device
+build. The `proxy listen --record` and `proxy replay` paths
+are `//go:build offensive` and absent from default + mini.
+
+## [1.29.0] — 2026-05-01
+
+### Added
+
+- **Interactive terminal UI (`elsereno tui`)** — full
+  bubbletea Model/View/Update with 4-pane layout (findings
+  table / triage chips / audit feed / scan progress). Four
+  modes: interactive (default; chunk 2 ships empty feed —
+  the live-scan path lands in v1.30), `--replay FILE`
+  NDJSON capture playback, `--feed -` stdin pipe, `--watch
+  URL --bearer TOKEN` remote SSE consumer. Tab cycles focus,
+  j/k/g/G navigate findings, q/ctrl+c quits.
+- **Mini build variant (`-tags mini`)**. 3-variant goreleaser
+  matrix: default + offensive + mini. Mini excludes the
+  dashboard (`serve`, `api`) + the TUI verb to keep the
+  binary small for device deployments (jump hosts, embedded
+  rigs). Stub verbs print descriptive errors + exit
+  EX_UNAVAILABLE (69) instead of cobra's "unknown command".
+  Stripped binary sizes: default ~23 MB / offensive ~24 MB /
+  mini ~21 MB. CI gates `build-mini` to catch tag bitrot.
+
+### Fixed
+
+- `cliError`-wrapped errors are now printed to stderr before
+  exit. Cobra's `SilenceErrors: true` was masking them, so
+  most call sites of `fail()` exited silently with a typed
+  exit code. Conservative fix: print only when
+  `cliError.Error()` returns non-empty (preserves
+  silent-exit for commands that print before returning).
+
 ## [1.28.0] — 2026-04-30
 
 ### Added

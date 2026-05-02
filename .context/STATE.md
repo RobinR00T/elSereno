@@ -1,51 +1,69 @@
 ---
-phase: v1.29-closed
-status: v1.16-v1.27 published; v1.28 + v1.29 tags pending push
-last-updated: 2026-05-01
-token-budget: 300
+phase: v1.30-closed
+status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 tags pending push
+last-updated: 2026-05-02
+token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.29 cycle closed on `main`** (6 chunks + close
-commit). TUI verb (bubbletea Model/View/Update + 4 modes:
-interactive / replay / feed / watch) + mini build variant (3-
-variant goreleaser: default + offensive + mini). 44 new tests.
-v1.28.0 + v1.29.0 tags pending push.
+**Phase**: **v1.30 cycle closed on `main`** (4 chunks + close
+commit). Closes the v1.28-chunk-3 deferral by wiring
+`replay.Recorder` into all 9 wire-aware gates + adds the
+operator-facing `--record FILE` on `proxy listen` + `proxy
+replay` verb + closes the v1.29-chunk-2 deferral by replacing
+the empty interactive-mode feed with `feeds.Interactive` (live
+scanner inside the TUI) + adds audit-pane substring filter for
+triage. ~30 new tests. v1.28.0 + v1.29.0 + v1.30.0 tags
+pending push.
+
+Snapshot:
+`.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`.
+
+**v1.30 chunks landed (in-flight)**:
+- 1 `1a9bc65` — wire `Recorder *replay.Recorder` into the 9
+  wire-aware gates (sip / iax2 / pbxhttp / modbus / opcua /
+  bacnet / cwmp + enip + s7). 4-line wrap before the
+  goroutines; nil-recorder path unchanged. Test for the
+  canonical wire-aware shape (modbus); other 8 share the
+  pattern.
+- 2 `cab5b8c` — operator-facing `--record FILE` flag on
+  `proxy listen` (opens `replay.Recorder` before Authorise so
+  permission errors fast-fail; type-switch attaches to
+  concrete handler) + new `elsereno proxy replay FILE` verb
+  (renders `elsereno-replay/v1` captures with directional
+  arrows + hex preview + `--dir` filter + `--hex-limit`).
+  4 cmd-level tests.
+- 3 `4bd7a8e` — `feeds.Interactive` runs `scanner.Scanner`
+  inside the TUI; emits FindingMsg per finding + ScanProgressMsg
+  per advance + AuditMsg per probe error (warn-and-continue).
+  CLI `--input list:FILE` + `--default-port`. Pre-flight stat
+  before the alt screen takes over. 5 tests.
+- 4 `15f954e` — TUI audit-pane filter: `/` enters edit mode on
+  the audit pane, type substring, Enter commits, Esc cancels;
+  Esc outside edit mode clears any active filter; case-
+  insensitive substring match via `FilteredAuditEvents()`.
+  9 tests.
+
+**v1.29 chunks landed (closed, snapshot available)**:
+- 1 `f70bbd5` — mini build-tag scaffolding + 3-variant goreleaser.
+- 2 `dc15e69` — TUI core (Model/View/Update + 4-pane layout).
+- 3 `ac10f03` — TUI replay mode (`feeds.Replay`).
+- 4 `7332de1` — TUI feed mode (`feeds.Stdin`).
+- 5 `33260c6` — TUI watch mode (`feeds.Watch`).
+- 6 `f147cde` — Docs (`.context/tui.md` + INDEX/CHANGELOG).
+- C `5ba2049` — Close commit.
 
 Snapshot: `.context/snapshots/v1.29.0-tui-and-mini-build.md`.
 
-**v1.29 chunks landed (in-flight)**:
-- 1 `f70bbd5` — mini build-tag scaffolding + 3-variant
-  goreleaser. New `-tags mini` target excludes the dashboard +
-  `serve`/`api` verbs (replaced by stub printing
-  EX_UNAVAILABLE 69). Makefile gains `build-mini`. 3 archives
-  per OS/arch in goreleaser.
-- 2 `dc15e69` — TUI core: Model/View/Update + 4-pane layout
-  (findings / triage / audit / scan), bubbletea program runner,
-  Feed interface, mini stub. Side fix: cliError now prints to
-  stderr before exit (cobra's SilenceErrors was masking it).
-  16 tests in `internal/tui/`.
-- 3 `ac10f03` — TUI replay mode: `feeds.Replay` reads
-  `ndjson:v1` capture files, emits FindingMsgs, optional Rate
-  for slow playback. Pre-flight stat in cmd_tui.go. 8 tests.
-- 4 `7332de1` — TUI feed mode: `feeds.Stdin` consumes NDJSON
-  from any io.Reader (default os.Stdin). Refactored
-  `streamNDJSON` shared helper. 7 tests.
-- 5 `33260c6` — TUI watch mode: `feeds.Watch` consumes
-  `/api/v1/stream` SSE, routes 4 event kinds. Auto-reconnect
-  with auth-failure short-circuit. 13 tests.
-- 6 `f147cde` — Docs: `.context/tui.md` (architecture + key
-  bindings + wire formats + build-tag matrix). STATE / INDEX /
-  CHANGELOG mirrored.
-
 **v1.16 → v1.27 are published** on
 https://github.com/RobinR00T/elSereno/releases. v1.28.0 +
-v1.29.0 tags + releases pending push.
+v1.29.0 + v1.30.0 tags + releases pending push.
 
 Snapshots:
 - `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`
 - `.context/snapshots/v1.29.0-tui-and-mini-build.md`
+- `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`
 
 **v1.28 chunks landed (closed)**:
 - 1   `7842351` — proconos fingerprint plugin (best-effort,
@@ -68,13 +86,9 @@ for the v1.16 through v1.24 chunk-level detail. They're also
 embedded in each tag's release notes on
 https://github.com/RobinR00T/elSereno/releases.
 
-**v1.21 chunks landed (in-flight)**:
-- 1   `9cd8700` — KNXnet/IP UDP/3671. 9 wire + 7 plugin tests.
-- 2   `1f0f75b` — M-Bus over TCP/10001. 11 wire + 9 plugin tests.
-- 3   `86e1034` — DLMS/COSEM TCP/4059. 7 wire + 9 plugin tests.
-- 4   `3edaad1` — GE-SRTP model-hint refinement. 8 new tests.
-
-Snapshot:
+**v1.21 cycle (4 chunks)**: KNXnet/IP UDP/3671 + M-Bus
+TCP/10001 + DLMS/COSEM TCP/4059 + GE-SRTP model-hint refinement.
+44 new tests. Snapshot:
 `.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
 
 **v1.20 cycle (3 chunks)**: Legacy-ICS fingerprint trio —
@@ -147,50 +161,16 @@ Snapshots:
   (13-chunk v1.13 cycle — full breakdown + per-chunk delta +
   hash separator allocation).
 
-**v1.14 chunks landed (released as v1.14.0)**:
-- 1   `8824885` — IPv6 foundation: `internal/netutil` package
-  with `IsLoopbackHostPort` + `CanonicalHostPort` +
-  `ParseAddrPort`. Replaces fragile substring-based loopback
-  check in `cmd_serve.go`. 18 unit tests.
-- 2   `0de0923` — Target canonicalisation across proxy listen +
-  every dry-run command (sip/iax2/pbxhttp/modbus/opcua/cwmp +
-  BACnet runner). 9 new tests.
-- 3   `e0cae6f` — `scan --input internetdb:` IPv6 fixes (+
-  missing dispatcher case from v1.13 chunk 1). 14 new tests.
-- 4   `59e7d76` — IPv6 coverage tests for scope + dedupe paths
-  (audit-only). 9 tests pin the contract.
-
+**v1.14 cycle (4 chunks)**: IPv6 cross-cutting — internal/netutil
+package + target canonicalisation across proxies/dry-runs +
+internetdb IPv6 fixes + scope/dedupe IPv6 coverage. 50 tests.
 Snapshot: `.context/snapshots/v1.14.0-ipv6-cross-cutting.md`.
 
-**v1.13 chunks landed (released as v1.13.0)**:
-- C   `c581a62` — TODO/TODO-vNext/man1 doc hygiene.
-- 1   `781ee50` — InternetDB bulk lookup (`file:` + stdin).
-- 2   `781ee50` — CWMP firmware pre-flight verifier
-  (`elsereno-offensive write cwmp verify-firmware`).
-- 3   `38dedff` — BACnet WPM (svc 16) per-object gate +
-  depth-aware BER walker.
-- 4   `861aa8d` — CWMP RPC-name case-warning in dry-run.
-- 5   `861aa8d` — CWMP-over-TLS operator recipe (docs).
-- 6   `20f6215` — Triage "utility" bucket (4th bucket).
-- 7   `934c4f7` — BACnet DeleteObject (svc 11) per-target +
-  separate `AllowedDeleteObjects` list.
-- 8   `3f570e3` — BACnet CreateObject (svc 10) per-type
-  allowlist + separate `AllowedCreateObjects` list.
-- 9   `b51f488` — BACnet ReinitializeDevice (svc 20) per-state
-  allowlist (0 coldstart..7 activate-changes).
-- 10  `14a7451` — BACnet DeviceCommunicationControl (svc 17)
-  per-state allowlist (0 enable / 1 disable / 2
-  disableInitiation).
-- 11  `6a10a70` — BACnet LifeSafetyOperation (svc 27)
-  per-operation allowlist (0..9 incl. silence/reset/unsilence
-  variants — fire-alarm safety guard).
-- 12  `830ce02` — BACnet AtomicWriteFile (svc 7)
-  per-File-instance allowlist (firmware blob vs log file
-  separation).
-- 13  `5952c55` — BACnet Add/RemoveListElement (svc 8/9)
-  per-(object, property) allowlist (recipient lists,
-  exception schedules — closes all 9 BACnet mutating
-  services).
+**v1.13 cycle (13 chunks)**: BACnet completion (per-target /
+per-state / per-operation / per-instance / per-(object,property)
+allowlists for the 9 mutating services) + CWMP polish (firmware
+pre-flight, RPC case-warning, over-TLS recipe) + InternetDB bulk
+lookup + 4th triage bucket. Per-chunk detail in snapshot.
 
 Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
 to native `// #nosec G<NNN>` markers — `make sec` now exit-0.

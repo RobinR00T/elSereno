@@ -47,7 +47,7 @@ func (r Replay) Run(ctx context.Context, emit func(tea.Msg)) error {
 	if r.Path == "" {
 		return errors.New("replay: empty Path")
 	}
-	f, err := os.Open(r.Path) //nolint:gosec // operator-supplied path is intended.
+	f, err := os.Open(r.Path) // #nosec G304 -- operator-supplied --replay path is intended.
 	if err != nil {
 		return fmt.Errorf("replay: open %s: %w", r.Path, err)
 	}

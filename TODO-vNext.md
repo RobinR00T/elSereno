@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-04-30** (post-v1.28). Items shipped during
-v1.3 → v1.28 archived to keep this file actionable.
+Last refresh: **2026-05-02** (post-v1.30). Items shipped during
+v1.3 → v1.30 archived to keep this file actionable.
 
 ---
 
@@ -99,6 +99,33 @@ v1.3 → v1.28 archived to keep this file actionable.
   v1.21 chunk 2.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
+
+### v1.30 (record-replay wire-up to all wire-aware gates + TUI scan launcher + audit filter)
+
+- ✅ **Wire record-replay into the 9 wire-aware gates** —
+  v1.30 chunk 1. Closes the v1.28 chunk-3 deferral. sip /
+  iax2 / pbxhttp / modbus / opcua / bacnet / cwmp + enip + s7.
+- ✅ **`--record FILE` flag on `proxy listen`** — v1.30
+  chunk 2. Opens recorder before Authorise so permission
+  errors fast-fail.
+- ✅ **`elsereno proxy replay FILE` sub-verb** — v1.30 chunk 2.
+  Renders captures as `[ts] c→u  NNB  hex…` lines.
+- ✅ **TUI scan launcher (`feeds.Interactive`)** — v1.30
+  chunk 3. Closes the v1.29 chunk-2 deferral. `--input
+  list:FILE` runs `scanner.Scanner` inside the TUI.
+- ✅ **TUI audit-pane substring filter** — v1.30 chunk 4.
+  `/` → type → Enter; case-insensitive substring match.
+
+### v1.29 (TUI verb + mini build variant)
+
+- ✅ **Mini build variant (`-tags mini`)** — v1.29 chunk 1.
+  3-variant goreleaser; mini ~21 MB excludes dashboard + TUI.
+- ✅ **Interactive terminal UI** — v1.29 chunks 2-5.
+  bubbletea Model/View/Update + 4-pane layout + 4 modes
+  (interactive, replay, feed, watch).
+- ✅ **TUI protocol doc** — v1.29 chunk 6.
+  `.context/tui.md` (architecture + key bindings + wire
+  formats + build-tag matrix).
 
 ### v1.28 (ProConOS + SRTP service-0x21 + record-replay POC)
 
@@ -189,21 +216,17 @@ v1.3 → v1.28 archived to keep this file actionable.
   context name OID 1.0.9506.2.3 and verify the ACSE accept.
   Estimación: ~6-8h.
 
-- [ ] **Wire record-replay primitive into each gated
-  WriteGatedHandler** — v1.27 chunk 4 ships the primitive
-  (offensive/replay package). v1.28 candidate: add an optional
-  `Recorder *replay.Recorder` field to each gated handler;
-  when non-nil, Wrap*/Replay drives the recording transparently
-  during Handle(). Estimación: ~4-6h for all 9 gates.
+- ✅ **Wire record-replay primitive into each gated
+  WriteGatedHandler** — pcworx + mms in v1.28 chunk 3 (POC);
+  remaining 9 wire-aware gates in v1.30 chunk 1; CLI half
+  (`--record` + `proxy replay`) in v1.30 chunk 2.
 
 ## 🧰 Herramientas operativas
 
-- [ ] **Record & replay de sesiones de proxy** — graba el
-  tráfico cliente↔server en sesiones offensive con timestamps
-  para post-mortem + capacitación en lab. Pairs naturally with
-  the v1.26 audit daemon (the daemon could fan-in not just
-  audit events but also wire-tapped proxy session bytes).
-  v1.27+ candidate.
+- ✅ **Record & replay de sesiones de proxy** — primitive in
+  v1.27 chunk 4; gate wire-up in v1.28 chunk 3 (POC) + v1.30
+  chunk 1 (full); CLI `--record` + `proxy replay` in v1.30
+  chunk 2.
 
 ## 🔐 Supply-chain + hardening
 

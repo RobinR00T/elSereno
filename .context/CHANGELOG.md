@@ -1,12 +1,26 @@
 ---
 phase: any
 status: living
-last-updated: 2026-05-01
+last-updated: 2026-05-02
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-05-02 — v1.30 (chunks 1-4) — **Record-replay wire-up to
+  9 wire-aware gates + TUI scan launcher + audit filter.**
+  Closes the v1.28-chunk-3 deferral by extending the optional
+  `Recorder *replay.Recorder` field from the 2 session-level
+  POC gates to the 9 wire-aware gates (sip, iax2, pbxhttp,
+  modbus, opcua, bacnet, cwmp, enip, s7). Operator-facing
+  `--record FILE` on `proxy listen` + new `proxy replay FILE`
+  sub-verb. Closes the v1.29-chunk-2 deferral by replacing
+  `feeds.Empty` with `feeds.Interactive` running
+  `scanner.Scanner` inside the TUI (`--input list:FILE`).
+  TUI audit-pane substring filter (`/`-edit). 19 new tests.
+  Snapshot:
+  `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`.
 
 - 2026-05-01 — v1.29 (chunks 1-6) — **TUI verb (`elsereno tui`) +
   mini build variant.** Bubbletea Model/View/Update + 4-pane

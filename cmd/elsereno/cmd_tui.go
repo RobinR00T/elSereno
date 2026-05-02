@@ -184,7 +184,7 @@ func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uin
 	if path == "" {
 		return nil, errors.New("tui: --input list: empty path")
 	}
-	f, err := os.Open(path) //nolint:gosec // operator-supplied path is intended.
+	f, err := os.Open(path) // #nosec G304 -- operator-supplied --input list:<path> is intended.
 	if err != nil {
 		return nil, fmt.Errorf("tui: --input list:%s: %w", path, err)
 	}
