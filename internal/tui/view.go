@@ -67,7 +67,7 @@ func (m Model) View() string {
 	// Audit feed (fixed bottom 8 lines).
 	auditPane := m.renderAuditPane()
 
-	footer := styles.footer.Render("Tab: focus  j/k: nav  q: quit  s: scan  w: write")
+	footer := styles.footer.Render("Tab: focus  j/k: nav  /: filter audit  Esc: clear  q: quit")
 
 	return strings.Join([]string{
 		header,
@@ -160,17 +160,32 @@ func (m Model) renderAuditPane() string {
 		style = styles.paneFocused
 	}
 	height := 8
-	body := []string{"Audit feed:"}
+	header := "Audit feed:"
+	switch {
+	case m.FilterEditing:
+		// Show the live draft with a trailing cursor so the
+		// operator sees what they're typing.
+		header = fmt.Sprintf("Audit feed:  /%s_  (Enter: apply, Esc: cancel)", m.FilterDraft)
+	case m.AuditFilter != "":
+		header = fmt.Sprintf("Audit feed:  /%s  (Esc: clear)", m.AuditFilter)
+	}
+	body := []string{header}
+	events := m.FilteredAuditEvents()
 	visible := height - 2
 	start := 0
-	if len(m.AuditEvents) > visible {
-		start = len(m.AuditEvents) - visible
+	if len(events) > visible {
+		start = len(events) - visible
 	}
-	for i := start; i < len(m.AuditEvents); i++ {
-		body = append(body, " "+truncate(m.AuditEvents[i], max(20, m.Width-6)))
+	for i := start; i < len(events); i++ {
+		body = append(body, " "+truncate(events[i], max(20, m.Width-6)))
 	}
-	if len(m.AuditEvents) == 0 {
-		body = append(body, styles.mute.Render(" (no audit events yet)"))
+	if len(events) == 0 {
+		switch {
+		case m.AuditFilter != "":
+			body = append(body, styles.mute.Render(fmt.Sprintf(" (no audit events match /%s)", m.AuditFilter)))
+		default:
+			body = append(body, styles.mute.Render(" (no audit events yet)"))
+		}
 	}
 	return style.Width(max(40, m.Width-2)).Height(height).Render(strings.Join(body, "\n"))
 }

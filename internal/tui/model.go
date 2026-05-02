@@ -5,6 +5,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -94,6 +95,23 @@ type Model struct {
 
 	// FocusedPane is the active panel. Tab cycles.
 	FocusedPane Pane
+
+	// AuditFilter (v1.30 chunk 4) is a substring the operator
+	// typed via `/` on the audit pane. When non-empty, only
+	// audit lines containing the substring (case-insensitive)
+	// render. Esc clears it. Empty (default) shows everything.
+	AuditFilter string
+
+	// FilterEditing (v1.30 chunk 4) is true between `/` and the
+	// terminating Enter / Esc. While true, every printable key
+	// extends FilterDraft; Backspace deletes; Enter commits;
+	// Esc cancels. The view renders the live draft so the
+	// operator sees what they're typing.
+	FilterEditing bool
+
+	// FilterDraft (v1.30 chunk 4) is the in-progress filter
+	// string, only meaningful while FilterEditing is true.
+	FilterDraft string
 
 	// Width + Height are the terminal dimensions. Updated on
 	// tea.WindowSizeMsg.
@@ -266,4 +284,23 @@ func formatProgressLine(completed, total int64, percent float64) string {
 		return "idle"
 	}
 	return fmt.Sprintf("%3.0f%% (%d / %d)", percent*100, completed, total)
+}
+
+// FilteredAuditEvents returns the AuditEvents slice constrained
+// by AuditFilter. Empty filter → returns AuditEvents as-is.
+// Match is case-insensitive substring (operators rarely care
+// about exact case in audit feeds; `/vault` finds both
+// "vault_unlock" and "Vault unlocked").
+func (m Model) FilteredAuditEvents() []string {
+	if m.AuditFilter == "" {
+		return m.AuditEvents
+	}
+	needle := strings.ToLower(m.AuditFilter)
+	out := make([]string, 0, len(m.AuditEvents))
+	for _, line := range m.AuditEvents {
+		if strings.Contains(strings.ToLower(line), needle) {
+			out = append(out, line)
+		}
+	}
+	return out
 }
