@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.0] — 2026-05-03
+
+### Changed
+
+- **Tree-wide `//nolint:gosec` → `// #nosec G<NNN>`
+  migration** (76 markers across 49 files). Completes
+  the b611f5c (pre-v1.28) convention enforcement. v1.32
+  chunk 1 covered cmd/elsereno/ (10 markers); v1.34 chunk 1
+  covers the remainder in internal/**, offensive/**.
+  Method: 58 markers with explicit G-codes bulk-swapped via
+  regex (preserving rationale text); 18 G115 by content
+  bulk-swapped; 1 composite G306+G703 fixed to gosec's
+  multi-code syntax. Standalone gosec binary in CI's `sec`
+  job only honours same-line `// #nosec` form; this fully
+  enforces PITF-030 tree-wide.
+
+### Fixed
+
+- **`offensive/write/enip/write.go`** had a pre-existing
+  comment-eats-statement bug at line 148: a `//nolint:gosec`
+  directive was on the same physical line as a tabbed
+  `buf = append(buf, body...)` statement. Go's `//` line
+  comment swallowed the append, silently dropping the
+  SendRRData body. Tests passed because they only checked
+  for the service byte (which lived in `buf` already from
+  `MarshalHeader`). The migration sweep surfaced this when
+  the directive swap broke the assembly. Fix: split into
+  two lines and restored the `append` call.
+
+### Tests
+
+No new tests this cycle (text-only directive change). All
+existing tests pass under `-race`; lint clean; `make sec`
+ok.
+
+### Build
+
+Unchanged (text-only changes).
+
 ## [1.33.0] — 2026-05-03
 
 ### Added

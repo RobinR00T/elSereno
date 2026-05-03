@@ -8,6 +8,17 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-03 — v1.34 (chunk 1) — **Tree-wide gosec marker
+  hygiene.** Completes the b611f5c migration: 76 `//nolint:
+  gosec` directives across 49 files in internal/**,
+  offensive/** swapped to `// #nosec G<NNN>` native form.
+  Side-fix: corrected a pre-existing comment-eats-statement
+  bug in offensive/write/enip/write.go line 148 (directive on
+  same physical line as tabbed code, silently breaking
+  SendRRData body append). PITF-030 now enforced tree-wide.
+  Snapshot:
+  `.context/snapshots/v1.34.0-tree-wide-gosec-hygiene.md`.
+
 - 2026-05-03 — v1.33 (chunk 1) — **teatest program-level
   integration tests for TUI runner.** Closes the v1.30+v1.31
   carryover. `internal/tui/program_test.go` drives the

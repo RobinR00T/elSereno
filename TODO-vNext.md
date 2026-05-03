@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.34 (tree-wide gosec marker hygiene)
+
+- ✅ **Tree-wide `//nolint:gosec` → `// #nosec G<NNN>`
+  migration** — v1.34 chunk 1. 76 markers across 49 files
+  in internal/**, offensive/**. PITF-030 now enforced
+  tree-wide. Side-fix: corrected a pre-existing
+  comment-eats-statement bug in
+  `offensive/write/enip/write.go` line 148.
+
 ### v1.33 (teatest TUI integration tests)
 
 - ✅ **teatest program-level integration tests for TUI
@@ -254,16 +263,9 @@ v1.3 → v1.33 archived to keep this file actionable.
 
 ## 🔐 Supply-chain + hardening
 
-- [ ] **Wider tree gosec marker convention sweep** — ~65
-  `//nolint:gosec` directives across `internal/protocols/**`,
-  `offensive/write/**`, `internal/audit/**`, and
-  `offensive/sandbox/**` still use the line-above form. They
-  coexist with the `// #nosec G<NNN>` convention since
-  b611f5c (pre-v1.28) and `make sec` has been exit 0
-  throughout. Mechanical 1:1 swap; no behavioural change.
-  Estimated diff ~150 lines, 50 files. v1.32 chunk 1 already
-  did the cmd/elsereno/ subtree (10 markers). v1.33+
-  candidate.
+- ✅ **Wider tree gosec marker convention sweep** — done in
+  v1.34 chunk 1 (76 markers across 49 files; PITF-030
+  enforced tree-wide).
 
 - [ ] **Sandbox para macOS via `sandbox_init(3)`** — currently
   macOS degrades to "unavailable". A `.sb` Scheme policy
