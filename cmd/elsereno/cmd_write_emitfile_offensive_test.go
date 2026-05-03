@@ -95,7 +95,7 @@ func TestEmitAllowFile_WritesFile(t *testing.T) {
 	if err := emitAllowFile(cmd, path, af); err != nil {
 		t.Fatalf("emitAllowFile: %v", err)
 	}
-	data, err := os.ReadFile(path) //nolint:gosec // G304 — `path` is a freshly-constructed test tempdir path, not untrusted input
+	data, err := os.ReadFile(path) // #nosec G304 -- `path` is a freshly-constructed test tempdir path, not untrusted input
 	if err != nil {
 		t.Fatalf("read back: %v", err)
 	}

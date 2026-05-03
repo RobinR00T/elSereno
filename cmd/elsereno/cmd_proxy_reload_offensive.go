@@ -250,7 +250,7 @@ func readSidecarToken(path string) (string, error) {
 	if fi.Mode().Perm()&0o077 != 0 {
 		return "", fmt.Errorf("token sidecar %s: permissions %#o; require 0600 (chmod 600 %s)", path, fi.Mode().Perm(), path)
 	}
-	raw, err := os.ReadFile(path) //nolint:gosec // G304 — operator-supplied sidecar path; enforce-0600 above is the contract.
+	raw, err := os.ReadFile(path) // #nosec G304 -- operator-supplied sidecar path; enforce-0600 above is the contract.
 	if err != nil {
 		return "", err
 	}

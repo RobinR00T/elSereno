@@ -162,7 +162,7 @@ func TestWriteModbusProxyDryRun_StructuredWriteRoundTrip(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	rawBytes, err := os.ReadFile(path) //nolint:gosec // G304 — test-owned t.TempDir() path
+	rawBytes, err := os.ReadFile(path) // #nosec G304 -- test-owned t.TempDir() path
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestWriteModbusProxyDryRun_TightGateRoundTrips(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("--unit + --emit-allow-file should succeed (v1.12+): %v", err)
 	}
-	rawBytes, err := os.ReadFile(path) //nolint:gosec // G304 — test-owned t.TempDir() path
+	rawBytes, err := os.ReadFile(path) // #nosec G304 -- test-owned t.TempDir() path
 	if err != nil {
 		t.Fatalf("read emitted YAML: %v", err)
 	}

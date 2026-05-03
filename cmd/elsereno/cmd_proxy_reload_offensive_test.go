@@ -123,7 +123,7 @@ func TestReadSidecarToken_HappyPath(t *testing.T) {
 func TestReadSidecarToken_RejectsLooseMode(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "allow.yaml.token")
-	if err := os.WriteFile(path, []byte("abc"), 0o644); err != nil { //nolint:gosec // G306 — intentional: this test verifies that readSidecarToken REJECTS 0o644 (loose-mode token files leak via mode-bit observation in shared filesystems).
+	if err := os.WriteFile(path, []byte("abc"), 0o644); err != nil { // #nosec G306 -- intentional: this test verifies that readSidecarToken REJECTS 0o644 (loose-mode token files leak via mode-bit observation in shared filesystems).
 		t.Fatal(err)
 	}
 	_, err := readSidecarToken(path)

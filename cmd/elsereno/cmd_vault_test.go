@@ -40,7 +40,7 @@ func TestLoadPassphraseFile_StripsCRLF(t *testing.T) {
 func TestLoadPassphraseFile_RejectsGroupReadable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "pp")
-	if err := os.WriteFile(path, []byte("secret"), 0o640); err != nil { //nolint:gosec // G306 — test deliberately writes a lax-mode file to verify rejection
+	if err := os.WriteFile(path, []byte("secret"), 0o640); err != nil { // #nosec G306 -- test deliberately writes a lax-mode file to verify rejection
 		t.Fatal(err)
 	}
 	_, err := loadPassphraseFile(path)
@@ -52,7 +52,7 @@ func TestLoadPassphraseFile_RejectsGroupReadable(t *testing.T) {
 func TestLoadPassphraseFile_RejectsWorldReadable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "pp")
-	if err := os.WriteFile(path, []byte("secret"), 0o644); err != nil { //nolint:gosec // G306 — test deliberately writes a lax-mode file to verify rejection
+	if err := os.WriteFile(path, []byte("secret"), 0o644); err != nil { // #nosec G306 -- test deliberately writes a lax-mode file to verify rejection
 		t.Fatal(err)
 	}
 	_, err := loadPassphraseFile(path)
@@ -101,7 +101,7 @@ func TestLoadPassphraseFile_OnlyOwnerExecPermittedAsWell(t *testing.T) {
 	// the mask-out check is correct, not a loose == 0600.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "pp")
-	if err := os.WriteFile(path, []byte("secret"), 0o500); err != nil { //nolint:gosec // G306 — 0500 is intentionally tight; Chmod immediately below narrows further.
+	if err := os.WriteFile(path, []byte("secret"), 0o500); err != nil { // #nosec G306 -- 0500 is intentionally tight; Chmod immediately below narrows further.
 		t.Fatal(err)
 	}
 	// #nosec G302 -- test fixture, 0500 is deliberately restrictive.

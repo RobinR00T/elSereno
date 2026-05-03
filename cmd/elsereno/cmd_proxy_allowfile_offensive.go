@@ -317,7 +317,7 @@ type proxyAllowFile struct {
 // unreadable, malformed, or missing a required field for the
 // declared plugin.
 func loadAllowFile(path string, opts *proxyListenOpts) error {
-	raw, err := os.ReadFile(path) //nolint:gosec // G304 — path is operator-supplied; directory traversal is their privilege on their own machine.
+	raw, err := os.ReadFile(path) // #nosec G304 -- path is operator-supplied; directory traversal is their privilege on their own machine.
 	if err != nil {
 		return fmt.Errorf("--allow-file %s: %w", path, err)
 	}

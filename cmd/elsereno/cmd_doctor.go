@@ -178,7 +178,7 @@ func checkDisk() doctorResult {
 	// golangci-lint's bundled gosec accepts the line-above `//nolint`;
 	// the standalone gosec binary run in CI's `sec` job only honours
 	// same-line `// #nosec` (PITF-030).
-	//nolint:gosec,unconvert // cross-platform widening; one side may already be uint64
+	//nolint:unconvert // cross-platform widening; one side may already be uint64
 	free := uint64(st.Bavail) * uint64(st.Bsize) // #nosec G115 -- cross-platform widening
 	const oneGiB = uint64(1 << 30)
 	if free < oneGiB {
