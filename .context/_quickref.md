@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-05-02
+last-updated: 2026-05-03
 token-budget: 950
 ---
 
@@ -87,11 +87,13 @@ preview. **Proxy session capture**: `proxy listen --record FILE`
 **Interactive TUI** (`elsereno tui`, default + offensive
 builds; not in mini): bubbletea-based 4-pane layout (findings /
 triage / audit / scan progress). Five modes: interactive
-(default empty; or `--input list:FILE` runs Scanner inside
-TUI as of v1.30), `--replay FILE.ndjson`, `--feed -` (stdin),
-`--watch URL --bearer TOKEN` (SSE). `/` filters audit pane
-substring (case-insensitive); Tab cycles focus; j/k/g/G
-navigate findings; q quits.
+(default empty; or `--input KIND` runs Scanner inside TUI),
+`--replay FILE.ndjson`, `--feed -` (stdin),
+`--watch URL --bearer TOKEN` (SSE). `--input` accepts the
+same 8 kinds as `scan` since v1.31 (list:, nmap:, stdin,
+shodan:, censys:, fofa:, zoomeye:, onyphe:, internetdb:).
+`/` filters audit pane substring (case-insensitive); Tab
+cycles focus; j/k/g/G navigate findings; q quits.
 
 **Supply chain**: Free-tier release flow since v1.8 (GPG-signed
 tag + SHA-256 + CycloneDX SBOM via local goreleaser + `gh

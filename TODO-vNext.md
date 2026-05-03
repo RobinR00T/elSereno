@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-05-02** (post-v1.30). Items shipped during
-v1.3 → v1.30 archived to keep this file actionable.
+Last refresh: **2026-05-03** (post-v1.31). Items shipped during
+v1.3 → v1.31 archived to keep this file actionable.
 
 ---
 
@@ -99,6 +99,14 @@ v1.3 → v1.30 archived to keep this file actionable.
   v1.21 chunk 2.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
+
+### v1.31 (TUI input parity with batch scan)
+
+- ✅ **TUI `--input` parity with batch `scan`** — v1.31
+  chunk 1. All 8 kinds (list, nmap, stdin, shodan, censys,
+  fofa, zoomeye, onyphe, internetdb) now first-class on
+  `tui --input KIND`. Shared dispatcher
+  (`cmd_input_parse.go`).
 
 ### v1.30 (record-replay wire-up to all wire-aware gates + TUI scan launcher + audit filter)
 

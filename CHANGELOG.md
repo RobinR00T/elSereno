@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] — 2026-05-03
+
+### Added
+
+- **TUI `--input` parity with batch `scan`**. Closes the
+  v1.30-chunk-3 carryover. v1.30 wired only `--input
+  list:FILE` and explicitly deferred the 7 other kinds; v1.31
+  brings nmap:, stdin, shodan:, censys:, fofa:, zoomeye:,
+  onyphe:, internetdb: to first-class operands on
+  `elsereno tui --input KIND`. The input-parsing dispatcher
+  was extracted to a shared helper (`cmd_input_parse.go`)
+  that both `scan` and `tui` call, so future input kinds
+  land in one place rather than diverging across two
+  switches.
+- **`--api-creds-file` flag on `elsereno tui`**. Same shape
+  as `elsereno scan --api-creds-file`. Required for the 5
+  API-keyed providers (shodan, censys, fofa, zoomeye,
+  onyphe); ignored for the rest.
+
+### Changed
+
+- `cmd/elsereno/cmd_scan.go`'s `readTargets` is now a 5-line
+  shim over the new `parseInput` dispatcher in
+  `cmd_input_parse.go`. Behaviour is unchanged; the refactor
+  drops 3 imports + 50 lines from cmd_scan.go.
+- `cmd/elsereno/cmd_tui.go`'s `newTUICmd` was refactored to
+  use a `registerTUIFlags()` helper. The flag-count growth
+  pushed `newTUICmd` past the `funlen` ceiling; extracting
+  flag registration brings it back under.
+- `pickFeedArgs` (private struct on cmd_tui.go) gains
+  `apiCredsFile` field.
+
+### Tests
+
+- `cmd/elsereno/cmd_input_parse_test.go`: 7 cases — stdin
+  injected reader, list:FILE happy path, list missing file,
+  nmap missing file, nmap minimal-XML happy path, unknown
+  kind, stdin defaults to os.Stdin guard.
+
+**+7 tests this cycle.** All pass under `-race`; lint clean
+across all 3 build variants.
+
+### Build
+
+3-variant matrix unchanged (default 22.9 MB / offensive
+23.6 MB / mini 21.3 MB stripped). The change is pure
+refactoring + flag addition; no new code paths in offensive,
+no new bytes in mini.
+
 ## [1.30.0] — 2026-05-02
 
 ### Added

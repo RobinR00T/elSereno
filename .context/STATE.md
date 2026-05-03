@@ -1,60 +1,45 @@
 ---
-phase: v1.30-closed
-status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 tags pending push
-last-updated: 2026-05-02
+phase: v1.31-closed
+status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 + v1.31 tags pending push
+last-updated: 2026-05-03
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.30 cycle closed on `main`** (4 chunks + close
-commit). Closes the v1.28-chunk-3 deferral by wiring
-`replay.Recorder` into all 9 wire-aware gates + adds the
-operator-facing `--record FILE` on `proxy listen` + `proxy
-replay` verb + closes the v1.29-chunk-2 deferral by replacing
-the empty interactive-mode feed with `feeds.Interactive` (live
-scanner inside the TUI) + adds audit-pane substring filter for
-triage. ~30 new tests. v1.28.0 + v1.29.0 + v1.30.0 tags
-pending push.
+**Phase**: **v1.31 cycle closed on `main`** (1 chunk + close
+commit). Brings the TUI's `--input` kinds to parity with the
+batch `scan` verb — operators no longer pipe through
+`scan --output-format ndjson | tui --feed -` for nmap / shodan
+/ censys / fofa / zoomeye / onyphe / internetdb / stdin
+inputs; all 8 are now first-class on `tui --input KIND`. The
+input-parsing dispatcher was extracted to a shared helper
+(`cmd_input_parse.go`) that both verbs call, so future input
+kinds land in one place.
 
 Snapshot:
+`.context/snapshots/v1.31.0-tui-input-parity.md`.
+
+**v1.31 chunks landed (in-flight)**:
+- 1 `689def2` — extract `parseInput` dispatcher, wire all 8
+  input kinds into TUI's `--input`. Provider kinds gain
+  `--api-creds-file`. `cmd_scan.go`'s `readTargets` becomes
+  a thin shim over the same helper. 7 dispatcher tests.
+
+**v1.30 cycle (closed, snapshot available)**:
+Record-replay wire-up to 9 wire-aware gates + `--record FILE`
+flag on `proxy listen` + `proxy replay` verb + TUI scan
+launcher (`feeds.Interactive`) + audit-pane substring filter.
+4 chunks + close: `1a9bc65`, `cab5b8c`, `4bd7a8e`, `15f954e`,
+`df34f1c`. Snapshot:
 `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`.
 
-**v1.30 chunks landed (in-flight)**:
-- 1 `1a9bc65` — wire `Recorder *replay.Recorder` into the 9
-  wire-aware gates (sip / iax2 / pbxhttp / modbus / opcua /
-  bacnet / cwmp + enip + s7). 4-line wrap before the
-  goroutines; nil-recorder path unchanged. Test for the
-  canonical wire-aware shape (modbus); other 8 share the
-  pattern.
-- 2 `cab5b8c` — operator-facing `--record FILE` flag on
-  `proxy listen` (opens `replay.Recorder` before Authorise so
-  permission errors fast-fail; type-switch attaches to
-  concrete handler) + new `elsereno proxy replay FILE` verb
-  (renders `elsereno-replay/v1` captures with directional
-  arrows + hex preview + `--dir` filter + `--hex-limit`).
-  4 cmd-level tests.
-- 3 `4bd7a8e` — `feeds.Interactive` runs `scanner.Scanner`
-  inside the TUI; emits FindingMsg per finding + ScanProgressMsg
-  per advance + AuditMsg per probe error (warn-and-continue).
-  CLI `--input list:FILE` + `--default-port`. Pre-flight stat
-  before the alt screen takes over. 5 tests.
-- 4 `15f954e` — TUI audit-pane filter: `/` enters edit mode on
-  the audit pane, type substring, Enter commits, Esc cancels;
-  Esc outside edit mode clears any active filter; case-
-  insensitive substring match via `FilteredAuditEvents()`.
-  9 tests.
-
-**v1.29 chunks landed (closed, snapshot available)**:
-- 1 `f70bbd5` — mini build-tag scaffolding + 3-variant goreleaser.
-- 2 `dc15e69` — TUI core (Model/View/Update + 4-pane layout).
-- 3 `ac10f03` — TUI replay mode (`feeds.Replay`).
-- 4 `7332de1` — TUI feed mode (`feeds.Stdin`).
-- 5 `33260c6` — TUI watch mode (`feeds.Watch`).
-- 6 `f147cde` — Docs (`.context/tui.md` + INDEX/CHANGELOG).
-- C `5ba2049` — Close commit.
-
-Snapshot: `.context/snapshots/v1.29.0-tui-and-mini-build.md`.
+**v1.29 cycle (closed, snapshot available)**:
+TUI verb (bubbletea Model/View/Update + 4 modes:
+interactive / replay / feed / watch) + mini build variant
+(3-variant goreleaser: default + offensive + mini). 6 chunks +
+close. Snapshot:
+`.context/snapshots/v1.29.0-tui-and-mini-build.md`.
 
 **v1.16 → v1.27 are published** on
 https://github.com/RobinR00T/elSereno/releases. v1.28.0 +

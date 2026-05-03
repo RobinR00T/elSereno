@@ -1,12 +1,23 @@
 ---
 phase: any
 status: living
-last-updated: 2026-05-02
+last-updated: 2026-05-03
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-05-03 — v1.31 (chunk 1) — **TUI `--input` parity with
+  batch `scan`.** Closes the v1.30-chunk-3 carryover. The 7
+  input kinds the batch verb supports (nmap:, stdin, shodan:,
+  censys:, fofa:, zoomeye:, onyphe:, internetdb:) are now
+  first-class on `elsereno tui --input KIND`. Input-parsing
+  dispatcher extracted to `cmd_input_parse.go` so future
+  input kinds land in one place rather than diverging across
+  cmd_scan and cmd_tui. New `--api-creds-file` flag on `tui`
+  mirroring `scan`. 7 dispatcher tests. Snapshot:
+  `.context/snapshots/v1.31.0-tui-input-parity.md`.
 
 - 2026-05-02 — v1.30 (chunks 1-4) — **Record-replay wire-up to
   9 wire-aware gates + TUI scan launcher + audit filter.**
