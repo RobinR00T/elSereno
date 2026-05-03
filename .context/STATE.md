@@ -1,29 +1,39 @@
 ---
-phase: v1.32-closed
-status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 + v1.31 + v1.32 tags pending push
+phase: v1.33-closed
+status: v1.16-v1.27 published; v1.28-v1.33 tags pending push
 last-updated: 2026-05-03
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.32 cycle closed on `main`** (1 chunk + close
-commit). Hygiene-only: completes the b611f5c migration for
-the cmd/elsereno/ subtree by swapping the remaining 10
-`//nolint:gosec` directives to `// #nosec G<NNN>`. Wider
-tree (~65 more markers in internal/protocols/**,
-offensive/write/**, internal/audit/**, offensive/sandbox/**)
-unchanged — they coexist with the convention since b611f5c
-landed and `make sec` has been exit 0 throughout. A v1.33
-sweep can finish the parity if/when the operator wants it.
+**Phase**: **v1.33 cycle closed on `main`** (1 chunk + close
+commit). Closes the v1.30+v1.31 carryover that deferred
+program-level integration tests for the TUI runner. New
+`internal/tui/program_test.go` drives the bubbletea program
+through `teatest`, sends keypresses + tea.Msg events, asserts
+on rendered output + final model state. 10 cases cover
+quit-on-q/ctrl+c, header+pane rendering, FindingMsg/AuditMsg
+fold, filter-edit cycle (`/scan` + Enter), Tab focus cycle,
+severity-band rendering, terminal-too-small fallback, and
+clean-ASCII final output (no panic/runtime/goroutine leaks).
 
-Snapshot: `.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
+Snapshot: `.context/snapshots/v1.33.0-teatest-tui-integration.md`.
 
-**v1.32 chunks landed (in-flight)**:
-- 1 `f4e2464` — swap 10 `//nolint:gosec` → `// #nosec G<NNN>`
-  in cmd/elsereno/. cmd_doctor.go (composite, dropped gosec
-  half), cmd_proxy_allowfile, cmd_proxy_reload + 4
-  test files. No behaviour change; lint clean; sec ok.
+**v1.33 chunks landed (in-flight)**:
+- 1 `29ecaf4` — `internal/tui/program_test.go` (10 teatest
+  cases). Adds `github.com/charmbracelet/x/exp/teatest`
+  (indirect, test-only). All pass under `-race`; lint clean.
+  Mini binary unchanged (//go:build !mini); default+offensive
+  +0.1 MB from a transitive `colorprofile` bump teatest
+  required.
+
+**v1.32 cycle (closed, snapshot available)**:
+Hygiene-only: completes the b611f5c migration for the
+cmd/elsereno/ subtree (10 `//nolint:gosec` → `// #nosec
+G<NNN>`). Wider tree (~65 more markers) is its own
+follow-up. 1 chunk + close: `f4e2464`, `a9e29ff`. Snapshot:
+`.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
 
 **v1.31 cycle (closed, snapshot available)**:
 TUI `--input` parity with batch `scan` (all 8 kinds now

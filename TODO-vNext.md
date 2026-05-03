@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-05-03** (post-v1.32). Items shipped during
-v1.3 → v1.32 archived to keep this file actionable.
+Last refresh: **2026-05-03** (post-v1.33). Items shipped during
+v1.3 → v1.33 archived to keep this file actionable.
 
 ---
 
@@ -99,6 +99,14 @@ v1.3 → v1.32 archived to keep this file actionable.
   v1.21 chunk 2.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
+
+### v1.33 (teatest TUI integration tests)
+
+- ✅ **teatest program-level integration tests for TUI
+  runner** — v1.33 chunk 1. Closes the v1.30+v1.31
+  carryover. 10 cases cover quit, render, message fold,
+  filter-edit cycle, focus cycle, severity-band rendering,
+  small-terminal fallback, and clean-output drain.
 
 ### v1.32 (cmd/elsereno gosec marker hygiene)
 

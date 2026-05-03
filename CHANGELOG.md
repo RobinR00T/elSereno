@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0] — 2026-05-03
+
+### Added
+
+- **teatest program-level integration tests for the TUI
+  runner.** Closes the v1.30 + v1.31 carryover. New
+  `internal/tui/program_test.go` (10 cases) drives the
+  bubbletea program through `teatest`, sends keypresses +
+  tea.Msg events, asserts on rendered output + final model
+  state. Cases pin: quit-on-q / ctrl+c, header+4-pane
+  rendering on first paint, FindingMsg → protocol-in-output,
+  AuditMsg → line-in-audit-pane, full filter-edit cycle
+  (`/scan` + Enter), Tab focus cycle, severity-band rendering
+  (score 95 → "critical"), terminal-too-small fallback, and
+  a full-session clean-output drain (no panic / runtime /
+  goroutine traces leaking).
+
+### Changed
+
+- **Indirect deps** from teatest:
+  + `github.com/charmbracelet/x/exp/teatest` (test-only)
+  + `github.com/charmbracelet/x/exp/golden`  (indirect,
+    teatest's diff renderer)
+  + `github.com/aymanbagabas/go-udiff` v0.2 → v0.3 (indirect,
+    used by teatest's golden helper)
+  + `github.com/charmbracelet/colorprofile` v0.2.3-pre →
+    v0.3.2 (teatest required ≥ 0.3; lipgloss already used
+    colorprofile, so this is a minor bump on a pre-existing
+    linked path).
+
+### Tests
+
+`+10 program-level integration tests` this cycle. All pass
+under `-race`. Pre-existing 53 component tests + 30 feed
+tests unchanged — no regressions.
+
+### Build
+
+| Variant   | v1.32   | v1.33   | Δ      |
+|-----------|---------|---------|--------|
+| default   | 22.9 MB | 23.0 MB | +0.1   |
+| offensive | 23.6 MB | 23.7 MB | +0.1   |
+| mini      | 21.3 MB | 21.3 MB | 0      |
+
+Mini variant unchanged — `internal/tui/` carries `//go:build
+!mini`. The +0.1 MB on default + offensive comes from the
+`colorprofile` minor bump (transitive teatest requirement);
+lipgloss already linked colorprofile, so this is a version
+bump on a pre-existing path, not a new linked dependency.
+
 ## [1.32.0] — 2026-05-03
 
 ### Changed

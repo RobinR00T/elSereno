@@ -8,6 +8,18 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-03 — v1.33 (chunk 1) — **teatest program-level
+  integration tests for TUI runner.** Closes the v1.30+v1.31
+  carryover. `internal/tui/program_test.go` drives the
+  bubbletea program through `teatest`; 10 cases cover
+  quit-on-q/ctrl+c, header+4-pane render, FindingMsg/AuditMsg
+  fold, full filter-edit cycle, Tab focus cycle, severity-band
+  rendering, terminal-too-small fallback, clean-output drain.
+  +1 indirect dep (teatest, test-only) + a colorprofile
+  minor bump on the lipgloss-linked path. Mini binary
+  unchanged. Snapshot:
+  `.context/snapshots/v1.33.0-teatest-tui-integration.md`.
+
 - 2026-05-03 — v1.32 (chunk 1) — **cmd/elsereno gosec marker
   hygiene.** Swaps 10 remaining `//nolint:gosec` directives
   to `// #nosec G<NNN>` native form (PITF-030 / b611f5c
