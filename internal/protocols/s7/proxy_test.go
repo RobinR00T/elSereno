@@ -55,7 +55,7 @@ func buildCOTPDataS7(rosctr, fc byte) []byte {
 	payload = append(payload, cotp...)
 	payload = append(payload, s7pdu...)
 	// Prepend TPKT header; total is bounded by the fixtures above.
-	total := uint16(4 + len(payload)) //nolint:gosec // bounded by test fixtures
+	total := uint16(4 + len(payload)) // #nosec G115 -- bounded by test fixtures
 	out := make([]byte, 0, int(total))
 	out = append(out, 0x03, 0x00, byte(total>>8), byte(total&0xFF))
 	out = append(out, payload...)

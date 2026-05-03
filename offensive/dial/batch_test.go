@@ -81,7 +81,7 @@ func TestBatchRun_AuditChainPopulated(t *testing.T) {
 	if err := audit.VerifyFile(path); err != nil {
 		t.Fatalf("chain verify: %v", err)
 	}
-	raw, _ := os.ReadFile(path) //nolint:gosec // G304 — path is from t.TempDir()
+	raw, _ := os.ReadFile(path) // #nosec G304 -- path is from t.TempDir()
 	// 2 input lines → 2 audit entries.
 	n := strings.Count(string(raw), "\n")
 	if n != 2 {

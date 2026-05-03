@@ -96,7 +96,7 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 	}
 	target := core.Target{
 		Address: addr.AddrPort().Addr(),
-		Port:    core.Port(uint16(addr.Port)), //nolint:gosec // G115 — guarded.
+		Port:    core.Port(uint16(addr.Port)), // #nosec G115 -- guarded.
 	}
 	plugin := &Plugin{DialTimeout: 1 * time.Second, IOTimeout: 1 * time.Second}
 	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -191,7 +191,7 @@ func TestREPLStub(t *testing.T) {
 // The shift+truncate byte extractions below are the canonical
 // Go idiom for wire-frame synthesis (gosec G115 noise).
 //
-//nolint:gosec // G115 false positives on byte extractions.
+// #nosec G115 -- false positives on byte extractions.
 func buildRSPUD(id uint32, manuf string, version, medium byte) []byte {
 	if len(manuf) != 3 {
 		panic("buildRSPUD: manuf must be 3 letters")

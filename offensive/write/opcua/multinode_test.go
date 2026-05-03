@@ -46,7 +46,7 @@ func buildMultiMSGBody(nodes []opwrite.AllowedNodeID) []byte {
 
 	// NodesToWrite array length
 	var u32 [4]byte
-	binary.LittleEndian.PutUint32(u32[:], uint32(len(nodes)&0xFFFFFFFF)) //nolint:gosec // G115 — test-bounded slice length
+	binary.LittleEndian.PutUint32(u32[:], uint32(len(nodes)&0xFFFFFFFF)) // #nosec G115 -- test-bounded slice length
 	buf = append(buf, u32[:]...)
 
 	for _, n := range nodes {
@@ -73,7 +73,7 @@ func wrapMultiMSG(body []byte) []byte {
 	frame := make([]byte, total)
 	copy(frame[0:3], "MSG")
 	frame[3] = byte(wire.ChunkFinal)
-	binary.LittleEndian.PutUint32(frame[4:8], uint32(total)) //nolint:gosec // test-bounded
+	binary.LittleEndian.PutUint32(frame[4:8], uint32(total)) // #nosec G115 -- test-bounded
 	copy(frame[wire.HeaderSize:], body)
 	return frame
 }

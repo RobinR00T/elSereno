@@ -261,7 +261,7 @@ func buildFuncNotSuppResponse(req wire.Header) []byte {
 	frame := make([]byte, wire.HeaderLen+len(userData))
 	frame[0] = wire.StartBytes[0]
 	frame[1] = wire.StartBytes[1]
-	frame[2] = uint8(5 + len(userData))                 //nolint:gosec // G115 — userData is a fixed 5-byte response                 // length
+	frame[2] = uint8(5 + len(userData))                 // #nosec G115 -- userData is a fixed 5-byte response                 // length
 	frame[3] = 0x44                                     // control: DIR=1, PRM=0, FCV=0, FC=4 unconfirmed response
 	binary.LittleEndian.PutUint16(frame[4:6], req.Src)  // dest = original src
 	binary.LittleEndian.PutUint16(frame[6:8], req.Dest) // src  = original dest

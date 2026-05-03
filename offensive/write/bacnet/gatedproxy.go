@@ -2302,7 +2302,7 @@ func (h *WriteGatedHandler) writeAbortRefusal(w io.Writer, invokeID uint8) error
 	// bodyLen is 4+2+3 = 9 by construction (fixed-size abort PDU).
 	// The abort response always fits in < 256 bytes.
 	body[2] = 0x00
-	body[3] = byte(len(body) & 0xFF) //nolint:gosec // G115 — len(body) is a tiny constant-bounded value (≤ 32 bytes for the worst-case abort frame).
+	body[3] = byte(len(body) & 0xFF) // #nosec G115 -- len(body) is a tiny constant-bounded value (≤ 32 bytes for the worst-case abort frame).
 	if _, err := w.Write(body); err != nil {
 		return fmt.Errorf("bacnet: write Abort refusal: %w", err)
 	}

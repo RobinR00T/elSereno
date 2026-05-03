@@ -290,7 +290,7 @@ func buildCallMSGBody(methods []wire.CallMethod) []byte {
 
 	// MethodsToCall array length.
 	var u32 [4]byte
-	binary.LittleEndian.PutUint32(u32[:], uint32(len(methods)&0xFFFFFFFF)) //nolint:gosec // G115 — test-bounded
+	binary.LittleEndian.PutUint32(u32[:], uint32(len(methods)&0xFFFFFFFF)) // #nosec G115 -- test-bounded
 	buf = append(buf, u32[:]...)
 
 	for _, m := range methods {

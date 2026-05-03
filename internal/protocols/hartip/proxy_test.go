@@ -14,7 +14,7 @@ import (
 )
 
 func buildPacket(msgType, msgID uint8, seq uint16, body []byte) []byte {
-	total := uint16(wire.HeaderLen + len(body)) //nolint:gosec // bounded by test fixtures
+	total := uint16(wire.HeaderLen + len(body)) // #nosec G115 -- bounded by test fixtures
 	out := make([]byte, 0, int(total))
 	out = append(out, wire.Version, msgType, msgID, 0x00)
 	out = append(out, byte(seq>>8), byte(seq&0xFF))

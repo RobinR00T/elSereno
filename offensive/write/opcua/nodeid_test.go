@@ -237,7 +237,7 @@ func wrapMSG(body []byte) []byte {
 	frame := make([]byte, total)
 	copy(frame[0:3], "MSG")
 	frame[3] = byte(wire.ChunkFinal)
-	binary.LittleEndian.PutUint32(frame[4:8], uint32(total)) //nolint:gosec // test-bounded sizes
+	binary.LittleEndian.PutUint32(frame[4:8], uint32(total)) // #nosec G115 -- test-bounded sizes
 	copy(frame[wire.HeaderSize:], body)
 	return frame
 }

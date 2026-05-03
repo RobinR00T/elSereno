@@ -93,7 +93,7 @@ func TestSyncFromFile_DetectsTamperedPrevHash(t *testing.T) {
 	path := seedFile(t)
 	// Corrupt a byte inside entry 2's JSON payload so either
 	// prev_hash or entry_hash re-computation fails.
-	raw, err := os.ReadFile(path) //nolint:gosec // G304 — path from t.TempDir()
+	raw, err := os.ReadFile(path) // #nosec G304 -- path from t.TempDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestSyncFromFile_DetectsTamperedPrevHash(t *testing.T) {
 			break
 		}
 	}
-	if err := os.WriteFile(path, raw, 0o600); err != nil { //nolint:gosec // G306 — path from t.TempDir(); 0600 OK
+	if err := os.WriteFile(path, raw, 0o600); err != nil { // #nosec G306,G703 -- path from t.TempDir(); 0600 OK
 		t.Fatal(err)
 	}
 

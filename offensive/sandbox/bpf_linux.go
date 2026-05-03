@@ -189,7 +189,7 @@ func installFilter(prog []unix.SockFilter) error {
 		return err
 	}
 	fprog := unix.SockFprog{
-		Len:    uint16(len(prog)), //nolint:gosec // G115 — prog length bounded by syscall-table size ≤ 1000 entries
+		Len:    uint16(len(prog)), // #nosec G115 -- prog length bounded by syscall-table size ≤ 1000 entries
 		Filter: &prog[0],
 	}
 	// seccomp(SECCOMP_SET_MODE_FILTER, TSYNC, &fprog). TSYNC

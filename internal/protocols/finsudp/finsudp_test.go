@@ -119,7 +119,7 @@ func probeAgainstResponder(t *testing.T, respond func(req []byte) []byte) *core.
 	}
 	target := core.Target{
 		Address: addr.AddrPort().Addr(),
-		Port:    core.Port(uint16(addr.Port)), //nolint:gosec // G115 — guarded above; addr.Port is a kernel-assigned ephemeral.
+		Port:    core.Port(uint16(addr.Port)), // #nosec G115 -- guarded above; addr.Port is a kernel-assigned ephemeral.
 	}
 	plugin := &Plugin{DialTimeout: 500 * time.Millisecond, IOTimeout: 500 * time.Millisecond}
 	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

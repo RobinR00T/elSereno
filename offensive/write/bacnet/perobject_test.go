@@ -72,7 +72,7 @@ func TestAllowlistHashWithObjects_DistinctTuplesDiffer(t *testing.T) {
 func buildWritePropertyServiceBody(objType uint16, objInst uint32, propID uint32) []byte {
 	buf := make([]byte, 0, 32)
 	// Tag 0: BACnetObjectIdentifier (context tag 0, length 4).
-	//nolint:gosec // G115 — test constants are 10+22 bit bounded.
+	// #nosec G115 -- test constants are 10+22 bit bounded.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	buf = append(buf, 0x0C)
 	var u32 [4]byte
@@ -83,9 +83,9 @@ func buildWritePropertyServiceBody(objType uint16, objInst uint32, propID uint32
 	case propID < 256:
 		buf = append(buf, 0x19, byte(propID))
 	case propID < 65536:
-		buf = append(buf, 0x1A, byte(propID>>8&0xFF), byte(propID&0xFF)) //nolint:gosec // G115 — bytes intentionally truncated
+		buf = append(buf, 0x1A, byte(propID>>8&0xFF), byte(propID&0xFF)) // #nosec G115 -- bytes intentionally truncated
 	default:
-		buf = append(buf, 0x1B, byte(propID>>16&0xFF), byte(propID>>8&0xFF), byte(propID&0xFF)) //nolint:gosec // G115 — bytes intentionally truncated
+		buf = append(buf, 0x1B, byte(propID>>16&0xFF), byte(propID>>8&0xFF), byte(propID&0xFF)) // #nosec G115 -- bytes intentionally truncated
 	}
 	// Tag 3 opening + Null value (application tag 0, length 0) +
 	// Tag 3 closing.

@@ -38,7 +38,7 @@ func buildIFrame(typeID uint8) []byte {
 	}
 	total := wire.APCILen + len(body)
 	out := make([]byte, 0, total)
-	out = append(out, wire.Start, uint8(4+len(body))) //nolint:gosec // G115 — test body fixed-size
+	out = append(out, wire.Start, uint8(4+len(body))) // #nosec G115 -- test body fixed-size
 	out = append(out, 0x00, 0x00, 0x00, 0x00)         // I-format control
 	out = append(out, body...)
 	return out

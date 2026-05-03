@@ -36,7 +36,7 @@ func TestEventTypesMatchMigration(t *testing.T) {
 	// would give a false "old" answer if we took the wrong half.
 	var lastCheckBody string
 	for _, path := range matches {
-		b, err := os.ReadFile(path) //nolint:gosec // G304 — path under ../../migrations/
+		b, err := os.ReadFile(path) // #nosec G304 -- path under ../../migrations/
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}

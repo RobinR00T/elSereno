@@ -15,7 +15,7 @@ import (
 // Op enumerates the CIP write operations.
 type Op string
 
-//nolint:gosec // G101 false positive — op labels
+// #nosec G101 -- false positive — op labels
 const (
 	// OpSetAttributeSingle is CIP service 0x10 Set Attribute Single.
 	OpSetAttributeSingle Op = "set_attribute_single"
@@ -69,7 +69,7 @@ func MutationFor(r Request) (confirm.Mutation, error) {
 	}, nil
 }
 
-//nolint:gosec // G115 — epath length is bounded by the fixed EPATH segment layout above
+// #nosec G115 -- epath length is bounded by the fixed EPATH segment layout above
 func buildSetAttribute(r Request) []byte {
 	// CIP EPATH: class+instance+attribute (8/16-bit segments).
 	// For simplicity use 16-bit for each: 0x21, 0x00, class(LE16),
@@ -90,7 +90,7 @@ func buildSetAttribute(r Request) []byte {
 	return wrapSendRRData(r, mr)
 }
 
-//nolint:gosec // G115 — fixed-size EPATH
+// #nosec G115 -- fixed-size EPATH
 func buildReset(r Request) []byte {
 	// Reset service uses class 0x01 Identity instance 0x01 with no
 	// data.
@@ -116,7 +116,7 @@ func buildReset(r Request) []byte {
 // wrapSendRRData wraps the MR payload in the Unconnected CPF +
 // SendRRData encapsulation.
 //
-//nolint:gosec // G115 — MR size bounded by caller (Set/Reset PDU)
+// #nosec G115 -- MR size bounded by caller (Set/Reset PDU)
 func wrapSendRRData(r Request, mr []byte) []byte {
 	// CPF layout: ItemCount=2 + [NullAddr(2+2) + UnconnData(2+2+mr)]
 	cpf := []byte{
@@ -134,7 +134,7 @@ func wrapSendRRData(r Request, mr []byte) []byte {
 	// Encapsulation header.
 	hdr := enipwire.Header{
 		Command:       enipwire.CmdSendRRData,
-		Length:        uint16(len(body)), //nolint:gosec // bounded by fixtures
+		Length:        uint16(len(body)), // #nosec G115 -- bounded by fixtures
 		SessionHandle: r.SessionHandle,
 		SenderContext: r.SenderContext,
 	}
@@ -145,7 +145,7 @@ func wrapSendRRData(r Request, mr []byte) []byte {
 	buf = append(buf, out[:]...)
 	// Rewrite Length in the header copy we just emitted to be
 	// safe (MarshalHeader already did it, but double-check).
-	binary.LittleEndian.PutUint16(buf[2:4], uint16(len(body))) //nolint:gosec
+	binary.LittleEndian.PutUint16(buf[2:4], uint16(len(body))) // #nosec G115 -- bounded by fixtures
 	buf = append(buf, body...)
 	return buf
 }

@@ -39,7 +39,7 @@ func buildTokenPass(cmd uint8) []byte {
 	out[2] = wire.IDTokenPassPDU
 	out[3] = 0x00
 	binary.BigEndian.PutUint16(out[4:6], 1)
-	binary.BigEndian.PutUint16(out[6:8], uint16(total)) //nolint:gosec // G115 — test body fixed-size
+	binary.BigEndian.PutUint16(out[6:8], uint16(total)) // #nosec G115 -- test body fixed-size
 	copy(out[wire.HeaderLen:], hart)
 	return out
 }

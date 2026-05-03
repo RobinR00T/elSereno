@@ -81,7 +81,7 @@ func probeAt(t *testing.T, transport string, port int) *core.Finding {
 	defer cancel()
 	f, err := plug.Probe(ctx, core.Target{
 		Address: netip.MustParseAddr("127.0.0.1"),
-		Port:    core.Port(port), //nolint:gosec // G115 — loopback test port
+		Port:    core.Port(port), // #nosec G115 -- loopback test port
 	})
 	if err != nil {
 		t.Fatalf("probe: %v", err)

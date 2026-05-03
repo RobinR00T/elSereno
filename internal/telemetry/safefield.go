@@ -26,7 +26,7 @@ func SafeField(name, value string) string {
 				b.WriteString(`\x`)
 				const hex = "0123456789abcdef"
 				// r is guaranteed <= 0x9F here, so truncation to byte is safe.
-				c := byte(r & 0xff) //nolint:gosec // G115: range-bounded above.
+				c := byte(r & 0xff) // #nosec G115 -- range-bounded above.
 				b.WriteByte(hex[c>>4])
 				b.WriteByte(hex[c&0x0f])
 			} else {

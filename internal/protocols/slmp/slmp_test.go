@@ -124,7 +124,7 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 	}
 	target := core.Target{
 		Address: addr.AddrPort().Addr(),
-		Port:    core.Port(uint16(addr.Port)), //nolint:gosec // G115 — guarded above; ephemeral.
+		Port:    core.Port(uint16(addr.Port)), // #nosec G115 -- guarded above; ephemeral.
 	}
 	plugin := &Plugin{DialTimeout: 1 * time.Second, IOTimeout: 1 * time.Second}
 	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

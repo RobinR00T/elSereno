@@ -115,7 +115,7 @@ func TestVerifyFile_DetectsTamper(t *testing.T) {
 	_ = w.Close()
 
 	// Flip a byte in the payload of entry 2.
-	data, _ := os.ReadFile(path) //nolint:gosec // G304 — path comes from t.TempDir()
+	data, _ := os.ReadFile(path) // #nosec G304 -- path comes from t.TempDir()
 	// Find the second newline and corrupt a byte after it.
 	nl1 := 0
 	for i, b := range data {
@@ -125,7 +125,7 @@ func TestVerifyFile_DetectsTamper(t *testing.T) {
 		}
 	}
 	data[nl1+5] ^= 0x01
-	_ = os.WriteFile(path, data, 0o600) //nolint:gosec // G306/G703 — path from t.TempDir(), mode is 0600
+	_ = os.WriteFile(path, data, 0o600) // #nosec G306/G703 -- path from t.TempDir(), mode is 0600
 
 	if err := audit.VerifyFile(path); err == nil {
 		t.Fatal("VerifyFile should detect corruption")

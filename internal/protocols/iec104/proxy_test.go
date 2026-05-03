@@ -16,7 +16,7 @@ import (
 // is bounded by test fixtures well below 253 so the uint8 cast is
 // safe.
 func buildApdu(control [4]byte, payload []byte) []byte {
-	apduLen := uint8(4 + len(payload)) //nolint:gosec // bounded by test fixtures
+	apduLen := uint8(4 + len(payload)) // #nosec G115 -- bounded by test fixtures
 	out := make([]byte, 0, 2+int(apduLen))
 	out = append(out, wire.Start, apduLen)
 	out = append(out, control[:]...)

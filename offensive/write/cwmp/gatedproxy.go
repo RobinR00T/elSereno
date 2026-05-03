@@ -419,7 +419,7 @@ func writeLengthPrefixedString(h interface {
 		n = 0xFFFF
 	}
 	var u16 [2]byte
-	binary.BigEndian.PutUint16(u16[:], uint16(n)) //nolint:gosec // G115 — explicit cap above
+	binary.BigEndian.PutUint16(u16[:], uint16(n)) // #nosec G115 -- explicit cap above
 	_, _ = h.Write(u16[:])
 	_, _ = h.Write([]byte(s)[:n])
 }

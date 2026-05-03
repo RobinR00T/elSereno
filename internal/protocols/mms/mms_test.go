@@ -116,7 +116,7 @@ func probeAgainstResponder(t *testing.T, respond func(inbound []byte) []byte) *c
 	}
 	target := core.Target{
 		Address: addr.AddrPort().Addr(),
-		Port:    core.Port(uint16(addr.Port)), //nolint:gosec // G115 — guarded.
+		Port:    core.Port(uint16(addr.Port)), // #nosec G115 -- guarded.
 	}
 	plugin := &Plugin{DialTimeout: 1 * time.Second, IOTimeout: 1 * time.Second}
 	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -131,7 +131,7 @@ func probeAgainstResponder(t *testing.T, respond func(inbound []byte) []byte) *c
 // buildTPKT helper for the responder side.
 func buildTPKT(payload []byte) []byte {
 	total := 4 + len(payload)
-	out := []byte{0x03, 0x00, byte(total >> 8), byte(total & 0xff)} //nolint:gosec // G115 — payload bounded by tests
+	out := []byte{0x03, 0x00, byte(total >> 8), byte(total & 0xff)} // #nosec G115 -- payload bounded by tests
 	return append(out, payload...)
 }
 

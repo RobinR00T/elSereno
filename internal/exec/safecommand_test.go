@@ -114,7 +114,7 @@ func TestBypass_RequiresAuditor(t *testing.T) {
 	}
 }
 
-//nolint:gosec // G101 false positive — test struct literal with no secrets
+// #nosec G101 -- false positive — test struct literal with no secrets
 func TestBypass_RecordsEvent(t *testing.T) {
 	cb := &captureBypass{}
 	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{

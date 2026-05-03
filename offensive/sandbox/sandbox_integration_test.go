@@ -46,7 +46,7 @@ func TestLoad_ExploitInstallsFilter(t *testing.T) {
 		os.Exit(0)
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_ExploitInstallsFilter") //nolint:gosec // G204 — re-exec of this test binary
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_ExploitInstallsFilter") // #nosec G204 -- re-exec of this test binary
 	cmd.Env = append(os.Environ(), "ELSERENO_SANDBOX_INTEGRATION_CHILD=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -73,7 +73,7 @@ func TestLoad_ExploitBlocksPtrace(t *testing.T) {
 		os.Exit(6)
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_ExploitBlocksPtrace") //nolint:gosec // G204 — re-exec
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_ExploitBlocksPtrace") // #nosec G204 -- re-exec
 	cmd.Env = append(os.Environ(), "ELSERENO_SANDBOX_BLOCK_CHILD=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -109,7 +109,7 @@ func TestLoad_DialBlocksConnect(t *testing.T) {
 		os.Exit(8)
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_DialBlocksConnect") //nolint:gosec // G204 — re-exec
+	cmd := exec.Command(os.Args[0], "-test.run=TestLoad_DialBlocksConnect") // #nosec G204 -- re-exec
 	cmd.Env = append(os.Environ(), "ELSERENO_SANDBOX_DIAL_CHILD=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

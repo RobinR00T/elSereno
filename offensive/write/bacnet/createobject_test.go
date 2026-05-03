@@ -91,7 +91,7 @@ func buildCreateObjectChoiceObjectIdentifier(objType uint16, objInst uint32) []b
 		0x0E, // open context tag 0
 		0x1C, // [1] objectIdentifier, length 4
 	}
-	//nolint:gosec // test-bounded — type fits in 10 bits, instance in 22.
+	// #nosec G115 -- test-bounded — type fits in 10 bits, instance in 22.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	var u32 [4]byte
 	binary.BigEndian.PutUint32(u32[:], packed)

@@ -117,7 +117,7 @@ func WriteTPKT(w io.Writer, payload []byte) error {
 		return fmt.Errorf("%w: %d bytes > max %d", ErrBadTPKT, total, MaxTPKTLen)
 	}
 	hdr := []byte{TPKTVersion, 0x00, 0x00, 0x00}
-	binary.BigEndian.PutUint16(hdr[2:4], uint16(total)) //nolint:gosec // bounded by MaxTPKTLen guard above
+	binary.BigEndian.PutUint16(hdr[2:4], uint16(total)) // #nosec G115 -- bounded by MaxTPKTLen guard above
 	if _, err := w.Write(hdr); err != nil {
 		return fmt.Errorf("mms: write header: %w", err)
 	}

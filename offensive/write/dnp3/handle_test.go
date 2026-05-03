@@ -40,7 +40,7 @@ func buildUserDataFrame(appFC uint8) []byte {
 	frame := make([]byte, wire.HeaderLen+len(userData))
 	frame[0] = wire.StartBytes[0]
 	frame[1] = wire.StartBytes[1]
-	frame[2] = uint8(5 + len(userData)) //nolint:gosec // G115 — test body fixed-size
+	frame[2] = uint8(5 + len(userData)) // #nosec G115 -- test body fixed-size
 	frame[3] = 0xC4
 	binary.LittleEndian.PutUint16(frame[4:6], 0x0001)
 	binary.LittleEndian.PutUint16(frame[6:8], 0x0002)

@@ -18,7 +18,7 @@ type Op string
 // stop are the "classic" Siemens mutations; WriteVar covers memory
 // writes of any data-block / merker region.
 //
-//nolint:gosec // G101 false positive — op labels
+// #nosec G101 -- false positive — op labels
 const (
 	OpWriteVar   Op = "write_var"   // S7 func 0x05
 	OpPLCStop    Op = "plc_stop"    // S7 func 0x29
@@ -88,7 +88,7 @@ const (
 	paramPLCStop byte = 0x29
 )
 
-//nolint:gosec // G115 — lengths bounded by ErrDataTooLong guard above
+// #nosec G115 -- lengths bounded by ErrDataTooLong guard above
 func buildWriteVar(r Request) ([]byte, error) {
 	if len(r.Data) == 0 {
 		return nil, ErrEmptyPayload
@@ -149,7 +149,7 @@ func buildPLCRestart(pduRef uint16) []byte {
 // wrapTPKTS7 wraps param+data in an S7 Job header, then COTP DT,
 // then TPKT.
 //
-//nolint:gosec // G115 — lengths bounded by caller (WriteVar enforces 200-byte cap; control frames are fixed)
+// #nosec G115 -- lengths bounded by caller (WriteVar enforces 200-byte cap; control frames are fixed)
 func wrapTPKTS7(param, data []byte, pduRef uint16) []byte {
 	pl := uint16(len(param))
 	dl := uint16(len(data))

@@ -161,7 +161,7 @@ func TestIsACK(t *testing.T) {
 // The shift+truncate byte extractions below are the canonical Go
 // idiom for wire-frame synthesis (gosec G115 noise).
 //
-//nolint:gosec // G115 false positives on byte extractions.
+// #nosec G115 -- false positives on byte extractions.
 func buildRSPUD(id uint32, manuf string, version, medium byte) []byte {
 	if len(manuf) != 3 {
 		panic("buildRSPUD: manuf must be 3 letters")

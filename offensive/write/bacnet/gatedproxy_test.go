@@ -132,7 +132,7 @@ func buildBACnetFrame(apdu []byte) []byte {
 	npdu := []byte{0x01, 0x04}
 	body := append([]byte{}, npdu...)
 	body = append(body, apdu...)
-	total := uint16(4 + len(body)) //nolint:gosec // len(body) ≤ a few dozen bytes by test construction
+	total := uint16(4 + len(body)) // #nosec G115 -- len(body) ≤ a few dozen bytes by test construction
 	return append([]byte{
 		0x81,
 		wire.BVLCOriginalUnicast,

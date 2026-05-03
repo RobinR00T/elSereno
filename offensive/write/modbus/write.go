@@ -27,7 +27,7 @@ type Op string
 // labels, not secrets. The gosec directive below disarms that rule
 // for this block only.
 //
-//nolint:gosec // G101 false positive — op labels
+// #nosec G101 -- false positive — op labels
 const (
 	OpWriteSingleCoil        Op = "write_single_coil"        // FC 5
 	OpWriteSingleRegister    Op = "write_single_register"    // FC 6

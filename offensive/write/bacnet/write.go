@@ -14,7 +14,7 @@ import (
 // F5; WritePropertyMultiple and TimeSynchronization follow in F6.
 type Op string
 
-//nolint:gosec // G101 false positive — op labels
+// #nosec G101 -- false positive — op labels
 const (
 	// OpWriteProperty is BACnet Confirmed service 0x0F.
 	OpWriteProperty Op = "write_property"
@@ -76,11 +76,11 @@ func Build(r Request) ([]byte, error) {
 	body = append(body, apdu...)
 	// BVLC: Type 0x81, Function 0x0A (Original-Unicast-NPDU),
 	// Length (2 BE) includes the header itself (4).
-	total := uint16(4 + len(body)) //nolint:gosec // bounded
+	total := uint16(4 + len(body)) // #nosec G115 -- bounded
 	return append([]byte{0x81, 0x0A, byte(total >> 8), byte(total & 0xFF)}, body...), nil
 }
 
-//nolint:gosec // G115 — all byte conversions are bounded mask operations or range-guarded above
+// #nosec G115 -- all byte conversions are bounded mask operations or range-guarded above
 func buildWritePropertyAPDU(r Request) []byte {
 	// APDU: PDU Type=0x00 (Confirmed Request), Max Seg/Response=0x05
 	// (no segmentation, max APDU 1476), InvokeID, ServiceChoice=0x0F

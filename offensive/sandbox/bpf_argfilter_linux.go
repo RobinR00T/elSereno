@@ -242,7 +242,7 @@ func CompileArgFilter(argRules []ArgDenyRule) []unix.SockFilter {
 		emitted++
 
 		// JEQ syscall, jt=+1 (fall into rule body), jf=bodyLen[i] (skip rule body)
-		jf := uint8(bodyLens[i]) //nolint:gosec // G115 — bodyLen bounded by ruleBodyLen ≤ 6
+		jf := uint8(bodyLens[i]) // #nosec G115 -- bodyLen bounded by ruleBodyLen ≤ 6
 		insns = append(insns, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
 			Jt:   0,
@@ -307,7 +307,7 @@ func emitRuleBody(r ArgDenyRule, distToDeny int) []unix.SockFilter {
 		})
 		// JEQ 0 — if (arg & mask) == 0 fall through (allow);
 		// otherwise jump distToDeny instructions forward.
-		jt := uint8(distToDeny - 1) //nolint:gosec // G115 — distToDeny bounded by program size
+		jt := uint8(distToDeny - 1) // #nosec G115 -- distToDeny bounded by program size
 		out = append(out, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
 			Jt:   0,
@@ -326,7 +326,7 @@ func emitRuleBody(r ArgDenyRule, distToDeny int) []unix.SockFilter {
 	for i, v := range r.EqualValues {
 		// Distance to deny: distToDeny - 1 (already past LD)
 		// - i (each prior JEQ added one) - 1 (this JEQ itself).
-		jt := uint8(distToDeny - 1 - i - 1) //nolint:gosec // G115 — bounded
+		jt := uint8(distToDeny - 1 - i - 1) // #nosec G115 -- bounded
 		out = append(out, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
 			Jt:   jt,

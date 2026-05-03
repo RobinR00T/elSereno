@@ -76,7 +76,7 @@ func TestAllowlistHashWithAWF_OrderInsensitive(t *testing.T) {
 // to the gate parser (it only reads the leading
 // fileIdentifier).
 func buildAWFServiceBody(instance uint32) []byte {
-	//nolint:gosec // test-bounded — instance fits in 22 bits.
+	// #nosec G115 -- test-bounded — instance fits in 22 bits.
 	packed := (uint32(bwire.FileObjectType) << 22) | (instance & 0x3FFFFF)
 	buf := []byte{0xC4} // application tag 12, primitive, length 4
 	var u32 [4]byte
@@ -93,7 +93,7 @@ func buildAWFServiceBody(instance uint32) []byte {
 // ObjectType — used to exercise the "ObjectType != 10 fails
 // closed" invariant.
 func buildAWFServiceBodyWithType(objType uint16, instance uint32) []byte {
-	//nolint:gosec // test-bounded.
+	// #nosec G115 -- test-bounded.
 	packed := (uint32(objType) << 22) | (instance & 0x3FFFFF)
 	buf := []byte{0xC4}
 	var u32 [4]byte

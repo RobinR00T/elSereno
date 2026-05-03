@@ -369,7 +369,7 @@ func buildMultiMSGBodyRich(nodes []wire.NodeIDValue) []byte {
 
 	// NodesToWrite array length.
 	var u32 [4]byte
-	binary.LittleEndian.PutUint32(u32[:], uint32(len(nodes)&0xFFFFFFFF)) //nolint:gosec // G115 — test-bounded slice length
+	binary.LittleEndian.PutUint32(u32[:], uint32(len(nodes)&0xFFFFFFFF)) // #nosec G115 -- test-bounded slice length
 	buf = append(buf, u32[:]...)
 
 	for _, n := range nodes {
@@ -400,7 +400,7 @@ func encodeNodeID(v wire.NodeIDValue) []byte {
 		out := []byte{byte(wire.NodeIDString)}
 		binary.LittleEndian.PutUint16(u16[:], v.Namespace)
 		out = append(out, u16[:]...)
-		binary.LittleEndian.PutUint32(u32[:], uint32(len(v.String)&0xFFFFFFFF)) //nolint:gosec // G115 — test-bounded
+		binary.LittleEndian.PutUint32(u32[:], uint32(len(v.String)&0xFFFFFFFF)) // #nosec G115 -- test-bounded
 		out = append(out, u32[:]...)
 		return append(out, []byte(v.String)...)
 	case wire.NodeIDKindGUID:
@@ -412,7 +412,7 @@ func encodeNodeID(v wire.NodeIDValue) []byte {
 		out := []byte{byte(wire.NodeIDByteString)}
 		binary.LittleEndian.PutUint16(u16[:], v.Namespace)
 		out = append(out, u16[:]...)
-		binary.LittleEndian.PutUint32(u32[:], uint32(len(v.Bytes)&0xFFFFFFFF)) //nolint:gosec // G115 — test-bounded
+		binary.LittleEndian.PutUint32(u32[:], uint32(len(v.Bytes)&0xFFFFFFFF)) // #nosec G115 -- test-bounded
 		out = append(out, u32[:]...)
 		return append(out, v.Bytes...)
 	}

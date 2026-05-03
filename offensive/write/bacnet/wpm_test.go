@@ -28,7 +28,7 @@ func buildWPMServiceBody(groups []wpmGroup) []byte {
 	buf := make([]byte, 0, 64)
 	for _, g := range groups {
 		// Tag 0 ObjectIdentifier (5 bytes: 0x0C + 4-byte packed).
-		//nolint:gosec // test-bounded
+		// #nosec G115 -- test-bounded
 		packed := (uint32(g.objectType) << 22) | (g.objectInstance & 0x3FFFFF)
 		buf = append(buf, 0x0C)
 		var u32 [4]byte
@@ -46,12 +46,12 @@ func buildWPMServiceBody(groups []wpmGroup) []byte {
 			case propID < 65536:
 				buf = append(buf, 0x0A,
 					byte(propID>>8&0xFF),
-					byte(propID&0xFF)) //nolint:gosec // bytes intentionally truncated
+					byte(propID&0xFF)) // #nosec G115 -- bytes intentionally truncated
 			default:
 				buf = append(buf, 0x0B,
 					byte(propID>>16&0xFF),
 					byte(propID>>8&0xFF),
-					byte(propID&0xFF)) //nolint:gosec // bytes intentionally truncated
+					byte(propID&0xFF)) // #nosec G115 -- bytes intentionally truncated
 			}
 			// Tag 2 OPENING + Null value (app tag 0, length 0)
 			// + Tag 2 CLOSING.

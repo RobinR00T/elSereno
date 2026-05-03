@@ -94,7 +94,7 @@ func buildLSOWithTarget(op uint8, objType uint16, objInst uint32) []byte {
 	// [2] request — ENUMERATED, length 1
 	body = append(body, 0x29, op)
 	// [3] objectIdentifier — context 3, primitive, length 4 packed
-	//nolint:gosec // test-bounded — type fits in 10 bits, instance in 22.
+	// #nosec G115 -- test-bounded — type fits in 10 bits, instance in 22.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	var u32 [4]byte
 	binary.BigEndian.PutUint32(u32[:], packed)

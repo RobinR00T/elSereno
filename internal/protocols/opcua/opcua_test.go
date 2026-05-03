@@ -61,7 +61,7 @@ func probeAt(port int) *core.Finding {
 	defer cancel()
 	f, _ := plug.Probe(ctx, core.Target{
 		Address: netip.MustParseAddr("127.0.0.1"),
-		Port:    core.Port(port), //nolint:gosec // G115 — port fits in uint16 by construction
+		Port:    core.Port(port), // #nosec G115 -- port fits in uint16 by construction
 	})
 	return f
 }
