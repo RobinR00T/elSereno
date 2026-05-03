@@ -1,30 +1,36 @@
 ---
-phase: v1.31-closed
-status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 + v1.31 tags pending push
+phase: v1.32-closed
+status: v1.16-v1.27 published; v1.28 + v1.29 + v1.30 + v1.31 + v1.32 tags pending push
 last-updated: 2026-05-03
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.31 cycle closed on `main`** (1 chunk + close
-commit). Brings the TUI's `--input` kinds to parity with the
-batch `scan` verb — operators no longer pipe through
-`scan --output-format ndjson | tui --feed -` for nmap / shodan
-/ censys / fofa / zoomeye / onyphe / internetdb / stdin
-inputs; all 8 are now first-class on `tui --input KIND`. The
-input-parsing dispatcher was extracted to a shared helper
-(`cmd_input_parse.go`) that both verbs call, so future input
-kinds land in one place.
+**Phase**: **v1.32 cycle closed on `main`** (1 chunk + close
+commit). Hygiene-only: completes the b611f5c migration for
+the cmd/elsereno/ subtree by swapping the remaining 10
+`//nolint:gosec` directives to `// #nosec G<NNN>`. Wider
+tree (~65 more markers in internal/protocols/**,
+offensive/write/**, internal/audit/**, offensive/sandbox/**)
+unchanged — they coexist with the convention since b611f5c
+landed and `make sec` has been exit 0 throughout. A v1.33
+sweep can finish the parity if/when the operator wants it.
 
-Snapshot:
+Snapshot: `.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
+
+**v1.32 chunks landed (in-flight)**:
+- 1 `f4e2464` — swap 10 `//nolint:gosec` → `// #nosec G<NNN>`
+  in cmd/elsereno/. cmd_doctor.go (composite, dropped gosec
+  half), cmd_proxy_allowfile, cmd_proxy_reload + 4
+  test files. No behaviour change; lint clean; sec ok.
+
+**v1.31 cycle (closed, snapshot available)**:
+TUI `--input` parity with batch `scan` (all 8 kinds now
+first-class on `tui --input KIND`). Input-parsing dispatcher
+extracted to `cmd_input_parse.go`. 1 chunk + close: `689def2`,
+`6d77468`. Snapshot:
 `.context/snapshots/v1.31.0-tui-input-parity.md`.
-
-**v1.31 chunks landed (in-flight)**:
-- 1 `689def2` — extract `parseInput` dispatcher, wire all 8
-  input kinds into TUI's `--input`. Provider kinds gain
-  `--api-creds-file`. `cmd_scan.go`'s `readTargets` becomes
-  a thin shim over the same helper. 7 dispatcher tests.
 
 **v1.30 cycle (closed, snapshot available)**:
 Record-replay wire-up to 9 wire-aware gates + `--record FILE`

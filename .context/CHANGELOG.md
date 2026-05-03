@@ -8,6 +8,16 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-03 — v1.32 (chunk 1) — **cmd/elsereno gosec marker
+  hygiene.** Swaps 10 remaining `//nolint:gosec` directives
+  to `// #nosec G<NNN>` native form (PITF-030 / b611f5c
+  convention). Composite case in cmd_doctor.go split. Wider
+  tree (~65 markers across internal/protocols/**, offensive/**,
+  internal/audit/**) intentionally untouched — coexists with
+  convention since b611f5c, `make sec` exit 0 throughout.
+  Snapshot:
+  `.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
+
 - 2026-05-03 — v1.31 (chunk 1) — **TUI `--input` parity with
   batch `scan`.** Closes the v1.30-chunk-3 carryover. The 7
   input kinds the batch verb supports (nmap:, stdin, shodan:,

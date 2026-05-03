@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.32.0] — 2026-05-03
+
+### Changed
+
+- **gosec marker hygiene** (cmd/elsereno/). Completes the
+  b611f5c migration for the cmd/elsereno/ subtree. 10
+  `//nolint:gosec` directives swapped to `// #nosec G<NNN>`
+  native form. PITF-030 rationale: golangci-lint's bundled
+  gosec accepts both forms, but the standalone gosec binary
+  in CI's `sec` job only honours the same-line `// #nosec`
+  form. Each line preserves its original rationale; only
+  the directive shape changes. The composite case
+  (cmd_doctor.go) drops the gosec half from a `//nolint:
+  gosec,unconvert` line that already had `// #nosec G115`
+  same-line, keeping `//nolint:unconvert` standalone.
+
+### Notes
+
+- Wider tree (~65 more markers across
+  internal/protocols/**, offensive/write/**, internal/audit/**,
+  offensive/sandbox/**) intentionally untouched. Those have
+  coexisted with the convention since b611f5c and `make sec`
+  has been exit 0 throughout. A v1.33+ sweep can finish the
+  parity if/when the operator wants it.
+
+### Tests
+
+No new tests this cycle (text-only change). Existing tests
+pass under -race; lint clean; `make sec` ok.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.31.0] — 2026-05-03
 
 ### Added

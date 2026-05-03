@@ -10,8 +10,8 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-05-03** (post-v1.31). Items shipped during
-v1.3 → v1.31 archived to keep this file actionable.
+Last refresh: **2026-05-03** (post-v1.32). Items shipped during
+v1.3 → v1.32 archived to keep this file actionable.
 
 ---
 
@@ -99,6 +99,14 @@ v1.3 → v1.31 archived to keep this file actionable.
   v1.21 chunk 2.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
+
+### v1.32 (cmd/elsereno gosec marker hygiene)
+
+- ✅ **gosec marker hygiene (cmd/elsereno)** — v1.32 chunk 1.
+  10 `//nolint:gosec` → `// #nosec G<NNN>` native form
+  (PITF-030 / b611f5c convention). Wider tree (~65 markers)
+  is its own follow-up — see "🔬 Hygiene & convention parity"
+  below.
 
 ### v1.31 (TUI input parity with batch scan)
 
@@ -237,6 +245,17 @@ v1.3 → v1.31 archived to keep this file actionable.
   chunk 2.
 
 ## 🔐 Supply-chain + hardening
+
+- [ ] **Wider tree gosec marker convention sweep** — ~65
+  `//nolint:gosec` directives across `internal/protocols/**`,
+  `offensive/write/**`, `internal/audit/**`, and
+  `offensive/sandbox/**` still use the line-above form. They
+  coexist with the `// #nosec G<NNN>` convention since
+  b611f5c (pre-v1.28) and `make sec` has been exit 0
+  throughout. Mechanical 1:1 swap; no behavioural change.
+  Estimated diff ~150 lines, 50 files. v1.32 chunk 1 already
+  did the cmd/elsereno/ subtree (10 markers). v1.33+
+  candidate.
 
 - [ ] **Sandbox para macOS via `sandbox_init(3)`** — currently
   macOS degrades to "unavailable". A `.sb` Scheme policy
