@@ -7,12 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
-	"local/elsereno/internal/inputs/list"
 	"local/elsereno/internal/protocols/banner"
 	"local/elsereno/internal/tui"
 	"local/elsereno/internal/tui/feeds"
@@ -46,21 +44,18 @@ import (
 // in cmd_tui_mini.go that prints "TUI not available in mini
 // build" and exits with EX_UNAVAILABLE (69).
 func newTUICmd() *cobra.Command {
-	var replayPath string
-	var feedFlag string
-	var watchURL string
-	var watchBearer string
-	var inputKind string
-	var defaultPort uint16
+	var args pickFeedArgs
 	cmd := &cobra.Command{
 		Use:   "tui",
 		Short: "Interactive terminal UI (default + offensive builds; not in mini)",
 		Long: `Open the interactive ElSereno TUI. Five modes:
 
   - interactive (default): empty panes; useful sanity check.
-  - --input list:FILE: scan from inside the TUI (v1.30+).
-    Loads targets from FILE + drives a Scanner whose findings
-    populate the panes live.
+  - --input KIND: scan from inside the TUI (v1.30+ list, v1.31+
+    full kind set). Same kinds as the batch ` + "`scan`" + ` verb:
+    list:FILE, nmap:FILE, stdin, shodan:Q, censys:Q, fofa:Q,
+    zoomeye:Q, onyphe:Q, internetdb:IP. API-keyed kinds need
+    --api-creds-file. Findings populate the panes live.
   - --replay FILE.ndjson: review a pre-recorded NDJSON capture.
   - --feed -: consume NDJSON from stdin (pairs with the batch
     scan verb's --output-format ndjson).
@@ -68,16 +63,9 @@ func newTUICmd() *cobra.Command {
     dashboard's SSE feed (read-only).
 
 Tab cycles focus between panes; j/k navigate the findings
-table; q quits.`,
+table; q quits; / filters the audit pane substring.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			mode, feed, err := pickFeed(cmd.Context(), pickFeedArgs{
-				replayPath:  replayPath,
-				feedFlag:    feedFlag,
-				watchURL:    watchURL,
-				watchBearer: watchBearer,
-				inputKind:   inputKind,
-				defaultPort: defaultPort,
-			})
+			mode, feed, err := pickFeed(cmd.Context(), args)
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
@@ -88,31 +76,40 @@ table; q quits.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&inputKind, "input", "",
-		"v1.30+: scan from inside the TUI. Format `list:<path>` (other input kinds — nmap:, shodan:, … — coming in later cycles)")
-	cmd.Flags().Uint16Var(&defaultPort, "default-port", 0,
-		"v1.30+: default port for --input list entries that omit one (host-only lines)")
-	cmd.Flags().StringVar(&replayPath, "replay", "",
-		"NDJSON capture file to replay (mutually exclusive with --feed and --watch)")
-	cmd.Flags().StringVar(&feedFlag, "feed", "",
-		"NDJSON feed source (only `-` for stdin is supported; use --replay for files)")
-	cmd.Flags().StringVar(&watchURL, "watch", "",
-		"dashboard SSE URL to consume (e.g. https://host:8443/api/v1/stream)")
-	cmd.Flags().StringVar(&watchBearer, "bearer", "",
-		"Bearer token for --watch URL (required for non-loopback targets)")
+	registerTUIFlags(cmd, &args)
 	return cmd
+}
+
+// registerTUIFlags attaches every flag onto cmd. Extracted from
+// newTUICmd so the parent stays under funlen as new flags land.
+func registerTUIFlags(cmd *cobra.Command, args *pickFeedArgs) {
+	cmd.Flags().StringVar(&args.inputKind, "input", "",
+		"v1.30+: scan from inside the TUI. Same kinds as `elsereno scan` (list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>) — v1.31+.")
+	cmd.Flags().Uint16Var(&args.defaultPort, "default-port", 0,
+		"v1.30+: default port for --input list / stdin entries that omit one (host-only lines)")
+	cmd.Flags().StringVar(&args.apiCredsFile, "api-creds-file", "",
+		"v1.31+: 0600 YAML file with provider creds (shodan/censys/fofa/zoomeye/onyphe). Same shape as `elsereno scan --api-creds-file`. Ignored for non-keyed kinds (list/nmap/stdin/internetdb).")
+	cmd.Flags().StringVar(&args.replayPath, "replay", "",
+		"NDJSON capture file to replay (mutually exclusive with --feed and --watch)")
+	cmd.Flags().StringVar(&args.feedFlag, "feed", "",
+		"NDJSON feed source (only `-` for stdin is supported; use --replay for files)")
+	cmd.Flags().StringVar(&args.watchURL, "watch", "",
+		"dashboard SSE URL to consume (e.g. https://host:8443/api/v1/stream)")
+	cmd.Flags().StringVar(&args.watchBearer, "bearer", "",
+		"Bearer token for --watch URL (required for non-loopback targets)")
 }
 
 // pickFeedArgs bundles the CLI flags pickFeed consumes so its
 // signature stays under the linter's argument-count limit. The
 // struct is private to cmd_tui.go.
 type pickFeedArgs struct {
-	replayPath  string
-	feedFlag    string
-	watchURL    string
-	watchBearer string
-	inputKind   string
-	defaultPort uint16
+	replayPath   string
+	feedFlag     string
+	watchURL     string
+	watchBearer  string
+	inputKind    string
+	defaultPort  uint16
+	apiCredsFile string
 }
 
 // pickFeed maps the CLI flags to a tui.Feed + Mode. Mutual
@@ -159,7 +156,7 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 			Bearer: a.watchBearer,
 		}, nil
 	case hasInput:
-		feed, err := buildInteractiveFeed(ctx, a.inputKind, a.defaultPort)
+		feed, err := buildInteractiveFeed(ctx, a.inputKind, a.defaultPort, a.apiCredsFile)
 		if err != nil {
 			return "", nil, err
 		}
@@ -170,31 +167,32 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 }
 
 // buildInteractiveFeed loads targets per --input kind and
-// constructs a feeds.Interactive ready for the runner. v1.30
-// chunk 3 supports `list:FILE` only; nmap / shodan / censys /
-// fofa / zoomeye / onyphe / internetdb arrive in later cycles
-// (each pulls in extra deps + provider creds plumbing — out of
-// scope for the chunk that wires the live-scan path).
-func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uint16) (tui.Feed, error) {
-	const prefix = "list:"
-	if !strings.HasPrefix(inputKind, prefix) {
-		return nil, fmt.Errorf("tui: --input %q: only `list:<path>` is supported in v1.30; pipe other inputs via `elsereno scan --output-format ndjson | elsereno tui --feed -`", inputKind)
+// constructs a feeds.Interactive ready for the runner. v1.31+
+// supports the same 8 kinds that the batch `scan` verb does
+// (list:, nmap:, stdin, shodan:, censys:, fofa:, zoomeye:,
+// onyphe:, internetdb:) via the shared parseInput dispatcher.
+//
+// stdin input note: when invoked with `--input stdin`, the
+// dispatcher reads from os.Stdin. The TUI also takes its own
+// keyboard input from os.Stdin once the alt screen mounts —
+// these can't share. Operators wanting "stdin-as-input" should
+// either pipe via `--feed -` (which reads NDJSON live) or use
+// list:/dev/stdin. We keep the kind here for symmetry with
+// `scan`, but it'll race the TUI input on a TTY.
+func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uint16, apiCredsFile string) (tui.Feed, error) {
+	if inputKind == "" {
+		return nil, errors.New("tui: --input: empty")
 	}
-	path := strings.TrimPrefix(inputKind, prefix)
-	if path == "" {
-		return nil, errors.New("tui: --input list: empty path")
-	}
-	f, err := os.Open(path) // #nosec G304 -- operator-supplied --input list:<path> is intended.
+	targets, err := parseInput(ctx, inputParseOpts{
+		InputKind:    inputKind,
+		DefaultPort:  int(defaultPort),
+		APICredsFile: apiCredsFile,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("tui: --input list:%s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-	targets, err := list.Parse(ctx, f, list.ParseOptions{DefaultPort: core.Port(defaultPort)})
-	if err != nil {
-		return nil, fmt.Errorf("tui: --input list:%s: %w", path, err)
+		return nil, fmt.Errorf("tui: --input %s: %w", inputKind, err)
 	}
 	if len(targets) == 0 {
-		return nil, fmt.Errorf("tui: --input list:%s: no targets parsed", path)
+		return nil, fmt.Errorf("tui: --input %s: no targets parsed", inputKind)
 	}
 	return feeds.Interactive{
 		Targets: targets,

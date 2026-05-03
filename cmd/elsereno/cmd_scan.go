@@ -6,15 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/core"
-	"local/elsereno/internal/inputs/list"
-	"local/elsereno/internal/inputs/nmapxml"
-	"local/elsereno/internal/inputs/stdin"
 	csvout "local/elsereno/internal/outputs/csv"
 	ndjsonout "local/elsereno/internal/outputs/ndjson"
 	stixout "local/elsereno/internal/outputs/stix"
@@ -197,57 +193,14 @@ func drainScanChannels(findings <-chan core.Finding, errs <-chan error, emit fun
 }
 
 // readTargets parses --input and returns a slice of core.Target.
+// Thin shim over parseInput (cmd_input_parse.go) so the same
+// dispatcher serves cmd_scan + cmd_tui (v1.31+).
 func readTargets(ctx context.Context, opts scanOpts) ([]core.Target, error) {
-	switch {
-	case opts.inputKind == "stdin":
-		p, err := portForInput(opts.defaultPort)
-		if err != nil {
-			return nil, err
-		}
-		return stdin.Parse(ctx, os.Stdin, list.ParseOptions{DefaultPort: p})
-	case strings.HasPrefix(opts.inputKind, "list:"):
-		path := strings.TrimPrefix(opts.inputKind, "list:")
-		f, err := os.Open(path) // #nosec G304 -- caller-supplied input list path
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = f.Close() }()
-		p, err := portForInput(opts.defaultPort)
-		if err != nil {
-			return nil, err
-		}
-		return list.Parse(ctx, f, list.ParseOptions{DefaultPort: p})
-	case strings.HasPrefix(opts.inputKind, "nmap:"):
-		path := strings.TrimPrefix(opts.inputKind, "nmap:")
-		f, err := os.Open(path) // #nosec G304 -- caller-supplied XML path
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = f.Close() }()
-		return nmapxml.Parse(ctx, f)
-	case strings.HasPrefix(opts.inputKind, "shodan:"):
-		return readTargetsFromProvider(ctx, "shodan",
-			strings.TrimPrefix(opts.inputKind, "shodan:"), opts.apiCredsFile)
-	case strings.HasPrefix(opts.inputKind, "censys:"):
-		return readTargetsFromProvider(ctx, "censys",
-			strings.TrimPrefix(opts.inputKind, "censys:"), opts.apiCredsFile)
-	case strings.HasPrefix(opts.inputKind, "fofa:"):
-		return readTargetsFromProvider(ctx, "fofa",
-			strings.TrimPrefix(opts.inputKind, "fofa:"), opts.apiCredsFile)
-	case strings.HasPrefix(opts.inputKind, "zoomeye:"):
-		return readTargetsFromProvider(ctx, "zoomeye",
-			strings.TrimPrefix(opts.inputKind, "zoomeye:"), opts.apiCredsFile)
-	case strings.HasPrefix(opts.inputKind, "onyphe:"):
-		return readTargetsFromProvider(ctx, "onyphe",
-			strings.TrimPrefix(opts.inputKind, "onyphe:"), opts.apiCredsFile)
-	case strings.HasPrefix(opts.inputKind, "internetdb:"):
-		return readTargetsFromProvider(ctx, "internetdb",
-			strings.TrimPrefix(opts.inputKind, "internetdb:"), opts.apiCredsFile)
-	default:
-		return nil, fmt.Errorf(
-			"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>",
-			opts.inputKind)
-	}
+	return parseInput(ctx, inputParseOpts{
+		InputKind:    opts.inputKind,
+		DefaultPort:  opts.defaultPort,
+		APICredsFile: opts.apiCredsFile,
+	})
 }
 
 // filterByScope drops targets rejected by the scope. A nil scope is a
