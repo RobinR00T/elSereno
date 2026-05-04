@@ -5,6 +5,8 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -200,5 +202,136 @@ func TestEmitDiscoverResults_BadFormat(t *testing.T) {
 	err := emitDiscoverResults(&stdout, &stderr, nil, "yaml")
 	if err == nil {
 		t.Fatal("expected error for unknown format")
+	}
+}
+
+// TestLoadDiscoverHostsFile_HappyPath — minimal file with
+// IP per line + comments + blank lines parses cleanly.
+func TestLoadDiscoverHostsFile_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	body := `# comments allowed
+127.0.0.1
+10.0.0.1
+
+192.0.2.5  # inline comment after IP
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	hosts, err := loadDiscoverHostsFile(path, 0)
+	if err != nil {
+		t.Fatalf("loadDiscoverHostsFile: %v", err)
+	}
+	if got := len(hosts); got != 3 {
+		t.Errorf("hosts = %d, want 3", got)
+	}
+	wantStrs := []string{"127.0.0.1", "10.0.0.1", "192.0.2.5"}
+	for i, w := range wantStrs {
+		if hosts[i].String() != w {
+			t.Errorf("hosts[%d] = %q, want %q", i, hosts[i].String(), w)
+		}
+	}
+}
+
+// TestLoadDiscoverHostsFile_HostPortStrip — operator pasting
+// `host:port` lines works (we strip the port half).
+func TestLoadDiscoverHostsFile_HostPortStrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	body := "10.0.0.1:502\n10.0.0.2:443\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	hosts, err := loadDiscoverHostsFile(path, 0)
+	if err != nil {
+		t.Fatalf("loadDiscoverHostsFile: %v", err)
+	}
+	if len(hosts) != 2 {
+		t.Fatalf("hosts = %d, want 2", len(hosts))
+	}
+	if hosts[0].String() != "10.0.0.1" {
+		t.Errorf("hosts[0] = %q, want 10.0.0.1", hosts[0].String())
+	}
+}
+
+// TestLoadDiscoverHostsFile_IPv6Preserved — ipv6 with double-
+// colon retains its full form (port-strip skips IPv6).
+func TestLoadDiscoverHostsFile_IPv6Preserved(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	body := "2001:db8::1\nfe80::1\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	hosts, err := loadDiscoverHostsFile(path, 0)
+	if err != nil {
+		t.Fatalf("loadDiscoverHostsFile: %v", err)
+	}
+	if len(hosts) != 2 {
+		t.Fatalf("hosts = %d, want 2", len(hosts))
+	}
+	if hosts[0].String() != "2001:db8::1" {
+		t.Errorf("hosts[0] = %q, want 2001:db8::1", hosts[0].String())
+	}
+}
+
+// TestLoadDiscoverHostsFile_MaxHostsCap — bounded walk.
+func TestLoadDiscoverHostsFile_MaxHostsCap(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	body := "10.0.0.1\n10.0.0.2\n10.0.0.3\n10.0.0.4\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	hosts, err := loadDiscoverHostsFile(path, 2)
+	if err != nil {
+		t.Fatalf("loadDiscoverHostsFile: %v", err)
+	}
+	if len(hosts) != 2 {
+		t.Errorf("hosts = %d, want 2 (max-hosts cap)", len(hosts))
+	}
+}
+
+// TestLoadDiscoverHostsFile_EmptyFile — file with no IPs at
+// all → typed error.
+func TestLoadDiscoverHostsFile_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	if err := os.WriteFile(path, []byte("# only comments\n\n"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := loadDiscoverHostsFile(path, 0)
+	if err == nil || !strings.Contains(err.Error(), "no hosts parsed") {
+		t.Errorf("err = %v, want 'no hosts parsed'", err)
+	}
+}
+
+// TestLoadDiscoverHostsFile_BadIP — line that doesn't parse
+// as a netip.Addr surfaces with file + line context.
+func TestLoadDiscoverHostsFile_BadIP(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	body := "10.0.0.1\nNOT-AN-IP\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err := loadDiscoverHostsFile(path, 0)
+	if err == nil {
+		t.Fatal("expected error on bad IP")
+	}
+	if !strings.Contains(err.Error(), "line 2") {
+		t.Errorf("err = %v, want 'line 2' context", err)
+	}
+}
+
+// TestLoadDiscoverHostsFile_MissingFile — wrapped open error.
+func TestLoadDiscoverHostsFile_MissingFile(t *testing.T) {
+	_, err := loadDiscoverHostsFile(filepath.Join(t.TempDir(), "no-such.txt"), 0)
+	if err == nil {
+		t.Fatal("expected open error")
+	}
+	if !strings.Contains(err.Error(), "no such file") {
+		t.Errorf("err = %v, want 'no such file'", err)
 	}
 }

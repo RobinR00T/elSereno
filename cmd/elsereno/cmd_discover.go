@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +40,7 @@ const discoverDefaultParallel = 64
 func newDiscoverCmd() *cobra.Command {
 	var (
 		auto         string
+		hostsFile    string
 		maxHosts     int
 		dialTimeout  time.Duration
 		parallel     int
@@ -45,7 +48,7 @@ func newDiscoverCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "discover",
-		Short: "Sweep a CIDR for ports of every registered plugin",
+		Short: "Sweep a CIDR or host list for ports of every registered plugin",
 		Long: `discover --auto <CIDR> performs a TCP-connect sweep
 of the well-known ports of every registered ElSereno plugin
 across the supplied CIDR. Responsive (host, port) pairs are
@@ -53,37 +56,109 @@ emitted to stdout as NDJSON; the operator pipes the output
 into ` + "`elsereno scan --input list:-`" + ` for protocol-aware
 fingerprinting on the responsive subset.
 
+discover --hosts <file> (v1.39+) sweeps the same plugin-port
+list against a fixed list of hosts (one IP per line, # for
+comments). Useful when the operator already has a curated
+inventory and wants to avoid expanding a sparse CIDR. Mutex
+with --auto.
+
 Goal: skip the manual port-list maintenance step. The operator
-points at a CIDR, gets a "what's actually listening" inventory
-in one command, and the deep-scan phase only runs against
-hosts that responded.
+points at a CIDR or host list, gets a "what's actually
+listening" inventory in one command, and the deep-scan phase
+only runs against hosts that responded.
 
 The walk is bounded by --max-hosts (default 256, i.e. /24
 sized) and --parallel (default 64 concurrent connects). Use
 --dial-timeout to tune for slow links.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if auto == "" {
-				return fail(core.ExitUsage, errors.New("--auto <CIDR> is required (e.g. --auto 192.168.1.0/24)"))
-			}
-			ports := registeredPluginPorts()
-			if len(ports) == 0 {
-				return fail(core.ExitSoftware, errors.New("no plugins registered — link with the protocol packages"))
-			}
-			hosts, err := expandCIDR(auto, maxHosts)
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-			ctx := cmd.Context()
-			results := sweep(ctx, hosts, ports, parallel, dialTimeout)
-			return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, outputFormat)
+			return runDiscover(cmd, auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat)
 		},
 	}
 	cmd.Flags().StringVar(&auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
-	cmd.Flags().IntVar(&maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on CIDR addresses walked")
+	cmd.Flags().StringVar(&hostsFile, "hosts", "",
+		"v1.39+: file with one IP per line (# for comments). Mutex with --auto.")
+	cmd.Flags().IntVar(&maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on hosts walked (CIDR or file)")
 	cmd.Flags().DurationVar(&dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
 	cmd.Flags().IntVar(&parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
 	cmd.Flags().StringVar(&outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
 	return cmd
+}
+
+// runDiscover dispatches the actual discover work. Extracted
+// from newDiscoverCmd's RunE so the parent stays under funlen
+// as new flags land.
+func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel int, dialTimeout time.Duration, outputFormat string) error {
+	if (auto == "") == (hostsFile == "") {
+		return fail(core.ExitUsage,
+			errors.New("exactly one of --auto <CIDR> or --hosts <file> is required"))
+	}
+	ports := registeredPluginPorts()
+	if len(ports) == 0 {
+		return fail(core.ExitSoftware, errors.New("no plugins registered — link with the protocol packages"))
+	}
+	var (
+		hosts []netip.Addr
+		err   error
+	)
+	if auto != "" {
+		hosts, err = expandCIDR(auto, maxHosts)
+	} else {
+		hosts, err = loadDiscoverHostsFile(hostsFile, maxHosts)
+	}
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	ctx := cmd.Context()
+	results := sweep(ctx, hosts, ports, parallel, dialTimeout)
+	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, outputFormat)
+}
+
+// loadDiscoverHostsFile parses a host-list file: one IP per
+// line, # for comments, blanks ignored. Returns at most
+// maxHosts entries (0 = unbounded). v1.39+.
+func loadDiscoverHostsFile(path string, maxHosts int) ([]netip.Addr, error) {
+	f, err := os.Open(path) // #nosec G304 -- operator-supplied --hosts path
+	if err != nil {
+		return nil, fmt.Errorf("--hosts %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	out := make([]netip.Addr, 0, 64)
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 4096), 1<<20)
+	lineno := 0
+	for scanner.Scan() {
+		lineno++
+		raw := strings.TrimSpace(scanner.Text())
+		if raw == "" || strings.HasPrefix(raw, "#") {
+			continue
+		}
+		// Strip an inline comment.
+		if i := strings.IndexByte(raw, '#'); i >= 0 {
+			raw = strings.TrimSpace(raw[:i])
+		}
+		// Tolerate operator pasting host:port — we only need
+		// the host half here (discover supplies its own port
+		// list).
+		if i := strings.LastIndexByte(raw, ':'); i >= 0 && !strings.Contains(raw, "::") {
+			// IPv4 host:port — strip the port.
+			raw = raw[:i]
+		}
+		addr, err := netip.ParseAddr(raw)
+		if err != nil {
+			return nil, fmt.Errorf("--hosts %s line %d: %w", path, lineno, err)
+		}
+		out = append(out, addr)
+		if maxHosts > 0 && len(out) >= maxHosts {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("--hosts %s: %w", path, err)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("--hosts %s: no hosts parsed (file empty or all comments)", path)
+	}
+	return out, nil
 }
 
 // discoverHit is one responsive (host, port) pair plus the
