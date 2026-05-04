@@ -1,29 +1,39 @@
 ---
-phase: v1.36-closed
-status: v1.16-v1.27 published; v1.28-v1.36 tags pending push
+phase: v1.37-closed
+status: v1.16-v1.27 published; v1.28-v1.37 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.36 cycle closed on `main`** (1 chunk + close
-commit). Closes the v1.31 carryover ("Dashboard --input
-parity with scan + tui"). Adds a read-only
-`GET /api/v1/inputs/preview` endpoint backed by a new
-`internal/inputs/preview` package; operators can now verify
-list:/nmap:/stdin input files from inside the dashboard
-before triggering a CLI scan against them. Provider kinds
-explicitly excluded — they need creds + rate-limit tuning
-the dashboard intentionally doesn't carry.
+**Phase**: **v1.37 cycle closed on `main`** (1 chunk + close
+commit). Closes the v1.28 chunks 1+2 carryover that flagged
+ProConOS + GE-SRTP fingerprints as "confidence ~0.7 pending
+real-PLC validation". New `elsereno fingerprint validate`
+CLI verb spins up a localhost TCP listener that replies with
+operator-supplied bytes (--file or --hex) and drives the
+chosen plugin's Probe through it. Operators with lab access
+can now self-serve validation against captured responses
+(Wireshark / netcat / tcpdump) without needing DB / scope /
+scan-orchestration. Works for every registered plugin, not
+just proconos + gesrtp.
 
-Snapshot: `.context/snapshots/v1.36.0-dashboard-input-preview.md`.
+Snapshot: `.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
 
-**v1.36 chunks landed (in-flight)**:
-- 1 `d8d40e3` — `internal/inputs/preview` package +
-  `PreviewInput` HTTP handler + OpenAPI spec entry +
-  docs/openapi.yaml regenerated. 14 tests (8 dispatcher +
-  6 handler).
+**v1.37 chunks landed (in-flight)**:
+- 1 `cfe268c` — `cmd/elsereno/cmd_fingerprint.go` (new
+  verb) + 13 test cases. Helpers split out:
+  loadFingerprintInput / lookupPlugin /
+  driveProbeAgainstBytes / emitFingerprintFinding.
+
+**v1.36 cycle (closed, snapshot available)**:
+Dashboard --input parity (preview endpoint). New
+`GET /api/v1/inputs/preview` endpoint backed by
+`internal/inputs/preview` package; read-only verification
+of list:/nmap:/stdin input files from inside the dashboard.
+1 chunk + close: `d8d40e3`, `f8e1303`. Snapshot:
+`.context/snapshots/v1.36.0-dashboard-input-preview.md`.
 
 **v1.35 cycle (closed, snapshot available)**:
 proxy listen --plugin for 4 legacy-ICS plugins (pcworx +
@@ -83,21 +93,11 @@ Snapshots:
 - `.context/snapshots/v1.29.0-tui-and-mini-build.md`
 - `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`
 
-**v1.28 chunks landed (closed)**:
-- 1   `7842351` — proconos fingerprint plugin (best-effort,
-  TCP/20547). KW-Software runtime kernel; hello frame matches
-  Wireshark + metasploit reference. Permissive banner
-  classifier. **Honest scope**: confidence ~0.7 vs ~0.95
-  baseline; needs real-PLC validation. 18 tests.
-- 2   `bd70cb8` — GE-SRTP service-0x21 (Read PLC Long Status)
-  follow-up. ServiceLongStatus + BuildReadLongStatus +
-  LongStatusInfo + ParseLongStatus. Probe now does
-  connection-init + service-0x21; finding note grows a
-  "fw=Vx.y.z" suffix on success. 7 tests.
-- 3   `0242d68` — wire record-replay into pcworx + mms gates
-  (POC). Optional Recorder *replay.Recorder field on the two
-  session-level gates. Wire-aware gates (sip / iax2 / pbxhttp
-  / modbus / opcua / bacnet / cwmp) wire-up is v1.29+.
+**v1.28 cycle (closed)**: ProConOS fingerprint (best-effort,
+TCP/20547, confidence ~0.7) + GE-SRTP service-0x21 follow-up
+(fw= suffix) + record-replay POC into pcworx + mms gates.
+3 chunks + close: `7842351`, `bd70cb8`, `0242d68`, `cfa268b`.
+Per-chunk detail in snapshot.
 
 Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
 for the v1.16 through v1.24 chunk-level detail. They're also

@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.37 (fingerprint validation CLI verb)
+
+- ✅ **`elsereno fingerprint validate` verb** — v1.37
+  chunk 1. Closes the v1.28-chunks-1+2 carryover ("ProConOS
+  + GE-SRTP confidence ~0.7 pending real-PLC validation").
+  Operators with lab access can now self-serve via captured
+  bytes (--file or --hex). Works for every registered
+  plugin. 13 tests.
+
 ### v1.36 (dashboard --input parity)
 
 - ✅ **Dashboard --input parity** — v1.36 chunk 1. Closes

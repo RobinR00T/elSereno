@@ -8,6 +8,16 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.37 (chunk 1) — **Fingerprint validation
+  CLI verb.** Closes the v1.28-chunks-1+2 carryover. New
+  `elsereno fingerprint validate --plugin <name>
+  (--file|--hex)` verb spins up a localhost responder that
+  replies with operator-supplied bytes + drives Probe
+  through it. Works for every registered plugin. 13 tests
+  including a table-driven across proconos + gesrtp.
+  Snapshot:
+  `.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
+
 - 2026-05-04 — v1.36 (chunk 1) — **Dashboard --input
   parity (preview endpoint).** Closes the v1.31 carryover.
   New `GET /api/v1/inputs/preview` endpoint backed by the

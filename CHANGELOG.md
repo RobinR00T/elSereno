@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.0] — 2026-05-04
+
+### Added
+
+- **`elsereno fingerprint validate` CLI verb** — captured-
+  bytes harness for any registered plugin's Probe. Closes
+  the v1.28 chunks 1+2 carryover that flagged the ProConOS
+  + GE-SRTP fingerprints as "confidence ~0.7 pending
+  real-PLC validation". Operators with lab access (Berghof
+  / Lenze / Phoenix Contact ILC for ProConOS; GE Mark VIe
+  / RX3i / PACSystems for GE-SRTP, plus any other plugin)
+  can now feed captured response bytes via `--file` or
+  `--hex` and inspect the resulting Finding (factors,
+  score, severity) in either human-readable text or JSON.
+  Useful for: validating a fingerprint against your own
+  hardware, regression-pinning a vendor's response, or
+  forensics on an unexpected probe result.
+
+  Mechanism: spins up a `lc.Listen(ctx, "tcp", "127.0.0.1:0")`
+  responder that drains the probe's request bytes + writes
+  the operator-supplied reply once + closes. Drives
+  `plugin.Probe` through the listener; emits the result.
+  No DB, no scope, no scan-orchestration — just the parser
+  path.
+
+### Tests
+
+`+13 tests` (cmd/elsereno/cmd_fingerprint_test.go):
+- Hex / file input, whitespace-stripped paste, empty / bad
+  hex, missing / unknown / mutex flags, missing file,
+  nil-Finding emit, silent-responder default, ctx-cancel
+  fallback, table-driven across proconos + gesrtp.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.36.0] — 2026-05-04
 
 ### Added
