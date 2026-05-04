@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.42 (replay/record round-trip)
+
+- ✅ **Round-trip closed** — v1.42 chunk 1. `feeds.Replay`
+  reads both `ndjson:v1` and `elsereno-tui-record/v1`. The
+  v1.41 `--record` output is now consumable by `--replay`.
+  8 tests.
+
 ### v1.41 (tui --record session capture)
 
 - ✅ **`tui --record FILE.ndjson`** — v1.41 chunk 1.

@@ -8,6 +8,16 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.42 (chunk 1) — **replay/record round-trip
+  closed.** `feeds.Replay` now reads both `ndjson:v1`
+  (legacy scan-output) AND the v1.41
+  `elsereno-tui-record/v1` schemas. Workflow:
+  `tui --replay scan.ndjson --record session.ndjson;
+   tui --replay session.ndjson` (full loop). Type-tagged
+  dispatch + forward-compat for unknown types. 8 tests.
+  Snapshot:
+  `.context/snapshots/v1.42.0-replay-record-roundtrip.md`.
+
 - 2026-05-04 — v1.41 (chunk 1) — **`tui --record
   FILE.ndjson`.** Symmetric counterpart to v1.29-chunk-3's
   --replay. Tees every model-bound tea.Msg onto an NDJSON

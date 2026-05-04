@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.0] — 2026-05-04
+
+### Added
+
+- **`tui --replay` reads `elsereno-tui-record/v1`** —
+  closes the loop with v1.41-chunk-1's `--record`. The
+  replayer's parseRecord dispatcher now handles BOTH the
+  legacy `ndjson:v1` (scan-output) schema AND the new
+  v1.41 schema. End-to-end workflow:
+    1. `tui --replay scan.ndjson --record session.ndjson`
+       captures the live session.
+    2. `tui --replay session.ndjson` plays it back.
+  Per-type dispatch: `finding` → FindingMsg, `audit` →
+  AuditMsg, `scan_progress` → ScanProgressMsg, `feed_closed`
+  → FeedClosedMsg, unknown → AuditMsg with hint
+  (forward-compat).
+
+### Changed
+
+- `internal/tui/feeds/ndjson_stream.go` parseRecord
+  restructured into a 2-step decode (schemaPeek →
+  schema-specific). parseScanFinding extracted from
+  legacy path; parseTUIRecord new. Unknown-schema
+  fallback now lists supported schemas in the friendly
+  AuditMsg.
+
+### Tests
+
+`+8 tests` (internal/tui/feeds/tuirecord_test.go):
+- ParseTUIRecord_FindingType / AuditType /
+  ScanProgressType / ScanProgressNilFields /
+  FeedClosedType / FeedClosedNilErr / UnknownType /
+  MultiSchemaInOneFile.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.41.0] — 2026-05-04
 
 ### Added
