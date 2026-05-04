@@ -1,28 +1,35 @@
 ---
-phase: v1.35-closed
-status: v1.16-v1.27 published; v1.28-v1.35 tags pending push
+phase: v1.36-closed
+status: v1.16-v1.27 published; v1.28-v1.36 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.35 cycle closed on `main`** (1 chunk + close
-commit). Closes the v1.30 carryover by adding pcworx + mms +
-enip + s7 as new `--plugin` values on `proxy listen`. The
-Recorder fields already existed on these 4 gates (added in
-v1.28 chunk 3 + v1.30 chunk 1); v1.35 wires them through
-the CLI dispatcher so operators can capture sessions for
-all 11 protocol families with the same `--record FILE` flag.
+**Phase**: **v1.36 cycle closed on `main`** (1 chunk + close
+commit). Closes the v1.31 carryover ("Dashboard --input
+parity with scan + tui"). Adds a read-only
+`GET /api/v1/inputs/preview` endpoint backed by a new
+`internal/inputs/preview` package; operators can now verify
+list:/nmap:/stdin input files from inside the dashboard
+before triggering a CLI scan against them. Provider kinds
+explicitly excluded — they need creds + rate-limit tuning
+the dashboard intentionally doesn't carry.
 
-Snapshot: `.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
+Snapshot: `.context/snapshots/v1.36.0-dashboard-input-preview.md`.
 
-**v1.35 chunks landed (in-flight)**:
-- 1 `23aa50c` — 4 new --plugin values + flags
-  (--intent for pcworx/mms; --cip-command for enip;
-  --s7-fc for s7) + 4 builder funcs + 4 attachRecorder
-  arms + 13 dispatcher tests. Full 11-plugin matrix on
-  `proxy listen` now supports `--record FILE`.
+**v1.36 chunks landed (in-flight)**:
+- 1 `d8d40e3` — `internal/inputs/preview` package +
+  `PreviewInput` HTTP handler + OpenAPI spec entry +
+  docs/openapi.yaml regenerated. 14 tests (8 dispatcher +
+  6 handler).
+
+**v1.35 cycle (closed, snapshot available)**:
+proxy listen --plugin for 4 legacy-ICS plugins (pcworx +
+mms + enip + s7) + recording. 1 chunk + close: `23aa50c`,
+`36e3e2c`. Snapshot:
+`.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
 
 **v1.34 cycle (closed, snapshot available)**:
 Tree-wide //nolint:gosec → // #nosec G<NNN> sweep (76

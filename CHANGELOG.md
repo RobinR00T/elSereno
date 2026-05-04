@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.0] — 2026-05-04
+
+### Added
+
+- **`GET /api/v1/inputs/preview` endpoint** — dashboard
+  parity with the `scan` / `tui --input` CLI verbs.
+  Accepts `?kind=list:<path>|nmap:<path>|stdin` +
+  optional `default_port`. Returns
+  `{count, targets[], truncated}` with the targets sample
+  capped at 200 entries. Read-only — does NOT run a scan;
+  just verifies that the input file parses cleanly. Closes
+  the v1.31 carryover ("Dashboard `--input` parity with
+  scan + tui").
+- **`internal/inputs/preview` package** — dependency-light
+  dispatcher backing the new endpoint. Handles list:/
+  nmap:/stdin kinds; provider kinds (shodan / censys /
+  fofa / zoomeye / onyphe / internetdb) return a typed
+  `ErrUnsupportedKind` so callers surface a friendly
+  "preview supports list/nmap/stdin only" error.
+
+### Changed
+
+- `internal/web/handlers/api.go` wires
+  `GET /api/v1/inputs/preview` into the APIV1 sub-router.
+- `internal/web/openapi/spec.go` registers the new path so
+  `GET /api/v1/openapi.yaml` documents it. `docs/openapi.yaml`
+  regenerated via `elsereno api openapi`.
+
+### Tests
+
+`+14 tests` (8 dispatcher + 6 handler):
+- `internal/inputs/preview/preview_test.go`: stdin happy,
+  list happy, nmap minimal-XML happy, list missing,
+  nmap missing, unsupported-kind table for 6 provider
+  prefixes + bogus + empty, stdin nil-guard,
+  `ErrUnsupportedKind` error rendering.
+- `internal/web/handlers/inputs_test.go`: list happy
+  (200 + schema + count + sample), missing-kind 400,
+  bad default_port 400, unsupported-kind table-driven 400,
+  missing-file 404, 250-target truncation cap at 200.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.35.0] — 2026-05-04
 
 ### Added

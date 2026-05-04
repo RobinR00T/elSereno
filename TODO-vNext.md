@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.36 (dashboard --input parity)
+
+- ✅ **Dashboard --input parity** — v1.36 chunk 1. Closes
+  the v1.31 carryover. New `GET /api/v1/inputs/preview`
+  endpoint + `internal/inputs/preview` package. Read-only;
+  trigger-from-dashboard scan orchestration is a future
+  cycle.
+
 ### v1.35 (proxy listen --plugin for 4 legacy-ICS protocols + recording)
 
 - ✅ **proxy listen --plugin pcworx|mms|enip|s7** — v1.35

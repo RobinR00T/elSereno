@@ -8,6 +8,17 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.36 (chunk 1) — **Dashboard --input
+  parity (preview endpoint).** Closes the v1.31 carryover.
+  New `GET /api/v1/inputs/preview` endpoint backed by the
+  new `internal/inputs/preview` package. Read-only —
+  verifies a list:/nmap:/stdin file from inside the
+  dashboard before triggering a CLI scan against it.
+  Provider kinds excluded (need creds + rate-limit tuning
+  the dashboard intentionally doesn't carry). 14 tests +
+  OpenAPI spec regeneration. Snapshot:
+  `.context/snapshots/v1.36.0-dashboard-input-preview.md`.
+
 - 2026-05-04 — v1.35 (chunk 1) — **proxy listen --plugin
   pcworx|mms|enip|s7 + recording.** Closes the v1.30
   carryover. Wires the 4 legacy-ICS plugins (which already
