@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.39 (discover --hosts <file>)
+
+- ✅ **`discover --hosts <file>`** — v1.39 chunk 1. Natural
+  counterpart to `--auto <CIDR>`. Accepts a curated host
+  list (one IP per line, comments OK, host:port-strip,
+  IPv6 supported). 7 tests.
+
 ### v1.38 (fingerprint capture verb)
 
 - ✅ **`elsereno fingerprint capture` verb** — v1.38

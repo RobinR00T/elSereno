@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] — 2026-05-04
+
+### Added
+
+- **`elsereno discover --hosts <file>`** — natural
+  counterpart to v1.15-chunk-2's `--auto <CIDR>`. Operators
+  with curated host inventories (CMDB / asset-management
+  export, nmap host-list extract, hand-maintained list)
+  no longer need to expand sparse CIDRs. The flag accepts
+  one IP per line; `#` for full-line and inline comments;
+  blanks skipped; tolerates `host:port` lines (port half
+  stripped, IPv6 `::` skip-heuristic preserves their full
+  form); --max-hosts caps the walk; line-numbered error
+  context on bad IP. Mutex with --auto.
+
+### Tests
+
+`+7 tests` (cmd/elsereno/cmd_discover_test.go):
+- HappyPath, HostPortStrip, IPv6Preserved, MaxHostsCap,
+  EmptyFile, BadIP, MissingFile.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.38.0] — 2026-05-04
 
 ### Added

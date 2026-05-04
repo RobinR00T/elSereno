@@ -8,6 +8,12 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.39 (chunk 1) — **`discover --hosts <file>`.**
+  Natural counterpart to v1.15-chunk-2's `--auto <CIDR>`.
+  Accepts one IP per line, comments + blanks + host:port-
+  strip + IPv6 support, --max-hosts cap. 7 tests. Snapshot:
+  `.context/snapshots/v1.39.0-discover-hosts-list.md`.
+
 - 2026-05-04 — v1.38 (chunk 1) — **`fingerprint capture`
   verb.** Natural companion to v1.37's `validate --file`:
   opens a localhost TCP listener, accepts one connection,

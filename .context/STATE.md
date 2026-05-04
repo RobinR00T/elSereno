@@ -1,28 +1,32 @@
 ---
-phase: v1.38-closed
-status: v1.16-v1.27 published; v1.28-v1.38 tags pending push
+phase: v1.39-closed
+status: v1.16-v1.27 published; v1.28-v1.39 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.38 cycle closed on `main`** (1 chunk + close
-commit). Adds `elsereno fingerprint capture` — the natural
-companion to v1.37's `validate --file`. Opens a localhost
-TCP listener, accepts one connection, drains the client's
-bytes, writes them 0600 to a file. Operators with lab
-access run `capture` in one window, point their PLC tool at
-the port, then `validate --file` the resulting capture in a
-follow-up command.
+**Phase**: **v1.39 cycle closed on `main`** (1 chunk + close
+commit). Adds `discover --hosts <file>` — the natural
+counterpart to v1.15-chunk-2's `--auto <CIDR>`. Operators
+with curated host inventories (CMDB exports, asset lists)
+no longer need to expand sparse CIDRs; the new flag accepts
+one IP per line, with comments + blanks + host:port-strip
++ IPv6 support, and sweeps the same plugin-port list
+against each.
 
+Snapshot: `.context/snapshots/v1.39.0-discover-hosts-list.md`.
+
+**v1.39 chunks landed (in-flight)**:
+- 1 `657242d` — `--hosts` flag + `loadDiscoverHostsFile`
+  helper + `runDiscover` extracted from `newDiscoverCmd`'s
+  RunE (under funlen ceiling) + 7 tests.
+
+**v1.38 cycle (closed, snapshot available)**:
+fingerprint capture verb (natural companion to v1.37's
+validate --file). 1 chunk + close: `9c44b82`, `3bef5e1`.
 Snapshot: `.context/snapshots/v1.38.0-fingerprint-capture-verb.md`.
-
-**v1.38 chunks landed (in-flight)**:
-- 1 `9c44b82` — `newFingerprintCaptureCmd` +
-  `runFingerprintCapture` + `acceptWithCtx` helper +
-  4 tests (HappyPath, MissingOutput, TimeoutOnIdleListener,
-  ClientClosesEmpty).
 
 **v1.37 cycle (closed, snapshot available)**:
 fingerprint validation CLI verb (operator-facing harness for
