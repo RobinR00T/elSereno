@@ -18,15 +18,20 @@ import (
 	"local/elsereno/internal/core"
 	iaxwire "local/elsereno/internal/protocols/iax2/wire"
 	mbwire "local/elsereno/internal/protocols/modbus/wire"
+	s7wire "local/elsereno/internal/protocols/s7/wire"
 	"local/elsereno/internal/proxy"
 	"local/elsereno/offensive/confirm"
 	"local/elsereno/offensive/replay"
 	bacwrite "local/elsereno/offensive/write/bacnet"
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
+	enipwrite "local/elsereno/offensive/write/enip"
 	iaxwrite "local/elsereno/offensive/write/iax2"
+	mmswrite "local/elsereno/offensive/write/mms"
 	modwrite "local/elsereno/offensive/write/modbus"
 	opwrite "local/elsereno/offensive/write/opcua"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
+	pcworxwrite "local/elsereno/offensive/write/pcworx"
+	s7write "local/elsereno/offensive/write/s7"
 	sipwrite "local/elsereno/offensive/write/sip"
 )
 
@@ -77,7 +82,7 @@ config.`,
 // Extracted from newProxyListenCmd so the parent function stays
 // under funlen as we keep adding per-service dimensions.
 func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
-	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp")
+	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|bacnet|cwmp|pcworx|mms|enip|s7")
 	cmd.Flags().StringVar(&opts.target, "target", "", "upstream host:port")
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
 	registerProxyListenSIPFlags(cmd, opts)
@@ -86,8 +91,27 @@ func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	registerProxyListenOPCUAFlags(cmd, opts)
 	registerProxyListenBACnetFlags(cmd, opts)
 	registerProxyListenCWMPFlags(cmd, opts)
+	registerProxyListenLegacyICSFlags(cmd, opts)
 	registerProxyListenSessionFlags(cmd, opts)
 	addPassphraseFileFlag(cmd, &opts.ppFile)
+}
+
+// registerProxyListenLegacyICSFlags adds the v1.35+ flags for
+// the four legacy-ICS plugins (pcworx + mms + enip + s7) that
+// joined `proxy listen` in v1.35.
+func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts) {
+	cmd.Flags().StringSliceVar(&opts.intents, "intent", nil,
+		"pcworx + mms (session-level): operator-supplied free-text "+
+			"description tagging the authorised session (repeatable). "+
+			"Each entry rolls into the SHA-256 of the session mutation, "+
+			"so a fresh dry-run is needed when the list changes. v1.35+.")
+	cmd.Flags().UintSliceVar(&opts.cipCommands, "cip-command", nil,
+		"enip: CIP encapsulation commands to allow (uint16; e.g. 0x0070 "+
+			"SendUnitData, 0x006F SendRRData). Wire-aware allowlist; the "+
+			"recorder captures every chunk that crosses the gate. v1.35+.")
+	cmd.Flags().UintSliceVar(&opts.s7Functions, "s7-fc", nil,
+		"s7: S7 function codes to allow (uint8; e.g. 0x05 WriteVar). "+
+			"Wire-aware allowlist parsed from TPKT/COTP. v1.35+.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -323,6 +347,20 @@ type proxyListenOpts struct {
 	// per byte chunk that crosses the gate (both directions,
 	// timestamped). Empty (default) disables recording.
 	recordPath string
+	// v1.35+: legacy-ICS plugin allowlists.
+	// intents holds the operator-supplied free-text tags for
+	// pcworx + mms (session-level — no wire allowlist; each
+	// intent rolls into the session-mutation hash).
+	intents []string
+	// cipCommands holds the enip allowlist of CIP encapsulation
+	// command codes (uint16). Wire-aware; the gate parses each
+	// frame's enipwire.ReadPacket and admits only listed Cmd
+	// values.
+	cipCommands []uint
+	// s7Functions holds the s7 allowlist of S7 function codes
+	// (uint8). Wire-aware; the gate parses each TPKT envelope
+	// and admits only frames whose inner-PDU FC is listed.
+	s7Functions []uint
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -560,8 +598,88 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 			return nil, err
 		}
 		return h, nil
+	case pluginNamePcworx:
+		return buildPcworxHandler(opts, rt, c), nil
+	case pluginNameMMS:
+		return buildMMSHandler(opts, rt, c), nil
+	case pluginNameENIP:
+		return buildENIPHandler(opts, rt, c)
+	case pluginNameS7:
+		return buildS7Handler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7", opts.plugin)
+}
+
+// buildPcworxHandler — v1.35+. Session-level allowlist of
+// operator-supplied free-text intents (no wire allowlist).
+func buildPcworxHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *pcworxwrite.WriteGatedHandler {
+	allowed := make([]pcworxwrite.AllowedIntent, 0, len(opts.intents))
+	for _, intent := range opts.intents {
+		allowed = append(allowed, pcworxwrite.AllowedIntent{Description: intent})
+	}
+	return &pcworxwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}
+}
+
+// buildMMSHandler — v1.35+. Session-level allowlist of
+// operator-supplied free-text intents (mirror of pcworx).
+func buildMMSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *mmswrite.WriteGatedHandler {
+	allowed := make([]mmswrite.AllowedIntent, 0, len(opts.intents))
+	for _, intent := range opts.intents {
+		allowed = append(allowed, mmswrite.AllowedIntent{Description: intent})
+	}
+	return &mmswrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}
+}
+
+// buildENIPHandler — v1.35+. Wire-aware allowlist of CIP
+// encapsulation command codes (uint16). Each --cip-command
+// flag value is mapped 1:1.
+func buildENIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*enipwrite.WriteGatedHandler, error) {
+	allowed := make([]enipwrite.AllowedCommand, 0, len(opts.cipCommands))
+	for _, n := range opts.cipCommands {
+		if n > 0xFFFF {
+			return nil, fmt.Errorf("--cip-command %d: exceeds uint16 range (encapsulation Cmd is 16-bit)", n)
+		}
+		allowed = append(allowed, enipwrite.AllowedCommand{Cmd: uint16(n)})
+	}
+	return &enipwrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// buildS7Handler — v1.35+. Wire-aware allowlist of S7
+// function codes (uint8). Each --s7-fc flag value is mapped
+// 1:1 onto s7wire.FunctionCode.
+func buildS7Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*s7write.WriteGatedHandler, error) {
+	allowed := make([]s7write.AllowedFunction, 0, len(opts.s7Functions))
+	for _, n := range opts.s7Functions {
+		if n > 0xFF {
+			return nil, fmt.Errorf("--s7-fc %d: exceeds uint8 range (S7 FC is 8-bit)", n)
+		}
+		allowed = append(allowed, s7write.AllowedFunction{FC: s7wire.FunctionCode(n)})
+	}
+	return &s7write.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
 }
 
 func buildSIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *sipwrite.WriteGatedHandler {
@@ -929,9 +1047,10 @@ var _ = iaxwire.IAXNew
 
 // attachRecorder threads the open Recorder onto the concrete
 // handler's Recorder field. Returns true if the plugin supports
-// recording (one of the 7 wire-aware gates wired in v1.30
-// chunk 1). Returns false for plugins that don't yet have the
-// Recorder field — the caller surfaces a usage error.
+// recording. v1.30 chunk 1 wired the 7 default plugins; v1.30
+// chunk 1 also wired pcworx + mms + enip + s7 (the recorder
+// fields exist on those types since v1.28 chunk 3 / v1.30
+// chunk 1), so v1.35 chunk 1 just adds the type-switch arms.
 //
 // We type-switch rather than extending the gatedProxyHandler
 // interface because the interface should stay narrow (Authorise
@@ -951,6 +1070,14 @@ func attachRecorder(h gatedProxyHandler, rec *replay.Recorder) bool {
 	case *bacwrite.WriteGatedHandler:
 		t.Recorder = rec
 	case *cwmpwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *pcworxwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *mmswrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *enipwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *s7write.WriteGatedHandler:
 		t.Recorder = rec
 	default:
 		return false

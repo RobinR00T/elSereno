@@ -22,6 +22,14 @@ const (
 	pluginNameOPCUA   = "opcua"
 	pluginNameBACnet  = "bacnet"
 	pluginNameCWMP    = "cwmp"
+	// v1.35+: session-level (no wire-allowlist; just an
+	// operator-supplied intent description for audit).
+	pluginNamePcworx = "pcworx"
+	pluginNameMMS    = "mms"
+	// v1.35+: wire-aware allowlists (CIP encapsulation cmd /
+	// S7 function code).
+	pluginNameENIP = "enip"
+	pluginNameS7   = "s7"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every
