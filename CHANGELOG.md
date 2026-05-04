@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.0] — 2026-05-04
+
+### Added
+
+- **`elsereno proxy listen --plugin pcworx|mms|enip|s7`**.
+  The 4 legacy-ICS plugins gained Recorder fields in earlier
+  cycles (pcworx + mms in v1.28 chunk 3 as session-level
+  POC; enip + s7 in v1.30 chunk 1 as wire-aware) but had no
+  CLI verb. v1.35 wires them as new `--plugin` values, so
+  `proxy listen --record FILE --plugin enip ...` (etc.)
+  works the same as for the original 7 plugins.
+  - `--intent <description>` (repeatable): pcworx + mms
+    session-level free-text tags rolled into the session
+    mutation hash.
+  - `--cip-command <uint16>` (repeatable): enip CIP
+    encapsulation command allowlist (e.g. 0x70 SendUnitData).
+  - `--s7-fc <uint8>` (repeatable): s7 function-code
+    allowlist (e.g. 0x05 WriteVar). Range-checked against
+    the 8-bit cap.
+
+### Tests
+
+- `cmd_proxy_attachrecorder_offensive_test.go` (NEW, 13
+  cases). Pins every gated-proxy handler type that ships a
+  Recorder field is covered by `attachRecorder`. A new
+  plugin that ships a Recorder field but doesn't get added
+  to the type-switch will fail this test —
+  mechanical enforcement of the "Recorder field implies
+  attachRecorder arm" invariant.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.34.0] — 2026-05-03
 
 ### Changed

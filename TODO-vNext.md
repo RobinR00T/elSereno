@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.35 (proxy listen --plugin for 4 legacy-ICS protocols + recording)
+
+- ✅ **proxy listen --plugin pcworx|mms|enip|s7** — v1.35
+  chunk 1. Closes the v1.30 carryover; the 4 plugins that
+  had Recorder fields but no CLI verb are now first-class
+  `--plugin` values with their own allowlist flags
+  (--intent / --cip-command / --s7-fc). 13 dispatcher tests
+  + 1 invariant pin (every Recorder-having type is in
+  attachRecorder).
+
 ### v1.34 (tree-wide gosec marker hygiene)
 
 - ✅ **Tree-wide `//nolint:gosec` → `// #nosec G<NNN>`

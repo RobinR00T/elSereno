@@ -1,29 +1,35 @@
 ---
-phase: v1.34-closed
-status: v1.16-v1.27 published; v1.28-v1.34 tags pending push
-last-updated: 2026-05-03
+phase: v1.35-closed
+status: v1.16-v1.27 published; v1.28-v1.35 tags pending push
+last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.34 cycle closed on `main`** (1 chunk + close
-commit). Hygiene-only: completes the b611f5c marker migration
-tree-wide. v1.32 chunk 1 swapped 10 cmd/elsereno/ markers;
-v1.34 chunk 1 swept the remaining 76 across 49 files in
-internal/**, offensive/**. Side-fix: corrected a pre-existing
-comment-eats-statement bug in offensive/write/enip/write.go
-line 148 (the directive was on the same physical line as
-tabbed code, silently breaking a length-rewrite). PITF-030
-convention is now enforced tree-wide.
+**Phase**: **v1.35 cycle closed on `main`** (1 chunk + close
+commit). Closes the v1.30 carryover by adding pcworx + mms +
+enip + s7 as new `--plugin` values on `proxy listen`. The
+Recorder fields already existed on these 4 gates (added in
+v1.28 chunk 3 + v1.30 chunk 1); v1.35 wires them through
+the CLI dispatcher so operators can capture sessions for
+all 11 protocol families with the same `--record FILE` flag.
 
-Snapshot: `.context/snapshots/v1.34.0-tree-wide-gosec-hygiene.md`.
+Snapshot: `.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
 
-**v1.34 chunks landed (in-flight)**:
-- 1 `75cbcf5` — sweep 76 markers (58 with explicit G-codes
-  via perl regex; 18 G115 by content; 1 composite G306,G703
-  fixed manually). Side-fix on enip/write.go length-rewrite.
-  All offensive tests pass; lint clean; sec ok.
+**v1.35 chunks landed (in-flight)**:
+- 1 `23aa50c` — 4 new --plugin values + flags
+  (--intent for pcworx/mms; --cip-command for enip;
+  --s7-fc for s7) + 4 builder funcs + 4 attachRecorder
+  arms + 13 dispatcher tests. Full 11-plugin matrix on
+  `proxy listen` now supports `--record FILE`.
+
+**v1.34 cycle (closed, snapshot available)**:
+Tree-wide //nolint:gosec → // #nosec G<NNN> sweep (76
+markers across 49 files; PITF-030 enforced tree-wide).
+Side-fix: comment-eats-statement bug in enip/write.go.
+1 chunk + close: `75cbcf5`, `801a12d`. Snapshot:
+`.context/snapshots/v1.34.0-tree-wide-gosec-hygiene.md`.
 
 **v1.33 cycle (closed, snapshot available)**:
 teatest program-level integration tests for the TUI runner

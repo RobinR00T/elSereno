@@ -8,6 +8,17 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.35 (chunk 1) — **proxy listen --plugin
+  pcworx|mms|enip|s7 + recording.** Closes the v1.30
+  carryover. Wires the 4 legacy-ICS plugins (which already
+  had Recorder fields from v1.28 chunk 3 / v1.30 chunk 1)
+  as new --plugin values on `proxy listen`. New flags:
+  --intent (pcworx + mms), --cip-command (enip), --s7-fc
+  (s7). 13 dispatcher tests including the
+  TestAttachRecorder_AllSupportedHandlers invariant pin.
+  Snapshot:
+  `.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
+
 - 2026-05-03 — v1.34 (chunk 1) — **Tree-wide gosec marker
   hygiene.** Completes the b611f5c migration: 76 `//nolint:
   gosec` directives across 49 files in internal/**,
