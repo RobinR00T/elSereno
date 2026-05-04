@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.40 (chunk 1) — **`plugins ports` reverse
+  index.** Maps port → [plugins] for "which plugin claims
+  502?" lookups. Plain-text default + --json. Pin'd
+  shared-port colocation (mms + s7 on 102) in tests.
+  4 tests. Snapshot:
+  `.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
+
 - 2026-05-04 — v1.39 (chunk 1) — **`discover --hosts <file>`.**
   Natural counterpart to v1.15-chunk-2's `--auto <CIDR>`.
   Accepts one IP per line, comments + blanks + host:port-

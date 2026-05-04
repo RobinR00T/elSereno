@@ -100,6 +100,12 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.40 (plugins ports reverse index)
+
+- ✅ **`plugins ports` verb** — v1.40 chunk 1. Maps
+  port → [plugins] for "which plugin claims 502?" lookups.
+  Default plain-text + --json. 4 tests.
+
 ### v1.39 (discover --hosts <file>)
 
 - ✅ **`discover --hosts <file>`** — v1.39 chunk 1. Natural

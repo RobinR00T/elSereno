@@ -1,27 +1,31 @@
 ---
-phase: v1.39-closed
-status: v1.16-v1.27 published; v1.28-v1.39 tags pending push
+phase: v1.40-closed
+status: v1.16-v1.27 published; v1.28-v1.40 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.39 cycle closed on `main`** (1 chunk + close
-commit). Adds `discover --hosts <file>` — the natural
-counterpart to v1.15-chunk-2's `--auto <CIDR>`. Operators
-with curated host inventories (CMDB exports, asset lists)
-no longer need to expand sparse CIDRs; the new flag accepts
-one IP per line, with comments + blanks + host:port-strip
-+ IPv6 support, and sweeps the same plugin-port list
-against each.
+**Phase**: **v1.40 cycle closed on `main`** (1 chunk + close
+commit). Adds `plugins ports` reverse-index verb so
+operators can answer "which plugin claims port 502?"
+without grepping the `plugins list` output. Default output
+is plain-text "port  [plugin1 plugin2 ...]" sorted by port;
+`--json` emits the map for jq pipelines. Same-port
+collisions (port 102: mms + s7) list every claimer
+alphabetically.
 
-Snapshot: `.context/snapshots/v1.39.0-discover-hosts-list.md`.
+Snapshot: `.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
 
-**v1.39 chunks landed (in-flight)**:
-- 1 `657242d` — `--hosts` flag + `loadDiscoverHostsFile`
-  helper + `runDiscover` extracted from `newDiscoverCmd`'s
-  RunE (under funlen ceiling) + 7 tests.
+**v1.40 chunks landed (in-flight)**:
+- 1 `6cccb2c` — `newPluginsPortsCmd` + `buildPluginsByPort`
+  helper + 4 tests.
+
+**v1.39 cycle (closed, snapshot available)**:
+discover --hosts <file> for fixed-list sweeps. 1 chunk +
+close: `657242d`, `9f786a0`. Snapshot:
+`.context/snapshots/v1.39.0-discover-hosts-list.md`.
 
 **v1.38 cycle (closed, snapshot available)**:
 fingerprint capture verb (natural companion to v1.37's

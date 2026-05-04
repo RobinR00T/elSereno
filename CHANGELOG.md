@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.0] — 2026-05-04
+
+### Added
+
+- **`elsereno plugins ports`** — port → plugins reverse
+  index. Default output is plain-text "port  [plugin1
+  plugin2 ...]" sorted by port; `--json` emits the map for
+  jq pipelines. Same-port collisions (mms + s7 both on
+  port 102) list every claimer alphabetically. Useful
+  when operators see a port hit in a discovery sweep + want
+  to know which `--plugin` value to pass to `scan` /
+  `fingerprint validate`. Plugins with DefaultPort=0
+  (atmodem, banner) are skipped.
+
+### Tests
+
+`+4 tests` (cmd/elsereno/cmd_plugins_test.go):
+- BuildPluginsByPort_ColocatedPort, _SkipsZeroPort,
+  PluginsPortsCmd_TextOutput, _JSONOutput.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.39.0] — 2026-05-04
 
 ### Added
