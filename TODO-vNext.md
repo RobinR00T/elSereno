@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.38 (fingerprint capture verb)
+
+- ✅ **`elsereno fingerprint capture` verb** — v1.38
+  chunk 1. Natural companion to v1.37's `validate --file`.
+  Opens a localhost listener, accepts one connection,
+  writes drained bytes to a 0600 file. 4 tests.
+
 ### v1.37 (fingerprint validation CLI verb)
 
 - ✅ **`elsereno fingerprint validate` verb** — v1.37

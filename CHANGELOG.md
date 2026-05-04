@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.0] — 2026-05-04
+
+### Added
+
+- **`elsereno fingerprint capture` sub-verb** — natural
+  companion to v1.37's `validate --file`. Opens a localhost
+  TCP listener, accepts ONE connection, drains the client's
+  bytes via `io.ReadAll`, writes them 0600 to `--output`.
+  Operators with lab access run `capture` in one window,
+  point their PLC tool at the port, then `validate --file`
+  the resulting capture in a follow-up command. Refuses to
+  write 0-byte files (defensive against silent-junk
+  captures). Uses a context-aware Accept wrapper —
+  `net.Listener.Accept` isn't ctx-aware, we close the
+  listener on cancel to force the goroutine to return and
+  translate the "closed network connection" error to
+  ctx.Err().
+
+### Tests
+
+`+4 tests` (cmd/elsereno/cmd_fingerprint_test.go):
+- HappyPath: end-to-end fixed-port + in-process dial +
+  byte roundtrip + 0600 perms check
+- MissingOutput: required-flag rejection
+- TimeoutOnIdleListener: ctx deadline fires + no junk file
+- ClientClosesEmpty: empty client write → error
+
+Plus 2 test helpers: `waitForListenPort` (regex-based stdout
+poll) and `dialTimeout` (context-aware Dial wrapper).
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.37.0] — 2026-05-04
 
 ### Added

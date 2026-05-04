@@ -1,31 +1,34 @@
 ---
-phase: v1.37-closed
-status: v1.16-v1.27 published; v1.28-v1.37 tags pending push
+phase: v1.38-closed
+status: v1.16-v1.27 published; v1.28-v1.38 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.37 cycle closed on `main`** (1 chunk + close
-commit). Closes the v1.28 chunks 1+2 carryover that flagged
-ProConOS + GE-SRTP fingerprints as "confidence ~0.7 pending
-real-PLC validation". New `elsereno fingerprint validate`
-CLI verb spins up a localhost TCP listener that replies with
-operator-supplied bytes (--file or --hex) and drives the
-chosen plugin's Probe through it. Operators with lab access
-can now self-serve validation against captured responses
-(Wireshark / netcat / tcpdump) without needing DB / scope /
-scan-orchestration. Works for every registered plugin, not
-just proconos + gesrtp.
+**Phase**: **v1.38 cycle closed on `main`** (1 chunk + close
+commit). Adds `elsereno fingerprint capture` — the natural
+companion to v1.37's `validate --file`. Opens a localhost
+TCP listener, accepts one connection, drains the client's
+bytes, writes them 0600 to a file. Operators with lab
+access run `capture` in one window, point their PLC tool at
+the port, then `validate --file` the resulting capture in a
+follow-up command.
 
-Snapshot: `.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
+Snapshot: `.context/snapshots/v1.38.0-fingerprint-capture-verb.md`.
 
-**v1.37 chunks landed (in-flight)**:
-- 1 `cfe268c` — `cmd/elsereno/cmd_fingerprint.go` (new
-  verb) + 13 test cases. Helpers split out:
-  loadFingerprintInput / lookupPlugin /
-  driveProbeAgainstBytes / emitFingerprintFinding.
+**v1.38 chunks landed (in-flight)**:
+- 1 `9c44b82` — `newFingerprintCaptureCmd` +
+  `runFingerprintCapture` + `acceptWithCtx` helper +
+  4 tests (HappyPath, MissingOutput, TimeoutOnIdleListener,
+  ClientClosesEmpty).
+
+**v1.37 cycle (closed, snapshot available)**:
+fingerprint validation CLI verb (operator-facing harness for
+the v1.28 ProConOS + GE-SRTP confidence-0.7 carryover).
+1 chunk + close: `cfe268c`, `a2f2492`. Snapshot:
+`.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
 
 **v1.36 cycle (closed, snapshot available)**:
 Dashboard --input parity (preview endpoint). New
@@ -104,46 +107,12 @@ for the v1.16 through v1.24 chunk-level detail. They're also
 embedded in each tag's release notes on
 https://github.com/RobinR00T/elSereno/releases.
 
-**v1.21 cycle (4 chunks)**: KNXnet/IP UDP/3671 + M-Bus
-TCP/10001 + DLMS/COSEM TCP/4059 + GE-SRTP model-hint refinement.
-44 new tests. Snapshot:
-`.context/snapshots/v1.21.0-legacy-ics-trio-plus-srtp-refinement.md`.
-
-**v1.20 cycle (3 chunks)**: Legacy-ICS fingerprint trio —
-Omron FINS UDP/9600 (CONTROLLER DATA READ MRC=0x05 SRC=0x01),
-MELSEC SLMP TCP/5007 (READ CPU MODEL NAME cmd 0x0101 sub
-0x0000), GE-SRTP TCP/18245 (56-byte CONNECTION INIT mailbox
-reverse-engineered from Rapid7 NSE + Conpot fixtures). 56
-new tests.
-Snapshot: `.context/snapshots/v1.20.0-legacy-ics-fingerprint-trio.md`.
-
-**v1.19 cycle (3 chunks)**: Audit log API (`/api/v1/audit` +
-`/api/v1/audit/cadence`) + dashboard "Audit feed" panel +
-reload-cadence bar chart + CWMP TransferComplete async
-firmware re-fetch (opt-in `--verify-firmware-on-complete`,
-new `cwmp_firmware_verify` audit event, migration 00004).
-15 tests.
-Snapshot: `.context/snapshots/v1.19.0-observability-completion.md`.
-
-**v1.18 cycle (2 chunks)**: Dashboard CSV export
-(`?format=csv` on `/api/v1/findings`) + run-diff
-(`/api/v1/findings/diff?old=&new=`). 12 tests.
-
-Snapshot:
-`.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
-
-**v1.17 cycle (5 chunks)**: Token-generation cookie parity across
-all 7 offensive proxies (CWMP/SIP/Modbus/IAX2/pbxhttp/OPC UA) +
-SIGUSR1 in-process allow-file reload (`reloadableHandler`,
-`<allow-file>.token` sidecar 0600) + `proxy_allowlist_reload`
-audit event (migration 00003). 47 tests.
-Snapshot: `.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
-
-**v1.16 cycle (4 chunks)**: CWMP TransferComplete authorisation
-cross-reference + BACnet per-(type, instance) CreateObject + per-
-(op, type, instance) LSO refinements + BACnet token-generation
-cookie groundwork. 34 tests.
-Snapshot: `.context/snapshots/v1.16.0-cwmp-bacnet-refinements-and-token-generation.md`.
+**v1.16 → v1.21 cycles** (closed; per-cycle snapshots in
+`.context/snapshots/v1.<N>.0-*.md`): CWMP / BACnet
+refinements + token-generation cookies + SIGUSR1 reload +
+observability + CSV export + audit API + legacy-ICS
+fingerprint trios (FINS / SLMP / GE-SRTP / KNX / M-Bus /
+DLMS).
 
 **v1.15.0 published** on
 https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.

@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.38 (chunk 1) — **`fingerprint capture`
+  verb.** Natural companion to v1.37's `validate --file`:
+  opens a localhost TCP listener, accepts one connection,
+  drains the bytes, writes 0600. Operators capture in one
+  window, validate in another. Refuses 0-byte writes. 4
+  tests + 2 helpers (waitForListenPort, dialTimeout).
+  Snapshot:
+  `.context/snapshots/v1.38.0-fingerprint-capture-verb.md`.
+
 - 2026-05-04 — v1.37 (chunk 1) — **Fingerprint validation
   CLI verb.** Closes the v1.28-chunks-1+2 carryover. New
   `elsereno fingerprint validate --plugin <name>
