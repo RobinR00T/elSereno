@@ -42,7 +42,142 @@ func newFingerprintCmd() *cobra.Command {
 		Short: "Validate a protocol plugin's fingerprint against captured response bytes",
 	}
 	cmd.AddCommand(newFingerprintValidateCmd())
+	cmd.AddCommand(newFingerprintCaptureCmd())
 	return cmd
+}
+
+// newFingerprintCaptureCmd returns the `elsereno fingerprint
+// capture` sub-verb. v1.38+: opens a localhost TCP listener
+// for one connection, drains everything the client sends,
+// and writes the bytes to --output. The natural companion to
+// `validate --file`: capture from your lab PLC via netcat or
+// a python one-liner, then feed the file to validate.
+//
+// Workflow:
+//
+//	(window 1) elsereno fingerprint capture --listen :19999 --output cap.bin
+//	(window 2) plc-vendor-tool ... | nc -q1 lab-host 19999
+//	(window 1) wrote 124 bytes to cap.bin
+//	(window 1) elsereno fingerprint validate --plugin proconos --file cap.bin
+func newFingerprintCaptureCmd() *cobra.Command {
+	var (
+		listen     string
+		outputPath string
+		timeout    time.Duration
+	)
+	cmd := &cobra.Command{
+		Use:   "capture",
+		Short: "Capture a single TCP connection's bytes to a file",
+		Long: `Opens a localhost TCP listener, accepts one connection,
+drains everything the client sends until the client closes, and
+writes the bytes to --output. The natural companion to ` + "`validate --file`" + `:
+capture from your lab PLC, then feed the file to validate.
+
+  --listen   bind address (e.g. 127.0.0.1:19999 or :19999)
+  --output   file to write captured bytes to (created 0600)
+  --timeout  upper bound on Accept + Read (default 60s)`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFingerprintCapture(cmd.Context(), fingerprintCaptureOpts{
+				Listen:  listen,
+				Output:  outputPath,
+				Timeout: timeout,
+				Out:     cmd.OutOrStdout(),
+			})
+		},
+	}
+	cmd.Flags().StringVar(&listen, "listen", "127.0.0.1:0",
+		"bind address (e.g. 127.0.0.1:19999 or :19999); 0 → kernel-picked port (printed on bind)")
+	cmd.Flags().StringVar(&outputPath, "output", "",
+		"file to write captured bytes to (required; created 0600)")
+	cmd.Flags().DurationVar(&timeout, "timeout", 60*time.Second,
+		"upper bound on Accept + Read")
+	return cmd
+}
+
+type fingerprintCaptureOpts struct {
+	Listen  string
+	Output  string
+	Timeout time.Duration
+	Out     io.Writer
+}
+
+// runFingerprintCapture drives the listen + accept + drain
+// loop. Single connection only; closes after the client
+// closes (or timeout fires).
+func runFingerprintCapture(ctx context.Context, opts fingerprintCaptureOpts) error {
+	if opts.Output == "" {
+		return fail(core.ExitUsage, errors.New("--output is required"))
+	}
+	if opts.Timeout <= 0 {
+		opts.Timeout = 60 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", opts.Listen)
+	if err != nil {
+		return fail(core.ExitOSErr, fmt.Errorf("listen %s: %w", opts.Listen, err))
+	}
+	defer func() { _ = listener.Close() }()
+
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return fail(core.ExitSoftware,
+			fmt.Errorf("listen: addr type %T is not *net.TCPAddr", listener.Addr()))
+	}
+	_, _ = fmt.Fprintf(opts.Out, "listening on %s; waiting for one connection (timeout %s)\n",
+		tcpAddr.String(), opts.Timeout)
+
+	conn, err := acceptWithCtx(ctx, listener)
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("accept: %w", err))
+	}
+	defer func() { _ = conn.Close() }()
+	_, _ = fmt.Fprintf(opts.Out, "connected from %s; draining bytes…\n", conn.RemoteAddr())
+
+	bytes, err := io.ReadAll(conn)
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("read: %w", err))
+	}
+	if len(bytes) == 0 {
+		return fail(core.ExitError, errors.New("client closed without sending any bytes"))
+	}
+	if err := os.WriteFile(opts.Output, bytes, 0o600); err != nil {
+		return fail(core.ExitOSErr, fmt.Errorf("write %s: %w", opts.Output, err))
+	}
+	_, _ = fmt.Fprintf(opts.Out, "wrote %d bytes to %s\n", len(bytes), opts.Output)
+	return nil
+}
+
+// acceptWithCtx wraps net.Listener.Accept with ctx
+// cancellation. The standard library doesn't expose a
+// context-aware Accept, so we close the listener on ctx
+// cancel to force the goroutine to return with a friendly
+// "use of closed network connection" error which we
+// translate to ctx.Err.
+func acceptWithCtx(ctx context.Context, listener net.Listener) (net.Conn, error) {
+	type acceptResult struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan acceptResult, 1)
+	go func() {
+		c, err := listener.Accept()
+		ch <- acceptResult{conn: c, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		_ = listener.Close()
+		// drain the goroutine.
+		r := <-ch
+		if r.conn != nil {
+			_ = r.conn.Close()
+		}
+		return nil, ctx.Err()
+	case r := <-ch:
+		return r.conn, r.err
+	}
 }
 
 // newFingerprintValidateCmd is the workhorse sub-verb.

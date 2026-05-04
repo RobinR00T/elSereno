@@ -5,11 +5,46 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
+
+// waitForListenPort polls the captured stdout buffer until the
+// "listening on 127.0.0.1:NNNN" line appears, then extracts
+// the port. Tight enough to catch real regressions; generous
+// enough that slow CI runners don't false-fail.
+func waitForListenPort(t *testing.T, buf *bytes.Buffer, budget time.Duration) int {
+	t.Helper()
+	deadline := time.Now().Add(budget)
+	re := regexp.MustCompile(`listening on 127\.0\.0\.1:(\d+);`)
+	for time.Now().Before(deadline) {
+		if m := re.FindStringSubmatch(buf.String()); len(m) == 2 {
+			n, err := strconv.Atoi(m[1])
+			if err != nil {
+				t.Fatalf("port atoi: %v", err)
+			}
+			return n
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("did not see 'listening on 127.0.0.1:NNNN;' within %s. Output:\n%s",
+		budget, buf.String())
+	return 0
+}
+
+// dialTimeout is a thin context-aware net.Dial helper used by
+// the capture tests. We can't use ctx.WithTimeout directly
+// because Go's net.Dialer takes its own deadline.
+func dialTimeout(ctx context.Context, host string, port int, budget time.Duration) (net.Conn, error) {
+	d := net.Dialer{Timeout: budget}
+	return d.DialContext(ctx, "tcp", host+":"+strconv.Itoa(port))
+}
 
 // TestFingerprintValidate_HexBlob_KWBanner pins the verb's
 // happy path: KW-Software banner → capability=60.
@@ -246,6 +281,136 @@ func TestFingerprintValidate_AcrossPlugins(t *testing.T) {
 				t.Errorf("protocol = %q, want %q", got.Protocol, plugin)
 			}
 		})
+	}
+}
+
+// TestFingerprintCapture_HappyPath — fixed-port server +
+// in-process net.Dial client. Drives the full capture →
+// file → readback path.
+func TestFingerprintCapture_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "captured.bin")
+
+	// Run the capture in the background; the test client
+	// dials it once we see "connected from" in the output.
+	var out bytes.Buffer
+	captureDone := make(chan error, 1)
+	go func() {
+		captureDone <- runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
+			Listen:  "127.0.0.1:0",
+			Output:  outPath,
+			Timeout: 5 * time.Second,
+			Out:     &out,
+		})
+	}()
+
+	// Poll the captured stdout until the listening line
+	// appears, then extract the port the kernel picked.
+	port := waitForListenPort(t, &out, 2*time.Second)
+
+	conn, err := dialTimeout(t.Context(), "127.0.0.1", port, time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	want := []byte("hello-from-test-client")
+	if _, err := conn.Write(want); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_ = conn.Close()
+
+	if err := <-captureDone; err != nil {
+		t.Fatalf("capture: %v\n%s", err, out.String())
+	}
+
+	got, err := os.ReadFile(outPath) // #nosec G304 -- test-owned t.TempDir() path
+	if err != nil {
+		t.Fatalf("read captured file: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("captured = %q, want %q", got, want)
+	}
+
+	// Verify perms = 0600 (operator-private capture).
+	info, err := os.Stat(outPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		t.Errorf("perms = %v, want no group/world bits", info.Mode().Perm())
+	}
+}
+
+// TestFingerprintCapture_MissingOutput — required flag.
+func TestFingerprintCapture_MissingOutput(t *testing.T) {
+	var out bytes.Buffer
+	err := runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
+		Listen: "127.0.0.1:0",
+		Out:    &out,
+	})
+	if err == nil || !strings.Contains(err.Error(), "--output is required") {
+		t.Errorf("err = %v, want '--output is required'", err)
+	}
+}
+
+// TestFingerprintCapture_TimeoutOnIdleListener — ctx
+// timeout fires when no client connects.
+func TestFingerprintCapture_TimeoutOnIdleListener(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "x.bin")
+	var buf bytes.Buffer
+	start := time.Now()
+	err := runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
+		Listen:  "127.0.0.1:0",
+		Output:  out,
+		Timeout: 100 * time.Millisecond,
+		Out:     &buf,
+	})
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "context deadline") &&
+		!strings.Contains(err.Error(), "deadline exceeded") {
+		t.Errorf("err = %v, want context-deadline error", err)
+	}
+	// Sanity: didn't hang past the timeout by more than 1s.
+	if elapsed > time.Second {
+		t.Errorf("elapsed = %v, expected ~100ms (timeout) + overhead", elapsed)
+	}
+	// Output file should NOT exist on timeout.
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Errorf("output file unexpectedly created: %v", err)
+	}
+}
+
+// TestFingerprintCapture_ClientClosesEmpty — client opens
+// but writes nothing, then closes. Capture should refuse
+// rather than write a 0-byte file.
+func TestFingerprintCapture_ClientClosesEmpty(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "empty.bin")
+	var out bytes.Buffer
+	captureDone := make(chan error, 1)
+	go func() {
+		captureDone <- runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
+			Listen:  "127.0.0.1:0",
+			Output:  outPath,
+			Timeout: 5 * time.Second,
+			Out:     &out,
+		})
+	}()
+	port := waitForListenPort(t, &out, 2*time.Second)
+	conn, err := dialTimeout(t.Context(), "127.0.0.1", port, time.Second)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	_ = conn.Close()
+	err = <-captureDone
+	if err == nil {
+		t.Fatal("expected error on empty client write")
+	}
+	if !strings.Contains(err.Error(), "without sending any bytes") {
+		t.Errorf("err = %v, want 'without sending any bytes'", err)
 	}
 }
 
