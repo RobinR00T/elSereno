@@ -69,8 +69,12 @@ table; q quits; / filters the audit pane substring.`,
 			if err != nil {
 				return fail(core.ExitUsage, err)
 			}
+			runOpts, err := openRecordSink(args.recordPath)
+			if err != nil {
+				return fail(core.ExitOSErr, err)
+			}
 			ctx := cmd.Context()
-			if err := tui.Run(ctx, mode, feed, os.Stdout, os.Stdin); err != nil {
+			if err := tui.RunWithOpts(ctx, mode, feed, os.Stdout, os.Stdin, runOpts); err != nil {
 				return fail(core.ExitSoftware, fmt.Errorf("tui: %w", err))
 			}
 			return nil
@@ -97,6 +101,8 @@ func registerTUIFlags(cmd *cobra.Command, args *pickFeedArgs) {
 		"dashboard SSE URL to consume (e.g. https://host:8443/api/v1/stream)")
 	cmd.Flags().StringVar(&args.watchBearer, "bearer", "",
 		"Bearer token for --watch URL (required for non-loopback targets)")
+	cmd.Flags().StringVar(&args.recordPath, "record", "",
+		"v1.41+: tee every event the TUI receives onto FILE as `elsereno-tui-record/v1` NDJSON. Symmetric counterpart to --replay. Useful for screen-recording / training / forensics. File created 0600.")
 }
 
 // pickFeedArgs bundles the CLI flags pickFeed consumes so its
@@ -110,6 +116,22 @@ type pickFeedArgs struct {
 	inputKind    string
 	defaultPort  uint16
 	apiCredsFile string
+	recordPath   string // v1.41+
+}
+
+// openRecordSink resolves --record to a tui.RunOpts struct.
+// Empty path → zero-RunOpts (recording disabled). Non-empty
+// path → opens the file 0600; the runner closes it via the
+// recorder.
+func openRecordSink(path string) (tui.RunOpts, error) {
+	if path == "" {
+		return tui.RunOpts{}, nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600) // #nosec G304 -- operator-supplied --record path
+	if err != nil {
+		return tui.RunOpts{}, fmt.Errorf("--record %s: %w", path, err)
+	}
+	return tui.RunOpts{Record: f}, nil
 }
 
 // pickFeed maps the CLI flags to a tui.Feed + Mode. Mutual
