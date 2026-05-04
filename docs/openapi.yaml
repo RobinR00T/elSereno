@@ -64,6 +64,25 @@ paths:
       summary: API-level health with server timestamp.
       tags:
         - health
+  /api/v1/inputs/preview:
+    get:
+      description: 'Query params: kind=list:<path>|nmap:<path>|stdin (required), default_port=<int> (optional, host-only entries fall back here). Returns {count, targets[], truncated}; sample is capped at 200 entries. Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT in scope here — they need credentials + rate-limit tuning that the dashboard process intentionally doesn''t carry; use the CLI scan verb for those. v1.36+.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "400":
+          description: Missing kind, unsupported kind (provider kinds are rejected), or bad default_port.
+        "404":
+          description: 'list:/nmap: path doesn''t exist.'
+        "500":
+          description: Parse failure inside the underlying parser.
+      summary: Preview targets parsed from an input source (no scan).
+      tags:
+        - inputs
   /api/v1/openapi.yaml:
     get:
       responses:

@@ -80,6 +80,31 @@ func specInfo(v string) Info {
 	}
 }
 
+// inputPreviewSpecPaths returns the v1.36+ /api/v1/inputs/preview
+// path. Operators wanting to verify an input file from inside
+// the dashboard before triggering a (CLI) scan against it.
+func inputPreviewSpecPaths() []Path {
+	return []Path{
+		{URL: "/api/v1/inputs/preview", Operations: map[string]Operation{"get": {
+			Summary: "Preview targets parsed from an input source (no scan).",
+			Description: "Query params: kind=list:<path>|nmap:<path>|stdin (required), " +
+				"default_port=<int> (optional, host-only entries fall back here). " +
+				"Returns {count, targets[], truncated}; sample is capped at 200 entries. " +
+				"Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT " +
+				"in scope here — they need credentials + rate-limit tuning that the " +
+				"dashboard process intentionally doesn't carry; use the CLI scan verb " +
+				"for those. v1.36+.",
+			Tags: []string{"inputs"},
+			Responses: map[string]Response{
+				"200": {Description: "Envelope payload.", Ref: "Envelope"},
+				"400": {Description: "Missing kind, unsupported kind (provider kinds are rejected), or bad default_port."},
+				"404": {Description: "list:/nmap: path doesn't exist."},
+				"500": {Description: "Parse failure inside the underlying parser."},
+			},
+		}}},
+	}
+}
+
 // specPaths concatenates the per-group path builders. Splitting
 // by "meta" (probes + scoring + plugins + openapi), "stream", and
 // "v1.2 DB" keeps each helper under the funlen threshold AND
@@ -88,6 +113,7 @@ func specPaths() []Path {
 	paths := metaSpecPaths()
 	paths = append(paths, streamSpecPath())
 	paths = append(paths, dbSpecPaths()...)
+	paths = append(paths, inputPreviewSpecPaths()...)
 	return paths
 }
 

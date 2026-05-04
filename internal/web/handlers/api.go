@@ -55,6 +55,15 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/triage", Triage(deps.Querier))
 	mux.Handle("GET /api/v1/audit", Audit(deps.Querier))
 	mux.Handle("GET /api/v1/audit/cadence", AuditCadence(deps.Querier))
+	// v1.36+: input-preview parity with the `scan` / `tui`
+	// CLI verbs. Read-only — does NOT run a scan; just parses
+	// the input file + returns the resolved targets so
+	// operators can verify a list:/nmap: file from inside the
+	// dashboard before invoking the (CLI) scan against it.
+	// Provider kinds (shodan: / etc.) are out of scope here
+	// because they need creds + rate-limit tuning that the
+	// dashboard process intentionally doesn't carry.
+	mux.Handle("GET /api/v1/inputs/preview", PreviewInput())
 	return mux
 }
 
