@@ -1,26 +1,34 @@
 ---
-phase: v1.40-closed
-status: v1.16-v1.27 published; v1.28-v1.40 tags pending push
+phase: v1.41-closed
+status: v1.16-v1.27 published; v1.28-v1.41 tags pending push
 last-updated: 2026-05-04
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.40 cycle closed on `main`** (1 chunk + close
-commit). Adds `plugins ports` reverse-index verb so
-operators can answer "which plugin claims port 502?"
-without grepping the `plugins list` output. Default output
-is plain-text "port  [plugin1 plugin2 ...]" sorted by port;
-`--json` emits the map for jq pipelines. Same-port
-collisions (port 102: mms + s7) list every claimer
-alphabetically.
+**Phase**: **v1.41 cycle closed on `main`** (1 chunk + close
+commit). Adds `tui --record FILE.ndjson` — symmetric
+counterpart to v1.29-chunk-3's `--replay`. Tees every
+model-bound tea.Msg onto an NDJSON file for screen-
+recording / training / forensic post-mortem. New
+`elsereno-tui-record/v1` schema; type-tagged events cover
+finding / audit / scan_progress / feed_closed. Recording
+is best-effort (encode errors silenced) — the TUI never
+dies for an unwritable file.
 
-Snapshot: `.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
+Snapshot: `.context/snapshots/v1.41.0-tui-record-session.md`.
 
-**v1.40 chunks landed (in-flight)**:
-- 1 `6cccb2c` — `newPluginsPortsCmd` + `buildPluginsByPort`
-  helper + 4 tests.
+**v1.41 chunks landed (in-flight)**:
+- 1 `0b1a5df` — `internal/tui/recorder.go` (new) +
+  `RunOpts` + `RunWithOpts(...)` (Run preserved as
+  back-compat shim) + cmd_tui --record flag + 8 tests.
+
+**v1.40 cycle (closed, snapshot available)**:
+plugins ports reverse-index verb. Default plain-text +
+--json. Pin'd shared-port colocation (mms + s7 on 102) in
+tests. 1 chunk + close: `6cccb2c`, `91cc83a`. Snapshot:
+`.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
 
 **v1.39 cycle (closed, snapshot available)**:
 discover --hosts <file> for fixed-list sweeps. 1 chunk +

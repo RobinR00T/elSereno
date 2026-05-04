@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.41 (tui --record session capture)
+
+- ✅ **`tui --record FILE.ndjson`** — v1.41 chunk 1.
+  Symmetric counterpart to v1.29-chunk-3's --replay. Tees
+  every model-bound tea.Msg onto a 0600 NDJSON file
+  (`elsereno-tui-record/v1` schema). Best-effort. 8 tests.
+
 ### v1.40 (plugins ports reverse index)
 
 - ✅ **`plugins ports` verb** — v1.40 chunk 1. Maps

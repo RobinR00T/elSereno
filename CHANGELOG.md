@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.41.0] — 2026-05-04
+
+### Added
+
+- **`elsereno tui --record FILE.ndjson`** — symmetric
+  counterpart to v1.29-chunk-3's `--replay`. Tees every
+  event the TUI's model receives onto a file as the
+  session runs. New `elsereno-tui-record/v1` schema with
+  type-tagged events covering finding / audit /
+  scan_progress / feed_closed. Useful for screen-recording,
+  training, forensics, or attaching exact event streams to
+  bug reports. File created 0600. Recording is best-effort:
+  encode errors are silenced so the TUI doesn't die for an
+  unwritable file.
+
+### Changed
+
+- `tui.Run(ctx, mode, feed, out, in)` is preserved as a
+  back-compat shim. The new entry point is
+  `tui.RunWithOpts(... opts RunOpts)` with `RunOpts.Record
+  io.WriteCloser`. Existing callers (incl. teatest tests)
+  keep working.
+- The feed goroutine's `FeedClosedMsg` now flows through
+  the emit shim (not directly through `prog.Send`) so the
+  close event lands in the record file. Without this the
+  operator's record would always end one event short.
+
+### Tests
+
+`+8 tests` (internal/tui/recorder_test.go):
+- Tee_FindingMsg, Tee_AuditMsg, Tee_ScanProgressMsg,
+  Tee_FeedClosedMsg, Tee_UnknownMsgPassthrough, Stats,
+  NDJSONLineFormat, Close_idempotent.
+
+### Build
+
+3-variant matrix unchanged. Mini variant unaffected
+(`//go:build !mini` keeps the recorder out of the device
+build).
+
 ## [1.40.0] — 2026-05-04
 
 ### Added

@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-04 — v1.41 (chunk 1) — **`tui --record
+  FILE.ndjson`.** Symmetric counterpart to v1.29-chunk-3's
+  --replay. Tees every model-bound tea.Msg onto an NDJSON
+  file (`elsereno-tui-record/v1` schema). Best-effort —
+  encode errors silenced so the TUI doesn't die for an
+  unwritable file. Adds `RunOpts` + `RunWithOpts` (Run
+  preserved as back-compat shim). 8 tests. Snapshot:
+  `.context/snapshots/v1.41.0-tui-record-session.md`.
+
 - 2026-05-04 — v1.40 (chunk 1) — **`plugins ports` reverse
   index.** Maps port → [plugins] for "which plugin claims
   502?" lookups. Plain-text default + --json. Pin'd
