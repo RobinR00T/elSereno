@@ -1,0 +1,54 @@
+# elsereno.yaml — operator config for the elsereno daemon
+# (serve verb). Lives at /etc/elsereno/elsereno.yaml when
+# the deb/rpm package is installed.
+#
+# Every field below has a sane default; uncomment + edit
+# only what you need. Run `elsereno doctor` to validate
+# the file before enabling the systemd unit.
+
+# Web dashboard + /api/v1.
+# web:
+#   listen: "127.0.0.1:8787"
+#   # tls is OFF by default; cookie Secure flag follows
+#   # this — when listening on loopback only, cookies are
+#   # accepted without TLS (PITF-024 trade-off).
+#   tls:
+#     enabled: false
+#     cert: ""
+#     key: ""
+
+# Postgres connection. The default below uses a local
+# socket; for remote hosts ALWAYS set tls_required: always
+# (PITF-007 enforced — non-loopback without TLS is
+# rejected at startup).
+# database:
+#   url: "postgres:///elsereno?host=/var/run/postgresql"
+#   tls_required: "auto"  # auto | always | disable
+
+# Audit log. The default file backend lives at
+# /var/lib/elsereno/audit.jsonl. SOC-scale operators
+# point this at the daemon socket from
+# `elsereno audit serve` instead.
+# audit:
+#   backend: "file"   # file | uds
+#   uds_path: "/run/elsereno/audit.sock"
+
+# readyz tail length for `elsereno audit verify` and the
+# /readyz endpoint. Operators set this to match the
+# expected event rate of their site.
+# readyz:
+#   audit_tail_entries: 1000
+
+# scope.yaml — operator authorisation document. Optional;
+# when absent, an interactive AUP acknowledgement is
+# required on every elsereno run (PITF-019).
+# scope_path: "/etc/elsereno/scope.yaml"
+
+# Scanner concurrency tuning. Defaults match the
+# scanner.New() constants: 100 concurrent targets, 1
+# concurrent probe per host (well-mannered for ICS).
+# scanner:
+#   max_concurrent_targets: 100
+#   max_concurrent_per_host: 1
+#   base_backoff: "250ms"
+#   jitter_fraction: 0.25

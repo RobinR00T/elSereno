@@ -1,0 +1,344 @@
+# Installing ElSereno
+
+ElSereno ships as a **single static binary** (Go pure-stdlib, `CGO_ENABLED=0`). It runs on **any Linux ≥ kernel 2.6.32** and **macOS ≥ 11 (Big Sur)**, both `amd64` and `arm64`. No runtime dependencies, no shared libraries to install.
+
+This document covers every supported install method, the per-platform feature matrix, and which path to pick.
+
+---
+
+## TL;DR — pick your path
+
+| Use case | Best path | OS |
+|---|---|---|
+| **SOC server / always-on dashboard** | `apt install ./elsereno_<v>_amd64.deb` (or `.rpm`) | Linux |
+| **Operator workstation, occasional scans** | Tarball into `~/bin/` | macOS or Linux |
+| **Pen-test laptop with offensive verbs** | `elsereno-offensive` package or tarball | macOS or Linux |
+| **Embedded / jump host / restricted device** | `elsereno-mini` package | Linux (typical) |
+| **Air-gapped lab / kiosk** | Tarball + `cosign verify-blob` | either |
+| **CI / build pipeline** | OCI image `ghcr.io/robinr00t/elsereno` | container |
+| **K8s / Nomad / fleet rollout** | OCI image (distroless) + manifests | container |
+
+---
+
+## Build variants
+
+ElSereno ships **three variants** in every release. Operators install the one that matches their threat model:
+
+| Variant | Build tag | Binary name | Includes | Excludes | Size (stripped) |
+|---|---|---|---|---|---|
+| **default** | (none) | `elsereno` | All read-only verbs (scan, discover, explain, triage, audit, …) + dashboard (`serve`) + TUI (`tui`) + 28 fingerprint plugins | offensive verbs (write/exploit/harvest/dial) | **23.0 MB** |
+| **offensive** | `offensive` | `elsereno-offensive` | Everything in default + writes/exploits/harvest/dial behind triple-confirm fences | nothing | **23.7 MB** |
+| **mini** | `mini` | `elsereno-mini` | Everything in default minus the dashboard + OpenAPI machinery + TUI | `serve`, `api`, `tui` (stub error → use default) | **21.3 MB** |
+
+### Which variant?
+
+- **Default** is what you want unless you have a specific reason. Read-only auditing of ICS/OT exposure. The dashboard + TUI ship here.
+- **Offensive** for authorised pen-test work. The triple-confirm fences (`--accept-writes` + `--confirm-target` + `--confirm-token` + a vault-derived audit key) prevent accidental writes; the binary still requires explicit operator opt-in for every mutation.
+- **Mini** for embedded / jump-host / restricted-device deployments where the dashboard isn't needed and a smaller binary is preferred. Excluded code = excluded attack surface.
+
+You can install **default + offensive together** on the same host (binaries have different names). Mini is mutually exclusive with the others (you'd just install one).
+
+---
+
+## Linux
+
+### deb / rpm / apk packages (recommended for Linux servers)
+
+Available since **v1.49**. Three packages per format:
+
+```sh
+# Debian / Ubuntu
+sudo apt install ./elsereno_1.49.0_amd64.deb
+# or:
+sudo dpkg -i elsereno_1.49.0_amd64.deb && sudo apt-get install -f
+
+# RHEL / CentOS / Fedora / Rocky / Alma
+sudo dnf install ./elsereno-1.49.0-1.x86_64.rpm
+# or with rpm directly:
+sudo rpm -i elsereno-1.49.0-1.x86_64.rpm
+
+# Alpine
+sudo apk add --allow-untrusted ./elsereno-1.49.0.apk
+```
+
+**Available package names**: `elsereno` (default), `elsereno-offensive`, `elsereno-mini`. They can coexist.
+
+What the deb/rpm install:
+
+| Path | Owner | Mode | Purpose |
+|---|---|---|---|
+| `/usr/bin/elsereno` (or `-offensive` / `-mini`) | root | 0755 | binary |
+| `/etc/elsereno/elsereno.yaml` | elsereno:elsereno | 0640 | config (sample, marked `noreplace`) |
+| `/etc/elsereno/` | elsereno:elsereno | 0750 | config dir |
+| `/usr/lib/systemd/system/elsereno-serve.service` | root | 0644 | dashboard daemon unit |
+| `/usr/lib/systemd/system/elsereno-audit.service` | root | 0644 | audit fan-in daemon unit |
+| `/usr/lib/tmpfiles.d/elsereno.conf` | root | 0644 | runtime + state dirs |
+| `/usr/share/doc/elsereno/` | root | 0755 | LICENSE / SECURITY / sample config |
+| `/usr/share/man/man1/elsereno.1` | root | 0644 | manpage |
+| `/var/lib/elsereno/` | elsereno:elsereno | 0750 | persistent state (audit chain, vault) |
+| `/var/log/elsereno/` | elsereno:elsereno | 0750 | logs |
+
+The `elsereno` system user + group are created on `preinstall`. Persistent state survives uninstall (`apt remove`); only `apt purge` should ever wipe `/var/lib/elsereno`.
+
+### systemd units
+
+Two units ship and are **disabled by default**:
+
+```sh
+# Dashboard + /api/v1
+sudo systemctl enable --now elsereno-serve.service
+
+# SOC fan-in audit daemon (Unix-domain socket; optional)
+sudo systemctl enable --now elsereno-audit.service
+```
+
+Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `MemoryDenyWriteExecute`, empty `CapabilityBoundingSet`, `SystemCallFilter=@system-service ~@mount @swap @reboot @debug @cpu-emulation`, `SystemCallArchitectures=native`. The daemon doesn't need any capabilities — it uses Go's `net` package for IO.
+
+### Tarball install (any Linux, no root)
+
+```sh
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_linux_amd64.tar.gz
+tar -xzf elsereno_1.49.0_linux_amd64.tar.gz
+sudo mv elsereno /usr/local/bin/
+elsereno doctor
+```
+
+For air-gapped / paranoid:
+
+```sh
+# Verify checksum
+sha256sum -c checksums.txt
+# Verify cosign signature (sigstore keyless)
+cosign verify-blob \
+  --bundle checksums.txt.bundle \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+  checksums.txt
+# Verify SBOM (CycloneDX)
+syft scan elsereno -o cyclonedx-json | diff - elsereno_1.49.0_linux_amd64.tar.gz.cyclonedx.json
+```
+
+### OCI image
+
+```sh
+docker run --rm -p 8787:8787 \
+  -v /etc/elsereno:/etc/elsereno:ro \
+  -v elsereno-state:/var/lib/elsereno \
+  ghcr.io/robinr00t/elsereno:1.49.0 serve
+```
+
+The image is **distroless** (`gcr.io/distroless/static-debian12:nonroot`). No shell, no package manager, no SUID binaries. Image is signed (cosign keyless) and ships a CycloneDX SBOM as an OCI referrer:
+
+```sh
+cosign verify ghcr.io/robinr00t/elsereno:1.49.0 \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+cosign download sbom ghcr.io/robinr00t/elsereno:1.49.0
+```
+
+---
+
+## macOS
+
+### Tarball install (no Homebrew yet)
+
+```sh
+# Apple Silicon
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_darwin_arm64.tar.gz
+tar -xzf elsereno_1.49.0_darwin_arm64.tar.gz
+sudo mv elsereno /usr/local/bin/
+xattr -d com.apple.quarantine /usr/local/bin/elsereno  # if downloaded via browser
+elsereno doctor
+
+# Intel
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_darwin_amd64.tar.gz
+…
+```
+
+The binary is **not notarised** because the project doesn't ship through the Mac App Store. If you downloaded via a browser, Gatekeeper will refuse to run it the first time. Strip the quarantine xattr (above) or use Homebrew once a tap exists (planned for v1.5x).
+
+### launchd (manual; no native package yet)
+
+For "always running" on macOS, write your own launchd plist:
+
+```xml
+<!-- /Library/LaunchDaemons/dev.elsereno.serve.plist -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>           <string>dev.elsereno.serve</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/elsereno</string>
+        <string>serve</string>
+        <string>--config</string>
+        <string>/etc/elsereno/elsereno.yaml</string>
+    </array>
+    <key>RunAtLoad</key>       <true/>
+    <key>KeepAlive</key>       <true/>
+    <key>UserName</key>        <string>elsereno</string>
+    <key>StandardOutPath</key> <string>/var/log/elsereno/serve.out</string>
+    <key>StandardErrorPath</key><string>/var/log/elsereno/serve.err</string>
+</dict>
+</plist>
+```
+
+```sh
+sudo launchctl bootstrap system /Library/LaunchDaemons/dev.elsereno.serve.plist
+```
+
+### Sandbox
+
+macOS sandboxing via `sandbox_init(3)` is **not implemented** (would require breaking the pure-Go invariant via cgo; see `TODO-vNext.md`). The dial / harvest / exploit verbs degrade with a `sandbox: unavailable on darwin` warning but still run; the OS-level mitigations on macOS (TCC, hardened runtime, SIP) cover most of what the sandbox would enforce.
+
+If you need full sandbox enforcement, use the **Linux build** — seccomp-bpf is wired up for harvest + dial profiles since v1.27.
+
+### OCI image
+
+The image runs in Docker Desktop / Colima / OrbStack identically:
+
+```sh
+docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
+```
+
+---
+
+## Per-platform feature matrix
+
+| Feature | Linux | macOS | OCI image | Notes |
+|---|---|---|---|---|
+| All scan/discover/audit verbs | ✅ | ✅ | ✅ | core functionality |
+| Dashboard + TUI | ✅ | ✅ | ✅ (default tag) | TUI excluded from mini |
+| Offensive proxy listen + write/exploit | ✅ | ✅ | offensive tag image | triple-confirm fences |
+| seccomp-bpf sandbox for harvest / dial | ✅ | ❌ | ✅ | macOS gracefully degrades |
+| systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
+| deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
+| Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |
+| Cosign signature on artefacts | ✅ | ✅ | ✅ | sigstore keyless |
+| CycloneDX SBOM | ✅ | ✅ | ✅ (OCI referrer) | per-archive + per-image |
+| SLSA v1.0 build provenance | ✅ | ✅ | ✅ | GitHub Attestations API |
+
+### Linux advantages
+
+- **Native packaging** (deb/rpm/apk via nfpm). One command to install. systemd units + log rotation + tmpfiles drop-in handled.
+- **Full sandbox** via seccomp-bpf for the offensive verbs (harvest + dial).
+- **No quarantine xattr** dance.
+- **Smaller community/CI matrix to test against** — the project's CI gates Linux first.
+
+### macOS advantages
+
+- **Operator UX**: most pen-testers and SOC analysts run macOS daily; install + run without a VM.
+- **TCC + hardened runtime** as a parallel mitigation layer (no equivalent on Linux).
+- **No need for systemd** — launchd ships in the OS.
+- **Apple Silicon perf** for crypto-heavy workloads (the audit chain hashing benefits).
+
+---
+
+## Verifying the install
+
+After install, regardless of method:
+
+```sh
+elsereno doctor          # validates config + reachability + version
+elsereno legal           # required acknowledgement on first use
+elsereno version --json  # machine-readable: version, commit, date, build tags
+```
+
+`elsereno doctor` returns non-zero on any environmental issue (missing config, unreachable Postgres, vault locked, etc.) so it's safe in CI.
+
+---
+
+## Upgrading
+
+### Distro packages
+
+```sh
+sudo apt update && sudo apt install elsereno     # apt picks up the new version
+sudo systemctl restart elsereno-serve            # if the daemon was running
+```
+
+The `noreplace` flag on `/etc/elsereno/elsereno.yaml` means upgrades don't clobber operator edits — apt prompts on conflict, dnf saves to `.rpmnew`.
+
+### Tarball
+
+```sh
+sudo cp /usr/local/bin/elsereno /usr/local/bin/elsereno.bak  # rollback insurance
+sudo cp ./elsereno /usr/local/bin/elsereno
+elsereno version
+```
+
+### OCI image
+
+Pin to a specific tag in your manifest. `latest` is a convenience tag; production should pin to `1.49.0` etc.
+
+---
+
+## Uninstalling
+
+### Distro packages
+
+```sh
+sudo systemctl stop elsereno-serve elsereno-audit          # automatic on remove
+sudo apt remove elsereno         # keeps /etc, /var/lib, /var/log
+sudo apt purge elsereno          # also removes config + state (DANGER)
+```
+
+State directories are intentionally preserved on `remove` so an operator who reinstalls keeps their audit chain + vault. Use `purge` only when fully decommissioning.
+
+### Tarball
+
+```sh
+sudo rm /usr/local/bin/elsereno
+sudo rm -rf /etc/elsereno /var/lib/elsereno /var/log/elsereno   # if applicable
+```
+
+### OCI image
+
+`docker rmi ghcr.io/robinr00t/elsereno:1.49.0`. Volumes (state) survive image removal.
+
+---
+
+## Build from source
+
+ElSereno needs Go 1.25+ and `make`. No cgo, no C toolchain, no Postgres dev headers.
+
+```sh
+git clone https://github.com/RobinR00T/elSereno
+cd elSereno
+make build              # default variant only
+make build-offensive    # adds offensive
+make build-mini         # adds mini
+make ci                 # full lint + test + race + cover + fuzz + sec
+```
+
+Binaries land in `bin/`. To produce the deb/rpm/apk locally:
+
+```sh
+goreleaser release --snapshot --clean --skip=publish,docker
+ls dist/*.deb dist/*.rpm dist/*.apk
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `command not found: elsereno` | not on `$PATH` | move binary to `/usr/local/bin/` or `~/bin/` (latter must be in PATH) |
+| Gatekeeper blocks first run on macOS | quarantine xattr | `xattr -d com.apple.quarantine /path/to/elsereno` |
+| `elsereno serve` exits with `vault locked` | vault not unlocked | `elsereno vault init && elsereno vault unlock`; for unattended: stage 0600 passphrase file + set `ELSERENO_VAULT_PASSPHRASE_FILE` |
+| systemd unit refuses to start with `code=exited, status=64/USAGE` | invalid config | `elsereno doctor` to find the offending field; check `journalctl -u elsereno-serve` |
+| `permission denied` on `/run/elsereno/audit.sock` | socket dir not yet created | `systemctl restart systemd-tmpfiles-setup` or reboot; the unit's `RuntimeDirectory=` covers this on start |
+| Mini binary missing `tui` | by design | `tui` not available in mini; install the default package alongside (`elsereno tui`) or switch variants |
+| OCI image `permission denied` writing audit | distroless `nonroot` user | mount a writable volume at `/var/lib/elsereno` owned by uid 65532 |
+
+---
+
+## Reference
+
+- **Per-cycle changes**: [`CHANGELOG.md`](CHANGELOG.md)
+- **Security model**: [`SECURITY.md`](SECURITY.md)
+- **Threat model + non-goals**: [`NON-GOALS.md`](NON-GOALS.md)
+- **Operator manual**: `man elsereno` (after install) or `man/man1/elsereno.1` in the source tree
+- **Per-protocol notes**: `.context/protocols/<name>.md` in the source tree

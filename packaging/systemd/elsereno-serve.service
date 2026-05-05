@@ -1,0 +1,101 @@
+# elsereno serve — HTTP dashboard + /api/v1 daemon.
+#
+# Default-build only (the mini variant has serve as a stub).
+# This unit is shipped by the elsereno deb/rpm packages and
+# disabled by default. Enable explicitly:
+#
+#   systemctl daemon-reload
+#   systemctl enable --now elsereno-serve.service
+#
+# Pre-flight (all of these must pass before the unit will start):
+#
+#   1.  /etc/elsereno/elsereno.yaml exists with a valid `web:`
+#       section (listen, csrf_key, etc.) — see the package's
+#       sample at /usr/share/doc/elsereno/elsereno.yaml.sample.
+#   2.  Vault initialised + unlocked. The unit reads the
+#       passphrase from a 0600 file (default
+#       /etc/elsereno/vault.passphrase) — operators MUST own +
+#       chmod that file before enabling the unit. Permission
+#       enforcement happens inside the binary (PITF-032).
+#   3.  Postgres is reachable on $DATABASE_URL (set via the
+#       drop-in /etc/systemd/system/elsereno-serve.service.d/
+#       database.conf or environment file).
+#
+# Hardening rationale:
+#
+#   - User=elsereno + DynamicUser=no: the package installs a
+#     system user; logs land under /var/log/elsereno/ owned
+#     by it.
+#   - PrivateTmp + ProtectSystem=strict: the binary needs
+#     read access to /etc/elsereno + write access to
+#     /var/log/elsereno + /var/lib/elsereno. ReadWritePaths
+#     declares those explicitly; the rest of / is read-only
+#     to the unit.
+#   - NoNewPrivileges + RestrictSUIDSGID: prevent
+#     setuid-binary execution.
+#   - SystemCallFilter narrows the syscall set to "@system-
+#     service" minus a few dangerous ones the binary
+#     never needs (mount, swapon, reboot, ptrace).
+#   - CapabilityBoundingSet empty + AmbientCapabilities
+#     empty: the daemon uses only network IO via Go's net
+#     package; no capabilities required.
+
+[Unit]
+Description=ElSereno ICS/OT exposure auditor — dashboard + /api/v1
+Documentation=https://github.com/RobinR00T/elSereno
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elsereno
+Group=elsereno
+ExecStart=/usr/bin/elsereno serve --config /etc/elsereno/elsereno.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+
+# Vault passphrase plumbing — operator chmods this 0600 +
+# overrides via a drop-in if their layout differs.
+Environment=ELSERENO_VAULT_PASSPHRASE_FILE=/etc/elsereno/vault.passphrase
+EnvironmentFile=-/etc/elsereno/elsereno.env
+
+# Filesystem
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/elsereno
+ReadWritePaths=/var/log/elsereno /var/lib/elsereno
+WorkingDirectory=/var/lib/elsereno
+
+# Process / namespace hardening
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Capabilities — none required
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Syscall filter
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @swap @reboot @debug @cpu-emulation
+SystemCallArchitectures=native
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

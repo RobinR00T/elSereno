@@ -101,6 +101,137 @@ archives:
       - NON-GOALS.md
       - man/man1/elsereno.1
 
+# v1.49: distro-native packages (deb / rpm / apk). Lets
+# operators install via `apt install ./elsereno_<ver>.deb`
+# or `dnf install ./elsereno-<ver>.rpm` instead of dropping
+# the static binary into /usr/local/bin by hand.
+#
+# Three packages per (arch, format):
+#   - elsereno          (default-build binary; SOC use case)
+#   - elsereno-offensive (operator pen-test build; pulls in
+#     the same systemd units but the binary is /usr/bin/
+#     elsereno-offensive)
+#   - elsereno-mini     (device deployment; no systemd unit
+#     because mini's `serve` is a stub)
+#
+# All three install:
+#   /usr/share/doc/elsereno/elsereno.yaml.sample
+#   /etc/elsereno/elsereno.yaml         (config sample, 0640)
+#   man pages
+#   shell completions
+#
+# Default + offensive additionally install:
+#   /usr/lib/systemd/system/elsereno-serve.service
+#   /usr/lib/systemd/system/elsereno-audit.service
+#   /usr/lib/tmpfiles.d/elsereno.conf
+nfpms:
+  - id: elsereno-default
+    package_name: elsereno
+    ids: [elsereno-default]
+    vendor: ElSereno
+    homepage: https://github.com/RobinR00T/elSereno
+    maintainer: ElSereno maintainers <noreply@elsereno.dev>
+    description: |-
+      ICS/OT legacy exposure auditor — fingerprinter,
+      scanner, dashboard, and HTTP API. Default
+      (read-only) build. The offensive variant ships
+      writes / exploits / harvest / dial behind triple-
+      confirm fences in a separate package
+      (elsereno-offensive).
+    license: Apache-2.0
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: packaging/systemd/elsereno-serve.service
+        dst: /usr/lib/systemd/system/elsereno-serve.service
+        file_info:
+          mode: 0644
+      - src: packaging/systemd/elsereno-audit.service
+        dst: /usr/lib/systemd/system/elsereno-audit.service
+        file_info:
+          mode: 0644
+      - src: packaging/configs/elsereno.tmpfiles.conf
+        dst: /usr/lib/tmpfiles.d/elsereno.conf
+        file_info:
+          mode: 0644
+      - src: packaging/configs/elsereno.yaml.sample
+        dst: /etc/elsereno/elsereno.yaml
+        type: config|noreplace
+        file_info:
+          mode: 0640
+      - src: packaging/configs/elsereno.yaml.sample
+        dst: /usr/share/doc/elsereno/elsereno.yaml.sample
+        file_info:
+          mode: 0644
+      - src: LICENSE
+        dst: /usr/share/doc/elsereno/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/elsereno/README.md
+      - src: SECURITY.md
+        dst: /usr/share/doc/elsereno/SECURITY.md
+      - src: LEGAL.md
+        dst: /usr/share/doc/elsereno/LEGAL.md
+      - src: man/man1/elsereno.1
+        dst: /usr/share/man/man1/elsereno.1
+    scripts:
+      preinstall: packaging/scripts/preinstall.sh
+      postinstall: packaging/scripts/postinstall.sh
+      preremove: packaging/scripts/preremove.sh
+    overrides:
+      deb:
+        dependencies:
+          - libcap2-bin
+        recommends:
+          - postgresql-client
+      rpm:
+        dependencies:
+          - libcap
+
+  - id: elsereno-offensive
+    package_name: elsereno-offensive
+    ids: [elsereno-offensive]
+    vendor: ElSereno
+    homepage: https://github.com/RobinR00T/elSereno
+    maintainer: ElSereno maintainers <noreply@elsereno.dev>
+    description: |-
+      ICS/OT legacy exposure auditor — offensive build
+      (writes / exploits / harvest / dial behind triple-
+      confirm fences). Ships alongside the default
+      package; binary lives at /usr/bin/elsereno-offensive
+      so both can coexist on the same host.
+    license: Apache-2.0
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/elsereno-offensive/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/elsereno-offensive/README.md
+      - src: LEGAL.md
+        dst: /usr/share/doc/elsereno-offensive/LEGAL.md
+
+  - id: elsereno-mini
+    package_name: elsereno-mini
+    ids: [elsereno-mini]
+    vendor: ElSereno
+    homepage: https://github.com/RobinR00T/elSereno
+    maintainer: ElSereno maintainers <noreply@elsereno.dev>
+    description: |-
+      ICS/OT legacy exposure auditor — mini build for
+      device deployments. Excludes the dashboard +
+      OpenAPI + TUI to keep the binary small. No systemd
+      unit (serve is a stub in mini). Operators run
+      `elsereno-mini scan` / `discover` / `audit
+      verify-file` directly.
+    license: Apache-2.0
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/elsereno-mini/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/elsereno-mini/README.md
+
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256

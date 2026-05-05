@@ -1,0 +1,69 @@
+# elsereno audit serve — centralised single-writer audit
+# daemon over Unix domain socket.
+#
+# Pairs with the v1.26 chunk-1 audit daemon. Replaces the
+# v1.15-chunk-4 flock at SOC scale: every elsereno process
+# (scan, write, exploit, harvest, dial, proxy listen,
+# serve) connects to the daemon's UDS and the daemon is
+# the sole writer to the audit hash chain.
+#
+# Enable on a SOC host that fans audit events from many
+# operator boxes — usually colocated with serve. Single-
+# host operators don't need this; the in-process flock
+# from v1.15 covers them.
+
+[Unit]
+Description=ElSereno audit daemon (Unix-domain socket fan-in)
+Documentation=https://github.com/RobinR00T/elSereno
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elsereno
+Group=elsereno
+ExecStart=/usr/bin/elsereno audit serve --socket /run/elsereno/audit.sock --log /var/log/elsereno/audit.jsonl
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+
+# /run/elsereno is created by tmpfiles.d (see
+# packaging/configs/elsereno.tmpfiles.conf) so the
+# daemon can listen there.
+RuntimeDirectory=elsereno
+RuntimeDirectoryMode=0750
+
+# Filesystem
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/elsereno
+ReadWritePaths=/var/log/elsereno /var/lib/elsereno
+
+# Process / namespace hardening — same baseline as serve.
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @swap @reboot @debug @cpu-emulation
+SystemCallArchitectures=native
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
