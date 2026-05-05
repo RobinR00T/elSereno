@@ -7,6 +7,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/repo"
+	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/web/openapi"
 	"local/elsereno/internal/web/stream"
 )
@@ -22,6 +23,10 @@ type APIV1Deps struct {
 	Broadcaster *stream.Broadcaster
 	// Querier backs GET /api/v1/findings, /runs, /triage. Nil → 503.
 	Querier repo.Querier
+	// ScanStore backs POST/GET /api/v1/scans (v1.58 chunk 1).
+	// Nil → 503 (operator running serve without orchestration
+	// configured will see "scan orchestration unavailable").
+	ScanStore scanorch.Store
 }
 
 // APIV1 returns the /api/v1 sub-router. Endpoints:
@@ -64,6 +69,13 @@ func APIV1(deps APIV1Deps) http.Handler {
 	// because they need creds + rate-limit tuning that the
 	// dashboard process intentionally doesn't carry.
 	mux.Handle("GET /api/v1/inputs/preview", PreviewInput())
+	// v1.58 chunk 1: scan orchestration endpoints. Three
+	// handlers (POST /scans, GET /scans, GET /scans/{id}) are
+	// served by the Scans sub-router.
+	scansHandler := Scans(deps.ScanStore)
+	mux.Handle("POST /api/v1/scans", scansHandler)
+	mux.Handle("GET /api/v1/scans", scansHandler)
+	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	return mux
 }
 
