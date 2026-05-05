@@ -26,11 +26,17 @@ func TestLoad_BadProfileRejected(t *testing.T) {
 // (no seccomp, Availability.Available=false). On Linux, Load
 // actually installs the kernel filter and is exercised by the
 // sandbox_integration build — see sandbox_integration_test.go.
-// This test stays here so macOS dev machines keep the profile
-// validation path green.
+//
+// Skipped under v1.50+ darwin+cgo builds because that path
+// installs sandbox_init(3) and reports Available=true. The
+// dedicated darwin+cgo coverage lives in
+// sandbox_darwin_cgo_test.go.
 func TestLoad_ValidProfileOnNonLinux(t *testing.T) {
 	if isLinux() {
 		t.Skip("integration build covers Linux; see sandbox_integration_test.go")
+	}
+	if hasMacOSSandboxInit() {
+		t.Skip("darwin+cgo build provides sandbox_init; see sandbox_darwin_cgo_test.go")
 	}
 	res, err := Load(ProfileHarvest)
 	if err != nil {

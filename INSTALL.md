@@ -190,9 +190,20 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/dev.elsereno.serve.plist
 
 ### Sandbox
 
-macOS sandboxing via `sandbox_init(3)` is **not implemented** (would require breaking the pure-Go invariant via cgo; see `TODO-vNext.md`). The dial / harvest / exploit verbs degrade with a `sandbox: unavailable on darwin` warning but still run; the OS-level mitigations on macOS (TCC, hardened runtime, SIP) cover most of what the sandbox would enforce.
+Two build modes available since **v1.50**:
 
-If you need full sandbox enforcement, use the **Linux build** — seccomp-bpf is wired up for harvest + dial profiles since v1.27.
+| Mode | Sandbox | How to build | Trade-off |
+|------|---------|--------------|-----------|
+| **Default macOS** (release tarball) | `sandbox: unavailable on darwin` warning; offensive verbs run with OS-level mitigations only (TCC, hardened runtime, SIP) | `make build-offensive` — `CGO_ENABLED=0`, fully static | No kernel sandbox; relies on macOS OS-level controls |
+| **Sandboxed macOS** (opt-in build) | `sandbox_init(3)` enforced per-profile (.sb Scheme) for harvest/dial/exploit subprocesses | `make build-offensive-darwin-sandboxed` — `CGO_ENABLED=1` | Binary links against `libSystem.B.dylib` (SDK-version specific); not in release tarballs |
+
+The opt-in mode applies a `.sb` Scheme profile per subprocess type:
+
+  - **exploit** — full network access (the exploit IS the test) but `(deny process-exec)` so a successful RCE on the target can't pivot back to the operator's host. File writes restricted to `/tmp` + `/private/var/folders`.
+  - **harvest** — `(allow network-outbound (remote tcp))` for the harvest endpoint, but `(deny process-exec)` and file writes restricted to `/tmp` only.
+  - **dial** — `(deny network*)` (the subprocess only talks via inherited TTY/serial FDs). `(allow file-write* (subpath "/dev/tty"))` for legitimate UART config.
+
+If you need fully-static + sandboxed on macOS at the same time: not possible (Apple's sandbox API is C-only). For full sandbox enforcement on a static binary, use the **Linux build** — seccomp-bpf has been wired up for harvest + dial profiles since v1.27 and works without cgo.
 
 ### OCI image
 
@@ -211,7 +222,8 @@ docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
 | All scan/discover/audit verbs | ✅ | ✅ | ✅ | core functionality |
 | Dashboard + TUI | ✅ | ✅ | ✅ (default tag) | TUI excluded from mini |
 | Offensive proxy listen + write/exploit | ✅ | ✅ | offensive tag image | triple-confirm fences |
-| seccomp-bpf sandbox for harvest / dial | ✅ | ❌ | ✅ | macOS gracefully degrades |
+| seccomp-bpf sandbox for harvest / dial | ✅ | ❌ | ✅ | macOS uses sandbox_init via opt-in cgo build (v1.50+) |
+| macOS `sandbox_init(3)` (cgo-gated) | n/a | ✅ via `build-offensive-darwin-sandboxed` | n/a | v1.50+; NOT in release tarballs |
 | systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
 | deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
 | Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |

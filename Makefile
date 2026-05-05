@@ -20,6 +20,18 @@ build-offensive:
 	CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
 	  -tags offensive -ldflags="$(LDFLAGS)" -o bin/elsereno-offensive ./cmd/elsereno
 
+# v1.50 — opt-in macOS sandbox build. Enables CGO so
+# offensive/sandbox/sandbox_darwin_cgo.go lights up and
+# the harvest / dial / exploit subprocesses get
+# sandbox_init(3) enforcement. Trade-off: the binary is
+# no longer fully static (links against libsandbox.dylib +
+# libSystem.B.dylib). Linux operators don't use this
+# target; they get full seccomp-bpf enforcement under the
+# pure-Go build.
+build-offensive-darwin-sandboxed:
+	CGO_ENABLED=1 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
+	  -tags offensive -ldflags="$(LDFLAGS)" -o bin/elsereno-offensive-sandboxed ./cmd/elsereno
+
 # v1.29 chunk 1: mini variant for embedded / device deployments.
 # Excludes the dashboard HTTP server, the OpenAPI machinery, and
 # (post v1.29 chunks 2-5) the TUI. Same scanner / plugins / audit

@@ -1,4 +1,4 @@
-//go:build offensive && !linux
+//go:build offensive && !linux && (!darwin || !cgo)
 
 package sandbox
 
