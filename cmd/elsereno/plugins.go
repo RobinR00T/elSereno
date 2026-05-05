@@ -29,6 +29,7 @@ import (
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
 	"local/elsereno/internal/protocols/slmp"
+	"local/elsereno/internal/protocols/twincat"
 	"local/elsereno/internal/protocols/xot"
 )
 
@@ -64,4 +65,5 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: pcworx.Default().Metadata(), Factory: func() core.Protocol { return pcworx.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mms.Default().Metadata(), Factory: func() core.Protocol { return mms.Default() }})
 	core.Register(core.Plugin{PluginMetadata: proconos.Default().Metadata(), Factory: func() core.Protocol { return proconos.Default() }})
+	core.Register(core.Plugin{PluginMetadata: twincat.Default().Metadata(), Factory: func() core.Protocol { return twincat.Default() }})
 }
