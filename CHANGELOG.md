@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.60.0] — 2026-05-05
+
+### Added
+
+- **Postgres-backed scan-job Store.** Jobs survive
+  `serve` restart in production wiring. The
+  scanorch.Store interface stays unchanged; operators
+  wire either NewMemoryStore() (dev / testing) or
+  NewDBStore(pool) (production) into APIV1Deps.
+- `internal/db/migrations/00005_scan_jobs.sql` (new):
+  scan_jobs table with state CHECK enum + indices
+  on (created_at DESC) and (state).
+- `internal/scanorch/store_pg.go` (new):
+  - **Querier** interface (narrow pgx surface).
+  - **DBStore** implements Store via parameterised
+    SQL.
+  - **Atomic transition**: UPDATE ... WHERE id=$1
+    AND state IN (valid_from_states) RETURNING *.
+    Two workers racing for the same queued job:
+    at most one wins. The 0-rows disambiguator
+    follows up with a SELECT to distinguish
+    job-missing (ErrJobNotFound) vs wrong-from-
+    state (ErrInvalidTransition).
+
+### Database
+
+- **Migration 00005** adds the scan_jobs table.
+  Existing deployments must run `elsereno db migrate`
+  on upgrade. Down-migration drops the table cleanly.
+
+### Tests
+
+`+11 tests` (all in scanorch/store_pg_test.go).
+
+### Honest scope
+
+  - Integration test against dev-db pending the
+    cmd-side runner cycle (v1.61).
+  - List filtering by state / operator / time-range
+    extends the contract; not in this chunk.
+  - TTL / archival sweep for completed jobs deferred.
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged
+(scan_jobs migration ships with the default db
+migrations bundle; no install-flow change).
+
 ## [1.59.0] — 2026-05-05
 
 ### Added

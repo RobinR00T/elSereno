@@ -1,25 +1,31 @@
 ---
-phase: v1.59-closed
-status: v1.16-v1.27 published; v1.28-v1.59 tags pending push
+phase: v1.60-closed
+status: v1.16-v1.27 published; v1.28-v1.60 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.59 cycle closed on `main`** (1 chunk +
+**Phase**: **v1.60 cycle closed on `main`** (1 chunk +
 close). Continues the dashboard scan-orchestration
-feature opened in v1.58. v1.58 landed the shell
-(model + state machine + in-memory Store + REST
-submit/get/list); v1.59 lands the execution
-machinery (Worker + JobRunner + Pool + Cancel). 18
-new tests.
+feature opened in v1.58. v1.58 = shell, v1.59 =
+execution machinery, v1.60 = persistent storage.
+New `internal/db/migrations/00005_scan_jobs.sql` +
+`internal/scanorch/store_pg.go` with atomic
+UPDATE-RETURNING transitions. 11 new tests.
 
-Snapshot: `.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
+Snapshot: `.context/snapshots/v1.60.0-scan-store-postgres.md`.
 
-**v1.59 chunks landed (in-flight)**:
-- 1 `f03d099` — scanorch/worker.go + Pool + cancel
-  handler + 18 tests.
+**v1.60 chunks landed (in-flight)**:
+- 1 `b51a1be` — migrations/00005 + scanorch/store_pg.go
+  + 11 tests.
+
+**v1.59 cycle (closed, snapshot available)**:
+Scan-job Worker + JobRunner + Pool + Cancel. Builds
+on the v1.58 shell. 1 chunk + close: `f03d099`,
+`4a8a4c6`. Snapshot:
+`.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
 
 **v1.58 cycle (closed, snapshot available)**:
 Dashboard scan-orchestration shell. Closes v1.50 F.

@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.60 (Postgres-backed scan-job Store)
+
+- ✅ **Postgres-backed scan-job Store** — v1.60
+  chunk 1. Migration 00005_scan_jobs.sql +
+  DBStore with atomic UPDATE-RETURNING transitions.
+  CHECK-constrained state enum. 11 tests.
+
 ### v1.59 (Scan-job Worker + JobRunner + Pool + Cancel)
 
 - ✅ **Scan-job Worker + JobRunner + Pool + Cancel

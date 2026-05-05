@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.60 (chunk 1) — **Postgres-backed
+  scan-job Store.** Migration 00005_scan_jobs.sql +
+  DBStore with atomic UPDATE-RETURNING transitions.
+  CHECK-constrained state enum keeps SQL + Go in
+  sync. 11 tests. Snapshot:
+  `.context/snapshots/v1.60.0-scan-store-postgres.md`.
+
 - 2026-05-05 — v1.59 (chunk 1) — **Scan-job Worker +
   JobRunner + Pool + Cancel endpoint.** Builds on the
   v1.58 shell with the execution machinery (claim,
