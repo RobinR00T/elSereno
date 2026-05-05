@@ -1,28 +1,34 @@
 ---
-phase: v1.49-closed
-status: v1.16-v1.27 published; v1.28-v1.49 tags pending push
+phase: v1.50-closed
+status: v1.16-v1.27 published; v1.28-v1.50 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.49 cycle closed on `main`** (1 chunk + close
-commit). Adds Linux distribution packaging: deb/rpm/apk
-via nfpm (18 packages per release: 3 variants × 3 formats
-× 2 archs) + hardened systemd units for serve + audit
-daemon + new INSTALL.md doc covering both macOS and Linux
-install paths with feature matrix and pros/cons. Static
-linking verified (no glibc dep). New process directive:
-**every cycle updates BOTH macOS+Linux artefacts and the
-INSTALL.md / platform-specific docs** when behaviour
-changes.
+**Phase**: **v1.50 cycle closed on `main`** (1 chunk +
+close). Closes the long-running G item: macOS sandbox_init
+(3) integration. Opt-in cgo wrapper at
+offensive/sandbox/sandbox_darwin_cgo.go applies a .sb
+Scheme profile per offensive subprocess (exploit / harvest
+/ dial). Default release build keeps CGO_ENABLED=0 so the
+static-Linux invariant is preserved; new
+`make build-offensive-darwin-sandboxed` target emits the
+sandboxed macOS binary. INSTALL.md updated with the 2-
+mode table per the v1.49 standing directive.
 
-Snapshot: `.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
+Snapshot: `.context/snapshots/v1.50.0-macos-sandbox-init.md`.
 
-**v1.49 chunks landed (in-flight)**:
-- 1 `1b68b59` — packaging/{systemd,configs,scripts}/* +
-  goreleaser nfpms + INSTALL.md.
+**v1.50 chunks landed (in-flight)**:
+- 1 `5ee142e` — sandbox_darwin_cgo.go + 3 .sb profiles +
+  Makefile target + 3 tests + INSTALL.md update.
+
+**v1.49 cycle (closed, snapshot available)**:
+Linux distribution packaging — deb/rpm/apk via nfpm,
+hardened systemd units, INSTALL.md. 1 chunk + close +
+follow-up. Snapshot:
+`.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
 
 **v1.48 cycle (closed, snapshot available)**:
 proxy replay --stats summary mode + validateMutexFlags

@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.50 (chunk 1) — **macOS `sandbox_init(3)`
+  cgo-gated.** Closes the long-standing G carryover
+  ("macOS sandbox via cgo break"). Opt-in:
+  `make build-offensive-darwin-sandboxed`. Default
+  release stays pure-Go. 3 .sb Scheme profiles
+  (exploit/harvest/dial) + 3 tests + INSTALL.md update.
+  Snapshot:
+  `.context/snapshots/v1.50.0-macos-sandbox-init.md`.
+
 - 2026-05-05 — v1.49 (chunk 1) — **Linux distribution
   packaging.** deb/rpm/apk via nfpm (3 variants × 3
   formats × 2 archs = 18 packages per release).

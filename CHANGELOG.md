@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.0] — 2026-05-05
+
+### Added
+
+- **macOS `sandbox_init(3)` integration** (cgo-gated,
+  opt-in). Closes the long-standing carryover from v1.32+.
+  Adds an opt-in cgo wrapper at
+  `offensive/sandbox/sandbox_darwin_cgo.go` that applies
+  per-Profile `.sb` Scheme strings via `sandbox_init(3)`.
+  Three profiles:
+  - **exploit**: full network, deny process-exec, file
+    writes restricted to /tmp + /private/var/folders.
+  - **harvest**: network-outbound only, deny process-exec,
+    file writes to /tmp only.
+  - **dial**: deny network*, allow file-write under
+    /dev/tty + /dev/ptmx (UART config), deny process-exec.
+- **`make build-offensive-darwin-sandboxed`** target.
+  Sets `CGO_ENABLED=1` to light up the sandbox wrapper.
+  Emits `bin/elsereno-offensive-sandboxed` at ~23.2 MB.
+  NOT in release tarballs; operators who want it run
+  the make target locally.
+
+### Changed
+
+- **Default release builds keep `CGO_ENABLED=0`** —
+  static-Linux invariant unchanged, default macOS
+  binary still pure-Go with the existing "sandbox:
+  unavailable on darwin" degradation.
+- Pre-existing `TestLoad_ValidProfileOnNonLinux` skips
+  on darwin+cgo via a new `hasMacOSSandboxInit()`
+  probe.
+
+### Tests
+
+`+3 darwin-cgo tests`: DarwinProfileSchemesPresent,
+DarwinLoadInvalidProfile, DarwinAllProfilesHaveDistinctSchemes.
+
+### Build
+
+| Variant                      | v1.49     | v1.50     |
+|------------------------------|-----------|-----------|
+| default                      | 23.0 MB   | 23.0 MB   |
+| offensive                    | 23.7 MB   | 23.7 MB   |
+| mini                         | 21.3 MB   | 21.3 MB   |
+| offensive-darwin-sandboxed   | n/a       | 23.2 MB   |
+
+INSTALL.md updated with the 2-mode macOS sandbox table
+and the per-profile Scheme rationale (per the v1.49
+standing directive — every cycle updates docs when
+behaviour changes).
+
 ## [1.49.0] — 2026-05-05
 
 ### Added

@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.50 (macOS sandbox_init cgo-gated)
+
+- ✅ **macOS `sandbox_init(3)`** — v1.50 chunk 1.
+  Opt-in cgo build (default release stays pure-Go).
+  3 .sb Scheme profiles per offensive Profile.
+  3 tests + INSTALL.md update.
+
 ### v1.49 (Linux distribution packaging)
 
 - ✅ **deb/rpm/apk packages** — v1.49 chunk 1.
@@ -374,12 +381,10 @@ v1.3 → v1.33 archived to keep this file actionable.
   v1.34 chunk 1 (76 markers across 49 files; PITF-030
   enforced tree-wide).
 
-- [ ] **Sandbox para macOS via `sandbox_init(3)`** — currently
-  macOS degrades to "unavailable". A `.sb` Scheme policy
-  (no file writes outside cwd, no `exec`) is feasible IF we
-  break the pure-Go invariant via cgo to `sandbox_init`.
-  **Decisión operador**: aceptar el cgo break o quedarnos en
-  unavailable.
+- ✅ **Sandbox para macOS via `sandbox_init(3)`** — done in
+  v1.50 chunk 1 as opt-in cgo build (`make
+  build-offensive-darwin-sandboxed`). Default release
+  stays pure-Go; operators opt in for kernel sandbox.
 
 ## 🔬 Protocolos legacy todavía sin cubrir (2 restantes)
 
