@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.44.0] — 2026-05-05
+
+### Added
+
+- **`elsereno proxy replay --since RFC3339 --until RFC3339`**
+  — forensic time-window narrowing for long captures. Both
+  bounds optional and inclusive. Either side missing means
+  "no bound on that side". Microsecond precision (RFC3339Nano)
+  matches the recorder's wire format. Either-or invalid
+  format and `since > until` raise EX_USAGE with friendly
+  hints. `# window` header line announces the active bounds
+  so the operator sees what was applied.
+
+### Tests
+
+`+4 tests`: TimeWindow_ParseValid, TimeWindow_Contains,
+TimeWindow_FiltersOutput, BadSinceUsageError.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.43.0] — 2026-05-05
 
 ### Added

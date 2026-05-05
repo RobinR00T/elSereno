@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.44 (chunk 1) — **`proxy replay
+  --since/--until`** time-window forensics. RFC3339Nano
+  bounds, inclusive, optional either-side. timeWindow
+  short-circuits to true on no-flags so the cost is zero
+  for the common case. 4 tests. Snapshot:
+  `.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
+
 - 2026-05-05 — v1.43 (chunk 1) — **`tui --rate N`** for
   slow-motion playback. Plumbs the existing Rate field via
   a CLI flag. 3 tests. Snapshot:

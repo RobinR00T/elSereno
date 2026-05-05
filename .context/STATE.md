@@ -1,26 +1,32 @@
 ---
-phase: v1.43-closed
-status: v1.16-v1.27 published; v1.28-v1.43 tags pending push
+phase: v1.44-closed
+status: v1.16-v1.27 published; v1.28-v1.44 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.43 cycle closed on `main`** (1 chunk + close
-commit). Exposes the existing `feeds.Replay.Rate` /
-`feeds.Stdin.Rate` field via a `tui --rate N` CLI flag.
-Slow-motion playback for demos: a long capture paces
-itself at N events/sec instead of streaming all events
-instantly. Default 0 preserves pre-v1.43 unbounded
-behaviour. Ignored for --watch / --input / no-flag modes
-(those are live; rate-limiting them would be artificial).
+**Phase**: **v1.44 cycle closed on `main`** (1 chunk + close
+commit). Adds `--since RFC3339` / `--until RFC3339` flags
+to `proxy replay` for forensic narrowing of long captures.
+Operators investigating an incident at a known timestamp
+isolate the relevant window without piping through grep /
+jq. timeWindow.contains short-circuits to true when both
+bounds are zero so the no-flags path stays free.
 
-Snapshot: `.context/snapshots/v1.43.0-tui-rate-flag.md`.
+Snapshot: `.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
 
-**v1.43 chunks landed (in-flight)**:
-- 1 `b53d7cc` — `--rate float` flag + propagation to
-  Replay/Stdin feeds + 3 unit tests.
+**v1.44 chunks landed (in-flight)**:
+- 1 `39bf02a` — `--since/--until` flags + timeWindow type
+  + parseTimeWindow validator + 4 tests.
+- 1 follow-up `e229947` — extract runProxyReplay so
+  newProxyReplayCmd stays under funlen.
+
+**v1.43 cycle (closed, snapshot available)**:
+`tui --rate N` slow-motion playback flag. 1 chunk + close:
+`b53d7cc`, `aca8bb2`. Snapshot:
+`.context/snapshots/v1.43.0-tui-rate-flag.md`.
 
 **v1.42 cycle (closed, snapshot available)**:
 replay/record round-trip closed (feeds.Replay reads
