@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.61.0] — 2026-05-05
+
+### Added
+
+- **Real scan runner + serve --scan-store flag.**
+  Connects the v1.58/59/60 orchestration stack to
+  the existing scanner + plugin registry. Submitted
+  jobs now actually execute when serve is started
+  with `--scan-store=memory` or `--scan-store=db`.
+- `cmd/elsereno/scan_runner.go` (new):
+  defaultScanRunner implements scanorch.JobRunner.
+  Single-plugin contract for v1.61: each Job names
+  exactly one plugin (multi-plugin parallel
+  dispatch deferred). Parses Job.Input via the
+  existing parseInput dispatcher (list / nmap /
+  stdin / providers), looks up the plugin, dispatches
+  via internal/scanner.Run.
+- New flags on `elsereno serve`:
+  - `--scan-store {off|memory|db}` (default off).
+  - `--scan-pool N` (default 2, clamped [1, 64]).
+- web.Options gains a ScanStore field threaded
+  through to APIV1Deps.
+
+### Changed
+
+- cmd_serve refactored: extracted
+  buildScanOrchestrator, buildWebOptions, and
+  startAuditTail helpers to keep runServe under the
+  gocyclo 15-branch ceiling.
+
+### Tests
+
+`+7 tests` (all in cmd/elsereno/scan_runner_test.go).
+
+### Documentation
+
+- INSTALL.md: new "Scan orchestration (v1.58+)"
+  section. Documents both --scan-store modes + curl
+  example + explicit Linux/macOS parity note (per
+  v1.49 standing directive).
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.60.0] — 2026-05-05
 
 ### Added

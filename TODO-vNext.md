@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.61 (Real scan runner + serve --scan-store flag)
+
+- ✅ **Real scan runner + serve --scan-store flag** —
+  v1.61 chunk 1. defaultScanRunner connects v1.58
+  orchestration to the existing scanner + plugin
+  registry. Single-plugin contract; multi-plugin
+  deferred. INSTALL.md gains "Scan orchestration"
+  section. 7 tests.
+
 ### v1.60 (Postgres-backed scan-job Store)
 
 - ✅ **Postgres-backed scan-job Store** — v1.60

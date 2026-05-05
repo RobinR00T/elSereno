@@ -1,30 +1,41 @@
 ---
-phase: v1.60-closed
-status: v1.16-v1.27 published; v1.28-v1.60 tags pending push
+phase: v1.61-closed
+status: v1.16-v1.27 published; v1.28-v1.61 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.60 cycle closed on `main`** (1 chunk +
-close). Continues the dashboard scan-orchestration
-feature opened in v1.58. v1.58 = shell, v1.59 =
-execution machinery, v1.60 = persistent storage.
-New `internal/db/migrations/00005_scan_jobs.sql` +
-`internal/scanorch/store_pg.go` with atomic
-UPDATE-RETURNING transitions. 11 new tests.
+**Phase**: **v1.61 cycle closed on `main`** (1 chunk +
+close). Connects the v1.58/59/60 orchestration stack
+to the existing scanner + plugin registry. Submitted
+jobs now actually execute. New
+`cmd/elsereno/scan_runner.go` (defaultScanRunner) +
+`--scan-store {off|memory|db}` + `--scan-pool` flags
+on `serve`. INSTALL.md gains "Scan orchestration"
+section. 7 new tests.
 
-Snapshot: `.context/snapshots/v1.60.0-scan-store-postgres.md`.
+The dashboard scan-orchestration cycle (v1.58 shell
++ v1.59 worker + v1.60 DB store + v1.61 real runner)
+is structurally complete: an operator can curl the
+endpoints and submitted jobs run end-to-end against
+real plugins.
 
-**v1.60 chunks landed (in-flight)**:
-- 1 `b51a1be` — migrations/00005 + scanorch/store_pg.go
-  + 11 tests.
+Snapshot: `.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
+
+**v1.61 chunks landed (in-flight)**:
+- 1 `08238d1` — scan_runner.go + cmd_serve flags +
+  web.Options.ScanStore + INSTALL.md + 7 tests.
+
+**v1.60 cycle (closed, snapshot available)**:
+Postgres-backed scan-job Store. 1 chunk + close:
+`b51a1be`, `cd2e2de`. Snapshot:
+`.context/snapshots/v1.60.0-scan-store-postgres.md`.
 
 **v1.59 cycle (closed, snapshot available)**:
-Scan-job Worker + JobRunner + Pool + Cancel. Builds
-on the v1.58 shell. 1 chunk + close: `f03d099`,
-`4a8a4c6`. Snapshot:
+Scan-job Worker + JobRunner + Pool + Cancel. 1
+chunk + close: `f03d099`, `4a8a4c6`. Snapshot:
 `.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
 
 **v1.58 cycle (closed, snapshot available)**:

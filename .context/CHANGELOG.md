@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.61 (chunk 1) — **Real scan runner +
+  serve --scan-store flag.** Connects v1.58/59/60 to
+  the existing scanner + plugin registry. Single-
+  plugin contract; multi-plugin deferred. INSTALL.md
+  gains "Scan orchestration" section. 7 tests.
+  Snapshot:
+  `.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
+
 - 2026-05-05 — v1.60 (chunk 1) — **Postgres-backed
   scan-job Store.** Migration 00005_scan_jobs.sql +
   DBStore with atomic UPDATE-RETURNING transitions.
