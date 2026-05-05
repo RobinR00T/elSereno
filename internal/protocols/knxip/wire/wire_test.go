@@ -14,7 +14,7 @@ func TestBuildDescriptionRequestLayout(t *testing.T) {
 	got := wire.BuildDescriptionRequest()
 	want := []byte{
 		0x06, 0x10, // header: len, version
-		0x02, 0x04, // service type DESCRIPTION_REQUEST
+		0x02, 0x03, // service type DESCRIPTION_REQUEST
 		0x00, 0x0E, // total length 14
 		0x08, 0x01, // HPAI: len 8, UDP
 		0x00, 0x00, 0x00, 0x00, // anonymous IP
@@ -132,7 +132,7 @@ func TestIsDescriptionResponseTrueOnly(t *testing.T) {
 	short := make([]byte, 59)
 	short[0] = 0x06
 	short[1] = 0x10
-	binary.BigEndian.PutUint16(short[2:4], 0x0205)
+	binary.BigEndian.PutUint16(short[2:4], 0x0204)
 	if wire.IsDescriptionResponse(short) {
 		t.Fatalf("59-byte buffer too short")
 	}
@@ -146,7 +146,7 @@ func buildResp(friendlyName string) []byte {
 	resp := make([]byte, 60)
 	resp[0] = 0x06
 	resp[1] = 0x10
-	binary.BigEndian.PutUint16(resp[2:4], 0x0205) // DESCRIPTION_RESPONSE
+	binary.BigEndian.PutUint16(resp[2:4], 0x0204) // DESCRIPTION_RESPONSE
 	binary.BigEndian.PutUint16(resp[4:6], 60)
 	resp[6] = 0x36 // device-info DIB length: 54
 	resp[7] = 0x01 // DIB type: device info

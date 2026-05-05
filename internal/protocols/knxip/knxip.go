@@ -109,7 +109,7 @@ func classifyParseError(err error, n int) string {
 	case errors.Is(err, wire.ErrBadHeader):
 		return "KNX header bytes wrong (not 0x06 0x10)"
 	case errors.Is(err, wire.ErrNotResponse):
-		return "KNX service-type not 0x0205 (DESCRIPTION_RESPONSE)"
+		return "KNX service-type not 0x0204 (DESCRIPTION_RESPONSE)"
 	case errors.Is(err, wire.ErrLengthMismatch):
 		return "KNX total-length disagreement"
 	case errors.Is(err, wire.ErrMissingDeviceInfoDIB):

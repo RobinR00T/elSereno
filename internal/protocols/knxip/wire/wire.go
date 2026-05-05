@@ -4,9 +4,9 @@
 // CONNECT, DESCRIPTION, SEARCH, DEVICE MANAGEMENT.
 //
 // This package implements ONLY the request builder + response
-// parser for **DESCRIPTION_REQUEST** (service type 0x0204) — the
+// parser for **DESCRIPTION_REQUEST** (service type 0x0203) — the
 // canonical "describe yourself" query. The DESCRIPTION_RESPONSE
-// (0x0205) carries a Device Hardware DIB (device info block) +
+// (0x0204) carries a Device Hardware DIB (device info block) +
 // Supported Service Families DIB; the device hardware DIB has
 // the 30-byte ASCII friendly name + KNX Address + KNX serial
 // number + KNX MAC address + multicast address + project
@@ -37,11 +37,14 @@ const (
 	ProtocolVersion10 byte = 0x10
 
 	// ServiceTypeDescriptionRequest is the "describe yourself"
-	// request (0x0204).
-	ServiceTypeDescriptionRequest uint16 = 0x0204
+	// request (0x0203). Per KNX Standard 03.08.02 §4.1 (corrected
+	// in v1.55 — v1.21 chunk 1 had this mis-set to 0x0204 which
+	// would have failed against real KNX hardware).
+	ServiceTypeDescriptionRequest uint16 = 0x0203
 	// ServiceTypeDescriptionResponse is the matching response
-	// (0x0205).
-	ServiceTypeDescriptionResponse uint16 = 0x0205
+	// (0x0204). Corrected from the v1.21 chunk-1 0x0205 value
+	// in v1.55 to match the KNX Standard.
+	ServiceTypeDescriptionResponse uint16 = 0x0204
 
 	// HPAILen is the canonical Host Protocol Address Information
 	// length: 1 byte struct-len + 1 byte protocol code + 4 byte
@@ -74,8 +77,8 @@ var (
 	// length) or the second is not 0x10 (protocol version 1.0).
 	ErrBadHeader = errors.New("knxip: header bytes are not 0x06 0x10")
 	// ErrNotResponse means the service-type field is not the
-	// DESCRIPTION_RESPONSE marker (0x0205).
-	ErrNotResponse = errors.New("knxip: service type is not 0x0205 (DESCRIPTION_RESPONSE)")
+	// DESCRIPTION_RESPONSE marker (0x0204).
+	ErrNotResponse = errors.New("knxip: service type is not 0x0204 (DESCRIPTION_RESPONSE)")
 	// ErrLengthMismatch means the TotalLength field disagrees
 	// with the actual frame size.
 	ErrLengthMismatch = errors.New("knxip: total-length field disagrees with frame size")
@@ -113,7 +116,7 @@ type DeviceInfo struct {
 //
 // Frame breakdown:
 //
-//	06 10 02 04 00 0E              ← header: len, version, svc, total
+//	06 10 02 03 00 0E              ← header: len, version, svc, total
 //	08 01 00 00 00 00 00 00         ← control HPAI: 0.0.0.0:0
 func BuildDescriptionRequest() []byte {
 	frame := make([]byte, DescriptionRequestLen)
@@ -134,7 +137,7 @@ func BuildDescriptionRequest() []byte {
 //
 // Wire shape (success):
 //
-//	0..5    KNXnet/IP header (svc 0x0205)
+//	0..5    KNXnet/IP header (svc 0x0204)
 //	6       Device-info DIB length (0x36 = 54 bytes)
 //	7       DIB type (0x01 = Device Hardware)
 //	8       KNX Medium
@@ -185,7 +188,7 @@ func trimASCII(b []byte) string {
 
 // IsDescriptionResponse returns true iff the buffer looks like a
 // KNXnet/IP DESCRIPTION_RESPONSE: 60-byte minimum, header bytes
-// 0x06 0x10, service type 0x0205. Useful for the "responded but
+// 0x06 0x10, service type 0x0204. Useful for the "responded but
 // not the description shape" branch.
 func IsDescriptionResponse(buf []byte) bool {
 	if len(buf) < DescriptionResponseMinLen {

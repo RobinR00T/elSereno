@@ -37,7 +37,7 @@ func TestClassifyParseError(t *testing.T) {
 	}{
 		{wire.ErrShortFrame, 12, "short KNX frame (12 bytes)"},
 		{wire.ErrBadHeader, 0, "header bytes wrong"},
-		{wire.ErrNotResponse, 0, "service-type not 0x0205"},
+		{wire.ErrNotResponse, 0, "service-type not 0x0204"},
 		{wire.ErrLengthMismatch, 0, "total-length disagreement"},
 		{wire.ErrMissingDeviceInfoDIB, 0, "missing device-info DIB"},
 		{errors.New("anything else"), 0, "parse failure"},
@@ -172,7 +172,7 @@ func buildResp(friendlyName string) []byte {
 	resp := make([]byte, 60)
 	resp[0] = 0x06
 	resp[1] = 0x10
-	binary.BigEndian.PutUint16(resp[2:4], 0x0205)
+	binary.BigEndian.PutUint16(resp[2:4], 0x0204)
 	binary.BigEndian.PutUint16(resp[4:6], 60)
 	resp[6] = 0x36
 	resp[7] = 0x01
