@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.46 (chunk 1) — **`proxy replay
+  --limit N`** caps output at N matching chunks. Applied
+  AFTER --dir/--since/--until filters. errReplay-
+  LimitReached sentinel ends the file walker early.
+  chunkPassesFilters helper extracted (gocyclo). 3 tests.
+  Snapshot:
+  `.context/snapshots/v1.46.0-proxy-replay-limit.md`.
+
 - 2026-05-05 — v1.45 (chunk 1) — **`proxy replay --json`**
   machine-readable output. One ChunkEvent per line, no
   header preamble. Composes with v1.44 filters. Side fix:

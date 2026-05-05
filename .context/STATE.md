@@ -1,27 +1,33 @@
 ---
-phase: v1.45-closed
-status: v1.16-v1.27 published; v1.28-v1.45 tags pending push
+phase: v1.46-closed
+status: v1.16-v1.27 published; v1.28-v1.46 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.45 cycle closed on `main`** (1 chunk + close
-commit). Adds `--json` flag to `proxy replay` for
-machine-readable forensic output. Each ChunkEvent emits
-as one JSON object per line; header preamble suppressed.
-Composes with v1.44's --since/--until/--dir filters. Side
-fix: dispatcher now skips the DirHeader event explicitly
-(was producing a phantom "c→u  0B" line via the
-formatter's default arrow).
+**Phase**: **v1.46 cycle closed on `main`** (1 chunk + close
+commit). Adds `--limit N` flag to `proxy replay` capping
+output at N matching chunks. Applied AFTER --dir /
+--since / --until filters so an operator picking "first
+10 c→u writes in window" gets exactly 10. errReplay-
+LimitReached sentinel ends the file walker early so
+multi-GB captures don't keep being read. New
+chunkPassesFilters helper drops runProxyReplay back under
+gocyclo's ceiling.
 
-Snapshot: `.context/snapshots/v1.45.0-proxy-replay-json.md`.
+Snapshot: `.context/snapshots/v1.46.0-proxy-replay-limit.md`.
 
-**v1.45 chunks landed (in-flight)**:
-- 1 `05c96a5` — `--json` flag + DirHeader skip + 2 tests +
-  fix for pre-existing test that depended on the buggy
-  fall-through.
+**v1.46 chunks landed (in-flight)**:
+- 1 `95deea4` — `--limit int` flag + errReplayLimitReached
+  sentinel + chunkPassesFilters helper + 3 tests.
+
+**v1.45 cycle (closed, snapshot available)**:
+proxy replay --json + DirHeader skip side-fix. 1 chunk +
+close + STATE trim: `05c96a5`, `ab4ddb3`, `0f7e315`. Tag
+re-applied to HEAD after the trim. Snapshot:
+`.context/snapshots/v1.45.0-proxy-replay-json.md`.
 
 **v1.44 cycle (closed, snapshot available)**:
 proxy replay --since/--until time-window forensics. 1

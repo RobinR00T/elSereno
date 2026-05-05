@@ -100,6 +100,12 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.46 (proxy replay --limit)
+
+- ✅ **`proxy replay --limit N`** — v1.46 chunk 1.
+  Caps output at N matching chunks; applied after
+  --dir/--since/--until. 3 tests.
+
 ### v1.45 (proxy replay --json + DirHeader fix)
 
 - ✅ **`proxy replay --json`** — v1.45 chunk 1.

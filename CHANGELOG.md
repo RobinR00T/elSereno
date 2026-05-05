@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.0] — 2026-05-05
+
+### Added
+
+- **`elsereno proxy replay --limit N`** — caps output at
+  N matching chunks. Applied AFTER --dir / --since /
+  --until filters so "first 10 c→u writes in window"
+  gets exactly 10. Default 0 preserves pre-v1.46
+  unbounded streaming. The cap fires inside the file
+  walker (errReplayLimitReached sentinel) so multi-GB
+  captures don't keep being read.
+
+### Changed
+
+- `runProxyReplay` extracted `chunkPassesFilters` helper
+  encapsulating DirHeader skip + dir filter +
+  timeWindow.contains. Brings cyclomatic complexity back
+  under the linter ceiling as flag composition grows.
+
+### Tests
+
+`+3 tests`: LimitTruncates, LimitZeroIsNoCap,
+LimitAfterFilters.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.45.0] — 2026-05-05
 
 ### Added
