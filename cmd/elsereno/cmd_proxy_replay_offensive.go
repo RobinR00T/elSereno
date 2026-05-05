@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ type proxyReplayArgs struct {
 	hexLimit             int
 	dirFilter            string
 	sinceFlag, untilFlag string
+	jsonOut              bool // v1.45+
 }
 
 func newProxyReplayCmd() *cobra.Command {
@@ -62,6 +64,7 @@ nano accepted (microsecond precision common in captures).`,
 	cmd.Flags().StringVar(&args.dirFilter, "dir", "both", "direction: client | upstream | both")
 	cmd.Flags().StringVar(&args.sinceFlag, "since", "", "v1.44+: RFC3339 lower bound (inclusive); empty = no bound")
 	cmd.Flags().StringVar(&args.untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
+	cmd.Flags().BoolVar(&args.jsonOut, "json", false, "v1.45+: emit each chunk as one JSON object on stdout (pairs with --dir / --since / --until). Pipe to jq for machine-readable forensics.")
 	return cmd
 }
 
@@ -78,6 +81,49 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 	if err != nil {
 		return fail(core.ExitOSErr, fmt.Errorf("replay: %w", err))
 	}
+	if !args.jsonOut {
+		printReplayHeader(cmd, path, hdr, window)
+	}
+
+	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetEscapeHTML(false)
+	ctx := cmd.Context()
+	err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
+		// DirHeader is metadata that SeekHeader already
+		// surfaced via the printed preamble; in --json
+		// output we want a clean stream of chunk objects,
+		// and the legacy formatter likewise treats it as
+		// out-of-band. Either way, skip it here.
+		if ev.Dir == replay.DirHeader {
+			return nil
+		}
+		if ev.Dir == replay.DirClientToUpstream && !wantClient {
+			return nil
+		}
+		if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
+			return nil
+		}
+		if !window.contains(ev.TS) {
+			return nil
+		}
+		if args.jsonOut {
+			return enc.Encode(ev)
+		}
+		cmd.Println(formatChunk(ev, args.hexLimit))
+		return nil
+	})
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
+	}
+	return nil
+}
+
+// printReplayHeader emits the human-readable preamble.
+// Suppressed when --json is on so the operator's stdout
+// stays a clean NDJSON stream (one ChunkEvent per line)
+// for jq pipelines.
+func printReplayHeader(cmd *cobra.Command, path string, hdr replay.HeaderEvent, window timeWindow) {
 	cmd.Printf("# capture %s\n", path)
 	cmd.Printf("# protocol  %s\n", hdr.Protocol)
 	cmd.Printf("# target    %s\n", hdr.Target)
@@ -88,26 +134,6 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 			formatWindowSide(window.until, "(open)"))
 	}
 	cmd.Println()
-
-	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
-	ctx := cmd.Context()
-	err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
-		if ev.Dir == replay.DirClientToUpstream && !wantClient {
-			return nil
-		}
-		if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
-			return nil
-		}
-		if !window.contains(ev.TS) {
-			return nil
-		}
-		cmd.Println(formatChunk(ev, args.hexLimit))
-		return nil
-	})
-	if err != nil {
-		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
-	}
-	return nil
 }
 
 // timeWindow is the (since, until) pair the --since/--until

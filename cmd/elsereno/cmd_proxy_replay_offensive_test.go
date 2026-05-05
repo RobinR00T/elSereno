@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -51,7 +52,12 @@ func TestProxyReplay_RendersHeaderAndChunks(t *testing.T) {
 		"# capture " + path,
 		"# protocol  modbus",
 		"# target    10.0.0.1:502",
-		"c→u",
+		// WrapClient + Write emits a recorded event with
+		// DirUpstreamToClient (the recorder's view: writes
+		// ON the client conn = bytes the gate is sending
+		// back to the client). v1.45+ also suppresses
+		// DirHeader, so the rendered chunk arrow is u→c.
+		"u→c",
 	}
 	for _, w := range want {
 		if !strings.Contains(got, w) {
@@ -282,4 +288,94 @@ func mustTime(t *testing.T, s string) time.Time {
 		t.Fatalf("parse %q: %v", s, err)
 	}
 	return tt
+}
+
+// TestProxyReplay_JSONOutput pins the v1.45 --json shape:
+// no header lines, one JSON ChunkEvent per line.
+func TestProxyReplay_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	// WrapUpstream: writes record as DirClientToUpstream
+	// (operator writes to the upstream conn = data going
+	// from gate to upstream = client_to_upstream in capture).
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 3; i++ {
+		if _, err := uw.Write([]byte{byte(i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--json", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	// Header lines are suppressed under --json so stdout
+	// stays a clean NDJSON stream consumable by jq.
+	if strings.Contains(out.String(), "# capture") {
+		t.Errorf("--json leaked header line:\n%s", out.String())
+	}
+	// Each non-empty line must be valid JSON with a `dir` field.
+	// DirHeader is suppressed by the v1.45 dispatcher; we expect
+	// exactly the 3 chunk lines.
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d:\n%s", len(lines), out.String())
+	}
+	for i, line := range lines {
+		var ev replay.ChunkEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Errorf("line %d not valid JSON: %v\n%q", i, err, line)
+		}
+		if ev.Dir != replay.DirClientToUpstream {
+			t.Errorf("line %d dir = %q, want client_to_upstream", i, ev.Dir)
+		}
+	}
+}
+
+// TestProxyReplay_JSONOutput_RespectsFilters pins that
+// --json composes correctly with --dir.
+func TestProxyReplay_JSONOutput_RespectsFilters(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	// WrapUpstream + Write → c→u-only capture.
+	uw := rec.WrapUpstream(&blackHole{})
+	if _, err := uw.Write([]byte{0xAA}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	// --dir upstream filters out the c→u chunk we wrote.
+	// DirHeader is also suppressed by the v1.45 dispatcher
+	// so stdout should be empty.
+	cmd.SetArgs([]string{"--json", "--dir", "upstream", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := strings.TrimSpace(out.String()); got != "" {
+		t.Errorf("--json --dir upstream produced output for c→u-only capture:\n%q", got)
+	}
 }
