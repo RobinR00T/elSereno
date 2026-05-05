@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.0] — 2026-05-05
+
+### Added
+
+- **`tui --rate N`** — slow-motion playback for demos.
+  Plumbs the long-existing `feeds.Replay.Rate` /
+  `feeds.Stdin.Rate` field through a CLI flag. Useful
+  when a long capture should pace itself at N events/sec
+  for an audience instead of streaming all events
+  instantly. Default 0 preserves pre-v1.43 unbounded
+  behaviour. Ignored for `--watch` / `--input` / no-flag
+  interactive modes (those are live).
+
+### Tests
+
+`+3 tests`: ReplayPropagatesRate, StdinPropagatesRate,
+RateZeroIsUnlimited.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.42.0] — 2026-05-04
 
 ### Added

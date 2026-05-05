@@ -100,6 +100,11 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.43 (tui --rate slow playback)
+
+- ✅ **`tui --rate N`** — v1.43 chunk 1. Slow-motion
+  playback flag. 3 tests.
+
 ### v1.42 (replay/record round-trip)
 
 - ✅ **Round-trip closed** — v1.42 chunk 1. `feeds.Replay`

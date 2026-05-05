@@ -8,6 +8,11 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.43 (chunk 1) — **`tui --rate N`** for
+  slow-motion playback. Plumbs the existing Rate field via
+  a CLI flag. 3 tests. Snapshot:
+  `.context/snapshots/v1.43.0-tui-rate-flag.md`.
+
 - 2026-05-04 — v1.42 (chunk 1) — **replay/record round-trip
   closed.** `feeds.Replay` now reads both `ndjson:v1`
   (legacy scan-output) AND the v1.41

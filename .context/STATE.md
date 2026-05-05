@@ -1,28 +1,32 @@
 ---
-phase: v1.42-closed
-status: v1.16-v1.27 published; v1.28-v1.42 tags pending push
-last-updated: 2026-05-04
+phase: v1.43-closed
+status: v1.16-v1.27 published; v1.28-v1.43 tags pending push
+last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.42 cycle closed on `main`** (1 chunk + close
-commit). Closes the v1.41 carryover. `feeds.Replay` now
-reads BOTH the legacy `ndjson:v1` (scan-output) schema AND
-the new `elsereno-tui-record/v1` schema. The record/replay
-loop is closed end-to-end: `tui --record FILE.ndjson`
-captures a session, `tui --replay FILE.ndjson` plays it
-back. Dispatcher uses a 2-pass decode (schemaPeek →
-schema-specific decode) for forward-compat against future
-schema bumps.
+**Phase**: **v1.43 cycle closed on `main`** (1 chunk + close
+commit). Exposes the existing `feeds.Replay.Rate` /
+`feeds.Stdin.Rate` field via a `tui --rate N` CLI flag.
+Slow-motion playback for demos: a long capture paces
+itself at N events/sec instead of streaming all events
+instantly. Default 0 preserves pre-v1.43 unbounded
+behaviour. Ignored for --watch / --input / no-flag modes
+(those are live; rate-limiting them would be artificial).
 
-Snapshot: `.context/snapshots/v1.42.0-replay-record-roundtrip.md`.
+Snapshot: `.context/snapshots/v1.43.0-tui-rate-flag.md`.
 
-**v1.42 chunks landed (in-flight)**:
-- 1 `e42cb86` — `parseRecord` becomes a schema dispatcher
-  + `parseTUIRecord` for the v1.41 shape + 8 round-trip
-  tests including a multi-schema stream test.
+**v1.43 chunks landed (in-flight)**:
+- 1 `b53d7cc` — `--rate float` flag + propagation to
+  Replay/Stdin feeds + 3 unit tests.
+
+**v1.42 cycle (closed, snapshot available)**:
+replay/record round-trip closed (feeds.Replay reads
+elsereno-tui-record/v1). 1 chunk + close: `e42cb86`,
+`0941410`. Snapshot:
+`.context/snapshots/v1.42.0-replay-record-roundtrip.md`.
 
 **v1.41 cycle (closed, snapshot available)**:
 tui --record session capture (symmetric to v1.29-chunk-3
