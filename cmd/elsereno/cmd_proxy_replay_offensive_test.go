@@ -498,6 +498,137 @@ func TestProxyReplay_TailLargerThanCapture(t *testing.T) {
 	}
 }
 
+// TestProxyReplay_StatsSummary — v1.48: --stats prints
+// per-direction chunks/bytes + time range. We write 3
+// c→u chunks and assert the summary lines.
+func TestProxyReplay_StatsSummary(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 3; i++ {
+		// 4-byte payloads → 12 bytes total.
+		if _, err := uw.Write([]byte{0xDE, 0xAD, 0xBE, byte(0xE0 + i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--stats", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{
+		"# stats",
+		"c→u  3 chunks, 12 bytes",
+		"u→c  0 chunks, 0 bytes",
+		"tot  3 chunks, 12 bytes",
+		"range",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("--stats output missing %q\n--- output ---\n%s", want, got)
+		}
+	}
+	// --stats should NOT emit the per-chunk preamble nor
+	// any individual chunk lines.
+	if strings.Contains(got, "# capture") {
+		t.Errorf("--stats leaked '# capture' header line:\n%s", got)
+	}
+	if strings.Contains(got, "B  ") { // signature of formatChunk's "NB  hex" line
+		t.Errorf("--stats emitted per-chunk lines:\n%s", got)
+	}
+}
+
+// TestProxyReplay_StatsEmpty — when filters match nothing,
+// stats reports zero counts + a "no matching chunks" hint
+// instead of a bogus time range.
+func TestProxyReplay_StatsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	if _, err := uw.Write([]byte{0xAA}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	// --since in the future filters out all chunks.
+	cmd.SetArgs([]string{"--stats", "--since", "2099-01-01T00:00:00Z", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "tot  0 chunks") {
+		t.Errorf("--stats empty: missing 'tot  0 chunks'\n%s", got)
+	}
+	if !strings.Contains(got, "no matching chunks") {
+		t.Errorf("--stats empty: missing 'no matching chunks'\n%s", got)
+	}
+}
+
+// TestProxyReplay_StatsMutexFlags — --stats with --limit /
+// --tail / --json is operator confusion; reject each pair.
+func TestProxyReplay_StatsMutexFlags(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	cases := []struct {
+		flag, value string
+	}{
+		{"--limit", "5"},
+		{"--tail", "5"},
+		{"--json", ""},
+	}
+	for _, c := range cases {
+		cmd := newProxyReplayCmd()
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetContext(context.Background())
+		args := []string{"--stats", c.flag}
+		if c.value != "" {
+			args = append(args, c.value)
+		}
+		args = append(args, path)
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		if err == nil {
+			t.Errorf("--stats %s expected mutex error", c.flag)
+			continue
+		}
+		if !strings.Contains(err.Error(), "mutually exclusive") {
+			t.Errorf("--stats %s err = %v, want 'mutually exclusive'", c.flag, err)
+		}
+	}
+}
+
 // TestProxyReplay_TailWithLimitRejected — both flags
 // together is operator confusion; reject explicitly.
 func TestProxyReplay_TailWithLimitRejected(t *testing.T) {

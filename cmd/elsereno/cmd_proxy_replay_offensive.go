@@ -35,6 +35,7 @@ type proxyReplayArgs struct {
 	jsonOut              bool // v1.45+
 	limit                int  // v1.46+ (0 = no cap)
 	tail                 int  // v1.47+ (0 = no tail; mutually exclusive with --limit)
+	stats                bool // v1.48+ (mutually exclusive with --limit / --tail / --json)
 }
 
 func newProxyReplayCmd() *cobra.Command {
@@ -70,6 +71,7 @@ nano accepted (microsecond precision common in captures).`,
 	cmd.Flags().BoolVar(&args.jsonOut, "json", false, "v1.45+: emit each chunk as one JSON object on stdout (pairs with --dir / --since / --until). Pipe to jq for machine-readable forensics.")
 	cmd.Flags().IntVar(&args.limit, "limit", 0, "v1.46+: stop after N matching chunks (0 = no cap). Applied AFTER --dir / --since / --until / DirHeader filters so an operator picking the first 10 c→u writes in a window gets exactly 10.")
 	cmd.Flags().IntVar(&args.tail, "tail", 0, "v1.47+: emit the LAST N matching chunks instead of the first. Mutually exclusive with --limit. Buffers in memory (use --since to bound the window for huge captures).")
+	cmd.Flags().BoolVar(&args.stats, "stats", false, "v1.48+: instead of per-chunk lines, print a summary (chunks-per-direction, total bytes, time range) of the matching subset. Composes with --dir / --since / --until. Mutually exclusive with --limit / --tail / --json.")
 	return cmd
 }
 
@@ -83,8 +85,8 @@ var errReplayLimitReached = errors.New("replay: limit reached")
 // replay`. Extracted so newProxyReplayCmd stays under the
 // linter's funlen ceiling.
 func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error {
-	if args.limit > 0 && args.tail > 0 {
-		return fail(core.ExitUsage, errors.New("--limit and --tail are mutually exclusive"))
+	if err := validateMutexFlags(args); err != nil {
+		return fail(core.ExitUsage, err)
 	}
 	window, err := parseTimeWindow(args.sinceFlag, args.untilFlag)
 	if err != nil {
@@ -95,14 +97,39 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 	if err != nil {
 		return fail(core.ExitOSErr, fmt.Errorf("replay: %w", err))
 	}
-	if !args.jsonOut {
+	if !args.jsonOut && !args.stats {
 		printReplayHeader(cmd, path, hdr, window)
 	}
 
-	if args.tail > 0 {
+	switch {
+	case args.stats:
+		return runProxyReplayStats(cmd, path, args, window)
+	case args.tail > 0:
 		return runProxyReplayTail(cmd, path, args, window)
+	default:
+		return runProxyReplayStream(cmd, path, args, window)
 	}
-	return runProxyReplayStream(cmd, path, args, window)
+}
+
+// validateMutexFlags rejects combinations of presentation
+// modes (--limit / --tail / --stats / --json) that don't
+// compose meaningfully. Each error message names the
+// specific pair so the operator knows which flag to drop.
+func validateMutexFlags(args proxyReplayArgs) error {
+	if args.limit > 0 && args.tail > 0 {
+		return errors.New("--limit and --tail are mutually exclusive")
+	}
+	if args.stats {
+		switch {
+		case args.limit > 0:
+			return errors.New("--stats and --limit are mutually exclusive (stats walks every match)")
+		case args.tail > 0:
+			return errors.New("--stats and --tail are mutually exclusive (stats walks every match)")
+		case args.jsonOut:
+			return errors.New("--stats and --json are mutually exclusive (stats prints a summary, not chunk events)")
+		}
+	}
+	return nil
 }
 
 // runProxyReplayStream is the streaming-emission path —
@@ -183,6 +210,84 @@ func emitChunk(cmd *cobra.Command, enc *json.Encoder, ev replay.ChunkEvent, args
 	}
 	cmd.Println(formatChunk(ev, args.hexLimit))
 	return nil
+}
+
+// replayStats accumulates summary metrics over the
+// matching-chunk subset. Per-direction chunk count + total
+// byte count + first / last timestamp.
+type replayStats struct {
+	chunksClient int64
+	chunksUpstrm int64
+	bytesClient  int64
+	bytesUpstrm  int64
+	firstTS      time.Time
+	lastTS       time.Time
+}
+
+// observe folds one matching chunk into the stats. Caller
+// has already verified the event passed every filter.
+//
+// observe() is reached (chunkPassesFilters skips it). Only
+// DirClient/DirUpstream are reachable here; the default
+// branch would never fire.
+//
+//nolint:exhaustive // DirHeader is filtered out before
+func (s *replayStats) observe(ev replay.ChunkEvent) {
+	switch ev.Dir {
+	case replay.DirClientToUpstream:
+		s.chunksClient++
+		s.bytesClient += int64(ev.Len)
+	case replay.DirUpstreamToClient:
+		s.chunksUpstrm++
+		s.bytesUpstrm += int64(ev.Len)
+	}
+	if s.firstTS.IsZero() || ev.TS.Before(s.firstTS) {
+		s.firstTS = ev.TS
+	}
+	if ev.TS.After(s.lastTS) {
+		s.lastTS = ev.TS
+	}
+}
+
+// runProxyReplayStats walks the entire matching stream
+// and prints a summary instead of per-chunk lines.
+// Useful as a sanity check before running a full replay
+// on a multi-GB capture.
+func runProxyReplayStats(cmd *cobra.Command, path string, args proxyReplayArgs, window timeWindow) error {
+	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
+	var stats replayStats
+	ctx := cmd.Context()
+	err := replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
+		if !chunkPassesFilters(ev, wantClient, wantUpstream, window) {
+			return nil
+		}
+		stats.observe(ev)
+		return nil
+	})
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
+	}
+	printReplayStats(cmd, stats)
+	return nil
+}
+
+// printReplayStats renders the human-readable summary.
+// Direction labels mirror the chunk-line arrows for
+// continuity with the formatted output.
+func printReplayStats(cmd *cobra.Command, s replayStats) {
+	cmd.Println("# stats")
+	cmd.Printf("c→u  %d chunks, %d bytes\n", s.chunksClient, s.bytesClient)
+	cmd.Printf("u→c  %d chunks, %d bytes\n", s.chunksUpstrm, s.bytesUpstrm)
+	total := s.chunksClient + s.chunksUpstrm
+	totalBytes := s.bytesClient + s.bytesUpstrm
+	cmd.Printf("tot  %d chunks, %d bytes\n", total, totalBytes)
+	if total == 0 {
+		cmd.Println("range  (no matching chunks)")
+		return
+	}
+	cmd.Printf("range  %s — %s\n",
+		s.firstTS.UTC().Format(time.RFC3339Nano),
+		s.lastTS.UTC().Format(time.RFC3339Nano))
 }
 
 // chunkPassesFilters returns true when ev should be
