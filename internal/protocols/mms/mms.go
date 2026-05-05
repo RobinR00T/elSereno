@@ -84,7 +84,48 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if cerr != nil {
 		return buildFinding(target, classifyParseError(cerr), false), nil
 	}
+
+	// v1.51 chunk 1: after a positive COTP-CC, attempt an
+	// ACSE A-ASSOCIATE-REQUEST to bump fingerprint
+	// confidence from "MMS-compatible TSAPs" (~0.8) to
+	// "actual IEC 61850-8-1 IED" (~0.95). Any failure here
+	// (write timeout, AARE without the IEC 61850 OID,
+	// short response) falls back to the COTP-level note —
+	// the v1.25 behaviour is preserved for non-IEC 61850
+	// MMS-style servers.
+	if acseNote, ok := tryACSEAssociate(conn, p.IOTimeout); ok {
+		return buildFinding(target, acseNote, true), nil
+	}
 	return buildFinding(target, "MMS "+note, true), nil
+}
+
+// tryACSEAssociate sends an A-ASSOCIATE-REQUEST and looks
+// for the IEC 61850-8-1 OID in the response. Returns
+// (note, true) when the AARE confirms IEC 61850; (_, false)
+// otherwise. Caller falls back to COTP-level fingerprint
+// note on false.
+//
+// Wraps the AARQ in COTP DT (LI=02, type=0xF0, TPDU-nr=0x80
+// = end-of-TSDU marker) before TPKT. The conn deadline
+// already covers this exchange — operator-tunable via
+// Plugin.IOTimeout.
+func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, bool) {
+	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
+	aarq := wire.BuildACSEAssociateRequestMMS()
+	frame := make([]byte, 0, 3+len(aarq))
+	frame = append(frame, 0x02, 0xF0, 0x80) // COTP DT header
+	frame = append(frame, aarq...)
+	if err := wire.WriteTPKT(conn, frame); err != nil {
+		return "", false
+	}
+	respTPKT, err := wire.ReadTPKT(conn)
+	if err != nil {
+		return "", false
+	}
+	if err := wire.ParseACSEAssociateResponseMMS(respTPKT.Payload); err != nil {
+		return "", false
+	}
+	return "MMS ACSE associated (IEC 61850-8-1)", true
 }
 
 // REPL stub — consistent with every other protocol plugin.
