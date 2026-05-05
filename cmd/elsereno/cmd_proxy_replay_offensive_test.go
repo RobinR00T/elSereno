@@ -345,6 +345,110 @@ func TestProxyReplay_JSONOutput(t *testing.T) {
 	}
 }
 
+// TestProxyReplay_LimitTruncates pins the v1.46 --limit
+// behaviour: stops emission after N matching chunks.
+func TestProxyReplay_LimitTruncates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 10; i++ {
+		if _, err := uw.Write([]byte{byte(i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--json", "--limit", "3", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Errorf("--limit 3 produced %d lines:\n%s", len(lines), out.String())
+	}
+}
+
+// TestProxyReplay_LimitZeroIsNoCap — the default flag
+// value 0 disables the cap; all matching chunks emit.
+func TestProxyReplay_LimitZeroIsNoCap(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 5; i++ {
+		if _, err := uw.Write([]byte{byte(i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--json", path}) // no --limit
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 5 {
+		t.Errorf("default --limit 0 produced %d lines, want 5:\n%s", len(lines), out.String())
+	}
+}
+
+// TestProxyReplay_LimitAfterFilters — pin that --limit
+// counts chunks that PASS --dir / --since / --until, not
+// raw events. Operator picking the first 2 client→upstream
+// writes in a window gets exactly 2.
+func TestProxyReplay_LimitAfterFilters(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	// 3 writes via WrapUpstream → 3 c→u chunks.
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 3; i++ {
+		if _, err := uw.Write([]byte{byte(i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	// --dir client narrows to c→u (3 matches), --limit 2 caps at 2.
+	cmd.SetArgs([]string{"--json", "--dir", "client", "--limit", "2", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Errorf("--limit 2 with --dir client produced %d lines:\n%s", len(lines), out.String())
+	}
+}
+
 // TestProxyReplay_JSONOutput_RespectsFilters pins that
 // --json composes correctly with --dir.
 func TestProxyReplay_JSONOutput_RespectsFilters(t *testing.T) {

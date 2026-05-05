@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ type proxyReplayArgs struct {
 	dirFilter            string
 	sinceFlag, untilFlag string
 	jsonOut              bool // v1.45+
+	limit                int  // v1.46+ (0 = no cap)
 }
 
 func newProxyReplayCmd() *cobra.Command {
@@ -65,8 +67,15 @@ nano accepted (microsecond precision common in captures).`,
 	cmd.Flags().StringVar(&args.sinceFlag, "since", "", "v1.44+: RFC3339 lower bound (inclusive); empty = no bound")
 	cmd.Flags().StringVar(&args.untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
 	cmd.Flags().BoolVar(&args.jsonOut, "json", false, "v1.45+: emit each chunk as one JSON object on stdout (pairs with --dir / --since / --until). Pipe to jq for machine-readable forensics.")
+	cmd.Flags().IntVar(&args.limit, "limit", 0, "v1.46+: stop after N matching chunks (0 = no cap). Applied AFTER --dir / --since / --until / DirHeader filters so an operator picking the first 10 c→u writes in a window gets exactly 10.")
 	return cmd
 }
+
+// errReplayLimitReached is the sentinel the replay
+// callback returns when --limit N has been satisfied. The
+// dispatcher catches it and ends iteration cleanly without
+// surfacing a noisy error to the operator.
+var errReplayLimitReached = errors.New("replay: limit reached")
 
 // runProxyReplay is the RunE body for `elsereno proxy
 // replay`. Extracted so newProxyReplayCmd stays under the
@@ -89,34 +98,54 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	enc.SetEscapeHTML(false)
 	ctx := cmd.Context()
+	emitted := 0
 	err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
-		// DirHeader is metadata that SeekHeader already
-		// surfaced via the printed preamble; in --json
-		// output we want a clean stream of chunk objects,
-		// and the legacy formatter likewise treats it as
-		// out-of-band. Either way, skip it here.
-		if ev.Dir == replay.DirHeader {
-			return nil
-		}
-		if ev.Dir == replay.DirClientToUpstream && !wantClient {
-			return nil
-		}
-		if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
-			return nil
-		}
-		if !window.contains(ev.TS) {
+		if !chunkPassesFilters(ev, wantClient, wantUpstream, window) {
 			return nil
 		}
 		if args.jsonOut {
-			return enc.Encode(ev)
+			if err := enc.Encode(ev); err != nil {
+				return err
+			}
+		} else {
+			cmd.Println(formatChunk(ev, args.hexLimit))
 		}
-		cmd.Println(formatChunk(ev, args.hexLimit))
+		emitted++
+		if args.limit > 0 && emitted >= args.limit {
+			return errReplayLimitReached
+		}
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errReplayLimitReached) {
 		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
 	}
 	return nil
+}
+
+// chunkPassesFilters returns true when ev should be
+// rendered: it's a real chunk (not the DirHeader metadata
+// event), its direction matches the operator's --dir
+// selector, and its timestamp falls within the
+// --since/--until window.
+//
+// Pulled out of runProxyReplay so the caller stays under
+// the linter's cyclomatic-complexity ceiling as flag
+// composition grows.
+func chunkPassesFilters(ev replay.ChunkEvent, wantClient, wantUpstream bool, window timeWindow) bool {
+	// DirHeader is metadata that SeekHeader already
+	// surfaced via the printed preamble; in --json output
+	// we want a clean stream of chunk objects, and the
+	// legacy formatter likewise treats it as out-of-band.
+	if ev.Dir == replay.DirHeader {
+		return false
+	}
+	if ev.Dir == replay.DirClientToUpstream && !wantClient {
+		return false
+	}
+	if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
+		return false
+	}
+	return window.contains(ev.TS)
 }
 
 // printReplayHeader emits the human-readable preamble.
