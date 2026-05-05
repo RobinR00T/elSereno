@@ -72,55 +72,13 @@ opt-in. 1 chunk + close + STATE trim: `5ee142e`,
 `b3e4d16`, `4346d57`. Snapshot:
 `.context/snapshots/v1.50.0-macos-sandbox-init.md`.
 
-**v1.49 cycle (closed, snapshot available)**:
-Linux distribution packaging — deb/rpm/apk via nfpm,
-hardened systemd units, INSTALL.md. 1 chunk + close +
-follow-up. Snapshot:
-`.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
-
-**v1.48 cycle (closed, snapshot available)**:
-proxy replay --stats summary mode + validateMutexFlags
-consolidator. 1 chunk + close: `1834bdd`, `e9edad7`.
-Snapshot:
-`.context/snapshots/v1.48.0-proxy-replay-stats.md`.
-
-**v1.47 cycle (closed, snapshot available)**:
-proxy replay --tail N (last N matching chunks via ring
-buffer). 1 chunk + close: `3305a3d`, `b1073c3`. Snapshot:
-`.context/snapshots/v1.47.0-proxy-replay-tail.md`.
-
-**v1.46 cycle (closed, snapshot available)**:
-proxy replay --limit N + chunkPassesFilters helper. 1
-chunk + close: `95deea4`, `21cf58e`. Snapshot:
-`.context/snapshots/v1.46.0-proxy-replay-limit.md`.
-
-**v1.45 cycle (closed, snapshot available)**:
-proxy replay --json + DirHeader skip side-fix. 1 chunk +
-close + STATE trim: `05c96a5`, `ab4ddb3`, `0f7e315`. Tag
-re-applied to HEAD after the trim. Snapshot:
-`.context/snapshots/v1.45.0-proxy-replay-json.md`.
-
-**v1.44 cycle (closed, snapshot available)**:
-proxy replay --since/--until time-window forensics. 1
-chunk + close + funlen follow-up: `39bf02a`, `e229947`,
-`15f9222`. Snapshot:
-`.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
-
-**v1.43 cycle (closed, snapshot available)**:
-`tui --rate N` slow-motion playback flag. 1 chunk + close:
-`b53d7cc`, `aca8bb2`. Snapshot:
-`.context/snapshots/v1.43.0-tui-rate-flag.md`.
-
-**v1.42 cycle (closed, snapshot available)**:
-replay/record round-trip closed (feeds.Replay reads
-elsereno-tui-record/v1). 1 chunk + close: `e42cb86`,
-`0941410`. Snapshot:
-`.context/snapshots/v1.42.0-replay-record-roundtrip.md`.
-
-**v1.41 cycle (closed, snapshot available)**:
-tui --record session capture (symmetric to v1.29-chunk-3
---replay). 1 chunk + close: `0b1a5df`, `d56701f`. Snapshot:
-`.context/snapshots/v1.41.0-tui-record-session.md`.
+**v1.41 → v1.49 cycles (closed; per-cycle snapshots in
+`.context/snapshots/`):**
+record/replay forensics + Linux packaging — tui --record
+(v1.41), replay round-trip (v1.42), tui --rate (v1.43),
+proxy replay --since/--until (v1.44), --json (v1.45),
+--limit (v1.46), --tail (v1.47), --stats (v1.48). Linux
+deb/rpm/apk via nfpm + hardened systemd units (v1.49).
 
 **v1.32 → v1.40 cycles (closed; per-cycle snapshots in
 `.context/snapshots/`):**
