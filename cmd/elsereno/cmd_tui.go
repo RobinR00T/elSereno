@@ -103,6 +103,8 @@ func registerTUIFlags(cmd *cobra.Command, args *pickFeedArgs) {
 		"Bearer token for --watch URL (required for non-loopback targets)")
 	cmd.Flags().StringVar(&args.recordPath, "record", "",
 		"v1.41+: tee every event the TUI receives onto FILE as `elsereno-tui-record/v1` NDJSON. Symmetric counterpart to --replay. Useful for screen-recording / training / forensics. File created 0600.")
+	cmd.Flags().Float64Var(&args.rate, "rate", 0,
+		"v1.43+: slow-motion playback rate in events per second (only meaningful for --replay or --feed -; 0 = as fast as possible). Useful for demos where a long capture should pace itself for the audience.")
 }
 
 // pickFeedArgs bundles the CLI flags pickFeed consumes so its
@@ -116,7 +118,8 @@ type pickFeedArgs struct {
 	inputKind    string
 	defaultPort  uint16
 	apiCredsFile string
-	recordPath   string // v1.41+
+	recordPath   string  // v1.41+
+	rate         float64 // v1.43+
 }
 
 // openRecordSink resolves --record to a tui.RunOpts struct.
@@ -158,7 +161,7 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 		} else if info.IsDir() {
 			return "", nil, fmt.Errorf("tui: --replay: %s is a directory", a.replayPath)
 		}
-		return tui.ModeReplay, feeds.Replay{Path: a.replayPath}, nil
+		return tui.ModeReplay, feeds.Replay{Path: a.replayPath, Rate: a.rate}, nil
 	case hasFeed:
 		// Only `-` is supported (stdin). `--feed FILE` is
 		// redundant with `--replay FILE`; rejecting it here
@@ -167,7 +170,7 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 		if a.feedFlag != "-" {
 			return "", nil, fmt.Errorf("tui: --feed accepts only `-` (stdin); use --replay for files (got %q)", a.feedFlag)
 		}
-		return tui.ModeFeed, feeds.Stdin{In: os.Stdin}, nil
+		return tui.ModeFeed, feeds.Stdin{In: os.Stdin, Rate: a.rate}, nil
 	case hasWatch:
 		// --bearer is required for any non-loopback target;
 		// `serve` rejects unauthenticated stream subscribes.
