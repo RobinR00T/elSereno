@@ -1,28 +1,30 @@
 ---
-phase: v1.53-closed
-status: v1.16-v1.27 published; v1.28-v1.53 tags pending push
+phase: v1.54-closed
+status: v1.16-v1.27 published; v1.28-v1.54 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.53 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ B item: enip per-(class,
-instance, attribute) gating for SendRRData/SendUnitData.
-CIP MR EPATHs parsed via new
-`internal/protocols/enip/wire/epath.go`; new
-`AllowedAttribute` in `offensive/write/enip/` with 3
-match strictnesses (Exact / ClassInstance / ClassOnly).
-AllowlistHash gains attrs dimension (separator 0xF2);
-empty list preserves v1.27 hash.
+**Phase**: **v1.54 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ C item: Beckhoff TwinCAT ADS
+plugin on TCP/48898. New `internal/protocols/twincat/`
+package + wire subpackage. AMS/TCP framing + AMS
+routing header + ReadDeviceInfo (cmd 0x0001) parsed
+end-to-end. Plugin count: 28 → 29.
 
-Snapshot: `.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
+Snapshot: `.context/snapshots/v1.54.0-twincat-fingerprint.md`.
 
-**v1.53 chunks landed (in-flight)**:
-- 1 `c08edfb` — wire/epath.go + ExtractMRTarget +
-  AllowedAttribute + AllowlistHash dimension + 12 tests
-  (6 wire + 6 gate).
+**v1.54 chunks landed (in-flight)**:
+- 1 `a57777f` — wire.go + ParseDeviceInfo + Plugin +
+  Register + 8 tests.
+
+**v1.53 cycle (closed, snapshot available)**:
+enip per-(class, instance, attribute) gating for
+SendRRData/SendUnitData. AllowlistHash separator 0xF2.
+1 chunk + close: `c08edfb`, `53af788`. Snapshot:
+`.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
 
 **v1.52 cycle (closed, snapshot available)**:
 s7 per-(area, db, byte-address) gating for FuncWriteVar.

@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.0] — 2026-05-05
+
+### Added
+
+- **Beckhoff TwinCAT ADS plugin** (read-only
+  fingerprint, TCP/48898). Closes the v1.32+ C
+  carryover. Most-requested missing fingerprint since
+  v1.25 closed the legacy-ICS trio. TwinCAT runs on
+  Beckhoff CXxxxx IPCs, IPCxxxx, embedded controllers,
+  EtherCAT couplers and BC bus terminals.
+- `internal/protocols/twincat/wire/wire.go` (new):
+  AMS/TCP framing (6-byte header) + AMS routing header
+  (32-byte) + ReadDeviceInfo (cmd 0x0001) request
+  builder + response parser. 4 sentinels.
+  `BuildReadDeviceInfo(targetNetID)` constructs the
+  38-byte request frame; `ParseDeviceInfo(buf)`
+  validates framing and extracts version + 16-byte
+  NUL-padded device-name string.
+- `internal/protocols/twincat/twincat.go` (new):
+  Plugin with operator-overridable `TargetNetID`
+  (zero-value = all-zero NetID heuristic for initial
+  probes). Probe builds finding note "TwinCAT <name>
+  <major>.<minor>.<build>" (e.g. "TwinCAT TCatRouter
+  3.1.4024"). Six-factor scoring: protocol_risk 80,
+  exposure 70, auth_state 85, capability 30/70,
+  impact_class 75, cve_exposure 10. ProxyHandler is
+  fail-closed.
+
+### Tests
+
+`+8 tests` (wire frame layout pinned, version round-
+trip, NUL-padded name trim, short frame, bad AMS/TCP
+prefix, request flag set, ADS error code, length
+overflow).
+
+### Build
+
+Plugin count 28 → 29. Build sizes unchanged (default
+23.0 MB, offensive 23.7 MB, mini 21.3 MB). INSTALL.md
+unchanged (twincat is read-only fingerprint, no flags
+or runtime config exposed at install-doc level).
+
 ## [1.53.0] — 2026-05-05
 
 ### Added

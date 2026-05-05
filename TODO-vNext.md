@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.54 (Beckhoff TwinCAT ADS fingerprint)
+
+- ✅ **Beckhoff TwinCAT ADS plugin (TCP/48898)** —
+  v1.54 chunk 1. Closes the v1.32+ C carryover.
+  AMS/TCP framing + AMS routing header +
+  ReadDeviceInfo. Plugin count 28 → 29. 8 tests.
+  Most-requested missing fingerprint since v1.25.
+
 ### v1.53 (enip per-(class, instance, attribute) gating)
 
 - ✅ **enip per-(class, instance, attribute) gating** —

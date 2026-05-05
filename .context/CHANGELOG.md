@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.54 (chunk 1) — **Beckhoff TwinCAT ADS
+  fingerprint plugin (TCP/48898).** Closes v1.32+ C.
+  AMS/TCP framing + AMS routing header +
+  ReadDeviceInfo. Plugin count 28 → 29. 8 tests.
+  Snapshot:
+  `.context/snapshots/v1.54.0-twincat-fingerprint.md`.
+
 - 2026-05-05 — v1.53 (chunk 1) — **enip per-(class,
   instance, attribute) gating for SendRRData /
   SendUnitData.** Closes v1.32+ B. CIP MR EPATH parser +
