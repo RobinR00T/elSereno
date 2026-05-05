@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -130,3 +131,155 @@ func (blackHole) Write(p []byte) (int, error) { return len(p), nil }
 
 // _ keep the cobra import if any future helper drops it.
 var _ = cobra.Command{}
+
+// TestProxyReplay_TimeWindow_ParseValid pins the parser
+// shape: both bounds optional, RFC3339Nano accepted, since
+// > until rejected.
+func TestProxyReplay_TimeWindow_ParseValid(t *testing.T) {
+	cases := []struct {
+		name         string
+		since, until string
+		wantErr      bool
+	}{
+		{"both empty", "", "", false},
+		{"since only", "2026-05-04T12:00:00Z", "", false},
+		{"until only", "", "2026-05-04T13:00:00Z", false},
+		{"both valid", "2026-05-04T12:00:00Z", "2026-05-04T13:00:00Z", false},
+		{"both equal", "2026-05-04T12:00:00Z", "2026-05-04T12:00:00Z", false},
+		{"nano precision", "2026-05-04T12:00:00.123456Z", "2026-05-04T13:00:00.654321Z", false},
+		{"since > until", "2026-05-04T13:00:00Z", "2026-05-04T12:00:00Z", true},
+		{"bad since", "yesterday", "", true},
+		{"bad until", "", "tomorrow", true},
+	}
+	for _, c := range cases {
+		_, err := parseTimeWindow(c.since, c.until)
+		if (err != nil) != c.wantErr {
+			t.Errorf("%s: err = %v, wantErr = %v", c.name, err, c.wantErr)
+		}
+	}
+}
+
+// TestProxyReplay_TimeWindow_Contains pins the gate logic.
+// Zero bounds disable that side; zero ts is tolerated
+// (passes through so corrupted lines remain visible).
+func TestProxyReplay_TimeWindow_Contains(t *testing.T) {
+	t12 := mustTime(t, "2026-05-04T12:00:00Z")
+	t13 := mustTime(t, "2026-05-04T13:00:00Z")
+	t14 := mustTime(t, "2026-05-04T14:00:00Z")
+	t15 := mustTime(t, "2026-05-04T15:00:00Z")
+
+	cases := []struct {
+		name         string
+		since, until time.Time
+		ts           time.Time
+		want         bool
+	}{
+		{"no bounds always passes", time.Time{}, time.Time{}, t13, true},
+		{"in range", t12, t14, t13, true},
+		{"at since boundary", t12, t14, t12, true},
+		{"at until boundary", t12, t14, t14, true},
+		{"before since", t13, t15, t12, false},
+		{"after until", t12, t13, t14, false},
+		{"only since, ts after", t12, time.Time{}, t13, true},
+		{"only since, ts before", t13, time.Time{}, t12, false},
+		{"only until, ts before", time.Time{}, t14, t13, true},
+		{"only until, ts after", time.Time{}, t13, t14, false},
+		{"zero ts always passes", t12, t14, time.Time{}, true},
+	}
+	for _, c := range cases {
+		w := timeWindow{since: c.since, until: c.until}
+		if got := w.contains(c.ts); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// TestProxyReplay_TimeWindow_FiltersOutput drives a real
+// capture through the verb with --since narrowing the
+// rendered chunks. We write 3 chunks at distinct timestamps
+// and assert only those inside the window appear in stdout.
+func TestProxyReplay_TimeWindow_FiltersOutput(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	cw := rec.WrapClient(&blackHole{})
+	// 3 chunks; recorder stamps each with time.Now() so we
+	// just write them in sequence and rely on the natural
+	// time-ordering.
+	for i := 0; i < 3; i++ {
+		if _, err := cw.Write([]byte{byte(i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Pick a `--since` that's well in the future so all 3
+	// chunks fall before it; we expect zero chunk lines.
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{
+		"--since", "2099-01-01T00:00:00Z",
+		path,
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if strings.Contains(out.String(), "c→u") {
+		t.Errorf("--since 2099 returned c→u lines:\n%s", out.String())
+	}
+	// Header lines should still be there.
+	if !strings.Contains(out.String(), "# capture ") {
+		t.Errorf("missing header line:\n%s", out.String())
+	}
+	// "# window" line should announce the bound.
+	if !strings.Contains(out.String(), "# window") {
+		t.Errorf("missing # window line:\n%s", out.String())
+	}
+}
+
+// TestProxyReplay_BadSinceUsageError — operator typo on
+// --since produces EX_USAGE (64) with a friendly message
+// pointing at the expected format.
+func TestProxyReplay_BadSinceUsageError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--since", "yesterday", path})
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error on --since yesterday")
+	}
+	if !strings.Contains(err.Error(), "RFC3339") {
+		t.Errorf("err = %v, want hint about RFC3339", err)
+	}
+}
+
+// mustTime parses an RFC3339 string or fatals. Local helper
+// for the timeWindow tests.
+func mustTime(t *testing.T, s string) time.Time {
+	t.Helper()
+	tt, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		t.Fatalf("parse %q: %v", s, err)
+	}
+	return tt
+}

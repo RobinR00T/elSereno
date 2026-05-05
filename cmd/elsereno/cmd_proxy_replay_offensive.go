@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -25,6 +26,7 @@ import (
 func newProxyReplayCmd() *cobra.Command {
 	var hexLimit int
 	var dirFilter string
+	var sinceFlag, untilFlag string
 	cmd := &cobra.Command{
 		Use:   "replay FILE",
 		Short: "Print an elsereno-replay/v1 capture (offensive build)",
@@ -39,10 +41,18 @@ top so the operator sees protocol + target + start-time.
 
 ` + "`--dir client|upstream|both`" + ` filters direction (default both).
 ` + "`--hex-limit N`" + ` truncates each chunk's hex preview at N bytes
-(default 32; 0 = full).`,
+(default 32; 0 = full).
+` + "`--since RFC3339`" + ` and ` + "`--until RFC3339`" + ` (v1.44+) narrow the
+forensic window to chunks with TS in [since, until]. Either
+side is optional; missing means "no bound on that side". RFC3339
+nano accepted (microsecond precision common in captures).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
+			window, err := parseTimeWindow(sinceFlag, untilFlag)
+			if err != nil {
+				return fail(core.ExitUsage, err)
+			}
 
 			hdr, err := replay.SeekHeader(path)
 			if err != nil {
@@ -52,6 +62,11 @@ top so the operator sees protocol + target + start-time.
 			cmd.Printf("# protocol  %s\n", hdr.Protocol)
 			cmd.Printf("# target    %s\n", hdr.Target)
 			cmd.Printf("# started   %s\n", hdr.StartedAt.UTC().Format("2006-01-02T15:04:05.999999Z07:00"))
+			if !window.since.IsZero() || !window.until.IsZero() {
+				cmd.Printf("# window    %s — %s\n",
+					formatWindowSide(window.since, "(open)"),
+					formatWindowSide(window.until, "(open)"))
+			}
 			cmd.Println()
 
 			wantClient, wantUpstream := parseDirFilter(dirFilter)
@@ -61,6 +76,9 @@ top so the operator sees protocol + target + start-time.
 					return nil
 				}
 				if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
+					return nil
+				}
+				if !window.contains(ev.TS) {
 					return nil
 				}
 				cmd.Println(formatChunk(ev, hexLimit))
@@ -74,7 +92,71 @@ top so the operator sees protocol + target + start-time.
 	}
 	cmd.Flags().IntVar(&hexLimit, "hex-limit", 32, "truncate hex preview at N bytes (0 = full)")
 	cmd.Flags().StringVar(&dirFilter, "dir", "both", "direction: client | upstream | both")
+	cmd.Flags().StringVar(&sinceFlag, "since", "", "v1.44+: RFC3339 lower bound (inclusive); empty = no bound")
+	cmd.Flags().StringVar(&untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
 	return cmd
+}
+
+// timeWindow is the (since, until) pair the --since/--until
+// flags resolve to. Zero time on either side means "no bound".
+// `contains` short-circuits to true when both bounds are zero
+// so the no-flags path stays free.
+type timeWindow struct {
+	since, until time.Time
+}
+
+// contains reports whether ts falls within [since, until]. A
+// zero bound disables that side. ts is also tolerated as zero
+// (a ChunkEvent with an unparseable TS would have zero); we
+// pass those through so a corrupted line doesn't get filtered
+// out silently — the operator notices the bad timestamp in
+// the rendered output instead.
+func (w timeWindow) contains(ts time.Time) bool {
+	if !w.since.IsZero() && !ts.IsZero() && ts.Before(w.since) {
+		return false
+	}
+	if !w.until.IsZero() && !ts.IsZero() && ts.After(w.until) {
+		return false
+	}
+	return true
+}
+
+// parseTimeWindow validates --since / --until and resolves
+// them to a timeWindow. Both empty → zero-value window
+// (contains returns true unconditionally). Either non-empty
+// is parsed as RFC3339Nano (the format the recorder writes).
+// since > until is rejected explicitly so a typo doesn't
+// silently match nothing.
+func parseTimeWindow(since, until string) (timeWindow, error) {
+	var w timeWindow
+	if since != "" {
+		t, err := time.Parse(time.RFC3339Nano, since)
+		if err != nil {
+			return timeWindow{}, fmt.Errorf("--since %q: %w (want RFC3339Nano like 2026-05-04T12:00:00Z)", since, err)
+		}
+		w.since = t
+	}
+	if until != "" {
+		t, err := time.Parse(time.RFC3339Nano, until)
+		if err != nil {
+			return timeWindow{}, fmt.Errorf("--until %q: %w (want RFC3339Nano like 2026-05-04T12:00:00Z)", until, err)
+		}
+		w.until = t
+	}
+	if !w.since.IsZero() && !w.until.IsZero() && w.since.After(w.until) {
+		return timeWindow{}, fmt.Errorf("--since %s is after --until %s (window matches nothing)", w.since.Format(time.RFC3339), w.until.Format(time.RFC3339))
+	}
+	return w, nil
+}
+
+// formatWindowSide renders one bound for the "# window" header
+// line. Zero-value bounds get the placeholder so the operator
+// sees "(open) — 12:00:00Z" rather than a confusing "0001-…".
+func formatWindowSide(t time.Time, placeholder string) string {
+	if t.IsZero() {
+		return placeholder
+	}
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 // parseDirFilter maps the --dir flag to a (clientWanted,
