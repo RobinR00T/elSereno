@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.57 (chunk 1) — **DLMS/COSEM offensive
+  write-gated proxy on TCP/4059.** Closes v1.32+ D3.
+  Three-tier gate (APDU tag + per-(class, OBIS,
+  member) + match strictness). Closes the legacy-ICS
+  D-trio offensive write paths. 28 tests. Snapshot:
+  `.context/snapshots/v1.57.0-dlms-offensive-write.md`.
+
 - 2026-05-05 — v1.56 (chunk 1) — **M-Bus offensive
   write-gated proxy on TCP/10001.** Closes v1.32+ D2.
   Two-tier gate (control field + per-(CI, Address)

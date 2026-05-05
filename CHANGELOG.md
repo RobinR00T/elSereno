@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.0] — 2026-05-05
+
+### Added
+
+- **DLMS/COSEM offensive write-gated proxy on
+  TCP/4059** (`-tags offensive`). Closes the v1.32+
+  D3 carryover. Three-tier gate: APDU tag (always-
+  safe set covers AARQ/AARE/RLRQ/RLRE/GET +
+  responses) + per-COSEM target (ClassID + OBIS +
+  MemberID; OBIS bytes = 255 act as wildcards) +
+  match strictness (MatchExact / MatchClassOBIS /
+  MatchClassOnly).
+- `internal/protocols/dlms/wire/apdu.go` (new):
+  APDU tag catalogue + ReadFrame stream parser +
+  ParseSetRequest / ParseActionRequest extracting
+  `CosemTarget{ClassID, OBIS, MemberID}` from the
+  normal CHOICE (0x01). FormatOBIS renders 6-byte
+  OBIS as canonical "A-B:C.D.E*F".
+- `offensive/write/dlms/gatedproxy.go` (new):
+  AllowedAPDU + AllowedCosem with `Matches(target)`
+  semantics. AllowlistHash separators 0xE3 (APDU
+  block) + 0xE4 (cosem block).
+
+### Tests
+
+`+28 tests` (12 wire + 16 gate).
+
+### Build
+
+3-variant matrix unchanged. Default build
+behavioural unchanged. INSTALL.md unchanged (CLI
+flag plumbing is a future cycle's add).
+
+### Notes
+
+This closes the legacy-ICS D-trio offensive write
+paths (v1.55 KNX, v1.56 M-Bus, v1.57 DLMS). All the
+v1.32+ A-E carryovers are now done; only F
+(dashboard orchestration) remains from the original
+v1.50 batch.
+
 ## [1.56.0] — 2026-05-05
 
 ### Added

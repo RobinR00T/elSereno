@@ -1,26 +1,40 @@
 ---
-phase: v1.56-closed
-status: v1.16-v1.27 published; v1.28-v1.56 tags pending push
+phase: v1.57-closed
+status: v1.16-v1.27 published; v1.28-v1.57 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.56 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ D2 item: M-Bus over TCP
-offensive write-gated proxy on TCP/10001. New
-`offensive/write/mbustcp/` package + control catalogue
-+ ReadFrame stream parser in
-`internal/protocols/mbustcp/wire/control.go`. Two-tier
-gate (control field + per-(CI, Address) tuple). 25
-tests.
+**Phase**: **v1.57 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ D3 item: DLMS/COSEM offensive
+write-gated proxy on TCP/4059. New
+`offensive/write/dlms/` package + APDU catalogue +
+ReadFrame stream parser + ParseSetRequest /
+ParseActionRequest in
+`internal/protocols/dlms/wire/apdu.go`. Three-tier
+gate (APDU tag + per-(class, OBIS, member) + match
+strictness). 28 tests.
 
-Snapshot: `.context/snapshots/v1.56.0-mbus-offensive-write.md`.
+This **closes the legacy-ICS D-trio offensive write
+paths** (D1=KNX v1.55, D2=M-Bus v1.56, D3=DLMS v1.57)
+AND closes ALL the v1.32+ A-E carryovers. Only F
+(dashboard orchestration) remains from the original
+v1.50 batch.
 
-**v1.56 chunks landed (in-flight)**:
-- 1 `c7820ca` — wire/control.go + gatedproxy.go +
-  25 tests.
+Snapshot: `.context/snapshots/v1.57.0-dlms-offensive-write.md`.
+
+**v1.57 chunks landed (in-flight)**:
+- 1 `b80546a` — wire/apdu.go + gatedproxy.go +
+  28 tests.
+
+**v1.56 cycle (closed, snapshot available)**:
+M-Bus over TCP offensive write-gated proxy on
+TCP/10001. Two-tier gate (control field + per-(CI,
+Address) tuple). 1 chunk + close: `c7820ca`,
+`e420ec2`. Snapshot:
+`.context/snapshots/v1.56.0-mbus-offensive-write.md`.
 
 **v1.55 cycle (closed, snapshot available)**:
 KNX offensive write-gated proxy on UDP/3671 + v1.21

@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.57 (DLMS/COSEM offensive write path)
+
+- ✅ **DLMS/COSEM offensive write-gated proxy** —
+  v1.57 chunk 1. Closes the v1.32+ D3 carryover and
+  the legacy-ICS D-trio offensive write paths overall.
+  Three-tier gate (APDU tag + per-(class, OBIS,
+  member) + match strictness MatchExact/ClassOBIS/
+  ClassOnly). 28 tests.
+
 ### v1.56 (M-Bus offensive write path)
 
 - ✅ **M-Bus offensive write-gated proxy** — v1.56
