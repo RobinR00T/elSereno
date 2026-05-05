@@ -34,6 +34,7 @@ type proxyReplayArgs struct {
 	sinceFlag, untilFlag string
 	jsonOut              bool // v1.45+
 	limit                int  // v1.46+ (0 = no cap)
+	tail                 int  // v1.47+ (0 = no tail; mutually exclusive with --limit)
 }
 
 func newProxyReplayCmd() *cobra.Command {
@@ -68,6 +69,7 @@ nano accepted (microsecond precision common in captures).`,
 	cmd.Flags().StringVar(&args.untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
 	cmd.Flags().BoolVar(&args.jsonOut, "json", false, "v1.45+: emit each chunk as one JSON object on stdout (pairs with --dir / --since / --until). Pipe to jq for machine-readable forensics.")
 	cmd.Flags().IntVar(&args.limit, "limit", 0, "v1.46+: stop after N matching chunks (0 = no cap). Applied AFTER --dir / --since / --until / DirHeader filters so an operator picking the first 10 c→u writes in a window gets exactly 10.")
+	cmd.Flags().IntVar(&args.tail, "tail", 0, "v1.47+: emit the LAST N matching chunks instead of the first. Mutually exclusive with --limit. Buffers in memory (use --since to bound the window for huge captures).")
 	return cmd
 }
 
@@ -81,6 +83,9 @@ var errReplayLimitReached = errors.New("replay: limit reached")
 // replay`. Extracted so newProxyReplayCmd stays under the
 // linter's funlen ceiling.
 func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error {
+	if args.limit > 0 && args.tail > 0 {
+		return fail(core.ExitUsage, errors.New("--limit and --tail are mutually exclusive"))
+	}
 	window, err := parseTimeWindow(args.sinceFlag, args.untilFlag)
 	if err != nil {
 		return fail(core.ExitUsage, err)
@@ -94,21 +99,27 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 		printReplayHeader(cmd, path, hdr, window)
 	}
 
+	if args.tail > 0 {
+		return runProxyReplayTail(cmd, path, args, window)
+	}
+	return runProxyReplayStream(cmd, path, args, window)
+}
+
+// runProxyReplayStream is the streaming-emission path —
+// covers default (unbounded) and --limit (cap-at-N). Emits
+// each matching chunk as it walks the file.
+func runProxyReplayStream(cmd *cobra.Command, path string, args proxyReplayArgs, window timeWindow) error {
 	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	enc.SetEscapeHTML(false)
 	ctx := cmd.Context()
 	emitted := 0
-	err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
+	err := replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
 		if !chunkPassesFilters(ev, wantClient, wantUpstream, window) {
 			return nil
 		}
-		if args.jsonOut {
-			if err := enc.Encode(ev); err != nil {
-				return err
-			}
-		} else {
-			cmd.Println(formatChunk(ev, args.hexLimit))
+		if err := emitChunk(cmd, enc, ev, args); err != nil {
+			return err
 		}
 		emitted++
 		if args.limit > 0 && emitted >= args.limit {
@@ -119,6 +130,58 @@ func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error
 	if err != nil && !errors.Is(err, errReplayLimitReached) {
 		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
 	}
+	return nil
+}
+
+// runProxyReplayTail is the buffered-emission path for
+// --tail N. Walks the entire matching stream into a ring
+// buffer of size N, then dumps the buffer in arrival
+// order. Ring beats slice-then-trim because it caps memory
+// at N regardless of capture size.
+func runProxyReplayTail(cmd *cobra.Command, path string, args proxyReplayArgs, window timeWindow) error {
+	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetEscapeHTML(false)
+	ring := make([]replay.ChunkEvent, args.tail)
+	count := 0
+	ctx := cmd.Context()
+	err := replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
+		if !chunkPassesFilters(ev, wantClient, wantUpstream, window) {
+			return nil
+		}
+		ring[count%args.tail] = ev
+		count++
+		return nil
+	})
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
+	}
+	// Walk the ring in arrival order. If we never reached
+	// args.tail entries, emit what we have starting at 0;
+	// otherwise the oldest kept entry is at count%tail.
+	start := 0
+	n := count
+	if n > args.tail {
+		start = count % args.tail
+		n = args.tail
+	}
+	for i := 0; i < n; i++ {
+		ev := ring[(start+i)%args.tail]
+		if err := emitChunk(cmd, enc, ev, args); err != nil {
+			return fail(core.ExitError, fmt.Errorf("replay: %w", err))
+		}
+	}
+	return nil
+}
+
+// emitChunk renders one chunk to stdout in either --json
+// or formatted form. Pulled out so the streaming + tail
+// paths share one place to change presentation.
+func emitChunk(cmd *cobra.Command, enc *json.Encoder, ev replay.ChunkEvent, args proxyReplayArgs) error {
+	if args.jsonOut {
+		return enc.Encode(ev)
+	}
+	cmd.Println(formatChunk(ev, args.hexLimit))
 	return nil
 }
 

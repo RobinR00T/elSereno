@@ -412,6 +412,119 @@ func TestProxyReplay_LimitZeroIsNoCap(t *testing.T) {
 	}
 }
 
+// TestProxyReplay_TailEmitsLastN — v1.47: --tail N
+// emits the LAST N matching chunks. Distinguishes from
+// --limit by writing 5 chunks with distinct payloads
+// then asserting the tail is the last 3.
+func TestProxyReplay_TailEmitsLastN(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 5; i++ {
+		// Distinct first byte per chunk so we can identify
+		// position from the hex preview.
+		if _, err := uw.Write([]byte{byte(0xA0 + i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--json", "--tail", "3", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("--tail 3 produced %d lines:\n%s", len(lines), out.String())
+	}
+	// Expect the last 3 chunks → bytes 0xA2, 0xA3, 0xA4 in
+	// arrival order. Hex preview is the lowercase first byte.
+	wantHex := []string{"a2", "a3", "a4"}
+	for i, line := range lines {
+		var ev replay.ChunkEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("line %d not valid JSON: %v", i, err)
+		}
+		if ev.Hex != wantHex[i] {
+			t.Errorf("line %d hex = %q, want %q (full output:\n%s)",
+				i, ev.Hex, wantHex[i], out.String())
+		}
+	}
+}
+
+// TestProxyReplay_TailLargerThanCapture — when N > total
+// matching chunks, --tail emits all of them in arrival
+// order (no padding, no error).
+func TestProxyReplay_TailLargerThanCapture(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	uw := rec.WrapUpstream(&blackHole{})
+	for i := 0; i < 2; i++ {
+		if _, err := uw.Write([]byte{byte(0xB0 + i)}); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--json", "--tail", "10", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Errorf("--tail 10 on 2-chunk capture produced %d lines:\n%s", len(lines), out.String())
+	}
+}
+
+// TestProxyReplay_TailWithLimitRejected — both flags
+// together is operator confusion; reject explicitly.
+func TestProxyReplay_TailWithLimitRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.ndjson")
+	rec, err := replay.Open(path, "modbus", "10.0.0.1:502")
+	if err != nil {
+		t.Fatalf("replay.Open: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	cmd := newProxyReplayCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--limit", "5", "--tail", "3", path})
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected mutex error")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Errorf("err = %v, want 'mutually exclusive'", err)
+	}
+}
+
 // TestProxyReplay_LimitAfterFilters — pin that --limit
 // counts chunks that PASS --dir / --since / --until, not
 // raw events. Operator picking the first 2 client→upstream
