@@ -23,10 +23,17 @@ import (
 // for tools that want to do replay-against-lab-PLC, but the
 // CLI keeps to printing for now — it's the 90% use case
 // for forensic post-mortem).
+// proxyReplayArgs bundles every CLI flag the verb consumes
+// so the RunE closure stays a thin driver. Private to this
+// file.
+type proxyReplayArgs struct {
+	hexLimit             int
+	dirFilter            string
+	sinceFlag, untilFlag string
+}
+
 func newProxyReplayCmd() *cobra.Command {
-	var hexLimit int
-	var dirFilter string
-	var sinceFlag, untilFlag string
+	var args proxyReplayArgs
 	cmd := &cobra.Command{
 		Use:   "replay FILE",
 		Short: "Print an elsereno-replay/v1 capture (offensive build)",
@@ -47,54 +54,60 @@ forensic window to chunks with TS in [since, until]. Either
 side is optional; missing means "no bound on that side". RFC3339
 nano accepted (microsecond precision common in captures).`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			path := args[0]
-			window, err := parseTimeWindow(sinceFlag, untilFlag)
-			if err != nil {
-				return fail(core.ExitUsage, err)
-			}
-
-			hdr, err := replay.SeekHeader(path)
-			if err != nil {
-				return fail(core.ExitOSErr, fmt.Errorf("replay: %w", err))
-			}
-			cmd.Printf("# capture %s\n", path)
-			cmd.Printf("# protocol  %s\n", hdr.Protocol)
-			cmd.Printf("# target    %s\n", hdr.Target)
-			cmd.Printf("# started   %s\n", hdr.StartedAt.UTC().Format("2006-01-02T15:04:05.999999Z07:00"))
-			if !window.since.IsZero() || !window.until.IsZero() {
-				cmd.Printf("# window    %s — %s\n",
-					formatWindowSide(window.since, "(open)"),
-					formatWindowSide(window.until, "(open)"))
-			}
-			cmd.Println()
-
-			wantClient, wantUpstream := parseDirFilter(dirFilter)
-			ctx := cmd.Context()
-			err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
-				if ev.Dir == replay.DirClientToUpstream && !wantClient {
-					return nil
-				}
-				if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
-					return nil
-				}
-				if !window.contains(ev.TS) {
-					return nil
-				}
-				cmd.Println(formatChunk(ev, hexLimit))
-				return nil
-			})
-			if err != nil {
-				return fail(core.ExitError, fmt.Errorf("replay: %w", err))
-			}
-			return nil
+		RunE: func(cmd *cobra.Command, posArgs []string) error {
+			return runProxyReplay(cmd, posArgs[0], args)
 		},
 	}
-	cmd.Flags().IntVar(&hexLimit, "hex-limit", 32, "truncate hex preview at N bytes (0 = full)")
-	cmd.Flags().StringVar(&dirFilter, "dir", "both", "direction: client | upstream | both")
-	cmd.Flags().StringVar(&sinceFlag, "since", "", "v1.44+: RFC3339 lower bound (inclusive); empty = no bound")
-	cmd.Flags().StringVar(&untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
+	cmd.Flags().IntVar(&args.hexLimit, "hex-limit", 32, "truncate hex preview at N bytes (0 = full)")
+	cmd.Flags().StringVar(&args.dirFilter, "dir", "both", "direction: client | upstream | both")
+	cmd.Flags().StringVar(&args.sinceFlag, "since", "", "v1.44+: RFC3339 lower bound (inclusive); empty = no bound")
+	cmd.Flags().StringVar(&args.untilFlag, "until", "", "v1.44+: RFC3339 upper bound (inclusive); empty = no bound")
 	return cmd
+}
+
+// runProxyReplay is the RunE body for `elsereno proxy
+// replay`. Extracted so newProxyReplayCmd stays under the
+// linter's funlen ceiling.
+func runProxyReplay(cmd *cobra.Command, path string, args proxyReplayArgs) error {
+	window, err := parseTimeWindow(args.sinceFlag, args.untilFlag)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+
+	hdr, err := replay.SeekHeader(path)
+	if err != nil {
+		return fail(core.ExitOSErr, fmt.Errorf("replay: %w", err))
+	}
+	cmd.Printf("# capture %s\n", path)
+	cmd.Printf("# protocol  %s\n", hdr.Protocol)
+	cmd.Printf("# target    %s\n", hdr.Target)
+	cmd.Printf("# started   %s\n", hdr.StartedAt.UTC().Format("2006-01-02T15:04:05.999999Z07:00"))
+	if !window.since.IsZero() || !window.until.IsZero() {
+		cmd.Printf("# window    %s — %s\n",
+			formatWindowSide(window.since, "(open)"),
+			formatWindowSide(window.until, "(open)"))
+	}
+	cmd.Println()
+
+	wantClient, wantUpstream := parseDirFilter(args.dirFilter)
+	ctx := cmd.Context()
+	err = replay.Replay(ctx, path, func(ev replay.ChunkEvent) error {
+		if ev.Dir == replay.DirClientToUpstream && !wantClient {
+			return nil
+		}
+		if ev.Dir == replay.DirUpstreamToClient && !wantUpstream {
+			return nil
+		}
+		if !window.contains(ev.TS) {
+			return nil
+		}
+		cmd.Println(formatChunk(ev, args.hexLimit))
+		return nil
+	})
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("replay: %w", err))
+	}
+	return nil
 }
 
 // timeWindow is the (since, until) pair the --since/--until
