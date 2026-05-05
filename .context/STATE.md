@@ -151,50 +151,18 @@ observability + CSV export + audit API + legacy-ICS
 fingerprint trios (FINS / SLMP / GE-SRTP / KNX / M-Bus /
 DLMS).
 
-**v1.15.0 published** on
-https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0.
-9 release assets: 4 archives (darwin/linux × amd64/arm64) +
-4 CycloneDX SBOMs + checksums.txt. Tag GPG-signed with
+**v1.15.0 published** as the latest GH release. 9 assets
+(4 archives + 4 SBOMs + checksums.txt). Tag GPG-signed with
 `ACE3B86BACACE7D6`. Loose-end closure cycle: CWMP
-TransferComplete observer + `discover --auto <CIDR>` + STIX
-2.1 export sink + audit cross-process flock + SIGHUP
-reload-style exit.
+TransferComplete observer + discover --auto + STIX 2.1 +
+audit flock + SIGHUP. Snapshot:
+`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`.
 
-**v1.15 chunks landed (released as v1.15.0)**:
-- 1   `476b404` — CWMP TransferComplete observer. 6 tests.
-- 2   `389ff5d` — `elsereno discover --auto <CIDR>` TCP-connect
-  sweep. 9 tests.
-- 3   `e205cd8` — STIX 2.1 export sink. 9 tests.
-- 4   `dd92a39` — Audit chain cross-process merge via flock.
-  2 tests.
-- 5   `1264998` — SIGHUP reload-style graceful exit. 1 test.
-
-Snapshot: `.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`.
-
-v1.13 closes the BACnet leg of the per-RPC scoping work
-started in v1.12 chunk 7. Theme: every BACnet mutating
-service now has a wire-level per-target-or-state allowlist
-(9 services × 8 hash separator bytes 0xF8–0xFF). Plus CWMP
-polish (firmware verifier, RPC case-warning, over-TLS recipe),
-InternetDB bulk lookup, and a 4th triage bucket (utility).
-
-Snapshots:
-- `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
-  (10-chunk v1.12 cycle).
-- `.context/snapshots/v1.13.0-bacnet-completion-and-cwmp-polish.md`
-  (13-chunk v1.13 cycle — full breakdown + per-chunk delta +
-  hash separator allocation).
-
-**v1.14 cycle (4 chunks)**: IPv6 cross-cutting — internal/netutil
-package + target canonicalisation across proxies/dry-runs +
-internetdb IPv6 fixes + scope/dedupe IPv6 coverage. 50 tests.
-Snapshot: `.context/snapshots/v1.14.0-ipv6-cross-cutting.md`.
-
-**v1.13 cycle (13 chunks)**: BACnet completion (per-target /
-per-state / per-operation / per-instance / per-(object,property)
-allowlists for the 9 mutating services) + CWMP polish (firmware
-pre-flight, RPC case-warning, over-TLS recipe) + InternetDB bulk
-lookup + 4th triage bucket. Per-chunk detail in snapshot.
+**v1.12 → v1.14 cycles** (closed): per-object/path scoping
+across all 7 write-gates (v1.12), BACnet completion across
+all 9 mutating services + CWMP polish + InternetDB bulk +
+4th triage bucket (v1.13), IPv6 cross-cutting (v1.14). Per-
+cycle snapshots in `.context/snapshots/`.
 
 Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
 to native `// #nosec G<NNN>` markers — `make sec` now exit-0.
