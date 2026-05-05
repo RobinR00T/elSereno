@@ -165,6 +165,52 @@ func TestListScans_LimitParam(t *testing.T) {
 	}
 }
 
+// TestCancelScan_QueuedHappy: a queued job cancels cleanly.
+func TestCancelScan_QueuedHappy(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	router := newRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/"+job.ID+"/cancel", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.Job `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.Data.State != scanorch.StateCancelled {
+		t.Errorf("State = %q, want cancelled", resp.Data.State)
+	}
+}
+
+// TestCancelScan_NotFound returns 404.
+func TestCancelScan_NotFound(t *testing.T) {
+	router := newRouter(scanorch.NewMemoryStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/no-such/cancel", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestCancelScan_AlreadyTerminal returns 409.
+func TestCancelScan_AlreadyTerminal(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	_, _ = store.Transition(context.Background(), job.ID, scanorch.StateRunning, scanorch.TransitionFields{})
+	_, _ = store.Transition(context.Background(), job.ID, scanorch.StateCompleted, scanorch.TransitionFields{})
+	router := newRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/"+job.ID+"/cancel", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Errorf("status = %d, want 409", rr.Code)
+	}
+}
+
 // TestScans_NilStoreReturns503: a serve config without the
 // scan orchestrator wires Scans(nil), which surfaces 503 to
 // every request.
@@ -177,6 +223,7 @@ func TestScans_NilStoreReturns503(t *testing.T) {
 		{http.MethodPost, "/api/v1/scans"},
 		{http.MethodGet, "/api/v1/scans"},
 		{http.MethodGet, "/api/v1/scans/abc"},
+		{http.MethodPost, "/api/v1/scans/abc/cancel"},
 	} {
 		t.Run(method.verb+" "+method.path, func(t *testing.T) {
 			var body *strings.Reader

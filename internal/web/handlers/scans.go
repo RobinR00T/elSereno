@@ -11,12 +11,13 @@ import (
 
 // note: writeJSON lives in api.go; this file re-uses it.
 
-// Scans returns the v1.58-chunk-1 dashboard scan-orchestration
-// endpoints. Three handlers under one prefix:
+// Scans returns the dashboard scan-orchestration endpoints.
+// Four handlers under one prefix:
 //
-//	POST   /api/v1/scans         submit a new scan job
-//	GET    /api/v1/scans         list jobs (newest first)
-//	GET    /api/v1/scans/{id}    one job by ID
+//	POST   /api/v1/scans               submit a new scan job
+//	GET    /api/v1/scans               list jobs (newest first)
+//	GET    /api/v1/scans/{id}          one job by ID
+//	POST   /api/v1/scans/{id}/cancel   cancel a queued/running job (v1.59)
 //
 // A nil Store yields 503 from each endpoint, mirroring the
 // degraded-deps pattern used by Findings/Runs/Triage.
@@ -29,11 +30,13 @@ func Scans(store scanorch.Store) http.Handler {
 		mux.HandleFunc("POST /api/v1/scans", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/scans", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/scans/{id}", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/scans/{id}/cancel", serviceUnavailable)
 		return mux
 	}
 	mux.Handle("POST /api/v1/scans", submitScan(store))
 	mux.Handle("GET /api/v1/scans", listScans(store))
 	mux.Handle("GET /api/v1/scans/{id}", getScan(store))
+	mux.Handle("POST /api/v1/scans/{id}/cancel", cancelScan(store))
 	return mux
 }
 
@@ -79,6 +82,31 @@ func listScans(store scanorch.Store) http.Handler {
 			return
 		}
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: jobs})
+	})
+}
+
+// cancelScan returns the POST cancel handler. Allowed for
+// queued + running jobs; refuses with 409 if already terminal.
+func cancelScan(store scanorch.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "scans: id is required", http.StatusBadRequest)
+			return
+		}
+		job, err := store.Transition(r.Context(), id, scanorch.StateCancelled, scanorch.TransitionFields{})
+		if err != nil {
+			switch {
+			case errors.Is(err, scanorch.ErrJobNotFound):
+				http.Error(w, "scans: job not found", http.StatusNotFound)
+			case errors.Is(err, scanorch.ErrInvalidTransition):
+				http.Error(w, "scans: job is already in a terminal state", http.StatusConflict)
+			default:
+				http.Error(w, "scans: "+err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: job})
 	})
 }
 

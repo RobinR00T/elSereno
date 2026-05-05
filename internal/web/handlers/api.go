@@ -76,6 +76,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("POST /api/v1/scans", scansHandler)
 	mux.Handle("GET /api/v1/scans", scansHandler)
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
+	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
 	return mux
 }
 
