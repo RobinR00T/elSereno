@@ -100,6 +100,19 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.49 (Linux distribution packaging)
+
+- ✅ **deb/rpm/apk packages** — v1.49 chunk 1.
+  3 variants × 3 formats × 2 archs = 18 packages per
+  release.
+- ✅ **Hardened systemd units** for serve + audit
+  serve.
+- ✅ **`INSTALL.md`** comprehensive cross-platform
+  install doc.
+- ✅ **Standing process directive**: every cycle from
+  here updates both macOS+Linux artefacts and the
+  platform-specific docs.
+
 ### v1.48 (proxy replay --stats)
 
 - ✅ **`proxy replay --stats`** — v1.48 chunk 1.

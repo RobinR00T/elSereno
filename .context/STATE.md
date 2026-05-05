@@ -1,26 +1,34 @@
 ---
-phase: v1.48-closed
-status: v1.16-v1.27 published; v1.28-v1.48 tags pending push
+phase: v1.49-closed
+status: v1.16-v1.27 published; v1.28-v1.49 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.48 cycle closed on `main`** (1 chunk + close
-commit). Adds `--stats` summary mode to `proxy replay`:
-per-direction chunk count + total bytes + time range,
-no per-chunk lines. Sanity check before a full replay on
-multi-GB captures. Composes with --dir / --since / --until
-filters. `--stats` mutually exclusive with --limit /
---tail / --json (operator-confusion guard
-consolidated into validateMutexFlags helper).
+**Phase**: **v1.49 cycle closed on `main`** (1 chunk + close
+commit). Adds Linux distribution packaging: deb/rpm/apk
+via nfpm (18 packages per release: 3 variants × 3 formats
+× 2 archs) + hardened systemd units for serve + audit
+daemon + new INSTALL.md doc covering both macOS and Linux
+install paths with feature matrix and pros/cons. Static
+linking verified (no glibc dep). New process directive:
+**every cycle updates BOTH macOS+Linux artefacts and the
+INSTALL.md / platform-specific docs** when behaviour
+changes.
 
-Snapshot: `.context/snapshots/v1.48.0-proxy-replay-stats.md`.
+Snapshot: `.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
 
-**v1.48 chunks landed (in-flight)**:
-- 1 `1834bdd` — `--stats bool` flag + replayStats type +
-  validateMutexFlags consolidator + 3 tests.
+**v1.49 chunks landed (in-flight)**:
+- 1 `1b68b59` — packaging/{systemd,configs,scripts}/* +
+  goreleaser nfpms + INSTALL.md.
+
+**v1.48 cycle (closed, snapshot available)**:
+proxy replay --stats summary mode + validateMutexFlags
+consolidator. 1 chunk + close: `1834bdd`, `e9edad7`.
+Snapshot:
+`.context/snapshots/v1.48.0-proxy-replay-stats.md`.
 
 **v1.47 cycle (closed, snapshot available)**:
 proxy replay --tail N (last N matching chunks via ring

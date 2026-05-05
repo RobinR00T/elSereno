@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] — 2026-05-05
+
+### Added
+
+- **Linux distribution packaging** — deb / rpm / apk via
+  goreleaser nfpm. 18 packages per release (3 variants ×
+  3 formats × 2 archs). Binary is statically linked
+  (verified `file → "ELF … statically linked, stripped"`,
+  `go tool nm` shows no libc symbols) so it runs on any
+  Linux distribution with kernel ≥ 2.6.32.
+  - `elsereno`           — default (read-only) build with
+                            systemd units shipped.
+  - `elsereno-offensive` — offensive build, coexists with
+                            default at /usr/bin/elsereno-offensive.
+  - `elsereno-mini`      — device deployment, no systemd
+                            unit (mini's serve is a stub).
+- **Hardened systemd units** for `serve` and `audit serve`
+  daemons. NoNewPrivileges, ProtectSystem=strict,
+  MemoryDenyWriteExecute, RestrictNamespaces, empty
+  CapabilityBoundingSet, SystemCallFilter narrowed to
+  @system-service minus mount/swap/reboot/debug/cpu-emul.
+  Ship disabled — operator explicitly enables.
+- **Pre/post-install scripts** that create the elsereno
+  system user/group, apply the tmpfiles drop-in, and
+  print an operator quick-start MOTD. Persistent state
+  (`/var/lib/elsereno`, `/var/log/elsereno`, `/etc/elsereno`)
+  survives `apt remove`; only `apt purge` wipes it.
+- **`INSTALL.md`** (new top-level doc, ~250 lines).
+  Comprehensive install + upgrade + uninstall doc with
+  per-platform feature matrix, Linux vs macOS pros/cons,
+  troubleshooting table, build-from-source flow.
+
+### Process
+
+Per operator instruction, every cycle from here forward
+will update both macOS + Linux artefacts and modify
+documentation (INSTALL.md and any platform-specific
+docs) to reflect changes — no more silent platform
+drift.
+
+### Tests
+
+No new code tests this cycle (packaging-only). Full
+goreleaser snapshot produces all 18 packages; sample
+deb verified to contain the binary + systemd units +
+config sample + manpage.
+
+### Build
+
+3 binaries × 2 archs × (1 tarball + 1 deb + 1 rpm +
+1 apk) = 24 artefacts per arch + checksums.txt + SBOMs
++ cosign sigs in every release.
+
+  default      23.0 MB binary, ~8.5 MB deb (gz)
+  offensive    23.7 MB binary, ~8.7 MB deb
+  mini         21.3 MB binary, ~7.8 MB deb
+
 ## [1.48.0] — 2026-05-05
 
 ### Added

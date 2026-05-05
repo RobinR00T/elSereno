@@ -8,6 +8,17 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.49 (chunk 1) — **Linux distribution
+  packaging.** deb/rpm/apk via nfpm (3 variants × 3
+  formats × 2 archs = 18 packages per release).
+  Hardened systemd units for serve + audit serve.
+  preinstall/postinstall scripts. New INSTALL.md
+  (~250 lines, both platforms with feature matrix +
+  pros/cons). Standing instruction: every cycle from
+  here updates both macOS+Linux artefacts and the
+  platform-specific docs. Snapshot:
+  `.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
+
 - 2026-05-05 — v1.48 (chunk 1) — **`proxy replay
   --stats`** summary mode: per-direction chunk count +
   total bytes + time range. No per-chunk lines. Mutually
