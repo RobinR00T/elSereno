@@ -15,7 +15,9 @@ import (
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/creds"
 	"local/elsereno/internal/netutil"
+	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/web"
 	"local/elsereno/internal/web/stream"
 )
@@ -37,6 +39,10 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.tlsCert, "tls-cert", "", "TLS certificate (required for non-loopback)")
 	cmd.Flags().StringVar(&opts.tlsKey, "tls-key", "", "TLS key (required for non-loopback)")
 	cmd.Flags().BoolVar(&opts.iKnow, "i-know-what-im-doing", false, "acknowledge a non-loopback bind")
+	cmd.Flags().StringVar(&opts.scanStore, "scan-store", "off",
+		"scan-orchestration backend: off (disabled, 503), memory (in-process, lost on restart), db (postgres-persistent, requires DATABASE_URL)")
+	cmd.Flags().IntVar(&opts.scanPool, "scan-pool", 2,
+		"concurrent scan-job workers (clamped to [1, 64])")
 	addPassphraseFileFlag(cmd, &opts.passphraseFile)
 	return cmd
 }
@@ -46,6 +52,10 @@ type serveOpts struct {
 	tlsCert, tlsKey string
 	iKnow           bool
 	passphraseFile  string
+	// scanStore selects the scanorch.Store backend: off | memory | db.
+	scanStore string
+	// scanPool sets the worker pool concurrency.
+	scanPool int
 }
 
 func runServe(cmd *cobra.Command, opts serveOpts) error {
@@ -75,33 +85,22 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		defer pool.Close()
 	}
 
-	srvOpts := web.Options{
-		Addr:    opts.addr,
-		Web:     cfg.Web,
-		Vault:   v,
-		TLSCert: opts.tlsCert,
-		TLSKey:  opts.tlsKey,
+	scanStore, scanPool, scanErr := buildScanOrchestrator(cmd.Context(), opts, pool)
+	if scanErr != nil {
+		return fail(core.ExitUsage, scanErr)
 	}
-	if pool != nil {
-		srvOpts.Querier = pool
+	if scanPool != nil {
+		defer scanPool.Stop()
 	}
+
+	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore)
 	srv, err := web.NewServer(srvOpts)
 	if err != nil {
 		return fail(core.ExitSoftware, err)
 	}
 
-	// Spin up the audit-file tailer so offensive verbs (which run
-	// in a separate process and append to ~/.elsereno/audit.jsonl)
-	// light up the dashboard's live feed. Best-effort: a missing
-	// home dir or unreadable audit path just means the feed stays
-	// quiet for audit events — it does NOT block `serve` startup.
-	tailCtx, cancelTail := context.WithCancel(cmd.Context())
-	defer cancelTail()
-	if path, derr := dashboardAuditPath(); derr == nil {
-		go func() {
-			_ = stream.TailAudit(tailCtx, srv.Broadcaster(), path, 0)
-		}()
-	}
+	stopAuditTail := startAuditTail(cmd.Context(), srv)
+	defer stopAuditTail()
 
 	_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: listening on %s\n", opts.addr)
 	if err := srv.Run(cmd.Context()); err != nil &&
@@ -109,6 +108,77 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		return fail(core.ExitSoftware, err)
 	}
 	return nil
+}
+
+// buildWebOptions assembles the web.Options struct from the
+// runServe scope. Splitting this out keeps runServe's
+// cyclomatic complexity below the linter's 15-branch ceiling.
+func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store) web.Options {
+	out := web.Options{
+		Addr:      opts.addr,
+		Web:       cfg.Web,
+		Vault:     v,
+		TLSCert:   opts.tlsCert,
+		TLSKey:    opts.tlsKey,
+		ScanStore: scanStore,
+	}
+	if pool != nil {
+		out.Querier = pool
+	}
+	return out
+}
+
+// startAuditTail spins up the audit-file tailer so offensive
+// verbs (which run in a separate process and append to
+// ~/.elsereno/audit.jsonl) light up the dashboard's live feed.
+// Best-effort: a missing home dir or unreadable audit path
+// just means the feed stays quiet for audit events — it does
+// NOT block `serve` startup. Returns a stop func that cancels
+// the tail goroutine.
+func startAuditTail(parent context.Context, srv *web.Server) func() {
+	tailCtx, cancelTail := context.WithCancel(parent)
+	if path, derr := dashboardAuditPath(); derr == nil {
+		go func() {
+			_ = stream.TailAudit(tailCtx, srv.Broadcaster(), path, 0)
+		}()
+	}
+	return cancelTail
+}
+
+// buildScanOrchestrator constructs the scanorch.Store + Worker
+// pool selected by `--scan-store`. Returns (nil, nil, nil) when
+// the operator chose `off` — APIV1Deps.ScanStore stays nil and
+// /api/v1/scans/ surfaces 503.
+//
+// db requires a non-nil pgxpool.Pool from maybeOpenPool. memory
+// works regardless of DB state (handy for dev runs without
+// DATABASE_URL).
+func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Pool) (scanorch.Store, *scanorch.Pool, error) {
+	switch opts.scanStore {
+	case "", "off":
+		return nil, nil, nil
+	case "memory":
+		store := scanorch.NewMemoryStore()
+		worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
+		p := scanorch.NewPool(worker, opts.scanPool)
+		p.Start(ctx)
+		_, _ = fmt.Fprintf(os.Stderr,
+			"elsereno serve: scan-store=memory; pool=%d (jobs lost on restart)\n", opts.scanPool)
+		return store, p, nil
+	case "db":
+		if pool == nil {
+			return nil, nil, fmt.Errorf("--scan-store=db requires DATABASE_URL to be set so the DB pool is open")
+		}
+		store := scanorch.NewDBStore(pool)
+		worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
+		p := scanorch.NewPool(worker, opts.scanPool)
+		p.Start(ctx)
+		_, _ = fmt.Fprintf(os.Stderr,
+			"elsereno serve: scan-store=db; pool=%d (jobs survive restart)\n", opts.scanPool)
+		return store, p, nil
+	default:
+		return nil, nil, fmt.Errorf("--scan-store: unknown value %q (off | memory | db)", opts.scanStore)
+	}
 }
 
 // maybeOpenPool opens the DB pool when DATABASE_URL is set; nil

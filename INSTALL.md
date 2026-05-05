@@ -347,6 +347,61 @@ ls dist/*.deb dist/*.rpm dist/*.apk
 
 ---
 
+## Scan orchestration (v1.58+)
+
+The `serve` verb can host a dashboard-driven scan-orchestration
+endpoint family at `/api/v1/scans/`. Two flags control it:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--scan-store` | `off` | Backend: `off` (endpoints return 503), `memory` (in-process, jobs lost on restart), `db` (postgres-persistent, requires `DATABASE_URL`). |
+| `--scan-pool` | `2` | Worker pool concurrency, clamped to `[1, 64]`. |
+
+### Memory mode (development / on-demand operator runs)
+
+```sh
+elsereno serve --scan-store memory --scan-pool 4
+```
+
+No DB required. Submitted jobs run via the in-process worker
+pool. Restarting `serve` loses queued jobs.
+
+### DB mode (production)
+
+```sh
+DATABASE_URL=postgres://elsereno:****@127.0.0.1:5432/elsereno \
+  elsereno db migrate          # ensure 00005_scan_jobs migration is applied
+elsereno serve --scan-store db --scan-pool 4
+```
+
+Jobs survive restart. Two `serve` instances pointing at the
+same DB safely race on the same job queue: the atomic
+`UPDATE ... WHERE state IN (queued)` guarantees at most one
+worker claims each job (no advisory locks needed).
+
+### Submitting a job
+
+```sh
+curl -X POST http://127.0.0.1:8787/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"input":"list:targets.txt","plugins":["modbus"],"default_port":502}'
+```
+
+Response: HTTP 202 + Job envelope with `state: "queued"`. Poll
+`GET /api/v1/scans/{id}` for state transitions, or
+`POST /api/v1/scans/{id}/cancel` to abort.
+
+### Same on Linux + macOS
+
+The orchestration endpoints behave identically across both
+platforms — no platform-specific code paths. The only
+difference: macOS runs of `elsereno serve --scan-store db`
+require a Postgres reachable from your macOS host (typically
+via the bundled `scripts/dev-db.sh` Docker container).
+
+---
+
 ## Reference
 
 - **Per-cycle changes**: [`CHANGELOG.md`](CHANGELOG.md)

@@ -12,6 +12,7 @@ import (
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/repo"
+	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/httpctx"
 	"local/elsereno/internal/web/stream"
@@ -36,6 +37,13 @@ type Options struct {
 	// endpoints return 503 and the dashboard renders the
 	// skeleton-only panels.
 	Querier repo.Querier
+
+	// ScanStore (optional, v1.61+) backs the scan-orchestration
+	// endpoints under `/api/v1/scans/`. If nil the endpoints
+	// return 503. Production wiring passes a NewDBStore(pool)
+	// (jobs survive restart); tests + dev pass a
+	// NewMemoryStore() (jobs lost on restart).
+	ScanStore scanorch.Store
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -84,6 +92,7 @@ func NewServer(opts Options) (*Server, error) {
 	mux.Handle("/api/v1/", handlers.APIV1(handlers.APIV1Deps{
 		Broadcaster: s.broadcaster,
 		Querier:     opts.Querier,
+		ScanStore:   opts.ScanStore,
 	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
