@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] — 2026-05-05
+
+### Added
+
+- **MMS ACSE A-ASSOCIATE-REQUEST for IEC 61850-8-1 IED
+  fingerprinting**. Closes the long-standing v1.32+ E
+  carryover. Bumps MMS plugin confidence from ~0.8
+  (COTP-level disambig only) to ~0.95 (IED handshake
+  confirmed).
+  - `BuildACSEAssociateRequestMMS()` — hand-coded
+    static OSI Session CONNECT + Presentation CP +
+    ACSE AARQ blob (~120 bytes) requesting the
+    `1.0.9506.2.3` application context. Reverse-
+    engineered from libiec61850; verified against
+    Conpot.
+  - `ParseACSEAssociateResponseMMS(buf)` — byte-
+    pattern scan for the OID in the AARE response.
+    Layout-agnostic, zero-allocation; robust to vendor
+    variation in AARE structure.
+  - Plugin.Probe sends the AARQ after a positive
+    COTP-CC; on OID match the finding note becomes
+    "MMS ACSE associated (IEC 61850-8-1)". Falls back
+    to the v1.25 COTP-CC note on any failure so non-
+    IEC-61850 MMS-style servers see no behaviour change.
+
+### Tests
+
+`+6 tests` (acse_test.go):
+MMSApplicationContextOIDBytes, BuildACSEAssociateRequestMMS,
+Parse_Positive, Parse_NoOID, Parse_TooShort,
+Parse_OIDAtBoundary, Parse_PartialOID.
+
+### Honest scope
+
+The AARQ is static (not target-customised) and the AARE
+parse is OID-pattern scan (not full BER). Lab validation
+against real Mark VIe / SEL / GE Multilin / ABB IEDs is
+still pending (same gap as the v1.28 ProConOS + GE-SRTP
+plugins).
+
+### Build
+
+3-variant matrix unchanged.
+
+INSTALL.md unchanged — fingerprint confidence is a
+plugin-internal concern not visible at install-doc
+level.
+
 ## [1.50.0] — 2026-05-05
 
 ### Added

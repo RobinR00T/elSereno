@@ -1,28 +1,35 @@
 ---
-phase: v1.50-closed
-status: v1.16-v1.27 published; v1.28-v1.50 tags pending push
+phase: v1.51-closed
+status: v1.16-v1.27 published; v1.28-v1.51 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.50 cycle closed on `main`** (1 chunk +
-close). Closes the long-running G item: macOS sandbox_init
-(3) integration. Opt-in cgo wrapper at
-offensive/sandbox/sandbox_darwin_cgo.go applies a .sb
-Scheme profile per offensive subprocess (exploit / harvest
-/ dial). Default release build keeps CGO_ENABLED=0 so the
-static-Linux invariant is preserved; new
-`make build-offensive-darwin-sandboxed` target emits the
-sandboxed macOS binary. INSTALL.md updated with the 2-
-mode table per the v1.49 standing directive.
+**Phase**: **v1.51 cycle closed on `main`** (1 chunk +
+close). Closes the long-running E item: MMS ACSE
+A-ASSOCIATE-REQUEST for IEC 61850-8-1. Bumps MMS
+fingerprint confidence from ~0.8 (COTP-level disambig
+only) to ~0.95 (IED handshake confirmed). Hand-coded
+~120-byte static OSI/Session/Presentation/ACSE AARQ
+blob; byte-pattern scan for the OID in the AARE response
+(robust to vendor layout variation). Plugin.Probe falls
+back to COTP-CC level on any AARQ/AARE failure so the
+v1.25 behaviour is preserved.
 
-Snapshot: `.context/snapshots/v1.50.0-macos-sandbox-init.md`.
+Snapshot: `.context/snapshots/v1.51.0-mms-acse-association.md`.
 
-**v1.50 chunks landed (in-flight)**:
-- 1 `5ee142e` — sandbox_darwin_cgo.go + 3 .sb profiles +
-  Makefile target + 3 tests + INSTALL.md update.
+**v1.51 chunks landed (in-flight)**:
+- 1 `4e13192` — wire/acse.go + Plugin.Probe ACSE wiring
+  + 6 tests + plugin docstring update.
+
+**v1.50 cycle (closed, snapshot available)**:
+macOS sandbox_init(3) cgo-gated. Default release stays
+pure-Go; new `make build-offensive-darwin-sandboxed`
+opt-in. 1 chunk + close + STATE trim: `5ee142e`,
+`b3e4d16`, `4346d57`. Snapshot:
+`.context/snapshots/v1.50.0-macos-sandbox-init.md`.
 
 **v1.49 cycle (closed, snapshot available)**:
 Linux distribution packaging — deb/rpm/apk via nfpm,

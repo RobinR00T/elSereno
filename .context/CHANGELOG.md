@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.51 (chunk 1) — **MMS ACSE
+  A-ASSOCIATE-REQUEST.** Closes the v1.32+ E carryover.
+  Hand-coded static OSI/Presentation/ACSE AARQ + OID-
+  pattern AARE scan. MMS plugin confidence ~0.8 → ~0.95
+  for IEC 61850-8-1 IEDs. 6 new tests. Snapshot:
+  `.context/snapshots/v1.51.0-mms-acse-association.md`.
+
 - 2026-05-05 — v1.50 (chunk 1) — **macOS `sandbox_init(3)`
   cgo-gated.** Closes the long-standing G carryover
   ("macOS sandbox via cgo break"). Opt-in:

@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.51 (MMS ACSE A-ASSOCIATE-REQUEST)
+
+- ✅ **MMS ACSE association layer** — v1.51 chunk 1.
+  Hand-coded static AARQ + OID-pattern AARE scan.
+  Confidence ~0.8 → ~0.95 for IEC 61850 IEDs.
+  6 new tests.
+
 ### v1.50 (macOS sandbox_init cgo-gated)
 
 - ✅ **macOS `sandbox_init(3)`** — v1.50 chunk 1.
@@ -356,12 +363,9 @@ v1.3 → v1.33 archived to keep this file actionable.
   same shape as the FINS/SLMP/SRTP trio above for the v1.21
   fingerprints. Estimación: ~3-4 días total.
 
-- [ ] **MMS ACSE association layer** — v1.25 chunk 3 ships
-  COTP-CR-level disambig only. A higher-confidence MMS
-  identification would send the OSI session-connect SPDU +
-  ACSE A-ASSOCIATE-REQUEST with the IEC 61850-8-1 application-
-  context name OID 1.0.9506.2.3 and verify the ACSE accept.
-  Estimación: ~6-8h.
+- ✅ **MMS ACSE association layer** — done in v1.51 chunk
+  1. Hand-coded static AARQ + OID-pattern AARE scan.
+  IEC 61850-8-1 IED confirmation.
 
 - ✅ **Wire record-replay primitive into each gated
   WriteGatedHandler** — pcworx + mms in v1.28 chunk 3 (POC);
