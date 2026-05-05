@@ -74,62 +74,14 @@ tui --record session capture (symmetric to v1.29-chunk-3
 --replay). 1 chunk + close: `0b1a5df`, `d56701f`. Snapshot:
 `.context/snapshots/v1.41.0-tui-record-session.md`.
 
-**v1.40 cycle (closed, snapshot available)**:
-plugins ports reverse-index verb. Default plain-text +
---json. Pin'd shared-port colocation (mms + s7 on 102) in
-tests. 1 chunk + close: `6cccb2c`, `91cc83a`. Snapshot:
-`.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
-
-**v1.39 cycle (closed, snapshot available)**:
-discover --hosts <file> for fixed-list sweeps. 1 chunk +
-close: `657242d`, `9f786a0`. Snapshot:
-`.context/snapshots/v1.39.0-discover-hosts-list.md`.
-
-**v1.38 cycle (closed, snapshot available)**:
-fingerprint capture verb (natural companion to v1.37's
-validate --file). 1 chunk + close: `9c44b82`, `3bef5e1`.
-Snapshot: `.context/snapshots/v1.38.0-fingerprint-capture-verb.md`.
-
-**v1.37 cycle (closed, snapshot available)**:
-fingerprint validation CLI verb (operator-facing harness for
-the v1.28 ProConOS + GE-SRTP confidence-0.7 carryover).
-1 chunk + close: `cfe268c`, `a2f2492`. Snapshot:
-`.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
-
-**v1.36 cycle (closed, snapshot available)**:
-Dashboard --input parity (preview endpoint). New
-`GET /api/v1/inputs/preview` endpoint backed by
-`internal/inputs/preview` package; read-only verification
-of list:/nmap:/stdin input files from inside the dashboard.
-1 chunk + close: `d8d40e3`, `f8e1303`. Snapshot:
-`.context/snapshots/v1.36.0-dashboard-input-preview.md`.
-
-**v1.35 cycle (closed, snapshot available)**:
-proxy listen --plugin for 4 legacy-ICS plugins (pcworx +
-mms + enip + s7) + recording. 1 chunk + close: `23aa50c`,
-`36e3e2c`. Snapshot:
-`.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
-
-**v1.34 cycle (closed, snapshot available)**:
-Tree-wide //nolint:gosec → // #nosec G<NNN> sweep (76
-markers across 49 files; PITF-030 enforced tree-wide).
-Side-fix: comment-eats-statement bug in enip/write.go.
-1 chunk + close: `75cbcf5`, `801a12d`. Snapshot:
-`.context/snapshots/v1.34.0-tree-wide-gosec-hygiene.md`.
-
-**v1.33 cycle (closed, snapshot available)**:
-teatest program-level integration tests for the TUI runner
-(closes v1.30+v1.31 carryover). 10 cases in
-`internal/tui/program_test.go`. 1 chunk + close: `29ecaf4`,
-`f69e4bc`. Snapshot:
-`.context/snapshots/v1.33.0-teatest-tui-integration.md`.
-
-**v1.32 cycle (closed, snapshot available)**:
-Hygiene-only: completes the b611f5c migration for the
-cmd/elsereno/ subtree (10 `//nolint:gosec` → `// #nosec
-G<NNN>`). Wider tree (~65 more markers) is its own
-follow-up. 1 chunk + close: `f4e2464`, `a9e29ff`. Snapshot:
-`.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
+**v1.32 → v1.40 cycles (closed; per-cycle snapshots in
+`.context/snapshots/`):**
+hygiene + tooling cycles — gosec marker migration (v1.32
++ v1.34), teatest TUI integration (v1.33), proxy listen
+for 4 legacy-ICS protocols + recording (v1.35), dashboard
+--input preview endpoint (v1.36), fingerprint
+validate/capture verbs (v1.37 + v1.38), discover --hosts
+(v1.39), plugins ports reverse-index (v1.40).
 
 **v1.31 cycle (closed, snapshot available)**:
 TUI `--input` parity with batch `scan` (all 8 kinds now
