@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] — 2026-05-05
+
+### Added
+
+- **M-Bus offensive write-gated proxy on TCP/10001**
+  (`-tags offensive`). Closes the v1.32+ D2
+  carryover. Two-tier gate: control field (only
+  SND_UD is mutating; SND_NKE/REQ_UD1/REQ_UD2/ACK
+  always pass) + per-(CI, Address) tuple inside
+  SND_UD with wildcards (CI=0 any CI, Address=0 any
+  address). Empty `AllowedSNDUD{}` matches nothing
+  (typo guard against {0,0}-as-wildcard).
+- `internal/protocols/mbustcp/wire/control.go` (new):
+  Control + CI catalogue + ReadFrame stream parser
+  for M-Bus over TCP. Handles short / long / ACK
+  frames with full bound-checking and checksum
+  verification. `Frame.IsSNDUD()` +
+  `Frame.IsAlwaysSafeControl()` classifiers.
+- `offensive/write/mbustcp/gatedproxy.go` (new):
+  WriteGatedHandler + AllowlistHash. Refusal mode
+  is silent drop — M-Bus has no permission-denied
+  frame, client retransmits and times out cleanly.
+
+### Tests
+
+`+25 tests` (10 wire + 15 gate).
+
+### Build
+
+3-variant matrix unchanged. Default build
+behavioural unchanged. INSTALL.md unchanged (CLI
+flag plumbing is a future cycle's add).
+
 ## [1.55.0] — 2026-05-05
 
 ### Added

@@ -1,27 +1,32 @@
 ---
-phase: v1.55-closed
-status: v1.16-v1.27 published; v1.28-v1.55 tags pending push
+phase: v1.56-closed
+status: v1.16-v1.27 published; v1.28-v1.56 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.55 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ D1 item: KNX offensive
-write-gated proxy on UDP/3671. New
-`offensive/write/knxip/` package + cEMI parser in
-`internal/protocols/knxip/wire/services.go`. Three-tier
-gate (service-type / APCI / group-address). Also fixes
-a v1.21 chunk-1 KNX service-type bug
-(DESCRIPTION_REQUEST 0x0204 → 0x0203 per KNX Standard
-03.08.02). 24 tests.
+**Phase**: **v1.56 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ D2 item: M-Bus over TCP
+offensive write-gated proxy on TCP/10001. New
+`offensive/write/mbustcp/` package + control catalogue
++ ReadFrame stream parser in
+`internal/protocols/mbustcp/wire/control.go`. Two-tier
+gate (control field + per-(CI, Address) tuple). 25
+tests.
 
-Snapshot: `.context/snapshots/v1.55.0-knx-offensive-write.md`.
+Snapshot: `.context/snapshots/v1.56.0-mbus-offensive-write.md`.
 
-**v1.55 chunks landed (in-flight)**:
-- 1 `9d688ac` — wire/services.go + gatedproxy.go +
-  service-type fix + 24 tests.
+**v1.56 chunks landed (in-flight)**:
+- 1 `c7820ca` — wire/control.go + gatedproxy.go +
+  25 tests.
+
+**v1.55 cycle (closed, snapshot available)**:
+KNX offensive write-gated proxy on UDP/3671 + v1.21
+service-type correctness fix. 1 chunk + close:
+`9d688ac`, `9525afc`. Snapshot:
+`.context/snapshots/v1.55.0-knx-offensive-write.md`.
 
 **v1.54 cycle (closed, snapshot available)**:
 Beckhoff TwinCAT ADS read-only fingerprint plugin on

@@ -8,6 +8,12 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.56 (chunk 1) — **M-Bus offensive
+  write-gated proxy on TCP/10001.** Closes v1.32+ D2.
+  Two-tier gate (control field + per-(CI, Address)
+  tuple). 25 tests. Snapshot:
+  `.context/snapshots/v1.56.0-mbus-offensive-write.md`.
+
 - 2026-05-05 — v1.55 (chunk 1) — **KNX offensive write-
   gated proxy on UDP/3671.** Closes v1.32+ D1.
   Three-tier gate (service-type / APCI / group-address)

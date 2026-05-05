@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.56 (M-Bus offensive write path)
+
+- ✅ **M-Bus offensive write-gated proxy** — v1.56
+  chunk 1. Closes the v1.32+ D2 carryover. Two-tier
+  gate (control field + per-(CI, Address) tuple)
+  with wildcard semantics + typo-guard against
+  {0,0}-as-wildcard. 25 tests.
+
 ### v1.55 (KNX offensive write path)
 
 - ✅ **KNX offensive write-gated proxy** — v1.55
