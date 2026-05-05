@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.53 (enip per-(class, instance, attribute) gating)
+
+- ✅ **enip per-(class, instance, attribute) gating** —
+  v1.53 chunk 1. CIP MR EPATH parser +
+  AllowedAttribute (3 match strictnesses).
+  AllowlistHash separator 0xF2. 12 tests.
+
 ### v1.52 (s7 per-(area, db, byte-address) gating)
 
 - ✅ **s7 per-(area, db, byte-address) gating** —

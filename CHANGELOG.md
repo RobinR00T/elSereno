@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] — 2026-05-05
+
+### Added
+
+- **enip per-(class, instance, attribute) gating** for
+  SendRRData / SendUnitData. Closes the v1.32+ B
+  carryover. Operators can now restrict CIP MR requests
+  to specific (class, instance, attribute) triples; an
+  allowlisted SendRRData can no longer be used to
+  write to ANY object. Three match strictnesses:
+  MatchExact (all three must match), MatchClassInstance
+  (Attribute wildcarded), MatchClassOnly (Instance +
+  Attribute wildcarded).
+- `internal/protocols/enip/wire/epath.go` (new): CIP
+  MR EPATH parser. Supports 8/16/32-bit logical-segment
+  forms for class/instance/attribute. Refuses unknown
+  segment types (port-segment, symbolic, network).
+- AllowlistHash gains attrs dimension with separator
+  `0xF2`. Empty attrs list yields v1.27 hash for
+  backward-compat.
+
+### Changed
+
+- `enip.SessionMutation(target, allowed)` is now
+  `enip.SessionMutation(target, allowed, attrs)`.
+  `SessionMutationLegacy(target, allowed)` preserved.
+- `WriteGatedHandler.shouldForward` refactored:
+  `cmdAllowed` + `attributeAllowed` helpers.
+
+### Tests
+
+`+12 tests` (6 wire + 6 gate).
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged.
+
 ## [1.52.0] — 2026-05-05
 
 ### Added

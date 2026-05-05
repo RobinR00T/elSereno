@@ -1,30 +1,33 @@
 ---
-phase: v1.52-closed
-status: v1.16-v1.27 published; v1.28-v1.52 tags pending push
+phase: v1.53-closed
+status: v1.16-v1.27 published; v1.28-v1.53 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.52 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ A item: s7 per-(area, db,
-byte-address) gating for FuncWriteVar (0x05). New
-`internal/protocols/s7/wire/items.go` parses S7ANY
-items from the parameter area; new `AllowedWriteItem`
-struct in `offensive/write/s7/` allows operators to
-restrict WriteVar to specific (area, db, byte-range)
-tuples. AllowlistHash gains a per-item dimension with a
-0xF1 separator; empty items list yields the v1.27 hash
-for backward-compat. Multi-item refusal semantics: any
-item out-of-range refuses the whole frame.
+**Phase**: **v1.53 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ B item: enip per-(class,
+instance, attribute) gating for SendRRData/SendUnitData.
+CIP MR EPATHs parsed via new
+`internal/protocols/enip/wire/epath.go`; new
+`AllowedAttribute` in `offensive/write/enip/` with 3
+match strictnesses (Exact / ClassInstance / ClassOnly).
+AllowlistHash gains attrs dimension (separator 0xF2);
+empty list preserves v1.27 hash.
 
-Snapshot: `.context/snapshots/v1.52.0-s7-per-address-gating.md`.
+Snapshot: `.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
 
-**v1.52 chunks landed (in-flight)**:
-- 1 `829b769` — wire/items.go + WriteItem parser +
-  AllowedWriteItem + AllowlistHash dimension + 11 tests
-  (7 wire + 4 gate).
+**v1.53 chunks landed (in-flight)**:
+- 1 `c08edfb` — wire/epath.go + ExtractMRTarget +
+  AllowedAttribute + AllowlistHash dimension + 12 tests
+  (6 wire + 6 gate).
+
+**v1.52 cycle (closed, snapshot available)**:
+s7 per-(area, db, byte-address) gating for FuncWriteVar.
+1 chunk + close: `829b769`, `8ef95de`. Snapshot:
+`.context/snapshots/v1.52.0-s7-per-address-gating.md`.
 
 **v1.51 cycle (closed, snapshot available)**:
 MMS ACSE A-ASSOCIATE-REQUEST for IEC 61850-8-1 IED ID.

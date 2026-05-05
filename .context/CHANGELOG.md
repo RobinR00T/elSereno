@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.53 (chunk 1) — **enip per-(class,
+  instance, attribute) gating for SendRRData /
+  SendUnitData.** Closes v1.32+ B. CIP MR EPATH parser +
+  AllowedAttribute (3 match strictnesses) +
+  AllowlistHash dimension (separator 0xF2). 12 tests.
+  Snapshot:
+  `.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
+
 - 2026-05-05 — v1.52 (chunk 1) — **s7 per-(area, db,
   byte-address) gating for FuncWriteVar.** Closes the
   v1.32+ A carryover. Wire parser + AllowedWriteItem
