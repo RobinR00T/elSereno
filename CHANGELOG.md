@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.0] — 2026-05-05
+
+### Added
+
+- **KNX offensive write-gated proxy on UDP/3671**
+  (`-tags offensive`). Closes the v1.32+ D1
+  carryover. Three-tier gate: service-type (always-
+  safe set covers discovery + keep-alive + ack +
+  diag flow-control), APCI (Read/Response always
+  pass inside TUNNELLING; write APCIs require
+  allowlist), group-address (per-(GA, mask) ranges,
+  operator picks granularity 0xFFFF/0xFF00/0xF800).
+  Refusal mode is silent drop — KNXnet/IP has no
+  "permission denied" service-type and a fabricated
+  DISCONNECT could tear the wrong session.
+- `internal/protocols/knxip/wire/services.go` (new):
+  cEMI L_Data parser + 15 service-type constants +
+  6 APCI constants + 6 cEMI Message Codes. Exposes
+  `ParseTunnellingCEMI` (TUNNELLING_REQUEST shape)
+  and `ParseCEMILData` (raw L_Data, used for
+  ROUTING_INDICATION). `FormatGroupAddress` renders
+  the 5/3/8-bit "main/middle/sub" canonical form.
+- `offensive/write/knxip/gatedproxy.go` (new):
+  AllowedService + AllowedAPCI + AllowedGroup with
+  `Matches(dest)` mask semantics. AllowlistHash
+  separators 0xE1 (APCI dimension) + 0xE2 (group
+  dimension). UDP-aware WriteGatedHandler mirrors
+  the iax2 ADR-040 template.
+
+### Fixed
+
+- **KNX service-type values for DESCRIPTION pair.**
+  v1.21 chunk 1 had `ServiceTypeDescriptionRequest =
+  0x0204` and `ServiceTypeDescriptionResponse = 0x0205`;
+  KNX Standard 03.08.02 §4.1 specifies 0x0203 and
+  0x0204. Real KNX hardware would have refused the
+  request. The bug was masked because the wire test
+  fixture used the same wrong values. Plugin
+  fingerprint validation against real hardware will
+  now pass.
+
+### Tests
+
+`+24 tests` (9 wire + 15 gate).
+
+### Build
+
+3-variant matrix unchanged. Default build sees no
+behavioural change (offensive code is build-tag
+gated). INSTALL.md unchanged (CLI flag plumbing is a
+future cycle's add — same pattern as v1.52/v1.53).
+
 ## [1.54.0] — 2026-05-05
 
 ### Added

@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.55 (KNX offensive write path)
+
+- ✅ **KNX offensive write-gated proxy** — v1.55
+  chunk 1. Closes the v1.32+ D1 carryover. Three-tier
+  gate (service-type / APCI / group-address) with
+  per-(GA, mask) granularity. Plus a buried v1.21
+  correctness fix for DESCRIPTION_REQUEST/RESPONSE
+  service-type constants. 24 tests.
+
 ### v1.54 (Beckhoff TwinCAT ADS fingerprint)
 
 - ✅ **Beckhoff TwinCAT ADS plugin (TCP/48898)** —

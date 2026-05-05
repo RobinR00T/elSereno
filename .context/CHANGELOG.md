@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.55 (chunk 1) — **KNX offensive write-
+  gated proxy on UDP/3671.** Closes v1.32+ D1.
+  Three-tier gate (service-type / APCI / group-address)
+  with mask semantics. Plus a v1.21 service-type
+  correctness fix (DESCRIPTION_REQUEST 0x0204 → 0x0203
+  per KNX Standard). 24 tests. Snapshot:
+  `.context/snapshots/v1.55.0-knx-offensive-write.md`.
+
 - 2026-05-05 — v1.54 (chunk 1) — **Beckhoff TwinCAT ADS
   fingerprint plugin (TCP/48898).** Closes v1.32+ C.
   AMS/TCP framing + AMS routing header +

@@ -1,29 +1,38 @@
 ---
-phase: v1.54-closed
-status: v1.16-v1.27 published; v1.28-v1.54 tags pending push
+phase: v1.55-closed
+status: v1.16-v1.27 published; v1.28-v1.55 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.54 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ C item: Beckhoff TwinCAT ADS
-plugin on TCP/48898. New `internal/protocols/twincat/`
-package + wire subpackage. AMS/TCP framing + AMS
-routing header + ReadDeviceInfo (cmd 0x0001) parsed
-end-to-end. Plugin count: 28 → 29.
+**Phase**: **v1.55 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ D1 item: KNX offensive
+write-gated proxy on UDP/3671. New
+`offensive/write/knxip/` package + cEMI parser in
+`internal/protocols/knxip/wire/services.go`. Three-tier
+gate (service-type / APCI / group-address). Also fixes
+a v1.21 chunk-1 KNX service-type bug
+(DESCRIPTION_REQUEST 0x0204 → 0x0203 per KNX Standard
+03.08.02). 24 tests.
 
-Snapshot: `.context/snapshots/v1.54.0-twincat-fingerprint.md`.
+Snapshot: `.context/snapshots/v1.55.0-knx-offensive-write.md`.
 
-**v1.54 chunks landed (in-flight)**:
-- 1 `a57777f` — wire.go + ParseDeviceInfo + Plugin +
-  Register + 8 tests.
+**v1.55 chunks landed (in-flight)**:
+- 1 `9d688ac` — wire/services.go + gatedproxy.go +
+  service-type fix + 24 tests.
+
+**v1.54 cycle (closed, snapshot available)**:
+Beckhoff TwinCAT ADS read-only fingerprint plugin on
+TCP/48898. Plugin count: 28 → 29. 1 chunk + close:
+`a57777f`, `e660bea`. Snapshot:
+`.context/snapshots/v1.54.0-twincat-fingerprint.md`.
 
 **v1.53 cycle (closed, snapshot available)**:
-enip per-(class, instance, attribute) gating for
-SendRRData/SendUnitData. AllowlistHash separator 0xF2.
-1 chunk + close: `c08edfb`, `53af788`. Snapshot:
+enip per-(class, instance, attribute) gating.
+AllowlistHash separator 0xF2. 1 chunk + close:
+`c08edfb`, `53af788`. Snapshot:
 `.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
 
 **v1.52 cycle (closed, snapshot available)**:
