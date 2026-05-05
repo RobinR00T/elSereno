@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.58 (Dashboard scan-orchestration shell)
+
+- ✅ **Dashboard scan-orchestration shell** — v1.58
+  chunk 1. Closes the v1.32+ F carryover. New
+  internal/scanorch/ package (Job + state machine +
+  in-memory Store) + REST endpoints under
+  /api/v1/scans/. Worker + DB store + UI hookup are
+  follow-up cycles, not carryover. **Closes the
+  v1.50 substantial-items batch entirely.** 19 tests.
+
 ### v1.57 (DLMS/COSEM offensive write path)
 
 - ✅ **DLMS/COSEM offensive write-gated proxy** —

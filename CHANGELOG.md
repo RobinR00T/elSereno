@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.0] — 2026-05-05
+
+### Added
+
+- **Dashboard scan-orchestration shell.** Closes the
+  v1.32+ F carryover — the LAST item from the v1.50
+  substantial-items batch. New `internal/scanorch/`
+  package implements the scan-job model + state
+  machine (queued → running → completed/failed/
+  cancelled) + in-memory Store. Three new REST
+  endpoints under `/api/v1/scans/`:
+    - **POST** /api/v1/scans — submit a scan job
+      (JSON body with `input`, `plugins`,
+      `default_port`); returns 202 + Job envelope.
+    - **GET** /api/v1/scans — list jobs (newest
+      first, `limit` query param clamped to
+      [1, 100], default 20).
+    - **GET** /api/v1/scans/{id} — one job by ID
+      (404 on miss).
+  Nil ScanStore yields 503 on every endpoint
+  (matches existing degraded-deps pattern).
+- `APIV1Deps` gains a `ScanStore` field.
+
+### Tests
+
+`+19 tests` (12 scanorch + 7 handlers).
+
+### Notes
+
+This is the orchestration **shell only**: state
+machine + persistence interface + REST contract.
+Scanner-execution wiring (Worker + JobRunner) and
+persistent storage (DB-backed Store) land in
+follow-up chunks (v1.59+). The MemoryStore loses
+jobs on restart; this is acceptable for the shell-
+first iteration.
+
+This closes ALL the v1.50 substantial items
+(A=s7 v1.52, B=enip v1.53, C=TwinCAT v1.54,
+D1=KNX v1.55, D2=M-Bus v1.56, D3=DLMS v1.57,
+F=this).
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged
+(scan orchestration endpoints don't show up at
+install-doc level until UI hookup lands).
+
 ## [1.57.0] — 2026-05-05
 
 ### Added

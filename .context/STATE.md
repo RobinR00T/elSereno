@@ -1,33 +1,38 @@
 ---
-phase: v1.57-closed
-status: v1.16-v1.27 published; v1.28-v1.57 tags pending push
+phase: v1.58-closed
+status: v1.16-v1.27 published; v1.28-v1.58 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.57 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ D3 item: DLMS/COSEM offensive
-write-gated proxy on TCP/4059. New
-`offensive/write/dlms/` package + APDU catalogue +
-ReadFrame stream parser + ParseSetRequest /
-ParseActionRequest in
-`internal/protocols/dlms/wire/apdu.go`. Three-tier
-gate (APDU tag + per-(class, OBIS, member) + match
-strictness). 28 tests.
+**Phase**: **v1.58 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ F item: dashboard scan-
+orchestration shell. New `internal/scanorch/` package
++ REST endpoints (POST/GET/GET-by-id under
+`/api/v1/scans/`). State machine (queued → running →
+completed/failed/cancelled) + in-memory Store. 19
+tests.
 
-This **closes the legacy-ICS D-trio offensive write
-paths** (D1=KNX v1.55, D2=M-Bus v1.56, D3=DLMS v1.57)
-AND closes ALL the v1.32+ A-E carryovers. Only F
-(dashboard orchestration) remains from the original
-v1.50 batch.
+This **closes the v1.50 substantial-items batch
+entirely**. All of A=s7, B=enip, C=TwinCAT, D1=KNX,
+D2=M-Bus, D3=DLMS, E=MMS-ACSE, F=dashboard-
+orchestration are now done. Worker + DB-backed Store
++ UI hookup for v1.58 are forward progress on a new
+feature, not carryover.
 
+Snapshot: `.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
+
+**v1.58 chunks landed (in-flight)**:
+- 1 `d20ec3d` — scanorch/job.go + handlers/scans.go
+  + APIV1Deps wire + 19 tests.
+
+**v1.57 cycle (closed, snapshot available)**:
+DLMS/COSEM offensive write-gated proxy on TCP/4059.
+Three-tier gate (APDU + cosem + match strictness).
+1 chunk + close: `b80546a`, `008f773`, `fc81d33`.
 Snapshot: `.context/snapshots/v1.57.0-dlms-offensive-write.md`.
-
-**v1.57 chunks landed (in-flight)**:
-- 1 `b80546a` — wire/apdu.go + gatedproxy.go +
-  28 tests.
 
 **v1.56 cycle (closed, snapshot available)**:
 M-Bus over TCP offensive write-gated proxy on

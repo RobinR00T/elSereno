@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.58 (chunk 1) — **Dashboard scan-
+  orchestration shell.** Closes v1.32+ F. New
+  internal/scanorch/ package + REST endpoints under
+  /api/v1/scans/. State machine (queued/running/
+  completed/failed/cancelled) + in-memory Store.
+  Closes the v1.50 substantial-items batch.
+  19 tests. Snapshot:
+  `.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
+
 - 2026-05-05 — v1.57 (chunk 1) — **DLMS/COSEM offensive
   write-gated proxy on TCP/4059.** Closes v1.32+ D3.
   Three-tier gate (APDU tag + per-(class, OBIS,
