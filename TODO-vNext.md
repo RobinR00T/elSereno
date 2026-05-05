@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.52 (s7 per-(area, db, byte-address) gating)
+
+- ✅ **s7 per-(area, db, byte-address) gating** —
+  v1.52 chunk 1. Wire parser + AllowedWriteItem +
+  AllowlistHash dimension (separator 0xF1). Empty
+  list preserves v1.27 backward-compat. 11 tests.
+
 ### v1.51 (MMS ACSE A-ASSOCIATE-REQUEST)
 
 - ✅ **MMS ACSE association layer** — v1.51 chunk 1.

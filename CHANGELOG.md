@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] — 2026-05-05
+
+### Added
+
+- **s7 per-(area, db, byte-address) gating for
+  FuncWriteVar (0x05)**. Closes the v1.32+ A
+  carryover. Operators can now restrict WriteVar to
+  specific (area, db, byte-range) tuples; an
+  allowlisted WriteVar can no longer be weaponised to
+  mutate any address. Wire parser
+  (`internal/protocols/s7/wire/items.go`) extracts
+  per-item Area / DB / ByteAddr / Length from the
+  S7ANY parameter-area items. Gate
+  (`offensive/write/s7/`) gains `AllowedWriteItem`
+  with byte-range Matches semantics; empty list
+  preserves v1.27 FC-only gating.
+- **AllowlistHash gains a per-item dimension** with
+  hash separator `0xF1`. Empty items list yields the
+  same hash as v1.27 — pre-v1.52 confirm-tokens keep
+  validating. Operators who configure per-item
+  allowlists must re-mint.
+
+### Changed
+
+- `s7.SessionMutation(target, allowed)` is now
+  `s7.SessionMutation(target, allowed, items)`.
+  `SessionMutationLegacy(target, allowed)` preserved
+  for any 2-arg caller (none in-tree).
+
+### Tests
+
+`+11 tests` (7 wire + 4 gate).
+
+### Honest scope
+
+Bit-level addressing (DB42:100.3) intentionally NOT
+supported. CLI flag plumbing (`proxy listen --write-
+item …`) is a future cycle — wire + gate primitives
+land in this chunk.
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged.
+
 ## [1.51.0] — 2026-05-05
 
 ### Added

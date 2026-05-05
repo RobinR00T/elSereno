@@ -1,28 +1,36 @@
 ---
-phase: v1.51-closed
-status: v1.16-v1.27 published; v1.28-v1.51 tags pending push
+phase: v1.52-closed
+status: v1.16-v1.27 published; v1.28-v1.52 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.51 cycle closed on `main`** (1 chunk +
-close). Closes the long-running E item: MMS ACSE
-A-ASSOCIATE-REQUEST for IEC 61850-8-1. Bumps MMS
-fingerprint confidence from ~0.8 (COTP-level disambig
-only) to ~0.95 (IED handshake confirmed). Hand-coded
-~120-byte static OSI/Session/Presentation/ACSE AARQ
-blob; byte-pattern scan for the OID in the AARE response
-(robust to vendor layout variation). Plugin.Probe falls
-back to COTP-CC level on any AARQ/AARE failure so the
-v1.25 behaviour is preserved.
+**Phase**: **v1.52 cycle closed on `main`** (1 chunk +
+close). Closes the v1.32+ A item: s7 per-(area, db,
+byte-address) gating for FuncWriteVar (0x05). New
+`internal/protocols/s7/wire/items.go` parses S7ANY
+items from the parameter area; new `AllowedWriteItem`
+struct in `offensive/write/s7/` allows operators to
+restrict WriteVar to specific (area, db, byte-range)
+tuples. AllowlistHash gains a per-item dimension with a
+0xF1 separator; empty items list yields the v1.27 hash
+for backward-compat. Multi-item refusal semantics: any
+item out-of-range refuses the whole frame.
 
-Snapshot: `.context/snapshots/v1.51.0-mms-acse-association.md`.
+Snapshot: `.context/snapshots/v1.52.0-s7-per-address-gating.md`.
 
-**v1.51 chunks landed (in-flight)**:
-- 1 `4e13192` — wire/acse.go + Plugin.Probe ACSE wiring
-  + 6 tests + plugin docstring update.
+**v1.52 chunks landed (in-flight)**:
+- 1 `829b769` — wire/items.go + WriteItem parser +
+  AllowedWriteItem + AllowlistHash dimension + 11 tests
+  (7 wire + 4 gate).
+
+**v1.51 cycle (closed, snapshot available)**:
+MMS ACSE A-ASSOCIATE-REQUEST for IEC 61850-8-1 IED ID.
+Confidence ~0.8 → ~0.95. 1 chunk + close: `4e13192`,
+`98ea652`. Snapshot:
+`.context/snapshots/v1.51.0-mms-acse-association.md`.
 
 **v1.50 cycle (closed, snapshot available)**:
 macOS sandbox_init(3) cgo-gated. Default release stays

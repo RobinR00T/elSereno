@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.52 (chunk 1) — **s7 per-(area, db,
+  byte-address) gating for FuncWriteVar.** Closes the
+  v1.32+ A carryover. Wire parser + AllowedWriteItem
+  + AllowlistHash per-item dimension (separator 0xF1).
+  Empty list = v1.27 backward-compat. 11 new tests.
+  Snapshot:
+  `.context/snapshots/v1.52.0-s7-per-address-gating.md`.
+
 - 2026-05-05 — v1.51 (chunk 1) — **MMS ACSE
   A-ASSOCIATE-REQUEST.** Closes the v1.32+ E carryover.
   Hand-coded static OSI/Presentation/ACSE AARQ + OID-
