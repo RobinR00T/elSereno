@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.48.0] — 2026-05-05
+
+### Added
+
+- **`elsereno proxy replay --stats`** — summary mode:
+  per-direction chunk count + total bytes + time range
+  of the matching subset. No per-chunk lines. Composes
+  with --dir / --since / --until. Mutually exclusive
+  with --limit / --tail / --json (each error message
+  names the specific pair).
+
+### Changed
+
+- All mutex-flag checks for `proxy replay` consolidated
+  into `validateMutexFlags`. Pre-existing
+  --limit/--tail check moved there too.
+
+### Tests
+
+`+3 tests`: StatsSummary, StatsEmpty, StatsMutexFlags.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.47.0] — 2026-05-05
 
 ### Added

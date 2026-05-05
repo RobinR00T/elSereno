@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.48 (chunk 1) — **`proxy replay
+  --stats`** summary mode: per-direction chunk count +
+  total bytes + time range. No per-chunk lines. Mutually
+  exclusive with --limit/--tail/--json. validateMutex-
+  Flags consolidator. 3 tests. Snapshot:
+  `.context/snapshots/v1.48.0-proxy-replay-stats.md`.
+
 - 2026-05-05 — v1.47 (chunk 1) — **`proxy replay
   --tail N`** symmetric counterpart to --limit; emits
   last N matching chunks via ring buffer (memory caps

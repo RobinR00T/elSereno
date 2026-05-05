@@ -1,26 +1,31 @@
 ---
-phase: v1.47-closed
-status: v1.16-v1.27 published; v1.28-v1.47 tags pending push
+phase: v1.48-closed
+status: v1.16-v1.27 published; v1.28-v1.48 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.47 cycle closed on `main`** (1 chunk + close
-commit). Symmetric counterpart to v1.46: `--tail N` emits
-the LAST N matching chunks of `proxy replay`, useful when
-the relevant events are at end-of-capture. Ring-buffered
-so memory caps at N entries regardless of capture size.
---limit + --tail mutually exclusive at parse time
-(operator-confusion guard). runProxyReplay splits into
-streaming + tail paths sharing an emitChunk helper.
+**Phase**: **v1.48 cycle closed on `main`** (1 chunk + close
+commit). Adds `--stats` summary mode to `proxy replay`:
+per-direction chunk count + total bytes + time range,
+no per-chunk lines. Sanity check before a full replay on
+multi-GB captures. Composes with --dir / --since / --until
+filters. `--stats` mutually exclusive with --limit /
+--tail / --json (operator-confusion guard
+consolidated into validateMutexFlags helper).
 
-Snapshot: `.context/snapshots/v1.47.0-proxy-replay-tail.md`.
+Snapshot: `.context/snapshots/v1.48.0-proxy-replay-stats.md`.
 
-**v1.47 chunks landed (in-flight)**:
-- 1 `3305a3d` — `--tail int` flag + ring-buffer impl +
-  --limit/--tail mutex + emitChunk helper + 3 tests.
+**v1.48 chunks landed (in-flight)**:
+- 1 `1834bdd` — `--stats bool` flag + replayStats type +
+  validateMutexFlags consolidator + 3 tests.
+
+**v1.47 cycle (closed, snapshot available)**:
+proxy replay --tail N (last N matching chunks via ring
+buffer). 1 chunk + close: `3305a3d`, `b1073c3`. Snapshot:
+`.context/snapshots/v1.47.0-proxy-replay-tail.md`.
 
 **v1.46 cycle (closed, snapshot available)**:
 proxy replay --limit N + chunkPassesFilters helper. 1
