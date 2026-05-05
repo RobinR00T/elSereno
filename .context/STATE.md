@@ -1,27 +1,33 @@
 ---
-phase: v1.44-closed
-status: v1.16-v1.27 published; v1.28-v1.44 tags pending push
+phase: v1.45-closed
+status: v1.16-v1.27 published; v1.28-v1.45 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.44 cycle closed on `main`** (1 chunk + close
-commit). Adds `--since RFC3339` / `--until RFC3339` flags
-to `proxy replay` for forensic narrowing of long captures.
-Operators investigating an incident at a known timestamp
-isolate the relevant window without piping through grep /
-jq. timeWindow.contains short-circuits to true when both
-bounds are zero so the no-flags path stays free.
+**Phase**: **v1.45 cycle closed on `main`** (1 chunk + close
+commit). Adds `--json` flag to `proxy replay` for
+machine-readable forensic output. Each ChunkEvent emits
+as one JSON object per line; header preamble suppressed.
+Composes with v1.44's --since/--until/--dir filters. Side
+fix: dispatcher now skips the DirHeader event explicitly
+(was producing a phantom "c→u  0B" line via the
+formatter's default arrow).
 
-Snapshot: `.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
+Snapshot: `.context/snapshots/v1.45.0-proxy-replay-json.md`.
 
-**v1.44 chunks landed (in-flight)**:
-- 1 `39bf02a` — `--since/--until` flags + timeWindow type
-  + parseTimeWindow validator + 4 tests.
-- 1 follow-up `e229947` — extract runProxyReplay so
-  newProxyReplayCmd stays under funlen.
+**v1.45 chunks landed (in-flight)**:
+- 1 `05c96a5` — `--json` flag + DirHeader skip + 2 tests +
+  fix for pre-existing test that depended on the buggy
+  fall-through.
+
+**v1.44 cycle (closed, snapshot available)**:
+proxy replay --since/--until time-window forensics. 1
+chunk + close + funlen follow-up: `39bf02a`, `e229947`,
+`15f9222`. Snapshot:
+`.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
 
 **v1.43 cycle (closed, snapshot available)**:
 `tui --rate N` slow-motion playback flag. 1 chunk + close:

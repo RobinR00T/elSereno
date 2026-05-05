@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.0] — 2026-05-05
+
+### Added
+
+- **`elsereno proxy replay --json`** — machine-readable
+  output for jq / downstream tooling. Each ChunkEvent
+  emits as one JSON object per line; header preamble
+  suppressed so stdout stays a clean NDJSON stream.
+  Composes with --dir / --since / --until filters
+  (v1.44+); --json controls presentation only.
+
+### Fixed
+
+- **`proxy replay` skipped a phantom `c→u  0B` line** in
+  legacy (non-JSON) output. `replay.Replay` calls the
+  callback once per record including the `DirHeader`
+  metadata event; the dispatcher used to let it fall
+  through to formatChunk where the arrow defaulted to
+  "c→u" because the only `Dir==…` check was for
+  `DirUpstreamToClient`. The dispatcher now skips
+  DirHeader explicitly. SeekHeader already surfaces the
+  metadata via the preamble; the chunk stream is now
+  chunk-only.
+
+### Tests
+
+`+2 tests` (JSONOutput, JSONOutput_RespectsFilters); 1
+existing test (RendersHeaderAndChunks) updated to assert
+on the actual chunk arrow rather than the phantom one.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.44.0] — 2026-05-05
 
 ### Added

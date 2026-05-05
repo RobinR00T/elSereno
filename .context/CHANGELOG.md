@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.45 (chunk 1) — **`proxy replay --json`**
+  machine-readable output. One ChunkEvent per line, no
+  header preamble. Composes with v1.44 filters. Side fix:
+  dispatcher now skips DirHeader (was producing a phantom
+  "c→u  0B" line via formatter's default arrow). 2 new
+  tests + 1 adjusted. Snapshot:
+  `.context/snapshots/v1.45.0-proxy-replay-json.md`.
+
 - 2026-05-05 — v1.44 (chunk 1) — **`proxy replay
   --since/--until`** time-window forensics. RFC3339Nano
   bounds, inclusive, optional either-side. timeWindow

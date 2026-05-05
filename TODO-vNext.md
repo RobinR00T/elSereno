@@ -100,6 +100,12 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.45 (proxy replay --json + DirHeader fix)
+
+- ✅ **`proxy replay --json`** — v1.45 chunk 1.
+  Machine-readable output for jq pipelines. Side fix:
+  dispatcher now skips DirHeader. 2 tests.
+
 ### v1.44 (proxy replay time-window)
 
 - ✅ **`proxy replay --since/--until`** — v1.44 chunk 1.
