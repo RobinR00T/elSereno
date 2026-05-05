@@ -1,32 +1,36 @@
 ---
-phase: v1.58-closed
-status: v1.16-v1.27 published; v1.28-v1.58 tags pending push
+phase: v1.59-closed
+status: v1.16-v1.27 published; v1.28-v1.59 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.58 cycle closed on `main`** (1 chunk +
-close). Closes the v1.32+ F item: dashboard scan-
-orchestration shell. New `internal/scanorch/` package
-+ REST endpoints (POST/GET/GET-by-id under
-`/api/v1/scans/`). State machine (queued → running →
-completed/failed/cancelled) + in-memory Store. 19
-tests.
+**Phase**: **v1.59 cycle closed on `main`** (1 chunk +
+close). Continues the dashboard scan-orchestration
+feature opened in v1.58. v1.58 landed the shell
+(model + state machine + in-memory Store + REST
+submit/get/list); v1.59 lands the execution
+machinery (Worker + JobRunner + Pool + Cancel). 18
+new tests.
 
-This **closes the v1.50 substantial-items batch
-entirely**. All of A=s7, B=enip, C=TwinCAT, D1=KNX,
-D2=M-Bus, D3=DLMS, E=MMS-ACSE, F=dashboard-
-orchestration are now done. Worker + DB-backed Store
-+ UI hookup for v1.58 are forward progress on a new
-feature, not carryover.
+Snapshot: `.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
 
-Snapshot: `.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
+**v1.59 chunks landed (in-flight)**:
+- 1 `f03d099` — scanorch/worker.go + Pool + cancel
+  handler + 18 tests.
 
-**v1.58 chunks landed (in-flight)**:
-- 1 `d20ec3d` — scanorch/job.go + handlers/scans.go
-  + APIV1Deps wire + 19 tests.
+**v1.58 cycle (closed, snapshot available)**:
+Dashboard scan-orchestration shell. Closes v1.50 F.
+1 chunk + close: `d20ec3d`, `f9e3f4b`. Snapshot:
+`.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
+
+**v1.50 substantial-items batch is fully done**
+(A=v1.52, B=v1.53, C=v1.54, D1=v1.55, D2=v1.56,
+D3=v1.57, E=v1.51, F=v1.58). v1.59+ is forward
+progress on the dashboard orchestration feature,
+not carryover.
 
 **v1.57 cycle (closed, snapshot available)**:
 DLMS/COSEM offensive write-gated proxy on TCP/4059.

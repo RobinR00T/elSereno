@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.59 (chunk 1) — **Scan-job Worker +
+  JobRunner + Pool + Cancel endpoint.** Builds on the
+  v1.58 shell with the execution machinery (claim,
+  panic-recover, terminate). Pool with bounded
+  concurrency + Drain polling loop. POST
+  /api/v1/scans/{id}/cancel. 18 tests. Snapshot:
+  `.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
+
 - 2026-05-05 — v1.58 (chunk 1) — **Dashboard scan-
   orchestration shell.** Closes v1.32+ F. New
   internal/scanorch/ package + REST endpoints under

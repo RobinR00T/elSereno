@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.59.0] — 2026-05-05
+
+### Added
+
+- **Scan-job Worker + JobRunner + Pool + Cancel
+  endpoint.** Builds on the v1.58 orchestration shell
+  with the execution machinery that drives queued
+  jobs through to terminal states.
+- `internal/scanorch/worker.go` (new):
+  - **JobRunner** interface (`Run(ctx, job) (Stats,
+    error)`) + `JobRunnerFunc` adapter — keeps the
+    orchestration shell decoupled from
+    `internal/scanner` + `internal/inputs` concrete
+    types so future runners (sandboxed-subprocess /
+    sharded / etc.) swap in cleanly.
+  - **Worker** with `Process(ctx, jobID)` —
+    queued → running claim, panic-recovered runner
+    dispatch, terminal transition based on outcome
+    (cancelled / failed / completed). Partial Stats
+    preserved on failure so operators see scan
+    progress.
+  - **Worker.ProcessAll(ctx)** — drain every queued
+    job sequentially.
+  - **Worker.Drain(ctx, pollInterval)** — continuous
+    polling loop with bounded interval [50ms, 1h].
+  - **Pool** — bounded goroutine pool wrapping a
+    Worker. Concurrency clamped to [1, 64]. Submit
+    fast-path closed-check protects against the
+    `Stop`-then-`Submit` race.
+- `POST /api/v1/scans/{id}/cancel` — operator-
+  initiated cancellation. Returns 200 / 404 / 409
+  per outcome (409 for already-terminal jobs).
+
+### Tests
+
+`+18 tests` (14 worker + 3 cancel handler + 1 nil-
+store row).
+
+### Honest scope
+
+  - Real runner (parses Job.Input, loads plugins,
+    calls scanner.Run) lives in cmd/elsereno; wiring
+    pending future cycle.
+  - Cancel→runner-stop is soft-signal only; per-job
+    ctx hook deferred.
+  - Persistent Store still in-memory; v1.60 adds the
+    DB-backed Store.
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged.
+
 ## [1.58.0] — 2026-05-05
 
 ### Added

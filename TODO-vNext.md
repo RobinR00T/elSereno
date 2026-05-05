@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.59 (Scan-job Worker + JobRunner + Pool + Cancel)
+
+- ✅ **Scan-job Worker + JobRunner + Pool + Cancel
+  endpoint** — v1.59 chunk 1. Builds on the v1.58
+  shell with execution machinery: claim, panic-
+  recover, terminate. Pool with bounded concurrency
+  + Drain polling loop. POST /scans/{id}/cancel
+  with proper 200/404/409 semantics. 18 tests.
+
 ### v1.58 (Dashboard scan-orchestration shell)
 
 - ✅ **Dashboard scan-orchestration shell** — v1.58
