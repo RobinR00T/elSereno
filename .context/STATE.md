@@ -1,27 +1,31 @@
 ---
-phase: v1.46-closed
-status: v1.16-v1.27 published; v1.28-v1.46 tags pending push
+phase: v1.47-closed
+status: v1.16-v1.27 published; v1.28-v1.47 tags pending push
 last-updated: 2026-05-05
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.46 cycle closed on `main`** (1 chunk + close
-commit). Adds `--limit N` flag to `proxy replay` capping
-output at N matching chunks. Applied AFTER --dir /
---since / --until filters so an operator picking "first
-10 c→u writes in window" gets exactly 10. errReplay-
-LimitReached sentinel ends the file walker early so
-multi-GB captures don't keep being read. New
-chunkPassesFilters helper drops runProxyReplay back under
-gocyclo's ceiling.
+**Phase**: **v1.47 cycle closed on `main`** (1 chunk + close
+commit). Symmetric counterpart to v1.46: `--tail N` emits
+the LAST N matching chunks of `proxy replay`, useful when
+the relevant events are at end-of-capture. Ring-buffered
+so memory caps at N entries regardless of capture size.
+--limit + --tail mutually exclusive at parse time
+(operator-confusion guard). runProxyReplay splits into
+streaming + tail paths sharing an emitChunk helper.
 
-Snapshot: `.context/snapshots/v1.46.0-proxy-replay-limit.md`.
+Snapshot: `.context/snapshots/v1.47.0-proxy-replay-tail.md`.
 
-**v1.46 chunks landed (in-flight)**:
-- 1 `95deea4` — `--limit int` flag + errReplayLimitReached
-  sentinel + chunkPassesFilters helper + 3 tests.
+**v1.47 chunks landed (in-flight)**:
+- 1 `3305a3d` — `--tail int` flag + ring-buffer impl +
+  --limit/--tail mutex + emitChunk helper + 3 tests.
+
+**v1.46 cycle (closed, snapshot available)**:
+proxy replay --limit N + chunkPassesFilters helper. 1
+chunk + close: `95deea4`, `21cf58e`. Snapshot:
+`.context/snapshots/v1.46.0-proxy-replay-limit.md`.
 
 **v1.45 cycle (closed, snapshot available)**:
 proxy replay --json + DirHeader skip side-fix. 1 chunk +

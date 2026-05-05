@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-05 — v1.47 (chunk 1) — **`proxy replay
+  --tail N`** symmetric counterpart to --limit; emits
+  last N matching chunks via ring buffer (memory caps
+  at N regardless of capture size). --limit / --tail
+  mutually exclusive at parse time. 3 tests. Snapshot:
+  `.context/snapshots/v1.47.0-proxy-replay-tail.md`.
+
 - 2026-05-05 — v1.46 (chunk 1) — **`proxy replay
   --limit N`** caps output at N matching chunks. Applied
   AFTER --dir/--since/--until filters. errReplay-

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.0] — 2026-05-05
+
+### Added
+
+- **`elsereno proxy replay --tail N`** — symmetric
+  counterpart to v1.46's `--limit`. Emits the LAST N
+  matching chunks. Ring-buffered so memory caps at N
+  entries regardless of capture size — multi-GB session
+  tail-N doesn't balloon RAM.
+
+### Changed
+
+- `runProxyReplay` splits into `runProxyReplayStream`
+  (default + --limit; emit-as-you-walk) and
+  `runProxyReplayTail` (--tail; ring-buffered). New
+  `emitChunk` helper unifies per-chunk rendering across
+  both paths.
+- `--limit` + `--tail` rejected at parse time as mutually
+  exclusive (operator-confusion guard).
+
+### Tests
+
+`+3 tests`: TailEmitsLastN, TailLargerThanCapture,
+TailWithLimitRejected.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.46.0] — 2026-05-05
 
 ### Added
