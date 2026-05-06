@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.62 (Dashboard scan-jobs panel)
+
+- ✅ **Dashboard scan-jobs panel** — v1.62 chunk 1.
+  Trigger-from-button UI on top of v1.58/59/60/61.
+  Submit form + jobs table + per-row Cancel +
+  two-tier polling. CSP nonce inheritance
+  preserved. 2 new tests.
+
 ### v1.61 (Real scan runner + serve --scan-store flag)
 
 - ✅ **Real scan runner + serve --scan-store flag** —

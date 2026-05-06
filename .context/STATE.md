@@ -1,32 +1,35 @@
 ---
-phase: v1.61-closed
-status: v1.16-v1.27 published; v1.28-v1.61 tags pending push
-last-updated: 2026-05-05
+phase: v1.62-closed
+status: v1.16-v1.27 published; v1.28-v1.62 tags pending push
+last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.61 cycle closed on `main`** (1 chunk +
-close). Connects the v1.58/59/60 orchestration stack
-to the existing scanner + plugin registry. Submitted
-jobs now actually execute. New
-`cmd/elsereno/scan_runner.go` (defaultScanRunner) +
-`--scan-store {off|memory|db}` + `--scan-pool` flags
-on `serve`. INSTALL.md gains "Scan orchestration"
-section. 7 new tests.
+**Phase**: **v1.62 cycle closed on `main`** (1 chunk +
+close). Adds the dashboard scan-jobs panel on top of
+the v1.58/59/60/61 stack. Operators submit, watch
+state transitions, and cancel — without curl.
+Two-tier polling cadence (2s active / 10s idle).
+CSP nonce inheritance preserved. 2 new tests.
 
-The dashboard scan-orchestration cycle (v1.58 shell
-+ v1.59 worker + v1.60 DB store + v1.61 real runner)
-is structurally complete: an operator can curl the
-endpoints and submitted jobs run end-to-end against
-real plugins.
+The dashboard scan-orchestration end-to-end is now
+operator-facing: curl path + dashboard path both
+work; v1.58 shell + v1.59 worker + v1.60 DB store +
+v1.61 runner + v1.62 UI = full feature.
 
-Snapshot: `.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
+Snapshot: `.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
 
-**v1.61 chunks landed (in-flight)**:
-- 1 `08238d1` — scan_runner.go + cmd_serve flags +
-  web.Options.ScanStore + INSTALL.md + 7 tests.
+**v1.62 chunks landed (in-flight)**:
+- 1 `83e35f0` — dashboard.go scans-panel section +
+  renderScans/submitScan/cancelScan + dashboard_test.go
+  + INSTALL.md.
+
+**v1.61 cycle (closed, snapshot available)**:
+Real scan runner + serve --scan-store flag. 1 chunk
++ close: `08238d1`, `39f6036`. Snapshot:
+`.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
 
 **v1.60 cycle (closed, snapshot available)**:
 Postgres-backed scan-job Store. 1 chunk + close:

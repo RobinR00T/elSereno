@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.62 (chunk 1) — **Dashboard scan-jobs
+  panel.** Trigger-from-button UI on top of v1.58-61.
+  Submit form + jobs table (newest-first, top 20) +
+  per-row Cancel + two-tier polling (2s active /
+  10s idle) + 503 hint when --scan-store is off.
+  CSP nonce inheritance preserved. 2 new tests.
+  Snapshot:
+  `.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
+
 - 2026-05-05 — v1.61 (chunk 1) — **Real scan runner +
   serve --scan-store flag.** Connects v1.58/59/60 to
   the existing scanner + plugin registry. Single-

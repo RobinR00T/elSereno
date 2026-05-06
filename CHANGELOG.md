@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.62.0] — 2026-05-06
+
+### Added
+
+- **Dashboard scan-jobs panel.** Trigger-from-button
+  UI on top of the v1.58/59/60/61 stack. Operators
+  submit jobs, watch state transitions live, and
+  cancel — without curl.
+- New panel between Recent runs and Reload cadence:
+  - Submit form (input + plugin + default_port).
+  - Jobs table (newest first, top 20): state,
+    operator, plugin, input, targets/findings,
+    created-at, short job ID, action.
+  - Cancel button per active row.
+- **Two-tier polling**: 2s while any job is queued
+  or running, 10s once everything is terminal. An
+  idle dashboard doesn't hammer the API.
+- **503 surface**: if serve was started without
+  `--scan-store`, the panel renders a hint
+  ("start serve with --scan-store=memory or =db")
+  instead of a silent empty table.
+
+### Tests
+
+`+2 tests` in a new dashboard_test.go file:
+- TestDashboard_ContainsScanPanel pins 10 HTML/JS
+  markers so a template regression fails the test.
+- TestDashboard_HasCSPNonce_OnScanScript ensures the
+  new functions stay inside the nonce-bearing
+  <script> block.
+
+### Documentation
+
+- INSTALL.md: "Submitting a job" subsection now
+  leads with the dashboard flow + curl as the
+  scripted alternative.
+
+### Build
+
+3-variant matrix unchanged. No platform-specific
+code paths — UI behaves identically on Linux + macOS.
+
 ## [1.61.0] — 2026-05-05
 
 ### Added
