@@ -381,6 +381,15 @@ worker claims each job (no advisory locks needed).
 
 ### Submitting a job
 
+**Dashboard (v1.62+)**: open http://127.0.0.1:8787/ and use
+the "Scan jobs" panel. The submit form takes an input string,
+plugin name, and default port; the jobs table polls for state
+transitions every 2s while a job is queued or running, then
+backs off to 10s when everything is terminal. Each non-
+terminal row has a Cancel button.
+
+**curl** (operator scripts / CI):
+
 ```sh
 curl -X POST http://127.0.0.1:8787/api/v1/scans \
   -H "Content-Type: application/json" \

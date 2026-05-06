@@ -429,6 +429,48 @@ const overviewHTML = `<!doctype html>
       </table>
     </section>
 
+    <section class="panel" id="scans-panel">
+      <h2>Scan jobs <span class="sub" id="scans-sub">v1.62 · trigger + monitor · newest first</span></h2>
+      <div class="sub">
+        Submit a scan job; the worker (configured via
+        <code>serve --scan-store</code> + <code>--scan-pool</code>)
+        picks it up, runs the named plugin against the parsed
+        targets, and the row updates as state advances
+        (<code>queued → running → completed</code>). Backed by
+        <code>POST/GET /api/v1/scans/</code>.
+      </div>
+      <form id="scan-submit-form" onsubmit="return submitScan(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
+        <label>input:
+          <input type="text" id="scan-input" placeholder="list:targets.txt | stdin | internetdb:1.2.3.4" size="40" required />
+        </label>
+        <label>plugin:
+          <input type="text" id="scan-plugin" placeholder="modbus" size="14" required />
+        </label>
+        <label>default port:
+          <input type="number" id="scan-default-port" min="0" max="65535" value="0" size="6" />
+        </label>
+        <button type="submit">Submit</button>
+        <span id="scan-submit-status" class="sub" style="margin-left: 0.5em;"></span>
+      </form>
+      <table id="scans-table">
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Operator</th>
+            <th>Plugin</th>
+            <th>Input</th>
+            <th>Targets / Findings</th>
+            <th>Created</th>
+            <th>Job ID</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="scans-body">
+          <tr class="empty"><td colspan="8">loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
     <section class="panel">
       <h2>Reload cadence <span class="sub">v1.19+ · proxy_allowlist_reload · last 7 days</span></h2>
       <div class="sub">
@@ -856,8 +898,126 @@ const overviewHTML = `<!doctype html>
       trs + '</tbody></table>';
   }
 
+  // v1.62: scan-jobs panel renderer + submit + cancel.
+  // Polls /api/v1/scans every 2s while any job is non-terminal,
+  // backs off to 10s when all jobs are terminal so an idle
+  // dashboard doesn't hammer the API.
+  var scansPollTimer = null;
+  function scheduleScansPoll(delayMs) {
+    if (scansPollTimer) clearTimeout(scansPollTimer);
+    scansPollTimer = setTimeout(renderScans, delayMs);
+  }
+  function renderScans() {
+    fetchJSON("/api/v1/scans?limit=20").then(function (res) {
+      var body = document.getElementById("scans-body");
+      if (!body) return;
+      if (res.unavailable) {
+        body.innerHTML = '<tr class="empty"><td colspan="8">scan orchestration disabled (start serve with --scan-store=memory or =db)</td></tr>';
+        scheduleScansPoll(10000);
+        return;
+      }
+      var rows = res.data || [];
+      if (rows.length === 0) {
+        body.innerHTML = '<tr class="empty"><td colspan="8">no jobs yet — submit one above</td></tr>';
+        scheduleScansPoll(10000);
+        return;
+      }
+      var anyActive = false;
+      body.innerHTML = rows.map(function (j) {
+        var state = j.state || "?";
+        if (state === "queued" || state === "running") anyActive = true;
+        var plugins = (j.plugins || []).join(",") || "—";
+        var stats = j.stats || {};
+        var statsCell = (stats.targets_seen || 0) + "/" + (stats.targets_scanned || 0) +
+          " · " + (stats.findings_count || 0) + " findings";
+        var idShort = (j.id || "").slice(0, 8);
+        var action = "";
+        if (state === "queued" || state === "running") {
+          action = '<button type="button" data-job-id="' + escAttr(j.id) +
+            '" onclick="cancelScan(this.dataset.jobId)">Cancel</button>';
+        } else {
+          action = '<span class="sub">' + escText(j.error ? "err" : "—") + '</span>';
+        }
+        return '<tr>' +
+          '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
+          '<td>' + escText(j.operator || "—") + '</td>' +
+          '<td><code>' + escText(plugins) + '</code></td>' +
+          '<td><code>' + escText(j.input || "") + '</code></td>' +
+          '<td>' + escText(statsCell) + '</td>' +
+          '<td>' + escText(j.created_at ? new Date(j.created_at).toLocaleString() : "") + '</td>' +
+          '<td class="rid"><code>' + escText(idShort) + '</code></td>' +
+          '<td>' + action + '</td>' +
+          '</tr>';
+      }).join("");
+      // Active jobs: poll fast. Idle: back off.
+      scheduleScansPoll(anyActive ? 2000 : 10000);
+    }).catch(function (e) {
+      var body = document.getElementById("scans-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="8">error: ' + escText(e.message) + '</td></tr>';
+      scheduleScansPoll(10000);
+    });
+  }
+  function submitScan(ev) {
+    if (ev) ev.preventDefault();
+    var input = (document.getElementById("scan-input") || {}).value || "";
+    var plugin = (document.getElementById("scan-plugin") || {}).value || "";
+    var dpRaw = (document.getElementById("scan-default-port") || {}).value || "0";
+    var status = document.getElementById("scan-submit-status");
+    var defaultPort = parseInt(dpRaw, 10);
+    if (!isFinite(defaultPort) || defaultPort < 0) defaultPort = 0;
+    var body = JSON.stringify({
+      input: input,
+      plugins: plugin ? [plugin] : [],
+      default_port: defaultPort
+    });
+    if (status) status.textContent = "submitting…";
+    fetch("/api/v1/scans", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: body,
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var j = (res && res.data) || {};
+      if (status) status.textContent = "queued · " + (j.id || "").slice(0, 8);
+      // Clear inputs that are scan-specific; keep input + plugin
+      // so the operator can submit more variants quickly.
+      // Refresh the table immediately.
+      renderScans();
+    }).catch(function (e) {
+      if (status) status.textContent = "error: " + e.message;
+    });
+    return false;
+  }
+  function cancelScan(jobID) {
+    if (!jobID) return;
+    fetch("/api/v1/scans/" + encodeURIComponent(jobID) + "/cancel", {
+      method: "POST",
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      renderScans();
+    }).catch(function (e) {
+      var status = document.getElementById("scan-submit-status");
+      if (status) status.textContent = "cancel error: " + e.message;
+    });
+  }
+  // escAttr is for HTML attribute contexts (data-*, id, etc.).
+  // It's a stricter variant of escText that drops anything not
+  // safe for an unquoted attribute.
+  function escAttr(s) {
+    return String(s == null ? "" : s).replace(/[^A-Za-z0-9._-]/g, "");
+  }
+  // Expose cancelScan + submitScan as page globals so the inline
+  // onclick + onsubmit handlers can find them.
+  window.cancelScan = cancelScan;
+  window.submitScan = submitScan;
+
   // Initial load.
   renderTriage(); renderFindings(); renderRuns(); refreshAudit(); renderReloadCadence();
+  renderScans();
 
   // Re-fetch the DB-backed panels on SSE signals so the page
   // reacts to live scans without a full reload. We debounce by
