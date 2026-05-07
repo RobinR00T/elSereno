@@ -14,17 +14,18 @@ import (
 // shape mirrors GET /api/v1/scans/{id} so the dashboard can
 // directly insert it into the table without re-fetching.
 type scanStateWirePayload struct {
-	ID          string         `json:"id"`
-	State       string         `json:"state"`
-	CreatedAt   time.Time      `json:"created_at"`
-	StartedAt   *time.Time     `json:"started_at,omitempty"`
-	FinishedAt  *time.Time     `json:"finished_at,omitempty"`
-	Input       string         `json:"input"`
-	Plugins     []string       `json:"plugins,omitempty"`
-	DefaultPort int            `json:"default_port,omitempty"`
-	Stats       scanorch.Stats `json:"stats"`
-	Error       string         `json:"error,omitempty"`
-	Operator    string         `json:"operator,omitempty"`
+	ID               string         `json:"id"`
+	State            string         `json:"state"`
+	CreatedAt        time.Time      `json:"created_at"`
+	StartedAt        *time.Time     `json:"started_at,omitempty"`
+	FinishedAt       *time.Time     `json:"finished_at,omitempty"`
+	Input            string         `json:"input"`
+	Plugins          []string       `json:"plugins,omitempty"`
+	DefaultPort      int            `json:"default_port,omitempty"`
+	Stats            scanorch.Stats `json:"stats"`
+	FindingsByPlugin map[string]int `json:"findings_by_plugin,omitempty"`
+	Error            string         `json:"error,omitempty"`
+	Operator         string         `json:"operator,omitempty"`
 }
 
 // PublishScanState fans a scanorch.Job out as an EventScanState
@@ -35,15 +36,16 @@ func PublishScanState(b *Broadcaster, j scanorch.Job) {
 		return
 	}
 	payload := scanStateWirePayload{
-		ID:          j.ID,
-		State:       string(j.State),
-		CreatedAt:   j.CreatedAt,
-		Input:       j.Input,
-		Plugins:     j.Plugins,
-		DefaultPort: j.DefaultPort,
-		Stats:       j.Stats,
-		Error:       j.Error,
-		Operator:    j.Operator,
+		ID:               j.ID,
+		State:            string(j.State),
+		CreatedAt:        j.CreatedAt,
+		Input:            j.Input,
+		Plugins:          j.Plugins,
+		DefaultPort:      j.DefaultPort,
+		Stats:            j.Stats,
+		FindingsByPlugin: j.FindingsByPlugin,
+		Error:            j.Error,
+		Operator:         j.Operator,
 	}
 	if !j.StartedAt.IsZero() {
 		started := j.StartedAt
@@ -140,18 +142,24 @@ var _ scanorch.Store = (*BroadcastingStore)(nil)
 // scan_state_change payload — only the fields a renderer needs
 // to update an in-flight row's counters.
 type scanProgressWirePayload struct {
-	ID    string         `json:"id"`
-	Stats scanorch.Stats `json:"stats"`
+	ID               string         `json:"id"`
+	Stats            scanorch.Stats `json:"stats"`
+	FindingsByPlugin map[string]int `json:"findings_by_plugin,omitempty"`
 }
 
 // PublishScanProgress fans a Stats snapshot out as an
 // EventScanProgress event for the given job ID. Safe to call
-// with b == nil (no-op).
-func PublishScanProgress(b *Broadcaster, jobID string, s scanorch.Stats) {
+// with b == nil (no-op). v1.66+: byPlugin (optional) carries
+// per-plugin findings breakdown.
+func PublishScanProgress(b *Broadcaster, jobID string, s scanorch.Stats, byPlugin map[string]int) {
 	if b == nil {
 		return
 	}
-	body, err := json.Marshal(scanProgressWirePayload{ID: jobID, Stats: s})
+	body, err := json.Marshal(scanProgressWirePayload{
+		ID:               jobID,
+		Stats:            s,
+		FindingsByPlugin: byPlugin,
+	})
 	if err != nil {
 		body = []byte(`{}`)
 	}
@@ -181,8 +189,9 @@ type ScanProgressThrottle struct {
 }
 
 type throttleEntry struct {
-	at    time.Time
-	stats scanorch.Stats
+	at       time.Time
+	stats    scanorch.Stats
+	byPlugin map[string]int
 }
 
 // NewScanProgressThrottle returns a throttle around b. min is
@@ -201,7 +210,15 @@ func NewScanProgressThrottle(b *Broadcaster, min time.Duration) *ScanProgressThr
 // Report is the closure target wired into Worker.OnProgress. It
 // emits at most one scan_stats_progress event per job per
 // minInterval; identical snapshots are dropped.
-func (t *ScanProgressThrottle) Report(jobID string, stats scanorch.Stats) {
+//
+// v1.66+: byPlugin (per-plugin findings) travels alongside
+// stats. Identical-snapshot suppression compares stats only —
+// the byPlugin map MAY change without changing aggregate
+// FindingsCount (e.g., findings drift between plugins as
+// per-plugin counters are first populated). For dashboard
+// purposes this is fine: the breakdown is informational, the
+// counters are the primary signal.
+func (t *ScanProgressThrottle) Report(jobID string, stats scanorch.Stats, byPlugin map[string]int) {
 	if t == nil || t.b == nil {
 		return
 	}
@@ -216,13 +233,13 @@ func (t *ScanProgressThrottle) Report(jobID string, stats scanorch.Stats) {
 		// Within throttle window. Update the held snapshot but
 		// don't emit. The next tick (or a Flush call) will
 		// surface the latest.
-		t.last[jobID] = throttleEntry{at: prev.at, stats: stats}
+		t.last[jobID] = throttleEntry{at: prev.at, stats: stats, byPlugin: byPlugin}
 		t.mu.Unlock()
 		return
 	}
-	t.last[jobID] = throttleEntry{at: now, stats: stats}
+	t.last[jobID] = throttleEntry{at: now, stats: stats, byPlugin: byPlugin}
 	t.mu.Unlock()
-	PublishScanProgress(t.b, jobID, stats)
+	PublishScanProgress(t.b, jobID, stats, byPlugin)
 }
 
 // Flush emits any pending snapshots whose held timestamp is
@@ -234,17 +251,21 @@ func (t *ScanProgressThrottle) Flush() {
 		return
 	}
 	t.mu.Lock()
-	stale := make(map[string]scanorch.Stats)
+	type pending struct {
+		stats    scanorch.Stats
+		byPlugin map[string]int
+	}
+	stale := make(map[string]pending)
 	now := time.Now()
 	for id, entry := range t.last {
 		if now.Sub(entry.at) >= t.minInterval {
-			stale[id] = entry.stats
-			t.last[id] = throttleEntry{at: now, stats: entry.stats}
+			stale[id] = pending{stats: entry.stats, byPlugin: entry.byPlugin}
+			t.last[id] = throttleEntry{at: now, stats: entry.stats, byPlugin: entry.byPlugin}
 		}
 	}
 	t.mu.Unlock()
-	for id, stats := range stale {
-		PublishScanProgress(t.b, id, stats)
+	for id, p := range stale {
+		PublishScanProgress(t.b, id, p.stats, p.byPlugin)
 	}
 }
 

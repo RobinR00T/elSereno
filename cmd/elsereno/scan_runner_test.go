@@ -25,7 +25,7 @@ func writeTargetFile(t *testing.T, lines string) string {
 // TestDefaultScanRunner_UnknownPlugin returns the sentinel.
 func TestDefaultScanRunner_UnknownPlugin(t *testing.T) {
 	r := &defaultScanRunner{}
-	_, err := r.Run(context.Background(), scanorch.Job{
+	_, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:   "stdin",
 		Plugins: []string{"this-plugin-does-not-exist"},
 	}, nil)
@@ -37,7 +37,7 @@ func TestDefaultScanRunner_UnknownPlugin(t *testing.T) {
 // TestDefaultScanRunner_BadInput propagates the parse error.
 func TestDefaultScanRunner_BadInput(t *testing.T) {
 	r := &defaultScanRunner{}
-	_, err := r.Run(context.Background(), scanorch.Job{
+	_, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:   "not-a-known-kind",
 		Plugins: []string{"modbus"},
 	}, nil)
@@ -56,7 +56,7 @@ func TestDefaultScanRunner_BadInput(t *testing.T) {
 func TestDefaultScanRunner_EmptyTargets(t *testing.T) {
 	r := &defaultScanRunner{}
 	emptyFile := writeTargetFile(t, "")
-	_, err := r.Run(context.Background(), scanorch.Job{
+	_, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + emptyFile,
 		Plugins:     []string{"banner"},
 		DefaultPort: 80,
@@ -75,7 +75,7 @@ func TestDefaultScanRunner_EmptyTargets(t *testing.T) {
 func TestDefaultScanRunner_NoMatchingPlugins(t *testing.T) {
 	r := &defaultScanRunner{}
 	listFile := writeTargetFile(t, "127.0.0.1:80\n")
-	_, err := r.Run(context.Background(), scanorch.Job{
+	_, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + listFile,
 		Plugins:     []string{"modbus"}, // DefaultPort 502
 		DefaultPort: 80,
@@ -94,7 +94,7 @@ func TestDefaultScanRunner_NoMatchingPlugins(t *testing.T) {
 func TestDefaultScanRunner_StatsPopulated(t *testing.T) {
 	r := &defaultScanRunner{}
 	listFile := writeTargetFile(t, "127.0.0.1:1\n127.0.0.2:1\n")
-	stats, err := r.Run(context.Background(), scanorch.Job{
+	stats, byPlugin, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + listFile,
 		Plugins:     []string{"banner"},
 		DefaultPort: 80,
@@ -108,6 +108,35 @@ func TestDefaultScanRunner_StatsPopulated(t *testing.T) {
 	if stats.TargetsScanned != 2 {
 		t.Errorf("TargetsScanned = %d, want 2", stats.TargetsScanned)
 	}
+	// v1.66: per-plugin breakdown. The banner plugin
+	// dispatched, so it should appear in the map even if its
+	// findings count is 0.
+	if _, has := byPlugin["banner"]; !has {
+		t.Errorf("byPlugin missing 'banner' entry; got %+v", byPlugin)
+	}
+}
+
+// TestDefaultScanRunner_FindingsByPluginIncludesOnlyDispatched:
+// a job with plugins that don't match (modbus on :1) should NOT
+// appear in the breakdown. Only plugins that actually
+// dispatched get an entry.
+func TestDefaultScanRunner_FindingsByPluginIncludesOnlyDispatched(t *testing.T) {
+	r := &defaultScanRunner{}
+	listFile := writeTargetFile(t, "127.0.0.1:1\n")
+	_, byPlugin, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     []string{"modbus", "banner"},
+		DefaultPort: 502,
+	}, nil)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if _, has := byPlugin["banner"]; !has {
+		t.Errorf("byPlugin should include banner (dispatched); got %+v", byPlugin)
+	}
+	if _, has := byPlugin["modbus"]; has {
+		t.Errorf("byPlugin should NOT include modbus (no port match)")
+	}
 }
 
 // TestDefaultScanRunner_MultiPlugin: two plugins, one matches
@@ -118,7 +147,7 @@ func TestDefaultScanRunner_MultiPlugin(t *testing.T) {
 	listFile := writeTargetFile(t, "127.0.0.1:1\n")
 	// modbus (502) doesn't match :1; banner (port 0 → matches
 	// any) does. Net effect: 1 probe attempt via banner.
-	stats, err := r.Run(context.Background(), scanorch.Job{
+	stats, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + listFile,
 		Plugins:     []string{"modbus", "banner"},
 		DefaultPort: 502,
@@ -138,7 +167,7 @@ func TestDefaultScanRunner_MultiPlugin(t *testing.T) {
 func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
 	r := &defaultScanRunner{}
 	listFile := writeTargetFile(t, "127.0.0.1:1\n")
-	stats, err := r.Run(context.Background(), scanorch.Job{
+	stats, _, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + listFile,
 		Plugins:     nil,
 		DefaultPort: 80,

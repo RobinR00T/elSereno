@@ -216,7 +216,7 @@ func TestPublishScanProgress(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	stats := scanorch.Stats{TargetsSeen: 100, TargetsScanned: 33, FindingsCount: 2}
-	stream.PublishScanProgress(b, "abc", stats)
+	stream.PublishScanProgress(b, "abc", stats, nil)
 	ev, ok := drainOne(t, sub)
 	if !ok {
 		t.Fatal("expected an event")
@@ -237,7 +237,7 @@ func TestPublishScanProgress(t *testing.T) {
 
 // TestPublishScanProgress_NilBroadcasterIsNoOp.
 func TestPublishScanProgress_NilBroadcasterIsNoOp(_ *testing.T) {
-	stream.PublishScanProgress(nil, "x", scanorch.Stats{})
+	stream.PublishScanProgress(nil, "x", scanorch.Stats{}, nil)
 }
 
 // TestThrottle_FirstCallEmits: a fresh throttle has no
@@ -248,7 +248,7 @@ func TestThrottle_FirstCallEmits(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 200*time.Millisecond)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
 	if _, ok := drainOne(t, sub); !ok {
 		t.Fatal("expected an event from first call")
 	}
@@ -261,9 +261,9 @@ func TestThrottle_DropsWithinWindow(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
 	_, _ = drainOne(t, sub) // drain the first event
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2}, nil)
 	if _, ok := drainOne(t, sub); ok {
 		t.Error("second call within window should have been throttled")
 	}
@@ -275,10 +275,10 @@ func TestThrottle_EmitsAfterWindow(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
 	_, _ = drainOne(t, sub)
 	time.Sleep(80 * time.Millisecond)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2}, nil)
 	if _, ok := drainOne(t, sub); !ok {
 		t.Error("call after window should have emitted")
 	}
@@ -292,10 +292,10 @@ func TestThrottle_DropsIdenticalSnapshots(t *testing.T) {
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
 	stats := scanorch.Stats{TargetsScanned: 5}
-	tr.Report("job1", stats)
+	tr.Report("job1", stats, nil)
 	_, _ = drainOne(t, sub)
 	time.Sleep(80 * time.Millisecond)
-	tr.Report("job1", stats)
+	tr.Report("job1", stats, nil)
 	if _, ok := drainOne(t, sub); ok {
 		t.Error("identical snapshot should have been dropped")
 	}
@@ -308,8 +308,8 @@ func TestThrottle_PerJob(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
-	tr.Report("job2", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
+	tr.Report("job2", scanorch.Stats{TargetsScanned: 1}, nil)
 	got := 0
 	for i := 0; i < 2; i++ {
 		if _, ok := drainOne(t, sub); ok {
@@ -330,9 +330,9 @@ func TestThrottle_ClampsBadInterval(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 0)
-	tr.Report("j", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("j", scanorch.Stats{TargetsScanned: 1}, nil)
 	_, _ = drainOne(t, sub)
-	tr.Report("j", scanorch.Stats{TargetsScanned: 2})
+	tr.Report("j", scanorch.Stats{TargetsScanned: 2}, nil)
 	if _, ok := drainOne(t, sub); ok {
 		t.Error("0 → 500ms default; second call should have been throttled")
 	}
@@ -341,7 +341,7 @@ func TestThrottle_ClampsBadInterval(t *testing.T) {
 // TestThrottle_NilBroadcasterIsNoOp.
 func TestThrottle_NilBroadcasterIsNoOp(_ *testing.T) {
 	tr := stream.NewScanProgressThrottle(nil, 500*time.Millisecond)
-	tr.Report("j", scanorch.Stats{})
+	tr.Report("j", scanorch.Stats{}, nil)
 }
 
 // TestThrottle_ForgetClearsState.
@@ -350,11 +350,11 @@ func TestThrottle_ForgetClearsState(t *testing.T) {
 	sub, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
 	_, _ = drainOne(t, sub)
 	tr.Forget("job1")
 	// After Forget, the next Report acts as the first call.
-	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2}, nil)
 	if _, ok := drainOne(t, sub); !ok {
 		t.Error("after Forget, the next call should emit (fresh state)")
 	}
@@ -377,7 +377,7 @@ func TestBroadcastingStore_AttachProgressThrottle_ForgetsOnTerminal(t *testing.T
 	_, _ = drainOne(t, sub) // drain Submit event
 
 	// Seed a per-job throttle entry.
-	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 1})
+	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 1}, nil)
 	_, _ = drainOne(t, sub) // drain progress event
 
 	// Transition queued → running → completed.
@@ -389,7 +389,7 @@ func TestBroadcastingStore_AttachProgressThrottle_ForgetsOnTerminal(t *testing.T
 	// Forget should have fired on the completed transition.
 	// A fresh Report now is treated as first call (emits even
 	// though the original timestamp was within 1s).
-	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 99})
+	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 99}, nil)
 	if _, ok := drainOne(t, sub); !ok {
 		t.Error("after terminal transition, throttle should have been Forgotten")
 	}

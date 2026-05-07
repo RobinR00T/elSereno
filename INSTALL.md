@@ -433,6 +433,24 @@ attempts, not unique targets. A target probed by 3 plugins
 counts as 3. `findings_count` is the total findings produced
 across all (target, plugin) combinations.
 
+**Per-plugin breakdown (v1.66+)**: each Job carries a
+`findings_by_plugin` map alongside `stats`, e.g.:
+
+```json
+{ "stats": { "targets_seen": 50, "findings_count": 12 },
+  "findings_by_plugin": { "modbus": 7, "s7": 3, "enip": 2 } }
+```
+
+The dashboard surfaces this as a tooltip on the Findings count
+column. Memory-store mode (the default for `--scan-store=memory`)
+preserves the breakdown in-memory until restart; **db-store mode
+(`--scan-store=db`) keeps the breakdown in-memory only — the
+00005_scan_jobs schema doesn't yet have a column for it. After a
+serve restart, completed jobs lose their breakdown and show
+only the aggregate count.** v1.67+ will add the migration; until
+then, use the SSE `scan_state_change` / `scan_stats_progress`
+streams to capture the breakdown live.
+
 ### Same on Linux + macOS
 
 The orchestration endpoints behave identically across both

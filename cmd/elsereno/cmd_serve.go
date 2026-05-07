@@ -198,8 +198,8 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 	worker := &scanorch.Worker{
 		Store:  store,
 		Runner: &defaultScanRunner{},
-		OnProgress: func(jobID string, s scanorch.Stats) {
-			progress.Report(jobID, s)
+		OnProgress: func(jobID string, s scanorch.Stats, byPlugin map[string]int) {
+			progress.Report(jobID, s, byPlugin)
 		},
 	}
 	p := scanorch.NewPool(worker, opts.scanPool)

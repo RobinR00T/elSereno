@@ -101,6 +101,21 @@ type Job struct {
 	// Populated by the worker; empty until first transition to
 	// running.
 	Stats Stats `json:"stats"`
+	// FindingsByPlugin is the per-plugin breakdown of
+	// FindingsCount. Operator-facing — answers "which protocol
+	// produced which findings" on a multi-plugin scan.
+	// Populated by the runner via TransitionFields; nil until
+	// the worker writes it (typically on the terminal
+	// transition + on every progress callback). The map is
+	// kept separate from Stats so Stats stays a comparable
+	// value type for existing equality tests.
+	//
+	// v1.66 NOTE: this field lives in-memory only when the
+	// store is the DBStore. The 00005_scan_jobs schema doesn't
+	// have a column for it; v1.67 adds the migration. Until
+	// then, db-mode operators see the breakdown live via the
+	// scan_stats_progress SSE stream but NOT after restart.
+	FindingsByPlugin map[string]int `json:"findings_by_plugin,omitempty"`
 	// Error carries the failure reason for StateFailed jobs.
 	// Empty for non-failed states.
 	Error string `json:"error,omitempty"`
@@ -165,11 +180,14 @@ type Store interface {
 }
 
 // TransitionFields carries optional updates that travel with a
-// state change. Worker passes Stats + Error; operator-driven
-// cancellation passes nothing.
+// state change. Worker passes Stats + FindingsByPlugin + Error;
+// operator-driven cancellation passes nothing.
 type TransitionFields struct {
 	// Stats, if non-nil, replaces the job's Stats counters.
 	Stats *Stats
+	// FindingsByPlugin, if non-nil, replaces the job's
+	// per-plugin findings breakdown. v1.66+.
+	FindingsByPlugin map[string]int
 	// Error, if non-empty, sets the Error field. Only
 	// meaningful for transitions to StateFailed.
 	Error string
@@ -302,6 +320,14 @@ func (s *MemoryStore) Transition(_ context.Context, id string, to State, fields 
 	job.State = to
 	if fields.Stats != nil {
 		job.Stats = *fields.Stats
+	}
+	if fields.FindingsByPlugin != nil {
+		// Copy so caller's map isn't aliased into the store.
+		copy := make(map[string]int, len(fields.FindingsByPlugin))
+		for k, v := range fields.FindingsByPlugin {
+			copy[k] = v
+		}
+		job.FindingsByPlugin = copy
 	}
 	if fields.Error != "" {
 		job.Error = fields.Error

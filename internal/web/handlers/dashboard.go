@@ -930,6 +930,14 @@ const overviewHTML = `<!doctype html>
         var stats = j.stats || {};
         var statsCell = (stats.targets_seen || 0) + "/" + (stats.targets_scanned || 0) +
           " · " + (stats.findings_count || 0) + " findings";
+        // v1.66: per-plugin breakdown as a title= tooltip.
+        // Format: "modbus: 3, s7: 2" (plugin: count pairs).
+        var byPlugin = j.findings_by_plugin || {};
+        var breakdown = Object.keys(byPlugin)
+          .sort()
+          .map(function (k) { return k + ": " + byPlugin[k]; })
+          .join(", ");
+        var statsAttrs = breakdown ? ' title="' + escAttr(breakdown) + '"' : "";
         var idShort = (j.id || "").slice(0, 8);
         var action = "";
         if (state === "queued" || state === "running") {
@@ -943,7 +951,7 @@ const overviewHTML = `<!doctype html>
           '<td>' + escText(j.operator || "—") + '</td>' +
           '<td><code>' + escText(plugins) + '</code></td>' +
           '<td><code>' + escText(j.input || "") + '</code></td>' +
-          '<td data-scan-stats>' + escText(statsCell) + '</td>' +
+          '<td data-scan-stats' + statsAttrs + '>' + escText(statsCell) + '</td>' +
           '<td>' + escText(j.created_at ? new Date(j.created_at).toLocaleString() : "") + '</td>' +
           '<td class="rid"><code>' + escText(idShort) + '</code></td>' +
           '<td>' + action + '</td>' +
@@ -1070,6 +1078,17 @@ const overviewHTML = `<!doctype html>
       var targets = (s.targets_scanned || 0) + " / " + (s.targets_seen || 0);
       var findings = s.findings_count || 0;
       cell.textContent = targets + "  ·  " + findings + " findings";
+      // v1.66: refresh the per-plugin breakdown tooltip.
+      var byPlugin = data.findings_by_plugin || {};
+      var breakdown = Object.keys(byPlugin)
+        .sort()
+        .map(function (k) { return k + ": " + byPlugin[k]; })
+        .join(", ");
+      if (breakdown) {
+        cell.setAttribute("title", breakdown);
+      } else {
+        cell.removeAttribute("title");
+      }
     } catch (_) {
       // best-effort; fall back to next render
     }

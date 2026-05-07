@@ -16,29 +16,31 @@ import (
 // pace the runner against ctx cancellation).
 type fakeRunner struct {
 	stats      scanorch.Stats
+	byPlugin   map[string]int
 	err        error
 	blockUntil chan struct{}
 	calls      atomic.Int32
 	// reportEvery, if > 0, makes Run call report() that many
 	// times before returning. Lets v1.65 progress tests
 	// observe the reporter callback.
-	reportEvery int
-	progress    scanorch.Stats
+	reportEvery    int
+	progress       scanorch.Stats
+	progressByPlug map[string]int
 }
 
-func (f *fakeRunner) Run(ctx context.Context, _ scanorch.Job, report scanorch.ProgressReporter) (scanorch.Stats, error) {
+func (f *fakeRunner) Run(ctx context.Context, _ scanorch.Job, report scanorch.ProgressReporter) (scanorch.Stats, map[string]int, error) {
 	f.calls.Add(1)
 	for i := 0; i < f.reportEvery && report != nil; i++ {
-		report(f.progress)
+		report(f.progress, f.progressByPlug)
 	}
 	if f.blockUntil != nil {
 		select {
 		case <-f.blockUntil:
 		case <-ctx.Done():
-			return scanorch.Stats{}, ctx.Err()
+			return scanorch.Stats{}, nil, ctx.Err()
 		}
 	}
-	return f.stats, f.err
+	return f.stats, f.byPlugin, f.err
 }
 
 // TestWorker_HappyPath: queued → running → completed with stats.
@@ -149,7 +151,7 @@ func TestWorker_PanicRecovered(t *testing.T) {
 	var capturedPanic interface{}
 	w := &scanorch.Worker{
 		Store: store,
-		Runner: scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, error) {
+		Runner: scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, map[string]int, error) {
 			panic("boom")
 		}),
 		PanicHandler: func(jobID string, panicValue interface{}) {
@@ -320,6 +322,52 @@ func TestDrain_StopsOnContextCancel(t *testing.T) {
 	}
 }
 
+// TestWorker_FindingsByPluginRoundTrip: the runner's returned
+// per-plugin breakdown lands in the final Job via the
+// terminate transition. v1.66 contract.
+func TestWorker_FindingsByPluginRoundTrip(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	runner := &fakeRunner{
+		stats:    scanorch.Stats{TargetsSeen: 10, TargetsScanned: 10, FindingsCount: 5},
+		byPlugin: map[string]int{"modbus": 3, "s7": 2},
+	}
+	w := &scanorch.Worker{Store: store, Runner: runner}
+	final, err := w.Process(context.Background(), job.ID)
+	if err != nil {
+		t.Fatalf("Process err = %v", err)
+	}
+	if final.FindingsByPlugin == nil {
+		t.Fatal("FindingsByPlugin should be populated")
+	}
+	if final.FindingsByPlugin["modbus"] != 3 {
+		t.Errorf("FindingsByPlugin[modbus] = %d, want 3", final.FindingsByPlugin["modbus"])
+	}
+	if final.FindingsByPlugin["s7"] != 2 {
+		t.Errorf("FindingsByPlugin[s7] = %d, want 2", final.FindingsByPlugin["s7"])
+	}
+}
+
+// TestWorker_FindingsByPluginPreservedOnFailure: a runner that
+// errors still gets its partial per-plugin breakdown persisted.
+func TestWorker_FindingsByPluginPreservedOnFailure(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	runner := &fakeRunner{
+		stats:    scanorch.Stats{TargetsScanned: 5, FindingsCount: 1},
+		byPlugin: map[string]int{"modbus": 1},
+		err:      errors.New("boom"),
+	}
+	w := &scanorch.Worker{Store: store, Runner: runner}
+	final, _ := w.Process(context.Background(), job.ID)
+	if final.State != scanorch.StateFailed {
+		t.Fatalf("State = %q, want failed", final.State)
+	}
+	if final.FindingsByPlugin["modbus"] != 1 {
+		t.Errorf("FindingsByPlugin[modbus] = %d, want 1", final.FindingsByPlugin["modbus"])
+	}
+}
+
 // TestWorker_OnProgress: when OnProgress is wired, the runner's
 // report() invocations forward to the hook with the job ID +
 // snapshot Stats. v1.65 contract.
@@ -340,7 +388,7 @@ func TestWorker_OnProgress(t *testing.T) {
 	w := &scanorch.Worker{
 		Store:  store,
 		Runner: runner,
-		OnProgress: func(id string, s scanorch.Stats) {
+		OnProgress: func(id string, s scanorch.Stats, _ map[string]int) {
 			mu.Lock()
 			defer mu.Unlock()
 			ids = append(ids, id)
@@ -382,11 +430,11 @@ func TestWorker_NilOnProgress(t *testing.T) {
 // TestJobRunnerFunc adapts a function literal.
 func TestJobRunnerFunc(t *testing.T) {
 	var called bool
-	runner := scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, error) {
+	runner := scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, map[string]int, error) {
 		called = true
-		return scanorch.Stats{TargetsSeen: 7}, nil
+		return scanorch.Stats{TargetsSeen: 7}, map[string]int{"banner": 2}, nil
 	})
-	stats, err := runner.Run(context.Background(), scanorch.Job{}, nil)
+	stats, byPlugin, err := runner.Run(context.Background(), scanorch.Job{}, nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
@@ -395,6 +443,9 @@ func TestJobRunnerFunc(t *testing.T) {
 	}
 	if stats.TargetsSeen != 7 {
 		t.Errorf("Stats = %+v", stats)
+	}
+	if byPlugin["banner"] != 2 {
+		t.Errorf("byPlugin[banner] = %d, want 2", byPlugin["banner"])
 	}
 }
 

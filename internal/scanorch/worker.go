@@ -19,7 +19,12 @@ import (
 // need to know about timers + the same runner can serve a
 // dashboard (heavy throttle) and a CLI watcher (lighter
 // throttle) without code change.
-type ProgressReporter func(Stats)
+//
+// v1.66+: byPlugin (optional, may be nil for runners that don't
+// track per-plugin breakdown) carries the per-plugin findings
+// count. The map is owned by the runner; the listener should
+// copy if it needs to retain.
+type ProgressReporter func(stats Stats, byPlugin map[string]int)
 
 // JobRunner is the interface a Worker uses to actually execute
 // a Job. The orchestration shell stays decoupled from the
@@ -41,21 +46,26 @@ type ProgressReporter func(Stats)
 // report on every probe completion; the listener side throttles.
 // Pre-v1.65 runners that don't call report at all still work
 // (the Worker no-ops on missing reports).
+//
+// **v1.66+**: Run returns the per-plugin findings breakdown
+// alongside Stats. Single-plugin runners may return nil
+// (FindingsCount in Stats is sufficient).
 type JobRunner interface {
-	// Run executes job and returns the resulting Stats + error.
-	// Implementations should respect ctx cancellation and bail
-	// promptly when ctx is Done. Returning a non-nil error
-	// transitions the job to StateFailed; nil error +
-	// non-cancelled ctx transitions to StateCompleted.
-	Run(ctx context.Context, job Job, report ProgressReporter) (Stats, error)
+	// Run executes job and returns the resulting Stats +
+	// per-plugin findings breakdown + error. Implementations
+	// should respect ctx cancellation and bail promptly when
+	// ctx is Done. Returning a non-nil error transitions the
+	// job to StateFailed; nil error + non-cancelled ctx
+	// transitions to StateCompleted.
+	Run(ctx context.Context, job Job, report ProgressReporter) (Stats, map[string]int, error)
 }
 
 // JobRunnerFunc adapts a plain function to the JobRunner
 // interface.
-type JobRunnerFunc func(ctx context.Context, job Job, report ProgressReporter) (Stats, error)
+type JobRunnerFunc func(ctx context.Context, job Job, report ProgressReporter) (Stats, map[string]int, error)
 
 // Run implements JobRunner.
-func (f JobRunnerFunc) Run(ctx context.Context, job Job, report ProgressReporter) (Stats, error) {
+func (f JobRunnerFunc) Run(ctx context.Context, job Job, report ProgressReporter) (Stats, map[string]int, error) {
 	return f(ctx, job, report)
 }
 
@@ -91,12 +101,12 @@ type Worker struct {
 	// failed, and surfaces the panic value via this hook
 	// (e.g., to forward to the audit log or telemetry).
 	PanicHandler func(jobID string, panicValue interface{})
-	// OnProgress, if non-nil, is invoked with mid-run Stats
-	// snapshots from the Runner. The Worker does NOT throttle —
-	// it's the listener's responsibility (cmd_serve wires a
-	// time-based throttle here). Nil → no-op reporter passed
-	// to Runner.Run.
-	OnProgress func(jobID string, stats Stats)
+	// OnProgress, if non-nil, is invoked with mid-run Stats +
+	// per-plugin findings breakdown from the Runner. The
+	// Worker does NOT throttle — it's the listener's
+	// responsibility (cmd_serve wires a time-based throttle
+	// here). Nil → no-op reporter passed to Runner.Run.
+	OnProgress func(jobID string, stats Stats, byPlugin map[string]int)
 }
 
 // Process dispatches the job with the given ID. The worker:
@@ -106,7 +116,7 @@ type Worker struct {
 //     workers race for the same job).
 //  2. Calls Runner.Run with a context derived from ctx.
 //  3. On nil error: transitions running → completed with
-//     final Stats.
+//     final Stats + per-plugin findings breakdown.
 //  4. On non-nil error: transitions running → failed with the
 //     error message.
 //  5. On ctx cancellation during Run: transitions running →
@@ -129,16 +139,16 @@ func (w *Worker) Process(ctx context.Context, jobID string) (Job, error) {
 		return Job{}, fmt.Errorf("scanorch: claim job %s: %w", jobID, err)
 	}
 	// Step 2: run with panic recovery.
-	stats, runErr := w.runWithRecover(ctx, claimed)
+	stats, byPlugin, runErr := w.runWithRecover(ctx, claimed)
 	// Step 3: terminal transition based on outcome.
-	return w.terminate(ctx, jobID, stats, runErr, ctx.Err())
+	return w.terminate(ctx, jobID, stats, byPlugin, runErr, ctx.Err())
 }
 
 // runWithRecover wraps Runner.Run with a panic recovery so a
 // misbehaving runner can't take down the whole worker
 // goroutine. A panic is reported through PanicHandler (if set)
 // and surfaced as a synthetic error.
-func (w *Worker) runWithRecover(ctx context.Context, job Job) (stats Stats, runErr error) {
+func (w *Worker) runWithRecover(ctx context.Context, job Job) (stats Stats, byPlugin map[string]int, runErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if w.PanicHandler != nil {
@@ -156,9 +166,9 @@ func (w *Worker) runWithRecover(ctx context.Context, job Job) (stats Stats, runE
 // throttle — that's the listener's responsibility.
 func (w *Worker) makeProgressReporter(jobID string) ProgressReporter {
 	if w.OnProgress == nil {
-		return func(_ Stats) {}
+		return func(Stats, map[string]int) {}
 	}
-	return func(s Stats) { w.OnProgress(jobID, s) }
+	return func(s Stats, by map[string]int) { w.OnProgress(jobID, s, by) }
 }
 
 // terminate decides the final state and applies it. Decision
@@ -167,7 +177,7 @@ func (w *Worker) makeProgressReporter(jobID string) ProgressReporter {
 //   - ctx cancelled (regardless of runErr) → StateCancelled
 //   - runErr != nil                        → StateFailed
 //   - else                                 → StateCompleted
-func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, runErr, ctxErr error) (Job, error) {
+func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, byPlugin map[string]int, runErr, ctxErr error) (Job, error) {
 	var to State
 	var fields TransitionFields
 	switch {
@@ -181,9 +191,11 @@ func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, runEr
 		// Final stats still useful — operator can see how far
 		// the scan got before failing.
 		fields.Stats = &stats
+		fields.FindingsByPlugin = byPlugin
 	default:
 		to = StateCompleted
 		fields.Stats = &stats
+		fields.FindingsByPlugin = byPlugin
 	}
 	// Use a fresh background context for the terminal
 	// transition: if the original ctx was cancelled, we still
