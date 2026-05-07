@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.63 (chunk 1) — **scan_state_change
+  SSE event + BroadcastingStore decorator.** Drops
+  perceived dashboard transition latency from ~2s
+  (v1.62 polling) to ~10ms (SSE). Same wrapper
+  emits for both REST submit/cancel and worker
+  queued→running→completed. 8 tests. Snapshot:
+  `.context/snapshots/v1.63.0-scan-sse-event.md`.
+
 - 2026-05-06 — v1.62 (chunk 1) — **Dashboard scan-jobs
   panel.** Trigger-from-button UI on top of v1.58-61.
   Submit form + jobs table (newest-first, top 20) +

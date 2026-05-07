@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.63 (scan_state_change SSE event)
+
+- ✅ **scan_state_change SSE event +
+  BroadcastingStore decorator** — v1.63 chunk 1.
+  Dashboard transition latency from ~2s polling to
+  ~10ms SSE. Decorator pattern keeps scanorch
+  package free of stream coupling. 8 tests.
+
 ### v1.62 (Dashboard scan-jobs panel)
 
 - ✅ **Dashboard scan-jobs panel** — v1.62 chunk 1.

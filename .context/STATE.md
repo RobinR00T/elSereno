@@ -1,30 +1,36 @@
 ---
-phase: v1.62-closed
-status: v1.16-v1.27 published; v1.28-v1.62 tags pending push
+phase: v1.63-closed
+status: v1.16-v1.27 published; v1.28-v1.63 tags pending push
 last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.62 cycle closed on `main`** (1 chunk +
-close). Adds the dashboard scan-jobs panel on top of
-the v1.58/59/60/61 stack. Operators submit, watch
-state transitions, and cancel — without curl.
-Two-tier polling cadence (2s active / 10s idle).
-CSP nonce inheritance preserved. 2 new tests.
+**Phase**: **v1.63 cycle closed on `main`** (1 chunk +
+close). Adds the `scan_state_change` SSE event on top
+of the v1.62 dashboard panel. New
+`stream.BroadcastingStore` decorator wraps the chosen
+scanorch.Store (Memory or DB) and publishes on every
+successful Submit / Transition. Same wrapper goes to
+both the REST handler and the worker pool, so
+operator-driven calls AND worker-driven transitions
+flow through one broadcast surface. Dashboard JS
+gains a listener that calls renderScans() per event,
+dropping perceived latency from ~2s polling to ~10ms
+SSE. 8 new tests.
 
-The dashboard scan-orchestration end-to-end is now
-operator-facing: curl path + dashboard path both
-work; v1.58 shell + v1.59 worker + v1.60 DB store +
-v1.61 runner + v1.62 UI = full feature.
+Snapshot: `.context/snapshots/v1.63.0-scan-sse-event.md`.
 
-Snapshot: `.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
+**v1.63 chunks landed (in-flight)**:
+- 1 `0363194` — scan_bridge.go + EventScanState +
+  web.Options.Broadcaster + dashboard JS listener +
+  cmd_serve up-front broadcaster + 8 tests.
 
-**v1.62 chunks landed (in-flight)**:
-- 1 `83e35f0` — dashboard.go scans-panel section +
-  renderScans/submitScan/cancelScan + dashboard_test.go
-  + INSTALL.md.
+**v1.62 cycle (closed, snapshot available)**:
+Dashboard scan-jobs panel + 2-tier polling. 1 chunk
++ close: `83e35f0`, `f99e1ee`. Snapshot:
+`.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
 
 **v1.61 cycle (closed, snapshot available)**:
 Real scan runner + serve --scan-store flag. 1 chunk

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.63.0] — 2026-05-06
+
+### Added
+
+- **Real-time `scan_state_change` SSE event** for the
+  dashboard. Every scanorch.Job state transition
+  (Submit, queued → running, running → completed/
+  failed/cancelled) publishes on `/api/v1/stream` with
+  the same wire shape as GET /api/v1/scans/{id}. The
+  v1.62 dashboard's renderScans() listener now fires
+  on each event, dropping the perceived transition
+  latency from ~2s (polling) to ~10ms (SSE).
+- New event kind `EventScanState = "scan_state_change"`
+  in `internal/web/stream/`.
+- `stream.PublishScanState(b, j)` — nil-broadcaster
+  safe helper.
+- `stream.NewBroadcastingStore(inner, b)` — decorator
+  that implements scanorch.Store, calls through to
+  the wrapped store, and publishes on every successful
+  Submit / Transition. Failed mutations short-circuit
+  before any Publish.
+- `web.Options.Broadcaster` (optional) lets callers
+  inject the broadcaster instead of NewServer
+  creating its own.
+
+### Changed
+
+- cmd_serve constructs the broadcaster up-front;
+  buildScanOrchestrator wraps the chosen Memory or
+  DB store with BroadcastingStore. Same wrapper goes
+  to BOTH APIV1Deps.ScanStore (REST) AND Worker.Store
+  (worker pool) — REST submit/cancel AND worker
+  queued→running→completed all flow through one
+  broadcast surface.
+- Dashboard JS gains a `scan_state_change` listener
+  invoking renderScans(). The v1.62 two-tier polling
+  timer stays as a safety net for SSE reconnect gaps.
+
+### Tests
+
+`+8 tests` (in scan_bridge_test.go).
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged
+(SSE event is a wire-shape addition; no new flags).
+
 ## [1.62.0] — 2026-05-06
 
 ### Added
