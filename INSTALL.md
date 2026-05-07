@@ -442,14 +442,12 @@ across all (target, plugin) combinations.
 ```
 
 The dashboard surfaces this as a tooltip on the Findings count
-column. Memory-store mode (the default for `--scan-store=memory`)
-preserves the breakdown in-memory until restart; **db-store mode
-(`--scan-store=db`) keeps the breakdown in-memory only — the
-00005_scan_jobs schema doesn't yet have a column for it. After a
-serve restart, completed jobs lose their breakdown and show
-only the aggregate count.** v1.67+ will add the migration; until
-then, use the SSE `scan_state_change` / `scan_stats_progress`
-streams to capture the breakdown live.
+column. Both `--scan-store=memory` and `--scan-store=db` modes
+preserve the breakdown across restarts (v1.67+ adds migration
+00006 for the JSONB column on `scan_jobs`). Run
+`elsereno db migrate` to apply it; existing pre-v1.67 rows get
+the column default `'{}'::jsonb` and decode to a nil map (no
+breakdown shown for legacy completed jobs).
 
 ### Same on Linux + macOS
 

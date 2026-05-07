@@ -2,6 +2,7 @@ package scanorch
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -74,11 +75,13 @@ VALUES ($1, 'queued', $2, $3, $4, $5, $6)`
 // jobColumns is the column list returned by every Get/List/
 // Transition query. Single source of truth for the SELECT
 // projection + the rowScanner.
+//
+// v1.67+: includes findings_by_plugin (JSONB).
 const jobColumns = `
 id, state, created_at, started_at, finished_at,
 input, plugins, default_port,
 targets_seen, targets_scanned, findings_count,
-error_msg, operator`
+error_msg, operator, findings_by_plugin`
 
 // Get returns the job with the given ID.
 func (s *DBStore) Get(ctx context.Context, id string) (Job, error) {
@@ -170,6 +173,10 @@ var transitionFromStates = map[State][]State{
 // Splits the SET clause based on `to` so completed/failed jobs
 // always set finished_at + Stats while running just sets
 // started_at.
+//
+// v1.67: completed/failed transitions also persist
+// findings_by_plugin (JSONB). Empty / nil maps land as
+// '{}'::jsonb so the column never holds NULL.
 func (s *DBStore) runTransition(ctx context.Context, id string, to State, fromStates []State, now time.Time, fields TransitionFields) (pgx.Rows, error) {
 	stats := orZeroStats(fields.Stats)
 	args := []any{id, string(to)}
@@ -184,12 +191,17 @@ func (s *DBStore) runTransition(ctx context.Context, id string, to State, fromSt
 		setClause = "state = $2, started_at = $" + itoa(len(args)+1)
 		args = append(args, now)
 	case StateCompleted, StateFailed:
+		byPluginJSON, err := encodeFindingsByPlugin(fields.FindingsByPlugin)
+		if err != nil {
+			return nil, fmt.Errorf("scanorch: encode findings_by_plugin: %w", err)
+		}
 		setClause = "state = $2, finished_at = $" + itoa(len(args)+1) +
 			", targets_seen = $" + itoa(len(args)+2) +
 			", targets_scanned = $" + itoa(len(args)+3) +
 			", findings_count = $" + itoa(len(args)+4) +
-			", error_msg = $" + itoa(len(args)+5)
-		args = append(args, now, stats.TargetsSeen, stats.TargetsScanned, stats.FindingsCount, fields.Error)
+			", error_msg = $" + itoa(len(args)+5) +
+			", findings_by_plugin = $" + itoa(len(args)+6)
+		args = append(args, now, stats.TargetsSeen, stats.TargetsScanned, stats.FindingsCount, fields.Error, byPluginJSON)
 	case StateCancelled:
 		setClause = "state = $2, finished_at = $" + itoa(len(args)+1)
 		args = append(args, now)
@@ -200,6 +212,16 @@ func (s *DBStore) runTransition(ctx context.Context, id string, to State, fromSt
 		" WHERE id = $1 AND state IN " + in +
 		" RETURNING " + jobColumns
 	return s.q.Query(ctx, sql, args...)
+}
+
+// encodeFindingsByPlugin produces the JSONB bytes the UPDATE
+// query binds. Nil / empty maps yield "{}" so the column never
+// holds NULL — the migration NOT NULL DEFAULT depends on this.
+func encodeFindingsByPlugin(byPlugin map[string]int) ([]byte, error) {
+	if len(byPlugin) == 0 {
+		return []byte(`{}`), nil
+	}
+	return json.Marshal(byPlugin)
 }
 
 // classifyTransitionMiss disambiguates the 0-rows-affected
@@ -273,23 +295,29 @@ func itoa(n int) string {
 
 // scanJob converts the next pgx.Rows record into a Job. Caller
 // must have called Next() and confirmed it returned true.
+//
+// v1.67: decodes findings_by_plugin (JSONB) into
+// Job.FindingsByPlugin. Empty {} jsonb (the column default for
+// rows pre-dating v1.66) yields a nil map (omitempty in JSON
+// output, no spurious empty tooltip on the dashboard).
 func scanJob(rows pgx.Rows) (Job, error) {
 	var (
-		j              Job
-		stateStr       string
-		startedAt      *time.Time
-		finishedAt     *time.Time
-		plugins        []string
-		errorMsg       string
-		operator       string
-		defaultPort    int
-		seen, scd, fnd int64
+		j                 Job
+		stateStr          string
+		startedAt         *time.Time
+		finishedAt        *time.Time
+		plugins           []string
+		errorMsg          string
+		operator          string
+		defaultPort       int
+		seen, scd, fnd    int64
+		findingsByPlugRaw []byte
 	)
 	if err := rows.Scan(
 		&j.ID, &stateStr, &j.CreatedAt, &startedAt, &finishedAt,
 		&j.Input, &plugins, &defaultPort,
 		&seen, &scd, &fnd,
-		&errorMsg, &operator,
+		&errorMsg, &operator, &findingsByPlugRaw,
 	); err != nil {
 		return Job{}, fmt.Errorf("scanorch: scan job: %w", err)
 	}
@@ -309,6 +337,18 @@ func scanJob(rows pgx.Rows) (Job, error) {
 	}
 	j.Error = errorMsg
 	j.Operator = operator
+	if len(findingsByPlugRaw) > 0 {
+		var byPlugin map[string]int
+		if err := json.Unmarshal(findingsByPlugRaw, &byPlugin); err != nil {
+			return Job{}, fmt.Errorf("scanorch: decode findings_by_plugin: %w", err)
+		}
+		// Empty JSON object decodes to an empty (non-nil) map.
+		// Normalise to nil so the JSON output stays clean
+		// (omitempty drops nil but keeps empty-non-nil).
+		if len(byPlugin) > 0 {
+			j.FindingsByPlugin = byPlugin
+		}
+	}
 	return j, nil
 }
 

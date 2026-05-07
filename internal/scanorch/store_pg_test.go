@@ -100,12 +100,13 @@ func (r *fakeRows) Next() bool {
 	return r.i <= len(r.rows)
 }
 
-// Scan unpacks the 13-column scan-jobs projection.
+// Scan unpacks the 14-column scan-jobs projection (v1.67+:
+// findings_by_plugin JSONB is the new column).
 //
 //nolint:forcetypeassert // test fixture; assertion failure is a programming error
 func (r *fakeRows) Scan(dst ...any) error {
-	if len(dst) != 13 {
-		return errors.New("fakeRows: scanorch test expected 13-column scan")
+	if len(dst) != 14 {
+		return errors.New("fakeRows: scanorch test expected 14-column scan (post-v1.67)")
 	}
 	row := r.rows[r.i-1]
 	*(dst[0].(*string)) = row["id"].(string)
@@ -127,6 +128,9 @@ func (r *fakeRows) Scan(dst ...any) error {
 	*(dst[10].(*int64)) = row["findings_count"].(int64)
 	*(dst[11].(*string)) = row["error_msg"].(string)
 	*(dst[12].(*string)) = row["operator"].(string)
+	if v, ok := row["findings_by_plugin"].([]byte); ok {
+		*(dst[13].(*[]byte)) = v
+	}
 	return nil
 }
 
@@ -134,17 +138,18 @@ func (r *fakeRows) Scan(dst ...any) error {
 // state. Tests override individual columns as needed.
 func makeRow(id, state string) map[string]any {
 	return map[string]any{
-		"id":              id,
-		"state":           state,
-		"created_at":      time.Now().UTC(),
-		"input":           "stdin",
-		"plugins":         []string{},
-		"default_port":    int(0),
-		"targets_seen":    int64(0),
-		"targets_scanned": int64(0),
-		"findings_count":  int64(0),
-		"error_msg":       "",
-		"operator":        "alice",
+		"id":                 id,
+		"state":              state,
+		"created_at":         time.Now().UTC(),
+		"input":              "stdin",
+		"plugins":            []string{},
+		"default_port":       int(0),
+		"targets_seen":       int64(0),
+		"targets_scanned":    int64(0),
+		"findings_count":     int64(0),
+		"error_msg":          "",
+		"operator":           "alice",
+		"findings_by_plugin": []byte(`{}`),
 	}
 }
 
@@ -353,4 +358,93 @@ func TestDBStore_Transition_UnknownTo(t *testing.T) {
 // guard is removed.
 func TestDBStore_SatisfiesStoreInterface(_ *testing.T) {
 	var _ scanorch.Store = scanorch.NewDBStore(&fakeQuerier{})
+}
+
+// TestDBStore_Transition_PersistsFindingsByPlugin: a completed
+// transition with FindingsByPlugin in TransitionFields must
+// land in the SQL UPDATE clause, and the returned Job must
+// reflect the round-trip.
+func TestDBStore_Transition_PersistsFindingsByPlugin(t *testing.T) {
+	row := makeRow("abc", "completed")
+	row["findings_by_plugin"] = []byte(`{"modbus":3,"s7":2}`)
+	q := &fakeQuerier{transitionUpdateRows: []map[string]any{row}}
+	store := scanorch.NewDBStore(q)
+	stats := scanorch.Stats{TargetsSeen: 100, TargetsScanned: 100, FindingsCount: 5}
+	job, err := store.Transition(context.Background(), "abc", scanorch.StateCompleted, scanorch.TransitionFields{
+		Stats:            &stats,
+		FindingsByPlugin: map[string]int{"modbus": 3, "s7": 2},
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if job.FindingsByPlugin == nil {
+		t.Fatal("FindingsByPlugin should be populated")
+	}
+	if job.FindingsByPlugin["modbus"] != 3 || job.FindingsByPlugin["s7"] != 2 {
+		t.Errorf("FindingsByPlugin = %+v", job.FindingsByPlugin)
+	}
+	// The SQL must have included the new column.
+	if !strings.Contains(q.lastSQL, "findings_by_plugin") {
+		t.Errorf("expected findings_by_plugin in SQL: %s", q.lastSQL)
+	}
+}
+
+// TestDBStore_Transition_NilFindingsByPluginYieldsEmptyJSON:
+// a nil/empty map encodes to {} so the column never holds NULL.
+func TestDBStore_Transition_NilFindingsByPluginYieldsEmptyJSON(t *testing.T) {
+	row := makeRow("abc", "completed")
+	q := &fakeQuerier{transitionUpdateRows: []map[string]any{row}}
+	store := scanorch.NewDBStore(q)
+	stats := scanorch.Stats{}
+	if _, err := store.Transition(context.Background(), "abc", scanorch.StateCompleted, scanorch.TransitionFields{
+		Stats: &stats,
+	}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	// The bound arg for findings_by_plugin should be []byte("{}").
+	// It's the last arg in the slice (after now, seen, scanned,
+	// findings, error).
+	if len(q.lastArgs) < 1 {
+		t.Fatal("no args captured")
+	}
+	last := q.lastArgs[len(q.lastArgs)-1]
+	bs, ok := last.([]byte)
+	if !ok {
+		t.Fatalf("last arg = %T, want []byte", last)
+	}
+	if string(bs) != "{}" {
+		t.Errorf("last arg = %q, want '{}'", bs)
+	}
+}
+
+// TestDBStore_Get_DecodesFindingsByPlugin pins the JSON ->
+// map round trip on the SELECT path.
+func TestDBStore_Get_DecodesFindingsByPlugin(t *testing.T) {
+	row := makeRow("abc", "completed")
+	row["findings_by_plugin"] = []byte(`{"banner":1,"modbus":4}`)
+	q := &fakeQuerier{queryRows: []map[string]any{row}}
+	store := scanorch.NewDBStore(q)
+	job, err := store.Get(context.Background(), "abc")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if job.FindingsByPlugin["banner"] != 1 || job.FindingsByPlugin["modbus"] != 4 {
+		t.Errorf("FindingsByPlugin = %+v", job.FindingsByPlugin)
+	}
+}
+
+// TestDBStore_Get_EmptyJSONBYieldsNilMap: the column default
+// '{}' decodes to a nil map (omitempty in JSON output).
+func TestDBStore_Get_EmptyJSONBYieldsNilMap(t *testing.T) {
+	row := makeRow("abc", "queued")
+	row["findings_by_plugin"] = []byte(`{}`)
+	q := &fakeQuerier{queryRows: []map[string]any{row}}
+	store := scanorch.NewDBStore(q)
+	job, err := store.Get(context.Background(), "abc")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if job.FindingsByPlugin != nil {
+		t.Errorf("FindingsByPlugin = %+v, want nil for empty JSONB", job.FindingsByPlugin)
+	}
 }
