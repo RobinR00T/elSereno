@@ -44,6 +44,13 @@ type Options struct {
 	// (jobs survive restart); tests + dev pass a
 	// NewMemoryStore() (jobs lost on restart).
 	ScanStore scanorch.Store
+
+	// Broadcaster (optional, v1.63+) overrides the per-server
+	// SSE broadcaster. cmd_serve builds it up-front so the
+	// scan-orchestration wrapper can publish events on the same
+	// bus the dashboard listens to. nil means NewServer creates
+	// its own internal broadcaster (back-compat with v1.62-).
+	Broadcaster *stream.Broadcaster
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -79,11 +86,15 @@ func NewServer(opts Options) (*Server, error) {
 		return nil, fmt.Errorf("web: derive csrf key: %w", err)
 	}
 
+	broadcaster := opts.Broadcaster
+	if broadcaster == nil {
+		broadcaster = stream.New(128)
+	}
 	s := &Server{
 		opts:        opts,
 		startedAt:   opts.NowSource(),
 		csrfKey:     csrfKey,
-		broadcaster: stream.New(128),
+		broadcaster: broadcaster,
 	}
 
 	mux := http.NewServeMux()

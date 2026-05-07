@@ -85,7 +85,12 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		defer pool.Close()
 	}
 
-	scanStore, scanPool, scanErr := buildScanOrchestrator(cmd.Context(), opts, pool)
+	// v1.63: build the SSE broadcaster up-front so the scan-
+	// orchestration wrapper can publish state-change events on
+	// the same bus the dashboard listens to.
+	broadcaster := stream.New(128)
+
+	scanStore, scanPool, scanErr := buildScanOrchestrator(cmd.Context(), opts, pool, broadcaster)
 	if scanErr != nil {
 		return fail(core.ExitUsage, scanErr)
 	}
@@ -93,7 +98,7 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		defer scanPool.Stop()
 	}
 
-	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore)
+	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore, broadcaster)
 	srv, err := web.NewServer(srvOpts)
 	if err != nil {
 		return fail(core.ExitSoftware, err)
@@ -113,14 +118,15 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 // buildWebOptions assembles the web.Options struct from the
 // runServe scope. Splitting this out keeps runServe's
 // cyclomatic complexity below the linter's 15-branch ceiling.
-func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store) web.Options {
+func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store, broadcaster *stream.Broadcaster) web.Options {
 	out := web.Options{
-		Addr:      opts.addr,
-		Web:       cfg.Web,
-		Vault:     v,
-		TLSCert:   opts.tlsCert,
-		TLSKey:    opts.tlsKey,
-		ScanStore: scanStore,
+		Addr:        opts.addr,
+		Web:         cfg.Web,
+		Vault:       v,
+		TLSCert:     opts.tlsCert,
+		TLSKey:      opts.tlsKey,
+		ScanStore:   scanStore,
+		Broadcaster: broadcaster,
 	}
 	if pool != nil {
 		out.Querier = pool
@@ -153,32 +159,38 @@ func startAuditTail(parent context.Context, srv *web.Server) func() {
 // db requires a non-nil pgxpool.Pool from maybeOpenPool. memory
 // works regardless of DB state (handy for dev runs without
 // DATABASE_URL).
-func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Pool) (scanorch.Store, *scanorch.Pool, error) {
+//
+// v1.63: the chosen store is wrapped with a stream.BroadcastingStore
+// so every successful Submit / Transition publishes a
+// scan_state_change event on the supplied broadcaster. The same
+// wrapped store goes to BOTH the REST handler (APIV1Deps) AND
+// the worker pool — so transitions from operator-driven REST
+// calls (Submit, Cancel) AND from the worker (Running →
+// Completed) all flow through the SSE bus.
+func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, *scanorch.Pool, error) {
+	var inner scanorch.Store
 	switch opts.scanStore {
 	case "", "off":
 		return nil, nil, nil
 	case "memory":
-		store := scanorch.NewMemoryStore()
-		worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
-		p := scanorch.NewPool(worker, opts.scanPool)
-		p.Start(ctx)
+		inner = scanorch.NewMemoryStore()
 		_, _ = fmt.Fprintf(os.Stderr,
 			"elsereno serve: scan-store=memory; pool=%d (jobs lost on restart)\n", opts.scanPool)
-		return store, p, nil
 	case "db":
 		if pool == nil {
 			return nil, nil, fmt.Errorf("--scan-store=db requires DATABASE_URL to be set so the DB pool is open")
 		}
-		store := scanorch.NewDBStore(pool)
-		worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
-		p := scanorch.NewPool(worker, opts.scanPool)
-		p.Start(ctx)
+		inner = scanorch.NewDBStore(pool)
 		_, _ = fmt.Fprintf(os.Stderr,
 			"elsereno serve: scan-store=db; pool=%d (jobs survive restart)\n", opts.scanPool)
-		return store, p, nil
 	default:
 		return nil, nil, fmt.Errorf("--scan-store: unknown value %q (off | memory | db)", opts.scanStore)
 	}
+	store := stream.NewBroadcastingStore(inner, broadcaster)
+	worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
+	p := scanorch.NewPool(worker, opts.scanPool)
+	p.Start(ctx)
+	return store, p, nil
 }
 
 // maybeOpenPool opens the DB pool when DATABASE_URL is set; nil

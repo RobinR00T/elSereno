@@ -28,6 +28,11 @@ const (
 	EventRunEnd EventKind = "run_end"
 	// EventAudit announces an audit-log row has been appended.
 	EventAudit EventKind = "audit"
+	// EventScanState announces a scan-orchestration Job has
+	// changed state (queued → running, running → completed, etc.)
+	// or has just been submitted. v1.63+. The dashboard's
+	// renderScans() listens for this to drop its polling timer.
+	EventScanState EventKind = "scan_state_change"
 )
 
 // Event is the broadcaster's unit. Payload is the JSON-encoded

@@ -1033,6 +1033,17 @@ const overviewHTML = `<!doctype html>
   es.addEventListener("finding", scheduleRefresh);
   es.addEventListener("run_start", scheduleRefresh);
   es.addEventListener("run_end", scheduleRefresh);
+
+  // v1.63: scan_state_change events from the orch broadcaster.
+  // Re-render the scans table immediately on every transition so
+  // the dashboard reflects state without waiting for the next
+  // poll tick. The polling timer still runs as a safety net for
+  // transitions the SSE stream missed (e.g., reconnect gap),
+  // just at the slower 10s "idle" cadence — renderScans()
+  // upgrades it back to 2s if it sees an active row.
+  es.addEventListener("scan_state_change", function () {
+    renderScans();
+  });
 })();
 </script>
 </body>
