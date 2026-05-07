@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.64.0] — 2026-05-06
+
+### Added
+
+- **Multi-plugin per scan Job.** Relaxes the v1.61
+  single-plugin contract. A Job's `plugins` field is
+  now:
+  - **Empty** → run every registered plugin in the
+    build.
+  - **Single** → unchanged from v1.61 (back-compat).
+  - **Multiple** → fan out to each named plugin
+    per target.
+  Per-target dispatch uses a port-match heuristic:
+  each plugin runs only against targets whose Port
+  matches the plugin's DefaultPort. DefaultPort=0
+  (banner-style probe-anywhere) matches every
+  target.
+- **`ErrRunnerNoMatchingPlugins`** sentinel for jobs
+  whose plugin set produces zero (target, plugin)
+  matches.
+
+### Changed
+
+- **Stats semantics under multi-plugin**:
+  `targets_scanned` is now the count of (target,
+  plugin) probe attempts, not unique targets. A
+  target probed by 3 plugins counts as 3.
+  `findings_count` is the total findings across all
+  (target, plugin) combinations.
+- **Dashboard form**: plugin field is now optional +
+  accepts comma-separated names. Placeholder:
+  `"modbus,s7  (blank = all)"`.
+- **Sentinel cleanup**: dropped `ErrRunnerNoPlugin`
+  and `ErrRunnerTooManyPlugins` — both are now
+  legal Job shapes.
+
+### Documentation
+
+- INSTALL.md "Submitting a job" gains a Plugin
+  Selection subsection covering one / multi / all
+  with three curl examples + Stats-semantics note.
+
+### Tests
+
+`+11 net new` (dropped 2 obsolete; added 9 + 4).
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.63.0] — 2026-05-06
 
 ### Added

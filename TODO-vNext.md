@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.64 (Multi-plugin per scan Job)
+
+- ✅ **Multi-plugin per scan Job** — v1.64 chunk 1.
+  Relaxes the v1.61 single-plugin contract. Empty
+  Plugins → all registered; comma-separated UI
+  field; per-target port-match dispatch; probe-
+  attempts Stats accounting. INSTALL.md updated.
+  11 net new tests.
+
 ### v1.63 (scan_state_change SSE event)
 
 - ✅ **scan_state_change SSE event +

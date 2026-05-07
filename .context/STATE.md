@@ -1,31 +1,31 @@
 ---
-phase: v1.63-closed
-status: v1.16-v1.27 published; v1.28-v1.63 tags pending push
+phase: v1.64-closed
+status: v1.16-v1.27 published; v1.28-v1.64 tags pending push
 last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.63 cycle closed on `main`** (1 chunk +
-close). Adds the `scan_state_change` SSE event on top
-of the v1.62 dashboard panel. New
-`stream.BroadcastingStore` decorator wraps the chosen
-scanorch.Store (Memory or DB) and publishes on every
-successful Submit / Transition. Same wrapper goes to
-both the REST handler and the worker pool, so
-operator-driven calls AND worker-driven transitions
-flow through one broadcast surface. Dashboard JS
-gains a listener that calls renderScans() per event,
-dropping perceived latency from ~2s polling to ~10ms
-SSE. 8 new tests.
+**Phase**: **v1.64 cycle closed on `main`** (1 chunk +
+close). Relaxes the v1.61 single-plugin contract on
+scan jobs. Empty Plugins → all registered; per-target
+dispatch via DefaultPort port-match; Stats now
+probe-attempts (a target probed by 3 plugins counts
+as 3). Dashboard form accepts comma-separated plugin
+names. INSTALL.md updated with three curl examples
+(one / multi / all). 11 net new tests.
 
-Snapshot: `.context/snapshots/v1.63.0-scan-sse-event.md`.
+Snapshot: `.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
 
-**v1.63 chunks landed (in-flight)**:
-- 1 `0363194` — scan_bridge.go + EventScanState +
-  web.Options.Broadcaster + dashboard JS listener +
-  cmd_serve up-front broadcaster + 8 tests.
+**v1.64 chunks landed (in-flight)**:
+- 1 `6bb77cd` — scan_runner.go rewrite + dashboard
+  JS form + INSTALL.md + tests rewrite.
+
+**v1.63 cycle (closed, snapshot available)**:
+scan_state_change SSE event + BroadcastingStore. 1
+chunk + close: `0363194`, `69c636d`. Snapshot:
+`.context/snapshots/v1.63.0-scan-sse-event.md`.
 
 **v1.62 cycle (closed, snapshot available)**:
 Dashboard scan-jobs panel + 2-tier polling. 1 chunk

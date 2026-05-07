@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.64 (chunk 1) — **Multi-plugin per
+  scan Job.** Relaxes the v1.61 single-plugin contract.
+  Empty Plugins → all registered. Per-target dispatch
+  via DefaultPort match. Stats now probe-attempts
+  (a target probed by 3 plugins counts as 3). UI
+  form accepts comma-separated. INSTALL.md updated.
+  11 net new tests. Snapshot:
+  `.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
+
 - 2026-05-06 — v1.63 (chunk 1) — **scan_state_change
   SSE event + BroadcastingStore decorator.** Drops
   perceived dashboard transition latency from ~2s
