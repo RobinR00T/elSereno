@@ -938,12 +938,12 @@ const overviewHTML = `<!doctype html>
         } else {
           action = '<span class="sub">' + escText(j.error ? "err" : "—") + '</span>';
         }
-        return '<tr>' +
+        return '<tr data-scan-id="' + escAttr(j.id || "") + '">' +
           '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
           '<td>' + escText(j.operator || "—") + '</td>' +
           '<td><code>' + escText(plugins) + '</code></td>' +
           '<td><code>' + escText(j.input || "") + '</code></td>' +
-          '<td>' + escText(statsCell) + '</td>' +
+          '<td data-scan-stats>' + escText(statsCell) + '</td>' +
           '<td>' + escText(j.created_at ? new Date(j.created_at).toLocaleString() : "") + '</td>' +
           '<td class="rid"><code>' + escText(idShort) + '</code></td>' +
           '<td>' + action + '</td>' +
@@ -1051,6 +1051,28 @@ const overviewHTML = `<!doctype html>
   // upgrades it back to 2s if it sees an active row.
   es.addEventListener("scan_state_change", function () {
     renderScans();
+  });
+
+  // v1.65: scan_stats_progress events deliver mid-run Stats
+  // snapshots. We update the affected row's Targets/Findings
+  // cell in place rather than re-rendering the whole table —
+  // each event might fire 2/sec per running job and the table
+  // re-render is much heavier than a single innerHTML swap.
+  es.addEventListener("scan_stats_progress", function (ev) {
+    try {
+      var data = JSON.parse(ev.data);
+      if (!data || !data.id) return;
+      var row = document.querySelector('tr[data-scan-id="' + data.id + '"]');
+      if (!row) return;
+      var cell = row.querySelector('td[data-scan-stats]');
+      if (!cell) return;
+      var s = data.stats || {};
+      var targets = (s.targets_scanned || 0) + " / " + (s.targets_seen || 0);
+      var findings = s.findings_count || 0;
+      cell.textContent = targets + "  ·  " + findings + " findings";
+    } catch (_) {
+      // best-effort; fall back to next render
+    }
   });
 })();
 </script>

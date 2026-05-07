@@ -28,7 +28,7 @@ func TestDefaultScanRunner_UnknownPlugin(t *testing.T) {
 	_, err := r.Run(context.Background(), scanorch.Job{
 		Input:   "stdin",
 		Plugins: []string{"this-plugin-does-not-exist"},
-	})
+	}, nil)
 	if !errors.Is(err, ErrRunnerUnknownPlugin) {
 		t.Errorf("err = %v, want ErrRunnerUnknownPlugin", err)
 	}
@@ -40,7 +40,7 @@ func TestDefaultScanRunner_BadInput(t *testing.T) {
 	_, err := r.Run(context.Background(), scanorch.Job{
 		Input:   "not-a-known-kind",
 		Plugins: []string{"modbus"},
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error for malformed input")
 	}
@@ -60,7 +60,7 @@ func TestDefaultScanRunner_EmptyTargets(t *testing.T) {
 		Input:       "list:" + emptyFile,
 		Plugins:     []string{"banner"},
 		DefaultPort: 80,
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("expected error for empty input file")
 	}
@@ -79,7 +79,7 @@ func TestDefaultScanRunner_NoMatchingPlugins(t *testing.T) {
 		Input:       "list:" + listFile,
 		Plugins:     []string{"modbus"}, // DefaultPort 502
 		DefaultPort: 80,
-	})
+	}, nil)
 	if !errors.Is(err, ErrRunnerNoMatchingPlugins) {
 		t.Errorf("err = %v, want ErrRunnerNoMatchingPlugins", err)
 	}
@@ -98,7 +98,7 @@ func TestDefaultScanRunner_StatsPopulated(t *testing.T) {
 		Input:       "list:" + listFile,
 		Plugins:     []string{"banner"},
 		DefaultPort: 80,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
@@ -122,7 +122,7 @@ func TestDefaultScanRunner_MultiPlugin(t *testing.T) {
 		Input:       "list:" + listFile,
 		Plugins:     []string{"modbus", "banner"},
 		DefaultPort: 502,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
@@ -142,7 +142,7 @@ func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
 		Input:       "list:" + listFile,
 		Plugins:     nil,
 		DefaultPort: 80,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}

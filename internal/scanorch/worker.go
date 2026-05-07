@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+// ProgressReporter is the callback a JobRunner uses to publish
+// mid-run Stats snapshots. Worker passes a no-op reporter when
+// no listener is wired; cmd_serve wires a throttled SSE publish.
+//
+// The runner is expected to call this on a high-frequency cadence
+// (every drained scanner event); the Worker / wiring layer
+// decides whether to actually surface each snapshot. Keeping the
+// throttle policy on the listener side means the runner doesn't
+// need to know about timers + the same runner can serve a
+// dashboard (heavy throttle) and a CLI watcher (lighter
+// throttle) without code change.
+type ProgressReporter func(Stats)
+
 // JobRunner is the interface a Worker uses to actually execute
 // a Job. The orchestration shell stays decoupled from the
 // scanner / input-parser concrete types so:
@@ -23,26 +36,27 @@ import (
 // any error. The Worker handles state transitions; the runner
 // only owns the actual scan work.
 //
-// Mid-run progress reporting (live Stats updates as targets
-// stream in) is out of scope for v1.59 — the runner returns
-// final Stats. A future cycle can add a `progress chan<- Stats`
-// argument or a callback for the dashboard to subscribe to.
+// **v1.65+**: report is invoked with current Stats snapshots as
+// the run progresses. Implementations are encouraged to call
+// report on every probe completion; the listener side throttles.
+// Pre-v1.65 runners that don't call report at all still work
+// (the Worker no-ops on missing reports).
 type JobRunner interface {
 	// Run executes job and returns the resulting Stats + error.
 	// Implementations should respect ctx cancellation and bail
 	// promptly when ctx is Done. Returning a non-nil error
 	// transitions the job to StateFailed; nil error +
 	// non-cancelled ctx transitions to StateCompleted.
-	Run(ctx context.Context, job Job) (Stats, error)
+	Run(ctx context.Context, job Job, report ProgressReporter) (Stats, error)
 }
 
 // JobRunnerFunc adapts a plain function to the JobRunner
 // interface.
-type JobRunnerFunc func(ctx context.Context, job Job) (Stats, error)
+type JobRunnerFunc func(ctx context.Context, job Job, report ProgressReporter) (Stats, error)
 
 // Run implements JobRunner.
-func (f JobRunnerFunc) Run(ctx context.Context, job Job) (Stats, error) {
-	return f(ctx, job)
+func (f JobRunnerFunc) Run(ctx context.Context, job Job, report ProgressReporter) (Stats, error) {
+	return f(ctx, job, report)
 }
 
 // ErrWorkerNoStore means a Worker was constructed without a
@@ -77,6 +91,12 @@ type Worker struct {
 	// failed, and surfaces the panic value via this hook
 	// (e.g., to forward to the audit log or telemetry).
 	PanicHandler func(jobID string, panicValue interface{})
+	// OnProgress, if non-nil, is invoked with mid-run Stats
+	// snapshots from the Runner. The Worker does NOT throttle —
+	// it's the listener's responsibility (cmd_serve wires a
+	// time-based throttle here). Nil → no-op reporter passed
+	// to Runner.Run.
+	OnProgress func(jobID string, stats Stats)
 }
 
 // Process dispatches the job with the given ID. The worker:
@@ -127,7 +147,18 @@ func (w *Worker) runWithRecover(ctx context.Context, job Job) (stats Stats, runE
 			runErr = fmt.Errorf("scanorch: runner panic: %v", r)
 		}
 	}()
-	return w.Runner.Run(ctx, job)
+	report := w.makeProgressReporter(job.ID)
+	return w.Runner.Run(ctx, job, report)
+}
+
+// makeProgressReporter returns a ProgressReporter that forwards
+// to OnProgress if set, else a no-op. The Worker does NOT
+// throttle — that's the listener's responsibility.
+func (w *Worker) makeProgressReporter(jobID string) ProgressReporter {
+	if w.OnProgress == nil {
+		return func(_ Stats) {}
+	}
+	return func(s Stats) { w.OnProgress(jobID, s) }
 }
 
 // terminate decides the final state and applies it. Decision

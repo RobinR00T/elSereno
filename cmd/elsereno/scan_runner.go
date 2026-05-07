@@ -72,11 +72,16 @@ var (
 //     dispatcher.
 //  3. For each plugin, filter targets by port match.
 //  4. For each plugin with non-empty matches, run scanner.Run
-//     and drain into shared Stats counters.
+//     and drain into shared Stats counters. Call report on
+//     every drain event so the dashboard sees mid-scan
+//     progress (v1.65+).
 //  5. If no plugin × target combo fired, return
 //     ErrRunnerNoMatchingPlugins (the operator submitted a job
 //     that genuinely had zero work).
-func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job) (scanorch.Stats, error) {
+func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report scanorch.ProgressReporter) (scanorch.Stats, error) {
+	if report == nil {
+		report = func(scanorch.Stats) {}
+	}
 	plugins, err := resolvePlugins(job.Plugins)
 	if err != nil {
 		return scanorch.Stats{}, err
@@ -102,6 +107,15 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job) (scanorch
 		targetsScanned atomic.Int64
 		dispatched     int
 	)
+	// Build the progress closure once so each drain shares the
+	// same TargetsSeen baseline and reports a coherent snapshot.
+	emit := func() {
+		report(scanorch.Stats{
+			TargetsSeen:    len(targets),
+			TargetsScanned: int(targetsScanned.Load()),
+			FindingsCount:  int(findingsCount.Load()),
+		})
+	}
 	for _, plugin := range plugins {
 		matching := filterByPort(targets, plugin)
 		if len(matching) == 0 {
@@ -110,7 +124,7 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job) (scanorch
 		dispatched++
 		scn := scanner.New(scanner.Options{MaxConcurrentTargets: concurrency})
 		findings, errs := scn.Run(ctx, matching, plugin.Factory().Probe)
-		drainPluginRun(findings, errs, &findingsCount, &targetsScanned)
+		drainPluginRun(findings, errs, &findingsCount, &targetsScanned, emit)
 	}
 	if dispatched == 0 {
 		return stats, ErrRunnerNoMatchingPlugins
@@ -156,8 +170,11 @@ func filterByPort(targets []core.Target, plugin core.Plugin) []core.Target {
 // drainPluginRun consumes one plugin's scanner.Run output to
 // completion, accumulating into the shared atomic counters.
 // Probe errors count as targetsScanned (we tried) but not
-// findingsCount.
-func drainPluginRun(findings <-chan core.Finding, errs <-chan error, findingsCount, targetsScanned *atomic.Int64) {
+// findingsCount. After every event, emit() is called so the
+// listener gets a fresh Stats snapshot. Listeners are
+// responsible for throttling — the runner fires unconditionally
+// (matches the v1.65 ProgressReporter contract).
+func drainPluginRun(findings <-chan core.Finding, errs <-chan error, findingsCount, targetsScanned *atomic.Int64, emit func()) {
 	for findings != nil || errs != nil {
 		select {
 		case _, ok := <-findings:
@@ -167,12 +184,14 @@ func drainPluginRun(findings <-chan core.Finding, errs <-chan error, findingsCou
 			}
 			findingsCount.Add(1)
 			targetsScanned.Add(1)
+			emit()
 		case _, ok := <-errs:
 			if !ok {
 				errs = nil
 				continue
 			}
 			targetsScanned.Add(1)
+			emit()
 		}
 	}
 }

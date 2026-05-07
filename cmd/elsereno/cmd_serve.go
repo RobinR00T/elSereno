@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
@@ -187,7 +188,20 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 		return nil, nil, fmt.Errorf("--scan-store: unknown value %q (off | memory | db)", opts.scanStore)
 	}
 	store := stream.NewBroadcastingStore(inner, broadcaster)
-	worker := &scanorch.Worker{Store: store, Runner: &defaultScanRunner{}}
+	// v1.65: progress throttle for mid-run Stats snapshots.
+	// Default 500ms cadence — balances "operator sees the
+	// counter tick" against "100k-target scan doesn't flood
+	// the SSE bus". Attached to the store so terminal
+	// transitions clear per-job state.
+	progress := stream.NewScanProgressThrottle(broadcaster, 500*time.Millisecond)
+	store.AttachProgressThrottle(progress)
+	worker := &scanorch.Worker{
+		Store:  store,
+		Runner: &defaultScanRunner{},
+		OnProgress: func(jobID string, s scanorch.Stats) {
+			progress.Report(jobID, s)
+		},
+	}
 	p := scanorch.NewPool(worker, opts.scanPool)
 	p.Start(ctx)
 	return store, p, nil

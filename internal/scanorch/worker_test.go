@@ -19,10 +19,18 @@ type fakeRunner struct {
 	err        error
 	blockUntil chan struct{}
 	calls      atomic.Int32
+	// reportEvery, if > 0, makes Run call report() that many
+	// times before returning. Lets v1.65 progress tests
+	// observe the reporter callback.
+	reportEvery int
+	progress    scanorch.Stats
 }
 
-func (f *fakeRunner) Run(ctx context.Context, _ scanorch.Job) (scanorch.Stats, error) {
+func (f *fakeRunner) Run(ctx context.Context, _ scanorch.Job, report scanorch.ProgressReporter) (scanorch.Stats, error) {
 	f.calls.Add(1)
+	for i := 0; i < f.reportEvery && report != nil; i++ {
+		report(f.progress)
+	}
 	if f.blockUntil != nil {
 		select {
 		case <-f.blockUntil:
@@ -141,7 +149,7 @@ func TestWorker_PanicRecovered(t *testing.T) {
 	var capturedPanic interface{}
 	w := &scanorch.Worker{
 		Store: store,
-		Runner: scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job) (scanorch.Stats, error) {
+		Runner: scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, error) {
 			panic("boom")
 		}),
 		PanicHandler: func(jobID string, panicValue interface{}) {
@@ -312,14 +320,73 @@ func TestDrain_StopsOnContextCancel(t *testing.T) {
 	}
 }
 
+// TestWorker_OnProgress: when OnProgress is wired, the runner's
+// report() invocations forward to the hook with the job ID +
+// snapshot Stats. v1.65 contract.
+func TestWorker_OnProgress(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	progressStats := scanorch.Stats{TargetsSeen: 100, TargetsScanned: 33, FindingsCount: 2}
+	runner := &fakeRunner{
+		stats:       scanorch.Stats{TargetsSeen: 100, TargetsScanned: 100, FindingsCount: 5},
+		reportEvery: 3,
+		progress:    progressStats,
+	}
+	var (
+		mu       sync.Mutex
+		captured []scanorch.Stats
+		ids      []string
+	)
+	w := &scanorch.Worker{
+		Store:  store,
+		Runner: runner,
+		OnProgress: func(id string, s scanorch.Stats) {
+			mu.Lock()
+			defer mu.Unlock()
+			ids = append(ids, id)
+			captured = append(captured, s)
+		},
+	}
+	if _, err := w.Process(context.Background(), job.ID); err != nil {
+		t.Fatalf("Process err = %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(captured) != 3 {
+		t.Errorf("OnProgress called %d times, want 3 (reportEvery)", len(captured))
+	}
+	for _, id := range ids {
+		if id != job.ID {
+			t.Errorf("OnProgress jobID = %q, want %q", id, job.ID)
+		}
+	}
+	for _, s := range captured {
+		if s != progressStats {
+			t.Errorf("OnProgress Stats = %+v, want %+v", s, progressStats)
+		}
+	}
+}
+
+// TestWorker_NilOnProgress is a smoke test that runners
+// calling report() are safe when OnProgress is nil.
+func TestWorker_NilOnProgress(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	job, _ := store.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	runner := &fakeRunner{reportEvery: 5}
+	w := &scanorch.Worker{Store: store, Runner: runner}
+	if _, err := w.Process(context.Background(), job.ID); err != nil {
+		t.Fatalf("Process err = %v", err)
+	}
+}
+
 // TestJobRunnerFunc adapts a function literal.
 func TestJobRunnerFunc(t *testing.T) {
 	var called bool
-	runner := scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job) (scanorch.Stats, error) {
+	runner := scanorch.JobRunnerFunc(func(_ context.Context, _ scanorch.Job, _ scanorch.ProgressReporter) (scanorch.Stats, error) {
 		called = true
 		return scanorch.Stats{TargetsSeen: 7}, nil
 	})
-	stats, err := runner.Run(context.Background(), scanorch.Job{})
+	stats, err := runner.Run(context.Background(), scanorch.Job{}, nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}

@@ -33,6 +33,11 @@ const (
 	// or has just been submitted. v1.63+. The dashboard's
 	// renderScans() listens for this to drop its polling timer.
 	EventScanState EventKind = "scan_state_change"
+	// EventScanProgress announces a mid-run Stats snapshot for
+	// a running scan-orchestration Job. v1.65+. The publisher
+	// throttles so a 100k-target scan doesn't flood the SSE
+	// bus.
+	EventScanProgress EventKind = "scan_stats_progress"
 )
 
 // Event is the broadcaster's unit. Payload is the JSON-encoded

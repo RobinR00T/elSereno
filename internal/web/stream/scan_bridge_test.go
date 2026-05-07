@@ -208,6 +208,193 @@ func TestBroadcastingStore_GetListReadOnly(t *testing.T) {
 	}
 }
 
+// ---- v1.65 progress event + throttle ------------------------
+
+// TestPublishScanProgress emits the right kind + payload.
+func TestPublishScanProgress(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	stats := scanorch.Stats{TargetsSeen: 100, TargetsScanned: 33, FindingsCount: 2}
+	stream.PublishScanProgress(b, "abc", stats)
+	ev, ok := drainOne(t, sub)
+	if !ok {
+		t.Fatal("expected an event")
+	}
+	if ev.Kind != stream.EventScanProgress {
+		t.Errorf("Kind = %q, want %q", ev.Kind, stream.EventScanProgress)
+	}
+	var raw map[string]any
+	_ = json.Unmarshal(ev.Payload, &raw)
+	if raw["id"] != "abc" {
+		t.Errorf("id = %v", raw["id"])
+	}
+	statsMap, _ := raw["stats"].(map[string]any)
+	if statsMap == nil {
+		t.Fatal("stats payload missing")
+	}
+}
+
+// TestPublishScanProgress_NilBroadcasterIsNoOp.
+func TestPublishScanProgress_NilBroadcasterIsNoOp(_ *testing.T) {
+	stream.PublishScanProgress(nil, "x", scanorch.Stats{})
+}
+
+// TestThrottle_FirstCallEmits: a fresh throttle has no
+// last-emit timestamp, so the first Report unconditionally
+// emits.
+func TestThrottle_FirstCallEmits(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 200*time.Millisecond)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	if _, ok := drainOne(t, sub); !ok {
+		t.Fatal("expected an event from first call")
+	}
+}
+
+// TestThrottle_DropsWithinWindow: a second Report with
+// different stats inside the throttle window does NOT emit.
+func TestThrottle_DropsWithinWindow(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	_, _ = drainOne(t, sub) // drain the first event
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	if _, ok := drainOne(t, sub); ok {
+		t.Error("second call within window should have been throttled")
+	}
+}
+
+// TestThrottle_EmitsAfterWindow.
+func TestThrottle_EmitsAfterWindow(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	_, _ = drainOne(t, sub)
+	time.Sleep(80 * time.Millisecond)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	if _, ok := drainOne(t, sub); !ok {
+		t.Error("call after window should have emitted")
+	}
+}
+
+// TestThrottle_DropsIdenticalSnapshots: even after the window,
+// an identical snapshot is dropped.
+func TestThrottle_DropsIdenticalSnapshots(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
+	stats := scanorch.Stats{TargetsScanned: 5}
+	tr.Report("job1", stats)
+	_, _ = drainOne(t, sub)
+	time.Sleep(80 * time.Millisecond)
+	tr.Report("job1", stats)
+	if _, ok := drainOne(t, sub); ok {
+		t.Error("identical snapshot should have been dropped")
+	}
+}
+
+// TestThrottle_PerJob: two different jobs throttle
+// independently.
+func TestThrottle_PerJob(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	tr.Report("job2", scanorch.Stats{TargetsScanned: 1})
+	got := 0
+	for i := 0; i < 2; i++ {
+		if _, ok := drainOne(t, sub); ok {
+			got++
+		}
+	}
+	if got != 2 {
+		t.Errorf("got %d events, want 2 (per-job independent throttle)", got)
+	}
+}
+
+// TestThrottle_ClampsBadInterval: zero / negative / too-big
+// intervals fall back to 500ms default. Smoke test only —
+// observable via "first call emits, second within ~500ms
+// drops".
+func TestThrottle_ClampsBadInterval(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 0)
+	tr.Report("j", scanorch.Stats{TargetsScanned: 1})
+	_, _ = drainOne(t, sub)
+	tr.Report("j", scanorch.Stats{TargetsScanned: 2})
+	if _, ok := drainOne(t, sub); ok {
+		t.Error("0 → 500ms default; second call should have been throttled")
+	}
+}
+
+// TestThrottle_NilBroadcasterIsNoOp.
+func TestThrottle_NilBroadcasterIsNoOp(_ *testing.T) {
+	tr := stream.NewScanProgressThrottle(nil, 500*time.Millisecond)
+	tr.Report("j", scanorch.Stats{})
+}
+
+// TestThrottle_ForgetClearsState.
+func TestThrottle_ForgetClearsState(t *testing.T) {
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 1})
+	_, _ = drainOne(t, sub)
+	tr.Forget("job1")
+	// After Forget, the next Report acts as the first call.
+	tr.Report("job1", scanorch.Stats{TargetsScanned: 2})
+	if _, ok := drainOne(t, sub); !ok {
+		t.Error("after Forget, the next call should emit (fresh state)")
+	}
+}
+
+// TestBroadcastingStore_AttachProgressThrottle: a terminal
+// transition Forgets the per-job throttle entry. After the
+// transition + Forget, a fresh Report on the same job ID acts
+// as the first call (emits even though the previous timestamp
+// was within the window).
+func TestBroadcastingStore_AttachProgressThrottle_ForgetsOnTerminal(t *testing.T) {
+	inner := scanorch.NewMemoryStore()
+	b := stream.New(8)
+	sub, cancel := b.Subscribe()
+	defer cancel()
+	wrapped := stream.NewBroadcastingStore(inner, b)
+	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
+	wrapped.AttachProgressThrottle(tr)
+	job, _ := wrapped.Submit(context.Background(), scanorch.SubmitRequest{Input: "stdin"}, "alice")
+	_, _ = drainOne(t, sub) // drain Submit event
+
+	// Seed a per-job throttle entry.
+	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 1})
+	_, _ = drainOne(t, sub) // drain progress event
+
+	// Transition queued → running → completed.
+	_, _ = wrapped.Transition(context.Background(), job.ID, scanorch.StateRunning, scanorch.TransitionFields{})
+	_, _ = drainOne(t, sub) // drain state-change event
+	_, _ = wrapped.Transition(context.Background(), job.ID, scanorch.StateCompleted, scanorch.TransitionFields{})
+	_, _ = drainOne(t, sub) // drain state-change event
+
+	// Forget should have fired on the completed transition.
+	// A fresh Report now is treated as first call (emits even
+	// though the original timestamp was within 1s).
+	tr.Report(job.ID, scanorch.Stats{TargetsScanned: 99})
+	if _, ok := drainOne(t, sub); !ok {
+		t.Error("after terminal transition, throttle should have been Forgotten")
+	}
+}
+
 // TestBroadcastingStore_NilBroadcasterStillFunctional: a nil
 // broadcaster makes the wrapper a transparent pass-through —
 // useful for tests + dev configs that don't wire SSE.

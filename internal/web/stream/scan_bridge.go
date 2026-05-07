@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"local/elsereno/internal/scanorch"
@@ -74,8 +75,9 @@ func PublishScanState(b *Broadcaster, j scanorch.Job) {
 // Publish so a failed mutation never produces a misleading
 // "this happened" event.
 type BroadcastingStore struct {
-	inner scanorch.Store
-	b     *Broadcaster
+	inner    scanorch.Store
+	b        *Broadcaster
+	progress *ScanProgressThrottle
 }
 
 // NewBroadcastingStore wraps inner so every successful Submit /
@@ -106,15 +108,154 @@ func (s *BroadcastingStore) List(ctx context.Context, limit int) ([]scanorch.Job
 	return s.inner.List(ctx, limit)
 }
 
-// Transition calls through then publishes the result.
+// Transition calls through then publishes the result. Terminal
+// transitions also clear the per-job throttle state so a long-
+// running serve doesn't accumulate entries for completed jobs.
 func (s *BroadcastingStore) Transition(ctx context.Context, id string, to scanorch.State, fields scanorch.TransitionFields) (scanorch.Job, error) {
 	job, err := s.inner.Transition(ctx, id, to, fields)
 	if err != nil {
 		return job, err
 	}
 	PublishScanState(s.b, job)
+	if s.progress != nil && job.State.IsTerminal() {
+		s.progress.Forget(job.ID)
+	}
 	return job, nil
+}
+
+// AttachProgressThrottle wires the throttle so the
+// BroadcastingStore can Forget per-job state on terminal
+// transitions. Optional — if nil, the throttle's per-job map
+// just grows until the operator restarts serve. Wiring keeps
+// the map bounded.
+func (s *BroadcastingStore) AttachProgressThrottle(t *ScanProgressThrottle) {
+	s.progress = t
 }
 
 // Compile-time guard.
 var _ scanorch.Store = (*BroadcastingStore)(nil)
+
+// scanProgressWirePayload is the dashboard-facing projection
+// of a mid-scan Stats snapshot. Smaller than the full
+// scan_state_change payload — only the fields a renderer needs
+// to update an in-flight row's counters.
+type scanProgressWirePayload struct {
+	ID    string         `json:"id"`
+	Stats scanorch.Stats `json:"stats"`
+}
+
+// PublishScanProgress fans a Stats snapshot out as an
+// EventScanProgress event for the given job ID. Safe to call
+// with b == nil (no-op).
+func PublishScanProgress(b *Broadcaster, jobID string, s scanorch.Stats) {
+	if b == nil {
+		return
+	}
+	body, err := json.Marshal(scanProgressWirePayload{ID: jobID, Stats: s})
+	if err != nil {
+		body = []byte(`{}`)
+	}
+	b.Publish(Event{Kind: EventScanProgress, Payload: body})
+}
+
+// ScanProgressThrottle wraps PublishScanProgress so a runner
+// that fires report() on every scan event doesn't flood the
+// SSE bus. The throttle:
+//
+//   - Per-job last-emit timestamp + minimum interval (default
+//     500ms). Two snapshots arriving within the interval
+//     collapse — only the latest is held; the deferred-flush
+//     timer eventually emits it.
+//   - Per-job last-emitted Stats: a snapshot identical to the
+//     last emitted is dropped (no spurious "still 33 / 100"
+//     events).
+//
+// The returned closure is safe for concurrent use across
+// goroutines (worker pool, multiple jobs in flight, racing
+// runners).
+type ScanProgressThrottle struct {
+	mu          sync.Mutex
+	b           *Broadcaster
+	minInterval time.Duration
+	last        map[string]throttleEntry
+}
+
+type throttleEntry struct {
+	at    time.Time
+	stats scanorch.Stats
+}
+
+// NewScanProgressThrottle returns a throttle around b. min is
+// clamped to [50ms, 5s]; out-of-range values yield 500ms.
+func NewScanProgressThrottle(b *Broadcaster, min time.Duration) *ScanProgressThrottle {
+	if min < 50*time.Millisecond || min > 5*time.Second {
+		min = 500 * time.Millisecond
+	}
+	return &ScanProgressThrottle{
+		b:           b,
+		minInterval: min,
+		last:        make(map[string]throttleEntry),
+	}
+}
+
+// Report is the closure target wired into Worker.OnProgress. It
+// emits at most one scan_stats_progress event per job per
+// minInterval; identical snapshots are dropped.
+func (t *ScanProgressThrottle) Report(jobID string, stats scanorch.Stats) {
+	if t == nil || t.b == nil {
+		return
+	}
+	t.mu.Lock()
+	prev, seen := t.last[jobID]
+	now := time.Now()
+	if seen && stats == prev.stats {
+		t.mu.Unlock()
+		return
+	}
+	if seen && now.Sub(prev.at) < t.minInterval {
+		// Within throttle window. Update the held snapshot but
+		// don't emit. The next tick (or a Flush call) will
+		// surface the latest.
+		t.last[jobID] = throttleEntry{at: prev.at, stats: stats}
+		t.mu.Unlock()
+		return
+	}
+	t.last[jobID] = throttleEntry{at: now, stats: stats}
+	t.mu.Unlock()
+	PublishScanProgress(t.b, jobID, stats)
+}
+
+// Flush emits any pending snapshots whose held timestamp is
+// past the throttle window. Useful as a periodic tick from a
+// long-lived goroutine; not strictly required (a future report
+// call will emit naturally).
+func (t *ScanProgressThrottle) Flush() {
+	if t == nil || t.b == nil {
+		return
+	}
+	t.mu.Lock()
+	stale := make(map[string]scanorch.Stats)
+	now := time.Now()
+	for id, entry := range t.last {
+		if now.Sub(entry.at) >= t.minInterval {
+			stale[id] = entry.stats
+			t.last[id] = throttleEntry{at: now, stats: entry.stats}
+		}
+	}
+	t.mu.Unlock()
+	for id, stats := range stale {
+		PublishScanProgress(t.b, id, stats)
+	}
+}
+
+// Forget releases the per-job throttle state. Workers should
+// call this when a job reaches a terminal state — otherwise the
+// per-job map grows unbounded over a long-running serve.
+func (t *ScanProgressThrottle) Forget(jobID string) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.last, jobID)
+}
