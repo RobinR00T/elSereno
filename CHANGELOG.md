@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.66.0] — 2026-05-06
+
+### Added
+
+- **Per-plugin findings breakdown.** Each scan Job
+  now carries a `findings_by_plugin` map alongside
+  `stats`, answering "which protocol produced which
+  findings on a multi-plugin scan". The dashboard
+  surfaces this as a tooltip on the Findings count
+  column.
+- `Job.FindingsByPlugin map[string]int` (sibling of
+  Stats; Stats stays comparable for existing tests).
+- `TransitionFields.FindingsByPlugin` so worker
+  terminate can persist the breakdown.
+- SSE wire shape: both `scan_state_change` and
+  `scan_stats_progress` payloads gain a
+  `findings_by_plugin` field.
+
+### Changed
+
+- **Breaking API**: `JobRunner.Run` now returns
+  three values (`Stats, map[string]int, error`).
+  `ProgressReporter` signature gains a second
+  argument (`stats, byPlugin`). In-tree updated;
+  external library users must adjust.
+- defaultScanRunner refactored: extracted runState
+  + dispatchAll helper to keep Run under funlen
+  60-line ceiling.
+
+### Tests
+
+`+5 new` (3 worker tests, 2 runner tests).
+
+### Documentation
+
+- INSTALL.md gains "Per-plugin breakdown (v1.66+)"
+  subsection explicitly noting the memory-vs-db
+  persistence gap (deferred to v1.67).
+
+### Honest scope
+
+- **DBStore persistence deferred to v1.67**. The
+  00005_scan_jobs schema has no column for the
+  breakdown. Memory-store mode preserves; db-store
+  loses on restart. SSE streams capture the
+  breakdown live.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.65.0] — 2026-05-06
 
 ### Added

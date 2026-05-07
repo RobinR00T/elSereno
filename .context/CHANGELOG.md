@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.66 (chunk 1) — **Per-plugin findings
+  breakdown.** Job.FindingsByPlugin map; SSE payloads
+  carry it; dashboard tooltip on the Findings cell.
+  Breaking API on JobRunner.Run (3 returns now).
+  DBStore persistence deferred to v1.67. 5 new tests.
+  Snapshot:
+  `.context/snapshots/v1.66.0-findings-by-plugin.md`.
+
 - 2026-05-06 — v1.65 (chunk 1) — **scan_stats_progress
   SSE event with per-job throttle.** Mid-scan
   progress visibility — dashboard counters tick live.

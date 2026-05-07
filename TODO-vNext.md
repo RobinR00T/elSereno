@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.66 (Per-plugin findings breakdown)
+
+- ✅ **Per-plugin findings breakdown** — v1.66 chunk 1.
+  Job.FindingsByPlugin map; SSE payloads carry it;
+  dashboard tooltip on Findings cell. Breaking API:
+  JobRunner.Run signature gains a third return.
+  DBStore persistence deferred to v1.67. 5 new tests.
+
 ### v1.65 (scan_stats_progress SSE event)
 
 - ✅ **scan_stats_progress SSE event with per-job

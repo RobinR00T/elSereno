@@ -1,29 +1,33 @@
 ---
-phase: v1.65-closed
-status: v1.16-v1.27 published; v1.28-v1.65 tags pending push
+phase: v1.66-closed
+status: v1.16-v1.27 published; v1.28-v1.66 tags pending push
 last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.65 cycle closed on `main`** (1 chunk +
-close). Adds the `scan_stats_progress` SSE event so
-the dashboard's Targets/Findings counters tick live
-mid-scan instead of staying at 0 until the job
-completes. JobRunner.Run gains a ProgressReporter
-param (breaking API; in-tree updated). Worker gains
-an OnProgress hook. New stream.ScanProgressThrottle
-with 500ms cadence + identical-snapshot suppression +
-Forget on terminal transitions. Dashboard JS does an
-in-place cell update per event. 11 new tests.
+**Phase**: **v1.66 cycle closed on `main`** (1 chunk +
+close). Adds per-plugin findings breakdown:
+`Job.FindingsByPlugin map[string]int` lives alongside
+Stats. Both SSE events (`scan_state_change`,
+`scan_stats_progress`) carry the breakdown. Dashboard
+shows it as a tooltip on the Findings cell. Breaking
+API: JobRunner.Run now returns 3 values
+(Stats, map, error). DBStore persistence deferred
+to v1.67. 5 new tests.
 
-Snapshot: `.context/snapshots/v1.65.0-scan-stats-progress.md`.
+Snapshot: `.context/snapshots/v1.66.0-findings-by-plugin.md`.
 
-**v1.65 chunks landed (in-flight)**:
-- 1 `b7f8158` — JobRunner signature + Worker hook +
-  scan_bridge throttle + cmd_serve wiring + dashboard
-  JS + 11 tests.
+**v1.66 chunks landed (in-flight)**:
+- 1 `f0255b5` — Job model + Worker contract +
+  defaultScanRunner runState + SSE payloads +
+  dashboard tooltip + INSTALL.md note + 5 tests.
+
+**v1.65 cycle (closed, snapshot available)**:
+scan_stats_progress SSE event with per-job throttle.
+1 chunk + close: `b7f8158`, `4fa625d`. Snapshot:
+`.context/snapshots/v1.65.0-scan-stats-progress.md`.
 
 **v1.64 cycle (closed, snapshot available)**:
 Multi-plugin per scan Job. 1 chunk + close:
