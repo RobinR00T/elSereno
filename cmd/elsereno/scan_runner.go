@@ -16,51 +16,70 @@ import (
 // imports the orchestration shell deliberately doesn't carry
 // (input parsing + plugin-registry lookup + scanner dispatch).
 //
-// Single-plugin contract for v1.61: each job names exactly one
-// plugin in Plugins. Multi-plugin parallel dispatch (one job
-// fans out to N plugins per target) is a future cycle. Forcing
-// one-plugin-per-job keeps the Stats accounting unambiguous —
-// FindingsCount is "how many findings did THIS plugin produce
-// against THESE targets", not a sum across heterogeneous probes.
+// **Multi-plugin contract (v1.64+)**: a Job names zero or more
+// plugins.
+//
+//   - Empty Plugins slice → run every registered plugin
+//     (default-build registry; offensive plugins gated by
+//     `-tags offensive`).
+//   - Non-empty Plugins → run only the named subset.
+//
+// For each plugin × target, the runner dispatches the probe iff
+// the plugin's DefaultPort matches the target's Port (the same
+// port-match heuristic discover --hosts uses; matches operator
+// mental model that the modbus plugin probes 502 etc.).
+//
+// **Stats semantics under multi-plugin**:
+//
+//   - TargetsSeen: len(parsed targets). The shape of the input
+//     the operator submitted.
+//   - TargetsScanned: count of (target, plugin) **probe
+//     attempts** — events drained from scanner.Run output.
+//     A target probed by 3 plugins counts as 3.
+//   - FindingsCount: total findings produced.
+//
+// Probe-attempts (rather than unique-targets-touched) keeps the
+// drain loop simple and matches "how much work did this scan
+// do" intuition. Operators who want unique targets can derive
+// it from Job.Input.
 type defaultScanRunner struct {
 	// concurrency caps the scanner's MaxConcurrentTargets per
-	// job. Zero → 100 (the scanner package default). Higher
-	// concurrency burns more sockets per scan; lower flattens
-	// the burst.
+	// plugin run. Zero → 100. Each plugin gets its own
+	// scanner.Scanner; the cap is per-plugin, not global, so a
+	// 5-plugin job at concurrency=100 has up to 500 in-flight
+	// dials. Operators tune via --scan-pool indirectly (worker
+	// pool concurrency × per-plugin cap = ceiling).
 	concurrency int
 }
 
-// Sentinel errors so callers can distinguish runner-failure
-// classes.
+// Sentinel errors.
 var (
-	// ErrRunnerNoPlugin means the Job's Plugins slice was empty.
-	// v1.61 requires exactly one plugin per job.
-	ErrRunnerNoPlugin = errors.New("scan runner: job must specify exactly one plugin in Plugins (multi-plugin not yet supported)")
-	// ErrRunnerTooManyPlugins means the Job named more than one
-	// plugin; multi-plugin dispatch lands in a future cycle.
-	ErrRunnerTooManyPlugins = errors.New("scan runner: job specified multiple plugins (multi-plugin not yet supported)")
-	// ErrRunnerUnknownPlugin means the named plugin isn't in
-	// the registry (typo / build-tag mismatch).
+	// ErrRunnerNoMatchingPlugins means the Job's plugin list
+	// (or "all" via empty list) produced zero plugin × target
+	// matches. Common cause: targets all on a port no plugin
+	// claims.
+	ErrRunnerNoMatchingPlugins = errors.New("scan runner: no plugin matches any target's port (empty Plugins runs everything; check DefaultPort vs target ports)")
+	// ErrRunnerUnknownPlugin means a named plugin isn't in the
+	// registry (typo / build-tag mismatch).
 	ErrRunnerUnknownPlugin = errors.New("scan runner: plugin not found in registry")
 )
 
-// Run implements scanorch.JobRunner. Steps:
+// Run implements scanorch.JobRunner. Multi-plugin steps:
 //
-//  1. Validate exactly one plugin name.
-//  2. Look up the plugin via core.RegisteredPlugins.
-//  3. Parse Job.Input via the existing inputParseOpts dispatcher.
-//  4. Run scanner.Run with the plugin's Probe.
-//  5. Drain findings + errs channels, accumulating Stats.
+//  1. Resolve plugin set: empty Plugins → all registered;
+//     else look each name up.
+//  2. Parse Job.Input via the existing inputParseOpts
+//     dispatcher.
+//  3. For each plugin, filter targets by port match.
+//  4. For each plugin with non-empty matches, run scanner.Run
+//     and drain into shared Stats counters.
+//  5. If no plugin × target combo fired, return
+//     ErrRunnerNoMatchingPlugins (the operator submitted a job
+//     that genuinely had zero work).
 func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job) (scanorch.Stats, error) {
-	if len(job.Plugins) == 0 {
-		return scanorch.Stats{}, ErrRunnerNoPlugin
-	}
-	if len(job.Plugins) > 1 {
-		return scanorch.Stats{}, ErrRunnerTooManyPlugins
-	}
-	plugin, ok := lookupPluginByName(job.Plugins[0])
-	if !ok {
-		return scanorch.Stats{}, fmt.Errorf("%w: %s", ErrRunnerUnknownPlugin, job.Plugins[0])
+	plugins, err := resolvePlugins(job.Plugins)
+	if err != nil {
+		return scanorch.Stats{}, err
 	}
 	targets, err := parseInput(ctx, inputParseOpts{
 		InputKind:   job.Input,
@@ -77,25 +96,68 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job) (scanorch
 	if concurrency <= 0 {
 		concurrency = 100
 	}
-	scn := scanner.New(scanner.Options{MaxConcurrentTargets: concurrency})
-	probe := plugin.Factory().Probe
-	findings, errs := scn.Run(ctx, targets, probe)
-	stats = drainScanRun(findings, errs, stats)
-	return stats, nil
-}
 
-// drainScanRun consumes the scanner's findings + errs channels
-// to completion, accumulating Stats. Errors from the scanner
-// are best-effort: scanner.Run emits transient probe failures
-// on errs (one per target that failed); we count them as
-// scanned-but-no-finding rather than aborting the whole job.
-// A truly fatal error (ErrNoTargets / ctx cancellation) is
-// already surfaced by scanner.Run's own short-circuit.
-func drainScanRun(findings <-chan core.Finding, errs <-chan error, stats scanorch.Stats) scanorch.Stats {
 	var (
 		findingsCount  atomic.Int64
 		targetsScanned atomic.Int64
+		dispatched     int
 	)
+	for _, plugin := range plugins {
+		matching := filterByPort(targets, plugin)
+		if len(matching) == 0 {
+			continue
+		}
+		dispatched++
+		scn := scanner.New(scanner.Options{MaxConcurrentTargets: concurrency})
+		findings, errs := scn.Run(ctx, matching, plugin.Factory().Probe)
+		drainPluginRun(findings, errs, &findingsCount, &targetsScanned)
+	}
+	if dispatched == 0 {
+		return stats, ErrRunnerNoMatchingPlugins
+	}
+	stats.FindingsCount = int(findingsCount.Load())
+	stats.TargetsScanned = int(targetsScanned.Load())
+	return stats, nil
+}
+
+// resolvePlugins turns the Job.Plugins names into a Plugin
+// slice. Empty input returns every registered plugin.
+func resolvePlugins(names []string) ([]core.Plugin, error) {
+	if len(names) == 0 {
+		return core.RegisteredPlugins(), nil
+	}
+	out := make([]core.Plugin, 0, len(names))
+	for _, name := range names {
+		p, ok := lookupPluginByName(name)
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", ErrRunnerUnknownPlugin, name)
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// filterByPort returns the subset of targets whose Port matches
+// the plugin's DefaultPort. A plugin with DefaultPort=0
+// (banner-style probe-anywhere) matches every target.
+func filterByPort(targets []core.Target, plugin core.Plugin) []core.Target {
+	if plugin.DefaultPort == 0 {
+		return targets
+	}
+	out := make([]core.Target, 0, len(targets))
+	for _, t := range targets {
+		if t.Port == plugin.DefaultPort {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// drainPluginRun consumes one plugin's scanner.Run output to
+// completion, accumulating into the shared atomic counters.
+// Probe errors count as targetsScanned (we tried) but not
+// findingsCount.
+func drainPluginRun(findings <-chan core.Finding, errs <-chan error, findingsCount, targetsScanned *atomic.Int64) {
 	for findings != nil || errs != nil {
 		select {
 		case _, ok := <-findings:
@@ -110,14 +172,9 @@ func drainScanRun(findings <-chan core.Finding, errs <-chan error, stats scanorc
 				errs = nil
 				continue
 			}
-			// Probe error → count the target as scanned (we tried)
-			// but don't bump findingsCount.
 			targetsScanned.Add(1)
 		}
 	}
-	stats.FindingsCount = int(findingsCount.Load())
-	stats.TargetsScanned = int(targetsScanned.Load())
-	return stats
 }
 
 // lookupPluginByName walks the registry. Plugin lookup by name

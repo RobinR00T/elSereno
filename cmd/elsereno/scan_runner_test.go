@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"local/elsereno/internal/core"
 	"local/elsereno/internal/scanorch"
 )
 
@@ -19,28 +20,6 @@ func writeTargetFile(t *testing.T, lines string) string {
 		t.Fatalf("write targets file: %v", err)
 	}
 	return path
-}
-
-// TestDefaultScanRunner_NoPlugin returns the sentinel.
-func TestDefaultScanRunner_NoPlugin(t *testing.T) {
-	r := &defaultScanRunner{}
-	_, err := r.Run(context.Background(), scanorch.Job{Input: "stdin"})
-	if !errors.Is(err, ErrRunnerNoPlugin) {
-		t.Errorf("err = %v, want ErrRunnerNoPlugin", err)
-	}
-}
-
-// TestDefaultScanRunner_TooManyPlugins refuses multi-plugin
-// jobs (deferred to a future cycle).
-func TestDefaultScanRunner_TooManyPlugins(t *testing.T) {
-	r := &defaultScanRunner{}
-	_, err := r.Run(context.Background(), scanorch.Job{
-		Input:   "stdin",
-		Plugins: []string{"modbus", "s7"},
-	})
-	if !errors.Is(err, ErrRunnerTooManyPlugins) {
-		t.Errorf("err = %v, want ErrRunnerTooManyPlugins", err)
-	}
 }
 
 // TestDefaultScanRunner_UnknownPlugin returns the sentinel.
@@ -73,8 +52,7 @@ func TestDefaultScanRunner_BadInput(t *testing.T) {
 // TestDefaultScanRunner_EmptyTargets: an empty list file is
 // rejected by the input parser with a "no targets parsed"
 // error. The runner propagates it through the parse-input
-// wrapper. (Actually-empty target slices are unreachable on
-// the happy path; the parser refuses them upstream.)
+// wrapper.
 func TestDefaultScanRunner_EmptyTargets(t *testing.T) {
 	r := &defaultScanRunner{}
 	emptyFile := writeTargetFile(t, "")
@@ -91,20 +69,32 @@ func TestDefaultScanRunner_EmptyTargets(t *testing.T) {
 	}
 }
 
-// TestDefaultScanRunner_StatsPopulated runs against a non-
-// listening loopback host so the scanner produces only errors
-// (no findings). The runner should still return TargetsSeen +
-// TargetsScanned correctly accounted.
-//
-// We use 127.0.0.1:1 because port 1 is reliably closed; the
-// banner plugin's TCP dial fails fast → counted as scanned-
-// with-no-finding.
+// TestDefaultScanRunner_NoMatchingPlugins: a single plugin
+// (modbus, port 502) against targets all on port 80 produces
+// zero plugin × target matches → ErrRunnerNoMatchingPlugins.
+func TestDefaultScanRunner_NoMatchingPlugins(t *testing.T) {
+	r := &defaultScanRunner{}
+	listFile := writeTargetFile(t, "127.0.0.1:80\n")
+	_, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     []string{"modbus"}, // DefaultPort 502
+		DefaultPort: 80,
+	})
+	if !errors.Is(err, ErrRunnerNoMatchingPlugins) {
+		t.Errorf("err = %v, want ErrRunnerNoMatchingPlugins", err)
+	}
+}
+
+// TestDefaultScanRunner_StatsPopulated: banner plugin
+// (DefaultPort 0 → matches any target) probes both targets;
+// closed loopback ports → only errors → TargetsScanned == N
+// but FindingsCount == 0 (the banner plugin actually produces
+// findings for refused-connection probes; verify reasonable
+// shape rather than exact counts).
 func TestDefaultScanRunner_StatsPopulated(t *testing.T) {
 	r := &defaultScanRunner{}
 	listFile := writeTargetFile(t, "127.0.0.1:1\n127.0.0.2:1\n")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stats, err := r.Run(ctx, scanorch.Job{
+	stats, err := r.Run(context.Background(), scanorch.Job{
 		Input:       "list:" + listFile,
 		Plugins:     []string{"banner"},
 		DefaultPort: 80,
@@ -115,10 +105,111 @@ func TestDefaultScanRunner_StatsPopulated(t *testing.T) {
 	if stats.TargetsSeen != 2 {
 		t.Errorf("TargetsSeen = %d, want 2", stats.TargetsSeen)
 	}
-	// TargetsScanned should equal TargetsSeen for a complete
-	// drain (each target either produced a finding or an error).
 	if stats.TargetsScanned != 2 {
-		t.Errorf("TargetsScanned = %d, want 2 (banner emits a finding per dial-attempt)", stats.TargetsScanned)
+		t.Errorf("TargetsScanned = %d, want 2", stats.TargetsScanned)
+	}
+}
+
+// TestDefaultScanRunner_MultiPlugin: two plugins, one matches
+// the target's port and the other doesn't → only the matching
+// plugin produces probe-attempts, but the runner doesn't error.
+func TestDefaultScanRunner_MultiPlugin(t *testing.T) {
+	r := &defaultScanRunner{}
+	listFile := writeTargetFile(t, "127.0.0.1:1\n")
+	// modbus (502) doesn't match :1; banner (port 0 → matches
+	// any) does. Net effect: 1 probe attempt via banner.
+	stats, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     []string{"modbus", "banner"},
+		DefaultPort: 502,
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if stats.TargetsScanned != 1 {
+		t.Errorf("TargetsScanned = %d, want 1 (banner matched, modbus didn't)", stats.TargetsScanned)
+	}
+}
+
+// TestDefaultScanRunner_EmptyPluginsRunsAll: a Job with no
+// plugin names runs every registered plugin. Most won't match
+// the loopback port, but banner (DefaultPort 0) WILL, so the
+// dispatch count > 0 and the runner returns success.
+func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
+	r := &defaultScanRunner{}
+	listFile := writeTargetFile(t, "127.0.0.1:1\n")
+	stats, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     nil,
+		DefaultPort: 80,
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	// Banner plugin matched (DefaultPort 0 → any), so at least
+	// 1 probe attempt.
+	if stats.TargetsScanned < 1 {
+		t.Errorf("TargetsScanned = %d, want ≥ 1", stats.TargetsScanned)
+	}
+}
+
+// TestResolvePlugins_AllOnEmpty.
+func TestResolvePlugins_AllOnEmpty(t *testing.T) {
+	out, err := resolvePlugins(nil)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(out) != len(core.RegisteredPlugins()) {
+		t.Errorf("got %d plugins, want %d", len(out), len(core.RegisteredPlugins()))
+	}
+}
+
+// TestResolvePlugins_NamedSubset.
+func TestResolvePlugins_NamedSubset(t *testing.T) {
+	out, err := resolvePlugins([]string{"banner", "modbus"})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(out) != 2 {
+		t.Errorf("got %d plugins, want 2", len(out))
+	}
+}
+
+// TestResolvePlugins_Unknown returns the sentinel.
+func TestResolvePlugins_Unknown(t *testing.T) {
+	_, err := resolvePlugins([]string{"banner", "no-such-plugin"})
+	if !errors.Is(err, ErrRunnerUnknownPlugin) {
+		t.Errorf("err = %v, want ErrRunnerUnknownPlugin", err)
+	}
+}
+
+// TestFilterByPort_DefaultZeroMatchesAll.
+func TestFilterByPort_DefaultZeroMatchesAll(t *testing.T) {
+	plugin := core.Plugin{PluginMetadata: core.PluginMetadata{DefaultPort: 0}}
+	targets := []core.Target{
+		{Port: 22}, {Port: 502}, {Port: 80},
+	}
+	out := filterByPort(targets, plugin)
+	if len(out) != len(targets) {
+		t.Errorf("got %d, want %d (DefaultPort=0 should match every target)", len(out), len(targets))
+	}
+}
+
+// TestFilterByPort_PortMatch keeps only targets matching the
+// plugin's DefaultPort.
+func TestFilterByPort_PortMatch(t *testing.T) {
+	plugin := core.Plugin{PluginMetadata: core.PluginMetadata{DefaultPort: 502}}
+	targets := []core.Target{
+		{Port: 22}, {Port: 502}, {Port: 80}, {Port: 502},
+	}
+	out := filterByPort(targets, plugin)
+	if len(out) != 2 {
+		t.Errorf("got %d, want 2", len(out))
+	}
+	for _, t2 := range out {
+		if t2.Port != 502 {
+			t.Errorf("matched target port = %d, want 502", t2.Port)
+		}
 	}
 }
 

@@ -443,8 +443,8 @@ const overviewHTML = `<!doctype html>
         <label>input:
           <input type="text" id="scan-input" placeholder="list:targets.txt | stdin | internetdb:1.2.3.4" size="40" required />
         </label>
-        <label>plugin:
-          <input type="text" id="scan-plugin" placeholder="modbus" size="14" required />
+        <label>plugin(s):
+          <input type="text" id="scan-plugin" placeholder="modbus,s7  (blank = all)" size="22" />
         </label>
         <label>default port:
           <input type="number" id="scan-default-port" min="0" max="65535" value="0" size="6" />
@@ -960,14 +960,22 @@ const overviewHTML = `<!doctype html>
   function submitScan(ev) {
     if (ev) ev.preventDefault();
     var input = (document.getElementById("scan-input") || {}).value || "";
-    var plugin = (document.getElementById("scan-plugin") || {}).value || "";
+    var pluginRaw = (document.getElementById("scan-plugin") || {}).value || "";
     var dpRaw = (document.getElementById("scan-default-port") || {}).value || "0";
     var status = document.getElementById("scan-submit-status");
     var defaultPort = parseInt(dpRaw, 10);
     if (!isFinite(defaultPort) || defaultPort < 0) defaultPort = 0;
+    // v1.64: comma-separated plugin list. Blank = run all
+    // registered plugins (the runner picks per-target by
+    // DefaultPort match).
+    var plugins = pluginRaw.split(",").map(function (s) {
+      return s.trim();
+    }).filter(function (s) {
+      return s.length > 0;
+    });
     var body = JSON.stringify({
       input: input,
-      plugins: plugin ? [plugin] : [],
+      plugins: plugins,
       default_port: defaultPort
     });
     if (status) status.textContent = "submitting…";

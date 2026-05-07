@@ -383,23 +383,55 @@ worker claims each job (no advisory locks needed).
 
 **Dashboard (v1.62+)**: open http://127.0.0.1:8787/ and use
 the "Scan jobs" panel. The submit form takes an input string,
-plugin name, and default port; the jobs table polls for state
-transitions every 2s while a job is queued or running, then
-backs off to 10s when everything is terminal. Each non-
-terminal row has a Cancel button.
+plugin list, and default port; v1.63+ pushes state transitions
+via SSE so the table updates in real time. The polling timer
+stays as a safety net (2s while a job is queued/running, 10s
+once everything is terminal). Each non-terminal row has a
+Cancel button.
+
+**Plugin selection (v1.64+)**:
+
+- **One plugin** — name it: `modbus`
+- **Multiple plugins** — comma-separate: `modbus,s7,enip`
+  Each target gets every named plugin whose `DefaultPort`
+  matches the target's port.
+- **All plugins** — leave the field blank. The runner uses
+  every registered plugin in the build (default-build
+  registry; offensive plugins gated by `-tags offensive`).
 
 **curl** (operator scripts / CI):
 
 ```sh
+# Single plugin (back-compat with v1.61):
 curl -X POST http://127.0.0.1:8787/api/v1/scans \
   -H "Content-Type: application/json" \
   -H "X-Operator: alice" \
   -d '{"input":"list:targets.txt","plugins":["modbus"],"default_port":502}'
+
+# Multi-plugin (v1.64+):
+curl -X POST http://127.0.0.1:8787/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"input":"list:targets.txt","plugins":["modbus","s7","enip"]}'
+
+# All plugins (omit or empty):
+curl -X POST http://127.0.0.1:8787/api/v1/scans \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"input":"list:targets.txt"}'
 ```
 
-Response: HTTP 202 + Job envelope with `state: "queued"`. Poll
-`GET /api/v1/scans/{id}` for state transitions, or
-`POST /api/v1/scans/{id}/cancel` to abort.
+Response: HTTP 202 + Job envelope with `state: "queued"`. The
+SSE stream at `/api/v1/stream` emits `scan_state_change` events
+on every transition; the dashboard listens directly. CLI
+clients can poll `GET /api/v1/scans/{id}` instead.
+`POST /api/v1/scans/{id}/cancel` aborts queued / running jobs.
+
+**Stats semantics (v1.64+)**: under multi-plugin dispatch,
+`targets_scanned` is the count of (target, plugin) probe
+attempts, not unique targets. A target probed by 3 plugins
+counts as 3. `findings_count` is the total findings produced
+across all (target, plugin) combinations.
 
 ### Same on Linux + macOS
 
