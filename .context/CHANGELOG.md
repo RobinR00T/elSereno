@@ -8,6 +8,12 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.67 (chunk 1) — **DBStore persistence
+  for findings_by_plugin.** Migration 00006 adds JSONB
+  column. Closes v1.66 honest-scope gap. 4 new tests.
+  Snapshot:
+  `.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
+
 - 2026-05-06 — v1.66 (chunk 1) — **Per-plugin findings
   breakdown.** Job.FindingsByPlugin map; SSE payloads
   carry it; dashboard tooltip on the Findings cell.

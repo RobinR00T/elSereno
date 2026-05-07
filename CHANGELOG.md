@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.67.0] — 2026-05-06
+
+### Added
+
+- **DBStore persistence for `findings_by_plugin`.**
+  Closes the v1.66 honest-scope gap: the per-plugin
+  findings breakdown now persists across serve
+  restarts in db-store mode.
+- Migration 00006 adds a `findings_by_plugin JSONB
+  NOT NULL DEFAULT '{}'::jsonb` column to
+  `scan_jobs`.
+- `DBStore.runTransition` for StateCompleted /
+  StateFailed binds the column. nil/empty maps
+  encode to `'{}'` so the NOT NULL constraint is
+  never violated.
+- `scanJob` decodes the JSONB column into
+  `Job.FindingsByPlugin`. Empty `{}` decodes to a
+  nil map for clean JSON output.
+
+### Tests
+
+`+4 new` (Transition + Get round-trips on the
+`store_pg_test.go` fakeQuerier).
+
+### Database
+
+- **Migration 00006** is required for v1.67+
+  db-store deployments. Run `elsereno db migrate`
+  to apply.
+
+### Documentation
+
+- INSTALL.md: "Per-plugin breakdown" subsection
+  updated to reflect the closed gap.
+
+### Honest scope
+
+- **No backfill** for pre-v1.67 completed jobs.
+  Their column defaults to `'{}'` which decodes as
+  nil; the dashboard shows them with no tooltip.
+  The operator's next scan rebuilds the signal.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.66.0] — 2026-05-06
 
 ### Added

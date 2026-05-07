@@ -100,6 +100,13 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.67 (DBStore findings_by_plugin column)
+
+- ✅ **DBStore findings_by_plugin column** — v1.67
+  chunk 1. Migration 00006 adds JSONB column.
+  Closes the v1.66 honest-scope persistence gap.
+  4 new tests.
+
 ### v1.66 (Per-plugin findings breakdown)
 
 - ✅ **Per-plugin findings breakdown** — v1.66 chunk 1.

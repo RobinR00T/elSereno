@@ -1,28 +1,32 @@
 ---
-phase: v1.66-closed
-status: v1.16-v1.27 published; v1.28-v1.66 tags pending push
+phase: v1.67-closed
+status: v1.16-v1.27 published; v1.28-v1.67 tags pending push
 last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.66 cycle closed on `main`** (1 chunk +
-close). Adds per-plugin findings breakdown:
-`Job.FindingsByPlugin map[string]int` lives alongside
-Stats. Both SSE events (`scan_state_change`,
-`scan_stats_progress`) carry the breakdown. Dashboard
-shows it as a tooltip on the Findings cell. Breaking
-API: JobRunner.Run now returns 3 values
-(Stats, map, error). DBStore persistence deferred
-to v1.67. 5 new tests.
+**Phase**: **v1.67 cycle closed on `main`** (1 chunk +
+close). Closes the v1.66 honest-scope gap: the
+per-plugin findings breakdown now persists across
+serve restarts in db-store mode. Migration 00006 adds
+a JSONB `findings_by_plugin` column on `scan_jobs`.
+DBStore round-trips the column via JSON
+encode/decode; nil/empty maps land as '{}' so the
+NOT NULL constraint is never violated. 4 new tests.
 
-Snapshot: `.context/snapshots/v1.66.0-findings-by-plugin.md`.
+Snapshot: `.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
 
-**v1.66 chunks landed (in-flight)**:
-- 1 `f0255b5` — Job model + Worker contract +
-  defaultScanRunner runState + SSE payloads +
-  dashboard tooltip + INSTALL.md note + 5 tests.
+**v1.67 chunks landed (in-flight)**:
+- 1 `bd804e7` — migration 00006 + DBStore changes +
+  test fixture migration + INSTALL.md update +
+  4 new tests.
+
+**v1.66 cycle (closed, snapshot available)**:
+Per-plugin findings breakdown. 1 chunk + close:
+`f0255b5`, `5fe8388`. Snapshot:
+`.context/snapshots/v1.66.0-findings-by-plugin.md`.
 
 **v1.65 cycle (closed, snapshot available)**:
 scan_stats_progress SSE event with per-job throttle.
