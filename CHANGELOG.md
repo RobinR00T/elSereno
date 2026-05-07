@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.65.0] — 2026-05-06
+
+### Added
+
+- **Real-time `scan_stats_progress` SSE event** for
+  mid-scan progress visibility. The dashboard's
+  Targets/Findings cell now ticks live as the
+  worker drains scanner.Run output, instead of
+  staying at 0 until the job's terminal state.
+- **JobRunner gains a ProgressReporter parameter**
+  (`Run(ctx, job, report) (Stats, error)`).
+  defaultScanRunner calls report() on every drain
+  event; nil reporter = no-op so callers that
+  don't care still work.
+- **Worker.OnProgress hook** forwards reporter
+  callbacks to a closure of the operator's choice.
+- **stream.ScanProgressThrottle** with per-job
+  last-emit timestamp + last-emitted Stats; default
+  500ms cadence. Identical-snapshot suppression.
+  Per-job state forgotten on terminal transitions
+  (BroadcastingStore.AttachProgressThrottle wires
+  the Forget hook).
+- Dashboard JS scan_stats_progress listener updates
+  the affected row's Targets/Findings cell in place
+  (single innerHTML swap; no full re-render).
+
+### Changed
+
+- **Breaking API**: JobRunner.Run signature now
+  takes a third `report ProgressReporter` parameter.
+  In-tree consumers updated. External runners using
+  scanorch as a library must add the parameter.
+
+### Tests
+
+`+11 new` (10 in scan_bridge_test.go + 2 in
+worker_test.go - 1 obsolete).
+
+### Build
+
+3-variant matrix unchanged. INSTALL.md unchanged
+(SSE event is wire-shape addition).
+
 ## [1.64.0] — 2026-05-06
 
 ### Added

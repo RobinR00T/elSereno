@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.65 (scan_stats_progress SSE event)
+
+- ✅ **scan_stats_progress SSE event with per-job
+  throttle** — v1.65 chunk 1. Mid-scan progress
+  visibility; counters tick live. JobRunner gains
+  ProgressReporter param. ScanProgressThrottle with
+  500ms cadence + identical-snapshot suppression +
+  Forget on terminal transitions. 11 new tests.
+
 ### v1.64 (Multi-plugin per scan Job)
 
 - ✅ **Multi-plugin per scan Job** — v1.64 chunk 1.

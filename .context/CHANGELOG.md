@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-06 — v1.65 (chunk 1) — **scan_stats_progress
+  SSE event with per-job throttle.** Mid-scan
+  progress visibility — dashboard counters tick live.
+  JobRunner gains a ProgressReporter param (breaking
+  API). 500ms throttle with identical-snapshot
+  suppression + Forget on terminal transitions. 11
+  new tests. Snapshot:
+  `.context/snapshots/v1.65.0-scan-stats-progress.md`.
+
 - 2026-05-06 — v1.64 (chunk 1) — **Multi-plugin per
   scan Job.** Relaxes the v1.61 single-plugin contract.
   Empty Plugins → all registered. Per-target dispatch

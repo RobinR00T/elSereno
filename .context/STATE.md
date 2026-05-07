@@ -1,26 +1,34 @@
 ---
-phase: v1.64-closed
-status: v1.16-v1.27 published; v1.28-v1.64 tags pending push
+phase: v1.65-closed
+status: v1.16-v1.27 published; v1.28-v1.65 tags pending push
 last-updated: 2026-05-06
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.64 cycle closed on `main`** (1 chunk +
-close). Relaxes the v1.61 single-plugin contract on
-scan jobs. Empty Plugins → all registered; per-target
-dispatch via DefaultPort port-match; Stats now
-probe-attempts (a target probed by 3 plugins counts
-as 3). Dashboard form accepts comma-separated plugin
-names. INSTALL.md updated with three curl examples
-(one / multi / all). 11 net new tests.
+**Phase**: **v1.65 cycle closed on `main`** (1 chunk +
+close). Adds the `scan_stats_progress` SSE event so
+the dashboard's Targets/Findings counters tick live
+mid-scan instead of staying at 0 until the job
+completes. JobRunner.Run gains a ProgressReporter
+param (breaking API; in-tree updated). Worker gains
+an OnProgress hook. New stream.ScanProgressThrottle
+with 500ms cadence + identical-snapshot suppression +
+Forget on terminal transitions. Dashboard JS does an
+in-place cell update per event. 11 new tests.
 
-Snapshot: `.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
+Snapshot: `.context/snapshots/v1.65.0-scan-stats-progress.md`.
 
-**v1.64 chunks landed (in-flight)**:
-- 1 `6bb77cd` — scan_runner.go rewrite + dashboard
-  JS form + INSTALL.md + tests rewrite.
+**v1.65 chunks landed (in-flight)**:
+- 1 `b7f8158` — JobRunner signature + Worker hook +
+  scan_bridge throttle + cmd_serve wiring + dashboard
+  JS + 11 tests.
+
+**v1.64 cycle (closed, snapshot available)**:
+Multi-plugin per scan Job. 1 chunk + close:
+`6bb77cd`, `43dba3f`. Snapshot:
+`.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
 
 **v1.63 cycle (closed, snapshot available)**:
 scan_state_change SSE event + BroadcastingStore. 1
@@ -124,42 +132,16 @@ for 4 legacy-ICS protocols + recording (v1.35), dashboard
 validate/capture verbs (v1.37 + v1.38), discover --hosts
 (v1.39), plugins ports reverse-index (v1.40).
 
-**v1.31 cycle (closed, snapshot available)**:
-TUI `--input` parity with batch `scan` (all 8 kinds now
-first-class on `tui --input KIND`). Input-parsing dispatcher
-extracted to `cmd_input_parse.go`. 1 chunk + close: `689def2`,
-`6d77468`. Snapshot:
-`.context/snapshots/v1.31.0-tui-input-parity.md`.
-
-**v1.30 cycle (closed, snapshot available)**:
-Record-replay wire-up to 9 wire-aware gates + `--record FILE`
-flag on `proxy listen` + `proxy replay` verb + TUI scan
-launcher (`feeds.Interactive`) + audit-pane substring filter.
-4 chunks + close: `1a9bc65`, `cab5b8c`, `4bd7a8e`, `15f954e`,
-`df34f1c`. Snapshot:
-`.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`.
-
-**v1.29 cycle (closed, snapshot available)**:
-TUI verb (bubbletea Model/View/Update + 4 modes:
-interactive / replay / feed / watch) + mini build variant
-(3-variant goreleaser: default + offensive + mini). 6 chunks +
-close. Snapshot:
-`.context/snapshots/v1.29.0-tui-and-mini-build.md`.
+**v1.28 → v1.31 cycles** (closed; per-cycle snapshots in
+`.context/snapshots/v1.<N>.0-*.md`):
+ProConOS fingerprint + record-replay POC (v1.28), TUI verb +
+mini build (v1.29), record-replay wire-up across 9 gates +
+proxy listen/replay + TUI scan launcher (v1.30), TUI --input
+parity with batch scan (v1.31).
 
 **v1.16 → v1.27 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.28.0 +
-v1.29.0 + v1.30.0 tags + releases pending push.
-
-Snapshots:
-- `.context/snapshots/v1.28.0-proconos-srtp-x21-recordwireup.md`
-- `.context/snapshots/v1.29.0-tui-and-mini-build.md`
-- `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`
-
-**v1.28 cycle (closed)**: ProConOS fingerprint (best-effort,
-TCP/20547, confidence ~0.7) + GE-SRTP service-0x21 follow-up
-(fw= suffix) + record-replay POC into pcworx + mms gates.
-3 chunks + close: `7842351`, `bd70cb8`, `0242d68`, `cfa268b`.
-Per-chunk detail in snapshot.
+https://github.com/RobinR00T/elSereno/releases. v1.28.0+ tags
+pending push.
 
 Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
 for the v1.16 through v1.24 chunk-level detail. They're also
