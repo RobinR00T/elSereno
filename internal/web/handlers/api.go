@@ -27,6 +27,10 @@ type APIV1Deps struct {
 	// Nil → 503 (operator running serve without orchestration
 	// configured will see "scan orchestration unavailable").
 	ScanStore scanorch.Store
+	// ScheduleStore (v1.70+) backs /api/v1/schedules. Nil →
+	// 503. Schedules fire saved Job templates on a cadence
+	// via a Scheduler goroutine in cmd_serve.
+	ScheduleStore scanorch.ScheduleStore
 }
 
 // APIV1 returns the /api/v1 sub-router. Endpoints:
@@ -78,6 +82,14 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/scans", scansHandler)
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
+	// v1.70: scan-schedules sub-router.
+	schedulesHandler := Schedules(deps.ScheduleStore)
+	mux.Handle("POST /api/v1/schedules", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules/{id}", schedulesHandler)
+	mux.Handle("DELETE /api/v1/schedules/{id}", schedulesHandler)
+	mux.Handle("POST /api/v1/schedules/{id}/enable", schedulesHandler)
+	mux.Handle("POST /api/v1/schedules/{id}/disable", schedulesHandler)
 	return mux
 }
 

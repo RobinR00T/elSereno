@@ -409,6 +409,44 @@ first plugin name; multi-token autocomplete after a comma is
 not supported by `<datalist>` (a smarter tokenizing widget is
 deferred).
 
+**Scheduled scans (v1.70+)**: save a Job template that fires
+automatically on a fixed interval. Useful for "scan my fleet
+every 6 hours" continuous-monitoring workflows. v1.70 ships
+the REST API + in-memory store + Scheduler goroutine; the
+dashboard UI lands in v1.72 (curl-only for now).
+
+```sh
+# Create:
+curl -X POST http://127.0.0.1:8787/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"name":"every-6h","template":{"input":"list:fleet.txt","plugins":["modbus"]},"interval_seconds":21600}'
+
+# List + view:
+curl http://127.0.0.1:8787/api/v1/schedules
+curl http://127.0.0.1:8787/api/v1/schedules/{id}
+
+# Toggle without delete (preserves history):
+curl -X POST http://127.0.0.1:8787/api/v1/schedules/{id}/disable
+curl -X POST http://127.0.0.1:8787/api/v1/schedules/{id}/enable
+
+# Remove permanently:
+curl -X DELETE http://127.0.0.1:8787/api/v1/schedules/{id}
+```
+
+`interval_seconds` is clamped to `[60, 604800]` (1 minute to
+7 days). The Scheduler ticks every 30s (default; clamped
+[10s, 5min]); a schedule whose `(LastFiredAt + IntervalSeconds)`
+has passed fires on the next tick. Never-fired schedules fire
+immediately.
+
+The schedule store is in-memory in v1.70 — schedules don't
+survive `serve` restart. Persistent storage lands in v1.71.
+
+Schedules are tied to the scan-orch wiring: the Scheduler
+goroutine only spins up when `--scan-store != off`. Operators
+running `--scan-store=off` see 503 from `/api/v1/schedules/`.
+
 **Bulk submit (v1.69+)**: the "Bulk…" button on the dashboard
 reveals a textarea — paste one input string per line and click
 "Bulk submit". Plugin(s) + default port from the form above

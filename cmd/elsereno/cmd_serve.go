@@ -91,15 +91,13 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	// the same bus the dashboard listens to.
 	broadcaster := stream.New(128)
 
-	scanStore, scanPool, scanErr := buildScanOrchestrator(cmd.Context(), opts, pool, broadcaster)
+	scanStore, scheduleStore, stopScan, scanErr := buildScanAndSchedule(cmd.Context(), opts, pool, broadcaster)
 	if scanErr != nil {
 		return fail(core.ExitUsage, scanErr)
 	}
-	if scanPool != nil {
-		defer scanPool.Stop()
-	}
+	defer stopScan()
 
-	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore, broadcaster)
+	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore, scheduleStore, broadcaster)
 	srv, err := web.NewServer(srvOpts)
 	if err != nil {
 		return fail(core.ExitSoftware, err)
@@ -119,20 +117,72 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 // buildWebOptions assembles the web.Options struct from the
 // runServe scope. Splitting this out keeps runServe's
 // cyclomatic complexity below the linter's 15-branch ceiling.
-func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store, broadcaster *stream.Broadcaster) web.Options {
+func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store, scheduleStore scanorch.ScheduleStore, broadcaster *stream.Broadcaster) web.Options {
 	out := web.Options{
-		Addr:        opts.addr,
-		Web:         cfg.Web,
-		Vault:       v,
-		TLSCert:     opts.tlsCert,
-		TLSKey:      opts.tlsKey,
-		ScanStore:   scanStore,
-		Broadcaster: broadcaster,
+		Addr:          opts.addr,
+		Web:           cfg.Web,
+		Vault:         v,
+		TLSCert:       opts.tlsCert,
+		TLSKey:        opts.tlsKey,
+		ScanStore:     scanStore,
+		ScheduleStore: scheduleStore,
+		Broadcaster:   broadcaster,
 	}
 	if pool != nil {
 		out.Querier = pool
 	}
 	return out
+}
+
+// buildScanAndSchedule wraps buildScanOrchestrator with the
+// v1.70 schedule-store + scheduler goroutine. Returns a stop
+// closure that the caller defers — handles both the worker
+// pool Stop and the scan-store cleanup. Splitting this out
+// keeps runServe under the gocyclo 15-branch ceiling.
+func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, scanorch.ScheduleStore, func(), error) {
+	scanStore, scanPool, err := buildScanOrchestrator(ctx, opts, pool, broadcaster)
+	if err != nil {
+		return nil, nil, func() {}, err
+	}
+	stop := func() {
+		if scanPool != nil {
+			scanPool.Stop()
+		}
+	}
+	if scanStore == nil {
+		// scan-store=off → no scheduler.
+		return nil, nil, stop, nil
+	}
+	scheduleStore := scanorch.NewMemoryScheduleStore()
+	startScheduler(ctx, scheduleStore, scanStore)
+	return scanStore, scheduleStore, stop, nil
+}
+
+// startScheduler spawns the v1.70 Scheduler goroutine. Tied to
+// ctx — cancellation tears it down cleanly. Errors during a
+// fire are logged to stderr; the next tick re-evaluates the
+// schedule, so a transient Submit failure isn't fatal.
+func startScheduler(ctx context.Context, schedStore scanorch.ScheduleStore, scanStore scanorch.Store) {
+	sc := &scanorch.Scheduler{
+		ScheduleStore: schedStore,
+		ScanStore:     scanStore,
+		OnFire: func(scheduleID string, job scanorch.Job) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: scheduler fired %s → job %s\n",
+				scheduleID, job.ID)
+		},
+		OnFireError: func(scheduleID string, err error) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: scheduler fire error (sched %s): %v\n",
+				scheduleID, err)
+		},
+	}
+	go func() {
+		if err := sc.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: scheduler exited: %v\n", err)
+		}
+	}()
 }
 
 // startAuditTail spins up the audit-file tailer so offensive

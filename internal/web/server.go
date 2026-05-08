@@ -45,6 +45,10 @@ type Options struct {
 	// NewMemoryStore() (jobs lost on restart).
 	ScanStore scanorch.Store
 
+	// ScheduleStore (optional, v1.70+) backs the scan-schedule
+	// endpoints under `/api/v1/schedules/`. Nil → 503.
+	ScheduleStore scanorch.ScheduleStore
+
 	// Broadcaster (optional, v1.63+) overrides the per-server
 	// SSE broadcaster. cmd_serve builds it up-front so the
 	// scan-orchestration wrapper can publish events on the same
@@ -101,9 +105,10 @@ func NewServer(opts Options) (*Server, error) {
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
 	mux.Handle("/api/v1/", handlers.APIV1(handlers.APIV1Deps{
-		Broadcaster: s.broadcaster,
-		Querier:     opts.Querier,
-		ScanStore:   opts.ScanStore,
+		Broadcaster:   s.broadcaster,
+		Querier:       opts.Querier,
+		ScanStore:     opts.ScanStore,
+		ScheduleStore: opts.ScheduleStore,
 	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
