@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.71.0] — 2026-05-08
+
+### Added
+
+- **DB-backed scheduled scans.** Closes the v1.70
+  honest-scope gap: schedules persist across
+  `serve` restart in db-store mode.
+- Migration 00007 adds the `scan_schedules` table
+  with two CHECK constraints (interval bounds +
+  non-empty template_input) mirroring the Go-side
+  validation.
+- `DBScheduleStore` implements `ScheduleStore` via
+  the existing Querier. RowsAffected() == 0 →
+  ErrScheduleNotFound on Delete / MarkFired /
+  SetEnabled.
+- `cmd_serve.buildScanAndSchedule` branches on
+  `--scan-store`: db → DBScheduleStore;
+  memory → MemoryScheduleStore.
+
+### Tests
+
+`+12 new` (DBScheduleStore CRUD + clamp +
+interface guard).
+
+### Database
+
+- **Migration 00007** is required for v1.71+
+  db-store deployments. Run `elsereno db migrate`
+  to apply.
+
+### Documentation
+
+- INSTALL.md "Scheduled scans" subsection gains a
+  persistence-mode matrix + migration apply note.
+
+### Honest scope
+
+- **No multi-process advisory locking**. Two
+  `serve` processes sharing a DB could race on
+  MarkFired between Tick and Submit. Deferred —
+  typical deployment is single-process. The DB
+  CHECK constraints prevent corruption either way.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.70.0] — 2026-05-08
 
 ### Added

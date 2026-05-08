@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-08 — v1.71 (chunk 1) — **DB-backed
+  scheduled scans.** Migration 00007 + DBScheduleStore.
+  Closes v1.70 honest-scope gap. cmd_serve picks the
+  store based on --scan-store mode. 12 new tests.
+  Snapshot:
+  `.context/snapshots/v1.71.0-schedules-db.md`.
+
 - 2026-05-08 — v1.70 (chunk 1) — **Scheduled scans
   (interval-based, in-memory).** Saved Job
   templates that fire on a clamp-[60s, 7d]

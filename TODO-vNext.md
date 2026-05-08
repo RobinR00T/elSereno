@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.71 (DB-backed scheduled scans)
+
+- ✅ **DB-backed scheduled scans** — v1.71 chunk 1.
+  Migration 00007 adds scan_schedules with CHECK
+  constraints (interval + template_input). New
+  DBScheduleStore implements ScheduleStore via the
+  shared Querier. cmd_serve picks the right store
+  based on --scan-store. 12 new tests.
+
 ### v1.70 (Scheduled scans)
 
 - ✅ **Scheduled scans (interval-based, in-memory)** —

@@ -1,29 +1,34 @@
 ---
-phase: v1.70-closed
-status: v1.16-v1.27 published; v1.28-v1.70 tags pending push
+phase: v1.71-closed
+status: v1.16-v1.27 published; v1.28-v1.71 tags pending push
 last-updated: 2026-05-08
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.70 cycle closed on `main`** (1 chunk +
-close). Adds scheduled scans: saved Job templates
-that fire automatically on a fixed interval (clamped
-[60s, 7d]). New `internal/scanorch/{schedule,
-scheduler}.go` + REST sub-router under
-`/api/v1/schedules/` + Scheduler goroutine spawned
-from cmd_serve when `--scan-store != off`. MarkFired
-BEFORE Submit so Submit failures don't loop. In-
-memory only — DB persistence is v1.71. 19 new
-tests; default build size 23.0 → 23.1 MB.
+**Phase**: **v1.71 cycle closed on `main`** (1 chunk +
+close). Closes the v1.70 honest-scope gap: scan
+schedules persist across `serve` restart in db-store
+mode. Migration 00007 adds `scan_schedules` table
+with CHECK constraints (interval bounds + non-empty
+template_input). DBScheduleStore implements
+ScheduleStore via the shared Querier; cmd_serve
+picks the right store based on `--scan-store`. 12
+new tests.
 
-Snapshot: `.context/snapshots/v1.70.0-scheduled-scans.md`.
+Snapshot: `.context/snapshots/v1.71.0-schedules-db.md`.
 
-**v1.70 chunks landed (in-flight)**:
-- 1 `e152628` — schedule.go + scheduler.go + REST
-  sub-router + cmd_serve buildScanAndSchedule
-  helper + INSTALL.md + 19 new tests.
+**v1.71 chunks landed (in-flight)**:
+- 1 `9729068` — migration 00007 + schedule_pg.go +
+  cmd_serve branching + fakeRows.Scan dual-shape
+  router + INSTALL.md persistence matrix +
+  12 new tests.
+
+**v1.70 cycle (closed, snapshot available)**:
+Scheduled scans (interval-based, in-memory).
+1 chunk + close: `e152628`, `6cadd2a`. Snapshot:
+`.context/snapshots/v1.70.0-scheduled-scans.md`.
 
 **v1.69 cycle (closed, snapshot available)**:
 Bulk scan-submit endpoint + dashboard textarea panel.
