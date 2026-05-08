@@ -3,6 +3,7 @@ package scanorch_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -42,6 +43,11 @@ type fakeQuerier struct {
 	// tests can route the first call to the UPDATE-RETURNING
 	// rows and the second to the classify-existence rows.
 	queryCallCount int
+
+	// execRowsAffected lets v1.71 schedule tests configure the
+	// CommandTag returned by Exec. Defaults to 0; schedule
+	// tests bump to 1 to simulate "row found + updated".
+	execRowsAffected int
 }
 
 func (f *fakeQuerier) Query(_ context.Context, sql string, args ...any) (pgx.Rows, error) {
@@ -73,6 +79,11 @@ func (f *fakeQuerier) Exec(_ context.Context, sql string, args ...any) (pgconn.C
 	defer f.mu.Unlock()
 	f.lastSQL = sql
 	f.lastArgs = append([]any(nil), args...)
+	if f.execRowsAffected > 0 {
+		// pgconn.CommandTag is constructed from a server-style
+		// "TAG N" string. "UPDATE 1" → RowsAffected() == 1.
+		return pgconn.NewCommandTag(fmt.Sprintf("UPDATE %d", f.execRowsAffected)), nil
+	}
 	return pgconn.CommandTag{}, nil
 }
 
@@ -100,15 +111,32 @@ func (r *fakeRows) Next() bool {
 	return r.i <= len(r.rows)
 }
 
-// Scan unpacks the 14-column scan-jobs projection (v1.67+:
-// findings_by_plugin JSONB is the new column).
+// Scan unpacks the test row map into the requested column
+// destinations. Shapes:
+//
+//   - 14 columns → scan_jobs projection (v1.67+:
+//     findings_by_plugin JSONB).
+//   - 10 columns → scan_schedules projection (v1.71+).
+//
+// Routing by arity keeps the fake compatible with both stores
+// in the same test file without polluting the row maps with
+// shape tags.
 //
 //nolint:forcetypeassert // test fixture; assertion failure is a programming error
 func (r *fakeRows) Scan(dst ...any) error {
-	if len(dst) != 14 {
-		return errors.New("fakeRows: scanorch test expected 14-column scan (post-v1.67)")
-	}
 	row := r.rows[r.i-1]
+	switch len(dst) {
+	case 14:
+		return scanFakeJob(dst, row)
+	case 10:
+		return scanFakeSchedule(dst, row)
+	default:
+		return fmt.Errorf("fakeRows: scanorch test expected 14 or 10 columns, got %d", len(dst))
+	}
+}
+
+//nolint:forcetypeassert // test fixture
+func scanFakeJob(dst []any, row map[string]any) error {
 	*(dst[0].(*string)) = row["id"].(string)
 	*(dst[1].(*string)) = row["state"].(string)
 	*(dst[2].(*time.Time)) = row["created_at"].(time.Time)
@@ -130,6 +158,25 @@ func (r *fakeRows) Scan(dst ...any) error {
 	*(dst[12].(*string)) = row["operator"].(string)
 	if v, ok := row["findings_by_plugin"].([]byte); ok {
 		*(dst[13].(*[]byte)) = v
+	}
+	return nil
+}
+
+//nolint:forcetypeassert // test fixture
+func scanFakeSchedule(dst []any, row map[string]any) error {
+	*(dst[0].(*string)) = row["id"].(string)
+	*(dst[1].(*string)) = row["name"].(string)
+	*(dst[2].(*string)) = row["template_input"].(string)
+	if v, ok := row["template_plugins"].([]string); ok {
+		*(dst[3].(*[]string)) = v
+	}
+	*(dst[4].(*int)) = row["template_default_port"].(int)
+	*(dst[5].(*int)) = row["interval_seconds"].(int)
+	*(dst[6].(*bool)) = row["enabled"].(bool)
+	*(dst[7].(*string)) = row["operator"].(string)
+	*(dst[8].(*time.Time)) = row["created_at"].(time.Time)
+	if v, ok := row["last_fired_at"].(*time.Time); ok {
+		*(dst[9].(**time.Time)) = v
 	}
 	return nil
 }

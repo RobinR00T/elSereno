@@ -440,8 +440,17 @@ curl -X DELETE http://127.0.0.1:8787/api/v1/schedules/{id}
 has passed fires on the next tick. Never-fired schedules fire
 immediately.
 
-The schedule store is in-memory in v1.70 — schedules don't
-survive `serve` restart. Persistent storage lands in v1.71.
+**Persistence (v1.71+)**: the schedule store is automatically
+chosen to match `--scan-store`:
+
+| `--scan-store` | Schedule store     | Survives restart? |
+|----------------|--------------------|-------------------|
+| `memory`       | MemoryScheduleStore | No  |
+| `db`           | DBScheduleStore (migration 00007) | Yes |
+| `off`          | n/a — `/schedules` returns 503 | n/a |
+
+Run `elsereno db migrate` to apply migration 00007 before
+deploying v1.71+ in db-store mode.
 
 Schedules are tied to the scan-orch wiring: the Scheduler
 goroutine only spins up when `--scan-store != off`. Operators

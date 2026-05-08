@@ -139,6 +139,11 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 // closure that the caller defers — handles both the worker
 // pool Stop and the scan-store cleanup. Splitting this out
 // keeps runServe under the gocyclo 15-branch ceiling.
+//
+// v1.71: when --scan-store=db, the schedule store is also
+// DB-backed so schedules survive serve restart. memory mode
+// keeps the in-memory schedule store (matches the single-
+// process scan-store choice).
 func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, scanorch.ScheduleStore, func(), error) {
 	scanStore, scanPool, err := buildScanOrchestrator(ctx, opts, pool, broadcaster)
 	if err != nil {
@@ -153,7 +158,12 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 		// scan-store=off → no scheduler.
 		return nil, nil, stop, nil
 	}
-	scheduleStore := scanorch.NewMemoryScheduleStore()
+	var scheduleStore scanorch.ScheduleStore
+	if opts.scanStore == "db" && pool != nil {
+		scheduleStore = scanorch.NewDBScheduleStore(pool)
+	} else {
+		scheduleStore = scanorch.NewMemoryScheduleStore()
+	}
 	startScheduler(ctx, scheduleStore, scanStore)
 	return scanStore, scheduleStore, stop, nil
 }
