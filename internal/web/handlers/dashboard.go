@@ -444,7 +444,9 @@ const overviewHTML = `<!doctype html>
           <input type="text" id="scan-input" placeholder="list:targets.txt | stdin | internetdb:1.2.3.4" size="40" required />
         </label>
         <label>plugin(s):
-          <input type="text" id="scan-plugin" placeholder="modbus,s7  (blank = all)" size="22" />
+          <input type="text" id="scan-plugin" placeholder="modbus,s7  (blank = all)" size="22"
+            list="scan-plugin-options" autocomplete="off" />
+          <datalist id="scan-plugin-options"></datalist>
         </label>
         <label>default port:
           <input type="number" id="scan-default-port" min="0" max="65535" value="0" size="6" />
@@ -1030,6 +1032,37 @@ const overviewHTML = `<!doctype html>
   // onclick + onsubmit handlers can find them.
   window.cancelScan = cancelScan;
   window.submitScan = submitScan;
+
+  // v1.68: load the plugin list once on page boot to populate
+  // the scan-submit form's <datalist>. Best-effort: a 503
+  // response (or any failure) leaves the datalist empty and
+  // the operator types plugin names by hand. Plugin set is
+  // build-time stable, so a single load suffices.
+  function loadPluginDatalist() {
+    var list = document.getElementById("scan-plugin-options");
+    if (!list) return;
+    fetch("/api/v1/plugins", {credentials: "same-origin"})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (res) {
+        var rows = (res && res.data) || [];
+        if (!rows.length) return;
+        // Sort by name + emit one <option> per plugin. The
+        // option's value is the plugin name (what the operator
+        // types); the data-port label is shown as the
+        // dropdown's right-side annotation in modern browsers.
+        rows.sort(function (a, b) {
+          return (a.name || "").localeCompare(b.name || "");
+        });
+        list.innerHTML = rows.map(function (p) {
+          var name = escAttr(p.name || "");
+          var port = p.default_port ? " (port " + p.default_port + ")" : "";
+          var label = escAttr((p.description || "") + port).slice(0, 80);
+          return '<option value="' + name + '" label="' + label + '"></option>';
+        }).join("");
+      })
+      .catch(function () { /* silent — empty datalist is OK */ });
+  }
+  loadPluginDatalist();
 
   // Initial load.
   renderTriage(); renderFindings(); renderRuns(); refreshAudit(); renderReloadCadence();

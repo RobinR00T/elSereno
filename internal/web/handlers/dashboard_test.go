@@ -32,6 +32,11 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function renderScans`,
 		`function submitScan`,
 		`function cancelScan`,
+		// v1.68: plugin autocomplete via <datalist>.
+		`id="scan-plugin-options"`,
+		`list="scan-plugin-options"`,
+		`function loadPluginDatalist`,
+		`/api/v1/plugins`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

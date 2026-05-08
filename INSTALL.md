@@ -399,6 +399,16 @@ Cancel button.
   every registered plugin in the build (default-build
   registry; offensive plugins gated by `-tags offensive`).
 
+**Autocomplete (v1.68+)**: the dashboard's plugin-name field is
+backed by a native `<datalist>` populated from
+`GET /api/v1/plugins` on page load. Click into the field and
+the browser shows the full registered-plugin set with their
+default ports + descriptions. Typing a prefix narrows the
+suggestions. The dropdown is a discoverability aid for the
+first plugin name; multi-token autocomplete after a comma is
+not supported by `<datalist>` (a smarter tokenizing widget is
+deferred).
+
 **curl** (operator scripts / CI):
 
 ```sh
