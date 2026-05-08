@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.70 (Scheduled scans)
+
+- ✅ **Scheduled scans (interval-based, in-memory)** —
+  v1.70 chunk 1. ScanSchedule + ScheduleStore +
+  Scheduler goroutine + REST CRUD. Interval clamped
+  [60s, 7d]; tick clamped [10s, 5min]. MarkFired
+  BEFORE Submit so Submit failures don't loop.
+  In-memory only; v1.71 adds DBStore. 19 new tests.
+
 ### v1.69 (Bulk scan-submit)
 
 - ✅ **Bulk scan-submit endpoint + dashboard panel** —

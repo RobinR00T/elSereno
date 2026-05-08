@@ -1,27 +1,34 @@
 ---
-phase: v1.69-closed
-status: v1.16-v1.27 published; v1.28-v1.69 tags pending push
+phase: v1.70-closed
+status: v1.16-v1.27 published; v1.28-v1.70 tags pending push
 last-updated: 2026-05-08
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.69 cycle closed on `main`** (1 chunk +
-close). Adds bulk scan-submit: POST /api/v1/scans/bulk
-accepts up to 200 inputs in one call with shared
-plugins + default port. Partial-failure response
-keeps successful Submits, reports failed inputs by
-index. Dashboard "Bulk…" toggle reveals a textarea
-panel sharing the form's plugin + port. 5 new tests
-+ 6 new dashboard markers.
+**Phase**: **v1.70 cycle closed on `main`** (1 chunk +
+close). Adds scheduled scans: saved Job templates
+that fire automatically on a fixed interval (clamped
+[60s, 7d]). New `internal/scanorch/{schedule,
+scheduler}.go` + REST sub-router under
+`/api/v1/schedules/` + Scheduler goroutine spawned
+from cmd_serve when `--scan-store != off`. MarkFired
+BEFORE Submit so Submit failures don't loop. In-
+memory only — DB persistence is v1.71. 19 new
+tests; default build size 23.0 → 23.1 MB.
 
-Snapshot: `.context/snapshots/v1.69.0-bulk-submit.md`.
+Snapshot: `.context/snapshots/v1.70.0-scheduled-scans.md`.
 
-**v1.69 chunks landed (in-flight)**:
-- 1 `2d5906c` — bulkSubmitScan handler + 200-input
-  cap + dashboard textarea panel + INSTALL.md
-  curl example + 5 new tests.
+**v1.70 chunks landed (in-flight)**:
+- 1 `e152628` — schedule.go + scheduler.go + REST
+  sub-router + cmd_serve buildScanAndSchedule
+  helper + INSTALL.md + 19 new tests.
+
+**v1.69 cycle (closed, snapshot available)**:
+Bulk scan-submit endpoint + dashboard textarea panel.
+1 chunk + close: `2d5906c`, `3d762a2`. Snapshot:
+`.context/snapshots/v1.69.0-bulk-submit.md`.
 
 **v1.68 cycle (closed, snapshot available)**:
 Plugin-list autocomplete UI (native <datalist>).

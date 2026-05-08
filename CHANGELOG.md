@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.70.0] — 2026-05-08
+
+### Added
+
+- **Scheduled scans (interval-based, in-memory).**
+  Saved Job templates that fire automatically on a
+  fixed interval. Operators get continuous-monitoring
+  workflows ("scan my fleet every 6 hours") without
+  external cron scripts.
+- `internal/scanorch/schedule.go`:
+  `ScanSchedule`, `CreateScheduleRequest`,
+  `ScheduleStore` interface, `MemoryScheduleStore`
+  (in-memory; DB-backed deferred to v1.71).
+  `IntervalSeconds` clamped to [60s, 7d].
+- `internal/scanorch/scheduler.go`: long-lived
+  goroutine that walks the store every tick
+  (default 30s) and fires due schedules via
+  `ScanStore.Submit`. Marks-fired BEFORE submit so
+  a Submit failure doesn't loop.
+- REST sub-router under `/api/v1/schedules/`:
+  `POST` / `GET` / `GET/{id}` / `DELETE/{id}` +
+  `POST/{id}/enable` and `POST/{id}/disable`.
+- `cmd_serve` spawns the Scheduler goroutine when
+  `--scan-store != off`. `OnFire` /
+  `OnFireError` log to stderr.
+
+### Tests
+
+`+19 new` (12 scanorch + 7 handlers).
+
+### Documentation
+
+- INSTALL.md gains a "Scheduled scans (v1.70+)"
+  subsection with curl examples + clamping bounds
+  + persistence honest-scope note.
+
+### Honest scope
+
+- **In-memory only.** Schedules don't survive
+  `serve` restart. v1.71 adds DBStore + migration
+  00007.
+- **No dashboard UI.** v1.72.
+- **Cron expressions not supported.** Interval is
+  the only cadence model.
+
+### Build
+
+  default 23.0 → 23.1 MB. First measurable bump in
+  several cycles; ScheduleStore + Scheduler + tests
+  add ~25 KB.
+
 ## [1.69.0] — 2026-05-08
 
 ### Added

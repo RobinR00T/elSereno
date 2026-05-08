@@ -8,6 +8,14 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-08 — v1.70 (chunk 1) — **Scheduled scans
+  (interval-based, in-memory).** Saved Job
+  templates that fire on a clamp-[60s, 7d]
+  interval. Scheduler goroutine ticks every 30s.
+  REST CRUD + enable/disable. 19 new tests.
+  Snapshot:
+  `.context/snapshots/v1.70.0-scheduled-scans.md`.
+
 - 2026-05-08 — v1.69 (chunk 1) — **Bulk scan-submit
   endpoint + dashboard panel.** POST /scans/bulk with
   capped-200 inputs; partial-failure response. Textarea
