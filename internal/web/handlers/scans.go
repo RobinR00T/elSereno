@@ -12,9 +12,10 @@ import (
 // note: writeJSON lives in api.go; this file re-uses it.
 
 // Scans returns the dashboard scan-orchestration endpoints.
-// Four handlers under one prefix:
+// Five handlers under one prefix:
 //
 //	POST   /api/v1/scans               submit a new scan job
+//	POST   /api/v1/scans/bulk          submit many in one call (v1.69)
 //	GET    /api/v1/scans               list jobs (newest first)
 //	GET    /api/v1/scans/{id}          one job by ID
 //	POST   /api/v1/scans/{id}/cancel   cancel a queued/running job (v1.59)
@@ -28,16 +29,94 @@ func Scans(store scanorch.Store) http.Handler {
 			http.Error(w, "scan orchestration unavailable", http.StatusServiceUnavailable)
 		}
 		mux.HandleFunc("POST /api/v1/scans", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/scans/bulk", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/scans", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/scans/{id}", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/scans/{id}/cancel", serviceUnavailable)
 		return mux
 	}
 	mux.Handle("POST /api/v1/scans", submitScan(store))
+	mux.Handle("POST /api/v1/scans/bulk", bulkSubmitScan(store))
 	mux.Handle("GET /api/v1/scans", listScans(store))
 	mux.Handle("GET /api/v1/scans/{id}", getScan(store))
 	mux.Handle("POST /api/v1/scans/{id}/cancel", cancelScan(store))
 	return mux
+}
+
+// bulkSubmitRequest is the request body for POST /scans/bulk.
+// One Job is submitted per Inputs entry; Plugins + DefaultPort
+// are shared across all of them. v1.69+.
+type bulkSubmitRequest struct {
+	Inputs      []string `json:"inputs"`
+	Plugins     []string `json:"plugins,omitempty"`
+	DefaultPort int      `json:"default_port,omitempty"`
+}
+
+// bulkSubmitResponse is the response body. Submitted carries
+// the queued Jobs in the same order as Inputs. Errors carries
+// per-input error messages for entries that failed (typically
+// empty Inputs strings — Submit's only validation). The
+// response always 200s if the request was syntactically valid;
+// individual failures don't fail the batch.
+type bulkSubmitResponse struct {
+	Submitted []scanorch.Job  `json:"submitted"`
+	Errors    []bulkErrorItem `json:"errors,omitempty"`
+}
+
+type bulkErrorItem struct {
+	Index int    `json:"index"`
+	Input string `json:"input"`
+	Error string `json:"error"`
+}
+
+// bulkLimit caps the number of inputs per call. Operators with
+// thousands of /24s should batch in pages of 200 — protects the
+// dashboard from a single-request DoS that holds the goroutine
+// pool.
+const bulkLimit = 200
+
+// bulkSubmitScan returns the POST /api/v1/scans/bulk handler.
+// Per-input errors are non-fatal: the response always carries
+// whatever Submitted; the Errors array reports per-input
+// failures with their index in the original Inputs array so
+// the client can correlate.
+func bulkSubmitScan(store scanorch.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req bulkSubmitRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "scans: malformed JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if len(req.Inputs) == 0 {
+			http.Error(w, "scans: inputs array is required and non-empty", http.StatusBadRequest)
+			return
+		}
+		if len(req.Inputs) > bulkLimit {
+			http.Error(w, "scans: bulk submit accepts at most 200 inputs per call", http.StatusBadRequest)
+			return
+		}
+		operator := operatorFromRequest(r)
+		resp := bulkSubmitResponse{
+			Submitted: make([]scanorch.Job, 0, len(req.Inputs)),
+		}
+		for i, input := range req.Inputs {
+			single := scanorch.SubmitRequest{
+				Input:       input,
+				Plugins:     req.Plugins,
+				DefaultPort: req.DefaultPort,
+			}
+			job, err := store.Submit(r.Context(), single, operator)
+			if err != nil {
+				resp.Errors = append(resp.Errors, bulkErrorItem{
+					Index: i, Input: input, Error: err.Error(),
+				})
+				continue
+			}
+			resp.Submitted = append(resp.Submitted, job)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: resp})
+	})
 }
 
 // scanResponse is the wrapper envelope around scan-related

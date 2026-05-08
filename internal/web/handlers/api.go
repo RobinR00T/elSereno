@@ -74,6 +74,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	// served by the Scans sub-router.
 	scansHandler := Scans(deps.ScanStore)
 	mux.Handle("POST /api/v1/scans", scansHandler)
+	mux.Handle("POST /api/v1/scans/bulk", scansHandler)
 	mux.Handle("GET /api/v1/scans", scansHandler)
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)

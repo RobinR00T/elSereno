@@ -37,6 +37,13 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`list="scan-plugin-options"`,
 		`function loadPluginDatalist`,
 		`/api/v1/plugins`,
+		// v1.69: bulk submit panel + handler.
+		`id="scan-bulk-panel"`,
+		`id="scan-bulk-inputs"`,
+		`id="scan-bulk-toggle"`,
+		`function bulkSubmitScan`,
+		`function toggleBulkPanel`,
+		`/api/v1/scans/bulk`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

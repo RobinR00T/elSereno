@@ -409,6 +409,39 @@ first plugin name; multi-token autocomplete after a comma is
 not supported by `<datalist>` (a smarter tokenizing widget is
 deferred).
 
+**Bulk submit (v1.69+)**: the "Bulk…" button on the dashboard
+reveals a textarea — paste one input string per line and click
+"Bulk submit". Plugin(s) + default port from the form above
+apply to every line. Capped at 200 inputs per request to
+protect the worker pool from a single-request DoS.
+
+```sh
+# curl shape:
+curl -X POST http://127.0.0.1:8787/api/v1/scans/bulk \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"inputs":["list:t1.txt","list:t2.txt","internetdb:1.2.3.0/24"],
+       "plugins":["modbus","s7"]}'
+```
+
+Response shape:
+
+```json
+{
+  "schema": "api:v1",
+  "data": {
+    "submitted": [<Job>, <Job>, <Job>],
+    "errors": []
+  }
+}
+```
+
+Per-input failures (typically empty inputs) populate `errors`
+with `{index, input, error}` entries; the rest still land in
+`submitted`. The HTTP status is 202 Accepted as long as the
+request was syntactically valid — individual input failures
+don't fail the batch.
+
 **curl** (operator scripts / CI):
 
 ```sh

@@ -165,6 +165,128 @@ func TestListScans_LimitParam(t *testing.T) {
 	}
 }
 
+// ---- v1.69 bulk submit ---------------------------------------
+
+// TestBulkSubmit_Happy: 3 inputs all valid → all submitted.
+func TestBulkSubmit_Happy(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	router := newRouter(store)
+	body := []byte(`{"inputs":["list:a.txt","list:b.txt","stdin"],"plugins":["modbus"],"default_port":502}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/bulk", bytes.NewReader(body))
+	req.Header.Set("X-Operator", "alice")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Submitted []scanorch.Job `json:"submitted"`
+			Errors    []struct {
+				Index int    `json:"index"`
+				Input string `json:"input"`
+				Error string `json:"error"`
+			} `json:"errors"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Data.Submitted) != 3 {
+		t.Errorf("Submitted len = %d, want 3", len(resp.Data.Submitted))
+	}
+	if len(resp.Data.Errors) != 0 {
+		t.Errorf("Errors len = %d, want 0; got %+v", len(resp.Data.Errors), resp.Data.Errors)
+	}
+	for _, j := range resp.Data.Submitted {
+		if j.Operator != "alice" {
+			t.Errorf("Operator = %q", j.Operator)
+		}
+		if len(j.Plugins) != 1 || j.Plugins[0] != "modbus" {
+			t.Errorf("Plugins = %v", j.Plugins)
+		}
+	}
+}
+
+// TestBulkSubmit_PartialFailure: one empty input gets reported
+// in Errors; the rest land in Submitted.
+func TestBulkSubmit_PartialFailure(t *testing.T) {
+	store := scanorch.NewMemoryStore()
+	router := newRouter(store)
+	body := []byte(`{"inputs":["list:a.txt","","stdin"]}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/bulk", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data struct {
+			Submitted []scanorch.Job `json:"submitted"`
+			Errors    []struct {
+				Index int    `json:"index"`
+				Input string `json:"input"`
+				Error string `json:"error"`
+			} `json:"errors"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data.Submitted) != 2 {
+		t.Errorf("Submitted len = %d, want 2", len(resp.Data.Submitted))
+	}
+	if len(resp.Data.Errors) != 1 {
+		t.Fatalf("Errors len = %d, want 1", len(resp.Data.Errors))
+	}
+	if resp.Data.Errors[0].Index != 1 {
+		t.Errorf("Error[0].Index = %d, want 1", resp.Data.Errors[0].Index)
+	}
+}
+
+// TestBulkSubmit_EmptyInputsRejected: zero-length input array
+// returns 400.
+func TestBulkSubmit_EmptyInputsRejected(t *testing.T) {
+	router := newRouter(scanorch.NewMemoryStore())
+	body := []byte(`{"inputs":[]}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/bulk", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestBulkSubmit_LimitEnforced: > 200 inputs returns 400.
+func TestBulkSubmit_LimitEnforced(t *testing.T) {
+	router := newRouter(scanorch.NewMemoryStore())
+	inputs := make([]string, 0, 201)
+	for i := 0; i < 201; i++ {
+		inputs = append(inputs, "stdin")
+	}
+	payload := struct {
+		Inputs []string `json:"inputs"`
+	}{Inputs: inputs}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/bulk", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestBulkSubmit_MalformedJSON returns 400.
+func TestBulkSubmit_MalformedJSON(t *testing.T) {
+	router := newRouter(scanorch.NewMemoryStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/scans/bulk", strings.NewReader("{not json"))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// ---- existing -----------------------------------------------
+
 // TestCancelScan_QueuedHappy: a queued job cancels cleanly.
 func TestCancelScan_QueuedHappy(t *testing.T) {
 	store := scanorch.NewMemoryStore()
@@ -221,6 +343,7 @@ func TestScans_NilStoreReturns503(t *testing.T) {
 		path string
 	}{
 		{http.MethodPost, "/api/v1/scans"},
+		{http.MethodPost, "/api/v1/scans/bulk"},
 		{http.MethodGet, "/api/v1/scans"},
 		{http.MethodGet, "/api/v1/scans/abc"},
 		{http.MethodPost, "/api/v1/scans/abc/cancel"},

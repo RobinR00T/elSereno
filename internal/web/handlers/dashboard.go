@@ -452,8 +452,28 @@ const overviewHTML = `<!doctype html>
           <input type="number" id="scan-default-port" min="0" max="65535" value="0" size="6" />
         </label>
         <button type="submit">Submit</button>
+        <button type="button" onclick="toggleBulkPanel()" id="scan-bulk-toggle" class="sub">Bulk…</button>
         <span id="scan-submit-status" class="sub" style="margin-left: 0.5em;"></span>
       </form>
+
+      <!-- v1.69: bulk submit panel. Hidden by default; the
+           Bulk… button toggles it. Shares plugin + default-port
+           with the single-submit form so the operator sets them
+           once. -->
+      <div id="scan-bulk-panel" style="display: none; margin: 0.5em 0; padding: 0.5em; border: 1px dashed #888; border-radius: 4px;">
+        <div class="sub" style="margin-bottom: 0.5em;">
+          One input per line. Plugin(s) + default port are
+          taken from the form above. Capped at 200 inputs per
+          submit; partial failures (empty lines, malformed
+          inputs) are reported in the response.
+        </div>
+        <textarea id="scan-bulk-inputs" rows="6" cols="60"
+          placeholder="list:t1.txt&#10;list:t2.txt&#10;internetdb:1.2.3.0/24" style="font-family: monospace;"></textarea>
+        <div style="margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center;">
+          <button type="button" onclick="bulkSubmitScan()">Bulk submit</button>
+          <span id="scan-bulk-status" class="sub"></span>
+        </div>
+      </div>
       <table id="scans-table">
         <thead>
           <tr>
@@ -1028,10 +1048,69 @@ const overviewHTML = `<!doctype html>
   function escAttr(s) {
     return String(s == null ? "" : s).replace(/[^A-Za-z0-9._-]/g, "");
   }
-  // Expose cancelScan + submitScan as page globals so the inline
-  // onclick + onsubmit handlers can find them.
+  // v1.69: bulk-submit panel. Toggle visibility + collect the
+  // textarea lines + POST to /scans/bulk. Reuses the form's
+  // plugin + default_port fields so the operator sets them
+  // once and applies to every line.
+  function toggleBulkPanel() {
+    var panel = document.getElementById("scan-bulk-panel");
+    if (!panel) return;
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  }
+  function bulkSubmitScan() {
+    var ta = document.getElementById("scan-bulk-inputs");
+    var status = document.getElementById("scan-bulk-status");
+    if (!ta) return;
+    var lines = (ta.value || "").split(/\r?\n/)
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+    if (lines.length === 0) {
+      if (status) status.textContent = "no inputs";
+      return;
+    }
+    var pluginRaw = (document.getElementById("scan-plugin") || {}).value || "";
+    var dpRaw = (document.getElementById("scan-default-port") || {}).value || "0";
+    var defaultPort = parseInt(dpRaw, 10);
+    if (!isFinite(defaultPort) || defaultPort < 0) defaultPort = 0;
+    var plugins = pluginRaw.split(",").map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+    var body = JSON.stringify({
+      inputs: lines,
+      plugins: plugins,
+      default_port: defaultPort
+    });
+    if (status) status.textContent = "submitting " + lines.length + "…";
+    fetch("/api/v1/scans/bulk", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: body,
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var d = (res && res.data) || {};
+      var ok = (d.submitted || []).length;
+      var bad = (d.errors || []).length;
+      if (status) status.textContent = "queued " + ok + ", failed " + bad;
+      // Clear textarea on full success so a follow-up batch
+      // starts clean. Leave it on partial-failure so the
+      // operator can edit + resubmit.
+      if (bad === 0) {
+        ta.value = "";
+      }
+      renderScans();
+    }).catch(function (e) {
+      if (status) status.textContent = "error: " + e.message;
+    });
+  }
+
+  // Expose cancelScan + submitScan + bulk helpers as page
+  // globals so the inline onclick + onsubmit handlers find them.
   window.cancelScan = cancelScan;
   window.submitScan = submitScan;
+  window.toggleBulkPanel = toggleBulkPanel;
+  window.bulkSubmitScan = bulkSubmitScan;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
