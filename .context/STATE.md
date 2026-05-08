@@ -1,29 +1,38 @@
 ---
-phase: v1.71-closed
-status: v1.16-v1.27 published; v1.28-v1.71 tags pending push
+phase: v1.72-closed
+status: v1.16-v1.27 published; v1.28-v1.72 tags pending push
 last-updated: 2026-05-08
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.71 cycle closed on `main`** (1 chunk +
-close). Closes the v1.70 honest-scope gap: scan
-schedules persist across `serve` restart in db-store
-mode. Migration 00007 adds `scan_schedules` table
-with CHECK constraints (interval bounds + non-empty
-template_input). DBScheduleStore implements
-ScheduleStore via the shared Querier; cmd_serve
-picks the right store based on `--scan-store`. 12
-new tests.
+**Phase**: **v1.72 cycle closed on `main`** (1 chunk +
+close). Adds the dashboard "Scheduled scans" panel.
+Operators manage schedules without leaving the
+dashboard: create form + table with Enable/Disable
+toggle + Delete button (with confirm prompt).
+humanInterval renders intervals as 60→"1m",
+3600→"1h", 86400→"1d". Reuses the v1.68 plugin
+<datalist> for autocomplete. 11 new dashboard
+markers.
 
-Snapshot: `.context/snapshots/v1.71.0-schedules-db.md`.
+The dashboard scan-orchestration feature (v1.58 →
+v1.72) is structurally complete: shell + worker +
+DB + runner + panel + state-SSE + multi-plugin +
+progress-SSE + by-plugin + autocomplete + bulk +
+scheduled + DB schedules + schedule UI.
 
-**v1.71 chunks landed (in-flight)**:
-- 1 `9729068` — migration 00007 + schedule_pg.go +
-  cmd_serve branching + fakeRows.Scan dual-shape
-  router + INSTALL.md persistence matrix +
-  12 new tests.
+Snapshot: `.context/snapshots/v1.72.0-schedule-ui.md`.
+
+**v1.72 chunks landed (in-flight)**:
+- 1 `c3a70b1` — schedule UI panel + JS helpers +
+  INSTALL.md update + 11 dashboard markers.
+
+**v1.71 cycle (closed, snapshot available)**:
+DB-backed scheduled scans (migration 00007).
+1 chunk + close: `9729068`, `fc39a8b`. Snapshot:
+`.context/snapshots/v1.71.0-schedules-db.md`.
 
 **v1.70 cycle (closed, snapshot available)**:
 Scheduled scans (interval-based, in-memory).

@@ -8,6 +8,15 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-08 — v1.72 (chunk 1) — **Dashboard
+  Scheduled-scans panel.** CRUD + Enable/Disable +
+  Delete via fetch() against /api/v1/schedules.
+  humanInterval renders 60→"1m", 3600→"1h", etc.
+  503 surfaces a hint instead of an empty table.
+  Reuses v1.68 plugin <datalist> for autocomplete.
+  11 new dashboard markers. Snapshot:
+  `.context/snapshots/v1.72.0-schedule-ui.md`.
+
 - 2026-05-08 — v1.71 (chunk 1) — **DB-backed
   scheduled scans.** Migration 00007 + DBScheduleStore.
   Closes v1.70 honest-scope gap. cmd_serve picks the

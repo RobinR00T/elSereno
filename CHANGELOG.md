@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.72.0] — 2026-05-08
+
+### Added
+
+- **Dashboard "Scheduled scans" panel.** Operators
+  manage scheduled scans without leaving the
+  dashboard. Create form + table with Enable/Disable
+  toggle + Delete button (with confirm prompt).
+  Reuses the v1.68 plugin-list `<datalist>` for
+  autocomplete.
+- `humanInterval(secs)` renders intervals as
+  human-friendly labels: 60→"1m", 3600→"1h",
+  86400→"1d".
+- 503 from `/api/v1/schedules` surfaces a hint to
+  start `serve` with `--scan-store=memory|db`
+  instead of an empty table.
+
+### Tests
+
+`+11 new dashboard markers` on
+`TestDashboard_ContainsScanPanel`.
+
+### Documentation
+
+- INSTALL.md "Scheduled scans" subsection gains a
+  "Dashboard panel (v1.72+)" callout; the
+  "curl-only" honest-scope note from v1.70 is
+  removed.
+
+### Honest scope
+
+- **No edit form.** Schedules are immutable;
+  delete + recreate to change.
+- **No bulk delete.** One-at-a-time.
+- **No SSE for schedule events.** 30s polling is
+  enough — schedule mutations are operator-paced.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.71.0] — 2026-05-08
 
 ### Added
