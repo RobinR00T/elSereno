@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.69.0] — 2026-05-08
+
+### Added
+
+- **Bulk scan-submit endpoint + dashboard panel.**
+  Operators submit many jobs in one call instead of
+  looping the single-submit endpoint.
+- **`POST /api/v1/scans/bulk`** accepts
+  `{inputs: [], plugins: [], default_port: int}`.
+  Returns `{submitted: []Job, errors: [{index, input,
+  error}]}`. HTTP 202 on syntactic success;
+  per-input failures don't fail the batch. Capped at
+  200 inputs per request.
+- Dashboard "Bulk…" toggle reveals a textarea (one
+  input per line). Plugin + default-port fields
+  shared with the single-submit form. Status line
+  shows "queued N, failed M".
+
+### Tests
+
+`+5 new` (bulk handler tests) + 503 route entry +
+6 new dashboard markers.
+
+### Documentation
+
+- INSTALL.md gains a "Bulk submit (v1.69+)"
+  subsection with curl example + response shape +
+  200-input cap.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.68.0] — 2026-05-08
 
 ### Added

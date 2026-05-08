@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.69 (Bulk scan-submit)
+
+- ✅ **Bulk scan-submit endpoint + dashboard panel** —
+  v1.69 chunk 1. POST /scans/bulk capped at 200
+  inputs; partial-failure response keeps successful
+  Submits, reports failed inputs by index. Textarea
+  panel shares plugin + port with single-submit
+  form. 5 new tests.
+
 ### v1.68 (Plugin-list autocomplete UI)
 
 - ✅ **Plugin-list autocomplete UI** — v1.68 chunk 1.

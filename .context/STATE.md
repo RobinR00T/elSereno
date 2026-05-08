@@ -1,36 +1,45 @@
 ---
-phase: v1.68-closed
-status: v1.16-v1.27 published; v1.28-v1.68 tags pending push
+phase: v1.69-closed
+status: v1.16-v1.27 published; v1.28-v1.69 tags pending push
 last-updated: 2026-05-08
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.68 cycle closed on `main`** (1 chunk +
-close). Adds plugin-list autocomplete to the scan-
-submit form via a native HTML `<datalist>` populated
-from `/api/v1/plugins` on page boot. Discoverability
-win; multi-token autocomplete after a comma deferred
-(would need a tokenizing chip widget). 4 new test
-markers.
+**Phase**: **v1.69 cycle closed on `main`** (1 chunk +
+close). Adds bulk scan-submit: POST /api/v1/scans/bulk
+accepts up to 200 inputs in one call with shared
+plugins + default port. Partial-failure response
+keeps successful Submits, reports failed inputs by
+index. Dashboard "Bulk…" toggle reveals a textarea
+panel sharing the form's plugin + port. 5 new tests
++ 6 new dashboard markers.
 
-Pre-existing `make sec` failures from new stdlib
-vulndb entries (GO-2026-4971, GO-2026-4918) on
-go1.26.2 — v1.68 introduces no new vulnerable
-callsites; operator upgrades Go toolchain.
+Snapshot: `.context/snapshots/v1.69.0-bulk-submit.md`.
 
-Snapshot: `.context/snapshots/v1.68.0-plugin-autocomplete.md`.
+**v1.69 chunks landed (in-flight)**:
+- 1 `2d5906c` — bulkSubmitScan handler + 200-input
+  cap + dashboard textarea panel + INSTALL.md
+  curl example + 5 new tests.
 
-**v1.68 chunks landed (in-flight)**:
-- 1 `da38143` — dashboard.go datalist + JS loader +
-  INSTALL.md note + 4 new test markers.
+**v1.68 cycle (closed, snapshot available)**:
+Plugin-list autocomplete UI (native <datalist>).
+1 chunk + close: `da38143`, `92a601d`. Snapshot:
+`.context/snapshots/v1.68.0-plugin-autocomplete.md`.
 
 **v1.67 cycle (closed, snapshot available)**:
 DBStore persistence for findings_by_plugin
 (migration 00006). 1 chunk + close: `bd804e7`,
 `0d06755`. Snapshot:
 `.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
+
+**Pre-existing govulncheck failures**: stdlib
+vulndb picked up GO-2026-4971 + GO-2026-4918 on
+go1.26.2 (fixed in 1.26.3). Pre-existing code
+paths only; v1.68 / v1.69 introduce no new
+vulnerable callsites. Operator upgrades Go
+toolchain in CI/build.
 
 **v1.66 cycle (closed, snapshot available)**:
 Per-plugin findings breakdown. 1 chunk + close:
@@ -42,35 +51,12 @@ scan_stats_progress SSE event with per-job throttle.
 1 chunk + close: `b7f8158`, `4fa625d`. Snapshot:
 `.context/snapshots/v1.65.0-scan-stats-progress.md`.
 
-**v1.64 cycle (closed, snapshot available)**:
-Multi-plugin per scan Job. 1 chunk + close:
-`6bb77cd`, `43dba3f`. Snapshot:
-`.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
-
-**v1.63 cycle (closed, snapshot available)**:
-scan_state_change SSE event + BroadcastingStore. 1
-chunk + close: `0363194`, `69c636d`. Snapshot:
-`.context/snapshots/v1.63.0-scan-sse-event.md`.
-
-**v1.62 cycle (closed, snapshot available)**:
-Dashboard scan-jobs panel + 2-tier polling. 1 chunk
-+ close: `83e35f0`, `f99e1ee`. Snapshot:
-`.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
-
-**v1.61 cycle (closed, snapshot available)**:
-Real scan runner + serve --scan-store flag. 1 chunk
-+ close: `08238d1`, `39f6036`. Snapshot:
-`.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
-
-**v1.60 cycle (closed, snapshot available)**:
-Postgres-backed scan-job Store. 1 chunk + close:
-`b51a1be`, `cd2e2de`. Snapshot:
-`.context/snapshots/v1.60.0-scan-store-postgres.md`.
-
-**v1.59 cycle (closed, snapshot available)**:
-Scan-job Worker + JobRunner + Pool + Cancel. 1
-chunk + close: `f03d099`, `4a8a4c6`. Snapshot:
-`.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
+**v1.58 → v1.65 cycles** (closed; per-cycle snapshots
+in `.context/snapshots/`):
+dashboard scan-orchestration feature line —
+v1.58 shell + v1.59 worker + v1.60 DB store +
+v1.61 runner + v1.62 panel + v1.63 state-SSE +
+v1.64 multi-plugin + v1.65 progress-SSE.
 
 **v1.58 cycle (closed, snapshot available)**:
 Dashboard scan-orchestration shell. Closes v1.50 F.

@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-08 — v1.69 (chunk 1) — **Bulk scan-submit
+  endpoint + dashboard panel.** POST /scans/bulk with
+  capped-200 inputs; partial-failure response. Textarea
+  UI shares plugin + port with single-submit form.
+  5 new tests. Snapshot:
+  `.context/snapshots/v1.69.0-bulk-submit.md`.
+
 - 2026-05-08 — v1.68 (chunk 1) — **Plugin-list
   autocomplete on the scan-submit form.** Native
   <datalist> populated from /api/v1/plugins on page
