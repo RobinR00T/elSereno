@@ -1,27 +1,36 @@
 ---
-phase: v1.67-closed
-status: v1.16-v1.27 published; v1.28-v1.67 tags pending push
-last-updated: 2026-05-06
+phase: v1.68-closed
+status: v1.16-v1.27 published; v1.28-v1.68 tags pending push
+last-updated: 2026-05-08
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.67 cycle closed on `main`** (1 chunk +
-close). Closes the v1.66 honest-scope gap: the
-per-plugin findings breakdown now persists across
-serve restarts in db-store mode. Migration 00006 adds
-a JSONB `findings_by_plugin` column on `scan_jobs`.
-DBStore round-trips the column via JSON
-encode/decode; nil/empty maps land as '{}' so the
-NOT NULL constraint is never violated. 4 new tests.
+**Phase**: **v1.68 cycle closed on `main`** (1 chunk +
+close). Adds plugin-list autocomplete to the scan-
+submit form via a native HTML `<datalist>` populated
+from `/api/v1/plugins` on page boot. Discoverability
+win; multi-token autocomplete after a comma deferred
+(would need a tokenizing chip widget). 4 new test
+markers.
 
-Snapshot: `.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
+Pre-existing `make sec` failures from new stdlib
+vulndb entries (GO-2026-4971, GO-2026-4918) on
+go1.26.2 — v1.68 introduces no new vulnerable
+callsites; operator upgrades Go toolchain.
 
-**v1.67 chunks landed (in-flight)**:
-- 1 `bd804e7` — migration 00006 + DBStore changes +
-  test fixture migration + INSTALL.md update +
-  4 new tests.
+Snapshot: `.context/snapshots/v1.68.0-plugin-autocomplete.md`.
+
+**v1.68 chunks landed (in-flight)**:
+- 1 `da38143` — dashboard.go datalist + JS loader +
+  INSTALL.md note + 4 new test markers.
+
+**v1.67 cycle (closed, snapshot available)**:
+DBStore persistence for findings_by_plugin
+(migration 00006). 1 chunk + close: `bd804e7`,
+`0d06755`. Snapshot:
+`.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
 
 **v1.66 cycle (closed, snapshot available)**:
 Per-plugin findings breakdown. 1 chunk + close:

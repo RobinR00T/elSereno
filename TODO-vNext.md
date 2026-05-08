@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.68 (Plugin-list autocomplete UI)
+
+- ✅ **Plugin-list autocomplete UI** — v1.68 chunk 1.
+  Native <datalist> on the scan-submit plugin field,
+  populated from /api/v1/plugins on page boot.
+  Discoverability win for new operators. Multi-token
+  after a comma deferred (needs tokenizing chip
+  widget). 4 new test markers.
+
 ### v1.67 (DBStore findings_by_plugin column)
 
 - ✅ **DBStore findings_by_plugin column** — v1.67

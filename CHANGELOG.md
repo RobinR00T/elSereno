@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.68.0] — 2026-05-08
+
+### Added
+
+- **Plugin-list autocomplete on the scan-submit
+  form.** The plugin field is now backed by a
+  native `<datalist>` populated from
+  `/api/v1/plugins` on page boot. Click the field
+  to see the full registered-plugin set with
+  descriptions + default ports. Typing a prefix
+  narrows.
+- `loadPluginDatalist()` JS helper fetches and
+  populates once on dashboard load. Best-effort:
+  503 / network failure leaves the datalist empty
+  and the input falls back to free text.
+
+### Tests
+
+`+4 markers` on `TestDashboard_ContainsScanPanel`.
+
+### Documentation
+
+- INSTALL.md gains an "Autocomplete (v1.68+)"
+  subsection under Plugin selection.
+
+### Honest scope
+
+- **Multi-token autocomplete after a comma** is
+  NOT supported by `<datalist>`. A tokenizing chip
+  widget is deferred. The dropdown still serves as
+  the discoverability aid for the first plugin
+  name.
+- **`make sec` pre-existing failures**: govulncheck
+  DB picked up new stdlib entries (GO-2026-4971,
+  GO-2026-4918) against go1.26.2 (fixed in
+  go1.26.3). Pre-existing code paths only — v1.68
+  introduces no new vulnerable callsites. Operators
+  should upgrade the Go toolchain in CI/build to
+  clear.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.67.0] — 2026-05-06
 
 ### Added
