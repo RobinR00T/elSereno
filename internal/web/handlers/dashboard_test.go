@@ -44,6 +44,18 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function bulkSubmitScan`,
 		`function toggleBulkPanel`,
 		`/api/v1/scans/bulk`,
+		// v1.72: scheduled-scans panel + helpers.
+		`id="schedules-panel"`,
+		`id="schedule-submit-form"`,
+		`id="schedule-name"`,
+		`id="schedule-interval"`,
+		`id="schedules-table"`,
+		`id="schedules-body"`,
+		`function renderSchedules`,
+		`function submitSchedule`,
+		`function toggleSchedule`,
+		`function deleteSchedule`,
+		`/api/v1/schedules`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

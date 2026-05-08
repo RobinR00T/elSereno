@@ -411,9 +411,17 @@ deferred).
 
 **Scheduled scans (v1.70+)**: save a Job template that fires
 automatically on a fixed interval. Useful for "scan my fleet
-every 6 hours" continuous-monitoring workflows. v1.70 ships
-the REST API + in-memory store + Scheduler goroutine; the
-dashboard UI lands in v1.72 (curl-only for now).
+every 6 hours" continuous-monitoring workflows.
+
+**Dashboard panel (v1.72+)**: open the dashboard and use the
+"Scheduled scans" section. Create form takes name + input +
+plugin(s) + interval (60s..7d). The table lists every saved
+schedule with Enable/Disable toggle + Delete button. Delete
+prompts for confirmation. The intervals column renders
+human-friendly labels (`60` → `1m`, `21600` → `6h`, `86400`
+→ `1d`).
+
+**curl path still works** (operator scripts / CI):
 
 ```sh
 # Create:

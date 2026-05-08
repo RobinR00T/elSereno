@@ -493,6 +493,53 @@ const overviewHTML = `<!doctype html>
       </table>
     </section>
 
+    <!-- v1.72: scheduled scans. Saved Job templates that
+         fire automatically on a fixed interval. -->
+    <section class="panel" id="schedules-panel">
+      <h2>Scheduled scans <span class="sub">v1.70+ · /api/v1/schedules</span></h2>
+      <div class="sub">
+        Saved Job templates that fire on an interval.
+        Useful for "scan my fleet every 6h" workflows.
+        Backed by either MemoryScheduleStore
+        (--scan-store=memory; lost on restart) or
+        DBScheduleStore (--scan-store=db; survives
+        restart, requires migration 00007).
+      </div>
+      <form id="schedule-submit-form" onsubmit="return submitSchedule(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
+        <label>name:
+          <input type="text" id="schedule-name" placeholder="every-6h" size="20" required />
+        </label>
+        <label>input:
+          <input type="text" id="schedule-input" placeholder="list:fleet.txt" size="32" required />
+        </label>
+        <label>plugin(s):
+          <input type="text" id="schedule-plugin" placeholder="modbus,s7  (blank = all)" size="22"
+            list="scan-plugin-options" autocomplete="off" />
+        </label>
+        <label>interval (s):
+          <input type="number" id="schedule-interval" min="60" max="604800" value="3600" size="8" />
+        </label>
+        <button type="submit">Create</button>
+        <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
+      </form>
+      <table id="schedules-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Input</th>
+            <th>Plugins</th>
+            <th>Interval</th>
+            <th>State</th>
+            <th>Last fired</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="schedules-body">
+          <tr class="empty"><td colspan="7">loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
     <section class="panel">
       <h2>Reload cadence <span class="sub">v1.19+ · proxy_allowlist_reload · last 7 days</span></h2>
       <div class="sub">
@@ -1105,12 +1152,158 @@ const overviewHTML = `<!doctype html>
     });
   }
 
+  // ---- v1.72: scheduled-scans panel (CRUD + toggles) ----
+
+  // Polling cadence for the schedules table. Schedules
+  // change rarely (operator-driven); a 30s tick is plenty
+  // and doesn't hammer the API.
+  var schedulesPollTimer = null;
+  function scheduleSchedulesPoll(delayMs) {
+    if (schedulesPollTimer) clearTimeout(schedulesPollTimer);
+    schedulesPollTimer = setTimeout(renderSchedules, delayMs);
+  }
+  function renderSchedules() {
+    fetch("/api/v1/schedules", {credentials: "same-origin"})
+      .then(function (r) {
+        if (r.status === 503) {
+          return Promise.reject(new Error("scan orchestration disabled (start serve with --scan-store=memory or =db)"));
+        }
+        if (!r.ok) {
+          return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+        }
+        return r.json();
+      })
+      .then(function (res) {
+        var rows = (res && res.data) || [];
+        var body = document.getElementById("schedules-body");
+        if (!body) return;
+        if (rows.length === 0) {
+          body.innerHTML = '<tr class="empty"><td colspan="7">no schedules — create one above</td></tr>';
+          scheduleSchedulesPoll(30000);
+          return;
+        }
+        body.innerHTML = rows.map(function (s) {
+          var plugins = (s.template && s.template.plugins || []).join(",") || "—";
+          var intervalDisplay = humanInterval(s.interval_seconds);
+          var stateLabel = s.enabled ? "enabled" : "disabled";
+          var lastFired = s.last_fired_at ? new Date(s.last_fired_at).toLocaleString() : "never";
+          var toggleLabel = s.enabled ? "Disable" : "Enable";
+          var toggleAction = s.enabled ? "disable" : "enable";
+          var action =
+            '<button type="button" data-sched-id="' + escAttr(s.id) +
+            '" data-sched-action="' + toggleAction +
+            '" onclick="toggleSchedule(this.dataset.schedId, this.dataset.schedAction)">' +
+            toggleLabel + '</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
+          return '<tr data-sched-id="' + escAttr(s.id) + '">' +
+            '<td>' + escText(s.name || "") + '</td>' +
+            '<td><code>' + escText((s.template && s.template.input) || "") + '</code></td>' +
+            '<td><code>' + escText(plugins) + '</code></td>' +
+            '<td>' + escText(intervalDisplay) + '</td>' +
+            '<td><code class="state-' + escAttr(stateLabel) + '">' + escText(stateLabel) + '</code></td>' +
+            '<td>' + escText(lastFired) + '</td>' +
+            '<td>' + action + '</td>' +
+            '</tr>';
+        }).join("");
+        scheduleSchedulesPoll(30000);
+      })
+      .catch(function (e) {
+        var body = document.getElementById("schedules-body");
+        if (body) body.innerHTML = '<tr class="empty"><td colspan="7">' + escText(e.message) + '</td></tr>';
+        scheduleSchedulesPoll(60000);
+      });
+  }
+  // humanInterval renders seconds as a human-friendly string.
+  // 60 → "1m", 3600 → "1h", 86400 → "1d", and so on. Keeps
+  // the table column narrow.
+  function humanInterval(secs) {
+    if (!secs) return "—";
+    if (secs % 86400 === 0) return (secs / 86400) + "d";
+    if (secs % 3600 === 0) return (secs / 3600) + "h";
+    if (secs % 60 === 0) return (secs / 60) + "m";
+    return secs + "s";
+  }
+  function submitSchedule(ev) {
+    if (ev) ev.preventDefault();
+    var name = (document.getElementById("schedule-name") || {}).value || "";
+    var input = (document.getElementById("schedule-input") || {}).value || "";
+    var pluginRaw = (document.getElementById("schedule-plugin") || {}).value || "";
+    var intervalRaw = (document.getElementById("schedule-interval") || {}).value || "3600";
+    var status = document.getElementById("schedule-submit-status");
+    var interval = parseInt(intervalRaw, 10);
+    if (!isFinite(interval) || interval < 60) interval = 60;
+    if (interval > 604800) interval = 604800;
+    var plugins = pluginRaw.split(",").map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+    var body = JSON.stringify({
+      name: name,
+      template: { input: input, plugins: plugins },
+      interval_seconds: interval
+    });
+    if (status) status.textContent = "creating…";
+    fetch("/api/v1/schedules", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: body,
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var s = (res && res.data) || {};
+      if (status) status.textContent = "created · " + (s.id || "").slice(0, 8);
+      // Clear inputs for the next entry.
+      var nameEl = document.getElementById("schedule-name");
+      var inputEl = document.getElementById("schedule-input");
+      if (nameEl) nameEl.value = "";
+      if (inputEl) inputEl.value = "";
+      renderSchedules();
+    }).catch(function (e) {
+      if (status) status.textContent = "error: " + e.message;
+    });
+    return false;
+  }
+  function toggleSchedule(id, action) {
+    if (!id || (action !== "enable" && action !== "disable")) return;
+    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/" + action, {
+      method: "POST",
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      renderSchedules();
+    }).catch(function (e) {
+      var body = document.getElementById("schedules-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="7">toggle failed: ' + escText(e.message) + '</td></tr>';
+    });
+  }
+  function deleteSchedule(id) {
+    if (!id) return;
+    if (!confirm("Delete schedule? This cannot be undone.")) return;
+    fetch("/api/v1/schedules/" + encodeURIComponent(id), {
+      method: "DELETE",
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok && r.status !== 204) {
+        return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      }
+      renderSchedules();
+    }).catch(function (e) {
+      var body = document.getElementById("schedules-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="7">delete failed: ' + escText(e.message) + '</td></tr>';
+    });
+  }
+
   // Expose cancelScan + submitScan + bulk helpers as page
   // globals so the inline onclick + onsubmit handlers find them.
   window.cancelScan = cancelScan;
   window.submitScan = submitScan;
   window.toggleBulkPanel = toggleBulkPanel;
   window.bulkSubmitScan = bulkSubmitScan;
+  // v1.72 schedule helpers.
+  window.submitSchedule = submitSchedule;
+  window.toggleSchedule = toggleSchedule;
+  window.deleteSchedule = deleteSchedule;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
@@ -1146,6 +1339,7 @@ const overviewHTML = `<!doctype html>
   // Initial load.
   renderTriage(); renderFindings(); renderRuns(); refreshAudit(); renderReloadCadence();
   renderScans();
+  renderSchedules();
 
   // Re-fetch the DB-backed panels on SSE signals so the page
   // reacts to live scans without a full reload. We debounce by
