@@ -56,6 +56,11 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function toggleSchedule`,
 		`function deleteSchedule`,
 		`/api/v1/schedules`,
+		// v1.73: cron cadence mode toggle.
+		`id="schedule-cadence-mode"`,
+		`id="schedule-cron"`,
+		`function onScheduleCadenceModeChange`,
+		`cron_expr`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

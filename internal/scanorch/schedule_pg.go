@@ -30,48 +30,40 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 // scheduleColumns is the column list returned by every Get /
 // List query. Single source of truth for the SELECT projection
 // + the rowScanner.
+//
+// v1.73+: includes cron_expr.
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
-interval_seconds, enabled, operator, created_at, last_fired_at`
+interval_seconds, cron_expr, enabled, operator, created_at, last_fired_at`
 
-// Create inserts a new schedule.
+// Create inserts a new schedule. Validation + cadence
+// resolution shares buildScheduleFromRequest with
+// MemoryScheduleStore so the rules are a single source of
+// truth (including the v1.73+ cron_expr alternative).
 func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest, operator string) (ScanSchedule, error) {
-	if req.Name == "" {
-		return ScanSchedule{}, ErrScheduleNameRequired
-	}
-	if req.Template.Input == "" {
-		return ScanSchedule{}, ErrScheduleTemplateInputRequired
-	}
-	id, err := generateID()
+	sched, err := buildScheduleFromRequest(req, operator)
 	if err != nil {
 		return ScanSchedule{}, err
 	}
-	interval := clampInterval(req.IntervalSeconds)
-	now := time.Now().UTC().Truncate(time.Microsecond)
-	plugins := req.Template.Plugins
+	plugins := sched.Template.Plugins
 	if plugins == nil {
 		plugins = []string{}
 	}
 	const sql = `
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
-   interval_seconds, enabled, operator, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8)`
+   interval_seconds, cron_expr, enabled, operator, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)`
 	if _, err := s.q.Exec(ctx, sql,
-		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
-		interval, operator, now,
+		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
+		sched.IntervalSeconds, sched.CronExpr, operator, sched.CreatedAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
-	return ScanSchedule{
-		ID:              id,
-		Name:            req.Name,
-		Template:        SubmitRequest{Input: req.Template.Input, Plugins: append([]string(nil), plugins...), DefaultPort: req.Template.DefaultPort},
-		IntervalSeconds: interval,
-		Enabled:         true,
-		Operator:        operator,
-		CreatedAt:       now,
-	}, nil
+	// Defensive copy of plugins for the returned struct so the
+	// caller's mutation can't alias into the persisted row.
+	sched.Template.Plugins = append([]string(nil), plugins...)
+	return sched, nil
 }
 
 // Get returns the schedule by ID.
@@ -150,6 +142,11 @@ func (s *DBScheduleStore) SetEnabled(ctx context.Context, id string, enabled boo
 }
 
 // scanSchedule decodes a row into a ScanSchedule.
+//
+// v1.73+: cron_expr column joins the projection. The mutually-
+// exclusive XOR check at the SQL level guarantees exactly one
+// of interval_seconds (>= 60) or cron_expr (non-empty) is set,
+// so the Go-side IsDue routes correctly without re-validating.
 func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	var (
 		s                 ScanSchedule
@@ -161,7 +158,7 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	if err := rows.Scan(
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
-		&s.IntervalSeconds, &s.Enabled, &s.Operator,
+		&s.IntervalSeconds, &s.CronExpr, &s.Enabled, &s.Operator,
 		&s.CreatedAt, &lastFiredAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)

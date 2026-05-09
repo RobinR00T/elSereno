@@ -410,8 +410,9 @@ not supported by `<datalist>` (a smarter tokenizing widget is
 deferred).
 
 **Scheduled scans (v1.70+)**: save a Job template that fires
-automatically on a fixed interval. Useful for "scan my fleet
-every 6 hours" continuous-monitoring workflows.
+automatically on a fixed interval (v1.70) or cron expression
+(v1.73+). Useful for "scan my fleet every 6 hours" or "every
+weekday at 09:00" continuous-monitoring workflows.
 
 **Dashboard panel (v1.72+)**: open the dashboard and use the
 "Scheduled scans" section. Create form takes name + input +
@@ -447,6 +448,37 @@ curl -X DELETE http://127.0.0.1:8787/api/v1/schedules/{id}
 [10s, 5min]); a schedule whose `(LastFiredAt + IntervalSeconds)`
 has passed fires on the next tick. Never-fired schedules fire
 immediately.
+
+**Cadence modes (v1.73+)**: a schedule chooses between
+**interval** (every N seconds) or **cron** (5-field
+expression). Exactly one is set per schedule:
+
+| Mode      | Field             | Example                   |
+|-----------|-------------------|---------------------------|
+| interval  | `interval_seconds` | `21600` (every 6 h)      |
+| cron      | `cron_expr`        | `0 2 * * *` (daily 02:00) |
+
+The cron parser supports the standard 5-field syntax:
+
+  - `*` (any), `N` (single), `N,M,...` (comma list),
+    `N-M` (range), `*/S` (step), `N-M/S` (stepped range).
+  - Day-of-month + day-of-week use Unix-cron OR semantics
+    when both are restricted.
+  - **Not supported**: named shortcuts (`@daily` etc.),
+    named months/weekdays (JAN..DEC, SUN..SAT),
+    last-of-month / weekday-of-month.
+
+```sh
+# Cron-based schedule:
+curl -X POST http://127.0.0.1:8787/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"name":"weekday-am","template":{"input":"list:fleet.txt","plugins":["modbus"]},"cron_expr":"0 9 * * 1-5"}'
+```
+
+The dashboard form has a cadence-mode dropdown that toggles
+between an "interval (s)" number input and a "cron" text input.
+Submitting both → 400; submitting neither → 400.
 
 **Persistence (v1.71+)**: the schedule store is automatically
 chosen to match `--scan-store`:

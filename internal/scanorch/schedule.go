@@ -26,8 +26,14 @@ type ScanSchedule struct {
 	// Template is the SubmitRequest body fired each interval.
 	Template SubmitRequest `json:"template"`
 	// IntervalSeconds is the minimum delay between two
-	// firings of this schedule. Clamped to [60s, 7d].
-	IntervalSeconds int `json:"interval_seconds"`
+	// firings of this schedule. Clamped to [60s, 7d]. Set to
+	// 0 (zero value) when CronExpr is in use.
+	IntervalSeconds int `json:"interval_seconds,omitempty"`
+	// CronExpr (v1.73+) is a 5-field cron expression
+	// alternative to IntervalSeconds. Empty when interval-
+	// based. Mutually exclusive with IntervalSeconds —
+	// exactly one of the two is non-empty per schedule.
+	CronExpr string `json:"cron_expr,omitempty"`
 	// Enabled is a soft kill-switch. False schedules stay in
 	// the store but the Scheduler skips them. Operators
 	// disable instead of delete to preserve history.
@@ -46,10 +52,17 @@ type ScanSchedule struct {
 // CreateScheduleRequest is the dashboard's request body. The
 // store generates ID + CreatedAt; everything else comes from
 // the operator.
+//
+// **Cadence (v1.73+)**: exactly one of IntervalSeconds or
+// CronExpr must be non-zero/non-empty. Both set → error;
+// neither set → ErrScheduleCadenceRequired. CronExpr passes
+// through ParseCron at Create time so a bad expression
+// fails fast instead of at the next tick.
 type CreateScheduleRequest struct {
 	Name            string        `json:"name"`
 	Template        SubmitRequest `json:"template"`
-	IntervalSeconds int           `json:"interval_seconds"`
+	IntervalSeconds int           `json:"interval_seconds,omitempty"`
+	CronExpr        string        `json:"cron_expr,omitempty"`
 }
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
@@ -72,6 +85,14 @@ var (
 	// ErrScheduleNotFound is returned by Get / Delete when no
 	// schedule has the requested ID.
 	ErrScheduleNotFound = errors.New("scanorch: schedule not found")
+	// ErrScheduleCadenceRequired (v1.73+) means
+	// CreateScheduleRequest had neither IntervalSeconds nor
+	// CronExpr set.
+	ErrScheduleCadenceRequired = errors.New("scanorch: schedule must specify either interval_seconds or cron_expr")
+	// ErrScheduleCadenceConflict (v1.73+) means
+	// CreateScheduleRequest set both IntervalSeconds AND
+	// CronExpr — ambiguous.
+	ErrScheduleCadenceConflict = errors.New("scanorch: schedule cannot specify both interval_seconds and cron_expr")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -105,30 +126,67 @@ func NewMemoryScheduleStore() *MemoryScheduleStore {
 
 // Create validates + clamps + stores.
 func (s *MemoryScheduleStore) Create(_ context.Context, req CreateScheduleRequest, operator string) (ScanSchedule, error) {
+	sched, err := buildScheduleFromRequest(req, operator)
+	if err != nil {
+		return ScanSchedule{}, err
+	}
+	s.mu.Lock()
+	s.schedules[sched.ID] = sched
+	s.mu.Unlock()
+	return sched, nil
+}
+
+// buildScheduleFromRequest validates the request + applies
+// clamping + parses the cron expression. Returned ScanSchedule
+// is ready to persist (ID generated, CreatedAt stamped). Used
+// by both MemoryScheduleStore and DBScheduleStore so the
+// validation rules are a single source of truth.
+//
+// Validation order (matters for the operator's error message):
+//
+//  1. Name non-empty.
+//  2. Template input non-empty.
+//  3. Cadence specified (exactly one of interval / cron).
+//  4. Cron expression parses (defer cron parse until cadence
+//     is settled to avoid noisy errors).
+func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanSchedule, error) {
 	if req.Name == "" {
 		return ScanSchedule{}, ErrScheduleNameRequired
 	}
 	if req.Template.Input == "" {
 		return ScanSchedule{}, ErrScheduleTemplateInputRequired
 	}
+	hasInterval := req.IntervalSeconds > 0
+	hasCron := req.CronExpr != ""
+	switch {
+	case hasInterval && hasCron:
+		return ScanSchedule{}, ErrScheduleCadenceConflict
+	case !hasInterval && !hasCron:
+		return ScanSchedule{}, ErrScheduleCadenceRequired
+	}
+	if hasCron {
+		if _, err := ParseCron(req.CronExpr); err != nil {
+			return ScanSchedule{}, err
+		}
+	}
 	id, err := generateID()
 	if err != nil {
 		return ScanSchedule{}, err
 	}
-	interval := clampInterval(req.IntervalSeconds)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	sched := ScanSchedule{
-		ID:              id,
-		Name:            req.Name,
-		Template:        req.Template,
-		IntervalSeconds: interval,
-		Enabled:         true,
-		Operator:        operator,
-		CreatedAt:       now,
+		ID:        id,
+		Name:      req.Name,
+		Template:  req.Template,
+		Enabled:   true,
+		Operator:  operator,
+		CreatedAt: now,
 	}
-	s.mu.Lock()
-	s.schedules[id] = sched
-	s.mu.Unlock()
+	if hasInterval {
+		sched.IntervalSeconds = clampInterval(req.IntervalSeconds)
+	} else {
+		sched.CronExpr = req.CronExpr
+	}
 	return sched, nil
 }
 
@@ -222,16 +280,50 @@ func sortSchedulesByName(s []ScanSchedule) {
 }
 
 // IsDue reports whether the schedule should fire at `now`.
-// Returns false if disabled, never-fired schedules return
-// true (fire immediately on the next tick after creation).
+// Returns false if disabled. v1.73+: cron-based schedules
+// compute the next-fire-time via CronExpr.Next(LastFiredAt or
+// CreatedAt) and check now >= that. Interval-based schedules
+// keep the v1.70 behaviour.
+//
+// Never-fired schedules:
+//   - Interval-based: fire on the next tick (eager).
+//   - Cron-based: fire when the cron schedule's next-after-
+//     CreatedAt has passed. Operators creating "0 2 * * *"
+//     at 13:00 don't get an immediate fire — they wait for
+//     the next 02:00.
 func (s ScanSchedule) IsDue(now time.Time) bool {
 	if !s.Enabled {
 		return false
+	}
+	if s.CronExpr != "" {
+		return s.cronIsDue(now)
 	}
 	if s.LastFiredAt.IsZero() {
 		return true
 	}
 	return now.Sub(s.LastFiredAt) >= time.Duration(s.IntervalSeconds)*time.Second
+}
+
+// cronIsDue handles the v1.73+ cron path. Compares now against
+// CronExpr.Next(anchor) where anchor is LastFiredAt or
+// CreatedAt for never-fired schedules. A cron parse error
+// here is fatal — should have been caught at Create time, so
+// this is defence in depth (returns false to skip the
+// schedule rather than panic).
+func (s ScanSchedule) cronIsDue(now time.Time) bool {
+	c, err := ParseCron(s.CronExpr)
+	if err != nil {
+		return false
+	}
+	anchor := s.LastFiredAt
+	if anchor.IsZero() {
+		anchor = s.CreatedAt
+	}
+	next, err := c.Next(anchor)
+	if err != nil {
+		return false
+	}
+	return !now.Before(next)
 }
 
 // Compile-time guard.

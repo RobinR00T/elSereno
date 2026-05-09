@@ -516,8 +516,17 @@ const overviewHTML = `<!doctype html>
           <input type="text" id="schedule-plugin" placeholder="modbus,s7  (blank = all)" size="22"
             list="scan-plugin-options" autocomplete="off" />
         </label>
-        <label>interval (s):
+        <label>cadence:
+          <select id="schedule-cadence-mode" onchange="onScheduleCadenceModeChange()">
+            <option value="interval" selected>interval</option>
+            <option value="cron">cron</option>
+          </select>
+        </label>
+        <label id="schedule-interval-label">interval (s):
           <input type="number" id="schedule-interval" min="60" max="604800" value="3600" size="8" />
+        </label>
+        <label id="schedule-cron-label" style="display: none;">cron:
+          <input type="text" id="schedule-cron" placeholder="0 2 * * *" size="20" />
         </label>
         <button type="submit">Create</button>
         <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
@@ -1184,7 +1193,13 @@ const overviewHTML = `<!doctype html>
         }
         body.innerHTML = rows.map(function (s) {
           var plugins = (s.template && s.template.plugins || []).join(",") || "—";
-          var intervalDisplay = humanInterval(s.interval_seconds);
+          // v1.73: cron-based schedules show the raw cron
+          // expression in the Interval column rather than a
+          // human duration. Operator can read both shapes at
+          // a glance.
+          var intervalDisplay = s.cron_expr
+            ? "cron: " + s.cron_expr
+            : humanInterval(s.interval_seconds);
           var stateLabel = s.enabled ? "enabled" : "disabled";
           var lastFired = s.last_fired_at ? new Date(s.last_fired_at).toLocaleString() : "never";
           var toggleLabel = s.enabled ? "Disable" : "Enable";
@@ -1224,23 +1239,53 @@ const overviewHTML = `<!doctype html>
     if (secs % 60 === 0) return (secs / 60) + "m";
     return secs + "s";
   }
+  // v1.73: cadence-mode toggle. interval ↔ cron — only one
+  // form field is visible + submitted. The backend rejects
+  // both-set; the UI prevents that by hiding the inactive
+  // input.
+  function onScheduleCadenceModeChange() {
+    var mode = (document.getElementById("schedule-cadence-mode") || {}).value || "interval";
+    var intervalLabel = document.getElementById("schedule-interval-label");
+    var cronLabel = document.getElementById("schedule-cron-label");
+    if (intervalLabel && cronLabel) {
+      if (mode === "cron") {
+        intervalLabel.style.display = "none";
+        cronLabel.style.display = "";
+      } else {
+        intervalLabel.style.display = "";
+        cronLabel.style.display = "none";
+      }
+    }
+  }
   function submitSchedule(ev) {
     if (ev) ev.preventDefault();
     var name = (document.getElementById("schedule-name") || {}).value || "";
     var input = (document.getElementById("schedule-input") || {}).value || "";
     var pluginRaw = (document.getElementById("schedule-plugin") || {}).value || "";
-    var intervalRaw = (document.getElementById("schedule-interval") || {}).value || "3600";
+    var mode = (document.getElementById("schedule-cadence-mode") || {}).value || "interval";
     var status = document.getElementById("schedule-submit-status");
-    var interval = parseInt(intervalRaw, 10);
-    if (!isFinite(interval) || interval < 60) interval = 60;
-    if (interval > 604800) interval = 604800;
     var plugins = pluginRaw.split(",").map(function (s) { return s.trim(); })
       .filter(function (s) { return s.length > 0; });
-    var body = JSON.stringify({
+    var payload = {
       name: name,
-      template: { input: input, plugins: plugins },
-      interval_seconds: interval
-    });
+      template: { input: input, plugins: plugins }
+    };
+    if (mode === "cron") {
+      var cron = (document.getElementById("schedule-cron") || {}).value || "";
+      cron = cron.trim();
+      if (!cron) {
+        if (status) status.textContent = "cron expression required";
+        return false;
+      }
+      payload.cron_expr = cron;
+    } else {
+      var intervalRaw = (document.getElementById("schedule-interval") || {}).value || "3600";
+      var interval = parseInt(intervalRaw, 10);
+      if (!isFinite(interval) || interval < 60) interval = 60;
+      if (interval > 604800) interval = 604800;
+      payload.interval_seconds = interval;
+    }
+    var body = JSON.stringify(payload);
     if (status) status.textContent = "creating…";
     fetch("/api/v1/schedules", {
       method: "POST",
@@ -1304,6 +1349,8 @@ const overviewHTML = `<!doctype html>
   window.submitSchedule = submitSchedule;
   window.toggleSchedule = toggleSchedule;
   window.deleteSchedule = deleteSchedule;
+  // v1.73 cadence mode toggle.
+  window.onScheduleCadenceModeChange = onScheduleCadenceModeChange;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

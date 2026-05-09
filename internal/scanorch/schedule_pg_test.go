@@ -10,8 +10,9 @@ import (
 	"local/elsereno/internal/scanorch"
 )
 
-// makeScheduleRow returns a baseline scan_schedules row map.
-// Tests override individual columns as needed.
+// makeScheduleRow returns a baseline scan_schedules row map
+// (interval-based; cron_expr empty). Tests override individual
+// columns as needed.
 func makeScheduleRow(id, name string) map[string]any {
 	return map[string]any{
 		"id":                    id,
@@ -20,6 +21,7 @@ func makeScheduleRow(id, name string) map[string]any {
 		"template_plugins":      []string{"banner"},
 		"template_default_port": int(0),
 		"interval_seconds":      int(3600),
+		"cron_expr":             "",
 		"enabled":               true,
 		"operator":              "alice",
 		"created_at":            time.Now().UTC(),
@@ -73,6 +75,73 @@ func TestDBScheduleStore_Create_TemplateInputRequired(t *testing.T) {
 	}, "alice")
 	if !errors.Is(err, scanorch.ErrScheduleTemplateInputRequired) {
 		t.Errorf("err = %v, want ErrScheduleTemplateInputRequired", err)
+	}
+}
+
+// TestDBScheduleStore_Create_CadenceRequired: neither
+// IntervalSeconds nor CronExpr → ErrScheduleCadenceRequired.
+func TestDBScheduleStore_Create_CadenceRequired(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	_, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrScheduleCadenceRequired) {
+		t.Errorf("err = %v, want ErrScheduleCadenceRequired", err)
+	}
+}
+
+// TestDBScheduleStore_Create_CadenceConflict: both set →
+// ErrScheduleCadenceConflict.
+func TestDBScheduleStore_Create_CadenceConflict(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	_, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+		CronExpr:        "* * * * *",
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrScheduleCadenceConflict) {
+		t.Errorf("err = %v, want ErrScheduleCadenceConflict", err)
+	}
+}
+
+// TestDBScheduleStore_Create_BadCron: cron parse error fails
+// fast at Create time.
+func TestDBScheduleStore_Create_BadCron(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	_, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "* * * *", // 4 fields, not 5
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrCronWrongFieldCount) {
+		t.Errorf("err = %v, want ErrCronWrongFieldCount", err)
+	}
+}
+
+// TestDBScheduleStore_Create_CronHappy: valid cron
+// expression bypasses the interval-clamp path and persists
+// the cron_expr column.
+func TestDBScheduleStore_Create_CronHappy(t *testing.T) {
+	q := &fakeQuerier{}
+	store := scanorch.NewDBScheduleStore(q)
+	sched, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "weekday-am",
+		Template: scanorch.SubmitRequest{Input: "list:t.txt"},
+		CronExpr: "0 9 * * 1-5",
+	}, "alice")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if sched.CronExpr != "0 9 * * 1-5" {
+		t.Errorf("CronExpr = %q, want '0 9 * * 1-5'", sched.CronExpr)
+	}
+	if sched.IntervalSeconds != 0 {
+		t.Errorf("IntervalSeconds = %d, want 0 for cron schedule", sched.IntervalSeconds)
+	}
+	if !strings.Contains(q.lastSQL, "cron_expr") {
+		t.Errorf("expected cron_expr in SQL: %s", q.lastSQL)
 	}
 }
 

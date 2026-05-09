@@ -128,6 +128,118 @@ func TestMemoryScheduleStore_MarkFired(t *testing.T) {
 	}
 }
 
+// TestMemoryScheduleStore_Create_CadenceRequired.
+func TestMemoryScheduleStore_Create_CadenceRequired(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	_, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrScheduleCadenceRequired) {
+		t.Errorf("err = %v, want ErrScheduleCadenceRequired", err)
+	}
+}
+
+// TestMemoryScheduleStore_Create_CadenceConflict.
+func TestMemoryScheduleStore_Create_CadenceConflict(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	_, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+		CronExpr:        "* * * * *",
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrScheduleCadenceConflict) {
+		t.Errorf("err = %v, want ErrScheduleCadenceConflict", err)
+	}
+}
+
+// TestMemoryScheduleStore_Create_CronHappy.
+func TestMemoryScheduleStore_Create_CronHappy(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "every-15m",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "*/15 * * * *",
+	}, "alice")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if sched.CronExpr != "*/15 * * * *" {
+		t.Errorf("CronExpr = %q", sched.CronExpr)
+	}
+	if sched.IntervalSeconds != 0 {
+		t.Errorf("IntervalSeconds = %d, want 0", sched.IntervalSeconds)
+	}
+}
+
+// TestMemoryScheduleStore_Create_BadCron fails fast.
+func TestMemoryScheduleStore_Create_BadCron(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	_, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "bad",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "abc * * * *",
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrCronInvalidField) {
+		t.Errorf("err = %v, want ErrCronInvalidField", err)
+	}
+}
+
+// TestScanSchedule_IsDue_Cron: "0 2 * * *" — at 02:00 same
+// day after creation, the schedule is due.
+func TestScanSchedule_IsDue_Cron(t *testing.T) {
+	created := time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)
+	sched := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 2 * * *",
+		CreatedAt: created,
+	}
+	// Before 02:00 → not due.
+	at0130 := time.Date(2026, 5, 8, 1, 30, 0, 0, time.UTC)
+	if sched.IsDue(at0130) {
+		t.Errorf("01:30 should NOT be due")
+	}
+	// At/after 02:00 → due.
+	at0200 := time.Date(2026, 5, 8, 2, 0, 0, 0, time.UTC)
+	if !sched.IsDue(at0200) {
+		t.Errorf("02:00 should be due")
+	}
+}
+
+// TestScanSchedule_IsDue_Cron_AfterFire: once fired at
+// LastFiredAt, the cron schedule waits for the next match.
+func TestScanSchedule_IsDue_Cron_AfterFire(t *testing.T) {
+	sched := scanorch.ScanSchedule{
+		Enabled:     true,
+		CronExpr:    "0 2 * * *", // daily 02:00
+		CreatedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		LastFiredAt: time.Date(2026, 5, 8, 2, 0, 0, 0, time.UTC),
+	}
+	// 5 hours later same day → next fire is tomorrow 02:00.
+	at0700 := time.Date(2026, 5, 8, 7, 0, 0, 0, time.UTC)
+	if sched.IsDue(at0700) {
+		t.Errorf("same day after fire should NOT be due")
+	}
+	// Tomorrow 02:00 → due.
+	tomorrow := time.Date(2026, 5, 9, 2, 0, 0, 0, time.UTC)
+	if !sched.IsDue(tomorrow) {
+		t.Errorf("tomorrow 02:00 should be due")
+	}
+}
+
+// TestScanSchedule_IsDue_Cron_DisabledSkips.
+func TestScanSchedule_IsDue_Cron_DisabledSkips(t *testing.T) {
+	sched := scanorch.ScanSchedule{
+		Enabled:   false,
+		CronExpr:  "* * * * *",
+		CreatedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+	if sched.IsDue(time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)) {
+		t.Errorf("disabled should never be due")
+	}
+}
+
 // TestMemoryScheduleStore_SetEnabled.
 func TestMemoryScheduleStore_SetEnabled(t *testing.T) {
 	s := scanorch.NewMemoryScheduleStore()
