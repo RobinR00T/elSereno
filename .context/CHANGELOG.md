@@ -8,6 +8,13 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-09 — v1.73 (chunk 1) — **Cron expressions
+  as alternative cadence.** Custom 5-field parser
+  (asterisk/N/comma/range/step). Migration 00008 +
+  CHECK XOR. Dashboard cadence-mode dropdown.
+  19 new tests. Snapshot:
+  `.context/snapshots/v1.73.0-cron-expressions.md`.
+
 - 2026-05-08 — v1.72 (chunk 1) — **Dashboard
   Scheduled-scans panel.** CRUD + Enable/Disable +
   Delete via fetch() against /api/v1/schedules.

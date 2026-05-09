@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.73 (Cron expressions)
+
+- ✅ **Cron expressions as alternative cadence** —
+  v1.73 chunk 1. Custom 5-field parser (asterisk/
+  numeric/comma/range/step). ScanSchedule.CronExpr
+  mutually exclusive with IntervalSeconds. Migration
+  00008 + cadence-XOR CHECK. Dashboard cadence-mode
+  dropdown. UTC-only; named shortcuts deferred. 19
+  new tests.
+
 ### v1.72 (Dashboard schedule UI panel)
 
 - ✅ **Dashboard schedule UI panel** — v1.72 chunk 1.

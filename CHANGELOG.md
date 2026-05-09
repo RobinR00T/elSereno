@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.73.0] — 2026-05-09
+
+### Added
+
+- **Cron expressions** as alternative cadence to
+  `IntervalSeconds`. `ScanSchedule.CronExpr` (5-field
+  Unix layout, e.g. `"0 9 * * 1-5"`); mutually
+  exclusive with `IntervalSeconds`.
+- `internal/scanorch/cron.go`: custom 5-field parser.
+  Supports `*`, numeric, comma list, ranges, step,
+  stepped range. DOM+DOW use Unix-cron OR semantics.
+  `Match(t)` + `Next(after)` API. 1-year walk cap →
+  `ErrCronNoMatch` for impossible expressions.
+- `CreateScheduleRequest` gains `CronExpr` field +
+  exactly-one-of validation. New sentinels
+  `ErrScheduleCadenceRequired` /
+  `ErrScheduleCadenceConflict`.
+- `buildScheduleFromRequest` helper shares
+  validation between MemoryScheduleStore +
+  DBScheduleStore.
+- Migration 00008 adds `cron_expr` column +
+  replacement CHECK enforcing cadence XOR. Pre-v1.73
+  rows satisfy the new constraint without data
+  migration.
+- Dashboard cadence-mode dropdown toggles between
+  interval and cron inputs.
+
+### Tests
+
+`+19 new` (14 cron parser + 5 schedule
+integration).
+
+### Database
+
+- **Migration 00008** is required for v1.73+
+  db-store deployments. Run `elsereno db migrate`
+  to apply.
+
+### Documentation
+
+- INSTALL.md gains a "Cadence modes (v1.73+)"
+  subsection.
+
+### Honest scope
+
+- **No named shortcuts** (`@daily` etc.) or named
+  months/weekdays (JAN..DEC, SUN..SAT). Operators
+  write canonical 5-field expressions.
+- **UTC only.** Expressions evaluate against
+  `time.Now().UTC()`; per-schedule timezone is a
+  v1.75 follow-up.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.72.0] — 2026-05-08
 
 ### Added
