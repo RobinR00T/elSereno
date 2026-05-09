@@ -271,6 +271,75 @@ func TestDBScheduleStore_SetEnabled_NotFound(t *testing.T) {
 	}
 }
 
+// TestDBScheduleStore_Update_Happy: PUT round-trip via the
+// transitionUpdateRows route on the fake.
+func TestDBScheduleStore_Update_Happy(t *testing.T) {
+	row := makeScheduleRow("abc", "renamed")
+	row["cron_expr"] = "0 9 * * 1-5"
+	row["interval_seconds"] = int(0)
+	q := &fakeQuerier{transitionUpdateRows: []map[string]any{row}}
+	store := scanorch.NewDBScheduleStore(q)
+	sched, err := store.Update(context.Background(), "abc", scanorch.UpdateScheduleRequest{
+		Name:     "renamed",
+		Template: scanorch.SubmitRequest{Input: "list:t.txt"},
+		CronExpr: "0 9 * * 1-5",
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if sched.Name != "renamed" {
+		t.Errorf("Name = %q", sched.Name)
+	}
+	if sched.CronExpr != "0 9 * * 1-5" {
+		t.Errorf("CronExpr = %q", sched.CronExpr)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(q.lastSQL), "UPDATE") {
+		t.Errorf("expected UPDATE, got: %s", q.lastSQL)
+	}
+}
+
+// TestDBScheduleStore_Update_NotFound: 0-row UPDATE-RETURNING
+// surfaces ErrScheduleNotFound.
+func TestDBScheduleStore_Update_NotFound(t *testing.T) {
+	q := &fakeQuerier{transitionUpdateRows: nil}
+	store := scanorch.NewDBScheduleStore(q)
+	_, err := store.Update(context.Background(), "missing", scanorch.UpdateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	})
+	if !errors.Is(err, scanorch.ErrScheduleNotFound) {
+		t.Errorf("err = %v, want ErrScheduleNotFound", err)
+	}
+}
+
+// TestDBScheduleStore_Update_NameRequired: validation
+// short-circuits before SQL.
+func TestDBScheduleStore_Update_NameRequired(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	_, err := store.Update(context.Background(), "abc", scanorch.UpdateScheduleRequest{
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	})
+	if !errors.Is(err, scanorch.ErrScheduleNameRequired) {
+		t.Errorf("err = %v, want ErrScheduleNameRequired", err)
+	}
+}
+
+// TestDBScheduleStore_Update_BadCron: cron parse error fails
+// fast at Update time.
+func TestDBScheduleStore_Update_BadCron(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	_, err := store.Update(context.Background(), "abc", scanorch.UpdateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "* * * *", // 4 fields
+	})
+	if !errors.Is(err, scanorch.ErrCronWrongFieldCount) {
+		t.Errorf("err = %v, want ErrCronWrongFieldCount", err)
+	}
+}
+
 // TestDBScheduleStore_SatisfiesScheduleStoreInterface.
 func TestDBScheduleStore_SatisfiesScheduleStoreInterface(_ *testing.T) {
 	var _ scanorch.ScheduleStore = scanorch.NewDBScheduleStore(&fakeQuerier{})

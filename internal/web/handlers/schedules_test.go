@@ -172,6 +172,91 @@ func TestEnableDisable(t *testing.T) {
 	}
 }
 
+// TestUpdateSchedule_Happy: PUT round-trip with a renamed
+// schedule + cadence swap.
+func TestUpdateSchedule_Happy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "old-name",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	body := []byte(`{"name":"new-name","template":{"input":"list:t.txt","plugins":["modbus"]},"cron_expr":"0 9 * * 1-5"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Data.Name != "new-name" {
+		t.Errorf("Name = %q, want new-name", resp.Data.Name)
+	}
+	if resp.Data.CronExpr != "0 9 * * 1-5" {
+		t.Errorf("CronExpr = %q", resp.Data.CronExpr)
+	}
+	if resp.Data.IntervalSeconds != 0 {
+		t.Errorf("IntervalSeconds = %d, want 0 after switching to cron", resp.Data.IntervalSeconds)
+	}
+}
+
+// TestUpdateSchedule_NotFound returns 404.
+func TestUpdateSchedule_NotFound(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"interval_seconds":60}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/nope", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestUpdateSchedule_BadCron returns 400 with the cron error.
+func TestUpdateSchedule_BadCron(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"abc * * * *"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "cron") {
+		t.Errorf("body should reference cron error: %s", rr.Body.String())
+	}
+}
+
+// TestUpdateSchedule_CadenceConflict returns 400.
+func TestUpdateSchedule_CadenceConflict(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"interval_seconds":60,"cron_expr":"* * * * *"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestSchedules_NilStoreReturns503.
 func TestSchedules_NilStoreReturns503(t *testing.T) {
 	router := newSchedRouter(nil)
@@ -182,13 +267,14 @@ func TestSchedules_NilStoreReturns503(t *testing.T) {
 		{http.MethodPost, "/api/v1/schedules"},
 		{http.MethodGet, "/api/v1/schedules"},
 		{http.MethodGet, "/api/v1/schedules/abc"},
+		{http.MethodPut, "/api/v1/schedules/abc"},
 		{http.MethodDelete, "/api/v1/schedules/abc"},
 		{http.MethodPost, "/api/v1/schedules/abc/enable"},
 		{http.MethodPost, "/api/v1/schedules/abc/disable"},
 	} {
 		t.Run(tc.verb+" "+tc.path, func(t *testing.T) {
 			var body *strings.Reader
-			if tc.verb == http.MethodPost {
+			if tc.verb == http.MethodPost || tc.verb == http.MethodPut {
 				body = strings.NewReader(`{"name":"x","template":{"input":"stdin"},"interval_seconds":60}`)
 			}
 			var req *http.Request

@@ -528,7 +528,8 @@ const overviewHTML = `<!doctype html>
         <label id="schedule-cron-label" style="display: none;">cron:
           <input type="text" id="schedule-cron" placeholder="0 2 * * *" size="20" />
         </label>
-        <button type="submit">Create</button>
+        <button type="submit" id="schedule-submit-button">Create</button>
+        <button type="button" id="schedule-cancel-button" onclick="cancelEditSchedule()" style="display: none;">Cancel</button>
         <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
       </form>
       <table id="schedules-table">
@@ -1206,6 +1207,8 @@ const overviewHTML = `<!doctype html>
           var toggleAction = s.enabled ? "disable" : "enable";
           var action =
             '<button type="button" data-sched-id="' + escAttr(s.id) +
+            '" onclick="beginEditSchedule(this.dataset.schedId)">Edit</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" data-sched-action="' + toggleAction +
             '" onclick="toggleSchedule(this.dataset.schedId, this.dataset.schedAction)">' +
             toggleLabel + '</button>' +
@@ -1257,6 +1260,75 @@ const overviewHTML = `<!doctype html>
       }
     }
   }
+  // v1.74: schedule edit-mode state. When editingScheduleID
+  // is non-empty, submitSchedule sends PUT instead of POST.
+  // beginEditSchedule populates the form + flips the button
+  // labels; cancelEditSchedule resets back to create mode.
+  var editingScheduleID = "";
+  function beginEditSchedule(id) {
+    if (!id) return;
+    fetch("/api/v1/schedules/" + encodeURIComponent(id), {
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var s = (res && res.data) || {};
+      var nameEl = document.getElementById("schedule-name");
+      var inputEl = document.getElementById("schedule-input");
+      var pluginEl = document.getElementById("schedule-plugin");
+      var modeEl = document.getElementById("schedule-cadence-mode");
+      var intervalEl = document.getElementById("schedule-interval");
+      var cronEl = document.getElementById("schedule-cron");
+      var submitBtn = document.getElementById("schedule-submit-button");
+      var cancelBtn = document.getElementById("schedule-cancel-button");
+      var status = document.getElementById("schedule-submit-status");
+      if (nameEl) nameEl.value = s.name || "";
+      if (inputEl) inputEl.value = (s.template && s.template.input) || "";
+      if (pluginEl) pluginEl.value = (s.template && s.template.plugins || []).join(",");
+      if (modeEl) {
+        modeEl.value = s.cron_expr ? "cron" : "interval";
+        onScheduleCadenceModeChange();
+      }
+      if (intervalEl) intervalEl.value = s.interval_seconds || 3600;
+      if (cronEl) cronEl.value = s.cron_expr || "";
+      if (submitBtn) submitBtn.textContent = "Update";
+      if (cancelBtn) cancelBtn.style.display = "";
+      if (status) status.textContent = "editing " + (s.id || "").slice(0, 8) + "…";
+      editingScheduleID = s.id || "";
+      // Scroll the form into view + focus the name field so
+      // the operator can immediately start editing.
+      if (nameEl) {
+        nameEl.scrollIntoView({block: "center"});
+        nameEl.focus();
+      }
+    }).catch(function (e) {
+      var status = document.getElementById("schedule-submit-status");
+      if (status) status.textContent = "edit-load failed: " + e.message;
+    });
+  }
+  function cancelEditSchedule() {
+    editingScheduleID = "";
+    var submitBtn = document.getElementById("schedule-submit-button");
+    var cancelBtn = document.getElementById("schedule-cancel-button");
+    var status = document.getElementById("schedule-submit-status");
+    if (submitBtn) submitBtn.textContent = "Create";
+    if (cancelBtn) cancelBtn.style.display = "none";
+    if (status) status.textContent = "";
+    // Clear form fields so the operator can paste a fresh
+    // create entry without leftover values.
+    ["schedule-name", "schedule-input", "schedule-plugin", "schedule-cron"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    var intervalEl = document.getElementById("schedule-interval");
+    if (intervalEl) intervalEl.value = 3600;
+    var modeEl = document.getElementById("schedule-cadence-mode");
+    if (modeEl) {
+      modeEl.value = "interval";
+      onScheduleCadenceModeChange();
+    }
+  }
   function submitSchedule(ev) {
     if (ev) ev.preventDefault();
     var name = (document.getElementById("schedule-name") || {}).value || "";
@@ -1286,9 +1358,14 @@ const overviewHTML = `<!doctype html>
       payload.interval_seconds = interval;
     }
     var body = JSON.stringify(payload);
-    if (status) status.textContent = "creating…";
-    fetch("/api/v1/schedules", {
-      method: "POST",
+    var isUpdate = editingScheduleID !== "";
+    var url = isUpdate
+      ? "/api/v1/schedules/" + encodeURIComponent(editingScheduleID)
+      : "/api/v1/schedules";
+    var method = isUpdate ? "PUT" : "POST";
+    if (status) status.textContent = isUpdate ? "updating…" : "creating…";
+    fetch(url, {
+      method: method,
       headers: {"Content-Type": "application/json"},
       body: body,
       credentials: "same-origin"
@@ -1297,12 +1374,20 @@ const overviewHTML = `<!doctype html>
       return r.json();
     }).then(function (res) {
       var s = (res && res.data) || {};
-      if (status) status.textContent = "created · " + (s.id || "").slice(0, 8);
-      // Clear inputs for the next entry.
-      var nameEl = document.getElementById("schedule-name");
-      var inputEl = document.getElementById("schedule-input");
-      if (nameEl) nameEl.value = "";
-      if (inputEl) inputEl.value = "";
+      if (status) {
+        status.textContent = (isUpdate ? "updated · " : "created · ") + (s.id || "").slice(0, 8);
+      }
+      // After update, leave edit mode + clear; after create,
+      // just clear name + input (keep plugin / interval to
+      // ease the next entry).
+      if (isUpdate) {
+        cancelEditSchedule();
+      } else {
+        var nameEl = document.getElementById("schedule-name");
+        var inputEl = document.getElementById("schedule-input");
+        if (nameEl) nameEl.value = "";
+        if (inputEl) inputEl.value = "";
+      }
       renderSchedules();
     }).catch(function (e) {
       if (status) status.textContent = "error: " + e.message;
@@ -1351,6 +1436,9 @@ const overviewHTML = `<!doctype html>
   window.deleteSchedule = deleteSchedule;
   // v1.73 cadence mode toggle.
   window.onScheduleCadenceModeChange = onScheduleCadenceModeChange;
+  // v1.74 schedule edit-mode helpers.
+  window.beginEditSchedule = beginEditSchedule;
+  window.cancelEditSchedule = cancelEditSchedule;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

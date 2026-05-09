@@ -101,6 +101,47 @@ func (s *DBScheduleStore) List(ctx context.Context) ([]ScanSchedule, error) {
 	return out, nil
 }
 
+// Update replaces the editable fields of an existing schedule.
+// Single-statement UPDATE ... RETURNING so the response
+// reflects the persisted row (last_fired_at + created_at +
+// operator + enabled survive untouched).
+//
+// The DB-level CHECK XOR (introduced in migration 00008)
+// catches any cadence violation that slipped past the Go-side
+// validation; the parameterised UPDATE binds both columns so
+// the constraint sees both values atomically.
+func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+		return ScanSchedule{}, err
+	}
+	plugins := req.Template.Plugins
+	if plugins == nil {
+		plugins = []string{}
+	}
+	// Stage the cadence on a temporary ScanSchedule so we
+	// reuse applyCadence's "reset both, set one" logic.
+	var staged ScanSchedule
+	applyCadence(&staged, req.IntervalSeconds, req.CronExpr)
+	const sql = `
+UPDATE scan_schedules
+SET name = $2, template_input = $3, template_plugins = $4,
+    template_default_port = $5, interval_seconds = $6, cron_expr = $7
+WHERE id = $1
+RETURNING ` + scheduleColumns
+	rows, err := s.q.Query(ctx, sql,
+		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
+		staged.IntervalSeconds, staged.CronExpr,
+	)
+	if err != nil {
+		return ScanSchedule{}, fmt.Errorf("scanorch: update schedule: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return ScanSchedule{}, ErrScheduleNotFound
+	}
+	return scanSchedule(rows)
+}
+
 // Delete removes the schedule.
 func (s *DBScheduleStore) Delete(ctx context.Context, id string) error {
 	tag, err := s.q.Exec(ctx, "DELETE FROM scan_schedules WHERE id = $1", id)

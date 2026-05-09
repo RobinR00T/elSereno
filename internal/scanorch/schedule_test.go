@@ -253,6 +253,116 @@ func TestMemoryScheduleStore_SetEnabled(t *testing.T) {
 	}
 }
 
+// TestMemoryScheduleStore_Update_Happy: round-trip an edit
+// that swaps the cadence from interval to cron.
+func TestMemoryScheduleStore_Update_Happy(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), newSchedReq("daily", "stdin", 86400), "alice")
+
+	updated, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:     "every-morning",
+		Template: scanorch.SubmitRequest{Input: "list:fleet.txt", Plugins: []string{"modbus"}},
+		CronExpr: "0 9 * * 1-5",
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if updated.Name != "every-morning" {
+		t.Errorf("Name = %q", updated.Name)
+	}
+	if updated.CronExpr != "0 9 * * 1-5" {
+		t.Errorf("CronExpr = %q", updated.CronExpr)
+	}
+	if updated.IntervalSeconds != 0 {
+		t.Errorf("IntervalSeconds = %d, want 0 after switching to cron",
+			updated.IntervalSeconds)
+	}
+	// Identity-preserving fields untouched.
+	if updated.ID != sched.ID {
+		t.Errorf("ID changed: %q → %q", sched.ID, updated.ID)
+	}
+	if !updated.CreatedAt.Equal(sched.CreatedAt) {
+		t.Errorf("CreatedAt changed: %v → %v", sched.CreatedAt, updated.CreatedAt)
+	}
+	if updated.Operator != sched.Operator {
+		t.Errorf("Operator changed: %q → %q", sched.Operator, updated.Operator)
+	}
+}
+
+// TestMemoryScheduleStore_Update_PreservesEnabledAndLastFired.
+func TestMemoryScheduleStore_Update_PreservesEnabledAndLastFired(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), newSchedReq("daily", "stdin", 86400), "alice")
+	// Disable + mark fired BEFORE the update.
+	_ = s.SetEnabled(context.Background(), sched.ID, false)
+	now := time.Now().UTC()
+	_ = s.MarkFired(context.Background(), sched.ID, now)
+
+	updated, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "renamed",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 600,
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if updated.Enabled {
+		t.Errorf("Enabled should be preserved (false) across Update")
+	}
+	if updated.LastFiredAt.IsZero() {
+		t.Errorf("LastFiredAt should be preserved across Update")
+	}
+}
+
+// TestMemoryScheduleStore_Update_NotFound.
+func TestMemoryScheduleStore_Update_NotFound(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	_, err := s.Update(context.Background(), "no-such", scanorch.UpdateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	})
+	if !errors.Is(err, scanorch.ErrScheduleNotFound) {
+		t.Errorf("err = %v, want ErrScheduleNotFound", err)
+	}
+}
+
+// TestMemoryScheduleStore_Update_ValidationMirrors_Create.
+func TestMemoryScheduleStore_Update_ValidationMirrors_Create(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), newSchedReq("ok", "stdin", 60), "alice")
+
+	// Empty name → ErrScheduleNameRequired.
+	_, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	})
+	if !errors.Is(err, scanorch.ErrScheduleNameRequired) {
+		t.Errorf("empty name: err = %v, want ErrScheduleNameRequired", err)
+	}
+
+	// Both cadences → conflict.
+	_, err = s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+		CronExpr:        "* * * * *",
+	})
+	if !errors.Is(err, scanorch.ErrScheduleCadenceConflict) {
+		t.Errorf("both cadences: err = %v, want ErrScheduleCadenceConflict", err)
+	}
+
+	// Bad cron → cron error.
+	_, err = s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "abc * * * *",
+	})
+	if !errors.Is(err, scanorch.ErrCronInvalidField) {
+		t.Errorf("bad cron: err = %v, want ErrCronInvalidField", err)
+	}
+}
+
 // TestScanSchedule_IsDue: never-fired schedules are due
 // immediately; recent-fired schedules wait for interval.
 func TestScanSchedule_IsDue(t *testing.T) {

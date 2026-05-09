@@ -103,6 +103,12 @@ type ScheduleStore interface {
 	Get(ctx context.Context, id string) (ScanSchedule, error)
 	List(ctx context.Context) ([]ScanSchedule, error)
 	Delete(ctx context.Context, id string) error
+	// Update (v1.74+) replaces the editable fields of an
+	// existing schedule. ID, CreatedAt, LastFiredAt, and
+	// Operator are immutable. Validation mirrors Create's
+	// rules: name + template.input non-empty; exactly one
+	// cadence; cron parses if specified.
+	Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error)
 	// MarkFired stamps LastFiredAt to now and persists. The
 	// Scheduler calls this after a successful Submit so the
 	// next tick computes the right "due" check.
@@ -110,6 +116,19 @@ type ScheduleStore interface {
 	// SetEnabled toggles the kill-switch. Disabled schedules
 	// stay in the store but the Scheduler skips them.
 	SetEnabled(ctx context.Context, id string, enabled bool) error
+}
+
+// UpdateScheduleRequest is the dashboard's edit body. Same
+// shape as CreateScheduleRequest minus the operator (immutable
+// — preserves audit trail of who created the schedule).
+//
+// Validation: same rules as Create — name + template.input
+// non-empty; exactly one cadence; cron parses if specified.
+type UpdateScheduleRequest struct {
+	Name            string        `json:"name"`
+	Template        SubmitRequest `json:"template"`
+	IntervalSeconds int           `json:"interval_seconds,omitempty"`
+	CronExpr        string        `json:"cron_expr,omitempty"`
 }
 
 // MemoryScheduleStore is the in-memory ScheduleStore. v1.70+.
@@ -150,24 +169,8 @@ func (s *MemoryScheduleStore) Create(_ context.Context, req CreateScheduleReques
 //  4. Cron expression parses (defer cron parse until cadence
 //     is settled to avoid noisy errors).
 func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanSchedule, error) {
-	if req.Name == "" {
-		return ScanSchedule{}, ErrScheduleNameRequired
-	}
-	if req.Template.Input == "" {
-		return ScanSchedule{}, ErrScheduleTemplateInputRequired
-	}
-	hasInterval := req.IntervalSeconds > 0
-	hasCron := req.CronExpr != ""
-	switch {
-	case hasInterval && hasCron:
-		return ScanSchedule{}, ErrScheduleCadenceConflict
-	case !hasInterval && !hasCron:
-		return ScanSchedule{}, ErrScheduleCadenceRequired
-	}
-	if hasCron {
-		if _, err := ParseCron(req.CronExpr); err != nil {
-			return ScanSchedule{}, err
-		}
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+		return ScanSchedule{}, err
 	}
 	id, err := generateID()
 	if err != nil {
@@ -182,12 +185,50 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 		Operator:  operator,
 		CreatedAt: now,
 	}
-	if hasInterval {
-		sched.IntervalSeconds = clampInterval(req.IntervalSeconds)
-	} else {
-		sched.CronExpr = req.CronExpr
-	}
+	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	return sched, nil
+}
+
+// validateScheduleFields enforces the shared validation rules
+// for both Create and Update — name + template.input
+// non-empty; exactly one cadence; cron parses if specified.
+func validateScheduleFields(name string, template SubmitRequest, intervalSeconds int, cronExpr string) error {
+	if name == "" {
+		return ErrScheduleNameRequired
+	}
+	if template.Input == "" {
+		return ErrScheduleTemplateInputRequired
+	}
+	hasInterval := intervalSeconds > 0
+	hasCron := cronExpr != ""
+	switch {
+	case hasInterval && hasCron:
+		return ErrScheduleCadenceConflict
+	case !hasInterval && !hasCron:
+		return ErrScheduleCadenceRequired
+	}
+	if hasCron {
+		if _, err := ParseCron(cronExpr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyCadence sets either IntervalSeconds (clamped) or
+// CronExpr on the schedule. Caller must have already validated
+// via validateScheduleFields — applyCadence assumes exactly
+// one of the two is set.
+func applyCadence(s *ScanSchedule, intervalSeconds int, cronExpr string) {
+	// Reset both fields so an Update that switches modes
+	// doesn't leave the previous-mode field set.
+	s.IntervalSeconds = 0
+	s.CronExpr = ""
+	if intervalSeconds > 0 {
+		s.IntervalSeconds = clampInterval(intervalSeconds)
+	} else {
+		s.CronExpr = cronExpr
+	}
 }
 
 // clampInterval applies the [60s, 7d] bounds.
@@ -234,6 +275,26 @@ func (s *MemoryScheduleStore) Delete(_ context.Context, id string) error {
 	}
 	delete(s.schedules, id)
 	return nil
+}
+
+// Update replaces the editable fields of an existing
+// schedule. ID, CreatedAt, LastFiredAt, Operator, Enabled
+// are preserved. v1.74+.
+func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+		return ScanSchedule{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sched, ok := s.schedules[id]
+	if !ok {
+		return ScanSchedule{}, ErrScheduleNotFound
+	}
+	sched.Name = req.Name
+	sched.Template = req.Template
+	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
+	s.schedules[id] = sched
+	return sched, nil
 }
 
 // MarkFired updates LastFiredAt.

@@ -417,10 +417,27 @@ weekday at 09:00" continuous-monitoring workflows.
 **Dashboard panel (v1.72+)**: open the dashboard and use the
 "Scheduled scans" section. Create form takes name + input +
 plugin(s) + interval (60s..7d). The table lists every saved
-schedule with Enable/Disable toggle + Delete button. Delete
-prompts for confirmation. The intervals column renders
-human-friendly labels (`60` → `1m`, `21600` → `6h`, `86400`
-→ `1d`).
+schedule with Edit / Enable/Disable / Delete buttons. The
+intervals column renders human-friendly labels (`60` → `1m`,
+`21600` → `6h`, `86400` → `1d`).
+
+**Edit (v1.74+)**: each row's Edit button populates the create
+form with the schedule's current values + flips the submit
+button to "Update". Cancel button (visible only in edit mode)
+resets back to create. ID, CreatedAt, LastFiredAt, Operator,
+and Enabled survive the edit untouched — only the editable
+fields (name, template, cadence) change. Curl path:
+
+```sh
+curl -X PUT http://127.0.0.1:8787/api/v1/schedules/{id} \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"name":"renamed","template":{"input":"list:fleet.txt","plugins":["modbus"]},"cron_expr":"0 9 * * 1-5"}'
+```
+
+Validation matches Create: name + template.input non-empty;
+exactly one cadence (interval_seconds or cron_expr); cron
+must parse if specified.
 
 **curl path still works** (operator scripts / CI):
 

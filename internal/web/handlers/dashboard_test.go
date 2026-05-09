@@ -61,6 +61,11 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`id="schedule-cron"`,
 		`function onScheduleCadenceModeChange`,
 		`cron_expr`,
+		// v1.74: schedule edit-mode buttons + helpers.
+		`id="schedule-submit-button"`,
+		`id="schedule-cancel-button"`,
+		`function beginEditSchedule`,
+		`function cancelEditSchedule`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)
