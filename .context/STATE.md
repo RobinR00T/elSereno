@@ -1,39 +1,42 @@
 ---
-phase: v1.73-closed
-status: v1.16-v1.27 published; v1.28-v1.73 tags pending push
+phase: v1.74-closed
+status: v1.16-v1.27 published; v1.28-v1.74 tags pending push
 last-updated: 2026-05-09
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.73 cycle closed on `main`** (1 chunk +
-close). Adds cron expressions as alternative cadence
-to the v1.70 IntervalSeconds. New
-`internal/scanorch/cron.go` (5-field parser, ~270
-LoC). Mutually exclusive: ScanSchedule has either
-IntervalSeconds OR CronExpr per row. Migration 00008
-adds cron_expr column + replacement CHECK XOR.
-Dashboard cadence-mode dropdown toggles between the
-two inputs. UTC-only; named shortcuts (@daily etc.)
-deferred. 19 new tests.
+**Phase**: **v1.74 cycle closed on `main`** (1 chunk +
+close). Schedules were immutable in v1.70-v1.73; v1.74
+adds the edit path. New ScheduleStore.Update method,
+UpdateScheduleRequest body, PUT /api/v1/schedules/{id}
+endpoint, dashboard edit-mode toggle (Create ↔ Update +
+Cancel). validateScheduleFields + applyCadence helpers
+shared between Create + Update so cadence-XOR + cron-
+parse rules are a single source of truth.
+Identity-preserving fields (ID, CreatedAt,
+LastFiredAt, Operator, Enabled) survive untouched. 11
+new tests + 4 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.73.0-cron-expressions.md`.
+Snapshot: `.context/snapshots/v1.74.0-schedule-edit.md`.
 
-**v1.73 chunks landed (in-flight)**:
-- 1 `50ad219` — cron.go + schedule.go IsDue routing +
-  schedule_pg.go bind + migration 00008 + dashboard
-  cadence-mode toggle + 19 new tests.
+**v1.74 chunks landed (in-flight)**:
+- 1 `e72fc73` — schedule.go Update + applyCadence
+  refactor + schedule_pg.go Update + REST
+  updateSchedule handler + dashboard edit-mode JS +
+  11 new tests.
+
+**v1.73 cycle (closed, snapshot available)**:
+Cron expressions as alternative cadence (5-field
+parser + migration 00008 cadence-XOR CHECK). 1 chunk
++ close: `50ad219`, `577ca14`. Snapshot:
+`.context/snapshots/v1.73.0-cron-expressions.md`.
 
 **v1.72 cycle (closed, snapshot available)**:
 Dashboard "Scheduled scans" panel. 1 chunk + close:
 `c3a70b1`, `990dcd3`. Snapshot:
 `.context/snapshots/v1.72.0-schedule-ui.md`.
-
-**v1.71 cycle (closed, snapshot available)**:
-DB-backed scheduled scans (migration 00007).
-1 chunk + close: `9729068`, `fc39a8b`. Snapshot:
-`.context/snapshots/v1.71.0-schedules-db.md`.
 
 **v1.69 cycle (closed, snapshot available)**:
 Bulk scan-submit endpoint + dashboard textarea panel.

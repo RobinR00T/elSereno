@@ -8,6 +8,16 @@ last-updated: 2026-05-03
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-09 — v1.74 (chunk 1) — **Schedule edit
+  path.** ScheduleStore.Update + PUT /schedules/{id}
+  + dashboard edit-mode toggle (Create ↔ Update).
+  Identity-preserving fields (ID, CreatedAt,
+  LastFiredAt, Operator, Enabled) survive untouched.
+  validateScheduleFields + applyCadence helpers
+  shared between Create + Update. 11 new tests +
+  4 dashboard markers. Snapshot:
+  `.context/snapshots/v1.74.0-schedule-edit.md`.
+
 - 2026-05-09 — v1.73 (chunk 1) — **Cron expressions
   as alternative cadence.** Custom 5-field parser
   (asterisk/N/comma/range/step). Migration 00008 +

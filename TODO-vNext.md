@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.74 (Schedule edit form)
+
+- ✅ **Schedule edit form** — v1.74 chunk 1.
+  ScheduleStore.Update + PUT /schedules/{id} +
+  dashboard edit-mode toggle. validateScheduleFields
+  + applyCadence helpers shared between Create +
+  Update. 11 new tests + 4 dashboard markers.
+
 ### v1.73 (Cron expressions)
 
 - ✅ **Cron expressions as alternative cadence** —

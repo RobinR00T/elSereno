@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.74.0] — 2026-05-09
+
+### Added
+
+- **Schedule edit path.** Schedules were immutable
+  in v1.70-v1.73 (delete + recreate to change).
+  v1.74 adds:
+  - `ScheduleStore.Update(ctx, id, req)` interface
+    method.
+  - `UpdateScheduleRequest` body shape.
+  - `PUT /api/v1/schedules/{id}` endpoint.
+  - Dashboard per-row Edit button + form mode
+    toggle (Create ↔ Update + Cancel).
+- Validation refactor: `validateScheduleFields` +
+  `applyCadence` helpers shared between Create and
+  Update so cadence-XOR + cron-parse rules are a
+  single source of truth.
+- ID, CreatedAt, LastFiredAt, Operator, Enabled
+  are immutable across Update — only name +
+  template + cadence change.
+
+### Tests
+
+`+11 new` (4 memory + 4 DB + 3 REST + 4 dashboard
+markers).
+
+### Documentation
+
+- INSTALL.md gains an "Edit (v1.74+)" subsection
+  with the curl example.
+
+### Honest scope
+
+- **No "preview next fire"** in edit mode (deferred
+  to v1.77).
+- **No optimistic locking**. Concurrent edits to
+  the same schedule: last-write-wins. Future
+  cycle adds `updated_at` + If-Match.
+- **No bulk edit**.
+
+### Build
+
+3-variant matrix unchanged.
+
 ## [1.73.0] — 2026-05-09
 
 ### Added
