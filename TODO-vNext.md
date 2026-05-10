@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.79 (Multi-fire preview)
+
+- ✅ **Multi-fire preview** — v1.79 chunk 1.
+  ScanSchedule.NextFires(now, count) +
+  PreviewNextFires(req, now, count). /preview gains
+  `?count=N` query param (default 1, capped at
+  PreviewNextFiresMaxCount = 10). Dashboard cron
+  mode renders count=5 as an ordered list. 7 unit +
+  4 REST + 3 dashboard markers.
+
 ### v1.78 (Optimistic locking on schedule edits)
 
 - ✅ **Optimistic locking on schedule edits** — v1.78

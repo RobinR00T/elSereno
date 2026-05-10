@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.79 (chunk 1) — **Multi-fire
+  preview.** ScanSchedule.NextFires(now, count) +
+  PreviewNextFires(req, now, count). /preview
+  endpoint gains `?count=N` query param (default 1,
+  cap PreviewNextFiresMaxCount = 10). Response
+  shape: `next_fires` array + `next_fire_at` =
+  `next_fires[0]` for back-compat. Dashboard cron
+  mode renders count=5 as an ordered list; interval
+  stays count=1. 7 unit + 4 REST + 3 dashboard
+  markers. Snapshot:
+  `.context/snapshots/v1.79.0-multi-fire-preview.md`.
+
 - 2026-05-10 — v1.78 (chunk 1) — **Optimistic
   locking on schedule edits.** ScanSchedule.UpdatedAt
   (set on Create, bumped on Update). UpdateScheduleRequest.

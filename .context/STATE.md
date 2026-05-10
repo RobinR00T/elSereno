@@ -1,33 +1,35 @@
 ---
-phase: v1.78-closed
-status: v1.16-v1.27 published; v1.28-v1.78 tags pending push
+phase: v1.79-closed
+status: v1.16-v1.27 published; v1.28-v1.79 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.78 cycle closed on `main`** (1 chunk +
-close). v1.74-v1.77 had no optimistic locking — two
-operators editing the same schedule from the dashboard
-last-write-wins. v1.78 adds: ScanSchedule.UpdatedAt
-(set on Create, bumped on Update — NOT bumped by
-MarkFired/SetEnabled), UpdateScheduleRequest.IfMatch
-(*time.Time, JSON-skipped), ErrSchedulePreconditionFailed
-sentinel, REST PUT reads `If-Match` header (RFC3339Nano)
-→ 412 on mismatch / 400 on malformed / 404 on not-found.
-DBScheduleStore.Update conditional UPDATE with follow-up
-SELECT to disambiguate 404 vs 412. Migration 00010 +
-scheduleColumns 12 → 13. Dashboard captures updated_at on
-edit-load + sends If-Match on PUT. 11 unit + 4 REST + 2
-dashboard markers.
+**Phase**: **v1.79 cycle closed on `main`** (1 chunk +
+close). v1.77 shipped a single-fire preview; non-trivial
+cron patterns need 2-5 fires to verify visually. v1.79
+extends /preview with a `count` query param (default 1,
+capped at PreviewNextFiresMaxCount = 10). New methods:
+ScanSchedule.NextFires(now, count) + PreviewNextFires(req,
+now, count). v1.77 single-fire helpers preserved as thin
+wrappers for back-compat. Response shape gains
+`next_fires` array; `next_fire_at` kept as `next_fires[0]`.
+Dashboard cron mode now requests count=5 and renders an
+ordered list. 7 unit + 4 REST + 3 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.78.0-optimistic-locking.md`.
+Snapshot: `.context/snapshots/v1.79.0-multi-fire-preview.md`.
 
-**v1.78 chunks landed (in-flight)**:
-- 1 `c31fedf` — UpdatedAt + IfMatch + 412 path +
-  migration 00010 + DB conditional UPDATE + dashboard
-  If-Match + 11 unit + 4 REST + 2 dashboard markers.
+**v1.79 chunks landed (in-flight)**:
+- 1 `64ebb77` — NextFires + PreviewNextFires + /preview
+  count param + dashboard ordered-list render + 7 + 4 + 3.
+
+**v1.78 cycle (closed, snapshot available)**:
+Optimistic locking on schedule edits (UpdatedAt +
+If-Match → 412). Migration 00010 + DB conditional UPDATE.
+1 chunk + close: `c31fedf`, `bbe6eb8`. Snapshot:
+`.context/snapshots/v1.78.0-optimistic-locking.md`.
 
 **v1.77 cycle (closed, snapshot available)**:
 Dashboard next-fire preview (tz-aware). 1 chunk + close:

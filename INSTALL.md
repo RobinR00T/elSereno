@@ -554,6 +554,22 @@ cron parses if specified; timezone resolves via
 Create. The preview is store-independent — no schedule is
 created, no DB write happens.
 
+**Multi-fire preview (v1.79+)**: pass `?count=N` (default 1,
+capped at 10) to receive the next N firings as a
+`next_fires` array. `next_fire_at` is preserved as
+`next_fires[0]` for back-compat with v1.77/v1.78 callers.
+The dashboard's "Preview next fire" button in cron mode
+now requests `count=5` and renders an ordered list so
+operators can sanity-check non-trivial patterns at a glance.
+
+```sh
+# Next 5 fires for a weekday-09:00-NY schedule:
+curl -X POST "http://127.0.0.1:8787/api/v1/schedules/preview?count=5" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"x","template":{"input":"stdin"},"cron_expr":"0 9 * * 1-5","timezone":"America/New_York"}'
+# → {"data":{"next_fire_at":"...", "next_fires":["...","...","...","...","..."], "timezone":"America/New_York"}}
+```
+
 **Optimistic locking (v1.78+)**: the dashboard's edit form
 uses an `If-Match` header to prevent concurrent edits from
 overwriting each other silently. Each schedule carries an

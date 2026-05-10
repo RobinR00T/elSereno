@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.79.0] — 2026-05-10
+
+### Added
+
+- **Multi-fire preview.** v1.77's `/preview` returned a
+  single fire; non-trivial cron patterns benefit from
+  seeing 2-5 fires to visually verify. v1.79 adds:
+  - `ScanSchedule.NextFires(now, count) []time.Time` —
+    canonical multi-fire predictor. count clamped to
+    `[1, PreviewNextFiresMaxCount = 10]`.
+  - `PreviewNextFires(req, now, count)` — free function
+    used by the REST endpoint.
+  - `POST /api/v1/schedules/preview?count=N` — optional
+    query parameter (default 1, capped at 10). Malformed
+    → 400.
+- Response shape gains `next_fires: [...]` array.
+  `next_fire_at` is preserved as `next_fires[0]` for
+  back-compat with v1.77/v1.78 callers.
+- Dashboard cron-mode "Preview next fire" button now
+  requests `count=5` and renders an ordered list
+  (`<ol class="next-fires-list">`). Overdue rows get the
+  "— overdue" suffix. Interval mode stays at count=1.
+- 7 new unit tests + 4 REST tests + 3 dashboard markers.
+
+### Changed
+
+- `NextFire(now)` is now a thin wrapper over
+  `NextFires(now, 1)`. Same observable behaviour.
+- `PreviewNextFire(req, now)` is now a thin wrapper over
+  `PreviewNextFires(req, now, 1)`. Same observable
+  behaviour.
+
 ## [1.78.0] — 2026-05-10
 
 ### Added
