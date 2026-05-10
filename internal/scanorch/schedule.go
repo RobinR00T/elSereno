@@ -55,6 +55,16 @@ type ScanSchedule struct {
 	// uses (LastFiredAt + IntervalSeconds) to decide
 	// "is this due now?".
 	LastFiredAt time.Time `json:"last_fired_at,omitempty"`
+	// NextFireAt (v1.77+) is the predicted next firing time
+	// for this schedule, computed at read time and NOT
+	// persisted. Zero value when the schedule won't fire
+	// (disabled, invalid cron, or a cron expression with no
+	// match within the look-ahead window). Set by the REST
+	// layer after fetching from the store; the in-memory and
+	// DB stores both leave it at zero. The store does not
+	// touch this field on writes — serialisation by the
+	// handler is the only consumer.
+	NextFireAt time.Time `json:"next_fire_at,omitempty"`
 }
 
 // CreateScheduleRequest is the dashboard's request body. The
@@ -403,22 +413,84 @@ func (s ScanSchedule) IsDue(now time.Time) bool {
 // CreatedAt for never-fired schedules.
 //
 // v1.75+: now and anchor are both converted to s.Timezone
-// before the cron match. Empty Timezone falls back to UTC
-// (back-compat with v1.73 / v1.74 schedules).
+// before the cron match. Empty Timezone falls back to UTC.
 //
-// A cron parse / timezone error here is fatal — should have
-// been caught at Create time, so this is defence in depth
-// (returns false to skip the schedule rather than panic).
+// v1.77+: factored to share the next-fire computation with
+// cronNextFire. A cron parse / timezone error returns false
+// (defence in depth — should have been caught at Create
+// time).
 func (s ScanSchedule) cronIsDue(now time.Time) bool {
+	next := s.cronNextFire(now)
+	if next.IsZero() {
+		return false
+	}
+	loc := time.UTC
+	if s.Timezone != "" {
+		if l, err := time.LoadLocation(s.Timezone); err == nil {
+			loc = l
+		}
+	}
+	return !now.In(loc).Before(next.In(loc))
+}
+
+// NextFire (v1.77+) returns the predicted next fire time for
+// this schedule, or the zero time if it cannot be predicted
+// (disabled, never-matches-cron, or invalid timezone — all
+// these are surface-via-zero rather than as errors so the
+// dashboard can render "—" cleanly).
+//
+// Used by:
+//   - the REST read paths (Get/List/Create/Update populate
+//     NextFireAt before serialising).
+//   - the /api/v1/schedules/preview endpoint (operators see
+//     what their cadence will produce before submitting).
+//
+// For cron schedules NextFire returns the literal next match
+// against the anchor (LastFiredAt or CreatedAt); for
+// overdue schedules this can be in the past, which the
+// dashboard renders as "overdue" so the operator knows the
+// next tick will fire it.
+//
+// For interval schedules NextFire returns:
+//   - now (effectively) when the schedule has never fired
+//     (eager-fire on the next scheduler tick).
+//   - LastFiredAt + IntervalSeconds otherwise.
+func (s ScanSchedule) NextFire(now time.Time) time.Time {
+	if !s.Enabled {
+		return time.Time{}
+	}
+	if s.CronExpr != "" {
+		return s.cronNextFire(now)
+	}
+	return s.intervalNextFire(now)
+}
+
+// intervalNextFire predicts the next fire for interval
+// schedules. Never-fired returns now (eager); otherwise
+// LastFiredAt + IntervalSeconds. The result is clipped to
+// not-before-now would be a usability win for the dashboard,
+// but it's also misleading for overdue schedules — better to
+// surface the real predicted time + let the UI label it.
+func (s ScanSchedule) intervalNextFire(now time.Time) time.Time {
+	if s.LastFiredAt.IsZero() {
+		return now.UTC().Truncate(time.Second)
+	}
+	return s.LastFiredAt.Add(time.Duration(s.IntervalSeconds) * time.Second)
+}
+
+// cronNextFire is the cron-path predictor shared between
+// cronIsDue and NextFire. Returns the next match in UTC; zero
+// time on parse / timezone error.
+func (s ScanSchedule) cronNextFire(_ time.Time) time.Time {
 	c, err := ParseCron(s.CronExpr)
 	if err != nil {
-		return false
+		return time.Time{}
 	}
 	loc := time.UTC
 	if s.Timezone != "" {
 		l, err := time.LoadLocation(s.Timezone)
 		if err != nil {
-			return false
+			return time.Time{}
 		}
 		loc = l
 	}
@@ -426,14 +498,37 @@ func (s ScanSchedule) cronIsDue(now time.Time) bool {
 	if anchor.IsZero() {
 		anchor = s.CreatedAt
 	}
-	// Convert both anchor and now to the schedule's tz before
-	// computing Next/Match — the cron expression is evaluated
-	// against wall-clock-local fields (hour/minute/dow).
 	next, err := c.Next(anchor.In(loc))
 	if err != nil {
-		return false
+		return time.Time{}
 	}
-	return !now.In(loc).Before(next)
+	return next.UTC()
+}
+
+// PreviewNextFire (v1.77+) validates a CreateScheduleRequest
+// and returns the predicted next fire time without
+// persisting. Used by the /api/v1/schedules/preview endpoint
+// so operators can see what their cadence will produce
+// before clicking submit. Validation surface mirrors Create
+// (same sentinels for cadence + timezone errors).
+func PreviewNextFire(req CreateScheduleRequest, now time.Time) (time.Time, error) {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
+		return time.Time{}, err
+	}
+	// Synthesise a minimal in-memory ScanSchedule so we can
+	// reuse the NextFire helpers. Operator + ID + CreatedAt
+	// are set to plausible values — CreatedAt = now is the
+	// "as-if-just-created" anchor.
+	s := ScanSchedule{
+		Name:            req.Name,
+		Template:        req.Template,
+		IntervalSeconds: req.IntervalSeconds,
+		CronExpr:        req.CronExpr,
+		Timezone:        req.Timezone,
+		Enabled:         true,
+		CreatedAt:       now.UTC(),
+	}
+	return s.NextFire(now), nil
 }
 
 // Compile-time guard.

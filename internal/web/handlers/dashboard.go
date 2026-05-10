@@ -533,7 +533,9 @@ const overviewHTML = `<!doctype html>
         </label>
         <button type="submit" id="schedule-submit-button">Create</button>
         <button type="button" id="schedule-cancel-button" onclick="cancelEditSchedule()" style="display: none;">Cancel</button>
+        <button type="button" id="schedule-preview-button" onclick="previewNextFire()" style="margin-left: 0.5em;">Preview next fire</button>
         <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
+        <div id="schedule-next-fire-preview" class="sub" style="margin-top: 0.3em;"></div>
       </form>
       <table id="schedules-table">
         <thead>
@@ -544,11 +546,12 @@ const overviewHTML = `<!doctype html>
             <th>Interval</th>
             <th>State</th>
             <th>Last fired</th>
+            <th>Next fire</th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody id="schedules-body">
-          <tr class="empty"><td colspan="7">loading…</td></tr>
+          <tr class="empty"><td colspan="8">loading…</td></tr>
         </tbody>
       </table>
     </section>
@@ -1191,7 +1194,7 @@ const overviewHTML = `<!doctype html>
         var body = document.getElementById("schedules-body");
         if (!body) return;
         if (rows.length === 0) {
-          body.innerHTML = '<tr class="empty"><td colspan="7">no schedules — create one above</td></tr>';
+          body.innerHTML = '<tr class="empty"><td colspan="8">no schedules — create one above</td></tr>';
           scheduleSchedulesPoll(30000);
           return;
         }
@@ -1213,6 +1216,22 @@ const overviewHTML = `<!doctype html>
           }
           var stateLabel = s.enabled ? "enabled" : "disabled";
           var lastFired = s.last_fired_at ? new Date(s.last_fired_at).toLocaleString() : "never";
+          // v1.77: server-side computed next_fire_at. Empty
+          // (zero time → omitempty drops the field) means the
+          // schedule won't fire (disabled / invalid cron).
+          // For schedules that ARE enabled, render the local-
+          // clock string + a "(overdue)" suffix when the
+          // predicted fire is already in the past — operators
+          // see at a glance which schedules will trigger on
+          // the next tick.
+          var nextFire = "—";
+          if (s.next_fire_at) {
+            var nextDate = new Date(s.next_fire_at);
+            nextFire = nextDate.toLocaleString();
+            if (nextDate.getTime() < Date.now()) {
+              nextFire += " (overdue)";
+            }
+          }
           var toggleLabel = s.enabled ? "Disable" : "Enable";
           var toggleAction = s.enabled ? "disable" : "enable";
           var action =
@@ -1231,6 +1250,7 @@ const overviewHTML = `<!doctype html>
             '<td>' + escText(intervalDisplay) + '</td>' +
             '<td><code class="state-' + escAttr(stateLabel) + '">' + escText(stateLabel) + '</code></td>' +
             '<td>' + escText(lastFired) + '</td>' +
+            '<td class="next-fire">' + escText(nextFire) + '</td>' +
             '<td>' + action + '</td>' +
             '</tr>';
         }).join("");
@@ -1238,7 +1258,7 @@ const overviewHTML = `<!doctype html>
       })
       .catch(function (e) {
         var body = document.getElementById("schedules-body");
-        if (body) body.innerHTML = '<tr class="empty"><td colspan="7">' + escText(e.message) + '</td></tr>';
+        if (body) body.innerHTML = '<tr class="empty"><td colspan="8">' + escText(e.message) + '</td></tr>';
         scheduleSchedulesPoll(60000);
       });
   }
@@ -1416,6 +1436,70 @@ const overviewHTML = `<!doctype html>
     });
     return false;
   }
+  // previewNextFire (v1.77) sends the current form values to
+  // POST /api/v1/schedules/preview and renders the response
+  // below the submit row. Re-uses the same field readers as
+  // submitSchedule so cadence-mode toggle + timezone all
+  // round-trip. Errors surface inline (e.g. "invalid cron
+  // expression: …") so the operator can fix the form before
+  // submitting.
+  function previewNextFire() {
+    var preview = document.getElementById("schedule-next-fire-preview");
+    if (!preview) return;
+    var name = (document.getElementById("schedule-name") || {}).value || "preview";
+    var input = (document.getElementById("schedule-input") || {}).value || "";
+    var plugin = (document.getElementById("schedule-plugin") || {}).value || "";
+    var mode = (document.getElementById("schedule-cadence-mode") || {}).value || "interval";
+    var payload = {
+      name: name,
+      template: { input: input, plugins: plugin ? plugin.split(",").map(function (p) { return p.trim(); }).filter(Boolean) : undefined }
+    };
+    if (mode === "cron") {
+      var cron = ((document.getElementById("schedule-cron") || {}).value || "").trim();
+      if (!cron) {
+        preview.textContent = "preview: enter a cron expression first";
+        return;
+      }
+      payload.cron_expr = cron;
+      var tz = ((document.getElementById("schedule-timezone") || {}).value || "").trim();
+      if (tz) payload.timezone = tz;
+    } else {
+      var intervalRaw = (document.getElementById("schedule-interval") || {}).value || "3600";
+      var interval = parseInt(intervalRaw, 10);
+      if (!interval || interval < 60) {
+        preview.textContent = "preview: interval must be ≥ 60s";
+        return;
+      }
+      payload.interval_seconds = interval;
+    }
+    preview.textContent = "preview: …";
+    fetch("/api/v1/schedules/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var d = (res && res.data) || {};
+      if (!d.next_fire_at) {
+        preview.textContent = "preview: schedule won't fire";
+        return;
+      }
+      var when = new Date(d.next_fire_at);
+      var label = "next fire: " + when.toLocaleString();
+      if (d.timezone) {
+        label += " (" + d.timezone + ")";
+      }
+      if (when.getTime() < Date.now()) {
+        label += " — overdue (will fire on next tick)";
+      }
+      preview.textContent = label;
+    }).catch(function (e) {
+      preview.textContent = "preview error: " + e.message;
+    });
+  }
   function toggleSchedule(id, action) {
     if (!id || (action !== "enable" && action !== "disable")) return;
     fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/" + action, {
@@ -1426,7 +1510,7 @@ const overviewHTML = `<!doctype html>
       renderSchedules();
     }).catch(function (e) {
       var body = document.getElementById("schedules-body");
-      if (body) body.innerHTML = '<tr class="empty"><td colspan="7">toggle failed: ' + escText(e.message) + '</td></tr>';
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="8">toggle failed: ' + escText(e.message) + '</td></tr>';
     });
   }
   function deleteSchedule(id) {
@@ -1442,7 +1526,7 @@ const overviewHTML = `<!doctype html>
       renderSchedules();
     }).catch(function (e) {
       var body = document.getElementById("schedules-body");
-      if (body) body.innerHTML = '<tr class="empty"><td colspan="7">delete failed: ' + escText(e.message) + '</td></tr>';
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
 
@@ -1461,6 +1545,8 @@ const overviewHTML = `<!doctype html>
   // v1.74 schedule edit-mode helpers.
   window.beginEditSchedule = beginEditSchedule;
   window.cancelEditSchedule = cancelEditSchedule;
+  // v1.77 next-fire preview.
+  window.previewNextFire = previewNextFire;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

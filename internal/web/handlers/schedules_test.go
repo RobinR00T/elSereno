@@ -290,6 +290,106 @@ func TestUpdateSchedule_CadenceConflict(t *testing.T) {
 	}
 }
 
+// TestPreviewSchedule_IntervalHappy: a never-fired interval
+// schedule preview returns 200 + non-zero next_fire_at.
+func TestPreviewSchedule_IntervalHappy(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			NextFireAt string `json:"next_fire_at"`
+			Timezone   string `json:"timezone"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.Data.NextFireAt == "" {
+		t.Errorf("next_fire_at = empty, want a timestamp")
+	}
+}
+
+// TestPreviewSchedule_CronHappy: a cron-based preview returns
+// 200 + the timezone echoed back.
+func TestPreviewSchedule_CronHappy(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"0 9 * * 1-5","timezone":"America/New_York"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			NextFireAt string `json:"next_fire_at"`
+			Timezone   string `json:"timezone"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.Data.Timezone != "America/New_York" {
+		t.Errorf("timezone = %q, want America/New_York", resp.Data.Timezone)
+	}
+	if resp.Data.NextFireAt == "" {
+		t.Errorf("next_fire_at = empty, want a timestamp")
+	}
+}
+
+// TestPreviewSchedule_BadCron: invalid cron → 400.
+func TestPreviewSchedule_BadCron(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"garbage"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestPreviewSchedule_CadenceRequired: empty cadence → 400.
+func TestPreviewSchedule_CadenceRequired(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"}}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestListSchedules_PopulatesNextFireAt: response carries
+// next_fire_at on every schedule (v1.77+).
+func TestListSchedules_PopulatesNextFireAt(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "every-h",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/schedules", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []struct {
+			NextFireAt string `json:"next_fire_at"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data) != 1 || resp.Data[0].NextFireAt == "" {
+		t.Errorf("next_fire_at not populated on List response (data=%+v)", resp.Data)
+	}
+}
+
 // TestSchedules_NilStoreReturns503.
 func TestSchedules_NilStoreReturns503(t *testing.T) {
 	router := newSchedRouter(nil)
@@ -304,6 +404,7 @@ func TestSchedules_NilStoreReturns503(t *testing.T) {
 		{http.MethodDelete, "/api/v1/schedules/abc"},
 		{http.MethodPost, "/api/v1/schedules/abc/enable"},
 		{http.MethodPost, "/api/v1/schedules/abc/disable"},
+		{http.MethodPost, "/api/v1/schedules/preview"},
 	} {
 		t.Run(tc.verb+" "+tc.path, func(t *testing.T) {
 			var body *strings.Reader

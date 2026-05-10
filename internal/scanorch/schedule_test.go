@@ -577,3 +577,171 @@ func TestScheduler_Run_NoScanStore(t *testing.T) {
 		t.Errorf("err = %v, want ErrSchedulerNoScanStore", err)
 	}
 }
+
+// TestScanSchedule_NextFire_IntervalNeverFired: never-fired
+// interval schedule predicts now (eager fire on next tick).
+func TestScanSchedule_NextFire_IntervalNeverFired(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 23, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:         true,
+		IntervalSeconds: 3600,
+		CreatedAt:       now.Add(-time.Hour),
+	}
+	got := s.NextFire(now)
+	if got.IsZero() {
+		t.Fatal("NextFire = zero, want now-rounded")
+	}
+	// truncated to second; allow within 1s of now.
+	if got.Sub(now) > time.Second || now.Sub(got) > time.Second {
+		t.Errorf("NextFire = %v, want ~%v (within 1s)", got, now)
+	}
+}
+
+// TestScanSchedule_NextFire_IntervalFired: interval fired
+// schedule predicts LastFiredAt + IntervalSeconds.
+func TestScanSchedule_NextFire_IntervalFired(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	last := now.Add(-30 * time.Minute)
+	s := scanorch.ScanSchedule{
+		Enabled:         true,
+		IntervalSeconds: 3600, // 1 h
+		LastFiredAt:     last,
+	}
+	got := s.NextFire(now)
+	want := last.Add(time.Hour)
+	if !got.Equal(want) {
+		t.Errorf("NextFire = %v, want %v", got, want)
+	}
+}
+
+// TestScanSchedule_NextFire_Disabled: disabled returns zero.
+func TestScanSchedule_NextFire_Disabled(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:         false,
+		IntervalSeconds: 3600,
+	}
+	if !s.NextFire(now).IsZero() {
+		t.Errorf("disabled schedule NextFire should be zero")
+	}
+}
+
+// TestScanSchedule_NextFire_CronUTC: cron at 02:00 daily,
+// anchor noon → next fire next day 02:00.
+func TestScanSchedule_NextFire_CronUTC(t *testing.T) {
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 2 * * *",
+		CreatedAt: now,
+	}
+	got := s.NextFire(now)
+	want := time.Date(2026, 5, 11, 2, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("NextFire = %v, want %v", got, want)
+	}
+}
+
+// TestScanSchedule_NextFire_CronTz: cron at 09:00 NY,
+// anchor before that → next fire converted to UTC matches.
+func TestScanSchedule_NextFire_CronTz(t *testing.T) {
+	// Anchor: Jan 8 2026 03:00 UTC (= Jan 7 22:00 NY winter)
+	created := time.Date(2026, 1, 8, 3, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 9 * * *",
+		Timezone:  "America/New_York",
+		CreatedAt: created,
+	}
+	got := s.NextFire(created)
+	// Next 09:00 NY after Jan 7 22:00 NY = Jan 8 09:00 NY
+	// = Jan 8 14:00 UTC (winter EST = UTC-5).
+	want := time.Date(2026, 1, 8, 14, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("NextFire = %v, want %v", got, want)
+	}
+}
+
+// TestScanSchedule_NextFire_CronInvalid: parse error → zero.
+func TestScanSchedule_NextFire_CronInvalid(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:  true,
+		CronExpr: "garbage",
+	}
+	if !s.NextFire(now).IsZero() {
+		t.Errorf("invalid cron should yield zero NextFire")
+	}
+}
+
+// TestPreviewNextFire_IntervalHappy: synthesises a never-
+// fired interval schedule + returns now-rounded.
+func TestPreviewNextFire_IntervalHappy(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	got, err := scanorch.PreviewNextFire(scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, now)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if got.IsZero() {
+		t.Errorf("NextFire = zero, want non-zero")
+	}
+}
+
+// TestPreviewNextFire_CronHappy: cron at 02:00 daily,
+// preview from noon returns next day 02:00.
+func TestPreviewNextFire_CronHappy(t *testing.T) {
+	now := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+	got, err := scanorch.PreviewNextFire(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 2 * * *",
+	}, now)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := time.Date(2026, 5, 11, 2, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("NextFire = %v, want %v", got, want)
+	}
+}
+
+// TestPreviewNextFire_BadCron: parse error surfaces as
+// ErrCronInvalidField (mirrors Create validation).
+func TestPreviewNextFire_BadCron(t *testing.T) {
+	_, err := scanorch.PreviewNextFire(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "garbage",
+	}, time.Now())
+	if !errors.Is(err, scanorch.ErrCronInvalidField) && !errors.Is(err, scanorch.ErrCronWrongFieldCount) {
+		t.Errorf("err = %v, want cron validation error", err)
+	}
+}
+
+// TestPreviewNextFire_CadenceRequired: empty cadence → 400.
+func TestPreviewNextFire_CadenceRequired(t *testing.T) {
+	_, err := scanorch.PreviewNextFire(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+	}, time.Now())
+	if !errors.Is(err, scanorch.ErrScheduleCadenceRequired) {
+		t.Errorf("err = %v, want ErrScheduleCadenceRequired", err)
+	}
+}
+
+// TestPreviewNextFire_BadTimezone: invalid IANA → error.
+func TestPreviewNextFire_BadTimezone(t *testing.T) {
+	_, err := scanorch.PreviewNextFire(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 9 * * *",
+		Timezone: "Not/AReal-Zone",
+	}, time.Now())
+	if !errors.Is(err, scanorch.ErrScheduleInvalidTimezone) {
+		t.Errorf("err = %v, want ErrScheduleInvalidTimezone", err)
+	}
+}

@@ -70,6 +70,12 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`id="schedule-timezone"`,
 		`id="schedule-timezone-label"`,
 		`timezone`,
+		// v1.77: next-fire preview button + panel + column.
+		`id="schedule-preview-button"`,
+		`id="schedule-next-fire-preview"`,
+		`function previewNextFire`,
+		`/api/v1/schedules/preview`,
+		`<th>Next fire</th>`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)
