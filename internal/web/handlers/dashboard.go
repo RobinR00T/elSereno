@@ -1589,6 +1589,13 @@ const overviewHTML = `<!doctype html>
   // round-trip. Errors surface inline (e.g. "invalid cron
   // expression: …") so the operator can fix the form before
   // submitting.
+  //
+  // v1.82: in-flight requests are cancelled via
+  // AbortController whenever a newer previewNextFire fires.
+  // This prevents stale responses from flashing the wrong
+  // value during fast typing (the v1.80 debounce delays the
+  // dispatch but doesn't cancel an already-dispatched fetch).
+  var previewAbortController = null;
   function previewNextFire() {
     var preview = document.getElementById("schedule-next-fire-preview");
     if (!preview) return;
@@ -1623,11 +1630,20 @@ const overviewHTML = `<!doctype html>
     // sanity-check the pattern), 1 for interval (next fire
     // is enough; subsequent fires are trivially derivable).
     var count = mode === "cron" ? 5 : 1;
+    // v1.82: cancel the in-flight preview (if any) before
+    // dispatching a new one. AbortController.abort() is a
+    // no-op when the previous request already completed.
+    if (previewAbortController) {
+      try { previewAbortController.abort(); } catch (_) { /* ignore */ }
+    }
+    previewAbortController = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var signal = previewAbortController ? previewAbortController.signal : undefined;
     fetch("/api/v1/schedules/preview?count=" + count, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: signal
     }).then(function (r) {
       if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
       return r.json();
@@ -1662,6 +1678,10 @@ const overviewHTML = `<!doctype html>
       html += '</ol>';
       preview.innerHTML = html;
     }).catch(function (e) {
+      // v1.82: AbortError is expected when a newer call
+      // cancels this one. Stay silent — the newer fetch's
+      // result will overwrite the panel.
+      if (e && (e.name === "AbortError" || (e.message || "").indexOf("abort") !== -1)) return;
       preview.textContent = "preview error: " + e.message;
     });
   }

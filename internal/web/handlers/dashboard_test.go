@@ -96,6 +96,10 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function computeScheduleDiff`,
 		`function acceptServerSchedule`,
 		`function forceOverwriteSchedule`,
+		// v1.82: AbortController-based cancellation.
+		`previewAbortController`,
+		`AbortController`,
+		`AbortError`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)
