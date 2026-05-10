@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.82 (chunk 1) — **AbortController
+  on /preview.** previewAbortController cancels
+  in-flight /preview requests when a newer
+  previewNextFire fires. AbortError is silently
+  skipped in the catch. typeof-guard for pre-2018
+  browsers. No Go changes. 3 dashboard markers.
+  Snapshot:
+  `.context/snapshots/v1.82.0-abort-controller.md`.
+
 - 2026-05-10 — v1.81 (chunk 1) — **412 merge-view
   UI.** Dashboard JS+HTML. On 412 from PUT, the
   dashboard fetches fresh server state, diffs the

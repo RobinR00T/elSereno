@@ -100,6 +100,15 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.82 (AbortController on /preview)
+
+- ✅ **AbortController-based request cancellation on
+  debounced /preview** — v1.82 chunk 1. previewAbortController
+  fires `.abort()` on the previous controller whenever a
+  newer previewNextFire dispatches. AbortError silently
+  skipped in the catch. typeof-guard for pre-2018
+  browsers. 3 dashboard markers. No Go changes.
+
 ### v1.81 (412 merge-view UI)
 
 - ✅ **412 merge-view UI** — v1.81 chunk 1.

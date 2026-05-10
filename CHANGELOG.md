@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.82.0] — 2026-05-10
+
+### Added
+
+- **AbortController on debounced /preview.** v1.80
+  added a 350ms debounce on cadence-field changes, but
+  debouncing only delays dispatch — once a `/preview`
+  fetch was in flight, a subsequent debounced call
+  could race the previous response and briefly flash a
+  stale value. v1.82 cancels in-flight requests via
+  `AbortController`. Cancelled responses raise
+  `AbortError`, which the catch handler silently
+  skips. A `typeof AbortController` guard keeps
+  pre-2018 browsers running on the v1.80 fallback.
+- 3 dashboard markers (`previewAbortController`,
+  `AbortController`, `AbortError`).
+
+### Notes
+
+- Pure dashboard JS change. No new Go code, no new
+  REST endpoint, no DB migration, no protocol surface.
+
 ## [1.81.0] — 2026-05-10
 
 ### Added

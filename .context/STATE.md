@@ -1,30 +1,31 @@
 ---
-phase: v1.81-closed
-status: v1.16-v1.27 published; v1.28-v1.81 tags pending push
+phase: v1.82-closed
+status: v1.16-v1.27 published; v1.28-v1.82 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.81 cycle closed on `main`** (1 chunk +
-close). Dashboard-only JS+HTML: 412 merge-view UI. v1.78
-surfaced concurrent edits as a bare error; v1.81 replaces
-that with a structured panel showing the field-level diff
-+ two resolution buttons (Take server / Force overwrite).
-submitSchedule captures the payload as pendingMergePayload
-before submit; on 412, enterMergeView(id) GETs fresh state,
-computeScheduleDiff compares the six editable fields, the
-panel renders. acceptServerSchedule re-loads via
-beginEditSchedule; forceOverwriteSchedule re-PUTs without
-If-Match after a confirm() prompt. 8 dashboard markers.
+**Phase**: **v1.82 cycle closed on `main`** (1 chunk +
+close). Dashboard-only JS: AbortController cancels
+in-flight /preview requests when a newer debounced call
+fires. Fixes the v1.80 stale-flash gap (debounce delayed
+dispatch but didn't cancel in-flight). `typeof
+AbortController` guard preserves pre-2018 browser
+compatibility. 3 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.81.0-merge-view.md`.
+Snapshot: `.context/snapshots/v1.82.0-abort-controller.md`.
 
-**v1.81 chunks landed (in-flight)**:
-- 1 `ba6e721` — merge-view panel + enterMergeView +
-  computeScheduleDiff + acceptServerSchedule +
-  forceOverwriteSchedule + 8 dashboard markers.
+**v1.82 chunks landed (in-flight)**:
+- 1 `8ffffb3` — previewAbortController + AbortError
+  silent-skip + 3 dashboard markers.
+
+**v1.81 cycle (closed, snapshot available)**:
+412 merge-view UI (field-level diff + Take server /
+Force overwrite buttons). 1 chunk + close: `ba6e721`,
+`896aa6c`. Snapshot:
+`.context/snapshots/v1.81.0-merge-view.md`.
 
 **v1.80 cycle (closed, snapshot available)**:
 Live preview on cadence-field change (350ms debounce).
