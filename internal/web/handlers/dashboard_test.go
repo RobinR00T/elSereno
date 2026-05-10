@@ -105,6 +105,15 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function applySelectedMerge`,
 		`function applyServerField`,
 		`merge-row-`,
+		// v1.85: audit history view.
+		`id="schedule-audit-view"`,
+		`id="schedule-audit-table"`,
+		`id="schedule-audit-body"`,
+		`id="schedule-audit-close-button"`,
+		`function openAuditView`,
+		`function closeAuditView`,
+		`function computeAuditEventDiff`,
+		`>History</button>`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

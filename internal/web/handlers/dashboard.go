@@ -562,6 +562,19 @@ const overviewHTML = `<!doctype html>
           <tr class="empty"><td colspan="8">loading…</td></tr>
         </tbody>
       </table>
+      <div id="schedule-audit-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
+        <h3 style="margin: 0 0 0.3em;">Audit history</h3>
+        <div class="sub" id="schedule-audit-subtitle"></div>
+        <table id="schedule-audit-table" style="margin-top: 0.3em;">
+          <thead>
+            <tr><th>When</th><th>Who</th><th>Event</th><th>Changes</th></tr>
+          </thead>
+          <tbody id="schedule-audit-body">
+            <tr class="empty"><td colspan="4">loading…</td></tr>
+          </tbody>
+        </table>
+        <button type="button" id="schedule-audit-close-button" onclick="closeAuditView()" style="margin-top: 0.3em;">Close</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -1242,6 +1255,11 @@ const overviewHTML = `<!doctype html>
           }
           var toggleLabel = s.enabled ? "Disable" : "Enable";
           var toggleAction = s.enabled ? "disable" : "enable";
+          // v1.85: per-row "History" button opens the audit
+          // view for this schedule. 503 (audit nil) surfaces
+          // "audit unavailable" inside the panel — the button
+          // is always rendered so memory-mode operators see a
+          // consistent UI.
           var action =
             '<button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="beginEditSchedule(this.dataset.schedId)">Edit</button>' +
@@ -1249,6 +1267,9 @@ const overviewHTML = `<!doctype html>
             '" data-sched-action="' + toggleAction +
             '" onclick="toggleSchedule(this.dataset.schedId, this.dataset.schedAction)">' +
             toggleLabel + '</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" data-sched-name="' + escAttr(s.name || s.id) +
+            '" onclick="openAuditView(this.dataset.schedId, this.dataset.schedName)">History</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
           return '<tr data-sched-id="' + escAttr(s.id) + '">' +
@@ -1698,6 +1719,103 @@ const overviewHTML = `<!doctype html>
         break;
     }
   }
+  // openAuditView (v1.85) fetches /api/v1/schedules/{id}/audit
+  // + renders the events as a table. Each row shows
+  // occurred_at, operator, event_type, and the field-level
+  // diff between payload_before and payload_after.
+  //
+  // 503 (audit store nil) surfaces "audit log unavailable"
+  // inside the panel — the button is always rendered so
+  // memory-mode operators see a consistent UI.
+  function openAuditView(id, displayName) {
+    var view = document.getElementById("schedule-audit-view");
+    var body = document.getElementById("schedule-audit-body");
+    var subtitle = document.getElementById("schedule-audit-subtitle");
+    if (!view || !body) return;
+    if (subtitle) {
+      subtitle.textContent = displayName ? (displayName + " · " + id) : id;
+    }
+    body.innerHTML = '<tr class="empty"><td colspan="4">loading…</td></tr>';
+    view.style.display = "";
+    view.scrollIntoView({block: "nearest"});
+    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/audit", {
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (r.status === 503) {
+        body.innerHTML = '<tr class="empty"><td colspan="4">audit log unavailable — run with --scan-store=db to enable</td></tr>';
+        return null;
+      }
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      if (res === null) return;
+      var events = (res && res.data) || [];
+      if (!events.length) {
+        body.innerHTML = '<tr class="empty"><td colspan="4">no audit events recorded for this schedule</td></tr>';
+        return;
+      }
+      body.innerHTML = events.map(function (e) {
+        var when = e.occurred_at ? new Date(e.occurred_at).toLocaleString() : "—";
+        var diff = computeAuditEventDiff(e);
+        var diffHTML;
+        if (!diff.length) {
+          diffHTML = '<span class="sub">(no field-level changes)</span>';
+        } else {
+          diffHTML = '<ul class="audit-diff" style="margin: 0; padding-left: 1em;">' +
+            diff.map(function (d) {
+              return '<li><code>' + escText(d.field) + '</code>: <code>' +
+                escText(d.before) + '</code> → <code>' + escText(d.after) + '</code></li>';
+            }).join("") + '</ul>';
+        }
+        return '<tr>' +
+          '<td>' + escText(when) + '</td>' +
+          '<td>' + escText(e.operator || "—") + '</td>' +
+          '<td><code>' + escText(e.event_type || "—") + '</code></td>' +
+          '<td>' + diffHTML + '</td>' +
+          '</tr>';
+      }).join("");
+    }).catch(function (err) {
+      body.innerHTML = '<tr class="empty"><td colspan="4">audit fetch failed: ' + escText(err.message) + '</td></tr>';
+    });
+  }
+  function closeAuditView() {
+    var view = document.getElementById("schedule-audit-view");
+    if (view) view.style.display = "none";
+  }
+  // computeAuditEventDiff: parse payload_before + payload_after
+  // and produce a list of {field, before, after} for each
+  // editable field that changed. Reuses the v1.81 strify
+  // semantics (arrays joined on "," / null/undefined → "—").
+  function computeAuditEventDiff(ev) {
+    function parse(raw) {
+      if (raw == null) return {};
+      if (typeof raw === "string") {
+        try { return JSON.parse(raw); } catch (e) { return {}; }
+      }
+      return raw;
+    }
+    var before = parse(ev.payload_before);
+    var after = parse(ev.payload_after);
+    function strify(v) {
+      if (v === null || v === undefined) return "—";
+      if (Array.isArray(v)) return v.join(",");
+      return String(v);
+    }
+    var out = [];
+    function pushIf(field, b, a) {
+      if (strify(b) !== strify(a)) {
+        out.push({field: field, before: strify(b), after: strify(a)});
+      }
+    }
+    pushIf("name", before.name, after.name);
+    pushIf("template.input", (before.template || {}).input, (after.template || {}).input);
+    pushIf("template.plugins", (before.template || {}).plugins, (after.template || {}).plugins);
+    pushIf("interval_seconds", before.interval_seconds, after.interval_seconds);
+    pushIf("cron_expr", before.cron_expr, after.cron_expr);
+    pushIf("timezone", before.timezone, after.timezone);
+    pushIf("enabled", before.enabled, after.enabled);
+    return out;
+  }
   // previewNextFire (v1.77) sends the current form values to
   // POST /api/v1/schedules/preview and renders the response
   // below the submit row. Re-uses the same field readers as
@@ -1853,6 +1971,9 @@ const overviewHTML = `<!doctype html>
   window.forceOverwriteSchedule = forceOverwriteSchedule;
   // v1.83 per-field cherry-pick.
   window.applySelectedMerge = applySelectedMerge;
+  // v1.85 audit history view.
+  window.openAuditView = openAuditView;
+  window.closeAuditView = closeAuditView;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
