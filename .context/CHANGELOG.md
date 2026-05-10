@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.78 (chunk 1) — **Optimistic
+  locking on schedule edits.** ScanSchedule.UpdatedAt
+  (set on Create, bumped on Update). UpdateScheduleRequest.
+  IfMatch (*time.Time, JSON-skipped). ErrSchedulePrecondition-
+  Failed → 412. PUT reads If-Match header (RFC3339Nano).
+  DBScheduleStore.Update conditional UPDATE +
+  follow-up SELECT to disambiguate 404 vs 412.
+  Migration 00010 + scheduleColumns 12 → 13.
+  Dashboard captures updated_at on edit-load +
+  sends If-Match on PUT. 11 unit + 4 REST + 2
+  dashboard markers. Snapshot:
+  `.context/snapshots/v1.78.0-optimistic-locking.md`.
+
 - 2026-05-10 — v1.77 (chunk 1) — **Dashboard
   next-fire preview.** ScanSchedule.NextFireAt
   (computed at read time). NextFire(now) method

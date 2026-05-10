@@ -100,6 +100,18 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.78 (Optimistic locking on schedule edits)
+
+- ✅ **Optimistic locking on schedule edits** — v1.78
+  chunk 1. ScanSchedule.UpdatedAt + UpdateScheduleRequest.
+  IfMatch + ErrSchedulePreconditionFailed (→ 412). PUT
+  reads `If-Match` header (RFC3339Nano). DBScheduleStore.
+  Update conditional UPDATE + follow-up SELECT to
+  disambiguate 404 vs 412. Migration 00010 +
+  scheduleColumns 12 → 13. Dashboard captures updated_at
+  + sends If-Match on PUT. 11 unit + 4 REST + 2 dashboard
+  markers.
+
 ### v1.77 (Dashboard next-fire preview)
 
 - ✅ **Dashboard next-fire preview** — v1.77 chunk 1.

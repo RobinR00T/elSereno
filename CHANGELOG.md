@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.78.0] — 2026-05-10
+
+### Added
+
+- **Optimistic locking on schedule edits.** Multi-operator
+  deployments could lose edits silently in v1.74-v1.77 —
+  two operators editing the same schedule from the
+  dashboard would last-write-wins. v1.78 adds:
+  - `ScanSchedule.UpdatedAt` — set on Create
+    (= CreatedAt), bumped on every Update. NOT bumped by
+    MarkFired or SetEnabled.
+  - `UpdateScheduleRequest.IfMatch` (*time.Time, JSON-
+    skipped) — when non-nil, the Update only proceeds
+    if the stored UpdatedAt matches.
+  - `ErrSchedulePreconditionFailed` sentinel → 412.
+  - PUT /api/v1/schedules/{id} reads the `If-Match` HTTP
+    header (RFC3339Nano with RFC3339 fallback). Empty
+    header skips the precondition (back-compat).
+    Mismatch → 412. Malformed → 400.
+- Migration 00010: adds `updated_at TIMESTAMPTZ NOT NULL`,
+  backfilled from `created_at` on existing rows.
+- Dashboard captures `updated_at` on edit-load and sends
+  `If-Match` on PUT. 412 surfaces "schedule was modified
+  by another operator — refresh and retry" inline.
+- 11 new unit tests + 4 REST tests + 2 dashboard markers.
+
+### Changed
+
+- `DBScheduleStore.Update` writes `updated_at` on every
+  Update. The conditional `WHERE id = $1 AND updated_at =
+  $9` runs only when IfMatch is set; otherwise the
+  WHERE matches by id alone.
+- 0-row UPDATE-with-IfMatch triggers a follow-up
+  `SELECT 1 FROM scan_schedules WHERE id = $1` to
+  disambiguate `ErrScheduleNotFound` vs.
+  `ErrSchedulePreconditionFailed`.
+- `scheduleColumns` 12 → 13 (updated_at slotted between
+  created_at and last_fired_at).
+
 ## [1.77.0] — 2026-05-10
 
 ### Added

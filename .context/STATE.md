@@ -1,31 +1,38 @@
 ---
-phase: v1.77-closed
-status: v1.16-v1.27 published; v1.28-v1.77 tags pending push
+phase: v1.78-closed
+status: v1.16-v1.27 published; v1.28-v1.78 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.77 cycle closed on `main`** (1 chunk +
-close). Operators creating/editing a cron schedule had
-no way to see what their cadence would produce before
-submitting (gap noted in v1.74 honest-scope). v1.77 adds:
-ScanSchedule.NextFireAt (computed at read time, not
-persisted), (s).NextFire(now) method shared between
-read paths + preview, free function PreviewNextFire(req,
-now), POST /api/v1/schedules/preview endpoint, dashboard
-"Next fire" column + "Preview next fire" button. Validation
-refactor extracts writeScheduleValidationError. cronIsDue
-now delegates to cronNextFire (DRY). 11 unit + 5 REST + 5
+**Phase**: **v1.78 cycle closed on `main`** (1 chunk +
+close). v1.74-v1.77 had no optimistic locking — two
+operators editing the same schedule from the dashboard
+last-write-wins. v1.78 adds: ScanSchedule.UpdatedAt
+(set on Create, bumped on Update — NOT bumped by
+MarkFired/SetEnabled), UpdateScheduleRequest.IfMatch
+(*time.Time, JSON-skipped), ErrSchedulePreconditionFailed
+sentinel, REST PUT reads `If-Match` header (RFC3339Nano)
+→ 412 on mismatch / 400 on malformed / 404 on not-found.
+DBScheduleStore.Update conditional UPDATE with follow-up
+SELECT to disambiguate 404 vs 412. Migration 00010 +
+scheduleColumns 12 → 13. Dashboard captures updated_at on
+edit-load + sends If-Match on PUT. 11 unit + 4 REST + 2
 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.77.0-next-fire-preview.md`.
+Snapshot: `.context/snapshots/v1.78.0-optimistic-locking.md`.
 
-**v1.77 chunks landed (in-flight)**:
-- 1 `21756ad` — NextFireAt + NextFire helpers +
-  PreviewNextFire + /preview endpoint + dashboard column
-  + preview button + 11 + 5 + 5 tests/markers.
+**v1.78 chunks landed (in-flight)**:
+- 1 `c31fedf` — UpdatedAt + IfMatch + 412 path +
+  migration 00010 + DB conditional UPDATE + dashboard
+  If-Match + 11 unit + 4 REST + 2 dashboard markers.
+
+**v1.77 cycle (closed, snapshot available)**:
+Dashboard next-fire preview (tz-aware). 1 chunk + close:
+`21756ad`, `7e711b7`. Snapshot:
+`.context/snapshots/v1.77.0-next-fire-preview.md`.
 
 **v1.76 cycle (closed, snapshot available)**:
 Named cron shortcuts (@daily/@hourly/etc.). 1 chunk +

@@ -554,6 +554,35 @@ cron parses if specified; timezone resolves via
 Create. The preview is store-independent — no schedule is
 created, no DB write happens.
 
+**Optimistic locking (v1.78+)**: the dashboard's edit form
+uses an `If-Match` header to prevent concurrent edits from
+overwriting each other silently. Each schedule carries an
+`updated_at` timestamp (RFC3339Nano) that bumps on every
+edit. When the dashboard sends a PUT, it includes the
+schedule's `updated_at` from when the form was loaded:
+
+```sh
+# curl path:
+curl -X PUT http://127.0.0.1:8787/api/v1/schedules/{id} \
+  -H "Content-Type: application/json" \
+  -H "If-Match: 2026-05-10T19:00:00Z" \
+  -H "X-Operator: alice" \
+  -d '{"name":"renamed","template":{"input":"list:fleet.txt","plugins":["modbus"]},"cron_expr":"0 9 * * 1-5"}'
+```
+
+If another operator updated the schedule between read and
+write, the server returns **412 Precondition Failed** and
+the schedule is unchanged. The dashboard surfaces this as
+"schedule was modified by another operator — refresh and
+retry"; operator-driven `curl` scripts can detect 412 and
+retry-with-fresh-read.
+
+`If-Match` is **optional** — pre-v1.78 callers (and any
+script that doesn't care about racy edits) can omit the
+header and the precondition is skipped. Migration 00010
+backfills `updated_at = created_at` on existing rows so
+upgrades are non-disruptive.
+
 **Persistence (v1.71+)**: the schedule store is automatically
 chosen to match `--scan-store`:
 
