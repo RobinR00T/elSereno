@@ -8,6 +8,23 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-11 — v1.84 (chunk 1) — **Force-overwrite
+  audit log.** New ScheduleAuditStore interface +
+  Memory/DB implementations. PUT carrying
+  `X-Schedule-Force-Overwrite: true` with audit store
+  non-nil writes a force_overwrite event (id, schedule_id,
+  event_type, operator, occurred_at, payload_before,
+  payload_after JSONB). New GET /api/v1/schedules/{id}/audit
+  endpoint (newest-first). Migration 00011 with
+  CASCADE-on-delete FK + DESC index. cmd_serve wires
+  DB-backed store on --scan-store=db, memory otherwise.
+  Dashboard forceOverwriteSchedule sends the header.
+  updateSchedule refactored (parseIfMatchInto +
+  writeUpdateScheduleError + recordForceOverwriteAudit)
+  to satisfy gocyclo. audit/events_test.go regex scoped
+  to audit_log statements. 5 unit + 5 REST. Snapshot:
+  `.context/snapshots/v1.84.0-force-overwrite-audit.md`.
+
 - 2026-05-11 — v1.83 (chunk 1) — **Cherry-pick
   merge view.** Each diff row in the v1.81 merge
   view gains a pair of radio buttons (mine | server,

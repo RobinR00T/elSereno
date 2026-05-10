@@ -618,10 +618,50 @@ Three resolution buttons (v1.83 layout):
   - **Take server (discard my edits)** — re-loads the
     form with server's values for a clean re-edit.
   - **Force overwrite (re-submit ignoring If-Match)** —
-    last-write-wins, after a confirmation prompt.
+    last-write-wins, after a confirmation prompt. v1.84+
+    additionally sends `X-Schedule-Force-Overwrite: true`
+    which causes the server to persist an audit row.
 
 Operator-driven `curl` scripts can still detect 412 and
 retry-with-fresh-read manually.
+
+**Force-overwrite audit log (v1.84+)**: when a PUT
+overrides the optimistic-locking precondition, the server
+persists a before/after snapshot of the schedule so a
+downstream operator can audit who overrode whom and what
+changed:
+
+```sh
+# View the audit history for a schedule:
+curl http://127.0.0.1:8787/api/v1/schedules/{id}/audit
+# → 200 [{id, schedule_id, event_type, operator,
+#         occurred_at, payload_before, payload_after}, ...]
+#   newest first.
+# → 404 if the schedule doesn't exist.
+# → 503 if the audit store is nil (memory deployments
+#   running without scan-store=db).
+
+# Trigger an audited force-overwrite via curl:
+curl -X PUT http://127.0.0.1:8787/api/v1/schedules/{id} \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: bob" \
+  -H "X-Schedule-Force-Overwrite: true" \
+  -d '{"name":"renamed","template":{"input":"list:fleet.txt","plugins":["modbus"]},"interval_seconds":3600}'
+```
+
+When `--scan-store=db`, the audit log persists to the
+`scan_schedule_audit` table (migration 00011) and survives
+serve restart. When `--scan-store=memory`, the audit log
+lives only for the process lifetime. The audit row is
+best-effort: a persistence failure does not reverse the
+update — instead the response carries an
+`X-Schedule-Audit-Warning` header so the operator can
+investigate. The CASCADE on `schedule_id` means deleting a
+schedule wipes its audit history (operators wanting a
+permanent record should disable instead of delete).
+
+Run `elsereno db migrate` to apply migration 00011 before
+upgrading to v1.84+ in db-store mode.
 
 `If-Match` is **optional** — pre-v1.78 callers (and any
 script that doesn't care about racy edits) can omit the

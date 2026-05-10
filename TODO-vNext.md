@@ -100,6 +100,21 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.84 (Force-overwrite audit log)
+
+- ✅ **Audit log of force-overwrite events** — v1.84
+  chunk 1. ScheduleAuditStore interface + Memory/DB
+  implementations. PUT carrying
+  `X-Schedule-Force-Overwrite: true` (with non-nil audit
+  store) persists a force_overwrite event with
+  before/after JSONB snapshots. GET
+  /api/v1/schedules/{id}/audit returns events
+  newest-first. Migration 00011 + CASCADE-on-delete +
+  (schedule_id, occurred_at DESC) index. cmd_serve
+  picks DB-backed store on --scan-store=db. Dashboard
+  forceOverwriteSchedule sends the header. 5 unit +
+  5 REST tests.
+
 ### v1.83 (Cherry-pick merge view)
 
 - ✅ **Per-field cherry-pick in merge view** — v1.83

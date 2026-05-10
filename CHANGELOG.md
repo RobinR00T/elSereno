@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.84.0] — 2026-05-11
+
+### Added
+
+- **Force-overwrite audit log.** v1.81/v1.83 let an
+  operator skip the v1.78 optimistic-locking
+  precondition via "Force overwrite". v1.84 adds a
+  persistent audit trail so a downstream operator can
+  see who overrode whom + what changed:
+  - `ScheduleAuditStore` interface +
+    `MemoryScheduleAuditStore` +
+    `DBScheduleAuditStore` (migration 00011).
+  - `ScanSchedule` edits via PUT carrying
+    `X-Schedule-Force-Overwrite: true` AND a non-nil
+    audit store persist a `force_overwrite` event
+    (operator, occurred_at, before/after JSONB
+    snapshots).
+  - `GET /api/v1/schedules/{id}/audit` returns events
+    newest-first. 404 if schedule missing; 503 if
+    audit store nil.
+  - `ErrScheduleAuditInvalidEventType` sentinel —
+    `force_overwrite` is the only enumerated event in
+    v1.84; future cycles may expand.
+- Migration `00011_scan_schedule_audit.sql`:
+  `scan_schedule_audit` table with CASCADE-on-delete FK
+  to `scan_schedules` + (schedule_id, occurred_at DESC)
+  index.
+- `cmd serve --scan-store=db` provisions the DB-backed
+  audit store; `--scan-store=memory` (the default)
+  provisions the memory store.
+- Dashboard "Force overwrite" button now sends the
+  `X-Schedule-Force-Overwrite: true` header; the
+  confirm() prompt notes the audit-log persistence.
+- 5 new unit tests + 5 REST tests.
+
+### Changed
+
+- `Schedules()` handler factory signature now takes
+  `(store, audit)`. Callers passing nil for audit get
+  the v1.83 behaviour: force-overwrite PUTs still
+  succeed (back-compat path) but no audit row is
+  written, and the `/audit` GET returns 503.
+- `updateSchedule` handler refactored into
+  `parseIfMatchInto` + `writeUpdateScheduleError` +
+  `recordForceOverwriteAudit` to satisfy `gocyclo`.
+- `internal/audit/events_test.go` regex updated to scope
+  its `event_type` CHECK lookup to `audit_log`
+  statements only (the new `scan_schedule_audit` table
+  has its own enum that doesn't belong in
+  `audit.AllEventTypes`).
+
 ## [1.83.0] — 2026-05-11
 
 ### Added

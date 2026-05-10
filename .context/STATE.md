@@ -1,34 +1,46 @@
 ---
-phase: v1.83-closed
-status: v1.16-v1.27 published; v1.28-v1.83 tags pending push
+phase: v1.84-closed
+status: v1.16-v1.27 published; v1.28-v1.84 tags pending push
 last-updated: 2026-05-11
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.83 cycle closed on `main`** (1 chunk +
-close). Dashboard-only JS+HTML: per-field cherry-pick
-in the v1.81 merge view. Each diff row now renders a
-pair of radio buttons (mine | server, default mine).
-New "Apply selected (per-field)" button walks the
-selections, builds a merged payload + PUTs WITH
-If-Match. Cadence-XOR preserved automatically by
-applyServerField. v1.81's Take server + Force
-overwrite buttons remain. 4 dashboard markers.
+**Phase**: **v1.84 cycle closed on `main`** (1 chunk +
+close). Force-overwrite audit log. New ScheduleAuditStore
+interface + Memory + DB implementations. PUT carrying
+`X-Schedule-Force-Overwrite: true` with audit store
+non-nil persists a force_overwrite event with before/after
+JSON snapshots. New GET /api/v1/schedules/{id}/audit
+returns events newest-first (404 if schedule missing /
+503 if audit nil). Migration 00011 adds
+scan_schedule_audit table with CASCADE-on-delete FK to
+scan_schedules + (schedule_id, occurred_at DESC) index.
+cmd_serve picks DB-backed audit store when --scan-store=db,
+memory otherwise. Dashboard forceOverwriteSchedule sends
+the new header. updateSchedule refactored
+(parseIfMatchInto + writeUpdateScheduleError +
+recordForceOverwriteAudit) to satisfy gocyclo.
+internal/audit/events_test.go regex updated to scope
+event_type CHECK lookup to audit_log statements only.
+5 unit + 5 REST tests.
 
-Snapshot: `.context/snapshots/v1.83.0-cherry-pick-merge.md`.
+Snapshot: `.context/snapshots/v1.84.0-force-overwrite-audit.md`.
 
-**v1.83 chunks landed (in-flight)**:
-- 1 `c7e7e1a` — radio rows + applySelectedMerge +
-  applyServerField + 4 dashboard markers.
+**v1.84 chunks landed (in-flight)**:
+- 1 `0c80bd5` — ScheduleAuditEvent + Store interface +
+  Memory + DB impls + migration 00011 + REST audit-write
+  + GET /audit endpoint + dashboard header + cmd_serve
+  wiring + audit-test regex fix + 5 unit + 5 REST.
 
-**v1.79 → v1.82 cycles** (closed; per-cycle snapshots
+**v1.79 → v1.83 cycles** (closed; per-cycle snapshots
 in `.context/snapshots/`): multi-fire preview /count=N
 (v1.79 `64ebb77` + `52c382b`), live debounced preview
 (v1.80 `321b960` + `91d6634`), 412 merge-view UI
 (v1.81 `ba6e721` + `896aa6c`), AbortController on
-/preview (v1.82 `8ffffb3` + `71b8d30`).
+/preview (v1.82 `8ffffb3` + `71b8d30`), cherry-pick
+merge view (v1.83 `c7e7e1a` + `56b9eda`).
 
 **v1.78 cycle (closed, snapshot available)**:
 Optimistic locking on schedule edits (UpdatedAt +
