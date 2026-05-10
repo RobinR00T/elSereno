@@ -100,6 +100,11 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`previewAbortController`,
 		`AbortController`,
 		`AbortError`,
+		// v1.83: per-field cherry-pick in merge view.
+		`id="schedule-apply-selected-button"`,
+		`function applySelectedMerge`,
+		`function applyServerField`,
+		`merge-row-`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

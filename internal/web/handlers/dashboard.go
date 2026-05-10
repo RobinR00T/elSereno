@@ -538,9 +538,10 @@ const overviewHTML = `<!doctype html>
         <div id="schedule-next-fire-preview" class="sub" style="margin-top: 0.3em;"></div>
         <div id="schedule-merge-view" style="display: none; margin-top: 0.5em; padding: 0.5em; border: 1px solid #c66; background: #fee;">
           <strong>Schedule was modified by another operator.</strong>
-          <div class="sub">Conflicting fields:</div>
-          <ul id="schedule-merge-diff" style="margin: 0.3em 0;"></ul>
-          <button type="button" id="schedule-accept-server-button" onclick="acceptServerSchedule()">Take server (discard my edits)</button>
+          <div class="sub">Pick a side per field (mine = your pending edit · server = freshly fetched value):</div>
+          <ul id="schedule-merge-diff" style="margin: 0.3em 0; list-style: none; padding-left: 0;"></ul>
+          <button type="button" id="schedule-apply-selected-button" onclick="applySelectedMerge()">Apply selected (per-field)</button>
+          <button type="button" id="schedule-accept-server-button" onclick="acceptServerSchedule()" style="margin-left: 0.5em;">Take server (discard my edits)</button>
           <button type="button" id="schedule-force-overwrite-button" onclick="forceOverwriteSchedule()" style="margin-left: 0.5em;">Force overwrite (re-submit ignoring If-Match)</button>
         </div>
       </form>
@@ -1499,12 +1500,22 @@ const overviewHTML = `<!doctype html>
       var diff = computeScheduleDiff(pendingMergePayload || {}, server);
       var list = document.getElementById("schedule-merge-diff");
       if (list) {
-        list.innerHTML = diff.length
-          ? diff.map(function (d) {
-              return '<li><code>' + escText(d.field) + '</code>: mine=<code>' +
-                escText(d.mine) + '</code> · server=<code>' + escText(d.server) + '</code></li>';
-            }).join("")
-          : '<li>(no field-level diffs — likely a race on updated_at alone)</li>';
+        if (!diff.length) {
+          list.innerHTML = '<li>(no field-level diffs — likely a race on updated_at alone)</li>';
+        } else {
+          // v1.83: each row has radio buttons for per-field
+          // cherry-pick. Default selection is "mine" (the
+          // operator's edits) — matches v1.81 Force-overwrite
+          // semantics if the operator just clicks Apply.
+          list.innerHTML = diff.map(function (d, i) {
+            var rowName = "merge-row-" + i;
+            return '<li data-field="' + escAttr(d.field) + '">' +
+              '<code>' + escText(d.field) + '</code>: ' +
+              '<label><input type="radio" name="' + rowName + '" value="mine" checked> mine=<code>' + escText(d.mine) + '</code></label> · ' +
+              '<label style="margin-left: 0.5em;"><input type="radio" name="' + rowName + '" value="server"> server=<code>' + escText(d.server) + '</code></label>' +
+              '</li>';
+          }).join("");
+        }
       }
       mergeView.style.display = "";
     }).catch(function (e) {
@@ -1581,6 +1592,105 @@ const overviewHTML = `<!doctype html>
     }).catch(function (e) {
       if (status) status.textContent = "force overwrite failed: " + e.message;
     });
+  }
+  // applySelectedMerge (v1.83): builds a merged payload from
+  // the per-field radio selections in the merge view + PUTs
+  // with the freshly-fetched If-Match. A concurrent third
+  // operator who raced between enterMergeView and this call
+  // re-opens the merge flow (412 → enterMergeView again).
+  function applySelectedMerge() {
+    var server = window.scheduleMergeServer;
+    var mergeView = document.getElementById("schedule-merge-view");
+    var list = document.getElementById("schedule-merge-diff");
+    var status = document.getElementById("schedule-submit-status");
+    if (!server || !pendingMergePayload || !editingScheduleID || !list) return;
+    // Start from a deep-ish copy of the operator's pending
+    // payload (only fields that map to schedule columns
+    // matter; nested objects we touch: template).
+    var merged = {
+      name: pendingMergePayload.name,
+      template: {
+        input: (pendingMergePayload.template || {}).input,
+        plugins: (pendingMergePayload.template || {}).plugins,
+        default_port: (pendingMergePayload.template || {}).default_port
+      },
+      interval_seconds: pendingMergePayload.interval_seconds,
+      cron_expr: pendingMergePayload.cron_expr,
+      timezone: pendingMergePayload.timezone
+    };
+    // Walk each diff row + apply the operator's selection.
+    var rows = list.querySelectorAll("li[data-field]");
+    for (var i = 0; i < rows.length; i++) {
+      var field = rows[i].getAttribute("data-field");
+      var checked = rows[i].querySelector('input[type="radio"]:checked');
+      if (!checked || checked.value !== "server") continue;
+      // Operator picked server for this field — copy from
+      // server.
+      applyServerField(merged, field, server);
+    }
+    if (status) status.textContent = "applying merge…";
+    var headers = {"Content-Type": "application/json"};
+    if (editingScheduleUpdatedAt) {
+      // v1.83: still send If-Match — a third concurrent
+      // edit re-opens the merge flow.
+      headers["If-Match"] = editingScheduleUpdatedAt;
+    }
+    // Re-capture so a subsequent 412 has the right payload.
+    pendingMergePayload = merged;
+    fetch("/api/v1/schedules/" + encodeURIComponent(editingScheduleID), {
+      method: "PUT",
+      headers: headers,
+      credentials: "same-origin",
+      body: JSON.stringify(merged)
+    }).then(function (r) {
+      if (r.status === 412) {
+        return r.text().then(function () {
+          enterMergeView(editingScheduleID);
+          return null;
+        });
+      }
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      if (res === null) return; // 412 → merge view re-opened.
+      if (mergeView) mergeView.style.display = "none";
+      pendingMergePayload = null;
+      window.scheduleMergeServer = null;
+      cancelEditSchedule();
+      renderSchedules();
+    }).catch(function (e) {
+      if (status) status.textContent = "apply merge failed: " + e.message;
+    });
+  }
+  // applyServerField copies a single named field from
+  // server into the merged payload. Handles the
+  // template.<x> nested keys explicitly because the dot
+  // notation isn't auto-resolvable in plain JS.
+  function applyServerField(merged, field, server) {
+    switch (field) {
+      case "name":
+        merged.name = server.name;
+        break;
+      case "template.input":
+        merged.template.input = (server.template || {}).input;
+        break;
+      case "template.plugins":
+        merged.template.plugins = (server.template || {}).plugins;
+        break;
+      case "interval_seconds":
+        merged.interval_seconds = server.interval_seconds;
+        // If picking server interval, drop cron — cadence
+        // XOR must hold.
+        if (server.interval_seconds) merged.cron_expr = "";
+        break;
+      case "cron_expr":
+        merged.cron_expr = server.cron_expr;
+        if (server.cron_expr) merged.interval_seconds = 0;
+        break;
+      case "timezone":
+        merged.timezone = server.timezone;
+        break;
+    }
   }
   // previewNextFire (v1.77) sends the current form values to
   // POST /api/v1/schedules/preview and renders the response
@@ -1735,6 +1845,8 @@ const overviewHTML = `<!doctype html>
   // v1.81 412 merge-view helpers.
   window.acceptServerSchedule = acceptServerSchedule;
   window.forceOverwriteSchedule = forceOverwriteSchedule;
+  // v1.83 per-field cherry-pick.
+  window.applySelectedMerge = applySelectedMerge;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
