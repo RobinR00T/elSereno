@@ -253,6 +253,84 @@ func TestMemoryScheduleStore_SetEnabled(t *testing.T) {
 	}
 }
 
+// TestMemoryScheduleStore_Create_TimezoneHappy: a valid IANA
+// zone is preserved across Create.
+func TestMemoryScheduleStore_Create_TimezoneHappy(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "ny-9am",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 9 * * 1-5",
+		Timezone: "America/New_York",
+	}, "alice")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if sched.Timezone != "America/New_York" {
+		t.Errorf("Timezone = %q", sched.Timezone)
+	}
+}
+
+// TestMemoryScheduleStore_Create_TimezoneInvalid.
+func TestMemoryScheduleStore_Create_TimezoneInvalid(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	_, err := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "bogus",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 9 * * 1-5",
+		Timezone: "Not/AReal-Zone",
+	}, "alice")
+	if !errors.Is(err, scanorch.ErrScheduleInvalidTimezone) {
+		t.Errorf("err = %v, want ErrScheduleInvalidTimezone", err)
+	}
+}
+
+// TestScanSchedule_IsDue_CronTimezone: a schedule with
+// timezone "America/New_York" + cron "0 9 * * *" + last-
+// fired set to today's 09:00 NY (= 14:00 UTC winter) is
+// NOT due until tomorrow's 09:00 NY (= 14:00 UTC tomorrow).
+// Verifies cron evaluates against NY wall-clock time, not
+// UTC.
+func TestScanSchedule_IsDue_CronTimezone(t *testing.T) {
+	// LastFiredAt = Jan 8 09:00 NY = Jan 8 14:00 UTC (winter,
+	// EST = UTC-5).
+	lastFiredUTC := time.Date(2026, 1, 8, 14, 0, 0, 0, time.UTC)
+	sched := scanorch.ScanSchedule{
+		Enabled:     true,
+		CronExpr:    "0 9 * * *",
+		Timezone:    "America/New_York",
+		CreatedAt:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		LastFiredAt: lastFiredUTC,
+	}
+	// 5 hours later (Jan 8 19:00 UTC = Jan 8 14:00 NY) → NOT
+	// due. Next 09:00 NY is tomorrow.
+	at1900UTC := time.Date(2026, 1, 8, 19, 0, 0, 0, time.UTC)
+	if sched.IsDue(at1900UTC) {
+		t.Errorf("Jan 8 19:00 UTC = 14:00 NY should NOT be due (next 09:00 NY is tomorrow)")
+	}
+	// Jan 9 14:00 UTC = Jan 9 09:00 NY → due.
+	tomorrow0900NY := time.Date(2026, 1, 9, 14, 0, 0, 0, time.UTC)
+	if !sched.IsDue(tomorrow0900NY) {
+		t.Errorf("Jan 9 14:00 UTC = 09:00 NY should be due")
+	}
+}
+
+// TestScanSchedule_IsDue_CronTimezone_Empty falls back to UTC
+// (back-compat with v1.73/v1.74).
+func TestScanSchedule_IsDue_CronTimezone_Empty(t *testing.T) {
+	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	sched := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 9 * * *",
+		Timezone:  "", // empty → UTC
+		CreatedAt: created,
+	}
+	at0900UTC := time.Date(2026, 1, 2, 9, 0, 0, 0, time.UTC)
+	if !sched.IsDue(at0900UTC) {
+		t.Errorf("09:00 UTC should be due with empty Timezone (UTC fallback)")
+	}
+}
+
 // TestMemoryScheduleStore_Update_Happy: round-trip an edit
 // that swaps the cadence from interval to cron.
 func TestMemoryScheduleStore_Update_Happy(t *testing.T) {

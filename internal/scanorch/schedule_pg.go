@@ -32,9 +32,10 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 // + the rowScanner.
 //
 // v1.73+: includes cron_expr.
+// v1.75+: includes timezone.
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
-interval_seconds, cron_expr, enabled, operator, created_at, last_fired_at`
+interval_seconds, cron_expr, timezone, enabled, operator, created_at, last_fired_at`
 
 // Create inserts a new schedule. Validation + cadence
 // resolution shares buildScheduleFromRequest with
@@ -52,11 +53,11 @@ func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest,
 	const sql = `
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
-   interval_seconds, cron_expr, enabled, operator, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)`
+   interval_seconds, cron_expr, timezone, enabled, operator, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
-		sched.IntervalSeconds, sched.CronExpr, operator, sched.CreatedAt,
+		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
@@ -111,7 +112,7 @@ func (s *DBScheduleStore) List(ctx context.Context) ([]ScanSchedule, error) {
 // validation; the parameterised UPDATE binds both columns so
 // the constraint sees both values atomically.
 func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
-	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
 	plugins := req.Template.Plugins
@@ -125,12 +126,13 @@ func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateSched
 	const sql = `
 UPDATE scan_schedules
 SET name = $2, template_input = $3, template_plugins = $4,
-    template_default_port = $5, interval_seconds = $6, cron_expr = $7
+    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
+    timezone = $8
 WHERE id = $1
 RETURNING ` + scheduleColumns
 	rows, err := s.q.Query(ctx, sql,
 		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
-		staged.IntervalSeconds, staged.CronExpr,
+		staged.IntervalSeconds, staged.CronExpr, req.Timezone,
 	)
 	if err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: update schedule: %w", err)
@@ -199,7 +201,7 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	if err := rows.Scan(
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
-		&s.IntervalSeconds, &s.CronExpr, &s.Enabled, &s.Operator,
+		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
 		&s.CreatedAt, &lastFiredAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)

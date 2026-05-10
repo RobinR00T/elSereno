@@ -11,8 +11,8 @@ import (
 )
 
 // makeScheduleRow returns a baseline scan_schedules row map
-// (interval-based; cron_expr empty). Tests override individual
-// columns as needed.
+// (interval-based; cron_expr empty; timezone empty = UTC).
+// Tests override individual columns as needed.
 func makeScheduleRow(id, name string) map[string]any {
 	return map[string]any{
 		"id":                    id,
@@ -22,6 +22,7 @@ func makeScheduleRow(id, name string) map[string]any {
 		"template_default_port": int(0),
 		"interval_seconds":      int(3600),
 		"cron_expr":             "",
+		"timezone":              "",
 		"enabled":               true,
 		"operator":              "alice",
 		"created_at":            time.Now().UTC(),

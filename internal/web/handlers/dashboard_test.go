@@ -66,6 +66,10 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`id="schedule-cancel-button"`,
 		`function beginEditSchedule`,
 		`function cancelEditSchedule`,
+		// v1.75: timezone field for cron schedules.
+		`id="schedule-timezone"`,
+		`id="schedule-timezone-label"`,
+		`timezone`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

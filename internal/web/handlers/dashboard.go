@@ -528,6 +528,9 @@ const overviewHTML = `<!doctype html>
         <label id="schedule-cron-label" style="display: none;">cron:
           <input type="text" id="schedule-cron" placeholder="0 2 * * *" size="20" />
         </label>
+        <label id="schedule-timezone-label" style="display: none;">timezone:
+          <input type="text" id="schedule-timezone" placeholder="UTC | America/New_York" size="20" autocomplete="off" />
+        </label>
         <button type="submit" id="schedule-submit-button">Create</button>
         <button type="button" id="schedule-cancel-button" onclick="cancelEditSchedule()" style="display: none;">Cancel</button>
         <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
@@ -1196,11 +1199,18 @@ const overviewHTML = `<!doctype html>
           var plugins = (s.template && s.template.plugins || []).join(",") || "—";
           // v1.73: cron-based schedules show the raw cron
           // expression in the Interval column rather than a
-          // human duration. Operator can read both shapes at
-          // a glance.
-          var intervalDisplay = s.cron_expr
-            ? "cron: " + s.cron_expr
-            : humanInterval(s.interval_seconds);
+          // human duration. v1.75: append the timezone if
+          // non-empty so operators see "0 9 * * 1-5
+          // (America/New_York)" at a glance.
+          var intervalDisplay;
+          if (s.cron_expr) {
+            intervalDisplay = "cron: " + s.cron_expr;
+            if (s.timezone) {
+              intervalDisplay += " (" + s.timezone + ")";
+            }
+          } else {
+            intervalDisplay = humanInterval(s.interval_seconds);
+          }
           var stateLabel = s.enabled ? "enabled" : "disabled";
           var lastFired = s.last_fired_at ? new Date(s.last_fired_at).toLocaleString() : "never";
           var toggleLabel = s.enabled ? "Disable" : "Enable";
@@ -1250,13 +1260,16 @@ const overviewHTML = `<!doctype html>
     var mode = (document.getElementById("schedule-cadence-mode") || {}).value || "interval";
     var intervalLabel = document.getElementById("schedule-interval-label");
     var cronLabel = document.getElementById("schedule-cron-label");
+    var tzLabel = document.getElementById("schedule-timezone-label");
     if (intervalLabel && cronLabel) {
       if (mode === "cron") {
         intervalLabel.style.display = "none";
         cronLabel.style.display = "";
+        if (tzLabel) tzLabel.style.display = "";
       } else {
         intervalLabel.style.display = "";
         cronLabel.style.display = "none";
+        if (tzLabel) tzLabel.style.display = "none";
       }
     }
   }
@@ -1292,6 +1305,8 @@ const overviewHTML = `<!doctype html>
       }
       if (intervalEl) intervalEl.value = s.interval_seconds || 3600;
       if (cronEl) cronEl.value = s.cron_expr || "";
+      var tzEl = document.getElementById("schedule-timezone");
+      if (tzEl) tzEl.value = s.timezone || "";
       if (submitBtn) submitBtn.textContent = "Update";
       if (cancelBtn) cancelBtn.style.display = "";
       if (status) status.textContent = "editing " + (s.id || "").slice(0, 8) + "…";
@@ -1317,7 +1332,7 @@ const overviewHTML = `<!doctype html>
     if (status) status.textContent = "";
     // Clear form fields so the operator can paste a fresh
     // create entry without leftover values.
-    ["schedule-name", "schedule-input", "schedule-plugin", "schedule-cron"].forEach(function (id) {
+    ["schedule-name", "schedule-input", "schedule-plugin", "schedule-cron", "schedule-timezone"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
@@ -1350,6 +1365,13 @@ const overviewHTML = `<!doctype html>
         return false;
       }
       payload.cron_expr = cron;
+      // v1.75: optional timezone for cron schedules. Empty
+      // means UTC (back-compat with v1.73/v1.74).
+      var tz = (document.getElementById("schedule-timezone") || {}).value || "";
+      tz = tz.trim();
+      if (tz) {
+        payload.timezone = tz;
+      }
     } else {
       var intervalRaw = (document.getElementById("schedule-interval") || {}).value || "3600";
       var interval = parseInt(intervalRaw, 10);

@@ -60,6 +60,14 @@ func createSchedule(store scanorch.ScheduleStore) http.Handler {
 				http.Error(w, "schedules: name is required", http.StatusBadRequest)
 			case errors.Is(err, scanorch.ErrScheduleTemplateInputRequired):
 				http.Error(w, "schedules: template.input is required", http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrScheduleCadenceRequired):
+				http.Error(w, "schedules: cadence is required (interval_seconds or cron_expr)", http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrScheduleCadenceConflict):
+				http.Error(w, "schedules: cannot set both interval_seconds and cron_expr", http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrCronInvalidField), errors.Is(err, scanorch.ErrCronWrongFieldCount):
+				http.Error(w, "schedules: invalid cron expression: "+err.Error(), http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrScheduleInvalidTimezone):
+				http.Error(w, "schedules: "+err.Error(), http.StatusBadRequest)
 			default:
 				http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			}
@@ -133,6 +141,8 @@ func updateSchedule(store scanorch.ScheduleStore) http.Handler {
 				http.Error(w, "schedules: cannot set both interval_seconds and cron_expr", http.StatusBadRequest)
 			case errors.Is(err, scanorch.ErrCronInvalidField), errors.Is(err, scanorch.ErrCronWrongFieldCount):
 				http.Error(w, "schedules: invalid cron expression: "+err.Error(), http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrScheduleInvalidTimezone):
+				http.Error(w, "schedules: "+err.Error(), http.StatusBadRequest)
 			default:
 				http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			}

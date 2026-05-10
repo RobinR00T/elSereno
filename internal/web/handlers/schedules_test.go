@@ -172,6 +172,39 @@ func TestEnableDisable(t *testing.T) {
 	}
 }
 
+// TestCreateSchedule_TimezoneHappy: a valid IANA zone is
+// preserved in the response.
+func TestCreateSchedule_TimezoneHappy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	body := []byte(`{"name":"ny-9am","template":{"input":"stdin"},"cron_expr":"0 9 * * 1-5","timezone":"America/New_York"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.Data.Timezone != "America/New_York" {
+		t.Errorf("Timezone = %q", resp.Data.Timezone)
+	}
+}
+
+// TestCreateSchedule_TimezoneInvalid: bad zone → 400.
+func TestCreateSchedule_TimezoneInvalid(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"0 9 * * *","timezone":"Not/AReal-Zone"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestUpdateSchedule_Happy: PUT round-trip with a renamed
 // schedule + cadence swap.
 func TestUpdateSchedule_Happy(t *testing.T) {

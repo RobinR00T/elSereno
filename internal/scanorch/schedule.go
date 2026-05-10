@@ -3,6 +3,7 @@ package scanorch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -34,6 +35,13 @@ type ScanSchedule struct {
 	// based. Mutually exclusive with IntervalSeconds —
 	// exactly one of the two is non-empty per schedule.
 	CronExpr string `json:"cron_expr,omitempty"`
+	// Timezone (v1.75+) is an IANA zone name (e.g.
+	// "America/New_York", "Europe/Madrid") that the
+	// Scheduler uses when evaluating CronExpr. Empty = UTC
+	// (back-compat with v1.73/v1.74 cron schedules). Only
+	// meaningful when CronExpr is set; ignored for interval
+	// schedules.
+	Timezone string `json:"timezone,omitempty"`
 	// Enabled is a soft kill-switch. False schedules stay in
 	// the store but the Scheduler skips them. Operators
 	// disable instead of delete to preserve history.
@@ -63,6 +71,9 @@ type CreateScheduleRequest struct {
 	Template        SubmitRequest `json:"template"`
 	IntervalSeconds int           `json:"interval_seconds,omitempty"`
 	CronExpr        string        `json:"cron_expr,omitempty"`
+	// Timezone (v1.75+, optional) IANA name for cron
+	// evaluation. Ignored for interval schedules.
+	Timezone string `json:"timezone,omitempty"`
 }
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
@@ -93,6 +104,11 @@ var (
 	// CreateScheduleRequest set both IntervalSeconds AND
 	// CronExpr — ambiguous.
 	ErrScheduleCadenceConflict = errors.New("scanorch: schedule cannot specify both interval_seconds and cron_expr")
+	// ErrScheduleInvalidTimezone (v1.75+) means the supplied
+	// IANA timezone name failed time.LoadLocation lookup. The
+	// underlying error wraps to give the operator the actual
+	// reason (typo, missing tzdata, etc).
+	ErrScheduleInvalidTimezone = errors.New("scanorch: schedule timezone invalid")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -129,6 +145,9 @@ type UpdateScheduleRequest struct {
 	Template        SubmitRequest `json:"template"`
 	IntervalSeconds int           `json:"interval_seconds,omitempty"`
 	CronExpr        string        `json:"cron_expr,omitempty"`
+	// Timezone (v1.75+, optional) IANA name for cron
+	// evaluation. Empty resets to UTC.
+	Timezone string `json:"timezone,omitempty"`
 }
 
 // MemoryScheduleStore is the in-memory ScheduleStore. v1.70+.
@@ -169,7 +188,7 @@ func (s *MemoryScheduleStore) Create(_ context.Context, req CreateScheduleReques
 //  4. Cron expression parses (defer cron parse until cadence
 //     is settled to avoid noisy errors).
 func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanSchedule, error) {
-	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
 	id, err := generateID()
@@ -181,6 +200,7 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 		ID:        id,
 		Name:      req.Name,
 		Template:  req.Template,
+		Timezone:  req.Timezone,
 		Enabled:   true,
 		Operator:  operator,
 		CreatedAt: now,
@@ -191,8 +211,15 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 
 // validateScheduleFields enforces the shared validation rules
 // for both Create and Update — name + template.input
-// non-empty; exactly one cadence; cron parses if specified.
-func validateScheduleFields(name string, template SubmitRequest, intervalSeconds int, cronExpr string) error {
+// non-empty; exactly one cadence; cron parses if specified;
+// timezone (if non-empty) loads via time.LoadLocation.
+//
+// Timezone is only validated when CronExpr is set — interval
+// schedules ignore the timezone field. Operators who supply
+// a timezone with an interval schedule see it stored but
+// unused (better than rejecting; lets the operator switch
+// modes via Update without re-typing the zone).
+func validateScheduleFields(name string, template SubmitRequest, intervalSeconds int, cronExpr, timezone string) error {
 	if name == "" {
 		return ErrScheduleNameRequired
 	}
@@ -210,6 +237,11 @@ func validateScheduleFields(name string, template SubmitRequest, intervalSeconds
 	if hasCron {
 		if _, err := ParseCron(cronExpr); err != nil {
 			return err
+		}
+	}
+	if timezone != "" {
+		if _, err := time.LoadLocation(timezone); err != nil {
+			return fmt.Errorf("%w: %s: %w", ErrScheduleInvalidTimezone, timezone, err)
 		}
 	}
 	return nil
@@ -281,7 +313,7 @@ func (s *MemoryScheduleStore) Delete(_ context.Context, id string) error {
 // schedule. ID, CreatedAt, LastFiredAt, Operator, Enabled
 // are preserved. v1.74+.
 func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
-	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr); err != nil {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
 	s.mu.Lock()
@@ -292,6 +324,7 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	}
 	sched.Name = req.Name
 	sched.Template = req.Template
+	sched.Timezone = req.Timezone
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	s.schedules[id] = sched
 	return sched, nil
@@ -367,24 +400,40 @@ func (s ScanSchedule) IsDue(now time.Time) bool {
 
 // cronIsDue handles the v1.73+ cron path. Compares now against
 // CronExpr.Next(anchor) where anchor is LastFiredAt or
-// CreatedAt for never-fired schedules. A cron parse error
-// here is fatal — should have been caught at Create time, so
-// this is defence in depth (returns false to skip the
-// schedule rather than panic).
+// CreatedAt for never-fired schedules.
+//
+// v1.75+: now and anchor are both converted to s.Timezone
+// before the cron match. Empty Timezone falls back to UTC
+// (back-compat with v1.73 / v1.74 schedules).
+//
+// A cron parse / timezone error here is fatal — should have
+// been caught at Create time, so this is defence in depth
+// (returns false to skip the schedule rather than panic).
 func (s ScanSchedule) cronIsDue(now time.Time) bool {
 	c, err := ParseCron(s.CronExpr)
 	if err != nil {
 		return false
 	}
+	loc := time.UTC
+	if s.Timezone != "" {
+		l, err := time.LoadLocation(s.Timezone)
+		if err != nil {
+			return false
+		}
+		loc = l
+	}
 	anchor := s.LastFiredAt
 	if anchor.IsZero() {
 		anchor = s.CreatedAt
 	}
-	next, err := c.Next(anchor)
+	// Convert both anchor and now to the schedule's tz before
+	// computing Next/Match — the cron expression is evaluated
+	// against wall-clock-local fields (hour/minute/dow).
+	next, err := c.Next(anchor.In(loc))
 	if err != nil {
 		return false
 	}
-	return !now.Before(next)
+	return !now.In(loc).Before(next)
 }
 
 // Compile-time guard.

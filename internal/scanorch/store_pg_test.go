@@ -116,9 +116,9 @@ func (r *fakeRows) Next() bool {
 //
 //   - 14 columns → scan_jobs projection (v1.67+:
 //     findings_by_plugin JSONB).
-//   - 11 columns → scan_schedules projection (v1.73+:
-//     cron_expr column added between interval_seconds and
-//     enabled).
+//   - 12 columns → scan_schedules projection (v1.75+:
+//     timezone column added between cron_expr and enabled;
+//     v1.73 had 11 columns).
 //
 // Routing by arity keeps the fake compatible with both stores
 // in the same test file without polluting the row maps with
@@ -130,10 +130,10 @@ func (r *fakeRows) Scan(dst ...any) error {
 	switch len(dst) {
 	case 14:
 		return scanFakeJob(dst, row)
-	case 11:
+	case 12:
 		return scanFakeSchedule(dst, row)
 	default:
-		return fmt.Errorf("fakeRows: scanorch test expected 14 or 11 columns, got %d", len(dst))
+		return fmt.Errorf("fakeRows: scanorch test expected 14 or 12 columns, got %d", len(dst))
 	}
 }
 
@@ -175,11 +175,12 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 	*(dst[4].(*int)) = row["template_default_port"].(int)
 	*(dst[5].(*int)) = row["interval_seconds"].(int)
 	*(dst[6].(*string)) = row["cron_expr"].(string)
-	*(dst[7].(*bool)) = row["enabled"].(bool)
-	*(dst[8].(*string)) = row["operator"].(string)
-	*(dst[9].(*time.Time)) = row["created_at"].(time.Time)
+	*(dst[7].(*string)) = row["timezone"].(string)
+	*(dst[8].(*bool)) = row["enabled"].(bool)
+	*(dst[9].(*string)) = row["operator"].(string)
+	*(dst[10].(*time.Time)) = row["created_at"].(time.Time)
 	if v, ok := row["last_fired_at"].(*time.Time); ok {
-		*(dst[10].(**time.Time)) = v
+		*(dst[11].(**time.Time)) = v
 	}
 	return nil
 }
