@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.77 (chunk 1) — **Dashboard
+  next-fire preview.** ScanSchedule.NextFireAt
+  (computed at read time). NextFire(now) method
+  shared by read paths + preview. PreviewNextFire
+  free function + POST /api/v1/schedules/preview
+  endpoint. Dashboard "Next fire" column +
+  "Preview next fire" button. Validation refactor
+  extracts writeScheduleValidationError shared
+  across Create/Update/Preview. cronIsDue now
+  delegates to cronNextFire (DRY). 11 unit +
+  5 REST + 5 dashboard markers. Snapshot:
+  `.context/snapshots/v1.77.0-next-fire-preview.md`.
+
 - 2026-05-10 — v1.76 (chunk 1) — **Named cron
   shortcuts.** Vixie-style @yearly / @annually,
   @monthly, @weekly, @daily / @midnight, @hourly.

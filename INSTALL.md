@@ -529,6 +529,31 @@ to next valid local time the day of the gap). The dashboard
 shows the timezone in the Interval column for cron
 schedules: `cron: 0 9 * * 1-5 (America/New_York)`.
 
+**Next-fire preview (v1.77+)**: the schedules table renders
+a "Next fire" column with the predicted next firing time.
+Schedules whose predicted next fire is already in the past
+(overdue) are tagged so operators see at a glance which
+ones will trigger on the next tick. The Create/Edit form
+also has a "Preview next fire" button — clicking it sends
+the current form values to `/api/v1/schedules/preview` and
+shows the predicted next fire below the submit row,
+including the timezone label for cron schedules:
+
+```sh
+# curl path:
+curl -X POST http://127.0.0.1:8787/api/v1/schedules/preview \
+  -H "Content-Type: application/json" \
+  -d '{"name":"x","template":{"input":"stdin"},"cron_expr":"0 9 * * 1-5","timezone":"America/New_York"}'
+# → {"data":{"next_fire_at":"...","timezone":"America/New_York"}}
+```
+
+The preview endpoint validates the same way as Create
+(name + template.input non-empty; exactly one cadence;
+cron parses if specified; timezone resolves via
+`time.LoadLocation`). 400 surfaces the same sentinels as
+Create. The preview is store-independent — no schedule is
+created, no DB write happens.
+
 **Persistence (v1.71+)**: the schedule store is automatically
 chosen to match `--scan-store`:
 

@@ -1,29 +1,36 @@
 ---
-phase: v1.76-closed
-status: v1.16-v1.27 published; v1.28-v1.76 tags pending push
+phase: v1.77-closed
+status: v1.16-v1.27 published; v1.28-v1.77 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.76 cycle closed on `main`** (1 chunk +
-close). v1.73 shipped 5-field cron syntax; v1.76 layers
-Vixie-style named shortcuts on top: @yearly / @annually,
-@monthly, @weekly, @daily / @midnight, @hourly. ParseCron
-pre-processes the input — if it starts with `@`, the
-case-folded token is looked up in cronShortcuts and
-replaced by the 5-field form before parsing. c.Raw()
-preserves the operator's original input (e.g. `@daily`).
-@reboot intentionally NOT supported (semantics don't fit
-periodic schedules). Dashboard placeholder updated.
-9 new tests.
+**Phase**: **v1.77 cycle closed on `main`** (1 chunk +
+close). Operators creating/editing a cron schedule had
+no way to see what their cadence would produce before
+submitting (gap noted in v1.74 honest-scope). v1.77 adds:
+ScanSchedule.NextFireAt (computed at read time, not
+persisted), (s).NextFire(now) method shared between
+read paths + preview, free function PreviewNextFire(req,
+now), POST /api/v1/schedules/preview endpoint, dashboard
+"Next fire" column + "Preview next fire" button. Validation
+refactor extracts writeScheduleValidationError. cronIsDue
+now delegates to cronNextFire (DRY). 11 unit + 5 REST + 5
+dashboard markers.
 
-Snapshot: `.context/snapshots/v1.76.0-cron-shortcuts.md`.
+Snapshot: `.context/snapshots/v1.77.0-next-fire-preview.md`.
 
-**v1.76 chunks landed (in-flight)**:
-- 1 `b7bd346` — cronShortcuts map + ParseCron pre-pass +
-  9 new tests + dashboard placeholder.
+**v1.77 chunks landed (in-flight)**:
+- 1 `21756ad` — NextFireAt + NextFire helpers +
+  PreviewNextFire + /preview endpoint + dashboard column
+  + preview button + 11 + 5 + 5 tests/markers.
+
+**v1.76 cycle (closed, snapshot available)**:
+Named cron shortcuts (@daily/@hourly/etc.). 1 chunk +
+close: `b7bd346`, `29d63fb`. Snapshot:
+`.context/snapshots/v1.76.0-cron-shortcuts.md`.
 
 **v1.75 cycle (closed, snapshot available)**:
 Per-schedule timezone for cron expressions. cronIsDue

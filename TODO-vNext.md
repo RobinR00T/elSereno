@@ -100,6 +100,19 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.77 (Dashboard next-fire preview)
+
+- ✅ **Dashboard next-fire preview** — v1.77 chunk 1.
+  ScanSchedule.NextFireAt computed at read time.
+  NextFire(now) method shared between read paths +
+  preview. PreviewNextFire free function + POST
+  /api/v1/schedules/preview endpoint. Dashboard "Next
+  fire" column + "Preview next fire" button.
+  writeScheduleValidationError shared across
+  Create/Update/Preview. cronIsDue delegates to
+  cronNextFire (DRY). 11 unit + 5 REST + 5 dashboard
+  markers.
+
 ### v1.76 (Named cron shortcuts)
 
 - ✅ **Named cron shortcuts** — v1.76 chunk 1. Vixie-

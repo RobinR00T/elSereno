@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.77.0] — 2026-05-10
+
+### Added
+
+- **Dashboard next-fire preview.** Operators creating or
+  editing a cron schedule had no way to see what their
+  cadence would produce before submitting. v1.77 adds:
+  - `ScanSchedule.NextFireAt` — computed at read time,
+    NOT persisted. Filled by the REST handler before
+    serialising; zero (`omitempty`) means the schedule
+    won't fire (disabled / invalid cron).
+  - `(s ScanSchedule).NextFire(now)` — predicts the next
+    fire. Shared between the read paths and preview.
+  - `PreviewNextFire(req, now)` — free function that
+    validates a `CreateScheduleRequest` and returns the
+    predicted next fire without persisting.
+  - `POST /api/v1/schedules/preview` — REST endpoint
+    exposing `PreviewNextFire` for the dashboard preview
+    button.
+- Dashboard "Next fire" column on the schedules table.
+  Renders the local-clock string + `(overdue)` when the
+  predicted time is in the past.
+- Dashboard "Preview next fire" button next to submit.
+- 11 new unit tests + 5 REST tests + 5 dashboard markers.
+
+### Changed
+
+- `cronIsDue` now delegates to `cronNextFire` (DRY).
+  Same observable behaviour; single source of truth for
+  the cron next-fire computation.
+- `writeScheduleValidationError` extracted in
+  `handlers/schedules.go` — shared error mapping for
+  Create / Update / Preview.
+
 ## [1.76.0] — 2026-05-10
 
 ### Added
