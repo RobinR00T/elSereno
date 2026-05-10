@@ -1496,7 +1496,11 @@ const overviewHTML = `<!doctype html>
       payload.interval_seconds = interval;
     }
     preview.textContent = "preview: …";
-    fetch("/api/v1/schedules/preview", {
+    // v1.79: request 5 fires for the cron mode (operators
+    // sanity-check the pattern), 1 for interval (next fire
+    // is enough; subsequent fires are trivially derivable).
+    var count = mode === "cron" ? 5 : 1;
+    fetch("/api/v1/schedules/preview?count=" + count, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
@@ -1506,19 +1510,34 @@ const overviewHTML = `<!doctype html>
       return r.json();
     }).then(function (res) {
       var d = (res && res.data) || {};
-      if (!d.next_fire_at) {
+      var fires = d.next_fires || (d.next_fire_at ? [d.next_fire_at] : []);
+      if (!fires.length) {
         preview.textContent = "preview: schedule won't fire";
         return;
       }
-      var when = new Date(d.next_fire_at);
-      var label = "next fire: " + when.toLocaleString();
-      if (d.timezone) {
-        label += " (" + d.timezone + ")";
+      var tzSuffix = d.timezone ? " (" + d.timezone + ")" : "";
+      if (fires.length === 1) {
+        var when = new Date(fires[0]);
+        var label = "next fire: " + when.toLocaleString() + tzSuffix;
+        if (when.getTime() < Date.now()) {
+          label += " — overdue (will fire on next tick)";
+        }
+        preview.textContent = label;
+        return;
       }
-      if (when.getTime() < Date.now()) {
-        label += " — overdue (will fire on next tick)";
+      // Multi-fire view (cron mode). Render as a small list
+      // so the operator can sanity-check the pattern.
+      var html = 'next ' + fires.length + ' fires' + escText(tzSuffix) + ':<ol class="next-fires-list">';
+      for (var i = 0; i < fires.length; i++) {
+        var w = new Date(fires[i]);
+        var line = w.toLocaleString();
+        if (w.getTime() < Date.now()) {
+          line += " — overdue";
+        }
+        html += '<li>' + escText(line) + '</li>';
       }
-      preview.textContent = label;
+      html += '</ol>';
+      preview.innerHTML = html;
     }).catch(function (e) {
       preview.textContent = "preview error: " + e.message;
     });

@@ -393,6 +393,91 @@ func TestPreviewSchedule_IntervalHappy(t *testing.T) {
 	}
 }
 
+// TestPreviewSchedule_CountFives: count=5 returns 5 fires
+// (v1.79+).
+func TestPreviewSchedule_CountFives(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"@daily"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview?count=5", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			NextFires  []string `json:"next_fires"`
+			NextFireAt string   `json:"next_fire_at"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data.NextFires) != 5 {
+		t.Errorf("next_fires len = %d, want 5", len(resp.Data.NextFires))
+	}
+	// Back-compat: next_fire_at = next_fires[0].
+	if resp.Data.NextFireAt == "" || resp.Data.NextFireAt != resp.Data.NextFires[0] {
+		t.Errorf("next_fire_at = %q, want = next_fires[0] = %q",
+			resp.Data.NextFireAt, resp.Data.NextFires[0])
+	}
+}
+
+// TestPreviewSchedule_CountDefault: no `count` param → 1 fire
+// (back-compat with v1.77/v1.78).
+func TestPreviewSchedule_CountDefault(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"@daily"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			NextFires []string `json:"next_fires"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data.NextFires) != 1 {
+		t.Errorf("default len = %d, want 1", len(resp.Data.NextFires))
+	}
+}
+
+// TestPreviewSchedule_CountMalformed: garbage count → 400.
+func TestPreviewSchedule_CountMalformed(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"@daily"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview?count=banana", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestPreviewSchedule_CountClamp: count=100 clamps to the
+// scanorch.PreviewNextFiresMaxCount cap.
+func TestPreviewSchedule_CountClamp(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"cron_expr":"@daily"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/preview?count=100", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data struct {
+			NextFires []string `json:"next_fires"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data.NextFires) != scanorch.PreviewNextFiresMaxCount {
+		t.Errorf("clamped len = %d, want %d",
+			len(resp.Data.NextFires), scanorch.PreviewNextFiresMaxCount)
+	}
+}
+
 // TestPreviewSchedule_CronHappy: a cron-based preview returns
 // 200 + the timezone echoed back.
 func TestPreviewSchedule_CronHappy(t *testing.T) {

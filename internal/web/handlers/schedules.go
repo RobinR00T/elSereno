@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"local/elsereno/internal/scanorch"
@@ -258,6 +259,12 @@ func setScheduleEnabled(store scanorch.ScheduleStore, enabled bool) http.Handler
 // The preview is store-independent — it doesn't touch the
 // ScheduleStore. Validation surface mirrors createSchedule
 // (same sentinels for cadence + cron + timezone errors).
+//
+// v1.79+: optional `count` query param (default 1, capped at
+// scanorch.PreviewNextFiresMaxCount = 10) returns the next N
+// firings as `next_fires`. `next_fire_at` is preserved as
+// the first element of `next_fires` for back-compat with v1.77/
+// v1.78 dashboards. Malformed count → 400.
 func previewSchedule() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req scanorch.CreateScheduleRequest
@@ -265,16 +272,30 @@ func previewSchedule() http.Handler {
 			http.Error(w, "schedules: malformed JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		next, err := scanorch.PreviewNextFire(req, time.Now().UTC())
+		count := 1
+		if raw := r.URL.Query().Get("count"); raw != "" {
+			n, parseErr := strconv.Atoi(raw)
+			if parseErr != nil {
+				http.Error(w, "schedules: malformed count query: "+parseErr.Error(), http.StatusBadRequest)
+				return
+			}
+			count = n
+		}
+		fires, err := scanorch.PreviewNextFires(req, time.Now().UTC(), count)
 		if err != nil {
 			writeScheduleValidationError(w, err)
 			return
 		}
-		// Surface the timezone alongside next_fire_at so the
-		// dashboard can render the local-clock string without
-		// re-parsing the request.
+		// next_fire_at is the first element (back-compat with
+		// v1.77/v1.78 single-fire callers). next_fires is the
+		// full list — empty when the schedule won't fire.
+		var nextFireAt time.Time
+		if len(fires) > 0 {
+			nextFireAt = fires[0]
+		}
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
-			"next_fire_at": next,
+			"next_fire_at": nextFireAt,
+			"next_fires":   fires,
 			"timezone":     req.Timezone,
 		}})
 	})

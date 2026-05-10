@@ -559,13 +559,44 @@ func (s ScanSchedule) cronNextFire(_ time.Time) time.Time {
 // so operators can see what their cadence will produce
 // before clicking submit. Validation surface mirrors Create
 // (same sentinels for cadence + timezone errors).
+//
+// v1.79+: thin wrapper over PreviewNextFires(req, now, 1) —
+// preserved for back-compat with v1.77/v1.78 callers.
 func PreviewNextFire(req CreateScheduleRequest, now time.Time) (time.Time, error) {
-	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
+	fires, err := PreviewNextFires(req, now, 1)
+	if err != nil {
 		return time.Time{}, err
 	}
+	if len(fires) == 0 {
+		return time.Time{}, nil
+	}
+	return fires[0], nil
+}
+
+// PreviewNextFiresMaxCount (v1.79+) is the clamp applied to
+// the count argument of PreviewNextFires. Caps at 10 to keep
+// the cron walk bounded — each step is up to 1 year (the
+// nextScanLimitMinutes guard), so 10 × 1y is a worst-case
+// upper bound on compute. Operators wanting more should
+// query the schedule's saved cadence + step the cron
+// themselves.
+const PreviewNextFiresMaxCount = 10
+
+// PreviewNextFires (v1.79+) validates a CreateScheduleRequest
+// + returns the predicted next `count` fire times. Empty
+// slice when the schedule won't fire at all (disabled /
+// invalid cron — though Create-time validation catches the
+// invalid cron path, so the empty-result is mostly a
+// disabled-schedule signal in practice).
+//
+// count is clamped to [1, PreviewNextFiresMaxCount]. Negative
+// or zero count → 1.
+func PreviewNextFires(req CreateScheduleRequest, now time.Time, count int) ([]time.Time, error) {
+	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
+		return nil, err
+	}
 	// Synthesise a minimal in-memory ScanSchedule so we can
-	// reuse the NextFire helpers. Operator + ID + CreatedAt
-	// are set to plausible values — CreatedAt = now is the
+	// reuse the NextFires helper. CreatedAt = now is the
 	// "as-if-just-created" anchor.
 	s := ScanSchedule{
 		Name:            req.Name,
@@ -576,7 +607,91 @@ func PreviewNextFire(req CreateScheduleRequest, now time.Time) (time.Time, error
 		Enabled:         true,
 		CreatedAt:       now.UTC(),
 	}
-	return s.NextFire(now), nil
+	return s.NextFires(now, count), nil
+}
+
+// NextFires (v1.79+) returns the next `count` predicted
+// firing times for this schedule. Empty slice when the
+// schedule won't fire (disabled, invalid cron, parse error).
+//
+// count is clamped to [1, PreviewNextFiresMaxCount].
+//
+// For interval schedules:
+//   - Never-fired: [now, now+I, now+2I, ...] up to count.
+//   - Fired: [last+I, last+2I, ...].
+//
+// For cron schedules: walks c.Next() count times, anchoring
+// each step on the previous result. If any step fails (e.g.
+// no match within the 1-year guard), the slice is truncated
+// at that point.
+func (s ScanSchedule) NextFires(now time.Time, count int) []time.Time {
+	if count <= 0 {
+		count = 1
+	}
+	if count > PreviewNextFiresMaxCount {
+		count = PreviewNextFiresMaxCount
+	}
+	if !s.Enabled {
+		return nil
+	}
+	if s.CronExpr != "" {
+		return s.cronNextFires(count)
+	}
+	return s.intervalNextFires(now, count)
+}
+
+// intervalNextFires walks the interval cadence count times.
+// Never-fired schedules eagerly include now as the first
+// fire (matches the v1.77 NextFire eager-fire semantics).
+func (s ScanSchedule) intervalNextFires(now time.Time, count int) []time.Time {
+	out := make([]time.Time, 0, count)
+	step := time.Duration(s.IntervalSeconds) * time.Second
+	var anchor time.Time
+	if s.LastFiredAt.IsZero() {
+		anchor = now.UTC().Truncate(time.Second)
+		out = append(out, anchor)
+		count--
+	} else {
+		anchor = s.LastFiredAt
+	}
+	for i := 0; i < count; i++ {
+		anchor = anchor.Add(step)
+		out = append(out, anchor)
+	}
+	return out
+}
+
+// cronNextFires walks c.Next() count times. Returns the
+// truncated slice if any step fails (parse error, tz error,
+// or no-match-within-1y). Empty slice on the first failure.
+func (s ScanSchedule) cronNextFires(count int) []time.Time {
+	c, err := ParseCron(s.CronExpr)
+	if err != nil {
+		return nil
+	}
+	loc := time.UTC
+	if s.Timezone != "" {
+		l, err := time.LoadLocation(s.Timezone)
+		if err != nil {
+			return nil
+		}
+		loc = l
+	}
+	anchor := s.LastFiredAt
+	if anchor.IsZero() {
+		anchor = s.CreatedAt
+	}
+	out := make([]time.Time, 0, count)
+	cursor := anchor.In(loc)
+	for i := 0; i < count; i++ {
+		next, err := c.Next(cursor)
+		if err != nil {
+			return out
+		}
+		out = append(out, next.UTC())
+		cursor = next
+	}
+	return out
 }
 
 // Compile-time guard.

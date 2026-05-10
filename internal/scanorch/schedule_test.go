@@ -836,3 +836,134 @@ func TestMemoryScheduleStore_Update_IfMatchSkippedWhenNil(t *testing.T) {
 		t.Errorf("err = %v, want nil with nil IfMatch", err)
 	}
 }
+
+// TestScanSchedule_NextFires_IntervalNeverFired: a never-
+// fired interval schedule returns [now, now+I, now+2I, ...]
+// for count = 3.
+func TestScanSchedule_NextFires_IntervalNeverFired(t *testing.T) {
+	now := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:         true,
+		IntervalSeconds: 3600,
+		CreatedAt:       now.Add(-time.Minute),
+	}
+	got := s.NextFires(now, 3)
+	if len(got) != 3 {
+		t.Fatalf("len = %d, want 3", len(got))
+	}
+	// 1-second tolerance on the first eager fire.
+	if got[0].Sub(now).Abs() > time.Second {
+		t.Errorf("got[0] = %v, want ~%v", got[0], now)
+	}
+	// got[1] should be ~1h after got[0].
+	if d := got[1].Sub(got[0]); d != time.Hour {
+		t.Errorf("got[1]-got[0] = %v, want 1h", d)
+	}
+	if d := got[2].Sub(got[1]); d != time.Hour {
+		t.Errorf("got[2]-got[1] = %v, want 1h", d)
+	}
+}
+
+// TestScanSchedule_NextFires_IntervalFired: walks
+// last + I, last + 2I, ...
+func TestScanSchedule_NextFires_IntervalFired(t *testing.T) {
+	last := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:         true,
+		IntervalSeconds: 3600,
+		LastFiredAt:     last,
+	}
+	got := s.NextFires(last.Add(-time.Hour), 4)
+	if len(got) != 4 {
+		t.Fatalf("len = %d, want 4", len(got))
+	}
+	for i, w := range got {
+		want := last.Add(time.Duration(i+1) * time.Hour)
+		if !w.Equal(want) {
+			t.Errorf("got[%d] = %v, want %v", i, w, want)
+		}
+	}
+}
+
+// TestScanSchedule_NextFires_CronUTC: walks the cron 5 times.
+func TestScanSchedule_NextFires_CronUTC(t *testing.T) {
+	now := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 9 * * *", // daily 09:00 UTC
+		CreatedAt: now,
+	}
+	got := s.NextFires(now, 5)
+	if len(got) != 5 {
+		t.Fatalf("len = %d, want 5", len(got))
+	}
+	for i, w := range got {
+		// Day i (0-indexed) after May 10 -> May 10+i 09:00.
+		want := time.Date(2026, 5, 10+i, 9, 0, 0, 0, time.UTC)
+		if !w.Equal(want) {
+			t.Errorf("got[%d] = %v, want %v", i, w, want)
+		}
+	}
+}
+
+// TestScanSchedule_NextFires_CountClamp: count <= 0 → 1,
+// count > 10 → 10.
+func TestScanSchedule_NextFires_CountClamp(t *testing.T) {
+	now := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:   true,
+		CronExpr:  "0 9 * * *",
+		CreatedAt: now,
+	}
+	if len(s.NextFires(now, 0)) != 1 {
+		t.Errorf("count=0 → len=%d, want 1", len(s.NextFires(now, 0)))
+	}
+	if len(s.NextFires(now, -5)) != 1 {
+		t.Errorf("count=-5 → len=%d, want 1", len(s.NextFires(now, -5)))
+	}
+	if got := s.NextFires(now, 100); len(got) != scanorch.PreviewNextFiresMaxCount {
+		t.Errorf("count=100 → len=%d, want %d", len(got), scanorch.PreviewNextFiresMaxCount)
+	}
+}
+
+// TestScanSchedule_NextFires_Disabled: returns nil.
+func TestScanSchedule_NextFires_Disabled(t *testing.T) {
+	now := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	s := scanorch.ScanSchedule{
+		Enabled:         false,
+		IntervalSeconds: 3600,
+	}
+	if got := s.NextFires(now, 5); got != nil {
+		t.Errorf("disabled NextFires = %v, want nil", got)
+	}
+}
+
+// TestPreviewNextFires_CronCount: PreviewNextFires returns
+// count fires.
+func TestPreviewNextFires_CronCount(t *testing.T) {
+	now := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	got, err := scanorch.PreviewNextFires(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "@daily",
+	}, now, 5)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 5 {
+		t.Errorf("len = %d, want 5", len(got))
+	}
+}
+
+// TestPreviewNextFires_BadCronStillErrors.
+func TestPreviewNextFires_BadCronStillErrors(t *testing.T) {
+	_, err := scanorch.PreviewNextFires(scanorch.CreateScheduleRequest{
+		Name:     "x",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "garbage",
+	}, time.Now(), 5)
+	if !errors.Is(err, scanorch.ErrCronInvalidField) &&
+		!errors.Is(err, scanorch.ErrCronWrongFieldCount) {
+		t.Errorf("err = %v, want cron validation error", err)
+	}
+}
