@@ -599,11 +599,24 @@ the schedule is unchanged. v1.78 dashboards surfaced this
 as a bare error toast; **v1.81+** dashboards open a
 **merge-view panel**: a field-level diff between the
 operator's pending edits and the freshly-fetched server
-state, plus two resolution buttons:
+state.
 
+**v1.83+** extends each diff row with a pair of radio
+buttons (`(•) mine=<x>  ( ) server=<y>`, default mine)
+and a new "Apply selected (per-field)" button so the
+operator can cherry-pick which side wins for each
+conflicting field. Cadence-XOR is preserved
+automatically: picking server's `interval_seconds`
+clears `cron_expr` (and vice versa). The merged PUT is
+still sent **with** `If-Match` — a third concurrent
+edit re-opens the merge view.
+
+Three resolution buttons (v1.83 layout):
+
+  - **Apply selected (per-field)** — merged submit
+    with `If-Match`.
   - **Take server (discard my edits)** — re-loads the
-    form with the server's values; the operator can
-    re-edit from a clean baseline.
+    form with server's values for a clean re-edit.
   - **Force overwrite (re-submit ignoring If-Match)** —
     last-write-wins, after a confirmation prompt.
 

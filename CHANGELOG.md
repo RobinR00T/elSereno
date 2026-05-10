@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.83.0] — 2026-05-11
+
+### Added
+
+- **Cherry-pick merge view.** v1.81's merge view
+  forced an all-or-nothing choice (Take server / Force
+  overwrite). v1.83 adds per-field radio buttons so the
+  operator can keep some of their edits and accept some
+  of the server's changes in one merged submit.
+  - Each diff row renders `(•) mine=<x>  ( ) server=<y>`.
+    Default = mine.
+  - New "Apply selected (per-field)" button walks the
+    selections, builds a merged payload, and PUTs
+    **with** `If-Match`. A third concurrent edit
+    re-opens the merge view.
+  - `applyServerField` preserves cadence-XOR
+    automatically — picking server's `interval_seconds`
+    also clears `cron_expr` (and vice versa).
+- v1.81's Take server + Force overwrite buttons
+  remain.
+- 4 dashboard markers
+  (`schedule-apply-selected-button`,
+  `function applySelectedMerge`,
+  `function applyServerField`, `merge-row-`).
+
+### Notes
+
+- Pure dashboard JS+HTML change. No Go modifications,
+  no migrations, no protocol surface.
+
 ## [1.82.0] — 2026-05-10
 
 ### Added

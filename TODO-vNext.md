@@ -100,6 +100,17 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.83 (Cherry-pick merge view)
+
+- ✅ **Per-field cherry-pick in merge view** — v1.83
+  chunk 1. Each diff row gets a pair of radio buttons
+  (mine | server, default mine). New "Apply selected
+  (per-field)" button walks the selections + PUTs
+  WITH If-Match. applyServerField preserves cadence-
+  XOR automatically. v1.81's Take server + Force
+  overwrite remain. 4 dashboard markers. No Go
+  changes.
+
 ### v1.82 (AbortController on /preview)
 
 - ✅ **AbortController-based request cancellation on

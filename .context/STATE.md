@@ -1,42 +1,34 @@
 ---
-phase: v1.82-closed
-status: v1.16-v1.27 published; v1.28-v1.82 tags pending push
-last-updated: 2026-05-10
+phase: v1.83-closed
+status: v1.16-v1.27 published; v1.28-v1.83 tags pending push
+last-updated: 2026-05-11
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.82 cycle closed on `main`** (1 chunk +
-close). Dashboard-only JS: AbortController cancels
-in-flight /preview requests when a newer debounced call
-fires. Fixes the v1.80 stale-flash gap (debounce delayed
-dispatch but didn't cancel in-flight). `typeof
-AbortController` guard preserves pre-2018 browser
-compatibility. 3 dashboard markers.
+**Phase**: **v1.83 cycle closed on `main`** (1 chunk +
+close). Dashboard-only JS+HTML: per-field cherry-pick
+in the v1.81 merge view. Each diff row now renders a
+pair of radio buttons (mine | server, default mine).
+New "Apply selected (per-field)" button walks the
+selections, builds a merged payload + PUTs WITH
+If-Match. Cadence-XOR preserved automatically by
+applyServerField. v1.81's Take server + Force
+overwrite buttons remain. 4 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.82.0-abort-controller.md`.
+Snapshot: `.context/snapshots/v1.83.0-cherry-pick-merge.md`.
 
-**v1.82 chunks landed (in-flight)**:
-- 1 `8ffffb3` — previewAbortController + AbortError
-  silent-skip + 3 dashboard markers.
+**v1.83 chunks landed (in-flight)**:
+- 1 `c7e7e1a` — radio rows + applySelectedMerge +
+  applyServerField + 4 dashboard markers.
 
-**v1.81 cycle (closed, snapshot available)**:
-412 merge-view UI (field-level diff + Take server /
-Force overwrite buttons). 1 chunk + close: `ba6e721`,
-`896aa6c`. Snapshot:
-`.context/snapshots/v1.81.0-merge-view.md`.
-
-**v1.80 cycle (closed, snapshot available)**:
-Live preview on cadence-field change (350ms debounce).
-1 chunk + close: `321b960`, `91d6634`. Snapshot:
-`.context/snapshots/v1.80.0-live-preview.md`.
-
-**v1.79 cycle (closed, snapshot available)**:
-Multi-fire preview (next N fires). ScanSchedule.NextFires
-+ PreviewNextFires + /preview ?count=N. 1 chunk + close:
-`64ebb77`, `52c382b`. Snapshot:
-`.context/snapshots/v1.79.0-multi-fire-preview.md`.
+**v1.79 → v1.82 cycles** (closed; per-cycle snapshots
+in `.context/snapshots/`): multi-fire preview /count=N
+(v1.79 `64ebb77` + `52c382b`), live debounced preview
+(v1.80 `321b960` + `91d6634`), 412 merge-view UI
+(v1.81 `ba6e721` + `896aa6c`), AbortController on
+/preview (v1.82 `8ffffb3` + `71b8d30`).
 
 **v1.78 cycle (closed, snapshot available)**:
 Optimistic locking on schedule edits (UpdatedAt +

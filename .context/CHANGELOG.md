@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-11 — v1.83 (chunk 1) — **Cherry-pick
+  merge view.** Each diff row in the v1.81 merge
+  view gains a pair of radio buttons (mine | server,
+  default mine). New "Apply selected (per-field)"
+  button builds a merged payload from the selections
+  + PUTs WITH If-Match. applyServerField preserves
+  cadence-XOR automatically (picking server interval
+  clears cron_expr, and vice versa). v1.81's
+  Take server + Force overwrite remain. No Go
+  changes. 4 dashboard markers. Snapshot:
+  `.context/snapshots/v1.83.0-cherry-pick-merge.md`.
+
 - 2026-05-10 — v1.82 (chunk 1) — **AbortController
   on /preview.** previewAbortController cancels
   in-flight /preview requests when a newer
