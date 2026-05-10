@@ -1,29 +1,33 @@
 ---
-phase: v1.79-closed
-status: v1.16-v1.27 published; v1.28-v1.79 tags pending push
+phase: v1.80-closed
+status: v1.16-v1.27 published; v1.28-v1.80 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.79 cycle closed on `main`** (1 chunk +
-close). v1.77 shipped a single-fire preview; non-trivial
-cron patterns need 2-5 fires to verify visually. v1.79
-extends /preview with a `count` query param (default 1,
-capped at PreviewNextFiresMaxCount = 10). New methods:
-ScanSchedule.NextFires(now, count) + PreviewNextFires(req,
-now, count). v1.77 single-fire helpers preserved as thin
-wrappers for back-compat. Response shape gains
-`next_fires` array; `next_fire_at` kept as `next_fires[0]`.
-Dashboard cron mode now requests count=5 and renders an
-ordered list. 7 unit + 4 REST + 3 dashboard markers.
+**Phase**: **v1.80 cycle closed on `main`** (1 chunk +
+close). Dashboard-only JS: live preview on cadence-field
+change with a 350ms debounce. Event listeners on
+schedule-cadence-mode / schedule-interval / schedule-cron
+/ schedule-timezone (input + change) trigger
+previewNextFire via a single shared timer (same pattern
+as v1.63 scheduleRefresh). The manual v1.77 Preview button
+remains as a force-refresh shortcut. No Go changes;
+3 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.79.0-multi-fire-preview.md`.
+Snapshot: `.context/snapshots/v1.80.0-live-preview.md`.
 
-**v1.79 chunks landed (in-flight)**:
-- 1 `64ebb77` — NextFires + PreviewNextFires + /preview
-  count param + dashboard ordered-list render + 7 + 4 + 3.
+**v1.80 chunks landed (in-flight)**:
+- 1 `321b960` — schedulePreviewRefresh + debounce wiring
+  + 3 dashboard markers.
+
+**v1.79 cycle (closed, snapshot available)**:
+Multi-fire preview (next N fires). ScanSchedule.NextFires
++ PreviewNextFires + /preview ?count=N. 1 chunk + close:
+`64ebb77`, `52c382b`. Snapshot:
+`.context/snapshots/v1.79.0-multi-fire-preview.md`.
 
 **v1.78 cycle (closed, snapshot available)**:
 Optimistic locking on schedule edits (UpdatedAt +

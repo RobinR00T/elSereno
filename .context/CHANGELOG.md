@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.80 (chunk 1) — **Live preview
+  with debounce.** Dashboard JS attaches input +
+  change listeners to schedule-cadence-mode /
+  schedule-interval / schedule-cron /
+  schedule-timezone. schedulePreviewRefresh debounces
+  at 350ms (single shared timer; clear+reset on each
+  call). Manual v1.77 preview button kept as
+  force-refresh. 3 dashboard markers. No Go changes.
+  Snapshot:
+  `.context/snapshots/v1.80.0-live-preview.md`.
+
 - 2026-05-10 — v1.79 (chunk 1) — **Multi-fire
   preview.** ScanSchedule.NextFires(now, count) +
   PreviewNextFires(req, now, count). /preview

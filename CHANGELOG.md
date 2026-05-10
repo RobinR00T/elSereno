@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.80.0] — 2026-05-10
+
+### Added
+
+- **Live preview on cadence-field change.** v1.77/v1.79
+  shipped a "Preview next fire" button; v1.80 makes the
+  preview live. Dashboard attaches `input` + `change`
+  listeners to `schedule-cadence-mode`,
+  `schedule-interval`, `schedule-cron`, and
+  `schedule-timezone`. Each change schedules a debounced
+  (350ms) `previewNextFire` call via a single shared
+  timer (same pattern as v1.63 `scheduleRefresh`).
+- The manual "Preview next fire" button is kept as a
+  force-refresh shortcut.
+- 3 dashboard markers (`previewDebounceTimer`,
+  `function schedulePreviewRefresh`,
+  `schedule-cadence-mode`).
+
+### Notes
+
+- No Go changes. No new REST endpoints, no DB migration,
+  no protocol surface.
+- The 350ms debounce was chosen empirically: below 200ms
+  feels twitchy (parse errors flash mid-edit); above
+  500ms feels sluggish.
+
 ## [1.79.0] — 2026-05-10
 
 ### Added

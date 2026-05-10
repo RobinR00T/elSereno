@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.80 (Live preview with debounce)
+
+- ✅ **Live preview on cadence-field change** —
+  v1.80 chunk 1. schedulePreviewRefresh debounces at
+  350ms; input + change listeners attached to
+  schedule-cadence-mode / schedule-interval /
+  schedule-cron / schedule-timezone. Manual
+  preview button kept as force-refresh. 3 dashboard
+  markers. No Go changes.
+
 ### v1.79 (Multi-fire preview)
 
 - ✅ **Multi-fire preview** — v1.79 chunk 1.

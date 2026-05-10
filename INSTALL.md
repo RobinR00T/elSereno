@@ -562,6 +562,13 @@ The dashboard's "Preview next fire" button in cron mode
 now requests `count=5` and renders an ordered list so
 operators can sanity-check non-trivial patterns at a glance.
 
+**Live preview (v1.80+)**: changes to any cadence field in
+the dashboard form (mode dropdown / interval / cron /
+timezone) trigger an auto-preview after a 350ms debounce —
+operators see the predicted fire(s) update as they type.
+The manual "Preview next fire" button remains as a
+force-refresh.
+
 ```sh
 # Next 5 fires for a weekday-09:00-NY schedule:
 curl -X POST "http://127.0.0.1:8787/api/v1/schedules/preview?count=5" \
