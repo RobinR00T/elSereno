@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-11 — v1.85 (chunk 1) — **Dashboard audit
+  history view.** Per-schedule "History" button +
+  audit-history panel below the schedules table.
+  openAuditView fetches /api/v1/schedules/{id}/audit
+  + renders a table (When / Who / Event / Changes).
+  computeAuditEventDiff parses payload_before +
+  payload_after and lists changed editable fields.
+  503 surfaces "audit log unavailable — run with
+  --scan-store=db". No Go changes. 8 dashboard
+  markers. Snapshot:
+  `.context/snapshots/v1.85.0-audit-history-view.md`.
+
 - 2026-05-11 — v1.84 (chunk 1) — **Force-overwrite
   audit log.** New ScheduleAuditStore interface +
   Memory/DB implementations. PUT carrying

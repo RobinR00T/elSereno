@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.85.0] — 2026-05-11
+
+### Added
+
+- **Dashboard audit history view.** v1.84 added the
+  `/audit` endpoint + persistence; v1.85 surfaces it in
+  the dashboard:
+  - Per-schedule "History" button in the action column
+    (between Enable/Disable and Delete).
+  - Hidden `<div id="schedule-audit-view">` below the
+    schedules table, revealed when the button is
+    clicked.
+  - Table with columns When · Who · Event · Changes.
+    The Changes cell renders an `<ul class="audit-diff">`
+    of "before → after" lines for each changed editable
+    field (computeAuditEventDiff reuses the v1.81
+    strify semantics).
+  - 503 (audit store nil) surfaces "audit log
+    unavailable — run with --scan-store=db".
+- 8 dashboard markers (panel + buttons + helpers).
+
+### Notes
+
+- Pure dashboard JS+HTML change. No Go modifications,
+  no migrations, no protocol surface.
+- No pagination / filtering / export. Operators wanting
+  bulk export curl the endpoint directly.
+
 ## [1.84.0] — 2026-05-11
 
 ### Added

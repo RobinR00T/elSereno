@@ -660,6 +660,14 @@ investigate. The CASCADE on `schedule_id` means deleting a
 schedule wipes its audit history (operators wanting a
 permanent record should disable instead of delete).
 
+**v1.85+** surfaces the audit log in the dashboard: each
+schedule row has a "History" button that opens a panel
+listing the recorded events with the operator, timestamp,
+event type, and a per-field before→after diff. The button
+is always present; if the audit store is unavailable
+(memory deployments), the panel shows
+"audit log unavailable — run with --scan-store=db".
+
 Run `elsereno db migrate` to apply migration 00011 before
 upgrading to v1.84+ in db-store mode.
 

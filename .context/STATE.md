@@ -1,38 +1,34 @@
 ---
-phase: v1.84-closed
-status: v1.16-v1.27 published; v1.28-v1.84 tags pending push
+phase: v1.85-closed
+status: v1.16-v1.27 published; v1.28-v1.85 tags pending push
 last-updated: 2026-05-11
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.84 cycle closed on `main`** (1 chunk +
-close). Force-overwrite audit log. New ScheduleAuditStore
-interface + Memory + DB implementations. PUT carrying
-`X-Schedule-Force-Overwrite: true` with audit store
-non-nil persists a force_overwrite event with before/after
-JSON snapshots. New GET /api/v1/schedules/{id}/audit
-returns events newest-first (404 if schedule missing /
-503 if audit nil). Migration 00011 adds
-scan_schedule_audit table with CASCADE-on-delete FK to
-scan_schedules + (schedule_id, occurred_at DESC) index.
-cmd_serve picks DB-backed audit store when --scan-store=db,
-memory otherwise. Dashboard forceOverwriteSchedule sends
-the new header. updateSchedule refactored
-(parseIfMatchInto + writeUpdateScheduleError +
-recordForceOverwriteAudit) to satisfy gocyclo.
-internal/audit/events_test.go regex updated to scope
-event_type CHECK lookup to audit_log statements only.
-5 unit + 5 REST tests.
+**Phase**: **v1.85 cycle closed on `main`** (1 chunk +
+close). Dashboard-only JS+HTML: per-schedule "History"
+button + audit-history panel below the schedules table.
+openAuditView fetches `/api/v1/schedules/{id}/audit`,
+renders a table of events with field-level before→after
+diffs. computeAuditEventDiff reuses v1.81 strify semantics
+on payload_before / payload_after. 503 (audit nil)
+surfaces "audit log unavailable — run with
+--scan-store=db". 8 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.84.0-force-overwrite-audit.md`.
+Snapshot: `.context/snapshots/v1.85.0-audit-history-view.md`.
 
-**v1.84 chunks landed (in-flight)**:
-- 1 `0c80bd5` — ScheduleAuditEvent + Store interface +
-  Memory + DB impls + migration 00011 + REST audit-write
-  + GET /audit endpoint + dashboard header + cmd_serve
-  wiring + audit-test regex fix + 5 unit + 5 REST.
+**v1.85 chunks landed (in-flight)**:
+- 1 `e7a20f6` — audit-view panel + per-row History
+  button + openAuditView + closeAuditView +
+  computeAuditEventDiff + 8 dashboard markers.
+
+**v1.84 cycle (closed, snapshot available)**:
+Force-overwrite audit log. ScheduleAuditStore +
+migration 00011 + GET /audit + cmd_serve wiring.
+1 chunk + close: `0c80bd5`, `31864d8`. Snapshot:
+`.context/snapshots/v1.84.0-force-overwrite-audit.md`.
 
 **v1.79 → v1.83 cycles** (closed; per-cycle snapshots
 in `.context/snapshots/`): multi-fire preview /count=N

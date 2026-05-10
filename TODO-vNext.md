@@ -100,6 +100,14 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.85 (Dashboard audit history view)
+
+- ✅ **Dashboard audit history view** — v1.85 chunk 1.
+  Per-schedule "History" button opens a panel listing
+  audit events with field-level before→after diffs.
+  Reuses v1.84's GET /audit + v1.81 strify semantics.
+  No Go changes. 8 dashboard markers.
+
 ### v1.84 (Force-overwrite audit log)
 
 - ✅ **Audit log of force-overwrite events** — v1.84
