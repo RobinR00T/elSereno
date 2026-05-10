@@ -87,6 +87,15 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`previewDebounceTimer`,
 		`function schedulePreviewRefresh`,
 		`schedule-cadence-mode`,
+		// v1.81: 412 merge-view UI.
+		`id="schedule-merge-view"`,
+		`id="schedule-merge-diff"`,
+		`id="schedule-accept-server-button"`,
+		`id="schedule-force-overwrite-button"`,
+		`function enterMergeView`,
+		`function computeScheduleDiff`,
+		`function acceptServerSchedule`,
+		`function forceOverwriteSchedule`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

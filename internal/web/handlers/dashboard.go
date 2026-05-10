@@ -536,6 +536,13 @@ const overviewHTML = `<!doctype html>
         <button type="button" id="schedule-preview-button" onclick="previewNextFire()" style="margin-left: 0.5em;">Preview next fire</button>
         <span id="schedule-submit-status" class="sub" style="margin-left: 0.5em;"></span>
         <div id="schedule-next-fire-preview" class="sub" style="margin-top: 0.3em;"></div>
+        <div id="schedule-merge-view" style="display: none; margin-top: 0.5em; padding: 0.5em; border: 1px solid #c66; background: #fee;">
+          <strong>Schedule was modified by another operator.</strong>
+          <div class="sub">Conflicting fields:</div>
+          <ul id="schedule-merge-diff" style="margin: 0.3em 0;"></ul>
+          <button type="button" id="schedule-accept-server-button" onclick="acceptServerSchedule()">Take server (discard my edits)</button>
+          <button type="button" id="schedule-force-overwrite-button" onclick="forceOverwriteSchedule()" style="margin-left: 0.5em;">Force overwrite (re-submit ignoring If-Match)</button>
+        </div>
       </form>
       <table id="schedules-table">
         <thead>
@@ -1424,6 +1431,10 @@ const overviewHTML = `<!doctype html>
     if (isUpdate && editingScheduleUpdatedAt) {
       headers["If-Match"] = editingScheduleUpdatedAt;
     }
+    // v1.81: capture the payload so the 412 merge-view can
+    // diff our pending values against the server's fresh
+    // state and offer Accept Server / Force Overwrite.
+    pendingMergePayload = payload;
     fetch(url, {
       method: method,
       headers: headers,
@@ -1431,13 +1442,16 @@ const overviewHTML = `<!doctype html>
       credentials: "same-origin"
     }).then(function (r) {
       if (r.status === 412) {
-        return r.text().then(function (t) {
-          throw new Error("schedule was modified by another operator — refresh and retry: " + t);
+        // v1.81: open the merge-view instead of throwing.
+        return r.text().then(function () {
+          enterMergeView(editingScheduleID);
+          return null;
         });
       }
       if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
       return r.json();
     }).then(function (res) {
+      if (res === null) return; // 412 → merge view took over.
       var s = (res && res.data) || {};
       if (status) {
         status.textContent = (isUpdate ? "updated · " : "created · ") + (s.id || "").slice(0, 8);
@@ -1458,6 +1472,115 @@ const overviewHTML = `<!doctype html>
       if (status) status.textContent = "error: " + e.message;
     });
     return false;
+  }
+  // v1.81: merge-view state. pendingMergePayload is the
+  // operator's last submitted body — captured at submit time
+  // so we can both diff it against the freshly-fetched
+  // server state AND re-submit it (without If-Match) if the
+  // operator chooses Force Overwrite.
+  var pendingMergePayload = null;
+  function enterMergeView(id) {
+    var mergeView = document.getElementById("schedule-merge-view");
+    var status = document.getElementById("schedule-submit-status");
+    if (status) status.textContent = "concurrent edit detected — see merge view";
+    if (!mergeView) return;
+    // Fetch the fresh server state to diff against.
+    fetch("/api/v1/schedules/" + encodeURIComponent(id), {
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var server = (res && res.data) || {};
+      // Update the cached updated_at to the fresh value so
+      // Accept Server lands on the latest stamp.
+      editingScheduleUpdatedAt = server.updated_at || "";
+      window.scheduleMergeServer = server;
+      var diff = computeScheduleDiff(pendingMergePayload || {}, server);
+      var list = document.getElementById("schedule-merge-diff");
+      if (list) {
+        list.innerHTML = diff.length
+          ? diff.map(function (d) {
+              return '<li><code>' + escText(d.field) + '</code>: mine=<code>' +
+                escText(d.mine) + '</code> · server=<code>' + escText(d.server) + '</code></li>';
+            }).join("")
+          : '<li>(no field-level diffs — likely a race on updated_at alone)</li>';
+      }
+      mergeView.style.display = "";
+    }).catch(function (e) {
+      if (status) status.textContent = "merge-view fetch failed: " + e.message;
+    });
+  }
+  // computeScheduleDiff (v1.81) compares the operator's
+  // pending payload to the server's fresh state, returning
+  // [{field, mine, server}] for each visible difference.
+  // Empty result means the only conflict was on
+  // updated_at — common when a concurrent SetEnabled raced
+  // the operator's edit (SetEnabled doesn't bump updated_at
+  // in v1.78+ but other "soft" writes might in the future).
+  function computeScheduleDiff(mine, server) {
+    var out = [];
+    function strify(v) {
+      if (v === null || v === undefined) return "—";
+      if (Array.isArray(v)) return v.join(",");
+      return String(v);
+    }
+    function pushIf(field, m, s) {
+      if (strify(m) !== strify(s)) {
+        out.push({field: field, mine: strify(m), server: strify(s)});
+      }
+    }
+    pushIf("name", mine.name, server.name);
+    pushIf("template.input", (mine.template || {}).input, (server.template || {}).input);
+    pushIf("template.plugins", (mine.template || {}).plugins, (server.template || {}).plugins);
+    pushIf("interval_seconds", mine.interval_seconds, server.interval_seconds);
+    pushIf("cron_expr", mine.cron_expr, server.cron_expr);
+    pushIf("timezone", mine.timezone, server.timezone);
+    return out;
+  }
+  // acceptServerSchedule (v1.81): discard the operator's
+  // pending edits, re-load the form with the freshly-fetched
+  // server state, and close the merge view. The operator can
+  // then edit again from a clean baseline.
+  function acceptServerSchedule() {
+    var server = window.scheduleMergeServer;
+    var mergeView = document.getElementById("schedule-merge-view");
+    if (!server) return;
+    // Re-populate the form via the same beginEditSchedule
+    // path so cadence-mode toggle + tz field + edit-mode
+    // labels stay consistent.
+    beginEditSchedule(server.id);
+    if (mergeView) mergeView.style.display = "none";
+    pendingMergePayload = null;
+    window.scheduleMergeServer = null;
+  }
+  // forceOverwriteSchedule (v1.81): re-submit the operator's
+  // pending payload WITHOUT If-Match — last-write-wins. Used
+  // when the operator has reviewed the diff and decided
+  // their version should prevail.
+  function forceOverwriteSchedule() {
+    var mergeView = document.getElementById("schedule-merge-view");
+    var status = document.getElementById("schedule-submit-status");
+    if (!pendingMergePayload || !editingScheduleID) return;
+    if (!confirm("Force-overwrite the server's version of this schedule with your edits? This cannot be undone.")) return;
+    if (status) status.textContent = "force-overwriting…";
+    fetch("/api/v1/schedules/" + encodeURIComponent(editingScheduleID), {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"}, // no If-Match
+      credentials: "same-origin",
+      body: JSON.stringify(pendingMergePayload)
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function () {
+      if (mergeView) mergeView.style.display = "none";
+      pendingMergePayload = null;
+      window.scheduleMergeServer = null;
+      cancelEditSchedule();
+      renderSchedules();
+    }).catch(function (e) {
+      if (status) status.textContent = "force overwrite failed: " + e.message;
+    });
   }
   // previewNextFire (v1.77) sends the current form values to
   // POST /api/v1/schedules/preview and renders the response
@@ -1589,6 +1712,9 @@ const overviewHTML = `<!doctype html>
   window.cancelEditSchedule = cancelEditSchedule;
   // v1.77 next-fire preview.
   window.previewNextFire = previewNextFire;
+  // v1.81 412 merge-view helpers.
+  window.acceptServerSchedule = acceptServerSchedule;
+  window.forceOverwriteSchedule = forceOverwriteSchedule;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
