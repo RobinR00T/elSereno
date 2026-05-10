@@ -1,31 +1,36 @@
 ---
-phase: v1.75-closed
-status: v1.16-v1.27 published; v1.28-v1.75 tags pending push
+phase: v1.76-closed
+status: v1.16-v1.27 published; v1.28-v1.76 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.75 cycle closed on `main`** (1 chunk +
-close). Cron schedules in v1.73/v1.74 evaluated against
-UTC only; v1.75 adds a `timezone` field on ScanSchedule
-+ Create/Update so cron expressions evaluate against
-the operator's IANA zone. cronIsDue converts both
-anchor (LastFiredAt or CreatedAt) and now to s.Timezone
-before computing Next/Match. Empty timezone falls back
-to UTC, preserving v1.73/v1.74 behaviour. Migration
-00009 + scheduleColumns 11 → 12. Dashboard wires a tz
-input visible in cron mode + appends `(zone)` to the
-Interval column for cron schedules. 8 new tests.
+**Phase**: **v1.76 cycle closed on `main`** (1 chunk +
+close). v1.73 shipped 5-field cron syntax; v1.76 layers
+Vixie-style named shortcuts on top: @yearly / @annually,
+@monthly, @weekly, @daily / @midnight, @hourly. ParseCron
+pre-processes the input — if it starts with `@`, the
+case-folded token is looked up in cronShortcuts and
+replaced by the 5-field form before parsing. c.Raw()
+preserves the operator's original input (e.g. `@daily`).
+@reboot intentionally NOT supported (semantics don't fit
+periodic schedules). Dashboard placeholder updated.
+9 new tests.
 
-Snapshot: `.context/snapshots/v1.75.0-schedule-timezone.md`.
+Snapshot: `.context/snapshots/v1.76.0-cron-shortcuts.md`.
 
-**v1.75 chunks landed (in-flight)**:
-- 1 `01011dd` — ScanSchedule.Timezone +
-  validateScheduleFields signature + cronIsDue tz-
-  aware + migration 00009 + DBScheduleStore Create/
-  Update + dashboard plumbing + 8 new tests.
+**v1.76 chunks landed (in-flight)**:
+- 1 `b7bd346` — cronShortcuts map + ParseCron pre-pass +
+  9 new tests + dashboard placeholder.
+
+**v1.75 cycle (closed, snapshot available)**:
+Per-schedule timezone for cron expressions. cronIsDue
+converts anchor + now to s.Timezone before computing
+Next/Match. Migration 00009 + scheduleColumns 11 → 12.
+1 chunk + close: `01011dd`, `ab89a32`. Snapshot:
+`.context/snapshots/v1.75.0-schedule-timezone.md`.
 
 **v1.74 cycle (closed, snapshot available)**:
 Schedule edit path (Update + PUT /schedules/{id} +

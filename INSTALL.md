@@ -481,9 +481,17 @@ The cron parser supports the standard 5-field syntax:
     `N-M` (range), `*/S` (step), `N-M/S` (stepped range).
   - Day-of-month + day-of-week use Unix-cron OR semantics
     when both are restricted.
-  - **Not supported**: named shortcuts (`@daily` etc.),
-    named months/weekdays (JAN..DEC, SUN..SAT),
-    last-of-month / weekday-of-month.
+  - **Named shortcuts (v1.76+)**: `@yearly` / `@annually`
+    (= `0 0 1 1 *`), `@monthly` (= `0 0 1 * *`),
+    `@weekly` (= `0 0 * * 0`),
+    `@daily` / `@midnight` (= `0 0 * * *`),
+    `@hourly` (= `0 * * * *`). Lookup is case-insensitive.
+    The schedule stores the operator's input verbatim so
+    the dashboard renders `cron: @daily`, not the expanded
+    form.
+  - **Not supported**: `@reboot` (one-shot semantics don't
+    fit periodic schedules), named months/weekdays
+    (JAN..DEC, SUN..SAT), last-of-month / weekday-of-month.
 
 ```sh
 # Cron-based schedule:

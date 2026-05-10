@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.76 (chunk 1) — **Named cron
+  shortcuts.** Vixie-style @yearly / @annually,
+  @monthly, @weekly, @daily / @midnight, @hourly.
+  ParseCron pre-processes — if input starts with
+  `@`, case-folded token is looked up + replaced
+  by the 5-field form. c.Raw() preserves operator
+  input. @reboot intentionally NOT supported.
+  Dashboard placeholder updated. 9 new tests.
+  Snapshot:
+  `.context/snapshots/v1.76.0-cron-shortcuts.md`.
+
 - 2026-05-10 — v1.75 (chunk 1) — **Per-schedule
   timezone for cron.** ScanSchedule.Timezone (IANA
   name) + validation via time.LoadLocation +

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.76.0] — 2026-05-10
+
+### Added
+
+- **Named cron shortcuts.** Vixie-style alias tokens are
+  now accepted in `cron_expr`, expanding to the 5-field
+  form before evaluation:
+  - `@yearly` / `@annually` → `0 0 1 1 *`
+  - `@monthly` → `0 0 1 * *`
+  - `@weekly` → `0 0 * * 0` (Sunday)
+  - `@daily` / `@midnight` → `0 0 * * *`
+  - `@hourly` → `0 * * * *`
+  Lookup is case-insensitive. Unknown `@`-prefix tokens
+  return 400 `ErrCronInvalidField`. `@reboot` is
+  intentionally NOT supported (one-shot semantics don't
+  fit periodic schedules).
+- The original input is preserved on the schedule's
+  `cron_expr` field so the dashboard renders
+  `cron: @daily` instead of the expanded form.
+- Dashboard placeholder updated:
+  `0 2 * * *` → `0 2 * * * | @daily`.
+- 9 new tests.
+
+### Notes
+
+- No DB migration. The shortcut is stored verbatim in the
+  existing `cron_expr` column.
+- Timezone (v1.75) applies to shortcut-based cron the
+  same way as the 5-field form. `@daily` +
+  `America/New_York` fires at NY 00:00.
+
 ## [1.75.0] — 2026-05-10
 
 ### Added

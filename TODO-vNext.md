@@ -100,6 +100,17 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.76 (Named cron shortcuts)
+
+- ✅ **Named cron shortcuts** — v1.76 chunk 1. Vixie-
+  style @yearly / @annually, @monthly, @weekly,
+  @daily / @midnight, @hourly. ParseCron pre-processes
+  — if input starts with `@`, case-folded token is
+  looked up + replaced by the 5-field form. c.Raw()
+  preserves operator input. @reboot intentionally
+  NOT supported. Dashboard placeholder updated.
+  9 new tests.
+
 ### v1.75 (Per-schedule timezone for cron)
 
 - ✅ **Per-schedule timezone for cron** — v1.75 chunk 1.
