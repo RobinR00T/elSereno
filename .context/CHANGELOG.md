@@ -1,12 +1,25 @@
 ---
 phase: any
 status: living
-last-updated: 2026-05-03
+last-updated: 2026-05-10
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-05-10 — v1.75 (chunk 1) — **Per-schedule
+  timezone for cron.** ScanSchedule.Timezone (IANA
+  name) + validation via time.LoadLocation +
+  ErrScheduleInvalidTimezone (400). cronIsDue
+  converts anchor + now to s.Timezone before
+  computing Next/Match. Empty = UTC fallback.
+  Migration 00009 + scheduleColumns 11 → 12 (timezone
+  between cron_expr and enabled). Dashboard tz input
+  visible in cron mode + appends `(zone)` to the
+  Interval column. 8 new tests + 3 dashboard
+  markers. Snapshot:
+  `.context/snapshots/v1.75.0-schedule-timezone.md`.
 
 - 2026-05-09 — v1.74 (chunk 1) — **Schedule edit
   path.** ScheduleStore.Update + PUT /schedules/{id}

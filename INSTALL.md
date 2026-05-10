@@ -497,6 +497,30 @@ The dashboard form has a cadence-mode dropdown that toggles
 between an "interval (s)" number input and a "cron" text input.
 Submitting both → 400; submitting neither → 400.
 
+**Timezone (v1.75+)**: cron schedules accept an optional
+`timezone` field (IANA name) so the cron expression
+evaluates against the operator's wall-clock instead of UTC:
+
+```sh
+# "Every weekday at 09:00 New York time":
+curl -X POST http://127.0.0.1:8787/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "X-Operator: alice" \
+  -d '{"name":"ny-9am","template":{"input":"list:fleet.txt","plugins":["modbus"]},"cron_expr":"0 9 * * 1-5","timezone":"America/New_York"}'
+```
+
+Validation uses `time.LoadLocation` (Go stdlib). The accepted
+zone names match the host tzdata bundle — typo or
+unknown-zone → 400 `schedules: scanorch: schedule timezone
+invalid`. Empty / omitted timezone falls back to UTC
+(back-compat with v1.73/v1.74 cron schedules).
+
+DST is honored: a cron at `30 2 * * *` keeps firing at
+local 02:30 across the spring-forward transition (skipping
+to next valid local time the day of the gap). The dashboard
+shows the timezone in the Interval column for cron
+schedules: `cron: 0 9 * * 1-5 (America/New_York)`.
+
 **Persistence (v1.71+)**: the schedule store is automatically
 chosen to match `--scan-store`:
 

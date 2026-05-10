@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.75.0] — 2026-05-10
+
+### Added
+
+- **Per-schedule timezone for cron expressions.** Cron
+  schedules in v1.73/v1.74 evaluated against UTC only;
+  v1.75 adds a `timezone` field on ScanSchedule (and
+  on Create/Update bodies) so cron evaluates against
+  the operator's IANA zone (e.g. `America/New_York`,
+  `Europe/Madrid`). Empty timezone falls back to UTC,
+  preserving v1.73/v1.74 behaviour.
+- New error `ErrScheduleInvalidTimezone` → 400.
+  Validation via `time.LoadLocation` at Create + Update
+  time.
+- Migration 00009 adds `timezone TEXT NOT NULL DEFAULT ''`.
+  No SQL CHECK — server tzdata isn't a stable contract,
+  so validation is Go-side only.
+- Dashboard: tz input visible only in cron mode. Edit
+  mode populates it; cancel clears it. The Interval
+  column appends ` (zone)` for cron schedules with a
+  non-empty zone.
+- 8 new tests (4 unit + 2 REST + 3 dashboard markers).
+
+### Changed
+
+- `cronIsDue` (internal helper) is now timezone-aware:
+  both anchor (LastFiredAt or CreatedAt) and now are
+  converted to `s.Timezone` before computing
+  Next/Match. The cron expression is evaluated against
+  wall-clock-local fields, so DST transitions move the
+  fire time absolute-clock-wise but cron keeps firing
+  at the same local hour:minute.
+- `validateScheduleFields` signature gains a 5th
+  `timezone` parameter; same shared helper between
+  Create + Update.
+- `DBScheduleStore.scheduleColumns` 11 → 12 (timezone
+  slotted between cron_expr and enabled). INSERT +
+  UPDATE ... RETURNING bind the new column.
+
 ## [1.74.0] — 2026-05-09
 
 ### Added

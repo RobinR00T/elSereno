@@ -1,31 +1,37 @@
 ---
-phase: v1.74-closed
-status: v1.16-v1.27 published; v1.28-v1.74 tags pending push
-last-updated: 2026-05-09
+phase: v1.75-closed
+status: v1.16-v1.27 published; v1.28-v1.75 tags pending push
+last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.74 cycle closed on `main`** (1 chunk +
-close). Schedules were immutable in v1.70-v1.73; v1.74
-adds the edit path. New ScheduleStore.Update method,
-UpdateScheduleRequest body, PUT /api/v1/schedules/{id}
-endpoint, dashboard edit-mode toggle (Create ↔ Update +
-Cancel). validateScheduleFields + applyCadence helpers
-shared between Create + Update so cadence-XOR + cron-
-parse rules are a single source of truth.
-Identity-preserving fields (ID, CreatedAt,
-LastFiredAt, Operator, Enabled) survive untouched. 11
-new tests + 4 dashboard markers.
+**Phase**: **v1.75 cycle closed on `main`** (1 chunk +
+close). Cron schedules in v1.73/v1.74 evaluated against
+UTC only; v1.75 adds a `timezone` field on ScanSchedule
++ Create/Update so cron expressions evaluate against
+the operator's IANA zone. cronIsDue converts both
+anchor (LastFiredAt or CreatedAt) and now to s.Timezone
+before computing Next/Match. Empty timezone falls back
+to UTC, preserving v1.73/v1.74 behaviour. Migration
+00009 + scheduleColumns 11 → 12. Dashboard wires a tz
+input visible in cron mode + appends `(zone)` to the
+Interval column for cron schedules. 8 new tests.
 
-Snapshot: `.context/snapshots/v1.74.0-schedule-edit.md`.
+Snapshot: `.context/snapshots/v1.75.0-schedule-timezone.md`.
 
-**v1.74 chunks landed (in-flight)**:
-- 1 `e72fc73` — schedule.go Update + applyCadence
-  refactor + schedule_pg.go Update + REST
-  updateSchedule handler + dashboard edit-mode JS +
-  11 new tests.
+**v1.75 chunks landed (in-flight)**:
+- 1 `01011dd` — ScanSchedule.Timezone +
+  validateScheduleFields signature + cronIsDue tz-
+  aware + migration 00009 + DBScheduleStore Create/
+  Update + dashboard plumbing + 8 new tests.
+
+**v1.74 cycle (closed, snapshot available)**:
+Schedule edit path (Update + PUT /schedules/{id} +
+dashboard edit-mode toggle). 1 chunk + close:
+`e72fc73`, `3293769`. Snapshot:
+`.context/snapshots/v1.74.0-schedule-edit.md`.
 
 **v1.73 cycle (closed, snapshot available)**:
 Cron expressions as alternative cadence (5-field
@@ -78,65 +84,20 @@ v1.58 shell + v1.59 worker + v1.60 DB store +
 v1.61 runner + v1.62 panel + v1.63 state-SSE +
 v1.64 multi-plugin + v1.65 progress-SSE.
 
-**v1.58 cycle (closed, snapshot available)**:
-Dashboard scan-orchestration shell. Closes v1.50 F.
-1 chunk + close: `d20ec3d`, `f9e3f4b`. Snapshot:
-`.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
-
-**v1.50 substantial-items batch is fully done**
+**v1.50 → v1.58 cycles** (closed; per-cycle snapshots
+in `.context/snapshots/`): macOS sandbox_init(3) cgo-
+gated (v1.50), MMS ACSE A-ASSOCIATE-REQUEST for IEC
+61850-8-1 IED ID (v1.51), s7 per-(area, db, byte-
+address) gating (v1.52), enip per-(class, instance,
+attribute) gating (v1.53), TwinCAT ADS fingerprint
+plugin (v1.54), KNX offensive write-gated proxy
+(v1.55), M-Bus over TCP offensive write-gated proxy
+(v1.56), DLMS/COSEM offensive write-gated proxy
+(v1.57), dashboard scan-orchestration shell (v1.58 —
+closes v1.50 F). v1.50 substantial-items batch
 (A=v1.52, B=v1.53, C=v1.54, D1=v1.55, D2=v1.56,
-D3=v1.57, E=v1.51, F=v1.58). v1.59+ is forward
-progress on the dashboard orchestration feature,
-not carryover.
-
-**v1.57 cycle (closed, snapshot available)**:
-DLMS/COSEM offensive write-gated proxy on TCP/4059.
-Three-tier gate (APDU + cosem + match strictness).
-1 chunk + close: `b80546a`, `008f773`, `fc81d33`.
-Snapshot: `.context/snapshots/v1.57.0-dlms-offensive-write.md`.
-
-**v1.56 cycle (closed, snapshot available)**:
-M-Bus over TCP offensive write-gated proxy on
-TCP/10001. Two-tier gate (control field + per-(CI,
-Address) tuple). 1 chunk + close: `c7820ca`,
-`e420ec2`. Snapshot:
-`.context/snapshots/v1.56.0-mbus-offensive-write.md`.
-
-**v1.55 cycle (closed, snapshot available)**:
-KNX offensive write-gated proxy on UDP/3671 + v1.21
-service-type correctness fix. 1 chunk + close:
-`9d688ac`, `9525afc`. Snapshot:
-`.context/snapshots/v1.55.0-knx-offensive-write.md`.
-
-**v1.54 cycle (closed, snapshot available)**:
-Beckhoff TwinCAT ADS read-only fingerprint plugin on
-TCP/48898. Plugin count: 28 → 29. 1 chunk + close:
-`a57777f`, `e660bea`. Snapshot:
-`.context/snapshots/v1.54.0-twincat-fingerprint.md`.
-
-**v1.53 cycle (closed, snapshot available)**:
-enip per-(class, instance, attribute) gating.
-AllowlistHash separator 0xF2. 1 chunk + close:
-`c08edfb`, `53af788`. Snapshot:
-`.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
-
-**v1.52 cycle (closed, snapshot available)**:
-s7 per-(area, db, byte-address) gating for FuncWriteVar.
-1 chunk + close: `829b769`, `8ef95de`. Snapshot:
-`.context/snapshots/v1.52.0-s7-per-address-gating.md`.
-
-**v1.51 cycle (closed, snapshot available)**:
-MMS ACSE A-ASSOCIATE-REQUEST for IEC 61850-8-1 IED ID.
-Confidence ~0.8 → ~0.95. 1 chunk + close: `4e13192`,
-`98ea652`. Snapshot:
-`.context/snapshots/v1.51.0-mms-acse-association.md`.
-
-**v1.50 cycle (closed, snapshot available)**:
-macOS sandbox_init(3) cgo-gated. Default release stays
-pure-Go; new `make build-offensive-darwin-sandboxed`
-opt-in. 1 chunk + close + STATE trim: `5ee142e`,
-`b3e4d16`, `4346d57`. Snapshot:
-`.context/snapshots/v1.50.0-macos-sandbox-init.md`.
+D3=v1.57, E=v1.51, F=v1.58) fully done; v1.59+ is
+forward progress on dashboard orchestration.
 
 **v1.41 → v1.49 cycles (closed; per-cycle snapshots in
 `.context/snapshots/`):**

@@ -100,6 +100,17 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.75 (Per-schedule timezone for cron)
+
+- ✅ **Per-schedule timezone for cron** — v1.75 chunk 1.
+  ScanSchedule.Timezone (IANA) + validation via
+  time.LoadLocation. cronIsDue converts anchor + now
+  to s.Timezone before computing Next/Match. Empty =
+  UTC fallback. Migration 00009 + scheduleColumns
+  11 → 12. Dashboard tz input visible in cron mode +
+  Interval-column zone suffix. 8 new tests + 3
+  dashboard markers.
+
 ### v1.74 (Schedule edit form)
 
 - ✅ **Schedule edit form** — v1.74 chunk 1.
