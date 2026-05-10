@@ -225,3 +225,136 @@ func TestParseCron_TruncatesSubMinute(t *testing.T) {
 		t.Errorf("Next = %v, want %v (minute-aligned)", got, want)
 	}
 }
+
+// TestParseCron_Shortcut_Daily expands @daily → "0 0 * * *"
+// and matches midnight only.
+func TestParseCron_Shortcut_Daily(t *testing.T) {
+	c, err := scanorch.ParseCron("@daily")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	atMidnight := time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)
+	atOne := time.Date(2026, 5, 8, 1, 0, 0, 0, time.UTC)
+	if !c.Match(atMidnight) {
+		t.Errorf("@daily should match 00:00")
+	}
+	if c.Match(atOne) {
+		t.Errorf("@daily should NOT match 01:00")
+	}
+	// raw preserves operator input.
+	if c.Raw() != "@daily" {
+		t.Errorf("Raw() = %q, want %q", c.Raw(), "@daily")
+	}
+}
+
+// TestParseCron_Shortcut_Hourly expands @hourly → "0 * * * *".
+func TestParseCron_Shortcut_Hourly(t *testing.T) {
+	c, _ := scanorch.ParseCron("@hourly")
+	for h := 0; h < 24; h++ {
+		atTopOfHour := time.Date(2026, 5, 8, h, 0, 0, 0, time.UTC)
+		if !c.Match(atTopOfHour) {
+			t.Errorf("@hourly should match %02d:00", h)
+		}
+	}
+	atOff := time.Date(2026, 5, 8, 14, 30, 0, 0, time.UTC)
+	if c.Match(atOff) {
+		t.Errorf("@hourly should NOT match 14:30")
+	}
+}
+
+// TestParseCron_Shortcut_Weekly expands @weekly → "0 0 * * 0"
+// (Sunday 00:00).
+func TestParseCron_Shortcut_Weekly(t *testing.T) {
+	c, _ := scanorch.ParseCron("@weekly")
+	// 2026-05-10 is a Sunday.
+	sun := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	mon := time.Date(2026, 5, 11, 0, 0, 0, 0, time.UTC)
+	if !c.Match(sun) {
+		t.Errorf("@weekly should match Sunday 00:00")
+	}
+	if c.Match(mon) {
+		t.Errorf("@weekly should NOT match Monday 00:00")
+	}
+}
+
+// TestParseCron_Shortcut_Monthly expands @monthly → "0 0 1 * *".
+func TestParseCron_Shortcut_Monthly(t *testing.T) {
+	c, _ := scanorch.ParseCron("@monthly")
+	first := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	second := time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)
+	if !c.Match(first) {
+		t.Errorf("@monthly should match the 1st 00:00")
+	}
+	if c.Match(second) {
+		t.Errorf("@monthly should NOT match the 2nd 00:00")
+	}
+}
+
+// TestParseCron_Shortcut_Yearly expands @yearly → "0 0 1 1 *".
+func TestParseCron_Shortcut_Yearly(t *testing.T) {
+	c, _ := scanorch.ParseCron("@yearly")
+	jan1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	feb1 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	if !c.Match(jan1) {
+		t.Errorf("@yearly should match Jan 1 00:00")
+	}
+	if c.Match(feb1) {
+		t.Errorf("@yearly should NOT match Feb 1 00:00")
+	}
+}
+
+// TestParseCron_Shortcut_Aliases: @annually = @yearly,
+// @midnight = @daily.
+func TestParseCron_Shortcut_Aliases(t *testing.T) {
+	yearly, _ := scanorch.ParseCron("@yearly")
+	annually, _ := scanorch.ParseCron("@annually")
+	jan1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if yearly.Match(jan1) != annually.Match(jan1) {
+		t.Errorf("@yearly and @annually should behave identically")
+	}
+	daily, _ := scanorch.ParseCron("@daily")
+	midnight, _ := scanorch.ParseCron("@midnight")
+	at := time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)
+	if daily.Match(at) != midnight.Match(at) {
+		t.Errorf("@daily and @midnight should behave identically")
+	}
+}
+
+// TestParseCron_Shortcut_CaseInsensitive: operators tend to
+// type "@Daily" or "@DAILY".
+func TestParseCron_Shortcut_CaseInsensitive(t *testing.T) {
+	for _, expr := range []string{"@DAILY", "@Daily", "@dAiLy"} {
+		c, err := scanorch.ParseCron(expr)
+		if err != nil {
+			t.Errorf("%q: err = %v", expr, err)
+		}
+		if !c.Match(time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)) {
+			t.Errorf("%q: should match midnight", expr)
+		}
+	}
+}
+
+// TestParseCron_Shortcut_Unknown: unknown @-name → error.
+func TestParseCron_Shortcut_Unknown(t *testing.T) {
+	for _, expr := range []string{"@bogus", "@reboot", "@foo"} {
+		_, err := scanorch.ParseCron(expr)
+		if !errors.Is(err, scanorch.ErrCronInvalidField) {
+			t.Errorf("%q: err = %v, want ErrCronInvalidField", expr, err)
+		}
+	}
+}
+
+// TestParseCron_Shortcut_Next: @daily + Next() returns the
+// next midnight after the anchor.
+func TestParseCron_Shortcut_Next(t *testing.T) {
+	c, _ := scanorch.ParseCron("@daily")
+	after := time.Date(2026, 5, 8, 14, 23, 47, 0, time.UTC)
+	got, err := c.Next(after)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := time.Date(2026, 5, 9, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("Next = %v, want %v", got, want)
+	}
+}

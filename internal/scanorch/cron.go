@@ -27,12 +27,15 @@ import (
 // N-M (inclusive range), asterisk/S (step from minimum),
 // N-M/S (stepped range).
 //
-// NOT supported (deferred): @yearly / @daily / @hourly named
-// shortcuts; JAN..DEC / SUN..SAT named months/days;
-// last-of-month / weekday-of-month etc.
+// Named shortcuts (v1.76+, pre-processed before field
+// parsing): @yearly / @annually, @monthly, @weekly, @daily /
+// @midnight, @hourly. The shortcut is expanded to the 5-field
+// form for evaluation but the original string is preserved on
+// raw so dashboards round-trip the operator's input.
 //
-// A future cycle can layer the named shortcuts as a
-// pre-process pass on the input string before parsing.
+// NOT supported (deferred): JAN..DEC / SUN..SAT named months/
+// days; last-of-month / weekday-of-month; @reboot (semantics
+// don't fit a periodic schedule store).
 type CronExpr struct {
 	minute uint64 // bits 0..59
 	hour   uint64 // bits 0..23
@@ -69,16 +72,45 @@ var cronFields = []fieldRange{
 	{0, 6},  // dow
 }
 
+// cronShortcuts maps named-shortcut tokens (v1.76+) to their
+// 5-field equivalents. Source of truth is the Vixie cron
+// convention (man 5 crontab on most Linux distros). All keys
+// are lower-case; lookup is case-insensitive (operators tend
+// to type "@Daily" or "@DAILY").
+var cronShortcuts = map[string]string{
+	"@yearly":   "0 0 1 1 *",
+	"@annually": "0 0 1 1 *", // alias for @yearly
+	"@monthly":  "0 0 1 * *",
+	"@weekly":   "0 0 * * 0", // Sunday 00:00
+	"@daily":    "0 0 * * *",
+	"@midnight": "0 0 * * *", // alias for @daily
+	"@hourly":   "0 * * * *",
+}
+
 // ParseCron parses a 5-field cron expression. Returns the
 // compiled CronExpr or an error wrapping ErrCronInvalidField /
 // ErrCronWrongFieldCount.
+//
+// v1.76+: named shortcuts (@daily, @hourly, etc.) are
+// expanded to the 5-field form before parsing. The original
+// input is preserved on c.raw so the dashboard can round-
+// trip what the operator typed.
 func ParseCron(expr string) (CronExpr, error) {
 	expr = strings.TrimSpace(expr)
+	raw := expr
+	if strings.HasPrefix(expr, "@") {
+		key := strings.ToLower(expr)
+		expanded, ok := cronShortcuts[key]
+		if !ok {
+			return CronExpr{}, fmt.Errorf("%w: unknown shortcut %q", ErrCronInvalidField, expr)
+		}
+		expr = expanded
+	}
 	parts := strings.Fields(expr)
 	if len(parts) != 5 {
 		return CronExpr{}, fmt.Errorf("%w: got %d fields", ErrCronWrongFieldCount, len(parts))
 	}
-	c := CronExpr{raw: expr}
+	c := CronExpr{raw: raw}
 	for i, part := range parts {
 		mask, err := parseCronField(part, cronFields[i])
 		if err != nil {

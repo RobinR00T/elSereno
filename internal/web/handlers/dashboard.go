@@ -526,7 +526,7 @@ const overviewHTML = `<!doctype html>
           <input type="number" id="schedule-interval" min="60" max="604800" value="3600" size="8" />
         </label>
         <label id="schedule-cron-label" style="display: none;">cron:
-          <input type="text" id="schedule-cron" placeholder="0 2 * * *" size="20" />
+          <input type="text" id="schedule-cron" placeholder="0 2 * * * | @daily" size="22" />
         </label>
         <label id="schedule-timezone-label" style="display: none;">timezone:
           <input type="text" id="schedule-timezone" placeholder="UTC | America/New_York" size="20" autocomplete="off" />
