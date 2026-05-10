@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.81.0] — 2026-05-10
+
+### Added
+
+- **412 merge-view UI.** v1.78 surfaced concurrent-edit
+  conflicts as a bare 412 + error toast. v1.81 replaces
+  that with a structured merge-view panel that:
+  - Fetches the freshly-modified server state.
+  - Shows a field-level diff (name, template.input,
+    template.plugins, interval_seconds, cron_expr,
+    timezone): `field: mine=<x> · server=<y>`.
+  - Offers two resolution buttons:
+    - **Take server (discard my edits)** — re-loads the
+      form via `beginEditSchedule` from a clean
+      baseline.
+    - **Force overwrite (re-submit ignoring If-Match)**
+      — re-issues the PUT without `If-Match` after a
+      `confirm()` prompt. Last-write-wins.
+- 8 dashboard markers (panel + buttons + helper
+  functions: `enterMergeView`, `computeScheduleDiff`,
+  `acceptServerSchedule`, `forceOverwriteSchedule`).
+
+### Notes
+
+- Dashboard-only change. Server-side optimistic locking +
+  the back-compat "no If-Match → no check" path from
+  v1.78 are reused unchanged.
+
 ## [1.80.0] — 2026-05-10
 
 ### Added

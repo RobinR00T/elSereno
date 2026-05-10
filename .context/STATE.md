@@ -1,27 +1,35 @@
 ---
-phase: v1.80-closed
-status: v1.16-v1.27 published; v1.28-v1.80 tags pending push
+phase: v1.81-closed
+status: v1.16-v1.27 published; v1.28-v1.81 tags pending push
 last-updated: 2026-05-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.80 cycle closed on `main`** (1 chunk +
-close). Dashboard-only JS: live preview on cadence-field
-change with a 350ms debounce. Event listeners on
-schedule-cadence-mode / schedule-interval / schedule-cron
-/ schedule-timezone (input + change) trigger
-previewNextFire via a single shared timer (same pattern
-as v1.63 scheduleRefresh). The manual v1.77 Preview button
-remains as a force-refresh shortcut. No Go changes;
-3 dashboard markers.
+**Phase**: **v1.81 cycle closed on `main`** (1 chunk +
+close). Dashboard-only JS+HTML: 412 merge-view UI. v1.78
+surfaced concurrent edits as a bare error; v1.81 replaces
+that with a structured panel showing the field-level diff
++ two resolution buttons (Take server / Force overwrite).
+submitSchedule captures the payload as pendingMergePayload
+before submit; on 412, enterMergeView(id) GETs fresh state,
+computeScheduleDiff compares the six editable fields, the
+panel renders. acceptServerSchedule re-loads via
+beginEditSchedule; forceOverwriteSchedule re-PUTs without
+If-Match after a confirm() prompt. 8 dashboard markers.
 
-Snapshot: `.context/snapshots/v1.80.0-live-preview.md`.
+Snapshot: `.context/snapshots/v1.81.0-merge-view.md`.
 
-**v1.80 chunks landed (in-flight)**:
-- 1 `321b960` — schedulePreviewRefresh + debounce wiring
-  + 3 dashboard markers.
+**v1.81 chunks landed (in-flight)**:
+- 1 `ba6e721` — merge-view panel + enterMergeView +
+  computeScheduleDiff + acceptServerSchedule +
+  forceOverwriteSchedule + 8 dashboard markers.
+
+**v1.80 cycle (closed, snapshot available)**:
+Live preview on cadence-field change (350ms debounce).
+1 chunk + close: `321b960`, `91d6634`. Snapshot:
+`.context/snapshots/v1.80.0-live-preview.md`.
 
 **v1.79 cycle (closed, snapshot available)**:
 Multi-fire preview (next N fires). ScanSchedule.NextFires

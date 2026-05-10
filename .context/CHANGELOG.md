@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-10 — v1.81 (chunk 1) — **412 merge-view
+  UI.** Dashboard JS+HTML. On 412 from PUT, the
+  dashboard fetches fresh server state, diffs the
+  six editable fields (name, template.input,
+  template.plugins, interval_seconds, cron_expr,
+  timezone), and renders a panel with Take server +
+  Force overwrite buttons. acceptServerSchedule
+  re-loads via beginEditSchedule; force-overwrite
+  re-PUTs without If-Match after confirm(). No Go
+  changes. 8 dashboard markers. Snapshot:
+  `.context/snapshots/v1.81.0-merge-view.md`.
+
 - 2026-05-10 — v1.80 (chunk 1) — **Live preview
   with debounce.** Dashboard JS attaches input +
   change listeners to schedule-cadence-mode /

@@ -595,10 +595,20 @@ curl -X PUT http://127.0.0.1:8787/api/v1/schedules/{id} \
 
 If another operator updated the schedule between read and
 write, the server returns **412 Precondition Failed** and
-the schedule is unchanged. The dashboard surfaces this as
-"schedule was modified by another operator — refresh and
-retry"; operator-driven `curl` scripts can detect 412 and
-retry-with-fresh-read.
+the schedule is unchanged. v1.78 dashboards surfaced this
+as a bare error toast; **v1.81+** dashboards open a
+**merge-view panel**: a field-level diff between the
+operator's pending edits and the freshly-fetched server
+state, plus two resolution buttons:
+
+  - **Take server (discard my edits)** — re-loads the
+    form with the server's values; the operator can
+    re-edit from a clean baseline.
+  - **Force overwrite (re-submit ignoring If-Match)** —
+    last-write-wins, after a confirmation prompt.
+
+Operator-driven `curl` scripts can still detect 412 and
+retry-with-fresh-read manually.
 
 `If-Match` is **optional** — pre-v1.78 callers (and any
 script that doesn't care about racy edits) can omit the
