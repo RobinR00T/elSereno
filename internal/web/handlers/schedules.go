@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -20,10 +21,17 @@ import (
 //	POST   /api/v1/schedules/{id}/enable
 //	POST   /api/v1/schedules/{id}/disable
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
+//	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
 // other scan-orch endpoints.
-func Schedules(store scanorch.ScheduleStore) http.Handler {
+//
+// v1.84+: the audit store is optional. When non-nil, force-
+// overwrite PUTs (carrying `X-Schedule-Force-Overwrite: true`)
+// persist a before/after snapshot. nil audit → header is
+// honored as "skip If-Match" but no audit row is written.
+// /{id}/audit returns 503 in that case.
+func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
 	mux := http.NewServeMux()
 	if store == nil {
 		serviceUnavailable := func(w http.ResponseWriter, _ *http.Request) {
@@ -37,6 +45,7 @@ func Schedules(store scanorch.ScheduleStore) http.Handler {
 		mux.HandleFunc("POST /api/v1/schedules/{id}/enable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/{id}/disable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
+		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
 		return mux
 	}
 	// v1.77: /preview is registered BEFORE /{id} so the path
@@ -48,10 +57,11 @@ func Schedules(store scanorch.ScheduleStore) http.Handler {
 	mux.Handle("POST /api/v1/schedules", createSchedule(store))
 	mux.Handle("GET /api/v1/schedules", listSchedules(store))
 	mux.Handle("GET /api/v1/schedules/{id}", getSchedule(store))
-	mux.Handle("PUT /api/v1/schedules/{id}", updateSchedule(store))
+	mux.Handle("PUT /api/v1/schedules/{id}", updateSchedule(store, audit))
 	mux.Handle("DELETE /api/v1/schedules/{id}", deleteSchedule(store))
 	mux.Handle("POST /api/v1/schedules/{id}/enable", setScheduleEnabled(store, true))
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, false))
+	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	return mux
 }
 
@@ -163,7 +173,16 @@ func getSchedule(store scanorch.ScheduleStore) http.Handler {
 // Missing/empty header → no precondition check (back-compat
 // for v1.74-v1.77 callers + for operator-driven curl scripts
 // that don't care about racy edits).
-func updateSchedule(store scanorch.ScheduleStore) http.Handler {
+//
+// v1.84+: when the request carries
+// `X-Schedule-Force-Overwrite: true` AND the audit store is
+// non-nil, the handler fetches the pre-update snapshot,
+// applies the update, and writes a force_overwrite audit
+// event with before/after JSON snapshots. Lets a downstream
+// operator audit who overrode whom. The header is honored
+// regardless of audit-store presence — the only difference
+// is whether the event gets persisted.
+func updateSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
@@ -175,35 +194,121 @@ func updateSchedule(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: malformed JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		// v1.78: read the optimistic-locking precondition
-		// from `If-Match`. RFC3339 timestamp (= what we
-		// emit in JSON); empty header skips the check.
-		if hdr := r.Header.Get("If-Match"); hdr != "" {
-			t, parseErr := time.Parse(time.RFC3339Nano, hdr)
-			if parseErr != nil {
-				// Fall back to RFC3339 (no fractional
-				// seconds) before giving up.
-				t, parseErr = time.Parse(time.RFC3339, hdr)
-			}
-			if parseErr != nil {
-				http.Error(w, "schedules: malformed If-Match header: "+parseErr.Error(), http.StatusBadRequest)
+		if ok := parseIfMatchInto(w, r, &req); !ok {
+			return
+		}
+		// v1.84: optional force-overwrite audit. We snapshot
+		// the pre-update state before calling Update so the
+		// audit row can record before+after JSON.
+		forceOverwrite := r.Header.Get("X-Schedule-Force-Overwrite") == "true"
+		var before scanorch.ScanSchedule
+		if forceOverwrite && audit != nil {
+			b, getErr := store.Get(r.Context(), id)
+			if getErr != nil {
+				if errors.Is(getErr, scanorch.ErrScheduleNotFound) {
+					http.Error(w, "schedules: not found", http.StatusNotFound)
+					return
+				}
+				http.Error(w, "schedules: "+getErr.Error(), http.StatusInternalServerError)
 				return
 			}
-			req.IfMatch = &t
+			before = b
 		}
 		sched, err := store.Update(r.Context(), id, req)
 		if err != nil {
-			switch {
-			case errors.Is(err, scanorch.ErrScheduleNotFound):
-				http.Error(w, "schedules: not found", http.StatusNotFound)
-			case errors.Is(err, scanorch.ErrSchedulePreconditionFailed):
-				http.Error(w, "schedules: precondition failed (schedule was modified — refresh and retry)", http.StatusPreconditionFailed)
-			default:
-				writeScheduleValidationError(w, err)
-			}
+			writeUpdateScheduleError(w, err)
 			return
 		}
+		if forceOverwrite && audit != nil {
+			recordForceOverwriteAudit(r.Context(), audit, id, operatorFromRequest(r), before, sched, w)
+		}
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFire(sched, time.Now().UTC())})
+	})
+}
+
+// parseIfMatchInto reads the v1.78 If-Match header into
+// req.IfMatch. Returns false (after writing 400) on a
+// malformed value; true on success or absence.
+func parseIfMatchInto(w http.ResponseWriter, r *http.Request, req *scanorch.UpdateScheduleRequest) bool {
+	hdr := r.Header.Get("If-Match")
+	if hdr == "" {
+		return true
+	}
+	t, parseErr := time.Parse(time.RFC3339Nano, hdr)
+	if parseErr != nil {
+		t, parseErr = time.Parse(time.RFC3339, hdr)
+	}
+	if parseErr != nil {
+		http.Error(w, "schedules: malformed If-Match header: "+parseErr.Error(), http.StatusBadRequest)
+		return false
+	}
+	req.IfMatch = &t
+	return true
+}
+
+// writeUpdateScheduleError maps the Update-specific error
+// branches (not-found / precondition-failed) on top of the
+// shared validation errors.
+func writeUpdateScheduleError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, scanorch.ErrScheduleNotFound):
+		http.Error(w, "schedules: not found", http.StatusNotFound)
+	case errors.Is(err, scanorch.ErrSchedulePreconditionFailed):
+		http.Error(w, "schedules: precondition failed (schedule was modified — refresh and retry)", http.StatusPreconditionFailed)
+	default:
+		writeScheduleValidationError(w, err)
+	}
+}
+
+// recordForceOverwriteAudit is best-effort: a failure to
+// persist does NOT reverse the update; we surface a warning
+// header so dashboard ops can investigate.
+func recordForceOverwriteAudit(ctx context.Context, audit scanorch.ScheduleAuditStore, id, operator string, before, after scanorch.ScanSchedule, w http.ResponseWriter) {
+	beforeJSON, _ := json.Marshal(before)
+	afterJSON, _ := json.Marshal(after)
+	if _, err := audit.Append(ctx, scanorch.ScheduleAuditEvent{
+		ScheduleID:    id,
+		EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+		Operator:      operator,
+		PayloadBefore: beforeJSON,
+		PayloadAfter:  afterJSON,
+	}); err != nil {
+		w.Header().Set("X-Schedule-Audit-Warning", err.Error())
+	}
+}
+
+// listScheduleAudit (v1.84+) handles GET
+// /schedules/{id}/audit. Returns events newest-first. The
+// schedule must exist (404 otherwise); a 503 surfaces when
+// the audit store is nil (memory deployments or operator
+// chose to skip the persistence path).
+func listScheduleAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if audit == nil {
+			http.Error(w, "schedules: audit log unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		// Verify the schedule exists so callers get a clean
+		// 404 instead of an empty-list-for-bad-id ambiguity.
+		if _, err := store.Get(r.Context(), id); err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		events, err := audit.ListBySchedule(r.Context(), id)
+		if err != nil {
+			http.Error(w, "schedules: audit list: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: events})
 	})
 }
 

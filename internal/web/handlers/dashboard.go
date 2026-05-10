@@ -1573,11 +1573,17 @@ const overviewHTML = `<!doctype html>
     var mergeView = document.getElementById("schedule-merge-view");
     var status = document.getElementById("schedule-submit-status");
     if (!pendingMergePayload || !editingScheduleID) return;
-    if (!confirm("Force-overwrite the server's version of this schedule with your edits? This cannot be undone.")) return;
+    if (!confirm("Force-overwrite the server's version of this schedule with your edits? This cannot be undone. The override will be recorded in the schedule's audit log.")) return;
     if (status) status.textContent = "force-overwriting…";
     fetch("/api/v1/schedules/" + encodeURIComponent(editingScheduleID), {
       method: "PUT",
-      headers: {"Content-Type": "application/json"}, // no If-Match
+      // v1.78: no If-Match → server skips the precondition.
+      // v1.84: explicit force-overwrite marker so the
+      // handler persists a before/after audit snapshot.
+      headers: {
+        "Content-Type": "application/json",
+        "X-Schedule-Force-Overwrite": "true"
+      },
       credentials: "same-origin",
       body: JSON.stringify(pendingMergePayload)
     }).then(function (r) {

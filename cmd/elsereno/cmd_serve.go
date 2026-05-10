@@ -91,13 +91,13 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	// the same bus the dashboard listens to.
 	broadcaster := stream.New(128)
 
-	scanStore, scheduleStore, stopScan, scanErr := buildScanAndSchedule(cmd.Context(), opts, pool, broadcaster)
+	scanStore, scheduleStore, auditStore, stopScan, scanErr := buildScanAndSchedule(cmd.Context(), opts, pool, broadcaster)
 	if scanErr != nil {
 		return fail(core.ExitUsage, scanErr)
 	}
 	defer stopScan()
 
-	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore, scheduleStore, broadcaster)
+	srvOpts := buildWebOptions(opts, cfg, v, pool, scanStore, scheduleStore, auditStore, broadcaster)
 	srv, err := web.NewServer(srvOpts)
 	if err != nil {
 		return fail(core.ExitSoftware, err)
@@ -117,16 +117,17 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 // buildWebOptions assembles the web.Options struct from the
 // runServe scope. Splitting this out keeps runServe's
 // cyclomatic complexity below the linter's 15-branch ceiling.
-func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store, scheduleStore scanorch.ScheduleStore, broadcaster *stream.Broadcaster) web.Options {
+func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pgxpool.Pool, scanStore scanorch.Store, scheduleStore scanorch.ScheduleStore, auditStore scanorch.ScheduleAuditStore, broadcaster *stream.Broadcaster) web.Options {
 	out := web.Options{
-		Addr:          opts.addr,
-		Web:           cfg.Web,
-		Vault:         v,
-		TLSCert:       opts.tlsCert,
-		TLSKey:        opts.tlsKey,
-		ScanStore:     scanStore,
-		ScheduleStore: scheduleStore,
-		Broadcaster:   broadcaster,
+		Addr:               opts.addr,
+		Web:                cfg.Web,
+		Vault:              v,
+		TLSCert:            opts.tlsCert,
+		TLSKey:             opts.tlsKey,
+		ScanStore:          scanStore,
+		ScheduleStore:      scheduleStore,
+		ScheduleAuditStore: auditStore,
+		Broadcaster:        broadcaster,
 	}
 	if pool != nil {
 		out.Querier = pool
@@ -144,10 +145,10 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 // DB-backed so schedules survive serve restart. memory mode
 // keeps the in-memory schedule store (matches the single-
 // process scan-store choice).
-func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, scanorch.ScheduleStore, func(), error) {
+func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, scanorch.ScheduleStore, scanorch.ScheduleAuditStore, func(), error) {
 	scanStore, scanPool, err := buildScanOrchestrator(ctx, opts, pool, broadcaster)
 	if err != nil {
-		return nil, nil, func() {}, err
+		return nil, nil, nil, func() {}, err
 	}
 	stop := func() {
 		if scanPool != nil {
@@ -156,16 +157,26 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 	}
 	if scanStore == nil {
 		// scan-store=off → no scheduler.
-		return nil, nil, stop, nil
+		return nil, nil, nil, stop, nil
 	}
-	var scheduleStore scanorch.ScheduleStore
+	var (
+		scheduleStore scanorch.ScheduleStore
+		auditStore    scanorch.ScheduleAuditStore
+	)
 	if opts.scanStore == "db" && pool != nil {
 		scheduleStore = scanorch.NewDBScheduleStore(pool)
+		// v1.84: DB-backed audit store survives serve
+		// restart, matching the schedule store's durability.
+		auditStore = scanorch.NewDBScheduleAuditStore(pool)
 	} else {
 		scheduleStore = scanorch.NewMemoryScheduleStore()
+		// v1.84: memory-mode audit lives only for the
+		// process lifetime — matches scan-store=memory
+		// semantics.
+		auditStore = scanorch.NewMemoryScheduleAuditStore()
 	}
 	startScheduler(ctx, scheduleStore, scanStore)
-	return scanStore, scheduleStore, stop, nil
+	return scanStore, scheduleStore, auditStore, stop, nil
 }
 
 // startScheduler spawns the v1.70 Scheduler goroutine. Tied to

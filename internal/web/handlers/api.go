@@ -31,6 +31,11 @@ type APIV1Deps struct {
 	// 503. Schedules fire saved Job templates on a cadence
 	// via a Scheduler goroutine in cmd_serve.
 	ScheduleStore scanorch.ScheduleStore
+	// ScheduleAuditStore (v1.84+) backs the force-overwrite
+	// audit path. Nil = audit-disabled — force-overwrite
+	// PUTs still succeed but no row is persisted, and
+	// GET /api/v1/schedules/{id}/audit returns 503.
+	ScheduleAuditStore scanorch.ScheduleAuditStore
 }
 
 // APIV1 returns the /api/v1 sub-router. Endpoints:
@@ -83,7 +88,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
 	// v1.70: scan-schedules sub-router.
-	schedulesHandler := Schedules(deps.ScheduleStore)
+	schedulesHandler := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore)
 	mux.Handle("POST /api/v1/schedules", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/{id}", schedulesHandler)
@@ -91,6 +96,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("DELETE /api/v1/schedules/{id}", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/{id}/enable", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/{id}/disable", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules/{id}/audit", schedulesHandler)
 	return mux
 }
 

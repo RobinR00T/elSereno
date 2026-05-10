@@ -15,7 +15,13 @@ import (
 )
 
 func newSchedRouter(store scanorch.ScheduleStore) http.Handler {
-	return handlers.Schedules(store)
+	return handlers.Schedules(store, nil)
+}
+
+// newSchedRouterWithAudit (v1.84+) routes the audit-enabled
+// path. Used by force-overwrite + audit-list tests.
+func newSchedRouterWithAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
+	return handlers.Schedules(store, audit)
 }
 
 // TestCreateSchedule_Happy: POST returns 201 + the schedule.
@@ -288,6 +294,130 @@ func TestUpdateSchedule_CadenceConflict(t *testing.T) {
 	router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestUpdateSchedule_ForceOverwrite_WritesAudit (v1.84+):
+// X-Schedule-Force-Overwrite=true with audit store → audit
+// row persisted with before/after snapshots.
+func TestUpdateSchedule_ForceOverwrite_WritesAudit(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "before",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"after","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	req.Header.Set("X-Operator", "bob")
+	req.Header.Set("X-Schedule-Force-Overwrite", "true")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	events, _ := audit.ListBySchedule(context.Background(), sched.ID)
+	if len(events) != 1 {
+		t.Fatalf("audit len = %d, want 1", len(events))
+	}
+	if events[0].EventType != scanorch.ScheduleAuditEventForceOverwrite {
+		t.Errorf("EventType = %q", events[0].EventType)
+	}
+	if events[0].Operator != "bob" {
+		t.Errorf("Operator = %q, want bob", events[0].Operator)
+	}
+	// Sanity: the snapshots must contain the names.
+	if !strings.Contains(string(events[0].PayloadBefore), `"name":"before"`) {
+		t.Errorf("PayloadBefore = %s", events[0].PayloadBefore)
+	}
+	if !strings.Contains(string(events[0].PayloadAfter), `"name":"after"`) {
+		t.Errorf("PayloadAfter = %s", events[0].PayloadAfter)
+	}
+}
+
+// TestUpdateSchedule_ForceOverwrite_NoAuditStore (v1.84+):
+// audit store nil + force header → update succeeds, no
+// audit row.
+func TestUpdateSchedule_ForceOverwrite_NoAuditStore(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store) // audit = nil
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"y","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	req.Header.Set("X-Schedule-Force-Overwrite", "true")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 (audit nil is non-fatal)", rr.Code)
+	}
+}
+
+// TestListScheduleAudit_Happy (v1.84+): GET /audit returns
+// the persisted events.
+func TestListScheduleAudit_Happy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	_, _ = audit.Append(context.Background(), scanorch.ScheduleAuditEvent{
+		ScheduleID:    sched.ID,
+		EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+		Operator:      "alice",
+		PayloadBefore: json.RawMessage(`{}`),
+		PayloadAfter:  json.RawMessage(`{}`),
+	})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/schedules/"+sched.ID+"/audit", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data []scanorch.ScheduleAuditEvent `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if len(resp.Data) != 1 {
+		t.Errorf("len = %d, want 1", len(resp.Data))
+	}
+}
+
+// TestListScheduleAudit_404OnMissingSchedule (v1.84+).
+func TestListScheduleAudit_404OnMissingSchedule(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/schedules/missing/audit", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestListScheduleAudit_503OnNilAuditStore (v1.84+).
+func TestListScheduleAudit_503OnNilAuditStore(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store) // audit = nil
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/schedules/"+sched.ID+"/audit", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rr.Code)
 	}
 }
 
@@ -570,6 +700,7 @@ func TestSchedules_NilStoreReturns503(t *testing.T) {
 		{http.MethodPost, "/api/v1/schedules/abc/enable"},
 		{http.MethodPost, "/api/v1/schedules/abc/disable"},
 		{http.MethodPost, "/api/v1/schedules/preview"},
+		{http.MethodGet, "/api/v1/schedules/abc/audit"},
 	} {
 		t.Run(tc.verb+" "+tc.path, func(t *testing.T) {
 			var body *strings.Reader

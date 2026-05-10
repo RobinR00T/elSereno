@@ -31,6 +31,12 @@ func TestEventTypesMatchMigration(t *testing.T) {
 	//   event_type TEXT NOT NULL CHECK (event_type IN ('a','b'))          -- inline (00001)
 	//   ADD CONSTRAINT audit_log_event_type_check CHECK (event_type IN …) -- altered (00002+)
 	re := regexp.MustCompile(`(?s)CHECK\s*\(event_type\s+IN\s*\(([^)]*)\)`)
+	// v1.84+: other tables (e.g. scan_schedule_audit) also
+	// have a column named event_type with its own CHECK
+	// constraint. Filter to the audit_log context — either
+	// the inline CREATE TABLE audit_log block or an
+	// ALTER TABLE audit_log ADD CONSTRAINT pair.
+	auditLogContext := regexp.MustCompile(`(?is)(CREATE\s+TABLE\s+audit_log[^;]*?;|ALTER\s+TABLE\s+audit_log[^;]*?;)`)
 	// Track the most recent Up-side CHECK block we found. The Down
 	// side deliberately restores the pre-change enumeration and
 	// would give a false "old" answer if we took the wrong half.
@@ -41,12 +47,23 @@ func TestEventTypesMatchMigration(t *testing.T) {
 			t.Fatalf("read %s: %v", path, err)
 		}
 		up := extractUpBlock(string(b))
-		// Each migration may contain multiple CHECK blocks (e.g. a
-		// DROP-then-ADD pair). Take the LAST match — that's the
-		// final enumeration after the migration finishes.
-		all := re.FindAllStringSubmatch(up, -1)
-		if len(all) > 0 {
-			lastCheckBody = all[len(all)-1][1]
+		// v1.84+: only scan CHECK constraints in audit_log
+		// statements (other tables — scan_schedule_audit etc.
+		// — may also have an event_type column with its own
+		// CHECK).
+		auditLogStatements := auditLogContext.FindAllString(up, -1)
+		if len(auditLogStatements) == 0 {
+			continue
+		}
+		for _, stmt := range auditLogStatements {
+			// Each statement may contain multiple CHECK blocks
+			// (e.g. a DROP-then-ADD pair). Take the LAST match
+			// — that's the final enumeration after the
+			// statement finishes.
+			all := re.FindAllStringSubmatch(stmt, -1)
+			if len(all) > 0 {
+				lastCheckBody = all[len(all)-1][1]
+			}
 		}
 	}
 	if lastCheckBody == "" {

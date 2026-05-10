@@ -49,6 +49,12 @@ type Options struct {
 	// endpoints under `/api/v1/schedules/`. Nil → 503.
 	ScheduleStore scanorch.ScheduleStore
 
+	// ScheduleAuditStore (optional, v1.84+) backs the
+	// force-overwrite audit log. Nil = audit-disabled
+	// (force-overwrite PUTs still succeed but no row is
+	// persisted, and GET /schedules/{id}/audit returns 503).
+	ScheduleAuditStore scanorch.ScheduleAuditStore
+
 	// Broadcaster (optional, v1.63+) overrides the per-server
 	// SSE broadcaster. cmd_serve builds it up-front so the
 	// scan-orchestration wrapper can publish events on the same
@@ -105,10 +111,11 @@ func NewServer(opts Options) (*Server, error) {
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
 	mux.Handle("/api/v1/", handlers.APIV1(handlers.APIV1Deps{
-		Broadcaster:   s.broadcaster,
-		Querier:       opts.Querier,
-		ScanStore:     opts.ScanStore,
-		ScheduleStore: opts.ScheduleStore,
+		Broadcaster:        s.broadcaster,
+		Querier:            opts.Querier,
+		ScanStore:          opts.ScanStore,
+		ScheduleStore:      opts.ScheduleStore,
+		ScheduleAuditStore: opts.ScheduleAuditStore,
 	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
