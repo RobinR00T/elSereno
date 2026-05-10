@@ -83,6 +83,10 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`next_fires`,
 		`next-fires-list`,
 		`/api/v1/schedules/preview?count=`,
+		// v1.80: live preview on field change with debounce.
+		`previewDebounceTimer`,
+		`function schedulePreviewRefresh`,
+		`schedule-cadence-mode`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)

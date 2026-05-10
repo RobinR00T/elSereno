@@ -1621,6 +1621,32 @@ const overviewHTML = `<!doctype html>
   }
   loadPluginDatalist();
 
+  // v1.80: live preview on cadence-field change. The
+  // operator's input is debounced (350ms) so mid-typing
+  // ("0 9 * * 1-" without the closing "5") doesn't fire a
+  // burst of /preview calls. The cron path still surfaces
+  // parse errors inline, but only after the operator
+  // pauses typing.
+  //
+  // We attach to input + change (cadence-mode is a <select>
+  // which fires change but not input). The manual "Preview
+  // next fire" button (v1.77) remains as a force-refresh
+  // shortcut.
+  var previewDebounceTimer = null;
+  function schedulePreviewRefresh() {
+    if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+    previewDebounceTimer = setTimeout(function () {
+      previewNextFire();
+      previewDebounceTimer = null;
+    }, 350);
+  }
+  ["schedule-cadence-mode", "schedule-interval", "schedule-cron", "schedule-timezone"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", schedulePreviewRefresh);
+    el.addEventListener("change", schedulePreviewRefresh);
+  });
+
   // Initial load.
   renderTriage(); renderFindings(); renderRuns(); refreshAudit(); renderReloadCadence();
   renderScans();
