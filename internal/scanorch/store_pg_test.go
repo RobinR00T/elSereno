@@ -116,9 +116,12 @@ func (r *fakeRows) Next() bool {
 //
 //   - 14 columns → scan_jobs projection (v1.67+:
 //     findings_by_plugin JSONB).
-//   - 12 columns → scan_schedules projection (v1.75+:
-//     timezone column added between cron_expr and enabled;
-//     v1.73 had 11 columns).
+//   - 13 columns → scan_schedules projection (v1.78+:
+//     updated_at column added between created_at and
+//     last_fired_at; v1.75 had 12 columns).
+//   - 1 column → existence-check projection (v1.78+:
+//     SELECT 1 used by DBScheduleStore.scheduleExists to
+//     disambiguate not-found vs. precondition-failure).
 //
 // Routing by arity keeps the fake compatible with both stores
 // in the same test file without polluting the row maps with
@@ -130,10 +133,18 @@ func (r *fakeRows) Scan(dst ...any) error {
 	switch len(dst) {
 	case 14:
 		return scanFakeJob(dst, row)
-	case 12:
+	case 13:
 		return scanFakeSchedule(dst, row)
+	case 1:
+		// Existence-check uses `SELECT 1`. We only ever Next()
+		// against this — the caller doesn't Scan(1). Implement
+		// for completeness so a future test can.
+		if v, ok := dst[0].(*int); ok {
+			*v = 1
+		}
+		return nil
 	default:
-		return fmt.Errorf("fakeRows: scanorch test expected 14 or 12 columns, got %d", len(dst))
+		return fmt.Errorf("fakeRows: scanorch test expected 14, 13, or 1 columns, got %d", len(dst))
 	}
 }
 
@@ -179,8 +190,9 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 	*(dst[8].(*bool)) = row["enabled"].(bool)
 	*(dst[9].(*string)) = row["operator"].(string)
 	*(dst[10].(*time.Time)) = row["created_at"].(time.Time)
+	*(dst[11].(*time.Time)) = row["updated_at"].(time.Time)
 	if v, ok := row["last_fired_at"].(*time.Time); ok {
-		*(dst[11].(**time.Time)) = v
+		*(dst[12].(**time.Time)) = v
 	}
 	return nil
 }

@@ -50,6 +50,16 @@ type ScanSchedule struct {
 	Operator string `json:"operator,omitempty"`
 	// CreatedAt is when Create was called.
 	CreatedAt time.Time `json:"created_at"`
+	// UpdatedAt (v1.78+) is the timestamp of the most-
+	// recent state change to the schedule's editable
+	// fields. Set on Create (= CreatedAt) and bumped on
+	// every Update. Used by the optimistic-locking
+	// If-Match precondition — operators editing a
+	// schedule that another operator has already changed
+	// see a 412 instead of overwriting blind. Not bumped
+	// by MarkFired or SetEnabled (those don't touch the
+	// editable fields).
+	UpdatedAt time.Time `json:"updated_at"`
 	// LastFiredAt is the timestamp of the most-recent
 	// auto-fire. Zero until the first fire. The Scheduler
 	// uses (LastFiredAt + IntervalSeconds) to decide
@@ -119,6 +129,13 @@ var (
 	// underlying error wraps to give the operator the actual
 	// reason (typo, missing tzdata, etc).
 	ErrScheduleInvalidTimezone = errors.New("scanorch: schedule timezone invalid")
+	// ErrSchedulePreconditionFailed (v1.78+) means an Update
+	// supplied an IfMatch precondition that didn't match the
+	// stored UpdatedAt. Surfaces as 412 in REST. Operators
+	// see a clear "the schedule was modified by another
+	// operator — refresh and retry" message instead of a
+	// silent overwrite.
+	ErrSchedulePreconditionFailed = errors.New("scanorch: schedule precondition failed")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -134,6 +151,12 @@ type ScheduleStore interface {
 	// Operator are immutable. Validation mirrors Create's
 	// rules: name + template.input non-empty; exactly one
 	// cadence; cron parses if specified.
+	//
+	// v1.78+: req.IfMatch (when non-nil) is the optimistic
+	// locking precondition. If it doesn't match the stored
+	// UpdatedAt, returns ErrSchedulePreconditionFailed
+	// (mapped to 412 in REST). Nil IfMatch skips the check
+	// — back-compat for v1.74-v1.77 callers.
 	Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error)
 	// MarkFired stamps LastFiredAt to now and persists. The
 	// Scheduler calls this after a successful Submit so the
@@ -158,6 +181,18 @@ type UpdateScheduleRequest struct {
 	// Timezone (v1.75+, optional) IANA name for cron
 	// evaluation. Empty resets to UTC.
 	Timezone string `json:"timezone,omitempty"`
+	// IfMatch (v1.78+) is the optimistic-locking
+	// precondition. When non-nil, the Update only
+	// proceeds if the schedule's stored UpdatedAt equals
+	// IfMatch. Mismatch yields ErrSchedulePreconditionFailed
+	// (mapped to 412 in REST). Nil IfMatch skips the check
+	// — back-compat with v1.74-v1.77 callers.
+	//
+	// Set by the REST handler from the `If-Match` HTTP
+	// header (RFC3339 timestamp). Direct Go callers can
+	// populate it directly. JSON-skipped because it
+	// belongs in the header, not the body.
+	IfMatch *time.Time `json:"-"`
 }
 
 // MemoryScheduleStore is the in-memory ScheduleStore. v1.70+.
@@ -214,6 +249,10 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 		Enabled:   true,
 		Operator:  operator,
 		CreatedAt: now,
+		// v1.78+: UpdatedAt = CreatedAt at creation time.
+		// Future Updates bump this; the optimistic-locking
+		// If-Match check compares against this value.
+		UpdatedAt: now,
 	}
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	return sched, nil
@@ -322,6 +361,11 @@ func (s *MemoryScheduleStore) Delete(_ context.Context, id string) error {
 // Update replaces the editable fields of an existing
 // schedule. ID, CreatedAt, LastFiredAt, Operator, Enabled
 // are preserved. v1.74+.
+//
+// v1.78+: enforces optimistic-locking via req.IfMatch. If
+// non-nil and the stored UpdatedAt differs, returns
+// ErrSchedulePreconditionFailed without modifying the
+// schedule. Bumps UpdatedAt on success.
 func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
 	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
@@ -332,10 +376,14 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	if !ok {
 		return ScanSchedule{}, ErrScheduleNotFound
 	}
+	if req.IfMatch != nil && !sched.UpdatedAt.Equal(*req.IfMatch) {
+		return ScanSchedule{}, ErrSchedulePreconditionFailed
+	}
 	sched.Name = req.Name
 	sched.Template = req.Template
 	sched.Timezone = req.Timezone
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
+	sched.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
 	return sched, nil
 }

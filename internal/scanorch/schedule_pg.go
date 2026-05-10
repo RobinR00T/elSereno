@@ -33,9 +33,10 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 //
 // v1.73+: includes cron_expr.
 // v1.75+: includes timezone.
+// v1.78+: includes updated_at.
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
-interval_seconds, cron_expr, timezone, enabled, operator, created_at, last_fired_at`
+interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at, last_fired_at`
 
 // Create inserts a new schedule. Validation + cadence
 // resolution shares buildScheduleFromRequest with
@@ -53,11 +54,11 @@ func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest,
 	const sql = `
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
-   interval_seconds, cron_expr, timezone, enabled, operator, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)`
+   interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
-		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt,
+		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt, sched.UpdatedAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
@@ -111,6 +112,15 @@ func (s *DBScheduleStore) List(ctx context.Context) ([]ScanSchedule, error) {
 // catches any cadence violation that slipped past the Go-side
 // validation; the parameterised UPDATE binds both columns so
 // the constraint sees both values atomically.
+//
+// v1.78+: req.IfMatch is the optimistic-locking precondition.
+// When non-nil, the WHERE clause adds `AND updated_at = $9`,
+// so a 0-row response means EITHER the schedule doesn't exist
+// OR another operator updated it since the caller last read.
+// We disambiguate by issuing a follow-up SELECT — costs an
+// extra round-trip only on the precondition-failure path
+// (rare). updated_at is also written ($10) so the new value
+// is observable on the next read.
 func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error) {
 	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
@@ -123,25 +133,69 @@ func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateSched
 	// reuse applyCadence's "reset both, set one" logic.
 	var staged ScanSchedule
 	applyCadence(&staged, req.IntervalSeconds, req.CronExpr)
-	const sql = `
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if req.IfMatch != nil {
+		const sqlIfMatch = `
 UPDATE scan_schedules
 SET name = $2, template_input = $3, template_plugins = $4,
     template_default_port = $5, interval_seconds = $6, cron_expr = $7,
-    timezone = $8
+    timezone = $8, updated_at = $10
+WHERE id = $1 AND updated_at = $9
+RETURNING ` + scheduleColumns
+		rows, err = s.q.Query(ctx, sqlIfMatch,
+			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
+			staged.IntervalSeconds, staged.CronExpr, req.Timezone, *req.IfMatch, now,
+		)
+	} else {
+		const sqlNoMatch = `
+UPDATE scan_schedules
+SET name = $2, template_input = $3, template_plugins = $4,
+    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
+    timezone = $8, updated_at = $9
 WHERE id = $1
 RETURNING ` + scheduleColumns
-	rows, err := s.q.Query(ctx, sql,
-		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
-		staged.IntervalSeconds, staged.CronExpr, req.Timezone,
-	)
+		rows, err = s.q.Query(ctx, sqlNoMatch,
+			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
+			staged.IntervalSeconds, staged.CronExpr, req.Timezone, now,
+		)
+	}
 	if err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: update schedule: %w", err)
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return ScanSchedule{}, ErrScheduleNotFound
+		// 0-row UPDATE. Disambiguate not-found vs.
+		// precondition-failure when IfMatch is set.
+		if req.IfMatch == nil {
+			return ScanSchedule{}, ErrScheduleNotFound
+		}
+		rows.Close()
+		exists, existsErr := s.scheduleExists(ctx, id)
+		if existsErr != nil {
+			return ScanSchedule{}, existsErr
+		}
+		if !exists {
+			return ScanSchedule{}, ErrScheduleNotFound
+		}
+		return ScanSchedule{}, ErrSchedulePreconditionFailed
 	}
 	return scanSchedule(rows)
+}
+
+// scheduleExists is a small helper used to disambiguate
+// not-found vs. precondition-failure on Update. Returns nil
+// error + false if the row is missing.
+func (s *DBScheduleStore) scheduleExists(ctx context.Context, id string) (bool, error) {
+	rows, err := s.q.Query(ctx, "SELECT 1 FROM scan_schedules WHERE id = $1", id)
+	if err != nil {
+		return false, fmt.Errorf("scanorch: schedule exists check: %w", err)
+	}
+	defer rows.Close()
+	return rows.Next(), nil
 }
 
 // Delete removes the schedule.
@@ -202,7 +256,7 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
 		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
-		&s.CreatedAt, &lastFiredAt,
+		&s.CreatedAt, &s.UpdatedAt, &lastFiredAt,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)
 	}

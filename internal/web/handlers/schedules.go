@@ -153,6 +153,15 @@ func getSchedule(store scanorch.ScheduleStore) http.Handler {
 // schedule. Same validation surface as createSchedule
 // (name + template + cadence) — error mapping reuses the
 // same sentinels.
+//
+// v1.78+: an `If-Match` header (RFC3339 timestamp) enforces
+// optimistic locking. The dashboard reads schedule.UpdatedAt
+// on Get and sends it back on PUT; if the stored UpdatedAt
+// has changed (concurrent edit), the response is 412
+// Precondition Failed and the schedule is unchanged.
+// Missing/empty header → no precondition check (back-compat
+// for v1.74-v1.77 callers + for operator-driven curl scripts
+// that don't care about racy edits).
 func updateSchedule(store scanorch.ScheduleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -165,13 +174,32 @@ func updateSchedule(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: malformed JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		sched, err := store.Update(r.Context(), id, req)
-		if err != nil {
-			if errors.Is(err, scanorch.ErrScheduleNotFound) {
-				http.Error(w, "schedules: not found", http.StatusNotFound)
+		// v1.78: read the optimistic-locking precondition
+		// from `If-Match`. RFC3339 timestamp (= what we
+		// emit in JSON); empty header skips the check.
+		if hdr := r.Header.Get("If-Match"); hdr != "" {
+			t, parseErr := time.Parse(time.RFC3339Nano, hdr)
+			if parseErr != nil {
+				// Fall back to RFC3339 (no fractional
+				// seconds) before giving up.
+				t, parseErr = time.Parse(time.RFC3339, hdr)
+			}
+			if parseErr != nil {
+				http.Error(w, "schedules: malformed If-Match header: "+parseErr.Error(), http.StatusBadRequest)
 				return
 			}
-			writeScheduleValidationError(w, err)
+			req.IfMatch = &t
+		}
+		sched, err := store.Update(r.Context(), id, req)
+		if err != nil {
+			switch {
+			case errors.Is(err, scanorch.ErrScheduleNotFound):
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+			case errors.Is(err, scanorch.ErrSchedulePreconditionFailed):
+				http.Error(w, "schedules: precondition failed (schedule was modified — refresh and retry)", http.StatusPreconditionFailed)
+			default:
+				writeScheduleValidationError(w, err)
+			}
 			return
 		}
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFire(sched, time.Now().UTC())})

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/web/handlers"
@@ -287,6 +288,85 @@ func TestUpdateSchedule_CadenceConflict(t *testing.T) {
 	router.ServeHTTP(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestUpdateSchedule_IfMatchHappy: matching If-Match → 200.
+func TestUpdateSchedule_IfMatchHappy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"renamed","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	req.Header.Set("If-Match", sched.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestUpdateSchedule_IfMatchMismatch: stale If-Match → 412.
+func TestUpdateSchedule_IfMatchMismatch(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"renamed","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	// Use a stale stamp.
+	stale := sched.UpdatedAt.Add(-time.Hour).UTC().Format(time.RFC3339Nano)
+	req.Header.Set("If-Match", stale)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusPreconditionFailed {
+		t.Errorf("status = %d, want 412", rr.Code)
+	}
+}
+
+// TestUpdateSchedule_IfMatchMalformed: garbage header → 400.
+func TestUpdateSchedule_IfMatchMalformed(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	req.Header.Set("If-Match", "not-a-timestamp")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestUpdateSchedule_NoIfMatchSucceeds: missing header skips
+// precondition (back-compat with v1.74-v1.77 callers).
+func TestUpdateSchedule_NoIfMatchSucceeds(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	body := []byte(`{"name":"y","template":{"input":"stdin"},"interval_seconds":3600}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/schedules/"+sched.ID, bytes.NewReader(body))
+	// No If-Match header.
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rr.Code)
 	}
 }
 

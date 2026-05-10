@@ -745,3 +745,94 @@ func TestPreviewNextFire_BadTimezone(t *testing.T) {
 		t.Errorf("err = %v, want ErrScheduleInvalidTimezone", err)
 	}
 }
+
+// TestMemoryScheduleStore_Update_BumpsUpdatedAt: a successful
+// update bumps UpdatedAt strictly past the previous value.
+func TestMemoryScheduleStore_Update_BumpsUpdatedAt(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	original := sched.UpdatedAt
+	if original.IsZero() {
+		t.Fatal("UpdatedAt zero after Create")
+	}
+	// Sleep long enough for the microsecond truncation to
+	// produce a strictly-later timestamp.
+	time.Sleep(2 * time.Millisecond)
+	updated, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "y",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 7200,
+	})
+	if err != nil {
+		t.Fatalf("Update err = %v", err)
+	}
+	if !updated.UpdatedAt.After(original) {
+		t.Errorf("UpdatedAt = %v, want > %v", updated.UpdatedAt, original)
+	}
+}
+
+// TestMemoryScheduleStore_Update_IfMatchHappy: matching
+// IfMatch lets the update proceed.
+func TestMemoryScheduleStore_Update_IfMatchHappy(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	stamp := sched.UpdatedAt
+	_, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "y",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+		IfMatch:         &stamp,
+	})
+	if err != nil {
+		t.Errorf("err = %v, want nil", err)
+	}
+}
+
+// TestMemoryScheduleStore_Update_IfMatchMismatch: stale
+// IfMatch fails with the precondition sentinel.
+func TestMemoryScheduleStore_Update_IfMatchMismatch(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	stale := sched.UpdatedAt.Add(-time.Hour)
+	_, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "y",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+		IfMatch:         &stale,
+	})
+	if !errors.Is(err, scanorch.ErrSchedulePreconditionFailed) {
+		t.Errorf("err = %v, want ErrSchedulePreconditionFailed", err)
+	}
+}
+
+// TestMemoryScheduleStore_Update_IfMatchSkippedWhenNil:
+// passing nil IfMatch bypasses the precondition (back-compat).
+func TestMemoryScheduleStore_Update_IfMatchSkippedWhenNil(t *testing.T) {
+	s := scanorch.NewMemoryScheduleStore()
+	sched, _ := s.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	_, err := s.Update(context.Background(), sched.ID, scanorch.UpdateScheduleRequest{
+		Name:            "y",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+		// IfMatch nil — no precondition.
+	})
+	if err != nil {
+		t.Errorf("err = %v, want nil with nil IfMatch", err)
+	}
+}

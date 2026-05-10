@@ -1297,7 +1297,13 @@ const overviewHTML = `<!doctype html>
   // is non-empty, submitSchedule sends PUT instead of POST.
   // beginEditSchedule populates the form + flips the button
   // labels; cancelEditSchedule resets back to create mode.
+  //
+  // v1.78: editingScheduleUpdatedAt carries the schedule's
+  // updated_at value at edit-load time. submitSchedule sends
+  // it as the If-Match header so concurrent edits surface as
+  // 412 instead of silently overwriting.
   var editingScheduleID = "";
+  var editingScheduleUpdatedAt = "";
   function beginEditSchedule(id) {
     if (!id) return;
     fetch("/api/v1/schedules/" + encodeURIComponent(id), {
@@ -1331,6 +1337,10 @@ const overviewHTML = `<!doctype html>
       if (cancelBtn) cancelBtn.style.display = "";
       if (status) status.textContent = "editing " + (s.id || "").slice(0, 8) + "…";
       editingScheduleID = s.id || "";
+      // v1.78: capture updated_at for the optimistic-locking
+      // precondition. Empty string means "skip" (e.g. server
+      // didn't send it — back-compat).
+      editingScheduleUpdatedAt = s.updated_at || "";
       // Scroll the form into view + focus the name field so
       // the operator can immediately start editing.
       if (nameEl) {
@@ -1344,6 +1354,7 @@ const overviewHTML = `<!doctype html>
   }
   function cancelEditSchedule() {
     editingScheduleID = "";
+    editingScheduleUpdatedAt = "";
     var submitBtn = document.getElementById("schedule-submit-button");
     var cancelBtn = document.getElementById("schedule-cancel-button");
     var status = document.getElementById("schedule-submit-status");
@@ -1406,12 +1417,24 @@ const overviewHTML = `<!doctype html>
       : "/api/v1/schedules";
     var method = isUpdate ? "PUT" : "POST";
     if (status) status.textContent = isUpdate ? "updating…" : "creating…";
+    // v1.78: send the optimistic-locking precondition on
+    // PUT. The server compares it against stored updated_at
+    // and returns 412 on mismatch.
+    var headers = {"Content-Type": "application/json"};
+    if (isUpdate && editingScheduleUpdatedAt) {
+      headers["If-Match"] = editingScheduleUpdatedAt;
+    }
     fetch(url, {
       method: method,
-      headers: {"Content-Type": "application/json"},
+      headers: headers,
       body: body,
       credentials: "same-origin"
     }).then(function (r) {
+      if (r.status === 412) {
+        return r.text().then(function (t) {
+          throw new Error("schedule was modified by another operator — refresh and retry: " + t);
+        });
+      }
       if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
       return r.json();
     }).then(function (res) {

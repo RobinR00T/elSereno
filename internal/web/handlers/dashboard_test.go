@@ -76,6 +76,9 @@ func TestDashboard_ContainsScanPanel(t *testing.T) {
 		`function previewNextFire`,
 		`/api/v1/schedules/preview`,
 		`<th>Next fire</th>`,
+		// v1.78: optimistic-locking on edit (If-Match).
+		`editingScheduleUpdatedAt`,
+		`If-Match`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard HTML missing marker %q", marker)
