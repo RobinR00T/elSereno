@@ -358,6 +358,125 @@ func TestUpdateSchedule_ForceOverwrite_NoAuditStore(t *testing.T) {
 	}
 }
 
+// TestDeleteSchedule_WritesAudit (v1.88+): DELETE with
+// audit store non-nil → "delete" event persisted with
+// payload_before = full schedule, payload_after = null.
+func TestDeleteSchedule_WritesAudit(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "doomed",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/"+sched.ID, nil)
+	req.Header.Set("X-Operator", "bob")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	events, _ := audit.ListBySchedule(context.Background(), sched.ID)
+	if len(events) != 1 {
+		t.Fatalf("audit len = %d, want 1", len(events))
+	}
+	if events[0].EventType != scanorch.ScheduleAuditEventDelete {
+		t.Errorf("EventType = %q, want %q",
+			events[0].EventType, scanorch.ScheduleAuditEventDelete)
+	}
+	if events[0].Operator != "bob" {
+		t.Errorf("Operator = %q, want bob", events[0].Operator)
+	}
+	if !strings.Contains(string(events[0].PayloadBefore), `"name":"doomed"`) {
+		t.Errorf("PayloadBefore missing name: %s", events[0].PayloadBefore)
+	}
+	if strings.TrimSpace(string(events[0].PayloadAfter)) != "null" {
+		t.Errorf("PayloadAfter = %s, want null", events[0].PayloadAfter)
+	}
+}
+
+// TestDeleteSchedule_NoAuditStore_StillSucceeds (v1.88+):
+// nil audit store → delete still works, no audit row.
+func TestDeleteSchedule_NoAuditStore_StillSucceeds(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store) // audit = nil
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/"+sched.ID, nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want 204", rr.Code)
+	}
+}
+
+// TestSetEnabled_WritesAudit (v1.88+): enable + disable
+// each write the corresponding event type.
+func TestSetEnabled_WritesAudit(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	// Schedules start enabled. Disable first.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/"+sched.ID+"/disable", nil)
+	req.Header.Set("X-Operator", "bob")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("disable status = %d", rr.Code)
+	}
+	// Now re-enable.
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/"+sched.ID+"/enable", nil)
+	req.Header.Set("X-Operator", "alice")
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("enable status = %d", rr.Code)
+	}
+	events, _ := audit.ListBySchedule(context.Background(), sched.ID)
+	if len(events) != 2 {
+		t.Fatalf("audit len = %d, want 2", len(events))
+	}
+	// Sorted newest-first: enable was last.
+	if events[0].EventType != scanorch.ScheduleAuditEventSetEnabledTrue {
+		t.Errorf("events[0].EventType = %q, want set_enabled_true",
+			events[0].EventType)
+	}
+	if events[1].EventType != scanorch.ScheduleAuditEventSetEnabledFalse {
+		t.Errorf("events[1].EventType = %q, want set_enabled_false",
+			events[1].EventType)
+	}
+	if events[0].Operator != "alice" || events[1].Operator != "bob" {
+		t.Errorf("operators = (%q, %q), want (alice, bob)",
+			events[0].Operator, events[1].Operator)
+	}
+}
+
+// TestSetEnabled_NoAuditStore_StillSucceeds (v1.88+).
+func TestSetEnabled_NoAuditStore_StillSucceeds(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store) // audit = nil
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/schedules/"+sched.ID+"/disable", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rr.Code)
+	}
+}
+
 // TestListScheduleAudit_Happy (v1.84+): GET /audit returns
 // the persisted events.
 func TestListScheduleAudit_Happy(t *testing.T) {

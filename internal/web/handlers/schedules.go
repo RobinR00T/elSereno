@@ -60,9 +60,9 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) 
 	mux.Handle("GET /api/v1/schedules", listSchedules(store))
 	mux.Handle("GET /api/v1/schedules/{id}", getSchedule(store))
 	mux.Handle("PUT /api/v1/schedules/{id}", updateSchedule(store, audit))
-	mux.Handle("DELETE /api/v1/schedules/{id}", deleteSchedule(store))
-	mux.Handle("POST /api/v1/schedules/{id}/enable", setScheduleEnabled(store, true))
-	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, false))
+	mux.Handle("DELETE /api/v1/schedules/{id}", deleteSchedule(store, audit))
+	mux.Handle("POST /api/v1/schedules/{id}/enable", setScheduleEnabled(store, audit, true))
+	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
@@ -362,12 +362,38 @@ func listScheduleAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAudi
 	})
 }
 
-func deleteSchedule(store scanorch.ScheduleStore) http.Handler {
+// deleteSchedule (v1.70+) handles DELETE
+// /api/v1/schedules/{id}.
+//
+// v1.88+: when the audit store is non-nil, the handler
+// fetches a pre-delete snapshot, performs the DELETE, and
+// writes a "delete" audit event with payload_before = full
+// schedule + payload_after = JSON null. Migration 00012
+// changed the FK to ON DELETE SET NULL so the audit row
+// persists with schedule_id NULL'd by the cascade.
+//
+// Failure to persist the audit row is best-effort (surfaces
+// as X-Schedule-Audit-Warning), matching the v1.84
+// force-overwrite pattern.
+func deleteSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, "schedules: id is required", http.StatusBadRequest)
 			return
+		}
+		var before scanorch.ScanSchedule
+		if audit != nil {
+			b, getErr := store.Get(r.Context(), id)
+			if getErr != nil {
+				if errors.Is(getErr, scanorch.ErrScheduleNotFound) {
+					http.Error(w, "schedules: not found", http.StatusNotFound)
+					return
+				}
+				http.Error(w, "schedules: "+getErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			before = b
 		}
 		if err := store.Delete(r.Context(), id); err != nil {
 			if errors.Is(err, scanorch.ErrScheduleNotFound) {
@@ -377,16 +403,49 @@ func deleteSchedule(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if audit != nil {
+			beforeJSON, _ := json.Marshal(before)
+			if _, auditErr := audit.Append(r.Context(), scanorch.ScheduleAuditEvent{
+				ScheduleID:    id,
+				EventType:     scanorch.ScheduleAuditEventDelete,
+				Operator:      operatorFromRequest(r),
+				PayloadBefore: beforeJSON,
+				PayloadAfter:  json.RawMessage("null"),
+			}); auditErr != nil {
+				w.Header().Set("X-Schedule-Audit-Warning", auditErr.Error())
+			}
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
 
-func setScheduleEnabled(store scanorch.ScheduleStore, enabled bool) http.Handler {
+// setScheduleEnabled (v1.70+) handles
+// POST /api/v1/schedules/{id}/enable|disable.
+//
+// v1.88+: when the audit store is non-nil, the handler
+// writes a set_enabled_true / set_enabled_false event with
+// payload_before = pre-toggle snapshot + payload_after =
+// post-toggle snapshot. Same best-effort failure semantics
+// as the v1.84 force-overwrite path.
+func setScheduleEnabled(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, enabled bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
 			http.Error(w, "schedules: id is required", http.StatusBadRequest)
 			return
+		}
+		var before scanorch.ScanSchedule
+		if audit != nil {
+			b, getErr := store.Get(r.Context(), id)
+			if getErr != nil {
+				if errors.Is(getErr, scanorch.ErrScheduleNotFound) {
+					http.Error(w, "schedules: not found", http.StatusNotFound)
+					return
+				}
+				http.Error(w, "schedules: "+getErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			before = b
 		}
 		if err := store.SetEnabled(r.Context(), id, enabled); err != nil {
 			if errors.Is(err, scanorch.ErrScheduleNotFound) {
@@ -401,6 +460,23 @@ func setScheduleEnabled(store scanorch.ScheduleStore, enabled bool) http.Handler
 		if err != nil {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if audit != nil {
+			eventType := scanorch.ScheduleAuditEventSetEnabledFalse
+			if enabled {
+				eventType = scanorch.ScheduleAuditEventSetEnabledTrue
+			}
+			beforeJSON, _ := json.Marshal(before)
+			afterJSON, _ := json.Marshal(sched)
+			if _, auditErr := audit.Append(r.Context(), scanorch.ScheduleAuditEvent{
+				ScheduleID:    id,
+				EventType:     eventType,
+				Operator:      operatorFromRequest(r),
+				PayloadBefore: beforeJSON,
+				PayloadAfter:  afterJSON,
+			}); auditErr != nil {
+				w.Header().Set("X-Schedule-Audit-Warning", auditErr.Error())
+			}
 		}
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFire(sched, time.Now().UTC())})
 	})

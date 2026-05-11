@@ -10,23 +10,43 @@ import (
 )
 
 // ScheduleAuditEventType (v1.84+) enumerates the events the
-// audit log persists. Currently only "force_overwrite"
-// (operator submitted a PUT without If-Match — possibly via
-// the dashboard's Force-overwrite button — overriding the
-// v1.78 optimistic-locking precondition). Future cycles may
-// add "delete", "set_enabled", etc. The Go enum stays the
-// source of truth; SQL CHECK constraint mirrors it.
+// audit log persists. v1.84 introduced "force_overwrite".
+// v1.88 expands to "delete" + "set_enabled_true" +
+// "set_enabled_false" so the audit captures the full
+// lifecycle of operator-driven mutations.
+//
+// The SQL DDL is the source of truth (PITF-030); this Go
+// enum mirrors the CHECK constraint in migration 00012.
 type ScheduleAuditEventType string
 
 // Event type constants. See package doc.
 const (
+	// ScheduleAuditEventForceOverwrite (v1.84+): operator
+	// submitted a PUT without If-Match — overriding the
+	// v1.78 optimistic-locking precondition.
 	ScheduleAuditEventForceOverwrite ScheduleAuditEventType = "force_overwrite"
+	// ScheduleAuditEventDelete (v1.88+): schedule was
+	// removed via DELETE /api/v1/schedules/{id}. The
+	// payload_before snapshot captures the schedule state
+	// at deletion time; payload_after is JSON null.
+	// schedule_id may be NULL on read because the FK SET
+	// NULL fires when the schedule row is deleted.
+	ScheduleAuditEventDelete ScheduleAuditEventType = "delete"
+	// ScheduleAuditEventSetEnabledTrue (v1.88+): schedule
+	// was enabled via POST /api/v1/schedules/{id}/enable.
+	ScheduleAuditEventSetEnabledTrue ScheduleAuditEventType = "set_enabled_true"
+	// ScheduleAuditEventSetEnabledFalse (v1.88+): schedule
+	// was disabled via POST /api/v1/schedules/{id}/disable.
+	ScheduleAuditEventSetEnabledFalse ScheduleAuditEventType = "set_enabled_false"
 )
 
 // ValidScheduleAuditEventTypes is the canonical set, used by
 // validation + as the source of truth for the SQL CHECK.
 var ValidScheduleAuditEventTypes = []ScheduleAuditEventType{
 	ScheduleAuditEventForceOverwrite,
+	ScheduleAuditEventDelete,
+	ScheduleAuditEventSetEnabledTrue,
+	ScheduleAuditEventSetEnabledFalse,
 }
 
 // ScheduleAuditEvent (v1.84+) is one row of the audit log
