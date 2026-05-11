@@ -69,13 +69,22 @@ wait_healthy() {
 }
 
 apply_migrations() {
+    # Use an array so each token quotes independently — `$ROOT` may
+    # contain spaces (e.g. "/Users/Daniel/AI projects/elsereno"),
+    # and an unquoted `$bin` string would word-split on those spaces
+    # and try to exec the path's first chunk as a command. (Found
+    # in the wild: line 78 failed with "AI: No such file or
+    # directory" when ROOT had a space.)
     local bin="${ROOT}/bin/elsereno"
-    if [ ! -x "$bin" ]; then
+    local -a cmd
+    if [ -x "$bin" ]; then
+        cmd=("$bin")
+    else
         note "bin/elsereno not built — running via go run"
-        bin="go run ${ROOT}/cmd/elsereno"
+        cmd=(go run "${ROOT}/cmd/elsereno")
     fi
     pushd "$ROOT" >/dev/null
-    if DATABASE_URL="$DATABASE_URL" $bin db migrate up 2>&1 | tail -3; then
+    if DATABASE_URL="$DATABASE_URL" "${cmd[@]}" db migrate up 2>&1 | tail -3; then
         pass "migrations applied"
     else
         fail "migrations failed — see output above"
