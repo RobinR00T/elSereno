@@ -47,6 +47,17 @@ qué orden, con qué argumentos**.
 9. [Workflows típicos](#9-workflows-típicos)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Glosario](#11-glosario)
+12. [`scope.yaml` — limitar qué se puede tocar](#12-scopeyaml-reference)
+13. [`elsereno.yaml` — configuración](#13-elserenoyaml-reference)
+14. [Schema de finding (NDJSON v1)](#14-schema-de-finding-ndjson-v1)
+15. [HTTP API reference (/api/v1/*)](#15-http-api-reference)
+16. [Plugins por protocolo](#16-plugins-por-protocolo)
+17. [Offensive build — triple-confirm + writes](#17-offensive-build)
+18. [Deployment (systemd + Docker + K8s)](#18-deployment)
+19. [Shell completion + man pages](#19-shell-completion--man-pages)
+20. [Backup & disaster recovery](#20-backup--disaster-recovery)
+21. [Performance tuning + capacity](#21-performance-tuning)
+22. [FAQ rápida](#22-faq-rápida)
 
 ---
 
@@ -1004,6 +1015,888 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 
 ---
 
+---
+
+## 12. `scope.yaml` reference
+
+Un **scope file** limita qué targets puede tocar el binario.
+Cuando un `scope.yaml` está presente (o pasas `--scope FILE`)
+los targets fuera de la lista se rechazan con `denied: target
+outside scope`. Es el mecanismo que separa "scan autorizado"
+de "scan accidental".
+
+### Forma canónica
+
+```yaml
+# scope.yaml — autoriza explícitamente targets para esta sesión.
+version: 1
+allow:
+  # CIDR — todo lo dentro está permitido.
+  - cidr: 10.0.0.0/24
+  - cidr: 192.168.50.0/24
+  # IPv6 también soportado.
+  - cidr: 2001:db8::/48
+  # Host único.
+  - host: 10.10.10.10
+  # Host con puerto específico (limita aún más).
+  - host: 10.10.10.20
+    ports: [502, 4840, 47808]
+  # Range explícito.
+  - range: 10.0.1.10-10.0.1.30
+deny:
+  # Excepciones — un deny dentro de un allow tiene prioridad.
+  - host: 10.0.0.99    # router crítico, NO tocar
+  - cidr: 10.0.0.250/32
+notes: |
+  Ventana de mantenimiento autorizada por Juan Perez
+  (ticket SOC-12345), 2026-05-15 02:00 → 04:00 CET.
+```
+
+### Cómo se usa
+
+```bash
+# Auto-detect: si hay scope.yaml en cwd o ~/.elsereno/, se carga:
+elsereno scan --input list:targets.txt
+
+# Explícito:
+elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml
+
+# Confirmar qué scope está activo:
+elsereno doctor   # imprime el path del scope detectado
+```
+
+### Reglas de evaluación
+
+1. `deny` se evalúa antes que `allow`. Un deny exacto blockea
+   incluso si hay un allow general.
+2. CIDR más específico gana en conflictos (longest-prefix
+   match estilo routing).
+3. Si el target no matchea NI allow NI deny → `denied: not
+   in scope` (default-deny).
+4. `ports` en una entrada `host` filtra: si la entrada no
+   lista el puerto del target, ese puerto se rechaza aunque
+   el host esté permitido.
+
+### Validación
+
+```bash
+# Validar sintaxis sin scan:
+elsereno lint --scope ./fleet-scope.yaml
+
+# Ver qué targets se aceptarían sin tocarlos (dry-run):
+elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml --dry-run
+```
+
+### Best practices
+
+- **Una sesión, un scope** — no recicles `scope.yaml` entre
+  ventanas de pen-test. Crear uno fresco por engagement
+  evita confusiones.
+- **Comentarios obligatorios** (campo `notes`): quién
+  autorizó, ventana de tiempo, ticket de referencia. Tu
+  futuro yo en una investigación post-incidente te lo
+  agradecerá.
+- **Modo paranoico**: poner el scope en el repo del SOC
+  con git history. PR + review antes de aplicar.
+
+---
+
+## 13. `elsereno.yaml` reference
+
+Config global. Ubicación (por orden de prioridad):
+
+1. `--config FILE` flag.
+2. `ELSERENO_CONFIG` env var.
+3. `./elsereno.yaml`.
+4. `~/.elsereno/elsereno.yaml`.
+5. `/etc/elsereno/elsereno.yaml`.
+
+Sin config, todo corre con defaults sensatos (mismo
+output que `elsereno config show` con un binario virgen).
+
+### Esqueleto comentado
+
+```yaml
+# elsereno.yaml — ejemplo con todos los campos comunes anotados.
+# Generado por: elsereno config show > ~/.elsereno/elsereno.yaml
+
+web:
+  read_header_timeout: 5s
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 120s
+  token_ttl_days: 30
+  csrf_origin: ""        # CSRF Origin allowlist (vacío → loopback only)
+
+database:
+  tls_required: true     # exige TLS salvo loopback (PITF)
+  connect_timeout: 5s
+  pool_max: 16
+
+scan:
+  default_port: 0        # 0 → exige que la línea traiga :port
+  max_concurrent: 32     # paralelo global; --max-concurrent lo sobreescribe
+  per_target_timeout: 8s
+  retry_count: 0         # protocol-aware probes ya manejan retries internos
+
+scoring:
+  # ADR-006 — pesos del scorer. Cámbialos sólo con rationale documentado.
+  weights:
+    protocol_risk: 0.30
+    cve_exposure: 0.25
+    confidence: 0.20
+    auth_state: 0.15
+    network_reach: 0.10
+  thresholds:
+    critical: 0.85
+    high: 0.65
+    medium: 0.45
+    low: 0.20
+
+audit:
+  file_path: ~/.elsereno/audit.jsonl
+  hmac_key_kdf: hkdf-from-vault    # source of truth: vault master
+  uds_socket: ""                   # vacío → file-backed; path → daemon UDS
+
+logging:
+  level: info             # debug | info | warn | error
+  format: json            # json | text
+  output: stderr          # stderr | stdout | /path/to/file
+
+telemetry:
+  otlp_endpoint: ""       # vacío → off
+  service_name: elsereno
+```
+
+### Validación
+
+```bash
+elsereno config lint                        # valida el config efectivo
+elsereno config lint --config ./other.yaml  # valida un archivo concreto
+```
+
+### Reformatear canónicamente
+
+```bash
+elsereno fmt < elsereno.yaml > elsereno.formatted.yaml
+```
+
+---
+
+## 14. Schema de finding (NDJSON v1)
+
+Cada línea del output `--output-format ndjson` es un objeto
+JSON con esta forma:
+
+```json
+{
+  "schema": "ndjson:v1",
+  "ts": "2026-05-11T12:34:56.123456Z",
+  "target": {
+    "host": "10.0.0.5",
+    "port": 502
+  },
+  "plugin": "modbus",
+  "capability": 60,
+  "severity": "high",
+  "score": 0.74,
+  "factors": [
+    { "name": "protocol_risk",   "weight": 0.30, "contribution": 0.25 },
+    { "name": "cve_exposure",    "weight": 0.25, "contribution": 0.18 },
+    { "name": "confidence",      "weight": 0.20, "contribution": 0.16 },
+    { "name": "auth_state",      "weight": 0.15, "contribution": 0.12 },
+    { "name": "network_reach",   "weight": 0.10, "contribution": 0.03 }
+  ],
+  "evidence": {
+    "device_id": "Schneider M340 CPU 0x0040",
+    "firmware":  "2.61",
+    "vendor":    "Schneider Electric",
+    "extras": {
+      "function_codes": [3, 4, 6, 16, 43]
+    }
+  },
+  "scope_state": "allowed",
+  "run_id": "01HW4Z0F5J5K7Q8N9P2R3T4V5W",
+  "operator": "alice@soc.local"
+}
+```
+
+### Campos garantizados
+
+| Campo            | Tipo       | Descripción                                                |
+|------------------|------------|------------------------------------------------------------|
+| `schema`         | string     | Siempre `ndjson:v1` mientras estás en v1.                  |
+| `ts`             | string     | RFC3339 con μs (UTC). Timestamp de emisión.                |
+| `target.host`    | string     | IPv4/IPv6/hostname.                                        |
+| `target.port`    | int        | 1-65535.                                                   |
+| `plugin`         | string     | Nombre del plugin que generó el finding.                   |
+| `capability`     | int        | 0-100. Confianza del fingerprint.                          |
+| `severity`       | string     | `critical` / `high` / `medium` / `low` / `info`.           |
+| `score`          | float      | 0.0-1.0. ADR-006 weighted sum de factors.                  |
+| `factors`        | array      | Lista de `{name, weight, contribution}` (ver §13).         |
+| `evidence`       | object     | Bytes / metadata específicos del plugin.                   |
+| `scope_state`    | string     | `allowed` / `denied`.                                      |
+| `run_id`         | string     | ULID que agrupa todos los findings de un mismo run.        |
+| `operator`       | string     | Identidad que disparó el scan.                             |
+
+### Reglas de evolución
+
+- **Campos sólo se añaden**. Nunca se rompe el shape v1 sin
+  bump a `ndjson:v2`.
+- **Order no garantizado** dentro del objeto (JSON), pero sí
+  entre líneas (un finding por target+port en el orden de
+  emisión del probe).
+- **Bytes binarios** dentro de `evidence` van como
+  hex-encoded strings (campo `_hex`) o base64 con `_b64`
+  según el plugin. Documentado en `docs/protocols/<plugin>.md`.
+
+### Pipelines útiles
+
+```bash
+# Filtrar por severidad:
+elsereno scan ... | jq -c 'select(.severity == "high" or .severity == "critical")'
+
+# Extraer solo host+port+plugin:
+elsereno scan ... | jq -r '[.target.host, .target.port, .plugin] | @tsv'
+
+# Agrupar por plugin (necesitas todo en memoria):
+elsereno scan ... | jq -s 'group_by(.plugin) | map({plugin: .[0].plugin, count: length})'
+
+# Convertir a CSV (jq-fu):
+elsereno scan ... | jq -r '[.ts,.target.host,.target.port,.plugin,.severity,.score] | @csv'
+```
+
+---
+
+## 15. HTTP API reference
+
+El dashboard expone `/api/v1/*`. Todos los endpoints
+requieren auth (cookie + CSRF token para mutaciones) y
+responden con `Content-Type: application/json` (excepto SSE).
+
+### Scans
+
+| Método | Path                                    | Qué hace                                               |
+|--------|-----------------------------------------|--------------------------------------------------------|
+| POST   | `/api/v1/scans`                         | Crea un scan job (body: SubmitRequest).                |
+| POST   | `/api/v1/scans/bulk`                    | Crea varios jobs en una sola request (v1.69+).         |
+| GET    | `/api/v1/scans`                         | Lista los últimos N jobs.                              |
+| GET    | `/api/v1/scans/{id}`                    | Detalle de un job + sus findings.                      |
+| POST   | `/api/v1/scans/{id}/cancel`             | Cancela un job queued/running.                         |
+
+### Schedules (v1.70+)
+
+| Método | Path                                          | Qué hace                                                |
+|--------|-----------------------------------------------|---------------------------------------------------------|
+| POST   | `/api/v1/schedules`                           | Crea un schedule (interval o cron).                     |
+| GET    | `/api/v1/schedules`                           | Lista todos los schedules.                              |
+| GET    | `/api/v1/schedules/{id}`                      | Uno solo.                                               |
+| PUT    | `/api/v1/schedules/{id}`                      | Edita un schedule (v1.74+); soporta `If-Match` v1.78+.  |
+| DELETE | `/api/v1/schedules/{id}`                      | Borra; escribe audit `delete` event (v1.88+).           |
+| POST   | `/api/v1/schedules/{id}/enable`               | Toggle on; audit `set_enabled_true` (v1.88+).           |
+| POST   | `/api/v1/schedules/{id}/disable`              | Toggle off; audit `set_enabled_false` (v1.88+).         |
+| POST   | `/api/v1/schedules/preview?count=N`           | Preview de los próximos N fires (v1.77+; cap 10 v1.79+).|
+| GET    | `/api/v1/schedules/{id}/audit`                | Audit history del schedule (v1.84+).                    |
+| DELETE | `/api/v1/schedules/audit?before=<rfc3339>`    | Prune audit log global (v1.86+).                        |
+
+### Findings + Runs + Triage
+
+| Método | Path                              | Qué hace                                                |
+|--------|-----------------------------------|---------------------------------------------------------|
+| GET    | `/api/v1/findings`                | Findings paginados (`?page=`, `?limit=`, filtros).     |
+| GET    | `/api/v1/findings/diff`           | Diff entre dos runs (`?run_a=`, `?run_b=`).             |
+| GET    | `/api/v1/runs`                    | Runs históricos.                                        |
+| GET    | `/api/v1/triage`                  | Counts por bucket (quick-win / strategic / utility / routine). |
+
+### Audit + Cadence
+
+| Método | Path                              | Qué hace                                                |
+|--------|-----------------------------------|---------------------------------------------------------|
+| GET    | `/api/v1/audit`                   | Audit log entries (paginadas).                          |
+| GET    | `/api/v1/audit/cadence`           | Series temporales: `proxy_allowlist_reload` por día.    |
+
+### Inputs + plugins + scoring
+
+| Método | Path                              | Qué hace                                                |
+|--------|-----------------------------------|---------------------------------------------------------|
+| GET    | `/api/v1/inputs/preview`          | Preview de input source (`?kind=list:F`, etc).          |
+| GET    | `/api/v1/plugins`                 | Lista plugins compilados (v1.68+).                      |
+| GET    | `/api/v1/scoring`                 | Weights + thresholds (mismo output que `elsereno scoring`). |
+| GET    | `/api/v1/health`                  | Health endpoint (sin auth).                             |
+| GET    | `/healthz`                        | Health simple, sin auth, para load balancers.            |
+| GET    | `/readyz`                         | Readiness check.                                        |
+| GET    | `/api/v1/openapi.yaml`            | Spec OpenAPI 3.1 emitido del código.                    |
+
+### Streaming (SSE)
+
+| Método | Path                | Eventos                                                                                  |
+|--------|---------------------|------------------------------------------------------------------------------------------|
+| GET    | `/api/v1/stream`    | `finding`, `run_start`, `run_end`, `scan_state_change`, `scan_stats_progress`, … (v1.63+) |
+
+### Ejemplo: crear un schedule via curl
+
+```bash
+TOKEN=$(curl -s -c /tmp/cj http://127.0.0.1:8787/admin/security | jq -r .token)
+CSRF=$(grep csrf /tmp/cj | awk '{print $NF}')
+
+curl -X POST http://127.0.0.1:8787/api/v1/schedules \
+    -b /tmp/cj \
+    -H "X-CSRF-Token: $CSRF" \
+    -H "X-Operator: alice" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "name": "weekday-modbus-09am-ny",
+      "template": {"input": "list:/etc/elsereno/fleet.txt", "plugins": ["modbus"]},
+      "cron_expr": "0 9 * * 1-5",
+      "timezone": "America/New_York"
+    }'
+```
+
+Forma alternativa sin CSRF (sólo para clientes que no son
+browser — pasa `X-Operator` directo si tu config lo
+permite).
+
+---
+
+## 16. Plugins por protocolo
+
+Lista actualizada del build default (28 plugins).
+
+| Plugin       | Puerto(s)         | Familia                                                               | Status   |
+|--------------|-------------------|-----------------------------------------------------------------------|----------|
+| `atg`        | TCP/10001         | ATG Veeder-Root TLS-350/4 (gasolinera tank monitor)                   | RO       |
+| `atmodem`    | (modem)           | AT modem Hayes/GSM/EN 81-28                                           | RO       |
+| `bacnet`     | UDP/47808         | BACnet/IP (HVAC, edificios)                                            | RO + WG  |
+| `banner`     | (cualquiera)      | TCP banner grab (fallback)                                            | RO       |
+| `codesys`    | TCP/1217          | CoDeSys V3 (Wago/Beckhoff alt/Schneider M251/Eaton/Bosch Rexroth)     | RO       |
+| `cwmp`       | TCP/7547          | TR-069 CWMP ACS (FreeACS, GenieACS, Nokia, etc.)                       | RO + WG  |
+| `dlms`       | TCP/4059          | DLMS/COSEM (IEC 62056-46 smart meters)                                 | RO + WG  |
+| `dnp3`       | TCP/20000         | DNP3 IEEE 1815 (power/water utility)                                  | RO       |
+| `enip`       | TCP/44818         | EtherNet/IP CIP (Rockwell, Allen-Bradley, Omron)                       | RO + WG  |
+| `finsudp`    | UDP/9600          | Omron FINS (CJ/CS/CP/NJ/NX)                                            | RO       |
+| `fox`        | TCP/1911 + 4911   | Niagara Fox (Tridium, edificios)                                       | RO       |
+| `gesrtp`     | TCP/18245         | GE-SRTP (GE Fanuc, Emerson PACSystems, Series 90)                      | RO       |
+| `hartip`     | UDP/5094          | HART-IP (process instrumentation)                                      | RO       |
+| `iax2`       | UDP/4569          | Asterisk IAX2 (PBX)                                                   | RO + WG  |
+| `iec104`     | TCP/2404          | IEC 60870-5-104 (power SCADA)                                          | RO       |
+| `knxip`      | UDP/3671          | KNXnet/IP (BAS / edificios)                                            | RO + WG  |
+| `mbustcp`    | TCP/10001         | M-Bus over TCP (smart meters water/gas/heat)                          | RO + WG  |
+| `mms`        | TCP/102           | IEC 61850 MMS (substation protection)                                  | RO       |
+| `modbus`     | TCP/502           | Modbus/TCP (PLC + RTU industrial generalista)                          | RO + WG  |
+| `opcua`      | TCP/4840          | OPC UA TCP                                                            | RO + WG  |
+| `pbxhttp`    | TCP/443/80/8088   | HTTP admin pages PBX (FreePBX, 3CX, Yeastar, etc.)                     | RO + WG  |
+| `pcworx`     | TCP/1962          | Phoenix Contact PCWorx (ILC + AXC F + RFC)                             | RO       |
+| `proconos`   | TCP/20547         | KW-Software ProConOS                                                  | RO       |
+| `redlion`    | TCP/789           | Red Lion Crimson / RLN (HMIs/RTUs)                                     | RO       |
+| `s7`         | TCP/102           | Siemens S7comm                                                        | RO       |
+| `sip`        | UDP/5060          | SIP / PBX                                                             | RO + WG  |
+| `slmp`       | TCP/5007          | Mitsubishi MELSEC SLMP                                                | RO       |
+| `twincat`    | TCP/48898         | Beckhoff TwinCAT ADS                                                  | RO       |
+| `xot`        | TCP/1998 / 5555   | X.25 over TCP (RFC 1613) — legacy banking/airline                     | RO + WG  |
+
+**Leyenda:** `RO` = read-only (default build); `WG` = write-gated
+proxy disponible en offensive build con triple-confirm.
+
+Notas por protocolo: cada plugin tiene su archivo en
+[`docs/protocols/<name>.md`](protocols/) con detalles del wire
+protocol, byte-level details del fingerprint, y las CVEs
+relevantes (cuando `cve_exposure` está mapeado).
+
+---
+
+## 17. Offensive build
+
+El binario `elsereno-offensive` (build tag `offensive`)
+añade **escrituras gateadas** y otras superficies activas
+sobre el binario default. Cada acción ofensiva requiere
+una secuencia de confirmaciones (ADR-039) para impedir
+disparos accidentales.
+
+### Triple-confirm fence
+
+Todas las operaciones de escritura/explote requieren:
+
+1. `--accept-writes` (flag explícito en la CLI).
+2. `--confirm-target <ip>:<port>` (confirma que sabes a
+   qué estás disparando — fail-fast en typos).
+3. `--confirm-token <STRING>` (string mostrado en el log
+   de inicio para confirmar que estás viendo la sesión
+   correcta).
+4. **Vault desbloqueado** — el audit HMAC se firma con la
+   master key. Si está locked, la operación se rechaza.
+
+### Ejemplo: write Modbus
+
+```bash
+# 1) Build offensive (o instala el paquete -offensive):
+make build-offensive
+./bin/elsereno-offensive ...   # binary aparte
+
+# 2) Habilita el offensive proxy con allowlist:
+./bin/elsereno-offensive proxy modbus \
+    --listen 127.0.0.1:5020 \
+    --upstream 10.0.0.5:502 \
+    --allow 'fc=6,addr=40001,value=*'   # FC 6 (write single reg), reg 40001
+```
+
+El proxy:
+- Acepta el handshake del cliente Modbus.
+- Forwardea reads (FC 1-4) sin filtrar.
+- Para writes (FC 5/6/15/16/22/23): aplica el allowlist.
+  Match → forward. Miss → SOAP-like reject + audit entry.
+
+### Dial / SMS
+
+Disponible sólo en offensive + flag `--dial-allowed`. Números
+≤3 dígitos están **bloqueados duro** (evita marcar 911,
+emergency, asistencia operador, etc.). Wardialing batch es
+vNext (item en TODO-vNext.md, no shipped aún).
+
+### Audit obligatorio
+
+Cada escritura ofensiva produce 2 entries en el audit log:
+- `offensive_write` con todos los parámetros + hash del
+  payload.
+- `scope_applied` con el match del allowlist.
+
+`elsereno audit verify-file` debe completar exit-0 después.
+Si reportes diff con un blue-team el archivo `audit.jsonl`
+es la evidencia oficial.
+
+---
+
+## 18. Deployment
+
+### systemd unit (Linux)
+
+Crear `/etc/systemd/system/elsereno.service`:
+
+```ini
+[Unit]
+Description=ElSereno ICS/OT exposure dashboard
+Documentation=https://github.com/RobinR00T/elSereno
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=elsereno
+Group=elsereno
+ExecStart=/usr/local/bin/elsereno serve \
+    --addr 127.0.0.1:8787 \
+    --scan-store=db \
+    --scan-pool 8 \
+    --audit-retention-days 90 \
+    --vault-passphrase-file /etc/elsereno/vault.pp
+EnvironmentFile=/etc/elsereno/environment
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/elsereno /var/log/elsereno
+StateDirectory=elsereno
+LogsDirectory=elsereno
+ConfigurationDirectory=elsereno
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/elsereno/environment` (mode 0640, root:elsereno):
+
+```bash
+DATABASE_URL=postgres://elsereno@/elsereno?host=/var/run/postgresql&sslmode=disable
+ELSERENO_CONFIG=/etc/elsereno/elsereno.yaml
+ELSERENO_LOG_LEVEL=info
+```
+
+Activar:
+
+```bash
+sudo useradd -r -s /usr/sbin/nologin elsereno
+sudo install -d -m 0750 -o elsereno -g elsereno /var/lib/elsereno /var/log/elsereno /etc/elsereno
+sudo install -m 0600 -o elsereno -g elsereno vault.pp /etc/elsereno/vault.pp
+sudo systemctl daemon-reload
+sudo systemctl enable --now elsereno.service
+sudo systemctl status elsereno
+```
+
+Logs: `journalctl -u elsereno -f`.
+
+### Docker / OCI
+
+Para `docker compose`:
+
+```yaml
+# compose.prod.yml
+services:
+  elsereno:
+    image: ghcr.io/robinr00t/elsereno:1.88.0
+    restart: unless-stopped
+    network_mode: host    # o expone puertos: 127.0.0.1:8787:8787
+    environment:
+      DATABASE_URL: postgres://elsereno:****@db:5432/elsereno?sslmode=require
+    volumes:
+      - ./vault.pp:/etc/elsereno/vault.pp:ro
+      - elsereno-state:/var/lib/elsereno
+    command:
+      - serve
+      - --scan-store=db
+      - --audit-retention-days=90
+      - --vault-passphrase-file=/etc/elsereno/vault.pp
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  elsereno-state:
+```
+
+### Kubernetes (snippet mínimo)
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elsereno
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: elsereno } }
+  template:
+    metadata: { labels: { app: elsereno } }
+    spec:
+      serviceAccountName: elsereno
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: elsereno
+          image: ghcr.io/robinr00t/elsereno:1.88.0
+          args:
+            - serve
+            - --scan-store=db
+            - --audit-retention-days=90
+            - --vault-passphrase-file=/etc/elsereno/vault.pp
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: elsereno-db, key: url } }
+          volumeMounts:
+            - name: vault-passphrase
+              mountPath: /etc/elsereno
+              readOnly: true
+          ports:
+            - { containerPort: 8787, name: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8787 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8787 }
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            runAsNonRoot: true
+            runAsUser: 1000
+          resources:
+            requests: { cpu: 200m, memory: 128Mi }
+            limits:   { cpu: 1000m, memory: 512Mi }
+      volumes:
+        - name: vault-passphrase
+          secret:
+            secretName: elsereno-vault-passphrase
+            defaultMode: 0400
+```
+
+Sin réplicas múltiples por ahora: el Scheduler asume
+single-process; multi-replica race el carryover v1.90+
+(advisory lock).
+
+### Reverse proxy en front (Nginx)
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name elsereno.example.com;
+
+    ssl_certificate     /etc/ssl/elsereno.crt;
+    ssl_certificate_key /etc/ssl/elsereno.key;
+
+    # ElSereno hace TLS por su cuenta cuando bindea non-loopback,
+    # pero también puedes terminar TLS en Nginx y reverse-proxy
+    # plano a 127.0.0.1:8787.
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        # SSE — desactiva buffering:
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+    }
+}
+```
+
+---
+
+## 19. Shell completion + man pages
+
+### Bash / zsh / fish completions
+
+```bash
+# Bash:
+elsereno completion bash > /usr/local/etc/bash_completion.d/elsereno
+# o más portable:
+elsereno completion bash > ~/.bash_completion.d/elsereno
+. ~/.bash_completion.d/elsereno
+
+# Zsh:
+elsereno completion zsh > "${fpath[1]}/_elsereno"
+# o:
+elsereno completion zsh > ~/.zsh/completions/_elsereno
+# añade a ~/.zshrc:  fpath=(~/.zsh/completions $fpath)
+
+# Fish:
+elsereno completion fish > ~/.config/fish/completions/elsereno.fish
+```
+
+Tras esto: `elsereno <TAB>` autocompleta verbos, `elsereno scan --<TAB>`
+autocompleta flags, etc.
+
+### Man pages
+
+```bash
+# Generar las páginas:
+elsereno gen-man --output /tmp/man
+
+# Instalar (Linux):
+sudo cp /tmp/man/elsereno.1 /usr/local/share/man/man1/
+sudo cp /tmp/man/elsereno-*.1 /usr/local/share/man/man1/
+sudo mandb
+
+# macOS:
+sudo cp /tmp/man/elsereno*.1 /usr/local/share/man/man1/
+# El index se reconstruye al usar `man -k`.
+
+# Consultar:
+man elsereno
+man elsereno-scan
+man elsereno-serve
+```
+
+Los paquetes `.deb` / `.rpm` instalan las man pages
+automáticamente bajo `/usr/share/man/man1/`.
+
+---
+
+## 20. Backup & disaster recovery
+
+### Política recomendada
+
+1. **Diario**: `elsereno backup create` a almacenamiento
+   separado (NFS, S3, archivado).
+2. **Retención**: 30 días rolling + 1 mensual frozen.
+3. **Restore drill**: cada trimestre, probar restore en
+   sandbox para validar que la passphrase no se ha
+   perdido.
+
+### Script de backup automático (cron)
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+DEST=/var/backups/elsereno
+DATE=$(date -u +%Y%m%dT%H%M%S)
+elsereno vault unlock --vault-passphrase-file /etc/elsereno/vault.pp
+elsereno backup create \
+    --vault-passphrase-file /etc/elsereno/vault.pp \
+    --output "$DEST/elsereno-$DATE.tar.gz.enc"
+find "$DEST" -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
+```
+
+```cron
+# Backup nightly at 02:30:
+30 2 * * * /usr/local/bin/elsereno-backup-cron.sh >>/var/log/elsereno-backup.log 2>&1
+```
+
+### Restore en máquina nueva
+
+```bash
+# Pre-requisitos:
+# - elsereno binary instalado.
+# - mismo vault passphrase que cuando se hizo el backup.
+
+# 1) Inspect sin descifrar (verifica integridad del envelope):
+elsereno backup inspect --input elsereno-2026-05-11.tar.gz.enc
+
+# 2) Restore:
+elsereno backup restore \
+    --input elsereno-2026-05-11.tar.gz.enc \
+    --to /tmp/elsereno-restore
+
+# 3) Mover a su sitio:
+sudo install -m 0600 -o elsereno -g elsereno \
+    /tmp/elsereno-restore/vault.v1.bin /var/lib/elsereno/
+sudo install -m 0640 -o elsereno -g elsereno \
+    /tmp/elsereno-restore/audit.jsonl /var/lib/elsereno/
+
+# 4) Arrancar y verificar:
+sudo systemctl start elsereno
+elsereno audit verify-file       # debería pasar — la chain es íntegra
+```
+
+### Qué se incluye en el backup
+
+- `vault.v1.bin` (todas las credenciales cifradas).
+- `audit.jsonl` (chain HMAC completa).
+- `elsereno.yaml` (config).
+- **NO** se incluye `scan_jobs`, `scan_schedules`, etc.
+  La DB Postgres tiene su propio backup (pg_dump). Si
+  perdiste la DB pero conservaste el vault, restauras y
+  re-creas schedules.
+
+---
+
+## 21. Performance tuning
+
+### Worker pool
+
+```
+elsereno serve --scan-pool N    # clamped [1, 64]
+```
+
+- **Default**: 2 (conservador para no saturar la red al
+  arrancar).
+- **Recomendado**: `nproc - 2` o el throughput de tu link
+  upstream / 50 (cada scan target es ~10-20 KB/s pico).
+- **Máximo útil**: 64 (clamp). Más allá los kernel-level
+  socket budgets dominan.
+
+### `max_concurrent` (scan global)
+
+```yaml
+scan:
+  max_concurrent: 32
+```
+
+Distinto del worker pool: limita cuántos targets puede
+tener un single scan en flight. El worker pool limita
+cuántos scans simultáneos puede ejecutar serve.
+
+### Postgres connection pool
+
+```yaml
+database:
+  pool_max: 16
+```
+
+A nivel binario. La DB también tiene su `max_connections`
+(default 100 en pg 16); reservé suficiente para
+`max_concurrent * workers + 10 de overhead`.
+
+### Garbage collection
+
+Default GOGC=100 va bien para findings hasta ~10k/min. Si
+tu deployment los excede:
+
+```bash
+GOGC=200 elsereno serve ...    # menos GC pauses, más RSS
+GOMEMLIMIT=512MiB elsereno serve ...    # hard cap (Go 1.19+)
+```
+
+### Profiling on-demand
+
+```bash
+# pprof endpoints (default off; activa con flag):
+ELSERENO_DEBUG_PPROF=1 elsereno serve ...
+curl http://127.0.0.1:8787/debug/pprof/heap > heap.pprof
+go tool pprof -http=:9090 heap.pprof
+```
+
+(El endpoint pprof sólo escucha con la env var explícita
+para no leak metadata en deploy normal.)
+
+---
+
+## 22. FAQ rápida
+
+**¿Necesito Postgres?**
+No para `scan` / `discover` / lotes — el binario es
+stateless. Sí si quieres que el dashboard (`serve`) recuerde
+scans/schedules tras reinicio (`--scan-store=db`).
+
+**¿Funciona contra IPv6?**
+Sí desde v1.14. `targets.txt` acepta IPv6 entre brackets:
+`[2001:db8::5]:502`.
+
+**¿Tiene rate-limiting per-target?**
+No nativo. La concurrencia global (`max_concurrent`) +
+el `per_target_timeout` evitan el peor caso. Para
+rate-limiting estricto en networks frágiles, integra con
+un FRR/`tc` rule a nivel host.
+
+**¿Puede mandar findings directos a Splunk / SIEM?**
+No nativo (todavía). El patrón canónico es: scan →
+NDJSON file → forwarder. Ver [`docs/INTEGRATIONS.md`](INTEGRATIONS.md).
+
+**¿Funciona en Windows?**
+No actualmente. Bloqueador: `syscall.*` por-plataforma en
+`internal/audit` (file locking) + sandboxing. Item v1.x
+en TODO-vNext.md.
+
+**¿Soporta autenticación OIDC?**
+No actualmente. Single-operator por proceso. Item vNext.
+
+**¿Cómo se renueva el master del vault?**
+`elsereno vault rotate` (planeado). De momento: backup +
+re-init con nueva passphrase + restore-rotate manual.
+
+**¿Puedo correr múltiples `serve` contra la misma DB?**
+v1.88 sólo soporta single-process Scheduler. v1.90+
+añadirá advisory lock pruner. Para alta-disponibilidad
+hoy, usa un único serve activo + replicas read-only del
+DB.
+
+**Olvido la passphrase del vault**
+Sin recuperación. Borra `vault.v1.bin`, re-init con nueva
+passphrase, vuelve a guardar credenciales. La master del
+vault está derivada con scrypt + sin escape-hatch a
+propósito.
+
+**¿Funciona offline / air-gapped?**
+Sí. Tarball + paquete `.deb`/`.rpm` no requiere conexión a
+internet en runtime salvo para las APIs de input externas
+(Shodan/Censys/etc). Para air-gap real, usa `list:` o
+`nmap:` como input.
+
+**¿Cómo verifico la integridad del binario instalado?**
+`shasum -a 256 -c checksums.txt` (provisto en cada
+release). Y `gpg --verify` con la clave pública del
+mantenedor (`ACE3B86BACACE7D6`).
+
+---
+
 ## Más documentación
 
 - [`INSTALL.md`](../INSTALL.md) — instalación detallada con
@@ -1011,11 +1904,22 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 - [`README.md`](../README.md) — overview + Quickstart.
 - [`docs/DEV-SETUP.md`](DEV-SETUP.md) — workflow de
   desarrollo (clonar repo, scripts/bootstrap.sh, scripts/start.sh).
-- [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — diseño interno.
+- [`docs/SECURITY.md`](SECURITY.md) — modelo de seguridad,
+  threat model, hardening checklist.
+- [`docs/INTEGRATIONS.md`](INTEGRATIONS.md) — SIEM /
+  observability recipes (Splunk, Elastic, Loki, Prometheus).
+- [`docs/FAQ.md`](FAQ.md) — preguntas frecuentes
+  expandidas.
+- [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — diseño
+  interno.
 - [`docs/openapi.yaml`](openapi.yaml) — spec de la API.
 - [`docs/protocols/`](protocols/) — engineering notes por
-  protocolo (modbus, opcua, bacnet, s7, …).
+  protocolo.
+- [`docs/manual/elsereno-manual.md`](manual/elsereno-manual.md)
+  — manual narrativo histórico (casos de uso con detalle).
 - `.context/` — internal context (state, decisions,
-  pitfalls). Lectura recomendada antes de modificar código.
+  pitfalls). Lectura recomendada antes de modificar
+  código.
 
-¿Algo no cubre este manual? Abre un issue.
+¿Algo no cubre este manual? Abre un issue o expande la
+sección directamente — es markdown vivo.

@@ -95,10 +95,16 @@ chain. Detail in [RELEASING.md](RELEASING.md).
 
 ## Quickstart
 
-> **TL;DR para usuarios nuevos**: lee
-> [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo con
-> instalación paso-a-paso, cada comando con ejemplos,
-> variables de entorno, workflows típicos y troubleshooting.
+> **Para usuarios nuevos**, empieza por una de estas rutas:
+>
+> | Necesitas… | Lee |
+> |---|---|
+> | Una guía completa: instalación + cada comando + ejemplos + workflows + troubleshooting | [`docs/MANUAL.md`](docs/MANUAL.md) |
+> | Sólo instalar el binario en producción | [`INSTALL.md`](INSTALL.md) |
+> | Clonar el repo y desarrollar | [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md) |
+> | Mandar findings a Splunk / Elastic / Loki / Prometheus | [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) |
+> | Entender el modelo de seguridad / threat model | [`docs/SECURITY.md`](docs/SECURITY.md) |
+> | Resolver una duda concreta | [`docs/FAQ.md`](docs/FAQ.md) |
 
 ### From source (dev workflow)
 
@@ -316,11 +322,29 @@ of these are set (ADR-026, PITF-032).
 
 ## Further reading
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`SECURITY.md`](SECURITY.md)
-- [`LEGAL.md`](LEGAL.md)
-- [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [`NON-GOALS.md`](NON-GOALS.md)
+**Para usuarios y operadores:**
+
+- [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo end-to-end (CLI + dashboard + workflows + 22 secciones).
+- [`docs/FAQ.md`](docs/FAQ.md) — preguntas frecuentes.
+- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — recetas SIEM/observability.
+- [`docs/SECURITY.md`](docs/SECURITY.md) — modelo de seguridad + hardening checklist.
+- [`INSTALL.md`](INSTALL.md) — todos los métodos de instalación con verificación SBOM.
+- [`docs/manual/elsereno-manual.md`](docs/manual/elsereno-manual.md) — manual narrativo histórico de casos de uso.
+- [`docs/manual/cheatsheet.txt`](docs/manual/cheatsheet.txt) — cheatsheet de comandos.
+- [`docs/protocols/`](docs/protocols/) — engineering notes por protocolo.
+
+**Para desarrolladores y contribuidores:**
+
+- [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md) — clonar repo + bootstrap + dev workflow.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — diseño interno.
+- [`docs/openapi.yaml`](docs/openapi.yaml) — spec de la HTTP API.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — cómo contribuir.
+
+**Compliance y legal:**
+
+- [`SECURITY.md`](SECURITY.md) — política de disclosure.
+- [`LEGAL.md`](LEGAL.md) — uso aceptable.
+- [`NON-GOALS.md`](NON-GOALS.md) — qué NO hace ElSereno (intencional).
 
 ## License
 
