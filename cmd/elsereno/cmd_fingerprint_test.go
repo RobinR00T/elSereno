@@ -11,15 +11,58 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+// syncBuf is a tiny concurrency-safe wrapper around
+// bytes.Buffer for tests that share a buffer between a
+// writer goroutine (e.g. runFingerprintCapture's Out) and
+// a poll-reader (e.g. waitForListenPort). bytes.Buffer is
+// NOT safe for concurrent read/write — the race detector
+// catches it on `make test-race`. This wrapper serialises
+// access behind a mutex so both sides can interleave
+// without data races.
+//
+// Only the methods the tests actually use are exposed
+// (Write satisfies io.Writer; String / Bytes are what the
+// pollers read). If a future test needs a Reader-style
+// drain it should add a Read method here, not bypass the
+// mutex.
+type syncBuf struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+// Write makes *syncBuf satisfy io.Writer.
+func (s *syncBuf) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+// String returns the current contents as a string. Safe to
+// call concurrently with Write.
+func (s *syncBuf) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
+// bufferStringer is the minimal interface waitForListenPort
+// needs from its buffer argument. Both *bytes.Buffer (for
+// single-goroutine tests) and *syncBuf (for concurrent
+// tests) satisfy it, so the helper works with either.
+type bufferStringer interface {
+	String() string
+}
 
 // waitForListenPort polls the captured stdout buffer until the
 // "listening on 127.0.0.1:NNNN" line appears, then extracts
 // the port. Tight enough to catch real regressions; generous
 // enough that slow CI runners don't false-fail.
-func waitForListenPort(t *testing.T, buf *bytes.Buffer, budget time.Duration) int {
+func waitForListenPort(t *testing.T, buf bufferStringer, budget time.Duration) int {
 	t.Helper()
 	deadline := time.Now().Add(budget)
 	re := regexp.MustCompile(`listening on 127\.0\.0\.1:(\d+);`)
@@ -293,7 +336,10 @@ func TestFingerprintCapture_HappyPath(t *testing.T) {
 
 	// Run the capture in the background; the test client
 	// dials it once we see "connected from" in the output.
-	var out bytes.Buffer
+	// syncBuf (not bytes.Buffer) because the capture
+	// goroutine writes while waitForListenPort polls
+	// String() — bytes.Buffer races there.
+	var out syncBuf
 	captureDone := make(chan error, 1)
 	go func() {
 		captureDone <- runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
@@ -389,7 +435,8 @@ func TestFingerprintCapture_TimeoutOnIdleListener(t *testing.T) {
 func TestFingerprintCapture_ClientClosesEmpty(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "empty.bin")
-	var out bytes.Buffer
+	// syncBuf (see TestFingerprintCapture_HappyPath note).
+	var out syncBuf
 	captureDone := make(chan error, 1)
 	go func() {
 		captureDone <- runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
