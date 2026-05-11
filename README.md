@@ -95,6 +95,11 @@ chain. Detail in [RELEASING.md](RELEASING.md).
 
 ## Quickstart
 
+> **TL;DR para usuarios nuevos**: lee
+> [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo con
+> instalación paso-a-paso, cada comando con ejemplos,
+> variables de entorno, workflows típicos y troubleshooting.
+
 ### From source (dev workflow)
 
 **One-shot path** (recommended — installs deps + builds + brings up
