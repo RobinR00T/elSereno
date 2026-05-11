@@ -56,6 +56,18 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	return event, nil
 }
 
+// PruneOlderThan (v1.86+) removes rows with occurred_at <
+// cutoff. Returns the row count from the DELETE command tag.
+func (s *DBScheduleAuditStore) PruneOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := s.q.Exec(ctx,
+		"DELETE FROM scan_schedule_audit WHERE occurred_at < $1",
+		cutoff.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("scanorch: prune schedule audit: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // ListBySchedule returns the events for a schedule, newest
 // first.
 func (s *DBScheduleAuditStore) ListBySchedule(ctx context.Context, scheduleID string) ([]ScheduleAuditEvent, error) {

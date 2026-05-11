@@ -75,6 +75,16 @@ type ScheduleAuditStore interface {
 	// schedule, sorted by OccurredAt DESC (newest first).
 	// Empty slice when the schedule has never been audited.
 	ListBySchedule(ctx context.Context, scheduleID string) ([]ScheduleAuditEvent, error)
+	// PruneOlderThan (v1.86+) removes events with
+	// OccurredAt < cutoff. Returns the number of deleted
+	// rows. Used for retention-policy enforcement — operator
+	// invokes via DELETE /api/v1/schedules/audit?before=…
+	// or (future) a scheduled background pruner.
+	//
+	// Cutoff times in the future are valid and delete every
+	// event — defensive callers should reject obviously-
+	// wrong cutoffs at the REST layer.
+	PruneOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 // MemoryScheduleAuditStore is an in-memory ScheduleAuditStore
@@ -105,6 +115,24 @@ func (s *MemoryScheduleAuditStore) Append(_ context.Context, event ScheduleAudit
 	s.events = append(s.events, event)
 	s.mu.Unlock()
 	return event, nil
+}
+
+// PruneOlderThan (v1.86+) removes events with OccurredAt
+// before the cutoff. Returns the number of removed rows.
+func (s *MemoryScheduleAuditStore) PruneOlderThan(_ context.Context, cutoff time.Time) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := make([]ScheduleAuditEvent, 0, len(s.events))
+	var removed int64
+	for _, e := range s.events {
+		if e.OccurredAt.Before(cutoff) {
+			removed++
+			continue
+		}
+		kept = append(kept, e)
+	}
+	s.events = kept
+	return removed, nil
 }
 
 // ListBySchedule filters by schedule_id + sorts by

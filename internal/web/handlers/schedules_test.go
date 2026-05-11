@@ -404,6 +404,84 @@ func TestListScheduleAudit_404OnMissingSchedule(t *testing.T) {
 	}
 }
 
+// TestPruneScheduleAudit_Happy (v1.86+): DELETE returns the
+// number of pruned events.
+func TestPruneScheduleAudit_Happy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	router := newSchedRouterWithAudit(store, audit)
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	for i := 0; i < 3; i++ {
+		_, _ = audit.Append(context.Background(), scanorch.ScheduleAuditEvent{
+			ScheduleID:    sched.ID,
+			EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+			Operator:      "alice",
+			PayloadBefore: json.RawMessage(`{}`),
+			PayloadAfter:  json.RawMessage(`{}`),
+		})
+	}
+	// Prune with a future cutoff → removes all 3.
+	cutoff := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/audit?before="+cutoff, nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			DeletedCount int `json:"deleted_count"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(rr.Body).Decode(&resp)
+	if resp.Data.DeletedCount != 3 {
+		t.Errorf("deleted_count = %d, want 3", resp.Data.DeletedCount)
+	}
+}
+
+// TestPruneScheduleAudit_MissingBefore (v1.86+): no
+// ?before= → 400.
+func TestPruneScheduleAudit_MissingBefore(t *testing.T) {
+	router := newSchedRouterWithAudit(
+		scanorch.NewMemoryScheduleStore(),
+		scanorch.NewMemoryScheduleAuditStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/audit", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestPruneScheduleAudit_MalformedBefore (v1.86+).
+func TestPruneScheduleAudit_MalformedBefore(t *testing.T) {
+	router := newSchedRouterWithAudit(
+		scanorch.NewMemoryScheduleStore(),
+		scanorch.NewMemoryScheduleAuditStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/audit?before=banana", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestPruneScheduleAudit_NilAuditStore (v1.86+).
+func TestPruneScheduleAudit_NilAuditStore(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore()) // audit = nil
+	cutoff := time.Now().UTC().Format(time.RFC3339)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/schedules/audit?before="+cutoff, nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rr.Code)
+	}
+}
+
 // TestListScheduleAudit_503OnNilAuditStore (v1.84+).
 func TestListScheduleAudit_503OnNilAuditStore(t *testing.T) {
 	store := scanorch.NewMemoryScheduleStore()
@@ -701,6 +779,7 @@ func TestSchedules_NilStoreReturns503(t *testing.T) {
 		{http.MethodPost, "/api/v1/schedules/abc/disable"},
 		{http.MethodPost, "/api/v1/schedules/preview"},
 		{http.MethodGet, "/api/v1/schedules/abc/audit"},
+		{http.MethodDelete, "/api/v1/schedules/audit"},
 	} {
 		t.Run(tc.verb+" "+tc.path, func(t *testing.T) {
 			var body *strings.Reader

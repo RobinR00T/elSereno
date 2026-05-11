@@ -22,6 +22,7 @@ import (
 //	POST   /api/v1/schedules/{id}/disable
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
+//	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
 // other scan-orch endpoints.
@@ -46,6 +47,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) 
 		mux.HandleFunc("POST /api/v1/schedules/{id}/disable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
+		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
 	// v1.77: /preview is registered BEFORE /{id} so the path
@@ -62,6 +64,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) 
 	mux.Handle("POST /api/v1/schedules/{id}/enable", setScheduleEnabled(store, true))
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
+	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
 }
 
@@ -275,6 +278,53 @@ func recordForceOverwriteAudit(ctx context.Context, audit scanorch.ScheduleAudit
 	}); err != nil {
 		w.Header().Set("X-Schedule-Audit-Warning", err.Error())
 	}
+}
+
+// pruneScheduleAudit (v1.86+) handles DELETE
+// /api/v1/schedules/audit?before=<rfc3339>. Removes audit
+// events older than the cutoff. Returns the deleted-row
+// count.
+//
+// ?before=… is required (no implicit default — operators
+// must opt into a cutoff explicitly). RFC3339 with
+// optional fractional seconds.
+//
+// 503 when the audit store is nil. 400 on missing /
+// malformed cutoff.
+//
+// The endpoint is intentionally NOT scoped per schedule:
+// retention policy is global. Per-schedule pruning would
+// require additional CHECK CASCADE semantics and is
+// deferred.
+func pruneScheduleAudit(audit scanorch.ScheduleAuditStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if audit == nil {
+			http.Error(w, "schedules: audit log unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		raw := r.URL.Query().Get("before")
+		if raw == "" {
+			http.Error(w, "schedules: ?before=<rfc3339> is required", http.StatusBadRequest)
+			return
+		}
+		cutoff, parseErr := time.Parse(time.RFC3339Nano, raw)
+		if parseErr != nil {
+			cutoff, parseErr = time.Parse(time.RFC3339, raw)
+		}
+		if parseErr != nil {
+			http.Error(w, "schedules: malformed ?before= timestamp: "+parseErr.Error(), http.StatusBadRequest)
+			return
+		}
+		count, err := audit.PruneOlderThan(r.Context(), cutoff)
+		if err != nil {
+			http.Error(w, "schedules: prune audit: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"deleted_count": count,
+			"cutoff":        cutoff.UTC(),
+		}})
+	})
 }
 
 // listScheduleAudit (v1.84+) handles GET
