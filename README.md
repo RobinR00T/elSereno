@@ -97,6 +97,20 @@ chain. Detail in [RELEASING.md](RELEASING.md).
 
 ### From source (dev workflow)
 
+**One-shot path** (recommended — installs deps + builds + brings up
+DB + vault + serve in two commands):
+
+```sh
+scripts/bootstrap.sh   # first time only; checks + prompts to install missing deps
+scripts/start.sh       # every time you want to work: Docker + DB + build + serve
+```
+
+Full details — including all flags, env overrides, exit codes,
+the vault model, and a common-failures table — in
+[`docs/DEV-SETUP.md`](docs/DEV-SETUP.md).
+
+**Manual path** (if you prefer to control every step):
+
 ```sh
 docker compose -f docker-compose.dev.yml up -d
 make build
