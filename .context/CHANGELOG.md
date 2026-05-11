@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-11 — v1.87 (chunk 1) — **Background audit
+  pruner.** New AuditPruner struct in
+  internal/scanorch/audit_pruner.go (Run + Tick +
+  OnPrune/OnError callbacks + sentinels). New
+  `cmd serve --audit-retention-days N` flag (0 =
+  disabled). Daily PruneOlderThan with eager first
+  tick. Clamping floors (retention ≥ 1m; interval ∈
+  [1m, 7d]) guard against operator footguns. 7 unit
+  tests. Snapshot:
+  `.context/snapshots/v1.87.0-background-audit-pruner.md`.
+
 - 2026-05-11 — v1.86 (chunk 1) — **Audit retention
   pruning.** ScheduleAuditStore.PruneOlderThan added
   on interface + Memory + DB impls. New REST endpoint

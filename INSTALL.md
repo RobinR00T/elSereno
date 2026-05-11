@@ -670,7 +670,7 @@ is always present; if the audit store is unavailable
 
 **Audit retention (v1.86+)**: the audit table is
 append-only, so high-frequency force-overwrite use can
-fill it. Operators prune via:
+fill it. Operators prune manually via:
 
 ```sh
 # Delete every audit event older than 90 days:
@@ -681,13 +681,33 @@ curl -X DELETE "http://127.0.0.1:8787/api/v1/schedules/audit?before=$cutoff"
 ```
 
 The endpoint is **global** (no per-schedule filter) and
-requires the `before=` RFC3339 timestamp. The typical
-deployment pattern is a daily/weekly cron job invoking
-the curl above. There's no automatic background pruner
-yet; that's deferred to a future cycle. The DELETE is
+requires the `before=` RFC3339 timestamp. The DELETE is
 irrevocable — operators wanting a preview can `GET
 /api/v1/schedules/{id}/audit` per schedule and filter
 client-side first.
+
+**Automatic pruning (v1.87+)**: pass
+`--audit-retention-days N` to `elsereno serve` and the
+process spawns a daily goroutine that calls the same
+prune path with `cutoff = now − N days`. The default
+(`0`) leaves the goroutine off; positive `N` enables it
+with these clamps:
+
+  - retention floor: 1 minute (a misconfigured
+    `--audit-retention-days=0.001` is silently rounded
+    up to 1 minute rather than wiping new events on the
+    next tick).
+  - tick interval: 24h (clamped to `[1m, 7d]` if a
+    future flag exposes it).
+
+The pruner runs an **eager first tick** at startup so a
+serve restart doesn't wait a full interval. OnPrune /
+OnError log to stderr — operators wanting Prometheus
+metrics wrap the binary's stderr or wire their own
+hooks. Multiple `serve` processes against a shared DB
+race idempotently (the DELETE is safe to run
+concurrently); advisory locking is deferred to a future
+cycle.
 
 Run `elsereno db migrate` to apply migration 00011 before
 upgrading to v1.84+ in db-store mode.

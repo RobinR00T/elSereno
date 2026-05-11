@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.87.0] — 2026-05-11
+
+### Added
+
+- **Background audit pruner.** v1.86 added the manual
+  `DELETE /api/v1/schedules/audit` endpoint; v1.87 adds
+  the daily background pruner so operators don't need
+  to cron the curl themselves.
+  - New `scanorch.AuditPruner` struct (Run + Tick +
+    OnPrune/OnError callbacks + clamping). Pattern
+    mirrors v1.70 `Scheduler`. Sentinels:
+    `ErrAuditPrunerNoStore`,
+    `ErrAuditPrunerNoRetention`.
+  - New `elsereno serve --audit-retention-days N`
+    flag. Default 0 = disabled; positive values spawn
+    a goroutine that deletes audit events older than N
+    days every 24h. ctx-cancellation lifecycle; stderr
+    logging on prune events + errors.
+  - Eager first tick on start so a serve restart
+    doesn't wait a full interval for the first
+    cleanup.
+  - Clamping floors (retention ≥ 1m, interval ∈ [1m,
+    7d]) guard against operator-footgun configurations
+    (e.g. `--audit-retention-days=0.001` would
+    otherwise wipe new events on the next tick).
+- 7 new unit tests covering the sentinels, happy
+  path, retention boundary, ctx cancellation, no-op
+  paths, and error propagation.
+
+### Notes
+
+- Pure stdlib. No new dependencies, no migration.
+- Single-process pruner. Multiple `serve` instances
+  against a shared DB would race; the DELETE is
+  idempotent so the worst case is duplicate OnPrune
+  callbacks. Advisory lock deferred.
+- OnPrune is a callback hook by design — operator
+  wires their own metrics if needed.
+
 ## [1.86.0] — 2026-05-11
 
 ### Added

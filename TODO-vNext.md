@@ -100,6 +100,17 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.87 (Background audit pruner)
+
+- ✅ **Automatic background audit pruner** — v1.87
+  chunk 1. AuditPruner struct + Run/Tick + sentinels.
+  `cmd serve --audit-retention-days N` flag spawns
+  the goroutine (default 0 = disabled). Eager first
+  tick + clamping floors. 7 unit tests. Carryover:
+  expand event_type set (v1.88+), per-schedule
+  retention overrides (v1.89+), advisory lock for
+  multi-process serve (v1.90+).
+
 ### v1.86 (Audit retention pruning)
 
 - ✅ **Audit retention pruning** — v1.86 chunk 1.

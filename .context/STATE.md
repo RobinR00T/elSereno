@@ -1,32 +1,32 @@
 ---
-phase: v1.86-closed
-status: v1.16-v1.27 published; v1.28-v1.86 tags pending push
+phase: v1.87-closed
+status: v1.16-v1.27 published; v1.28-v1.87 tags pending push
 last-updated: 2026-05-11
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.86 cycle closed on `main`** (1 chunk +
-close). Audit retention enforcement.
-ScheduleAuditStore.PruneOlderThan(ctx, cutoff) added on
-the interface + Memory + DB implementations. New REST
-endpoint DELETE /api/v1/schedules/audit?before=<rfc3339>
-returns { deleted_count, cutoff }; 400 on missing /
-malformed cutoff; 503 when audit store nil. Endpoint is
-global (cross-schedule). 3 unit + 4 REST tests.
+**Phase**: **v1.87 cycle closed on `main`** (1 chunk +
+close). Automatic background audit pruner.
+internal/scanorch/audit_pruner.go ships an AuditPruner
+mirroring v1.70 Scheduler (Run+Tick+OnPrune/OnError +
+sentinels). New `--audit-retention-days N` flag on
+`elsereno serve` (default 0 = disabled). Clamping floors
+prevent footguns; eager first tick. 7 unit tests.
 
-Snapshot: `.context/snapshots/v1.86.0-audit-retention.md`.
+Snapshot: `.context/snapshots/v1.87.0-background-audit-pruner.md`.
 
-**v1.86 chunks landed (in-flight)**:
-- 1 `51012c1` — PruneOlderThan method + DELETE /audit
-  endpoint + 3 unit + 4 REST tests.
+**v1.87 chunks landed (in-flight)**:
+- 1 `3248a9a` — AuditPruner struct + Run + Tick +
+  --audit-retention-days flag + startAuditPruner
+  helper + 7 unit tests.
 
-**v1.85 cycle (closed, snapshot available)**:
-Dashboard audit history view (per-schedule History
-button + before→after diff panel). 1 chunk + close:
-`e7a20f6`, `4432efe`. Snapshot:
-`.context/snapshots/v1.85.0-audit-history-view.md`.
+**v1.85 → v1.86 cycles** (closed; per-cycle snapshots
+in `.context/snapshots/`): dashboard audit history
+view (v1.85 `e7a20f6` + `4432efe`), retention
+PruneOlderThan + DELETE /audit?before= endpoint
+(v1.86 `51012c1` + `1b50b65`).
 
 **v1.84 cycle (closed, snapshot available)**:
 Force-overwrite audit log. ScheduleAuditStore +
