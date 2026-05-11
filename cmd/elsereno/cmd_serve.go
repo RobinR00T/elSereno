@@ -44,6 +44,8 @@ func newServeCmd() *cobra.Command {
 		"scan-orchestration backend: off (disabled, 503), memory (in-process, lost on restart), db (postgres-persistent, requires DATABASE_URL)")
 	cmd.Flags().IntVar(&opts.scanPool, "scan-pool", 2,
 		"concurrent scan-job workers (clamped to [1, 64])")
+	cmd.Flags().IntVar(&opts.auditRetentionDays, "audit-retention-days", 0,
+		"schedule-audit retention in days; 0 = disabled, >0 spawns a daily pruner (v1.87+)")
 	addPassphraseFileFlag(cmd, &opts.passphraseFile)
 	return cmd
 }
@@ -57,6 +59,11 @@ type serveOpts struct {
 	scanStore string
 	// scanPool sets the worker pool concurrency.
 	scanPool int
+	// auditRetentionDays (v1.87+) controls the background
+	// pruner. Zero (default) disables it; positive values
+	// spawn a daily AuditPruner that deletes audit events
+	// older than the configured days.
+	auditRetentionDays int
 }
 
 func runServe(cmd *cobra.Command, opts serveOpts) error {
@@ -176,7 +183,43 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 		auditStore = scanorch.NewMemoryScheduleAuditStore()
 	}
 	startScheduler(ctx, scheduleStore, scanStore)
+	// v1.87: optional background audit pruner. Disabled
+	// (default) keeps the v1.86 behaviour where operators
+	// curl DELETE /api/v1/schedules/audit manually.
+	if opts.auditRetentionDays > 0 {
+		startAuditPruner(ctx, auditStore, opts.auditRetentionDays)
+	}
 	return scanStore, scheduleStore, auditStore, stop, nil
+}
+
+// startAuditPruner (v1.87+) spawns the background goroutine
+// that enforces audit retention. The pruner clamps its own
+// retention + interval; we just translate days → duration
+// and wire the OnPrune/OnError callbacks to stderr.
+func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStore, days int) {
+	if auditStore == nil || days <= 0 {
+		return
+	}
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      auditStore,
+		RetentionPeriod: time.Duration(days) * 24 * time.Hour,
+		Interval:        24 * time.Hour,
+		OnPrune: func(count int64, cutoff time.Time) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: audit pruner deleted %d events older than %s\n",
+				count, cutoff.Format(time.RFC3339))
+		},
+		OnError: func(err error) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: audit pruner error: %v\n", err)
+		},
+	}
+	go func() {
+		if err := pruner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: audit pruner exited: %v\n", err)
+		}
+	}()
 }
 
 // startScheduler spawns the v1.70 Scheduler goroutine. Tied to
