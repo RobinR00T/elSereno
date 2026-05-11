@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.86.0] — 2026-05-11
+
+### Added
+
+- **Audit retention pruning.** The
+  `scan_schedule_audit` table (v1.84) was append-only;
+  v1.86 adds a way to enforce retention before the
+  table grows unbounded.
+  - `ScheduleAuditStore.PruneOlderThan(ctx, cutoff)`
+    interface method, implemented by both
+    `MemoryScheduleAuditStore` (slice rewrite under
+    write lock) and `DBScheduleAuditStore` (single
+    `DELETE WHERE occurred_at < $1`). Returns the
+    deleted-row count.
+  - `DELETE /api/v1/schedules/audit?before=<rfc3339>`
+    REST endpoint. Required `before` parameter
+    (RFC3339 with optional fractional seconds).
+    Response: `{ "deleted_count": N, "cutoff": "..." }`.
+    400 on missing/malformed cutoff. 503 when audit
+    store nil.
+- 3 new unit tests + 4 REST tests.
+
+### Notes
+
+- The endpoint is **global** (operates across all
+  schedules). Per-schedule retention is deferred to a
+  future cycle.
+- DELETE is irrevocable. Operators wanting a
+  "what-would-be-deleted" preview can `GET
+  /api/v1/schedules/{id}/audit` per schedule and
+  filter client-side.
+- Future cutoffs are accepted by the store — the REST
+  layer doesn't warn (operator discretion).
+- No automatic background pruner yet — manual `curl`
+  (typically driven by cron) is the recommended
+  pattern. A future cycle may add an
+  `--audit-retention-days` flag.
+
 ## [1.85.0] — 2026-05-11
 
 ### Added

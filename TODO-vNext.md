@@ -100,6 +100,16 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.86 (Audit retention pruning)
+
+- ✅ **Audit retention pruning** — v1.86 chunk 1.
+  ScheduleAuditStore.PruneOlderThan + DELETE
+  /api/v1/schedules/audit?before=<rfc3339> endpoint.
+  Global (cross-schedule) retention enforcement.
+  Memory + DB implementations. 3 unit + 4 REST tests.
+  Carryover: automatic background pruner (v1.87+),
+  per-schedule retention (v1.88+).
+
 ### v1.85 (Dashboard audit history view)
 
 - ✅ **Dashboard audit history view** — v1.85 chunk 1.

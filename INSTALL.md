@@ -668,6 +668,27 @@ is always present; if the audit store is unavailable
 (memory deployments), the panel shows
 "audit log unavailable — run with --scan-store=db".
 
+**Audit retention (v1.86+)**: the audit table is
+append-only, so high-frequency force-overwrite use can
+fill it. Operators prune via:
+
+```sh
+# Delete every audit event older than 90 days:
+cutoff=$(date -u -v-90d '+%Y-%m-%dT%H:%M:%SZ')   # macOS
+# cutoff=$(date -u -d '90 days ago' '+%Y-%m-%dT%H:%M:%SZ')  # Linux
+curl -X DELETE "http://127.0.0.1:8787/api/v1/schedules/audit?before=$cutoff"
+# → {"data":{"deleted_count":42,"cutoff":"2026-02-10T00:00:00Z"}}
+```
+
+The endpoint is **global** (no per-schedule filter) and
+requires the `before=` RFC3339 timestamp. The typical
+deployment pattern is a daily/weekly cron job invoking
+the curl above. There's no automatic background pruner
+yet; that's deferred to a future cycle. The DELETE is
+irrevocable — operators wanting a preview can `GET
+/api/v1/schedules/{id}/audit` per schedule and filter
+client-side first.
+
 Run `elsereno db migrate` to apply migration 00011 before
 upgrading to v1.84+ in db-store mode.
 
