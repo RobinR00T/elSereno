@@ -100,6 +100,19 @@ v1.3 → v1.33 archived to keep this file actionable.
 - ✅ **DLMS/COSEM TCP fingerprint plugin (port 4059)** —
   v1.21 chunk 3.
 
+### v1.88 (Expanded audit event types)
+
+- ✅ **Expanded audit event_type set** — v1.88 chunk 1.
+  Migration 00012 adds `delete`, `set_enabled_true`,
+  `set_enabled_false` to the CHECK enumeration; FK
+  switched from CASCADE to SET NULL so audit rows
+  survive schedule deletion. Go enum mirrors.
+  deleteSchedule + setScheduleEnabled write audit rows
+  (best-effort, X-Schedule-Audit-Warning on failure).
+  4 REST tests. Carryover: dashboard "Deleted" badge
+  + per-schedule retention overrides (v1.89+), advisory
+  lock for multi-process serve (v1.90+).
+
 ### v1.87 (Background audit pruner)
 
 - ✅ **Automatic background audit pruner** — v1.87

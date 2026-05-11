@@ -650,15 +650,27 @@ curl -X PUT http://127.0.0.1:8787/api/v1/schedules/{id} \
 ```
 
 When `--scan-store=db`, the audit log persists to the
-`scan_schedule_audit` table (migration 00011) and survives
-serve restart. When `--scan-store=memory`, the audit log
-lives only for the process lifetime. The audit row is
-best-effort: a persistence failure does not reverse the
-update — instead the response carries an
+`scan_schedule_audit` table (migrations 00011 + 00012) and
+survives serve restart. When `--scan-store=memory`, the
+audit log lives only for the process lifetime. The audit
+row is best-effort: a persistence failure does not reverse
+the update — instead the response carries an
 `X-Schedule-Audit-Warning` header so the operator can
-investigate. The CASCADE on `schedule_id` means deleting a
-schedule wipes its audit history (operators wanting a
-permanent record should disable instead of delete).
+investigate.
+
+**v1.84** logged only `force_overwrite` and used CASCADE
+on `schedule_id` (deleting a schedule wiped its audit
+history). **v1.88+** widens the `event_type` enumeration
+to:
+
+  - `force_overwrite` — v1.78 If-Match precondition bypass.
+  - `delete` — `DELETE /api/v1/schedules/{id}`.
+  - `set_enabled_true` — `POST /…/enable`.
+  - `set_enabled_false` — `POST /…/disable`.
+
+…and switches the FK to `ON DELETE SET NULL` so the audit
+trail for a deleted schedule survives with
+`schedule_id = NULL`.
 
 **v1.85+** surfaces the audit log in the dashboard: each
 schedule row has a "History" button that opens a panel
@@ -709,8 +721,10 @@ race idempotently (the DELETE is safe to run
 concurrently); advisory locking is deferred to a future
 cycle.
 
-Run `elsereno db migrate` to apply migration 00011 before
-upgrading to v1.84+ in db-store mode.
+Run `elsereno db migrate` to apply migrations 00011 +
+00012 before upgrading to v1.88+ in db-store mode (00011
+is required for v1.84+; 00012 adds the v1.88 event-type
+expansion and FK SET NULL).
 
 `If-Match` is **optional** — pre-v1.78 callers (and any
 script that doesn't care about racy edits) can omit the

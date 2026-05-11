@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.88.0] — 2026-05-11
+
+### Added
+
+- **Expanded schedule audit event types.** v1.84-v1.87
+  covered `force_overwrite` end-to-end; v1.88 extends
+  the audit log to capture the full lifecycle of
+  operator-driven mutations.
+  - New `ScheduleAuditEventDelete`,
+    `ScheduleAuditEventSetEnabledTrue`,
+    `ScheduleAuditEventSetEnabledFalse` constants.
+    `ValidScheduleAuditEventTypes` extended to 4
+    entries.
+  - `DELETE /api/v1/schedules/{id}` writes a `delete`
+    audit event when the audit store is non-nil:
+    `payload_before` = full schedule snapshot,
+    `payload_after` = JSON `null`.
+  - `POST /api/v1/schedules/{id}/enable|disable`
+    writes a `set_enabled_true` /
+    `set_enabled_false` event with full before/after
+    snapshots.
+- Migration `00012_scan_schedule_audit_expand.sql`:
+  - Relaxes the CHECK constraint to the new
+    enumeration.
+  - Drops `NOT NULL` on `schedule_id` and switches
+    the FK from `ON DELETE CASCADE` to `ON DELETE SET
+    NULL` so audit rows for deleted schedules
+    survive (with `schedule_id` nulled by the FK).
+- 4 new REST tests.
+
+### Changed
+
+- `deleteSchedule(store, audit)` and
+  `setScheduleEnabled(store, audit, enabled)` handler
+  signatures now accept an optional audit store.
+  Callers passing `nil` get v1.87 behaviour (mutation
+  succeeds, no audit row written).
+- Audit writes on delete + enable/disable are
+  best-effort, surfacing `X-Schedule-Audit-Warning`
+  response header on persistence failure. Matches
+  the v1.84 force-overwrite pattern.
+
+### Operator note
+
+- Run `elsereno db migrate` to apply migration 00012
+  before deploying v1.88+ on db-store mode.
+- v1.84's `CASCADE` behaviour is reversible via the
+  Down migration if needed.
+
 ## [1.87.0] — 2026-05-11
 
 ### Added

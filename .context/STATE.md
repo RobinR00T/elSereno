@@ -1,32 +1,33 @@
 ---
-phase: v1.87-closed
-status: v1.16-v1.27 published; v1.28-v1.87 tags pending push
+phase: v1.88-closed
+status: v1.16-v1.27 published; v1.28-v1.88 tags pending push
 last-updated: 2026-05-11
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.87 cycle closed on `main`** (1 chunk +
-close). Automatic background audit pruner.
-internal/scanorch/audit_pruner.go ships an AuditPruner
-mirroring v1.70 Scheduler (Run+Tick+OnPrune/OnError +
-sentinels). New `--audit-retention-days N` flag on
-`elsereno serve` (default 0 = disabled). Clamping floors
-prevent footguns; eager first tick. 7 unit tests.
+**Phase**: **v1.88 cycle closed on `main`** (1 chunk +
+close). Expanded schedule audit event types: migration
+00012 adds delete + set_enabled_{true,false} to the CHECK
+enumeration and switches the FK from CASCADE to SET NULL
+(audit rows survive schedule deletion). deleteSchedule +
+setScheduleEnabled handlers write the new events
+(best-effort, matches v1.84). 4 REST tests.
 
-Snapshot: `.context/snapshots/v1.87.0-background-audit-pruner.md`.
+Snapshot: `.context/snapshots/v1.88.0-expanded-audit-events.md`.
 
-**v1.87 chunks landed (in-flight)**:
-- 1 `3248a9a` — AuditPruner struct + Run + Tick +
-  --audit-retention-days flag + startAuditPruner
-  helper + 7 unit tests.
+**v1.88 chunks landed (in-flight)**:
+- 1 `6a4450e` — migration 00012 + Go enum extension +
+  deleteSchedule/setScheduleEnabled audit-write paths
+  + 4 REST tests.
 
-**v1.85 → v1.86 cycles** (closed; per-cycle snapshots
-in `.context/snapshots/`): dashboard audit history
-view (v1.85 `e7a20f6` + `4432efe`), retention
-PruneOlderThan + DELETE /audit?before= endpoint
-(v1.86 `51012c1` + `1b50b65`).
+**v1.85 → v1.87 cycles** (closed; per-cycle snapshots
+in `.context/snapshots/`): dashboard audit history view
+(v1.85 `e7a20f6` + `4432efe`), retention PruneOlderThan
++ DELETE /audit?before= (v1.86 `51012c1` + `1b50b65`),
+auto background pruner via `--audit-retention-days N`
+(v1.87 `3248a9a` + `28df963`).
 
 **v1.84 cycle (closed, snapshot available)**:
 Force-overwrite audit log. ScheduleAuditStore +

@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-11 — v1.88 (chunk 1) — **Expanded audit
+  event types.** Migration 00012 adds `delete`,
+  `set_enabled_true`, `set_enabled_false` to the
+  CHECK enumeration; drops `schedule_id` NOT NULL;
+  switches FK to ON DELETE SET NULL so audit rows
+  survive schedule deletion. Go enum mirrors.
+  deleteSchedule + setScheduleEnabled now write audit
+  rows (best-effort; X-Schedule-Audit-Warning on
+  failure — v1.84 pattern). 4 REST tests. Snapshot:
+  `.context/snapshots/v1.88.0-expanded-audit-events.md`.
+
 - 2026-05-11 — v1.87 (chunk 1) — **Background audit
   pruner.** New AuditPruner struct in
   internal/scanorch/audit_pruner.go (Run + Tick +
