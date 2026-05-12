@@ -272,3 +272,126 @@ func TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal(t *testing.T) {
 		t.Errorf("events after prune = %d, want 0 (global cutoff applies)", len(events))
 	}
 }
+
+// TestAuditPruner_AdvisoryLockKey_FallsBackOnMemory (v1.90+):
+// MemoryScheduleAuditStore doesn't implement
+// AdvisoryLockedAuditStore. Pruner with AdvisoryLockKey > 0
+// must fall through to PruneWithOverrides cleanly — the
+// in-memory mode has no multi-process scenario.
+func TestAuditPruner_AdvisoryLockKey_FallsBackOnMemory(t *testing.T) {
+	ctx := context.Background()
+	auditStore := scanorch.NewMemoryScheduleAuditStore()
+	if _, err := auditStore.Append(ctx, scanorch.ScheduleAuditEvent{
+		ScheduleID:    "abc",
+		EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+		Operator:      "alice",
+		PayloadBefore: json.RawMessage(`{}`),
+		PayloadAfter:  json.RawMessage(`{}`),
+	}); err != nil {
+		t.Fatalf("Append err = %v", err)
+	}
+	var skipped int32
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      auditStore,
+		RetentionPeriod: time.Minute,
+		AdvisoryLockKey: scanorch.AuditPrunerLockKey,
+		Now:             func() time.Time { return time.Now().UTC().Add(24 * time.Hour) },
+		OnLockSkipped:   func(int64) { atomic.AddInt32(&skipped, 1) },
+	}
+	pruner.Tick(ctx)
+	// Memory store should NOT have triggered the skip path —
+	// the pruner falls back to PruneWithOverrides cleanly.
+	if atomic.LoadInt32(&skipped) != 0 {
+		t.Errorf("OnLockSkipped fired = %d times, want 0 (memory store has no lock)", skipped)
+	}
+	events, err := auditStore.ListBySchedule(ctx, "abc")
+	if err != nil {
+		t.Fatalf("ListBySchedule err = %v", err)
+	}
+	if len(events) != 0 {
+		t.Errorf("events after prune = %d, want 0", len(events))
+	}
+}
+
+// TestAuditPruner_AdvisoryLockKey_LockNotAcquired (v1.90+):
+// when the store implements AdvisoryLockedAuditStore + returns
+// acquired=false, the pruner skips cleanly + fires
+// OnLockSkipped. Uses a fake locking store to simulate the
+// "another pruner won the lock" branch without needing a real
+// Postgres.
+func TestAuditPruner_AdvisoryLockKey_LockNotAcquired(t *testing.T) {
+	store := &fakeLockingAuditStore{acquired: false}
+	var skipped int32
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      store,
+		RetentionPeriod: time.Minute,
+		AdvisoryLockKey: scanorch.AuditPrunerLockKey,
+		OnLockSkipped:   func(int64) { atomic.AddInt32(&skipped, 1) },
+	}
+	pruner.Tick(context.Background())
+	if atomic.LoadInt32(&skipped) != 1 {
+		t.Errorf("OnLockSkipped fired = %d times, want 1", skipped)
+	}
+	if store.lockCalls != 1 {
+		t.Errorf("PruneWithLock called = %d times, want 1", store.lockCalls)
+	}
+}
+
+// TestAuditPruner_AdvisoryLockKey_LockAcquired (v1.90+):
+// happy path through the locked variant — acquired=true,
+// PruneWithLock returns a row count, OnPrune fires.
+func TestAuditPruner_AdvisoryLockKey_LockAcquired(t *testing.T) {
+	store := &fakeLockingAuditStore{acquired: true, pruneCount: 42}
+	var (
+		pruneCount int64
+		skipped    int32
+		seenError  error
+	)
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      store,
+		RetentionPeriod: time.Minute,
+		AdvisoryLockKey: scanorch.AuditPrunerLockKey,
+		OnPrune:         func(c int64, _ time.Time) { atomic.StoreInt64(&pruneCount, c) },
+		OnLockSkipped:   func(int64) { atomic.AddInt32(&skipped, 1) },
+		OnError:         func(err error) { seenError = err },
+	}
+	pruner.Tick(context.Background())
+	if seenError != nil {
+		t.Fatalf("OnError fired: %v", seenError)
+	}
+	if atomic.LoadInt32(&skipped) != 0 {
+		t.Errorf("OnLockSkipped fired = %d, want 0", skipped)
+	}
+	if atomic.LoadInt64(&pruneCount) != 42 {
+		t.Errorf("OnPrune count = %d, want 42", pruneCount)
+	}
+}
+
+// fakeLockingAuditStore is a test-only ScheduleAuditStore that
+// ALSO implements AdvisoryLockedAuditStore so the AuditPruner
+// type-asserts into the locked path.
+type fakeLockingAuditStore struct {
+	acquired   bool
+	pruneCount int64
+	lockCalls  int
+}
+
+func (s *fakeLockingAuditStore) Append(context.Context, scanorch.ScheduleAuditEvent) (scanorch.ScheduleAuditEvent, error) {
+	return scanorch.ScheduleAuditEvent{}, nil
+}
+func (s *fakeLockingAuditStore) ListBySchedule(context.Context, string) ([]scanorch.ScheduleAuditEvent, error) {
+	return nil, nil
+}
+func (s *fakeLockingAuditStore) PruneOlderThan(context.Context, time.Time) (int64, error) {
+	return 0, nil
+}
+func (s *fakeLockingAuditStore) PruneWithOverrides(context.Context, time.Time, map[string]time.Time) (int64, error) {
+	return 0, nil
+}
+func (s *fakeLockingAuditStore) PruneWithLock(_ context.Context, _ int64, _ time.Time, _ map[string]time.Time) (int64, bool, error) {
+	s.lockCalls++
+	if !s.acquired {
+		return 0, false, nil
+	}
+	return s.pruneCount, true, nil
+}

@@ -51,6 +51,27 @@ type AuditPruner struct {
 	// inherit the global retention naturally). Only > 0
 	// values produce per-schedule overrides.
 	ScheduleStore ScheduleStore
+	// AdvisoryLockKey (v1.90+, optional) is the Postgres
+	// advisory lock key used to serialise concurrent pruners
+	// across multiple serve processes. When > 0 AND the
+	// AuditStore implements AdvisoryLockedAuditStore, each
+	// tick attempts pg_try_advisory_xact_lock(key) inside a
+	// transaction and only prunes if acquired.
+	//
+	// 0 (default) → no locking. Safe for single-process
+	// deployments (the dominant case). Multi-process serve
+	// against a shared DB should set AuditPrunerLockKey so
+	// only one instance prunes at a time.
+	//
+	// Stores that don't implement AdvisoryLockedAuditStore
+	// (in-memory, test fakes) silently ignore this field.
+	AdvisoryLockKey int64
+	// OnLockSkipped (v1.90+, optional) fires when a tick
+	// observed that another pruner held the advisory lock
+	// and this tick skipped cleanly. cmd_serve wires this
+	// to stderr logging so operators can see the
+	// coordination from logs.
+	OnLockSkipped func(key int64)
 }
 
 // Sentinels.
@@ -121,28 +142,56 @@ func (p *AuditPruner) Run(ctx context.Context) error {
 // schedule's AuditRetentionDays, then call
 // PruneWithOverrides instead. Schedules with retention 0
 // inherit the global cutoff naturally (no override entry).
+//
+// v1.90+: when AdvisoryLockKey > 0 AND the AuditStore
+// implements AdvisoryLockedAuditStore, the prune runs
+// inside a pg_try_advisory_xact_lock transaction.
+// Lock-already-held → tick skips cleanly + OnLockSkipped
+// fires. Multi-process serve deployments wire this so
+// only one instance does the work per cutoff.
 func (p *AuditPruner) tick(ctx context.Context, retention time.Duration, nowFn func() time.Time) {
 	now := nowFn()
 	globalCutoff := now.Add(-retention)
 	overrides := p.collectOverrides(ctx, now)
-	var (
-		count int64
-		err   error
-	)
-	if len(overrides) > 0 {
-		count, err = p.AuditStore.PruneWithOverrides(ctx, globalCutoff, overrides)
-	} else {
-		count, err = p.AuditStore.PruneOlderThan(ctx, globalCutoff)
-	}
+	count, acquired, err := p.runPrune(ctx, globalCutoff, overrides)
 	if err != nil {
 		if p.OnError != nil {
 			p.OnError(err)
 		}
 		return
 	}
+	if !acquired {
+		if p.OnLockSkipped != nil {
+			p.OnLockSkipped(p.AdvisoryLockKey)
+		}
+		return
+	}
 	if p.OnPrune != nil {
 		p.OnPrune(count, globalCutoff)
 	}
+}
+
+// runPrune dispatches the v1.86 / v1.89 / v1.90 prune variants:
+//
+//	v1.86 (no overrides, no lock) → PruneOlderThan
+//	v1.89 (overrides, no lock)    → PruneWithOverrides
+//	v1.90 (lock + overrides)      → PruneWithLock (when supported)
+//
+// Returns (count, acquired, err). acquired=false only when the
+// advisory-lock path was attempted + another caller held the
+// lock. The non-locked paths always report acquired=true.
+func (p *AuditPruner) runPrune(ctx context.Context, globalCutoff time.Time, overrides map[string]time.Time) (int64, bool, error) {
+	if p.AdvisoryLockKey > 0 {
+		if locker, ok := p.AuditStore.(AdvisoryLockedAuditStore); ok {
+			return locker.PruneWithLock(ctx, p.AdvisoryLockKey, globalCutoff, overrides)
+		}
+	}
+	if len(overrides) > 0 {
+		c, err := p.AuditStore.PruneWithOverrides(ctx, globalCutoff, overrides)
+		return c, true, err
+	}
+	c, err := p.AuditStore.PruneOlderThan(ctx, globalCutoff)
+	return c, true, err
 }
 
 // collectOverrides (v1.89+) walks the ScheduleStore (when set)

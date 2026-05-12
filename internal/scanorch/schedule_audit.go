@@ -124,6 +124,44 @@ type ScheduleAuditStore interface {
 	PruneWithOverrides(ctx context.Context, globalCutoff time.Time, overrides map[string]time.Time) (int64, error)
 }
 
+// AdvisoryLockedAuditStore (v1.90+) is the optional interface
+// implemented by audit stores that can serialise concurrent
+// pruners via a Postgres advisory lock. Multi-process serve
+// deployments wire this so only one `serve` instance runs the
+// prune at a time — without it, concurrent DELETEs are safe
+// (idempotent) but each instance double-counts the work and
+// the OnPrune callback fires N times per cutoff.
+//
+// Stores that don't support cross-process locking (e.g. the
+// in-memory implementation) simply don't implement this
+// interface; AuditPruner type-asserts at tick time + falls
+// back to PruneWithOverrides.
+type AdvisoryLockedAuditStore interface {
+	// PruneWithLock acquires the named advisory lock for the
+	// duration of the prune. Returns:
+	//
+	//   - count = rows deleted (0 if !acquired).
+	//   - acquired = true when this caller won the lock + ran
+	//     the prune; false when another caller held the lock
+	//     and this caller skipped (NOT an error).
+	//   - err = wire/SQL error during lock acquire OR prune.
+	//
+	// Lock auto-releases on commit/rollback — no leaked locks
+	// even on crash. Caller specifies the `key` (typically a
+	// stable bigint hash derived from a process-wide
+	// identifier; see scanorch.AuditPrunerLockKey).
+	PruneWithLock(ctx context.Context, key int64, globalCutoff time.Time, overrides map[string]time.Time) (count int64, acquired bool, err error)
+}
+
+// AuditPrunerLockKey (v1.90+) is the stable bigint used by
+// PruneWithLock for the audit-pruner advisory lock. Computed
+// as a constant so all `serve` instances against the same DB
+// see the same key.
+//
+// Chosen deterministically: SHA-256("elsereno-audit-pruner")
+// truncated to int64. Computed once + committed.
+const AuditPrunerLockKey int64 = 4651912875610038017
+
 // MemoryScheduleAuditStore is an in-memory ScheduleAuditStore
 // for tests + memory-mode deployments. Concurrency-safe.
 type MemoryScheduleAuditStore struct {

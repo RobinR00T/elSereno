@@ -214,6 +214,15 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 		ScheduleStore:   scheduleStore,
 		RetentionPeriod: time.Duration(days) * 24 * time.Hour,
 		Interval:        24 * time.Hour,
+		// v1.90: enable cross-process serialisation when the
+		// audit store supports advisory locking (PG). Memory
+		// store doesn't implement AdvisoryLockedAuditStore, so
+		// the pruner falls back to non-locked semantics
+		// silently. Multi-process serve against a shared DB
+		// will see only one instance prune per cutoff;
+		// OnLockSkipped logs the skip from the other
+		// instances.
+		AdvisoryLockKey: scanorch.AuditPrunerLockKey,
 		OnPrune: func(count int64, cutoff time.Time) {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"elsereno serve: audit pruner deleted %d events older than %s\n",
@@ -222,6 +231,10 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 		OnError: func(err error) {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"elsereno serve: audit pruner error: %v\n", err)
+		},
+		OnLockSkipped: func(key int64) {
+			_, _ = fmt.Fprintf(os.Stderr,
+				"elsereno serve: audit pruner skipped tick — advisory lock %d held by another instance\n", key)
 		},
 	}
 	go func() {

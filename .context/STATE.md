@@ -1,26 +1,37 @@
 ---
-phase: v1.89-closed
-status: v1.16-v1.88 published; v1.89 tag pending push
+phase: v1.90-closed
+status: v1.16-v1.89 published; v1.90 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.89 cycle closed on `main`** (1 chunk +
-close). Deleted badge in audit-history view (red "DELETED"
-+ pre-delete snapshot for `event_type='delete'`) + per-
-schedule audit retention overrides (migration 00013 adds
-NULL-able `audit_retention_days` to `scan_schedules`).
+**Phase**: **v1.90 cycle closed on `main`** (1 chunk +
+close). Advisory-locked audit pruner: new optional interface
+`AdvisoryLockedAuditStore` with `PruneWithLock` (PG impl);
+`AuditPruner` serialises concurrent pruners via
+`pg_try_advisory_xact_lock(AuditPrunerLockKey)`. Multi-
+process serve deployments now coordinate cleanly — one
+instance prunes per cutoff, others skip + log
+OnLockSkipped. MemoryScheduleAuditStore → silent fallback
+to v1.89 semantics. +3 unit tests.
+
+Snapshot: `.context/snapshots/v1.90.0-advisory-lock-pruner.md`.
+
+**v1.89 cycle (closed, snapshot available)**: Deleted badge
+in audit-history view (red "DELETED" + pre-delete snapshot
+for `event_type='delete'`) + per-schedule audit retention
+overrides (migration 00013 adds NULL-able
+`audit_retention_days` to `scan_schedules`).
 `PruneWithOverrides` audit-store method (Memory + PG).
 `AuditPruner.ScheduleStore` field plumbs per-schedule
-cutoffs through the v1.87 background pruner. Dashboard
-form gets `audit days` input. +3 unit tests. Also fixed
-pre-existing Linux-only lint issues in `offensive/sandbox/*`
-+ proactive `scripts/audit.sh` + `.github/workflows/audit.yml`
-CI gate.
-
-Snapshot: `.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
+cutoffs through the v1.87 background pruner. Dashboard form
+gets `audit days` input. Side-quest: pre-existing Linux-
+only lint issues in `offensive/sandbox/*` excluded via
+`.golangci.yml` + proactive `scripts/audit.sh` +
+`.github/workflows/audit.yml` CI gate. Snapshot:
+`.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
 
 **v1.88 cycle (closed, snapshot available)**: Expanded
 schedule audit event types: migration 00012 adds delete +

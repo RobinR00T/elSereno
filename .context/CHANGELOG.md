@@ -8,6 +8,22 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.90 (chunk 1) — **Advisory-locked
+  audit pruner.** New optional interface
+  `AdvisoryLockedAuditStore` with method `PruneWithLock`
+  (PG-only impl); `AuditPruner` type-asserts +
+  serialises concurrent pruners via
+  `pg_try_advisory_xact_lock(AuditPrunerLockKey)`.
+  Multi-process serve deployments now coordinate so
+  only one instance prunes per cutoff; others skip
+  cleanly + OnLockSkipped fires. MemoryScheduleAuditStore
+  doesn't implement the locked variant → silent
+  fallback to v1.89 semantics. Stable bigint
+  AuditPrunerLockKey = SHA-256("elsereno-audit-pruner")
+  truncated. +3 unit tests + fakeLockingAuditStore stub.
+  Snapshot:
+  `.context/snapshots/v1.90.0-advisory-lock-pruner.md`.
+
 - 2026-05-12 — v1.89 (chunk 1) — **Deleted badge +
   per-schedule audit retention overrides.** Migration
   00013 adds NULL-able `audit_retention_days` column on
