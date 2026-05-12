@@ -1,22 +1,30 @@
 ---
-phase: v1.90-closed
-status: v1.16-v1.89 published; v1.90 tag pending push
+phase: v1.91-closed
+status: v1.16-v1.90 published; v1.91 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.90 cycle closed on `main`** (1 chunk +
-close). Advisory-locked audit pruner: new optional interface
-`AdvisoryLockedAuditStore` with `PruneWithLock` (PG impl);
-`AuditPruner` serialises concurrent pruners via
-`pg_try_advisory_xact_lock(AuditPrunerLockKey)`. Multi-
-process serve deployments now coordinate cleanly — one
-instance prunes per cutoff, others skip + log
-OnLockSkipped. MemoryScheduleAuditStore → silent fallback
-to v1.89 semantics. +3 unit tests.
+**Phase**: **v1.91 cycle closed on `main`** (1 chunk +
+close). Pruner Prometheus metrics: labelled counter
+`elsereno_audit_pruner_runs_total{result=acquired|
+skipped_lock|error}` + cumulative
+`elsereno_audit_pruner_events_deleted_total`. Wired
+through the existing OnPrune / OnError / OnLockSkipped
+callbacks in cmd_serve. Closes v1.90 carryover. Refactored
+`NewMetrics` into core+pruner builders. +1 unit test.
 
+Snapshot: `.context/snapshots/v1.91.0-pruner-metrics.md`.
+
+**v1.90 cycle (closed, snapshot available)**: Advisory-
+locked audit pruner. `AdvisoryLockedAuditStore` interface +
+`PruneWithLock` PG impl using `pg_try_advisory_xact_lock`.
+`AuditPruner.AdvisoryLockKey` + `OnLockSkipped` fields.
+Multi-process serve deployments now coordinate cleanly —
+one instance prunes per cutoff, others skip. Memory store
+silently falls back to v1.89 semantics. +3 unit tests.
 Snapshot: `.context/snapshots/v1.90.0-advisory-lock-pruner.md`.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge

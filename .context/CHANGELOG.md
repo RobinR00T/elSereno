@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.91 (chunk 1) — **Pruner Prometheus
+  metrics.** New labelled counter
+  `elsereno_audit_pruner_runs_total{result=acquired|
+  skipped_lock|error}` + cumulative
+  `elsereno_audit_pruner_events_deleted_total`. Wired
+  through existing OnPrune / OnError / OnLockSkipped
+  callbacks in cmd_serve. Closes v1.90 carryover.
+  Refactored `NewMetrics` into builders to satisfy
+  funlen. +1 unit test. Snapshot:
+  `.context/snapshots/v1.91.0-pruner-metrics.md`.
+
 - 2026-05-12 — v1.90 (chunk 1) — **Advisory-locked
   audit pruner.** New optional interface
   `AdvisoryLockedAuditStore` with method `PruneWithLock`

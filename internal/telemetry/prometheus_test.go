@@ -40,3 +40,25 @@ func TestMetricsHandlerSmoke(t *testing.T) {
 		t.Fatal("Handler() returned nil")
 	}
 }
+
+// TestAuditPrunerMetricsRegistered (v1.91+): the v1.91 pruner
+// counters must be registered + writable. Tests the labelled
+// counter's 3 expected results + the events-deleted total.
+func TestAuditPrunerMetricsRegistered(t *testing.T) {
+	t.Parallel()
+	m := telemetry.NewMetrics(nil)
+	// Each label value must be acceptable to the counter.
+	for _, result := range []string{"acquired", "skipped_lock", "error"} {
+		c := m.AuditPrunerRunsTotal.WithLabelValues(result)
+		if c == nil {
+			t.Fatalf("AuditPrunerRunsTotal[%q] = nil", result)
+		}
+		c.Inc()
+	}
+	m.AuditPrunerEventsDeletedTotal.Add(100)
+	// Smoke: the handler renders all instruments without
+	// panicking.
+	if m.Handler() == nil {
+		t.Fatal("Handler() returned nil")
+	}
+}

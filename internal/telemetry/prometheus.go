@@ -31,6 +31,17 @@ type Metrics struct {
 	PersistenceLagSec   prometheus.Gauge
 	AuditEntriesTotal   prometheus.Counter
 	OutboxInflight      prometheus.Gauge
+	// AuditPrunerRunsTotal (v1.91+) counts pruner-tick
+	// outcomes labelled by `result` ∈
+	// {"acquired", "skipped_lock", "error"}. Operators
+	// graphing this can tell if the v1.90 advisory lock is
+	// keeping replicas in line.
+	AuditPrunerRunsTotal *prometheus.CounterVec
+	// AuditPrunerEventsDeletedTotal (v1.91+) counts the
+	// cumulative number of audit events deleted by the
+	// background pruner. Sum across replicas equals the real
+	// throughput; the advisory lock ensures no double-count.
+	AuditPrunerEventsDeletedTotal prometheus.Counter
 }
 
 // NewMetrics constructs and registers the metric set. A nil registry
@@ -40,54 +51,82 @@ func NewMetrics(reg *prometheus.Registry) *Metrics {
 	if reg == nil {
 		reg = prometheus.NewRegistry()
 	}
-	m := &Metrics{
-		registry: reg,
-		FindingsTotal: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: "elsereno",
-				Subsystem: "findings",
-				Name:      "total",
-				Help:      "Total findings produced, labelled by low-cardinality fields.",
-			},
-			[]string{"protocol", "severity", "asn", "country"},
-		),
-		ScanDurationSeconds: prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: "elsereno",
-				Subsystem: "scan",
-				Name:      "duration_seconds",
-				Help:      "Wall-clock duration of a single target probe.",
-				Buckets:   prometheus.DefBuckets,
-			},
-			[]string{"protocol"},
-		),
-		PersistenceLagSec: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: "elsereno",
-			Subsystem: "persistence",
-			Name:      "lag_seconds",
-			Help:      "Oldest unflushed finding age in seconds.",
-		}),
-		AuditEntriesTotal: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "elsereno",
-			Subsystem: "audit",
-			Name:      "entries_total",
-			Help:      "Audit entries written (any event type).",
-		}),
-		OutboxInflight: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: "elsereno",
-			Subsystem: "outbox",
-			Name:      "inflight",
-			Help:      "Outbox rows waiting for delivery.",
-		}),
-	}
+	m := &Metrics{registry: reg}
+	m.buildCoreInstruments()
+	m.buildAuditPrunerInstruments()
 	reg.MustRegister(
 		m.FindingsTotal,
 		m.ScanDurationSeconds,
 		m.PersistenceLagSec,
 		m.AuditEntriesTotal,
 		m.OutboxInflight,
+		m.AuditPrunerRunsTotal,
+		m.AuditPrunerEventsDeletedTotal,
 	)
 	return m
+}
+
+// buildCoreInstruments fills in the pre-v1.91 metric set
+// (findings, scans, persistence, audit, outbox).
+func (m *Metrics) buildCoreInstruments() {
+	m.FindingsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "elsereno",
+			Subsystem: "findings",
+			Name:      "total",
+			Help:      "Total findings produced, labelled by low-cardinality fields.",
+		},
+		[]string{"protocol", "severity", "asn", "country"},
+	)
+	m.ScanDurationSeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "elsereno",
+			Subsystem: "scan",
+			Name:      "duration_seconds",
+			Help:      "Wall-clock duration of a single target probe.",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"protocol"},
+	)
+	m.PersistenceLagSec = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "elsereno",
+		Subsystem: "persistence",
+		Name:      "lag_seconds",
+		Help:      "Oldest unflushed finding age in seconds.",
+	})
+	m.AuditEntriesTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "elsereno",
+		Subsystem: "audit",
+		Name:      "entries_total",
+		Help:      "Audit entries written (any event type).",
+	})
+	m.OutboxInflight = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "elsereno",
+		Subsystem: "outbox",
+		Name:      "inflight",
+		Help:      "Outbox rows waiting for delivery.",
+	})
+}
+
+// buildAuditPrunerInstruments (v1.91+) fills in the audit-
+// pruner counters: outcomes labelled by result + cumulative
+// events deleted.
+func (m *Metrics) buildAuditPrunerInstruments() {
+	m.AuditPrunerRunsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "elsereno",
+			Subsystem: "audit_pruner",
+			Name:      "runs_total",
+			Help:      "Audit-pruner tick outcomes (acquired / skipped_lock / error).",
+		},
+		[]string{"result"},
+	)
+	m.AuditPrunerEventsDeletedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "elsereno",
+		Subsystem: "audit_pruner",
+		Name:      "events_deleted_total",
+		Help:      "Cumulative audit events deleted by the background pruner.",
+	})
 }
 
 // Handler returns an http.Handler that exposes `reg` via the default

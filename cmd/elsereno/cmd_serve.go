@@ -19,6 +19,7 @@ import (
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/telemetry"
 	"local/elsereno/internal/web"
 	"local/elsereno/internal/web/stream"
 )
@@ -223,18 +224,30 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 		// OnLockSkipped logs the skip from the other
 		// instances.
 		AdvisoryLockKey: scanorch.AuditPrunerLockKey,
+		// v1.91: wire pruner outcomes into Prometheus alongside
+		// the existing stderr logging. Operators can graph the
+		// "acquired vs skipped_lock vs error" mix to see if the
+		// v1.90 advisory lock is keeping replicas in line + the
+		// "events_deleted_total" rate to detect retention drift.
 		OnPrune: func(count int64, cutoff time.Time) {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"elsereno serve: audit pruner deleted %d events older than %s\n",
 				count, cutoff.Format(time.RFC3339))
+			m := telemetry.Global()
+			m.AuditPrunerRunsTotal.WithLabelValues("acquired").Inc()
+			if count > 0 {
+				m.AuditPrunerEventsDeletedTotal.Add(float64(count))
+			}
 		},
 		OnError: func(err error) {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"elsereno serve: audit pruner error: %v\n", err)
+			telemetry.Global().AuditPrunerRunsTotal.WithLabelValues("error").Inc()
 		},
 		OnLockSkipped: func(key int64) {
 			_, _ = fmt.Fprintf(os.Stderr,
 				"elsereno serve: audit pruner skipped tick — advisory lock %d held by another instance\n", key)
+			telemetry.Global().AuditPrunerRunsTotal.WithLabelValues("skipped_lock").Inc()
 		},
 	}
 	go func() {
