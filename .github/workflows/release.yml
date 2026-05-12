@@ -68,7 +68,7 @@ jobs:
       # buildx driver. QEMU enables cross-architecture builds
       # (linux/amd64 + linux/arm64) on the amd64 runner.
       - name: set up qemu
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: set up buildx
         uses: docker/setup-buildx-action@v3
       - name: docker login ghcr
