@@ -16,7 +16,7 @@ permissions:
   contents: write
   id-token: write
   packages: write
-  attestations: write   # v1.2: actions/attest-build-provenance@v2
+  attestations: write   # v1.2: actions/attest-build-provenance@v4
 
 jobs:
   goreleaser:
@@ -88,7 +88,7 @@ jobs:
       # reusable workflow (exit-27 bug tracked since v2.0.0 and
       # still present in v2.1.0 — see
       # github.com/slsa-framework/slsa-github-generator/issues/2610).
-      # Use GitHub's native actions/attest-build-provenance@v2
+      # Use GitHub's native actions/attest-build-provenance@v4
       # instead. Produces a SLSA v1.0 predicate + Sigstore keyless
       # signature, attached to the GitHub Attestations API + the
       # release page. Consumers verify with:
@@ -102,7 +102,7 @@ jobs:
       #       --certificate-identity-regexp '…' --certificate-oidc-issuer '…' \
       #       <artifact>
       - name: attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           # All goreleaser archives under dist/ get attestation.
           # `subject-path` accepts glob. The docker manifest gets
