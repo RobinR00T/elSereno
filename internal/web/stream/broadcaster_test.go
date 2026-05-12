@@ -124,10 +124,16 @@ func TestPublish_PublishedAtSet(t *testing.T) {
 	b := New(4)
 	ch, cancel := b.Subscribe()
 	defer cancel()
-	before := time.Now().UTC()
+	// PublishedAt is microsecond-truncated (matches the
+	// Postgres TIMESTAMPTZ resolution used elsewhere). Truncate
+	// the bounds to the same precision so a wall-clock with a
+	// non-zero nanosecond suffix doesn't push PublishedAt
+	// below `before` (an artefact of truncation, not an actual
+	// time-ordering bug — caught flakily on Linux CI 2026-05-12).
+	before := time.Now().UTC().Truncate(time.Microsecond)
 	b.Publish(Event{Kind: EventRunStart})
 	ev := <-ch
-	after := time.Now().UTC()
+	after := time.Now().UTC().Truncate(time.Microsecond)
 	if ev.PublishedAt.Before(before) || ev.PublishedAt.After(after) {
 		t.Fatalf("PublishedAt %v not between %v and %v", ev.PublishedAt, before, after)
 	}
