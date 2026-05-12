@@ -114,7 +114,208 @@ func specPaths() []Path {
 	paths = append(paths, streamSpecPath())
 	paths = append(paths, dbSpecPaths()...)
 	paths = append(paths, inputPreviewSpecPaths()...)
+	paths = append(paths, schedulesSpecPaths()...)
+	paths = append(paths, schedulesBulkSpecPaths()...)
 	return paths
+}
+
+// schedulesSpecPaths (v1.96+) returns the /api/v1/schedules/*
+// endpoints introduced across v1.70 (CRUD), v1.77 (preview),
+// v1.84/v1.86 (audit), v1.92 (runs), v1.93 (clone). Operators
+// using the SDK-gen path against /api/v1/openapi.yaml now see
+// the full schedule surface. Split into per-aspect helpers to
+// keep each function under the funlen cap.
+func schedulesSpecPaths() []Path {
+	paths := schedulesCRUDPaths()
+	paths = append(paths, schedulesToggleAndClonePaths()...)
+	paths = append(paths, schedulesObservabilityPaths()...)
+	return paths
+}
+
+func schedulesCRUDPaths() []Path {
+	return []Path{
+		schedulesCollectionPath(),
+		schedulesItemPath(),
+		schedulesPreviewPath(),
+	}
+}
+
+func schedulesCollectionPath() Path {
+	tag := []string{"schedules"}
+	return Path{URL: "/api/v1/schedules", Operations: map[string]Operation{
+		"get": {
+			Summary:     "List scan schedules (v1.70+).",
+			Description: "Returns every schedule sorted by name. `next_fire_at` is computed per response (v1.77+).",
+			Tags:        tag,
+			Responses:   envelopeResponses(),
+		},
+		"post": {
+			Summary: "Create a scan schedule.",
+			Description: "Body: CreateScheduleRequest. Cadence is mutually-exclusive " +
+				"interval_seconds OR cron_expr (v1.73+). Optional timezone (IANA, v1.75+). " +
+				"Optional audit_retention_days (v1.89+) per-schedule retention override " +
+				"(0=inherit global).",
+			Tags: tag,
+			Responses: map[string]Response{
+				"201": {Description: "Schedule created.", Ref: "Envelope"},
+				"400": {Description: "Validation error (name/template/cadence/cron/tz/retention)."},
+				"503": {Description: "Schedule store unavailable."},
+			},
+		},
+	}}
+}
+
+func schedulesItemPath() Path {
+	tag := []string{"schedules"}
+	envelopeOr404503 := map[string]Response{
+		"200": {Description: "Envelope payload.", Ref: "Envelope"},
+		"404": {Description: "Schedule not found."},
+		"503": {Description: "Schedule store unavailable."},
+	}
+	return Path{URL: "/api/v1/schedules/{id}", Operations: map[string]Operation{
+		"get": {Summary: "Get one schedule.", Tags: tag, Responses: envelopeOr404503},
+		"put": {
+			Summary: "Update a schedule (v1.74+).",
+			Description: "Body: UpdateScheduleRequest (same shape as Create minus operator). " +
+				"Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → 412 on " +
+				"mismatch. Optional X-Schedule-Force-Overwrite: true → audit force-overwrite " +
+				"event (v1.84+).",
+			Tags: tag,
+			Responses: map[string]Response{
+				"200": {Description: "Updated schedule.", Ref: "Envelope"},
+				"400": {Description: "Validation error."},
+				"404": {Description: "Schedule not found."},
+				"412": {Description: "Optimistic-locking precondition failed (If-Match mismatch)."},
+				"503": {Description: "Schedule store unavailable."},
+			},
+		},
+		"delete": {
+			Summary: "Delete a schedule. Audit row persists with schedule_id NULL (v1.88+).",
+			Tags:    tag,
+			Responses: map[string]Response{
+				"204": {Description: "Deleted."},
+				"404": {Description: "Schedule not found."},
+				"503": {Description: "Schedule store unavailable."},
+			},
+		},
+	}}
+}
+
+func schedulesPreviewPath() Path {
+	tag := []string{"schedules"}
+	return Path{URL: "/api/v1/schedules/preview", Operations: map[string]Operation{
+		"post": {
+			Summary:     "Preview next fire(s) for a schedule (v1.77+).",
+			Description: "Body: CreateScheduleRequest. Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.",
+			Tags:        tag,
+			Responses: map[string]Response{
+				"200": {Description: "Preview payload.", Ref: "Envelope"},
+				"400": {Description: "Validation error."},
+				"503": {Description: "Schedule store unavailable."},
+			},
+		},
+	}}
+}
+
+func schedulesToggleAndClonePaths() []Path {
+	tag := []string{"schedules"}
+	envelopeOr404503 := map[string]Response{
+		"200": {Description: "Envelope payload.", Ref: "Envelope"},
+		"404": {Description: "Schedule not found."},
+		"503": {Description: "Schedule store unavailable."},
+	}
+	return []Path{
+		{URL: "/api/v1/schedules/{id}/enable", Operations: map[string]Operation{
+			"post": {Summary: "Enable a schedule. Writes audit (v1.88+).", Tags: tag, Responses: envelopeOr404503},
+		}},
+		{URL: "/api/v1/schedules/{id}/disable", Operations: map[string]Operation{
+			"post": {Summary: "Disable a schedule. Writes audit (v1.88+).", Tags: tag, Responses: envelopeOr404503},
+		}},
+		{URL: "/api/v1/schedules/{id}/clone", Operations: map[string]Operation{
+			"post": {
+				Summary: "Duplicate a schedule (v1.93+).",
+				Description: "Optional body: CloneScheduleRequest with override fields " +
+					"(name, cadence, audit_retention_days). Default name is " +
+					"`<source.name> (copy)`. Clone always starts Enabled=true; " +
+					"LastFiredAt reset; operator = the cloner.",
+				Tags: tag,
+				Responses: map[string]Response{
+					"201": {Description: "Clone created.", Ref: "Envelope"},
+					"400": {Description: "Validation error."},
+					"404": {Description: "Source schedule not found."},
+					"503": {Description: "Schedule store unavailable."},
+				},
+			},
+		}},
+	}
+}
+
+func schedulesObservabilityPaths() []Path {
+	tag := []string{"schedules"}
+	envelopeOr404503 := map[string]Response{
+		"200": {Description: "Envelope payload.", Ref: "Envelope"},
+		"404": {Description: "Schedule not found."},
+		"503": {Description: "Schedule store unavailable."},
+	}
+	return []Path{
+		{URL: "/api/v1/schedules/{id}/audit", Operations: map[string]Operation{
+			"get": {
+				Summary:     "List audit events for a schedule (v1.84+).",
+				Description: "Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false.",
+				Tags:        tag,
+				Responses:   envelopeOr404503,
+			},
+		}},
+		{URL: "/api/v1/schedules/{id}/runs", Operations: map[string]Operation{
+			"get": {
+				Summary:     "List scheduler-fired jobs for a schedule (v1.92+).",
+				Description: "Query param: limit (1..1000, default 50). Returns []Job sorted newest-first via the triggered_by_schedule_id linkage (migration 00014).",
+				Tags:        tag,
+				Responses:   envelopeOr404503,
+			},
+		}},
+		{URL: "/api/v1/schedules/audit", Operations: map[string]Operation{
+			"delete": {
+				Summary:     "Prune audit events older than ?before=<rfc3339> (v1.86+).",
+				Description: "Operator must opt into a cutoff explicitly. Returns {deleted_count, cutoff}.",
+				Tags:        tag,
+				Responses: map[string]Response{
+					"200": {Description: "Prune result.", Ref: "Envelope"},
+					"400": {Description: "Missing or malformed ?before."},
+					"503": {Description: "Audit store unavailable."},
+				},
+			},
+		}},
+	}
+}
+
+// schedulesBulkSpecPaths (v1.96+) returns the v1.95 bulk
+// pause/resume endpoints. Split from schedulesSpecPaths to
+// keep each function under the funlen cap.
+func schedulesBulkSpecPaths() []Path {
+	tag := []string{"schedules"}
+	resp := map[string]Response{
+		"200": {Description: "{affected, failed_audits, target_state}.", Ref: "Envelope"},
+		"503": {Description: "Schedule store unavailable."},
+	}
+	return []Path{
+		{URL: "/api/v1/schedules/bulk/enable", Operations: map[string]Operation{
+			"post": {
+				Summary:     "Bulk-enable every schedule (v1.95+).",
+				Description: "No body. Returns count of state transitions (already-enabled schedules are no-ops).",
+				Tags:        tag,
+				Responses:   resp,
+			},
+		}},
+		{URL: "/api/v1/schedules/bulk/disable", Operations: map[string]Operation{
+			"post": {
+				Summary:     "Bulk-disable every schedule (v1.95+).",
+				Description: "No body. Returns count of state transitions (already-disabled schedules are no-ops). Used for planned-maintenance windows.",
+				Tags:        tag,
+				Responses:   resp,
+			},
+		}},
+	}
 }
 
 // envelopeResponses is the shared 200 response map for endpoints

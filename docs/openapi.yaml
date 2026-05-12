@@ -118,6 +118,231 @@ paths:
       summary: List recent scan runs with per-run finding counts.
       tags:
         - runs
+  /api/v1/schedules:
+    get:
+      description: Returns every schedule sorted by name. `next_fire_at` is computed per response (v1.77+).
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+      summary: List scan schedules (v1.70+).
+      tags:
+        - schedules
+    post:
+      description: 'Body: CreateScheduleRequest. Cadence is mutually-exclusive interval_seconds OR cron_expr (v1.73+). Optional timezone (IANA, v1.75+). Optional audit_retention_days (v1.89+) per-schedule retention override (0=inherit global).'
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Schedule created.
+        "400":
+          description: Validation error (name/template/cadence/cron/tz/retention).
+        "503":
+          description: Schedule store unavailable.
+      summary: Create a scan schedule.
+      tags:
+        - schedules
+  /api/v1/schedules/{id}:
+    delete:
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: Delete a schedule. Audit row persists with schedule_id NULL (v1.88+).
+      tags:
+        - schedules
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: Get one schedule.
+      tags:
+        - schedules
+    put:
+      description: 'Body: UpdateScheduleRequest (same shape as Create minus operator). Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → 412 on mismatch. Optional X-Schedule-Force-Overwrite: true → audit force-overwrite event (v1.84+).'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Updated schedule.
+        "400":
+          description: Validation error.
+        "404":
+          description: Schedule not found.
+        "412":
+          description: Optimistic-locking precondition failed (If-Match mismatch).
+        "503":
+          description: Schedule store unavailable.
+      summary: Update a schedule (v1.74+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/audit:
+    get:
+      description: 'Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: List audit events for a schedule (v1.84+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/clone:
+    post:
+      description: 'Optional body: CloneScheduleRequest with override fields (name, cadence, audit_retention_days). Default name is `<source.name> (copy)`. Clone always starts Enabled=true; LastFiredAt reset; operator = the cloner.'
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Clone created.
+        "400":
+          description: Validation error.
+        "404":
+          description: Source schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: Duplicate a schedule (v1.93+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/disable:
+    post:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: Disable a schedule. Writes audit (v1.88+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/enable:
+    post:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: Enable a schedule. Writes audit (v1.88+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/runs:
+    get:
+      description: 'Query param: limit (1..1000, default 50). Returns []Job sorted newest-first via the triggered_by_schedule_id linkage (migration 00014).'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope payload.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: List scheduler-fired jobs for a schedule (v1.92+).
+      tags:
+        - schedules
+  /api/v1/schedules/audit:
+    delete:
+      description: Operator must opt into a cutoff explicitly. Returns {deleted_count, cutoff}.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Prune result.
+        "400":
+          description: Missing or malformed ?before.
+        "503":
+          description: Audit store unavailable.
+      summary: Prune audit events older than ?before=<rfc3339> (v1.86+).
+      tags:
+        - schedules
+  /api/v1/schedules/bulk/disable:
+    post:
+      description: No body. Returns count of state transitions (already-disabled schedules are no-ops). Used for planned-maintenance windows.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: '{affected, failed_audits, target_state}.'
+        "503":
+          description: Schedule store unavailable.
+      summary: Bulk-disable every schedule (v1.95+).
+      tags:
+        - schedules
+  /api/v1/schedules/bulk/enable:
+    post:
+      description: No body. Returns count of state transitions (already-enabled schedules are no-ops).
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: '{affected, failed_audits, target_state}.'
+        "503":
+          description: Schedule store unavailable.
+      summary: Bulk-enable every schedule (v1.95+).
+      tags:
+        - schedules
+  /api/v1/schedules/preview:
+    post:
+      description: 'Body: CreateScheduleRequest. Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Preview payload.
+        "400":
+          description: Validation error.
+        "503":
+          description: Schedule store unavailable.
+      summary: Preview next fire(s) for a schedule (v1.77+).
+      tags:
+        - schedules
   /api/v1/scoring:
     get:
       responses:

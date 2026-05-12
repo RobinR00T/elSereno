@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.96 (chunk 1) — **OpenAPI
+  coverage for 13 schedule endpoints.** Added
+  spec entries for /schedules, /{id}, /preview,
+  /{id}/enable, /{id}/disable, /{id}/clone,
+  /{id}/audit, /{id}/runs, /audit DELETE,
+  /bulk/{enable,disable}. Refactored
+  `schedulesSpecPaths` into per-group helpers for
+  funlen. Regenerated `docs/openapi.yaml`
+  (172 → 397 lines). Snapshot:
+  `.context/snapshots/v1.96.0-openapi-schedule-coverage.md`.
+
 - 2026-05-12 — v1.95 (chunk 1) — **Bulk
   pause/resume schedules.** New endpoints
   `POST /api/v1/schedules/bulk/{enable|disable}`.

@@ -1,28 +1,27 @@
 ---
-phase: v1.95-closed
-status: v1.16-v1.94 published; v1.95 tag pending push
+phase: v1.96-closed
+status: v1.16-v1.95 published; v1.96 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.95 cycle closed on `main`** (1 chunk +
-close). Bulk pause/resume schedules: new endpoints
-`POST /api/v1/schedules/bulk/{enable|disable}` return
-`{affected, failed_audits, target_state}`. Affects only
-schedules whose state actually changes (no audit noise
-for no-op transitions). Dashboard "Pause All" / "Resume
-All" buttons. +1 unit test.
+**Phase**: **v1.96 cycle closed on `main`** (1 chunk +
+close). OpenAPI coverage for 13 schedule endpoints
+(/schedules CRUD + preview + enable/disable/clone/audit/
+runs + audit-DELETE + bulk-enable/disable). Refactored
+`schedulesSpecPaths` into per-group helpers for funlen.
+Regenerated `docs/openapi.yaml` (172 → 397 lines).
 
-Snapshot: `.context/snapshots/v1.95.0-bulk-pause-resume.md`.
+Snapshot: `.context/snapshots/v1.96.0-openapi-schedule-coverage.md`.
 
-**v1.89-v1.94 cycles (closed; per-cycle snapshots)**:
-v1.89 deleted badge + per-schedule retention (migration
-00013). v1.90 advisory-locked pruner. v1.91 pruner
-runs+events counters. v1.92 schedule run history
-(migration 00014). v1.93 schedule clone endpoint. v1.94
-pruner tick-duration histogram.
+**v1.89-v1.95 cycles (closed; per-cycle snapshots)**:
+v1.89 deleted badge + per-schedule retention (00013).
+v1.90 advisory-locked pruner. v1.91 pruner runs+events
+counters. v1.92 schedule run history (00014). v1.93
+clone endpoint. v1.94 pruner tick histogram. v1.95
+bulk pause/resume.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot
