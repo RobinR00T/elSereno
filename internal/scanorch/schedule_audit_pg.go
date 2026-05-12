@@ -68,6 +68,73 @@ func (s *DBScheduleAuditStore) PruneOlderThan(ctx context.Context, cutoff time.T
 	return tag.RowsAffected(), nil
 }
 
+// PruneWithOverrides (v1.89+) prunes in two passes:
+//
+//  1. Per-schedule pass: for each (id → cutoff) in `overrides`,
+//     DELETE WHERE schedule_id = id AND occurred_at < cutoff.
+//
+//  2. Global pass: DELETE WHERE
+//     (schedule_id IS NULL OR schedule_id NOT IN keys(overrides))
+//     AND occurred_at < globalCutoff.
+//
+// Two passes (not one big CASE expression) keep each statement
+// simple + give clearer command tags. Total row count is
+// summed.
+//
+// Empty/nil overrides → falls back to PruneOlderThan
+// semantics (one global pass).
+func (s *DBScheduleAuditStore) PruneWithOverrides(ctx context.Context, globalCutoff time.Time, overrides map[string]time.Time) (int64, error) {
+	if len(overrides) == 0 {
+		return s.PruneOlderThan(ctx, globalCutoff)
+	}
+	var total int64
+	// Pass 1: per-schedule. Iterate the map deterministically
+	// for stable error messages if a Exec fails mid-loop.
+	ids := make([]string, 0, len(overrides))
+	for id := range overrides {
+		ids = append(ids, id)
+	}
+	sortStrings(ids)
+	for _, id := range ids {
+		cutoff := overrides[id]
+		tag, err := s.q.Exec(ctx,
+			"DELETE FROM scan_schedule_audit WHERE schedule_id = $1 AND occurred_at < $2",
+			id, cutoff.UTC())
+		if err != nil {
+			return total, fmt.Errorf("scanorch: prune schedule audit (override %s): %w", id, err)
+		}
+		total += tag.RowsAffected()
+	}
+	// Pass 2: global cutoff for everything NOT in the overrides
+	// map. NULL schedule_id (v1.88 tombstoned rows) belongs in
+	// this pass.
+	tag, err := s.q.Exec(ctx,
+		"DELETE FROM scan_schedule_audit"+
+			" WHERE (schedule_id IS NULL OR schedule_id <> ALL($1))"+
+			" AND occurred_at < $2",
+		ids, globalCutoff.UTC())
+	if err != nil {
+		return total, fmt.Errorf("scanorch: prune schedule audit (global): %w", err)
+	}
+	total += tag.RowsAffected()
+	return total, nil
+}
+
+// sortStrings is a tiny string-slice sort (avoid pulling in the
+// sort package for one call site). N is the number of schedules
+// with retention overrides — typically <50, often <10.
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		v := s[i]
+		j := i - 1
+		for j >= 0 && s[j] > v {
+			s[j+1] = s[j]
+			j--
+		}
+		s[j+1] = v
+	}
+}
+
 // ListBySchedule returns the events for a schedule, newest
 // first.
 func (s *DBScheduleAuditStore) ListBySchedule(ctx context.Context, scheduleID string) ([]ScheduleAuditEvent, error) {

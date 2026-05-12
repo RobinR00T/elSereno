@@ -73,6 +73,11 @@ type syscallNums struct {
 // syscallsAMD64 is the x86_64 Linux syscall number table. Source:
 // https://github.com/torvalds/linux/blob/master/arch/x86/entry/syscalls/syscall_64.tbl
 // Committed inline so audits can diff without tooling.
+//
+// same-shape (one struct literal per arch); the dupl linter
+// can't tell the per-arch numbers are the whole point.
+//
+//nolint:dupl // syscallsAMD64 + syscallsARM64 are intentionally
 var syscallsAMD64 = syscallNums{
 	Execve:          59,
 	Execveat:        322,
@@ -133,6 +138,8 @@ var syscallsAMD64 = syscallNums{
 // aarch64 uses the generic syscall table (no legacy fork/vfork/
 // creat/etc); we record fork/vfork as 0 so the denylist compiler
 // skips them (see blockedSyscalls filter for zero entries).
+//
+//nolint:dupl // see comment on syscallsAMD64.
 var syscallsARM64 = syscallNums{
 	Execve:          221,
 	Execveat:        281,

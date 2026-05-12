@@ -105,6 +105,23 @@ type ScheduleAuditStore interface {
 	// event — defensive callers should reject obviously-
 	// wrong cutoffs at the REST layer.
 	PruneOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
+	// PruneWithOverrides (v1.89+) is the per-schedule-aware
+	// variant of PruneOlderThan. globalCutoff applies to
+	// events whose schedule_id is NOT in `overrides`; for
+	// each (schedule_id → schedule-specific cutoff) entry in
+	// `overrides`, those events are pruned with the per-
+	// schedule cutoff instead.
+	//
+	// Semantics for orphaned audit rows (schedule_id IS NULL —
+	// happens when v1.88 FK SET NULL fires on schedule delete):
+	// they always fall under the globalCutoff. The override
+	// table is keyed by the live schedule_id, which is gone
+	// for deleted rows.
+	//
+	// nil/empty overrides → equivalent to PruneOlderThan.
+	// Returns the total number of rows deleted across both
+	// the global + override passes.
+	PruneWithOverrides(ctx context.Context, globalCutoff time.Time, overrides map[string]time.Time) (int64, error)
 }
 
 // MemoryScheduleAuditStore is an in-memory ScheduleAuditStore
@@ -145,6 +162,30 @@ func (s *MemoryScheduleAuditStore) PruneOlderThan(_ context.Context, cutoff time
 	kept := make([]ScheduleAuditEvent, 0, len(s.events))
 	var removed int64
 	for _, e := range s.events {
+		if e.OccurredAt.Before(cutoff) {
+			removed++
+			continue
+		}
+		kept = append(kept, e)
+	}
+	s.events = kept
+	return removed, nil
+}
+
+// PruneWithOverrides (v1.89+) applies per-schedule cutoffs +
+// a global fallback. See the interface doc for semantics.
+func (s *MemoryScheduleAuditStore) PruneWithOverrides(_ context.Context, globalCutoff time.Time, overrides map[string]time.Time) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := make([]ScheduleAuditEvent, 0, len(s.events))
+	var removed int64
+	for _, e := range s.events {
+		cutoff := globalCutoff
+		if overrides != nil {
+			if c, ok := overrides[e.ScheduleID]; ok {
+				cutoff = c
+			}
+		}
 		if e.OccurredAt.Before(cutoff) {
 			removed++
 			continue

@@ -75,6 +75,28 @@ type ScanSchedule struct {
 	// touch this field on writes — serialisation by the
 	// handler is the only consumer.
 	NextFireAt time.Time `json:"next_fire_at,omitempty"`
+	// AuditRetentionDays (v1.89+) is the per-schedule override
+	// for how long this schedule's audit events are kept
+	// before the background pruner removes them.
+	//
+	// Semantics:
+	//   0 (default) → inherit the global
+	//                 `--audit-retention-days N` window. NULL
+	//                 in the DB column.
+	//   >0          → keep events for exactly N days, then
+	//                 prune (replaces global retention for
+	//                 this schedule).
+	//
+	// "Never prune this schedule" is intentionally NOT
+	// supported via a magic value — operators wanting infinite
+	// retention should run with --audit-retention-days=0
+	// (global "do not prune") and leave the per-schedule
+	// override unset.
+	//
+	// Validated on Create/Update: must be >= 0; values > 365*10
+	// are clamped to 365*10 (10 years) to keep the column
+	// bounded.
+	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
 }
 
 // CreateScheduleRequest is the dashboard's request body. The
@@ -94,6 +116,12 @@ type CreateScheduleRequest struct {
 	// Timezone (v1.75+, optional) IANA name for cron
 	// evaluation. Ignored for interval schedules.
 	Timezone string `json:"timezone,omitempty"`
+	// AuditRetentionDays (v1.89+, optional) is the per-
+	// schedule override of how long the audit events for this
+	// schedule are kept. 0 (default) means "inherit global
+	// --audit-retention-days". See ScanSchedule.AuditRetentionDays
+	// for semantics + clamping.
+	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
 }
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
@@ -104,6 +132,13 @@ const (
 	scheduleMinInterval = 60               // 1 minute
 	scheduleMaxInterval = 7 * 24 * 60 * 60 // 7 days
 )
+
+// scheduleMaxAuditRetentionDays (v1.89+) caps the per-schedule
+// audit-retention override at 10 years. Beyond that the int
+// could grow large enough to bother future readers + adds zero
+// operational value (an audit log retained 10y already covers
+// every compliance regime we'd realistically deploy under).
+const scheduleMaxAuditRetentionDays = 365 * 10
 
 // Sentinel errors.
 var (
@@ -136,6 +171,11 @@ var (
 	// operator — refresh and retry" message instead of a
 	// silent overwrite.
 	ErrSchedulePreconditionFailed = errors.New("scanorch: schedule precondition failed")
+	// ErrScheduleInvalidAuditRetentionDays (v1.89+) means the
+	// per-schedule audit retention override was negative.
+	// Clamping handles >max silently; only the < 0 case is a
+	// hard error (operator likely mistyped a sign).
+	ErrScheduleInvalidAuditRetentionDays = errors.New("scanorch: schedule audit_retention_days must be >= 0")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -181,6 +221,11 @@ type UpdateScheduleRequest struct {
 	// Timezone (v1.75+, optional) IANA name for cron
 	// evaluation. Empty resets to UTC.
 	Timezone string `json:"timezone,omitempty"`
+	// AuditRetentionDays (v1.89+, optional) per-schedule
+	// retention override. 0 = inherit global. Update writes
+	// the value through to the stored row — operator setting
+	// it from N back to 0 reverts to global inheritance.
+	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
 	// IfMatch (v1.78+) is the optimistic-locking
 	// precondition. When non-nil, the Update only
 	// proceeds if the schedule's stored UpdatedAt equals
@@ -236,19 +281,23 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
+	if err := validateAuditRetention(req.AuditRetentionDays); err != nil {
+		return ScanSchedule{}, err
+	}
 	id, err := generateID()
 	if err != nil {
 		return ScanSchedule{}, err
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	sched := ScanSchedule{
-		ID:        id,
-		Name:      req.Name,
-		Template:  req.Template,
-		Timezone:  req.Timezone,
-		Enabled:   true,
-		Operator:  operator,
-		CreatedAt: now,
+		ID:                 id,
+		Name:               req.Name,
+		Template:           req.Template,
+		Timezone:           req.Timezone,
+		Enabled:            true,
+		Operator:           operator,
+		CreatedAt:          now,
+		AuditRetentionDays: clampAuditRetention(req.AuditRetentionDays),
 		// v1.78+: UpdatedAt = CreatedAt at creation time.
 		// Future Updates bump this; the optimistic-locking
 		// If-Match check compares against this value.
@@ -256,6 +305,28 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 	}
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	return sched, nil
+}
+
+// validateAuditRetention (v1.89+) returns
+// ErrScheduleInvalidAuditRetentionDays for negative values.
+// Values > scheduleMaxAuditRetentionDays are clamped at apply
+// time (not an error) so an operator copy-pasting "10000" from
+// a spec doesn't see a confusing rejection.
+func validateAuditRetention(days int) error {
+	if days < 0 {
+		return ErrScheduleInvalidAuditRetentionDays
+	}
+	return nil
+}
+
+// clampAuditRetention bounds the override at
+// scheduleMaxAuditRetentionDays. 0 (inherit) passes through
+// unchanged.
+func clampAuditRetention(days int) int {
+	if days > scheduleMaxAuditRetentionDays {
+		return scheduleMaxAuditRetentionDays
+	}
+	return days
 }
 
 // validateScheduleFields enforces the shared validation rules
@@ -370,6 +441,9 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
+	if err := validateAuditRetention(req.AuditRetentionDays); err != nil {
+		return ScanSchedule{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sched, ok := s.schedules[id]
@@ -382,6 +456,7 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	sched.Name = req.Name
 	sched.Template = req.Template
 	sched.Timezone = req.Timezone
+	sched.AuditRetentionDays = clampAuditRetention(req.AuditRetentionDays)
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	sched.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched

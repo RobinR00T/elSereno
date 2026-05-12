@@ -141,6 +141,9 @@ func (errAuditStore) ListBySchedule(context.Context, string) ([]scanorch.Schedul
 func (errAuditStore) PruneOlderThan(context.Context, time.Time) (int64, error) {
 	return 0, errors.New("synthetic prune failure")
 }
+func (errAuditStore) PruneWithOverrides(context.Context, time.Time, map[string]time.Time) (int64, error) {
+	return 0, errors.New("synthetic prune failure")
+}
 
 func TestAuditPruner_Tick_PropagatesStoreError(t *testing.T) {
 	var seenErr error
@@ -152,5 +155,120 @@ func TestAuditPruner_Tick_PropagatesStoreError(t *testing.T) {
 	p.Tick(context.Background())
 	if seenErr == nil {
 		t.Errorf("OnError not invoked")
+	}
+}
+
+// TestAuditPruner_Tick_PerScheduleOverride (v1.89+): pruner
+// honours per-schedule AuditRetentionDays via the ScheduleStore.
+//
+// Setup: 2 schedules, one with AuditRetentionDays=0 (inherit
+// global, 30 days) and one with AuditRetentionDays=2 (2 days).
+// Append 1 event for each schedule with OccurredAt 5 days ago.
+// Tick at "now". Expected:
+//   - Schedule A (global 30d) → event survives.
+//   - Schedule B (override 2d) → event pruned.
+func TestAuditPruner_Tick_PerScheduleOverride(t *testing.T) {
+	ctx := context.Background()
+	scheduleStore := scanorch.NewMemoryScheduleStore()
+	schedA, err := scheduleStore.Create(ctx, scanorch.CreateScheduleRequest{
+		Name:            "global-retention",
+		Template:        scanorch.SubmitRequest{Input: "list:a.txt"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create A err = %v", err)
+	}
+	schedB, err := scheduleStore.Create(ctx, scanorch.CreateScheduleRequest{
+		Name:               "short-retention",
+		Template:           scanorch.SubmitRequest{Input: "list:b.txt"},
+		IntervalSeconds:    3600,
+		AuditRetentionDays: 2,
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create B err = %v", err)
+	}
+	if schedB.AuditRetentionDays != 2 {
+		t.Fatalf("schedB.AuditRetentionDays = %d, want 2", schedB.AuditRetentionDays)
+	}
+
+	auditStore := scanorch.NewMemoryScheduleAuditStore()
+	// Append one event per schedule. OccurredAt is stamped by
+	// Append at "now"; the pruner uses Now-fixture pushed 5
+	// days ahead to make both look 5 days old.
+	for _, id := range []string{schedA.ID, schedB.ID} {
+		if _, err := auditStore.Append(ctx, scanorch.ScheduleAuditEvent{
+			ScheduleID:    id,
+			EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+			Operator:      "alice",
+			PayloadBefore: json.RawMessage(`{}`),
+			PayloadAfter:  json.RawMessage(`{}`),
+		}); err != nil {
+			t.Fatalf("Append for %s err = %v", id, err)
+		}
+	}
+
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      auditStore,
+		ScheduleStore:   scheduleStore,
+		RetentionPeriod: 30 * 24 * time.Hour,
+		Now:             func() time.Time { return time.Now().UTC().Add(5 * 24 * time.Hour) },
+	}
+	pruner.Tick(ctx)
+
+	// Schedule A: events still listed (global 30d, event 5d old).
+	eventsA, err := auditStore.ListBySchedule(ctx, schedA.ID)
+	if err != nil {
+		t.Fatalf("ListBySchedule A err = %v", err)
+	}
+	if len(eventsA) != 1 {
+		t.Errorf("schedA events after prune = %d, want 1", len(eventsA))
+	}
+	// Schedule B: pruned (override 2d, event 5d old).
+	eventsB, err := auditStore.ListBySchedule(ctx, schedB.ID)
+	if err != nil {
+		t.Fatalf("ListBySchedule B err = %v", err)
+	}
+	if len(eventsB) != 0 {
+		t.Errorf("schedB events after prune = %d, want 0", len(eventsB))
+	}
+}
+
+// TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal (v1.89+):
+// when no schedule has AuditRetentionDays>0, the pruner
+// behaves exactly like v1.87 — single PruneOlderThan call.
+func TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal(t *testing.T) {
+	ctx := context.Background()
+	scheduleStore := scanorch.NewMemoryScheduleStore()
+	sched, err := scheduleStore.Create(ctx, scanorch.CreateScheduleRequest{
+		Name:            "global-only",
+		Template:        scanorch.SubmitRequest{Input: "list:x.txt"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create err = %v", err)
+	}
+	auditStore := scanorch.NewMemoryScheduleAuditStore()
+	if _, err := auditStore.Append(ctx, scanorch.ScheduleAuditEvent{
+		ScheduleID:    sched.ID,
+		EventType:     scanorch.ScheduleAuditEventForceOverwrite,
+		Operator:      "alice",
+		PayloadBefore: json.RawMessage(`{}`),
+		PayloadAfter:  json.RawMessage(`{}`),
+	}); err != nil {
+		t.Fatalf("Append err = %v", err)
+	}
+	pruner := &scanorch.AuditPruner{
+		AuditStore:      auditStore,
+		ScheduleStore:   scheduleStore,
+		RetentionPeriod: time.Minute,
+		Now:             func() time.Time { return time.Now().UTC().Add(24 * time.Hour) },
+	}
+	pruner.Tick(ctx)
+	events, err := auditStore.ListBySchedule(ctx, sched.ID)
+	if err != nil {
+		t.Fatalf("ListBySchedule err = %v", err)
+	}
+	if len(events) != 0 {
+		t.Errorf("events after prune = %d, want 0 (global cutoff applies)", len(events))
 	}
 }

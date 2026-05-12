@@ -531,6 +531,9 @@ const overviewHTML = `<!doctype html>
         <label id="schedule-timezone-label" style="display: none;">timezone:
           <input type="text" id="schedule-timezone" placeholder="UTC | America/New_York" size="20" autocomplete="off" />
         </label>
+        <label title="v1.89+ per-schedule audit retention override. 0 = inherit global --audit-retention-days.">audit days:
+          <input type="number" id="schedule-audit-retention-days" min="0" max="3650" value="0" size="6" />
+        </label>
         <button type="submit" id="schedule-submit-button">Create</button>
         <button type="button" id="schedule-cancel-button" onclick="cancelEditSchedule()" style="display: none;">Cancel</button>
         <button type="button" id="schedule-preview-button" onclick="previewNextFire()" style="margin-left: 0.5em;">Preview next fire</button>
@@ -1362,6 +1365,11 @@ const overviewHTML = `<!doctype html>
       if (cronEl) cronEl.value = s.cron_expr || "";
       var tzEl = document.getElementById("schedule-timezone");
       if (tzEl) tzEl.value = s.timezone || "";
+      // v1.89: load audit retention override into the form
+      // so Update can round-trip the value (otherwise the
+      // submit would zero it out by accident).
+      var auditEl = document.getElementById("schedule-audit-retention-days");
+      if (auditEl) auditEl.value = (s.audit_retention_days != null ? s.audit_retention_days : 0);
       if (submitBtn) submitBtn.textContent = "Update";
       if (cancelBtn) cancelBtn.style.display = "";
       if (status) status.textContent = "editing " + (s.id || "").slice(0, 8) + "…";
@@ -1398,6 +1406,9 @@ const overviewHTML = `<!doctype html>
     });
     var intervalEl = document.getElementById("schedule-interval");
     if (intervalEl) intervalEl.value = 3600;
+    // v1.89: reset the audit retention override to 0 (inherit).
+    var auditEl = document.getElementById("schedule-audit-retention-days");
+    if (auditEl) auditEl.value = 0;
     var modeEl = document.getElementById("schedule-cadence-mode");
     if (modeEl) {
       modeEl.value = "interval";
@@ -1438,6 +1449,15 @@ const overviewHTML = `<!doctype html>
       if (!isFinite(interval) || interval < 60) interval = 60;
       if (interval > 604800) interval = 604800;
       payload.interval_seconds = interval;
+    }
+    // v1.89: per-schedule audit retention override. 0 = inherit
+    // global. Negative is rejected server-side; the UI clamps.
+    var auditDaysRaw = (document.getElementById("schedule-audit-retention-days") || {}).value || "0";
+    var auditDays = parseInt(auditDaysRaw, 10);
+    if (!isFinite(auditDays) || auditDays < 0) auditDays = 0;
+    if (auditDays > 3650) auditDays = 3650;
+    if (auditDays > 0) {
+      payload.audit_retention_days = auditDays;
     }
     var body = JSON.stringify(payload);
     var isUpdate = editingScheduleID !== "";
@@ -1756,21 +1776,48 @@ const overviewHTML = `<!doctype html>
       }
       body.innerHTML = events.map(function (e) {
         var when = e.occurred_at ? new Date(e.occurred_at).toLocaleString() : "—";
-        var diff = computeAuditEventDiff(e);
+        // v1.89: dedicated "Deleted" badge for event_type='delete'.
+        // The v1.88 audit event captures the pre-delete state in
+        // payload_before; payload_after is JSON null. Rendering
+        // every field as "X → —" works but obscures the actual
+        // operator intent. Show a red "Deleted" badge + the
+        // pre-delete name/input so operators recognise the row
+        // at a glance.
         var diffHTML;
-        if (!diff.length) {
-          diffHTML = '<span class="sub">(no field-level changes)</span>';
+        var eventBadgeHTML;
+        if (e.event_type === "delete") {
+          eventBadgeHTML = '<span style="background:#c33;color:#fff;padding:0.1em 0.5em;border-radius:0.3em;font-weight:bold;">DELETED</span>';
+          var preDelete = (function () {
+            if (e.payload_before == null) return null;
+            if (typeof e.payload_before === "string") {
+              try { return JSON.parse(e.payload_before); } catch (_) { return null; }
+            }
+            return e.payload_before;
+          })();
+          if (preDelete) {
+            diffHTML = '<span class="sub">pre-delete snapshot:</span> ' +
+              '<code>' + escText(preDelete.name || "—") + '</code>' +
+              ' / input=<code>' + escText((preDelete.template || {}).input || "—") + '</code>';
+          } else {
+            diffHTML = '<span class="sub">(no pre-delete snapshot)</span>';
+          }
         } else {
-          diffHTML = '<ul class="audit-diff" style="margin: 0; padding-left: 1em;">' +
-            diff.map(function (d) {
-              return '<li><code>' + escText(d.field) + '</code>: <code>' +
-                escText(d.before) + '</code> → <code>' + escText(d.after) + '</code></li>';
-            }).join("") + '</ul>';
+          eventBadgeHTML = '<code>' + escText(e.event_type || "—") + '</code>';
+          var diff = computeAuditEventDiff(e);
+          if (!diff.length) {
+            diffHTML = '<span class="sub">(no field-level changes)</span>';
+          } else {
+            diffHTML = '<ul class="audit-diff" style="margin: 0; padding-left: 1em;">' +
+              diff.map(function (d) {
+                return '<li><code>' + escText(d.field) + '</code>: <code>' +
+                  escText(d.before) + '</code> → <code>' + escText(d.after) + '</code></li>';
+              }).join("") + '</ul>';
+          }
         }
         return '<tr>' +
           '<td>' + escText(when) + '</td>' +
           '<td>' + escText(e.operator || "—") + '</td>' +
-          '<td><code>' + escText(e.event_type || "—") + '</code></td>' +
+          '<td>' + eventBadgeHTML + '</td>' +
           '<td>' + diffHTML + '</td>' +
           '</tr>';
       }).join("");

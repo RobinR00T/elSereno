@@ -8,6 +8,41 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.89 (chunk 1) — **Deleted badge +
+  per-schedule audit retention overrides.** Migration
+  00013 adds NULL-able `audit_retention_days` column on
+  `scan_schedules`. New `PruneWithOverrides` audit-store
+  method (Memory + PG). `AuditPruner` gains optional
+  `ScheduleStore` reference so per-schedule cutoffs
+  win over global. Dashboard form gets `audit days`
+  input; audit-history view renders a red "DELETED"
+  badge for `event_type='delete'` + pre-delete
+  snapshot line (was: field-by-field diff). +3
+  unit tests. Snapshot:
+  `.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
+
+- 2026-05-12 — Linter side-quest — Pre-existing
+  Linux-only lint issues in `offensive/sandbox/*`
+  silenced via `.golangci.yml` excludes (revive
+  underscores per syscall.h convention, dupl
+  per-arch maps, gosec BPF imm-fields, noctx
+  test re-exec). No code mutation; surfaced when
+  audit.yml CI started exercising Linux runners.
+
+- 2026-05-12 — Audit infrastructure — **Proactive
+  audit validator + CI gate** (`scripts/audit.sh` +
+  `.github/workflows/audit.yml`). 13 check categories;
+  3 modes (quick/full/ci). Catches schema regressions,
+  YAML errors, broken docs links, Go toolchain pin,
+  CVEs, lint/test/sec/vuln in one command. Weekly
+  cron Monday 06:00 UTC for post-merge stdlib CVEs.
+
+- 2026-05-12 — Test fix — `TestPublish_PublishedAtSet`
+  truncated comparison bounds to microsecond
+  precision (matches `Publish`'s
+  `Truncate(time.Microsecond)`); Linux CI flaky-fail
+  surfaced the precision bug.
+
 - 2026-05-11 — v1.88 (chunk 1) — **Expanded audit
   event types.** Migration 00012 adds `delete`,
   `set_enabled_true`, `set_enabled_false` to the

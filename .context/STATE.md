@@ -1,26 +1,36 @@
 ---
-phase: v1.88-closed
-status: v1.16-v1.27 published; v1.28-v1.88 tags pending push
-last-updated: 2026-05-11
+phase: v1.89-closed
+status: v1.16-v1.88 published; v1.89 tag pending push
+last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.88 cycle closed on `main`** (1 chunk +
-close). Expanded schedule audit event types: migration
-00012 adds delete + set_enabled_{true,false} to the CHECK
-enumeration and switches the FK from CASCADE to SET NULL
-(audit rows survive schedule deletion). deleteSchedule +
+**Phase**: **v1.89 cycle closed on `main`** (1 chunk +
+close). Deleted badge in audit-history view (red "DELETED"
++ pre-delete snapshot for `event_type='delete'`) + per-
+schedule audit retention overrides (migration 00013 adds
+NULL-able `audit_retention_days` to `scan_schedules`).
+`PruneWithOverrides` audit-store method (Memory + PG).
+`AuditPruner.ScheduleStore` field plumbs per-schedule
+cutoffs through the v1.87 background pruner. Dashboard
+form gets `audit days` input. +3 unit tests. Also fixed
+pre-existing Linux-only lint issues in `offensive/sandbox/*`
++ proactive `scripts/audit.sh` + `.github/workflows/audit.yml`
+CI gate.
+
+Snapshot: `.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
+
+**v1.88 cycle (closed, snapshot available)**: Expanded
+schedule audit event types: migration 00012 adds delete +
+set_enabled_{true,false} to the CHECK enumeration and
+switches the FK from CASCADE to SET NULL (audit rows
+survive schedule deletion). deleteSchedule +
 setScheduleEnabled handlers write the new events
 (best-effort, matches v1.84). 4 REST tests.
 
 Snapshot: `.context/snapshots/v1.88.0-expanded-audit-events.md`.
-
-**v1.88 chunks landed (in-flight)**:
-- 1 `6a4450e` — migration 00012 + Go enum extension +
-  deleteSchedule/setScheduleEnabled audit-write paths
-  + 4 REST tests.
 
 **v1.85 → v1.87 cycles** (closed; per-cycle snapshots
 in `.context/snapshots/`): dashboard audit history view
@@ -162,56 +172,23 @@ mini build (v1.29), record-replay wire-up across 9 gates +
 proxy listen/replay + TUI scan launcher (v1.30), TUI --input
 parity with batch scan (v1.31).
 
-**v1.16 → v1.27 are published** on
-https://github.com/RobinR00T/elSereno/releases. v1.28.0+ tags
+**v1.0 → v1.88 are published** on
+https://github.com/RobinR00T/elSereno/releases (`v1.88.0`
+shipped 2026-05-11 with 35 assets via goreleaser). v1.89 tag
 pending push.
 
-Per-cycle snapshots: see `.context/snapshots/v1.<N>.0-*.md`
-for the v1.16 through v1.24 chunk-level detail. They're also
-embedded in each tag's release notes on
-https://github.com/RobinR00T/elSereno/releases.
+v1.12 → v1.27 closed loose ends (per-object scoping across
+all 7 write-gates; BACnet/CWMP completion; IPv6 cross-cutting;
+CVE-exposure factor across 7 plugins). See snapshots for
+chunk-level detail. v1.15 was the last manually-counted asset
+release (9 assets); v1.16+ ship via goreleaser.
 
-**v1.16 → v1.21 cycles** (closed; per-cycle snapshots in
-`.context/snapshots/v1.<N>.0-*.md`): CWMP / BACnet
-refinements + token-generation cookies + SIGUSR1 reload +
-observability + CSV export + audit API + legacy-ICS
-fingerprint trios (FINS / SLMP / GE-SRTP / KNX / M-Bus /
-DLMS).
-
-**v1.15.0 published** as the latest GH release. 9 assets
-(4 archives + 4 SBOMs + checksums.txt). Tag GPG-signed with
-`ACE3B86BACACE7D6`. Loose-end closure cycle: CWMP
-TransferComplete observer + discover --auto + STIX 2.1 +
-audit flock + SIGHUP. Snapshot:
-`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`.
-
-**v1.12 → v1.14 cycles** (closed): per-object/path scoping
-across all 7 write-gates (v1.12), BACnet completion across
-all 9 mutating services + CWMP polish + InternetDB bulk +
-4th triage bucket (v1.13), IPv6 cross-cutting (v1.14). Per-
-cycle snapshots in `.context/snapshots/`.
-
-Sec gate fix from earlier: `b611f5c` swapped 18 `//nolint:gosec`
-to native `// #nosec G<NNN>` markers — `make sec` now exit-0.
-
-Read-only + protocol-flow RPCs (GetParameter*, Inform,
-TransferComplete, Kicked, Fault) pasan siempre. Write-capable
-RPCs (SetParameterValues, Reboot, FactoryReset, Download,
-Upload, etc.) requieren allowlist explícito. Refusal es SOAP
-Fault 9001 "Request denied" (TR-069 Annex A) + X-Elsereno-
-Gate-Reason header.
-
-GitHub Actions workflows quedaron desactivados (trigger
-cambiado a `workflow_dispatch` only) después de que todos
-fallaran con "payment failed / spending limit reached" — el
-proyecto opera ahora en el tier gratuito de GitHub. Si en el
-futuro se restaura billing, los workflows se pueden reactivar
-editando el `on:` stanza en cada `.github/workflows/*.yml`
-(los triggers originales quedan preservados en comentarios).
-
-**Shipped releases** (deep dives in `.context/snapshots/`):
-v1.0 → … → **v1.15** (latest published). v1.16 → v1.24 cycles
-closed on `main`, tags pending operator push.
+GitHub Actions: `audit.yml` (push/PR + weekly Mondays 06:00
+UTC) is the canonical live gate since v1.88. `ci.yml` +
+`release.yml` + others gated to `workflow_dispatch` (billing
+post-flip; reactivate via the `on:` stanza). Local
+goreleaser + syft + `gh release upload` remains the release
+path since v1.8.
 
 **Counts now**:
 - **25 protocol plugins** (default build): atg, atmodem, bacnet,
@@ -236,14 +213,10 @@ closed on `main`, tags pending operator push.
 - IEC 61850 MMS, OPC UA HTTPS, PROFINET (L2 with gopacket).
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
-**GitHub Actions**: gated to `workflow_dispatch:` (billing).
-Local goreleaser + syft + `gh release upload` is the canonical
-release path since v1.8.
-
 **Operator-pending**:
-- Push main + sign + push tags v1.16.0 → v1.24.0.
-- Revoke bootstrap PAT, `rm ~/.elsereno/gh-token`.
-- Repo public-flip decision.
+- Push v1.89.0 tag + goreleaser release (post-session).
+- Set Workflow permissions → write in repo Settings (release
+  flow needs token write scope; audit detected).
 
 **Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
 127.0.0.1:5433 via `scripts/dev-db.sh`.

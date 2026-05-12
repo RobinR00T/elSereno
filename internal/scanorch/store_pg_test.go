@@ -114,11 +114,14 @@ func (r *fakeRows) Next() bool {
 // Scan unpacks the test row map into the requested column
 // destinations. Shapes:
 //
-//   - 14 columns → scan_jobs projection (v1.67+:
-//     findings_by_plugin JSONB).
-//   - 13 columns → scan_schedules projection (v1.78+:
-//     updated_at column added between created_at and
-//     last_fired_at; v1.75 had 12 columns).
+//   - 14 columns → AMBIGUOUS between two projections:
+//     · scan_jobs (v1.67+: findings_by_plugin JSONB).
+//     · scan_schedules (v1.89+: audit_retention_days appended).
+//     Disambiguated by detecting the dst[2] type — scan_jobs
+//     uses `*time.Time` (created_at); scan_schedules uses
+//     `*string` (template_input).
+//   - 13 columns → scan_schedules pre-v1.89 projection (legacy
+//     tests that haven't migrated).
 //   - 1 column → existence-check projection (v1.78+:
 //     SELECT 1 used by DBScheduleStore.scheduleExists to
 //     disambiguate not-found vs. precondition-failure).
@@ -132,6 +135,13 @@ func (r *fakeRows) Scan(dst ...any) error {
 	row := r.rows[r.i-1]
 	switch len(dst) {
 	case 14:
+		// dst[2] kind distinguishes scan_jobs (time.Time =
+		// created_at) from scan_schedules (string =
+		// template_input). Schedules projection adds
+		// audit_retention_days at the tail since v1.89.
+		if _, isString := dst[2].(*string); isString {
+			return scanFakeSchedule(dst, row)
+		}
 		return scanFakeJob(dst, row)
 	case 13:
 		return scanFakeSchedule(dst, row)
@@ -193,6 +203,14 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 	*(dst[11].(*time.Time)) = row["updated_at"].(time.Time)
 	if v, ok := row["last_fired_at"].(*time.Time); ok {
 		*(dst[12].(**time.Time)) = v
+	}
+	// v1.89: audit_retention_days NULL-able column appended
+	// at the tail. Only present in the 14-column projection;
+	// the legacy 13-column tests don't pass this dst slot.
+	if len(dst) >= 14 {
+		if v, ok := row["audit_retention_days"].(*int32); ok {
+			*(dst[13].(**int32)) = v
+		}
 	}
 	return nil
 }

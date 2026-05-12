@@ -108,6 +108,8 @@ func writeScheduleValidationError(w http.ResponseWriter, err error) {
 		http.Error(w, "schedules: invalid cron expression: "+err.Error(), http.StatusBadRequest)
 	case errors.Is(err, scanorch.ErrScheduleInvalidTimezone):
 		http.Error(w, "schedules: "+err.Error(), http.StatusBadRequest)
+	case errors.Is(err, scanorch.ErrScheduleInvalidAuditRetentionDays):
+		http.Error(w, "schedules: audit_retention_days must be >= 0", http.StatusBadRequest)
 	default:
 		http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 	}

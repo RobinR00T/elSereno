@@ -34,9 +34,11 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 // v1.73+: includes cron_expr.
 // v1.75+: includes timezone.
 // v1.78+: includes updated_at.
+// v1.89+: includes audit_retention_days (NULL-able).
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
-interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at, last_fired_at`
+interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at, last_fired_at,
+audit_retention_days`
 
 // Create inserts a new schedule. Validation + cadence
 // resolution shares buildScheduleFromRequest with
@@ -54,11 +56,13 @@ func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest,
 	const sql = `
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
-   interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11)`
+   interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at,
+   audit_retention_days)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
 		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt, sched.UpdatedAt,
+		auditRetentionDaysToDB(sched.AuditRetentionDays),
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
@@ -125,44 +129,10 @@ func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateSched
 	if err := validateScheduleFields(req.Name, req.Template, req.IntervalSeconds, req.CronExpr, req.Timezone); err != nil {
 		return ScanSchedule{}, err
 	}
-	plugins := req.Template.Plugins
-	if plugins == nil {
-		plugins = []string{}
+	if err := validateAuditRetention(req.AuditRetentionDays); err != nil {
+		return ScanSchedule{}, err
 	}
-	// Stage the cadence on a temporary ScanSchedule so we
-	// reuse applyCadence's "reset both, set one" logic.
-	var staged ScanSchedule
-	applyCadence(&staged, req.IntervalSeconds, req.CronExpr)
-	now := time.Now().UTC().Truncate(time.Microsecond)
-	var (
-		rows pgx.Rows
-		err  error
-	)
-	if req.IfMatch != nil {
-		const sqlIfMatch = `
-UPDATE scan_schedules
-SET name = $2, template_input = $3, template_plugins = $4,
-    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
-    timezone = $8, updated_at = $10
-WHERE id = $1 AND updated_at = $9
-RETURNING ` + scheduleColumns
-		rows, err = s.q.Query(ctx, sqlIfMatch,
-			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
-			staged.IntervalSeconds, staged.CronExpr, req.Timezone, *req.IfMatch, now,
-		)
-	} else {
-		const sqlNoMatch = `
-UPDATE scan_schedules
-SET name = $2, template_input = $3, template_plugins = $4,
-    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
-    timezone = $8, updated_at = $9
-WHERE id = $1
-RETURNING ` + scheduleColumns
-		rows, err = s.q.Query(ctx, sqlNoMatch,
-			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
-			staged.IntervalSeconds, staged.CronExpr, req.Timezone, now,
-		)
-	}
+	rows, err := s.updateExec(ctx, id, req)
 	if err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: update schedule: %w", err)
 	}
@@ -184,6 +154,48 @@ RETURNING ` + scheduleColumns
 		return ScanSchedule{}, ErrSchedulePreconditionFailed
 	}
 	return scanSchedule(rows)
+}
+
+// updateExec dispatches the IfMatch vs. no-precondition SQL
+// paths. Returns the pgx.Rows from the RETURNING clause so the
+// caller can scan the updated row.
+func (s *DBScheduleStore) updateExec(ctx context.Context, id string, req UpdateScheduleRequest) (pgx.Rows, error) {
+	plugins := req.Template.Plugins
+	if plugins == nil {
+		plugins = []string{}
+	}
+	// Stage the cadence on a temporary ScanSchedule so we
+	// reuse applyCadence's "reset both, set one" logic.
+	var staged ScanSchedule
+	applyCadence(&staged, req.IntervalSeconds, req.CronExpr)
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	auditDays := auditRetentionDaysToDB(clampAuditRetention(req.AuditRetentionDays))
+	if req.IfMatch != nil {
+		const sqlIfMatch = `
+UPDATE scan_schedules
+SET name = $2, template_input = $3, template_plugins = $4,
+    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
+    timezone = $8, updated_at = $10, audit_retention_days = $11
+WHERE id = $1 AND updated_at = $9
+RETURNING ` + scheduleColumns
+		return s.q.Query(ctx, sqlIfMatch,
+			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
+			staged.IntervalSeconds, staged.CronExpr, req.Timezone, *req.IfMatch, now,
+			auditDays,
+		)
+	}
+	const sqlNoMatch = `
+UPDATE scan_schedules
+SET name = $2, template_input = $3, template_plugins = $4,
+    template_default_port = $5, interval_seconds = $6, cron_expr = $7,
+    timezone = $8, updated_at = $9, audit_retention_days = $10
+WHERE id = $1
+RETURNING ` + scheduleColumns
+	return s.q.Query(ctx, sqlNoMatch,
+		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
+		staged.IntervalSeconds, staged.CronExpr, req.Timezone, now,
+		auditDays,
+	)
 }
 
 // scheduleExists is a small helper used to disambiguate
@@ -246,17 +258,19 @@ func (s *DBScheduleStore) SetEnabled(ctx context.Context, id string, enabled boo
 // so the Go-side IsDue routes correctly without re-validating.
 func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	var (
-		s                 ScanSchedule
-		templateInput     string
-		templatePlugins   []string
-		templateDefaultPt int
-		lastFiredAt       *time.Time
+		s                  ScanSchedule
+		templateInput      string
+		templatePlugins    []string
+		templateDefaultPt  int
+		lastFiredAt        *time.Time
+		auditRetentionDays *int32
 	)
 	if err := rows.Scan(
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
 		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
 		&s.CreatedAt, &s.UpdatedAt, &lastFiredAt,
+		&auditRetentionDays,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)
 	}
@@ -268,7 +282,31 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	if lastFiredAt != nil {
 		s.LastFiredAt = *lastFiredAt
 	}
+	if auditRetentionDays != nil {
+		s.AuditRetentionDays = int(*auditRetentionDays)
+	}
 	return s, nil
+}
+
+// auditRetentionDaysToDB maps the Go int (0 = inherit/global)
+// to a NULL-able SQL value. 0 → nil → NULL in the column;
+// >0 → pointer to the int32 value. We use int32 so the
+// underlying pgx driver picks the right column type at bind
+// time regardless of platform int size.
+//
+// The int → int32 conversion is bounded by callers — Create
+// + Update clamp via clampAuditRetention to <= 365*10 well
+// inside int32 range. Defensive cap below catches any future
+// callers that bypass clamping.
+func auditRetentionDaysToDB(days int) any {
+	if days <= 0 {
+		return nil
+	}
+	if days > scheduleMaxAuditRetentionDays {
+		days = scheduleMaxAuditRetentionDays
+	}
+	v := int32(days) // #nosec G115 — clamped above to fit int32.
+	return &v
 }
 
 // Compile-time guard.

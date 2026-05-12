@@ -30,6 +30,10 @@ func makeScheduleRow(id, name string) map[string]any {
 		// v1.78: updated_at defaults to created_at; tests
 		// override when verifying the precondition path.
 		"updated_at": now,
+		// v1.89: NULL-able per-schedule audit retention override.
+		// nil → inherit global. *int32 pointer to override. Tests
+		// override when verifying the v1.89 round-trip.
+		"audit_retention_days": (*int32)(nil),
 	}
 }
 

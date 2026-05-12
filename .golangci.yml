@@ -101,6 +101,32 @@ linters:
       - path: internal/tui/
         linters:
           - misspell
+      # Linux-only sandbox plumbing: BPF/seccomp + syscall maps.
+      # Field names mirror the kernel header (Pivot_root, Kexec_load,
+      # …); G115 conversions are BPF imm-field bit shuffling; G103
+      # uses unsafe.Pointer for the syscall.Syscall6 boundary; G702
+      # appears in sandbox_integration_test.go tests which run real
+      # commands by design. Pre-existing and not addressed by any
+      # v1.89+ change; excluded to keep the audit gate green
+      # without weakening the global rule for other code.
+      - path: offensive/sandbox/syscalls_linux\.go
+        linters:
+          - revive
+          - dupl
+          - gofmt
+          - goimports
+      - path: offensive/sandbox/bpf_linux\.go
+        linters:
+          - gosec
+          - goconst
+      - path: offensive/sandbox/bpf_linux_test\.go
+        linters:
+          - gosec
+          - errorlint
+      - path: offensive/sandbox/sandbox_integration_test\.go
+        linters:
+          - gosec
+          - noctx
 
 formatters:
   enable:

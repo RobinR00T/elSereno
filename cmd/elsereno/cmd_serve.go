@@ -186,8 +186,13 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 	// v1.87: optional background audit pruner. Disabled
 	// (default) keeps the v1.86 behaviour where operators
 	// curl DELETE /api/v1/schedules/audit manually.
+	//
+	// v1.89: pass scheduleStore so the pruner can honour
+	// per-schedule audit_retention_days overrides. Nil
+	// scheduleStore (shouldn't happen in serve, but defensive)
+	// → pruner falls back to v1.87 global-only behaviour.
 	if opts.auditRetentionDays > 0 {
-		startAuditPruner(ctx, auditStore, opts.auditRetentionDays)
+		startAuditPruner(ctx, auditStore, scheduleStore, opts.auditRetentionDays)
 	}
 	return scanStore, scheduleStore, auditStore, stop, nil
 }
@@ -196,12 +201,17 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 // that enforces audit retention. The pruner clamps its own
 // retention + interval; we just translate days → duration
 // and wire the OnPrune/OnError callbacks to stderr.
-func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStore, days int) {
+//
+// v1.89: scheduleStore is wired in so the pruner can resolve
+// per-schedule AuditRetentionDays overrides on each tick. nil
+// is tolerated (falls back to global-only retention).
+func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStore, scheduleStore scanorch.ScheduleStore, days int) {
 	if auditStore == nil || days <= 0 {
 		return
 	}
 	pruner := &scanorch.AuditPruner{
 		AuditStore:      auditStore,
+		ScheduleStore:   scheduleStore,
 		RetentionPeriod: time.Duration(days) * 24 * time.Hour,
 		Interval:        24 * time.Hour,
 		OnPrune: func(count int64, cutoff time.Time) {
