@@ -37,7 +37,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - uses: ossf/scorecard-action@v2.4.3
@@ -62,7 +62,7 @@ jobs:
       contents: read
       attestations: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install slsa-verifier
         run: |
           go install github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest
@@ -92,7 +92,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/dependency-review-action@v4
         with:
           config-file: ./.github/dependency-review-config.yml
@@ -107,7 +107,7 @@ jobs:
     if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: google/osv-scanner-action/osv-scanner-action@v2.0.3
         with:
           scan-args: |-
@@ -119,7 +119,7 @@ jobs:
     name: license audit (deny list)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'

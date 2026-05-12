@@ -25,7 +25,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -75,7 +75,7 @@ jobs:
       CGO_ENABLED: '0'
       GOFLAGS: '-mod=readonly'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
@@ -89,7 +89,7 @@ jobs:
       CGO_ENABLED: '0'
       GOFLAGS: '-mod=readonly'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -103,7 +103,7 @@ jobs:
       CGO_ENABLED: '1'
       GOFLAGS: '-mod=readonly'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -120,7 +120,7 @@ jobs:
     name: fuzz smoke (30s)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -131,7 +131,7 @@ jobs:
     name: integration
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -149,7 +149,7 @@ jobs:
     name: sec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
@@ -179,7 +179,7 @@ jobs:
     name: secrets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
@@ -190,7 +190,7 @@ jobs:
     name: context
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: bash scripts/context-check.sh
 
   # codeql runs as an independent workflow on the same push/PR
@@ -205,5 +205,5 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.repository.visibility == 'public' && github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/dependency-review-action@v4
