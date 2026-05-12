@@ -26,6 +26,7 @@ del repo. Léelo cuando vayas a:
 5. [Re-auth de `gh` tras revocar PAT](#5-re-auth-gh)
 6. [DR — backup + restore](#6-disaster-recovery)
 7. [Admin handoff](#7-admin-handoff)
+8. [Audit checklist (`scripts/audit.sh`)](#8-audit-checklist)
 
 ---
 
@@ -310,6 +311,92 @@ etc.), camina:
    también, comparte el playbook
    `memory/elsereno_operational_playbook.md` (no commiteable;
    es por-cuenta-Claude).
+
+---
+
+## 8. Audit checklist
+
+`scripts/audit.sh` es un comando único proactivo que valida TODA
+la clase de problemas que hemos cazado durante v1.74–v1.88
+(YAML schema, dependabot empty arrays, broken markdown links,
+Go toolchain pin, CVEs en stdlib, build/lint/test/gosec/govulncheck,
+context-check, tag signatures, GitHub repo state).
+
+### Cuándo correrlo
+
+| Momento | Modo | Tiempo aprox. |
+|---|---|---|
+| Antes de cada commit "close de cycle" | `--full` | ~5 min |
+| Durante desarrollo (sanity check rápido) | `--quick` | ~5 s |
+| En cada push/PR | CI (`audit.yml`) automático | ~6–8 min |
+| Auditoría semanal de stdlib CVEs | CI cron lunes 06:00 UTC | automático |
+| Antes de abrir tarea nueva en sesión Claude | `--quick` | ~5 s |
+
+### Cómo correrlo
+
+```bash
+# Sanity rápido (YAML + docs + git + toolchain):
+scripts/audit.sh --quick
+
+# Audit completo:
+scripts/audit.sh --full
+
+# Modo CI (output friendly para GitHub Actions; sin colores):
+scripts/audit.sh --ci
+```
+
+### Qué chequea exactamente
+
+13 categorías, todas idempotentes:
+
+| # | Check | Por qué |
+|---|-------|---------|
+| 1 | Git state (clean + sync) | evita commit accidental con basura |
+| 2 | YAML syntax | `.github/*.yml`, docker-compose, openapi, goreleaser |
+| 3 | Dependabot schema | detecta `ignore: []` (gotcha real v1.88) |
+| 4 | Docs links | detecta `026-secret-transport.md` (gotcha real v1.87) |
+| 5 | Go toolchain pin | sin pin → stdlib CVE riesgo (gotcha v1.87) |
+| 6 | Build (default + offensive + mini) | matrix completa |
+| 7 | golangci-lint strict | |
+| 8 | `go test -race -short` | regresión race + test |
+| 9 | gosec | issues de seguridad |
+| 10 | govulncheck | CVEs stdlib + deps |
+| 11 | `make context-check` | STATE.md size + invariants |
+| 12 | Last 3 tags GPG-signed | regresión de firma |
+| 13 | GitHub repo state | Code Scanning configured, workflow perms write |
+
+### Exit codes
+
+- `0` — todo verde.
+- `1` — al menos un check falló (logs preservados en `/tmp/.audit-*`).
+- `2` — error de invocación (flag inválido, etc.).
+
+### Si un check falla
+
+1. Lee `/tmp/.audit-*.<PID>` para el log completo.
+2. Cross-check contra `memory/elsereno_operational_playbook.md`
+   §Gotchas — probablemente está catalogado.
+3. Si no está: arréglalo + añade entry nueva al playbook + añade
+   chequeo al script si no estaba cubierto.
+
+### Cuándo extender el script
+
+Cuando descubras una nueva clase de problema que podría repetirse,
+añade el chequeo a `scripts/audit.sh` siguiendo el patrón de
+las 13 secciones existentes:
+
+```bash
+# ====================================================================
+hdr "N. Mi nuevo check"
+# ====================================================================
+if <condición>; then
+    ok "descripción del éxito"
+else
+    fail "descripción del fallo"
+fi
+```
+
+Y actualiza la tabla "Qué chequea exactamente" arriba.
 
 ---
 
