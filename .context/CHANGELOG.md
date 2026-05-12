@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.95 (chunk 1) — **Bulk
+  pause/resume schedules.** New endpoints
+  `POST /api/v1/schedules/bulk/{enable|disable}`.
+  Affects only schedules whose state actually changes
+  (already-disabled → bulk/disable = no-op, no audit
+  row written). Returns `{affected, failed_audits,
+  target_state}`. One audit event per real transition.
+  Dashboard "Pause All" / "Resume All" buttons with
+  confirm dialog. +1 unit test.
+  Snapshot:
+  `.context/snapshots/v1.95.0-bulk-pause-resume.md`.
+
 - 2026-05-12 — v1.94 (chunk 1) — **Pruner tick
   duration histogram.** New
   `elsereno_audit_pruner_tick_duration_seconds`

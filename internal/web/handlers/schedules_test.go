@@ -1061,6 +1061,72 @@ func TestCloneSchedule_OverrideName(t *testing.T) {
 	}
 }
 
+// TestBulkSetEnabled_DisableAll (v1.95+): bulk-disable affects
+// only enabled schedules + writes audit per state change.
+func TestBulkSetEnabled_DisableAll(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	// Two enabled schedules + one already disabled.
+	a, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "a",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	b, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "b",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	c, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "c",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	_ = store.SetEnabled(context.Background(), c.ID, false)
+
+	router := newSchedRouterWithAudit(store, audit)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/bulk/disable", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Affected     int  `json:"affected"`
+			FailedAudits int  `json:"failed_audits"`
+			TargetState  bool `json:"target_state"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.Affected != 2 {
+		t.Errorf("affected = %d, want 2 (c was already disabled)", resp.Data.Affected)
+	}
+	if resp.Data.TargetState != false {
+		t.Errorf("target_state = %v, want false", resp.Data.TargetState)
+	}
+	// All 3 should now be disabled.
+	got, _ := store.Get(context.Background(), a.ID)
+	if got.Enabled {
+		t.Errorf("a.Enabled = true, want false")
+	}
+	got, _ = store.Get(context.Background(), b.ID)
+	if got.Enabled {
+		t.Errorf("b.Enabled = true, want false")
+	}
+	// Audit log: 2 rows expected (the no-op c skip means no
+	// audit row for it).
+	evA, _ := audit.ListBySchedule(context.Background(), a.ID)
+	if len(evA) != 1 {
+		t.Errorf("a audit events = %d, want 1", len(evA))
+	}
+	evC, _ := audit.ListBySchedule(context.Background(), c.ID)
+	if len(evC) != 0 {
+		t.Errorf("c audit events = %d, want 0 (no-op transition)", len(evC))
+	}
+}
+
 // TestCloneSchedule_NotFound (v1.93+): unknown source → 404.
 func TestCloneSchedule_NotFound(t *testing.T) {
 	router := newSchedRouter(scanorch.NewMemoryScheduleStore())

@@ -1,28 +1,28 @@
 ---
-phase: v1.94-closed
-status: v1.16-v1.93 published; v1.94 tag pending push
+phase: v1.95-closed
+status: v1.16-v1.94 published; v1.95 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.94 cycle closed on `main`** (1 chunk +
-close). Pruner tick-duration histogram:
-`elsereno_audit_pruner_tick_duration_seconds` with
-buckets [1ms, 60s]. New `AuditPruner.OnTick` callback
-fires on every tick (success/error/skip) so cmd_serve
-can observe. +1 parametric test (3 outcome branches).
+**Phase**: **v1.95 cycle closed on `main`** (1 chunk +
+close). Bulk pause/resume schedules: new endpoints
+`POST /api/v1/schedules/bulk/{enable|disable}` return
+`{affected, failed_audits, target_state}`. Affects only
+schedules whose state actually changes (no audit noise
+for no-op transitions). Dashboard "Pause All" / "Resume
+All" buttons. +1 unit test.
 
-Snapshot: `.context/snapshots/v1.94.0-pruner-tick-histogram.md`.
+Snapshot: `.context/snapshots/v1.95.0-bulk-pause-resume.md`.
 
-**v1.89-v1.93 cycles (closed; per-cycle snapshots)**:
-v1.89 deleted badge + per-schedule retention overrides
-(migration 00013). v1.90 advisory-locked audit pruner.
-v1.91 Prometheus pruner runs+events counters. v1.92
-schedule run history (migration 00014 + endpoint +
-dashboard). v1.93 schedule clone endpoint + dashboard
-button.
+**v1.89-v1.94 cycles (closed; per-cycle snapshots)**:
+v1.89 deleted badge + per-schedule retention (migration
+00013). v1.90 advisory-locked pruner. v1.91 pruner
+runs+events counters. v1.92 schedule run history
+(migration 00014). v1.93 schedule clone endpoint. v1.94
+pruner tick-duration histogram.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

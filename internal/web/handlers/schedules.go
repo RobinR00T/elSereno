@@ -21,6 +21,8 @@ import (
 //	POST   /api/v1/schedules/{id}/enable
 //	POST   /api/v1/schedules/{id}/disable
 //	POST   /api/v1/schedules/{id}/clone       duplicate (v1.93+)
+//	POST   /api/v1/schedules/bulk/enable      bulk-enable every schedule (v1.95+)
+//	POST   /api/v1/schedules/bulk/disable     bulk-disable every schedule (v1.95+)
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
@@ -56,6 +58,8 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/runs", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/{id}/clone", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/schedules/bulk/enable", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/schedules/bulk/disable", serviceUnavailable)
 		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
@@ -75,8 +79,82 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store))
+	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
+	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
+}
+
+// bulkSetEnabled (v1.95+) handles
+// POST /api/v1/schedules/bulk/{enable|disable}. Toggles every
+// schedule's Enabled state to the target value + writes one
+// audit event per affected schedule (best-effort, v1.84
+// pattern). Returns the count of schedules affected (NOT
+// total — only those whose state actually changed).
+//
+// Designed for planned-maintenance workflows: operator does
+// "bulk/disable" before a DB migration, runs the migration,
+// then "bulk/enable" to resume. Audit log records who did
+// the pause/resume + when, so a compliance review can trace
+// the maintenance window.
+//
+// Pause-then-pause is a no-op for already-disabled schedules
+// (no audit row written); same for enable-then-enable. This
+// keeps the audit log meaningful — only state transitions
+// show up.
+func bulkSetEnabled(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, enabled bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		schedules, err := store.List(r.Context())
+		if err != nil {
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		operator := operatorFromRequest(r)
+		var affected int
+		var failedAudits int
+		for _, s := range schedules {
+			if s.Enabled == enabled {
+				continue // no-op transition; skip audit too
+			}
+			before := s
+			if err := store.SetEnabled(r.Context(), s.ID, enabled); err != nil {
+				// Keep going — bulk op is best-effort. Operator
+				// can read the response count + diff against
+				// List to see which schedules didn't flip.
+				continue
+			}
+			affected++
+			if audit == nil {
+				continue
+			}
+			after := before
+			after.Enabled = enabled
+			eventType := scanorch.ScheduleAuditEventSetEnabledFalse
+			if enabled {
+				eventType = scanorch.ScheduleAuditEventSetEnabledTrue
+			}
+			beforeJSON, _ := json.Marshal(before)
+			afterJSON, _ := json.Marshal(after)
+			if _, auditErr := audit.Append(r.Context(), scanorch.ScheduleAuditEvent{
+				ScheduleID:    s.ID,
+				EventType:     eventType,
+				Operator:      operator,
+				PayloadBefore: beforeJSON,
+				PayloadAfter:  afterJSON,
+			}); auditErr != nil {
+				failedAudits++
+			}
+		}
+		if failedAudits > 0 {
+			w.Header().Set("X-Schedule-Audit-Warning",
+				"some bulk-op audit rows failed to persist")
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"affected":      affected,
+			"failed_audits": failedAudits,
+			"target_state":  enabled,
+		}})
+	})
 }
 
 // CloneScheduleRequest (v1.93+) is the optional override body

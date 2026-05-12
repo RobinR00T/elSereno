@@ -505,6 +505,12 @@ const overviewHTML = `<!doctype html>
         DBScheduleStore (--scan-store=db; survives
         restart, requires migration 00007).
       </div>
+      <!-- v1.95: bulk pause/resume for planned maintenance. -->
+      <div style="margin: 0.4em 0; display: flex; gap: 0.4em; align-items: center;">
+        <button type="button" onclick="bulkScheduleEnable(false)" title="Disable every schedule (writes audit per state change).">Pause All</button>
+        <button type="button" onclick="bulkScheduleEnable(true)" title="Re-enable every schedule.">Resume All</button>
+        <span id="schedule-bulk-status" class="sub"></span>
+      </div>
       <form id="schedule-submit-form" onsubmit="return submitSchedule(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
         <label>name:
           <input type="text" id="schedule-name" placeholder="every-6h" size="20" required />
@@ -2068,6 +2074,35 @@ const overviewHTML = `<!doctype html>
       if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
+  // bulkScheduleEnable (v1.95) POSTs to
+  // /schedules/bulk/{enable|disable}. Shows the affected count
+  // in the status line + re-renders the table.
+  function bulkScheduleEnable(enabled) {
+    var label = enabled ? "Resume All" : "Pause All";
+    var action = enabled ? "enable" : "disable";
+    if (!confirm(label + ": apply to every schedule? Audit log records each state change.")) return;
+    var status = document.getElementById("schedule-bulk-status");
+    if (status) status.textContent = label + "…";
+    fetch("/api/v1/schedules/bulk/" + action, {
+      method: "POST",
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var d = (res && res.data) || {};
+      var n = (d.affected != null) ? d.affected : "?";
+      var fa = d.failed_audits || 0;
+      if (status) {
+        var msg = label + " done — " + n + " schedule(s) flipped";
+        if (fa > 0) msg += " (" + fa + " audit row(s) failed)";
+        status.textContent = msg;
+      }
+      renderSchedules();
+    }).catch(function (e) {
+      if (status) status.textContent = "bulk op failed: " + e.message;
+    });
+  }
   // cloneSchedule (v1.93) POSTs to /schedules/{id}/clone with
   // empty body. Server defaults the name to "<source> (copy)";
   // operator can rename via the Edit button on the cloned row
@@ -2103,6 +2138,8 @@ const overviewHTML = `<!doctype html>
   window.deleteSchedule = deleteSchedule;
   // v1.93 schedule clone.
   window.cloneSchedule = cloneSchedule;
+  // v1.95 bulk pause/resume.
+  window.bulkScheduleEnable = bulkScheduleEnable;
   // v1.73 cadence mode toggle.
   window.onScheduleCadenceModeChange = onScheduleCadenceModeChange;
   // v1.74 schedule edit-mode helpers.
