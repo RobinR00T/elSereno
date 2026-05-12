@@ -24,7 +24,13 @@ deny-licenses:
   - LGPL-2.1
   - LGPL-3.0
   - SSPL-1.0
-  - Commons-Clause
+  # NOTE: "Commons-Clause" was previously here but rejected by
+  # actions/dependency-review-action with "Invalid license(s) in
+  # deny-licenses". Commons Clause is an ADDITIONAL RESTRICTION
+  # layered on top of an existing license (typically MIT/Apache-
+  # 2.0); it has NO SPDX identifier. When a commons-clause-
+  # encumbered dep surfaces, block it via its module path in
+  # deny-packages instead (PR-level).
   - Elastic-2.0
 
 # Fail the PR for any advisory at or above this severity.
