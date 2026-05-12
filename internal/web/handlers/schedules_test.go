@@ -989,6 +989,90 @@ func TestListScheduleRuns_ScheduleNotFound(t *testing.T) {
 	}
 }
 
+// TestCloneSchedule_DefaultName (v1.93+): empty body → name
+// defaults to "<source> (copy)" + everything else copied.
+func TestCloneSchedule_DefaultName(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "nightly-fleet",
+		Template:        scanorch.SubmitRequest{Input: "list:fleet.txt", Plugins: []string{"banner"}},
+		IntervalSeconds: 86400,
+		Timezone:        "UTC",
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create err = %v", err)
+	}
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/"+source.ID+"/clone", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode err = %v", err)
+	}
+	if resp.Data.Name != "nightly-fleet (copy)" {
+		t.Errorf("Name = %q, want %q", resp.Data.Name, "nightly-fleet (copy)")
+	}
+	if resp.Data.ID == source.ID {
+		t.Errorf("clone has same ID as source: %s", resp.Data.ID)
+	}
+	if resp.Data.IntervalSeconds != source.IntervalSeconds {
+		t.Errorf("IntervalSeconds = %d, want %d", resp.Data.IntervalSeconds, source.IntervalSeconds)
+	}
+	if !resp.Data.Enabled {
+		t.Errorf("Enabled = false, want true (clones always start enabled)")
+	}
+}
+
+// TestCloneSchedule_OverrideName (v1.93+): non-empty name in
+// body wins over the default "(copy)".
+func TestCloneSchedule_OverrideName(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "nightly-fleet",
+		Template:        scanorch.SubmitRequest{Input: "list:fleet.txt"},
+		IntervalSeconds: 86400,
+	}, "alice")
+	router := newSchedRouter(store)
+	body := strings.NewReader(`{"name":"weekly-fleet","interval_seconds":604800}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/"+source.ID+"/clone", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.Name != "weekly-fleet" {
+		t.Errorf("Name = %q, want %q", resp.Data.Name, "weekly-fleet")
+	}
+	if resp.Data.IntervalSeconds != 604800 {
+		t.Errorf("IntervalSeconds = %d, want 604800", resp.Data.IntervalSeconds)
+	}
+}
+
+// TestCloneSchedule_NotFound (v1.93+): unknown source → 404.
+func TestCloneSchedule_NotFound(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/notreal/clone", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rr.Code)
+	}
+}
+
 // TestListScheduleRuns_NoScanStore (v1.92+): nil scan store
 // → 503.
 func TestListScheduleRuns_NoScanStore(t *testing.T) {

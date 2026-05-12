@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.93 (chunk 1) — **Schedule clone
+  endpoint.** New `POST /api/v1/schedules/{id}/clone`
+  with optional override body (name, cadence,
+  audit_retention_days). Default name is
+  "<source> (copy)"; cadence overrides replace
+  source's atomically; clone always starts
+  Enabled=true; LastFiredAt resets; operator =
+  cloner. Dashboard "Clone" per-row button.
+  +3 unit tests. Snapshot:
+  `.context/snapshots/v1.93.0-schedule-clone.md`.
+
 - 2026-05-12 — v1.92 (chunk 1) — **Schedule run
   history.** Migration 00014 adds NULL-able
   `triggered_by_schedule_id` to scan_jobs +

@@ -1292,6 +1292,8 @@ const overviewHTML = `<!doctype html>
             '" data-sched-name="' + escAttr(s.name || s.id) +
             '" onclick="openRunsView(this.dataset.schedId, this.dataset.schedName)">Runs</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" onclick="cloneSchedule(this.dataset.schedId)">Clone</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
           return '<tr data-sched-id="' + escAttr(s.id) + '">' +
             '<td>' + escText(s.name || "") + '</td>' +
@@ -2066,6 +2068,28 @@ const overviewHTML = `<!doctype html>
       if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
+  // cloneSchedule (v1.93) POSTs to /schedules/{id}/clone with
+  // empty body. Server defaults the name to "<source> (copy)";
+  // operator can rename via the Edit button on the cloned row
+  // immediately after. Adds the cloned schedule + re-renders
+  // the table so the new row appears.
+  function cloneSchedule(id) {
+    if (!id) return;
+    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/clone", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      credentials: "same-origin",
+      body: "{}"
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function () {
+      renderSchedules();
+    }).catch(function (e) {
+      var body = document.getElementById("schedules-body");
+      if (body) body.innerHTML = '<tr class="empty"><td colspan="8">clone failed: ' + escText(e.message) + '</td></tr>';
+    });
+  }
 
   // Expose cancelScan + submitScan + bulk helpers as page
   // globals so the inline onclick + onsubmit handlers find them.
@@ -2077,6 +2101,8 @@ const overviewHTML = `<!doctype html>
   window.submitSchedule = submitSchedule;
   window.toggleSchedule = toggleSchedule;
   window.deleteSchedule = deleteSchedule;
+  // v1.93 schedule clone.
+  window.cloneSchedule = cloneSchedule;
   // v1.73 cadence mode toggle.
   window.onScheduleCadenceModeChange = onScheduleCadenceModeChange;
   // v1.74 schedule edit-mode helpers.

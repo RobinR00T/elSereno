@@ -1,38 +1,34 @@
 ---
-phase: v1.92-closed
-status: v1.16-v1.91 published; v1.92 tag pending push
+phase: v1.93-closed
+status: v1.16-v1.92 published; v1.93 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.92 cycle closed on `main`** (1 chunk +
-close). Schedule run history: migration 00014 adds
-NULL-able `triggered_by_schedule_id` FK to scan_jobs +
-partial index. Scheduler.fire now writes the linkage via
-new `SubmitFromSchedule` Store method. New endpoint
-`GET /api/v1/schedules/{id}/runs?limit=N`. Dashboard gets
-"Runs" per-schedule button + viewer panel. +3 unit tests.
+**Phase**: **v1.93 cycle closed on `main`** (1 chunk +
+close). Schedule clone endpoint: new
+`POST /api/v1/schedules/{id}/clone` with optional override
+body (name, cadence, audit_retention_days). Defaults to
+"<source> (copy)" naming; clones always Enabled=true with
+fresh LastFiredAt + operator = the cloner. Dashboard
+gets "Clone" per-schedule button. +3 unit tests.
 
+Snapshot: `.context/snapshots/v1.93.0-schedule-clone.md`.
+
+**v1.92 cycle (closed, snapshot available)**: Schedule run
+history. Migration 00014 adds NULL-able
+`triggered_by_schedule_id` FK to scan_jobs + partial index.
+New Store methods `SubmitFromSchedule` + `ListBySchedule`.
+Endpoint `GET /api/v1/schedules/{id}/runs?limit=N`.
+Dashboard "Runs" per-row button + viewer table.
 Snapshot: `.context/snapshots/v1.92.0-schedule-run-history.md`.
 
-**v1.91 cycle (closed, snapshot available)**: Pruner
-Prometheus metrics — labelled counter
-`elsereno_audit_pruner_runs_total{result}` + cumulative
-`elsereno_audit_pruner_events_deleted_total`. Refactored
-`NewMetrics` into core+pruner builders. Closes v1.90
-carryover. Snapshot:
-`.context/snapshots/v1.91.0-pruner-metrics.md`.
-
-**v1.90 cycle (closed, snapshot available)**: Advisory-
-locked audit pruner. `AdvisoryLockedAuditStore` interface +
-`PruneWithLock` PG impl using `pg_try_advisory_xact_lock`.
-`AuditPruner.AdvisoryLockKey` + `OnLockSkipped` fields.
-Multi-process serve deployments now coordinate cleanly —
-one instance prunes per cutoff, others skip. Memory store
-silently falls back to v1.89 semantics. +3 unit tests.
-Snapshot: `.context/snapshots/v1.90.0-advisory-lock-pruner.md`.
+**v1.89-v1.91 cycles (closed; per-cycle snapshots)**:
+v1.89 deleted badge + per-schedule retention overrides
+(migration 00013). v1.90 advisory-locked audit pruner.
+v1.91 Prometheus pruner metrics.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

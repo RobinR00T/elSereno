@@ -20,6 +20,7 @@ import (
 //	DELETE /api/v1/schedules/{id}             remove
 //	POST   /api/v1/schedules/{id}/enable
 //	POST   /api/v1/schedules/{id}/disable
+//	POST   /api/v1/schedules/{id}/clone       duplicate (v1.93+)
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
@@ -54,6 +55,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/runs", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/schedules/{id}/clone", serviceUnavailable)
 		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
@@ -72,8 +74,123 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
+	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
+}
+
+// CloneScheduleRequest (v1.93+) is the optional override body
+// for POST /schedules/{id}/clone. Any non-zero field replaces
+// the corresponding value from the source schedule. Empty body
+// = full copy with name defaulting to "<source.name> (copy)".
+type CloneScheduleRequest struct {
+	// Name overrides the cloned schedule's name. Empty →
+	// "<source.name> (copy)". Operators cloning iteratively
+	// would otherwise hit name collisions if they typo-skip
+	// this field.
+	Name string `json:"name,omitempty"`
+	// IntervalSeconds + CronExpr + Timezone override cadence.
+	// Same XOR rules as Create. Zero values fall back to the
+	// source schedule's cadence.
+	IntervalSeconds int    `json:"interval_seconds,omitempty"`
+	CronExpr        string `json:"cron_expr,omitempty"`
+	Timezone        string `json:"timezone,omitempty"`
+	// AuditRetentionDays override (v1.89+). Zero → inherit the
+	// source's value (which may itself be inherit-global).
+	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+}
+
+// cloneSchedule (v1.93+) handles POST /schedules/{id}/clone.
+// Creates a new schedule by copying the source + applying any
+// overrides from the body. Default name is "<source> (copy)"
+// to avoid silent collisions (Names are non-unique but the
+// dashboard sorts by name so collision-prone clones make ops
+// life worse).
+//
+// Returns 201 + the new schedule. 404 if source unknown.
+// 400 on a body that parses but fails validation (the
+// validation is identical to Create's).
+//
+// Notable copy semantics:
+//   - Enabled = true on the clone, regardless of source.
+//     Operators cloning a disabled schedule almost always
+//     want to test the clone, not preserve the disabled
+//     state.
+//   - LastFiredAt does NOT carry over (clone starts
+//     "never-fired"; new ID = new cadence anchor).
+//   - Operator on the clone = the cloner (X-Operator
+//     header), NOT the original schedule's operator.
+//     Preserves provenance per-creation; original schedule
+//     unaffected.
+func cloneSchedule(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		// Body is optional; an empty body decodes cleanly to
+		// the zero-value struct. EOF on Decode also fine —
+		// just means "no body".
+		var override CloneScheduleRequest
+		if r.ContentLength > 0 {
+			if err := json.NewDecoder(r.Body).Decode(&override); err != nil {
+				http.Error(w, "schedules: malformed JSON: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		source, err := store.Get(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		req := buildCloneRequest(source, override)
+		operator := operatorFromRequest(r)
+		clone, err := store.Create(r.Context(), req, operator)
+		if err != nil {
+			writeScheduleValidationError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFire(clone, time.Now().UTC())})
+	})
+}
+
+// buildCloneRequest copies the source schedule + applies
+// overrides. Default name is "<source.name> (copy)" to keep
+// collisions visible without forcing operators to type a
+// fresh name on every clone.
+func buildCloneRequest(source scanorch.ScanSchedule, override CloneScheduleRequest) scanorch.CreateScheduleRequest {
+	name := override.Name
+	if name == "" {
+		name = source.Name + " (copy)"
+	}
+	req := scanorch.CreateScheduleRequest{
+		Name:               name,
+		Template:           source.Template,
+		IntervalSeconds:    source.IntervalSeconds,
+		CronExpr:           source.CronExpr,
+		Timezone:           source.Timezone,
+		AuditRetentionDays: source.AuditRetentionDays,
+	}
+	// Cadence override: when the operator specifies a cadence
+	// in the body, that wins. The cadence-XOR rule applies —
+	// they must specify exactly one of interval/cron if
+	// overriding either. Empty body fields = use source's
+	// cadence as-is.
+	if override.IntervalSeconds > 0 || override.CronExpr != "" {
+		req.IntervalSeconds = override.IntervalSeconds
+		req.CronExpr = override.CronExpr
+		req.Timezone = override.Timezone
+	}
+	if override.AuditRetentionDays > 0 {
+		req.AuditRetentionDays = override.AuditRetentionDays
+	}
+	return req
 }
 
 // listScheduleRuns (v1.92+) handles GET /schedules/{id}/runs.
