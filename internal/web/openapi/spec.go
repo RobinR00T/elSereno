@@ -315,6 +315,22 @@ func schedulesBulkSpecPaths() []Path {
 				Responses:   resp,
 			},
 		}},
+		{URL: "/api/v1/schedules/export", Operations: map[string]Operation{
+			"get": {
+				Summary: "Export schedules for backup (v1.97+).",
+				Description: "Query param: format=csv|ndjson|json (default json). " +
+					"CSV is 10-column flat (id, name, cadence, enabled, operator, " +
+					"created_at, last_fired_at, audit_retention_days, input, plugins). " +
+					"NDJSON is round-trippable via per-line POST. " +
+					"Content-Disposition: attachment with sensible filenames.",
+				Tags: tag,
+				Responses: map[string]Response{
+					"200": {Description: "Body in the requested format."},
+					"400": {Description: "Unsupported format."},
+					"503": {Description: "Schedule store unavailable."},
+				},
+			},
+		}},
 	}
 }
 

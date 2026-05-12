@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.97 (chunk 1) — **Schedules
+  export (CSV/NDJSON/JSON).** New
+  `GET /api/v1/schedules/export?format=csv|ndjson|json`.
+  CSV is 10-column flat (id, name, cadence, enabled,
+  operator, created_at, last_fired_at,
+  audit_retention_days, input, plugins). NDJSON is
+  round-trippable. Content-Disposition: attachment
+  with sensible filenames. Dashboard "Export CSV" +
+  "Export NDJSON" links next to bulk buttons. +3
+  unit tests. Snapshot:
+  `.context/snapshots/v1.97.0-schedules-export.md`.
+
 - 2026-05-12 — v1.96 (chunk 1) — **OpenAPI
   coverage for 13 schedule endpoints.** Added
   spec entries for /schedules, /{id}, /preview,

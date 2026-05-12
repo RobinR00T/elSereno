@@ -1061,6 +1061,95 @@ func TestCloneSchedule_OverrideName(t *testing.T) {
 	}
 }
 
+// TestExportSchedules_CSV (v1.97+): CSV export has header row +
+// one row per schedule with the 10 documented columns.
+func TestExportSchedules_CSV(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "daily-fleet",
+		Template:        scanorch.SubmitRequest{Input: "list:fleet.txt", Plugins: []string{"banner", "modbus"}},
+		IntervalSeconds: 86400,
+	}, "alice")
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "cron-1",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 2 * * *",
+		Timezone: "Europe/Madrid",
+	}, "alice")
+
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/export?format=csv", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
+		t.Errorf("Content-Type = %q, want text/csv*", ct)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "id,name,cadence,enabled,operator,created_at,last_fired_at,audit_retention_days,input,plugins") {
+		t.Errorf("missing CSV header in body:\n%s", body)
+	}
+	if !strings.Contains(body, "daily-fleet,interval=86400s,true,alice") {
+		t.Errorf("missing daily-fleet row:\n%s", body)
+	}
+	if !strings.Contains(body, "cron=0 2 * * * (Europe/Madrid)") {
+		t.Errorf("missing cron schedule row:\n%s", body)
+	}
+}
+
+// TestExportSchedules_NDJSON (v1.97+): NDJSON export is one
+// JSON object per line.
+func TestExportSchedules_NDJSON(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "a",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "b",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/export?format=ndjson", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/x-ndjson" {
+		t.Errorf("Content-Type = %q, want application/x-ndjson", ct)
+	}
+	lines := strings.Split(strings.TrimSpace(rr.Body.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("lines = %d, want 2: %s", len(lines), rr.Body.String())
+	}
+	for _, line := range lines {
+		var s scanorch.ScanSchedule
+		if err := json.Unmarshal([]byte(line), &s); err != nil {
+			t.Errorf("decode err = %v on line: %s", err, line)
+		}
+	}
+}
+
+// TestExportSchedules_BadFormat (v1.97+): unsupported format
+// → 400.
+func TestExportSchedules_BadFormat(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/export?format=xml", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestBulkSetEnabled_DisableAll (v1.95+): bulk-disable affects
 // only enabled schedules + writes audit per state change.
 func TestBulkSetEnabled_DisableAll(t *testing.T) {

@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/scanorch"
@@ -23,6 +25,7 @@ import (
 //	POST   /api/v1/schedules/{id}/clone       duplicate (v1.93+)
 //	POST   /api/v1/schedules/bulk/enable      bulk-enable every schedule (v1.95+)
 //	POST   /api/v1/schedules/bulk/disable     bulk-disable every schedule (v1.95+)
+//	GET    /api/v1/schedules/export           CSV/NDJSON backup (v1.97+)
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
@@ -60,6 +63,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 		mux.HandleFunc("POST /api/v1/schedules/{id}/clone", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/bulk/enable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/bulk/disable", serviceUnavailable)
+		mux.HandleFunc("GET /api/v1/schedules/export", serviceUnavailable)
 		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
@@ -81,8 +85,107 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
+	mux.Handle("GET /api/v1/schedules/export", exportSchedules(store))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
+}
+
+// exportSchedules (v1.97+) handles GET /schedules/export. Returns
+// every schedule in one of two formats for DR backup or audit
+// review:
+//
+//	?format=csv    → text/csv with a header row.
+//	?format=ndjson → application/x-ndjson, one schedule per line.
+//	?format=json   → application/json (default; matches /schedules).
+//
+// CSV is intentionally lossy — only top-level fields. NDJSON is
+// the canonical round-trip format: pipe through
+// `cat | jq -s '.' | curl -XPOST ... /schedules` is the
+// restore recipe (one POST per line; out of scope for this
+// endpoint to do server-side).
+//
+// Content-Disposition is set to `attachment; filename=...`
+// so `curl -O` saves a sensible default name.
+func exportSchedules(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		schedules, err := store.List(r.Context())
+		if err != nil {
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		format := r.URL.Query().Get("format")
+		if format == "" {
+			format = "json"
+		}
+		switch format {
+		case "csv":
+			writeSchedulesCSV(w, schedules)
+		case "ndjson":
+			writeSchedulesNDJSON(w, schedules)
+		case "json":
+			writeJSON(w, scanResponse{Schema: "api:v1", Data: schedules})
+		default:
+			http.Error(w, "schedules: unsupported format (csv|ndjson|json)", http.StatusBadRequest)
+		}
+	})
+}
+
+// writeSchedulesCSV emits a 10-column CSV: id, name, cadence
+// (compact "interval=Ns" or "cron=expr (tz)"), enabled,
+// operator, created_at, last_fired_at, audit_retention_days,
+// input, plugins. The dashboard form's editable fields are
+// covered + the read-only metadata an admin would want for an
+// audit review.
+func writeSchedulesCSV(w http.ResponseWriter, schedules []scanorch.ScanSchedule) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition",
+		`attachment; filename="elsereno-schedules.csv"`)
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+	_ = cw.Write([]string{
+		"id", "name", "cadence", "enabled", "operator",
+		"created_at", "last_fired_at", "audit_retention_days",
+		"input", "plugins",
+	})
+	for _, s := range schedules {
+		var cadence string
+		if s.CronExpr != "" {
+			cadence = "cron=" + s.CronExpr
+			if s.Timezone != "" {
+				cadence += " (" + s.Timezone + ")"
+			}
+		} else {
+			cadence = "interval=" + strconv.Itoa(s.IntervalSeconds) + "s"
+		}
+		lastFired := ""
+		if !s.LastFiredAt.IsZero() {
+			lastFired = s.LastFiredAt.UTC().Format(time.RFC3339)
+		}
+		_ = cw.Write([]string{
+			s.ID, s.Name, cadence,
+			strconv.FormatBool(s.Enabled), s.Operator,
+			s.CreatedAt.UTC().Format(time.RFC3339), lastFired,
+			strconv.Itoa(s.AuditRetentionDays),
+			s.Template.Input,
+			strings.Join(s.Template.Plugins, "|"),
+		})
+	}
+}
+
+// writeSchedulesNDJSON emits one canonical JSON object per
+// line. Round-trippable through Create — the operator pipe
+// `... | jq -c '.' | xargs -I {} curl -XPOST -d '{}' /schedules`
+// is the restore recipe. Includes the same fields the API
+// returns on GET /schedules (with sensitive fields not stripped
+// because the operator already has access to read them).
+func writeSchedulesNDJSON(w http.ResponseWriter, schedules []scanorch.ScanSchedule) {
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Content-Disposition",
+		`attachment; filename="elsereno-schedules.ndjson"`)
+	enc := json.NewEncoder(w)
+	for _, s := range schedules {
+		_ = enc.Encode(s) // newline-terminated by Encoder.
+	}
 }
 
 // bulkSetEnabled (v1.95+) handles

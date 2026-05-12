@@ -326,6 +326,19 @@ paths:
       summary: Bulk-enable every schedule (v1.95+).
       tags:
         - schedules
+  /api/v1/schedules/export:
+    get:
+      description: 'Query param: format=csv|ndjson|json (default json). CSV is 10-column flat (id, name, cadence, enabled, operator, created_at, last_fired_at, audit_retention_days, input, plugins). NDJSON is round-trippable via per-line POST. Content-Disposition: attachment with sensible filenames.'
+      responses:
+        "200":
+          description: Body in the requested format.
+        "400":
+          description: Unsupported format.
+        "503":
+          description: Schedule store unavailable.
+      summary: Export schedules for backup (v1.97+).
+      tags:
+        - schedules
   /api/v1/schedules/preview:
     post:
       description: 'Body: CreateScheduleRequest. Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.'

@@ -506,9 +506,12 @@ const overviewHTML = `<!doctype html>
         restart, requires migration 00007).
       </div>
       <!-- v1.95: bulk pause/resume for planned maintenance. -->
+      <!-- v1.97: export links for DR backup. -->
       <div style="margin: 0.4em 0; display: flex; gap: 0.4em; align-items: center;">
         <button type="button" onclick="bulkScheduleEnable(false)" title="Disable every schedule (writes audit per state change).">Pause All</button>
         <button type="button" onclick="bulkScheduleEnable(true)" title="Re-enable every schedule.">Resume All</button>
+        <a class="btn-link" href="/api/v1/schedules/export?format=csv" download title="Download all schedules as CSV.">Export CSV</a>
+        <a class="btn-link" href="/api/v1/schedules/export?format=ndjson" download title="Download all schedules as NDJSON (round-trip restore via POST).">Export NDJSON</a>
         <span id="schedule-bulk-status" class="sub"></span>
       </div>
       <form id="schedule-submit-form" onsubmit="return submitSchedule(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
