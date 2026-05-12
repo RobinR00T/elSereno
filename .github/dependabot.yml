@@ -1,30 +1,96 @@
 version: 2
+# Dependabot config — see context + rationale in
+# docs/OPERATIONS.md §"Dependabot policy".
+#
+# Highlights:
+#   - Weekly schedule (avoids hourly noise).
+#   - Grouping: minor + patch bumps batched into a single PR
+#     per ecosystem to reduce review fatigue. Major bumps stay
+#     as individual PRs (they need human triage).
+#   - open-pull-requests-limit raised to 10 so a flood of
+#     bumps after a flip-to-PUBLIC doesn't truncate.
+#   - Auto-merge for minor/patch bumps via the
+#     `auto-approve-dependabot.yml` workflow (when CI is
+#     green and the bump is semver-safe).
+#
+# When this config changes, validate at:
+#   https://github.com/RobinR00T/elSereno/network/updates
+#
+# References:
+#   - GH docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#   - Operations playbook: docs/OPERATIONS.md
+
 updates:
+  # ----------------------------------------------------------
+  # Go modules
+  # ----------------------------------------------------------
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Madrid"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "go"
     commit-message:
       prefix: "chore(deps)"
+    # Group minor+patch into a single PR per week; majors stay
+    # individual so a human can triage breaking changes.
+    groups:
+      go-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    # If a bump is consistently a footgun, ignore it here. Empty
+    # by default — operator adds entries as friction surfaces.
+    ignore: []
+
+  # ----------------------------------------------------------
+  # GitHub Actions
+  # ----------------------------------------------------------
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Madrid"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ----------------------------------------------------------
+  # Docker (Dockerfile + docker-compose)
+  # ----------------------------------------------------------
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Madrid"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "docker"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      docker-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"

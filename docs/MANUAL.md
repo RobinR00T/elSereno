@@ -1908,6 +1908,9 @@ mantenedor (`ACE3B86BACACE7D6`).
   threat model, hardening checklist.
 - [`docs/INTEGRATIONS.md`](INTEGRATIONS.md) — SIEM /
   observability recipes (Splunk, Elastic, Loki, Prometheus).
+- [`docs/OPERATIONS.md`](OPERATIONS.md) — runbooks
+  operacionales: release flow, Dependabot policy, post-public-
+  flip checklist, troubleshooting CI, admin handoff.
 - [`docs/FAQ.md`](FAQ.md) — preguntas frecuentes
   expandidas.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — diseño

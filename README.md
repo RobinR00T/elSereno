@@ -327,6 +327,7 @@ of these are set (ADR-026, PITF-032).
 - [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo end-to-end (CLI + dashboard + workflows + 22 secciones).
 - [`docs/FAQ.md`](docs/FAQ.md) — preguntas frecuentes.
 - [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — recetas SIEM/observability.
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — runbooks operacionales (release, Dependabot, post-public-flip, troubleshooting CI, handoff).
 - [`docs/SECURITY.md`](docs/SECURITY.md) — modelo de seguridad + hardening checklist.
 - [`INSTALL.md`](INSTALL.md) — todos los métodos de instalación con verificación SBOM.
 - [`docs/manual/elsereno-manual.md`](docs/manual/elsereno-manual.md) — manual narrativo histórico de casos de uso.
@@ -339,6 +340,7 @@ of these are set (ADR-026, PITF-032).
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — diseño interno.
 - [`docs/openapi.yaml`](docs/openapi.yaml) — spec de la HTTP API.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — cómo contribuir.
+- [`.github/SETTINGS.md`](.github/SETTINGS.md) — config esperada de GitHub repo (Code Scanning ON, approval policy, workflow permissions).
 
 **Compliance y legal:**
 

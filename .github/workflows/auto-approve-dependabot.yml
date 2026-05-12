@@ -1,0 +1,66 @@
+# Auto-approve + auto-merge for Dependabot PRs that pass CI.
+#
+# What it does:
+#   - Listens to `pull_request_target` from dependabot[bot].
+#   - Fetches metadata (semver kind, package ecosystem).
+#   - For minor + patch bumps: approves the PR + enables
+#     auto-merge with --squash.
+#   - For major bumps: only labels; human review required.
+#
+# Why pull_request_target instead of pull_request:
+#   `pull_request` from Dependabot has read-only GITHUB_TOKEN
+#   in public repos (cannot approve / merge). `pull_request_
+#   target` runs in the repo's context with write token but
+#   checks out the BASE branch only (no PR code) — safe.
+#
+# Why this exists:
+#   After flipping the repo to PUBLIC (2026-05-12), Dependabot
+#   PRs piled up requiring manual click-through. This workflow
+#   makes the canonical "trust semver-safe bumps if CI passes"
+#   pattern automatic.
+#
+# Reference: docs/OPERATIONS.md §"Dependabot policy".
+
+name: auto-approve-dependabot
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Approve minor/patch only. Majors get a label so a human
+      # triages.
+      - name: Approve minor/patch bumps
+        if: steps.meta.outputs.update-type == 'version-update:semver-minor' || steps.meta.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (squash) for minor/patch
+        if: steps.meta.outputs.update-type == 'version-update:semver-minor' || steps.meta.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Label major bumps for manual review
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        run: gh pr edit "$PR_URL" --add-label "needs-major-bump-review"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
