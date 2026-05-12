@@ -1,5 +1,53 @@
 components:
   schemas:
+    CloneScheduleRequest:
+      description: Optional body for /schedules/{id}/clone. All fields are overrides; missing fields inherit the source.
+      properties:
+        audit_retention_days:
+          maximum: 3650
+          minimum: 0
+          type: integer
+        cron_expr:
+          type: string
+        interval_seconds:
+          maximum: 604800
+          minimum: 60
+          type: integer
+        name:
+          description: Empty → '<source.name> (copy)'.
+          type: string
+        timezone:
+          type: string
+      type: object
+    CreateScheduleRequest:
+      properties:
+        audit_retention_days:
+          description: v1.89+ per-schedule retention override. 0=inherit global, >0=keep N days.
+          maximum: 3650
+          minimum: 0
+          type: integer
+        cron_expr:
+          description: 'Cadence: cron-based (5-field). Mutually exclusive with interval_seconds.'
+          example: 0 2 * * *
+          type: string
+        interval_seconds:
+          description: 'Cadence: interval-based. Mutually exclusive with cron_expr.'
+          maximum: 604800
+          minimum: 60
+          type: integer
+        name:
+          example: nightly-fleet
+          type: string
+        template:
+          $ref: '#/components/schemas/SubmitRequest'
+        timezone:
+          description: IANA zone for cron evaluation. Ignored for interval schedules.
+          example: Europe/Madrid
+          type: string
+      required:
+        - name
+        - template
+      type: object
     Envelope:
       properties:
         data: {}
@@ -9,6 +57,54 @@ components:
       required:
         - schema
         - data
+      type: object
+    Job:
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        default_port:
+          type: integer
+        error:
+          type: string
+        findings_by_plugin:
+          additionalProperties:
+            type: integer
+          type: object
+        finished_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        input:
+          type: string
+        operator:
+          type: string
+        plugins:
+          items:
+            type: string
+          type: array
+        started_at:
+          format: date-time
+          type: string
+        state:
+          enum:
+            - queued
+            - running
+            - completed
+            - failed
+            - cancelled
+          type: string
+        stats:
+          $ref: '#/components/schemas/Stats'
+        triggered_by_schedule_id:
+          description: v1.92+ FK to schedules.id when scheduler-fired.
+          type: string
+      required:
+        - id
+        - state
+        - created_at
+        - input
       type: object
     Plugin:
       properties:
@@ -30,6 +126,125 @@ components:
         - build
         - default_port
         - version
+      type: object
+    ScanSchedule:
+      properties:
+        audit_retention_days:
+          description: v1.89+ per-schedule retention override; 0 = inherit global.
+          type: integer
+        created_at:
+          format: date-time
+          type: string
+        cron_expr:
+          type: string
+        enabled:
+          type: boolean
+        id:
+          example: abc123def4567890
+          type: string
+        interval_seconds:
+          type: integer
+        last_fired_at:
+          format: date-time
+          type: string
+        name:
+          type: string
+        next_fire_at:
+          description: v1.77+ computed; not persisted.
+          format: date-time
+          type: string
+        operator:
+          type: string
+        template:
+          $ref: '#/components/schemas/SubmitRequest'
+        timezone:
+          type: string
+        updated_at:
+          format: date-time
+          type: string
+      required:
+        - id
+        - name
+        - template
+        - enabled
+        - created_at
+        - updated_at
+      type: object
+    ScheduleAuditEvent:
+      properties:
+        event_type:
+          enum:
+            - force_overwrite
+            - delete
+            - set_enabled_true
+            - set_enabled_false
+          type: string
+        id:
+          type: string
+        occurred_at:
+          format: date-time
+          type: string
+        operator:
+          type: string
+        payload_after:
+          description: Post-event snapshot; null for delete events.
+        payload_before:
+          description: Full ScanSchedule snapshot pre-event.
+        schedule_id:
+          description: NULL after v1.88 schedule delete (FK ON DELETE SET NULL).
+          type: string
+      required:
+        - id
+        - event_type
+        - operator
+        - occurred_at
+        - payload_before
+        - payload_after
+      type: object
+    Stats:
+      properties:
+        findings_count:
+          type: integer
+        targets_scanned:
+          type: integer
+        targets_seen:
+          type: integer
+      type: object
+    SubmitRequest:
+      properties:
+        default_port:
+          type: integer
+        input:
+          example: list:fleet.txt
+          type: string
+        plugins:
+          items:
+            type: string
+          type: array
+      required:
+        - input
+      type: object
+    UpdateScheduleRequest:
+      properties:
+        audit_retention_days:
+          maximum: 3650
+          minimum: 0
+          type: integer
+        cron_expr:
+          type: string
+        interval_seconds:
+          maximum: 604800
+          minimum: 60
+          type: integer
+        name:
+          type: string
+        template:
+          $ref: '#/components/schemas/SubmitRequest'
+        timezone:
+          type: string
+      required:
+        - name
+        - template
       type: object
 info:
   description: Read-only HTTP API for ElSereno's dashboard. All endpoints return JSON with a `schema` discriminator so downstream tools can version against a concrete contract. Bearer token auth (ADR-014) gates /api/v1/* when the dashboard's auth mode is enabled.
@@ -132,13 +347,19 @@ paths:
       tags:
         - schedules
     post:
-      description: 'Body: CreateScheduleRequest. Cadence is mutually-exclusive interval_seconds OR cron_expr (v1.73+). Optional timezone (IANA, v1.75+). Optional audit_retention_days (v1.89+) per-schedule retention override (0=inherit global).'
+      description: Cadence is mutually-exclusive interval_seconds OR cron_expr (v1.73+). Optional timezone (IANA, v1.75+). Optional audit_retention_days (v1.89+) per-schedule retention override (0=inherit global).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+        required: true
       responses:
         "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Envelope'
+                $ref: '#/components/schemas/ScanSchedule'
           description: Schedule created.
         "400":
           description: Validation error (name/template/cadence/cron/tz/retention).
@@ -165,8 +386,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Envelope'
-          description: Envelope payload.
+                $ref: '#/components/schemas/ScanSchedule'
+          description: Schedule.
         "404":
           description: Schedule not found.
         "503":
@@ -175,13 +396,19 @@ paths:
       tags:
         - schedules
     put:
-      description: 'Body: UpdateScheduleRequest (same shape as Create minus operator). Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → 412 on mismatch. Optional X-Schedule-Force-Overwrite: true → audit force-overwrite event (v1.84+).'
+      description: 'Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → 412 on mismatch. Optional X-Schedule-Force-Overwrite: true → audit force-overwrite event (v1.84+).'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleRequest'
+        required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Envelope'
+                $ref: '#/components/schemas/ScanSchedule'
           description: Updated schedule.
         "400":
           description: Validation error.
@@ -196,30 +423,36 @@ paths:
         - schedules
   /api/v1/schedules/{id}/audit:
     get:
-      description: 'Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false.'
+      description: 'Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false. data is an array of ScheduleAuditEvent.'
       responses:
         "200":
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Envelope'
-          description: Envelope payload.
+          description: 'Envelope with data: ScheduleAuditEvent[].'
         "404":
           description: Schedule not found.
         "503":
-          description: Schedule store unavailable.
+          description: Audit store unavailable.
       summary: List audit events for a schedule (v1.84+).
       tags:
         - schedules
   /api/v1/schedules/{id}/clone:
     post:
-      description: 'Optional body: CloneScheduleRequest with override fields (name, cadence, audit_retention_days). Default name is `<source.name> (copy)`. Clone always starts Enabled=true; LastFiredAt reset; operator = the cloner.'
+      description: Body fields override the source. Default name is `<source.name> (copy)`. Clone always starts Enabled=true; LastFiredAt reset; operator = the cloner.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloneScheduleRequest'
+        description: Optional override fields; empty body = full copy.
       responses:
         "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Envelope'
+                $ref: '#/components/schemas/ScanSchedule'
           description: Clone created.
         "400":
           description: Validation error.
@@ -271,11 +504,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Envelope'
-          description: Envelope payload.
+          description: 'Envelope with data: Job[].'
         "404":
           description: Schedule not found.
         "503":
-          description: Schedule store unavailable.
+          description: Scan store unavailable.
       summary: List scheduler-fired jobs for a schedule (v1.92+).
       tags:
         - schedules
@@ -341,7 +574,13 @@ paths:
         - schedules
   /api/v1/schedules/preview:
     post:
-      description: 'Body: CreateScheduleRequest. Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.'
+      description: 'Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+        required: true
       responses:
         "200":
           content:

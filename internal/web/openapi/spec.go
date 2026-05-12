@@ -24,7 +24,20 @@ type Operation struct {
 	Summary     string
 	Description string
 	Tags        []string
+	// RequestBody (v1.98+) is the optional typed body schema for
+	// the operation. Ref is the component name (e.g.
+	// "CreateScheduleRequest"); Required marks the body as
+	// required. Omit both for GET/DELETE operations that don't
+	// take a body.
+	RequestBody *RequestBody
 	Responses   map[string]Response
+}
+
+// RequestBody describes the JSON body shape for an operation.
+type RequestBody struct {
+	Description string
+	Required    bool
+	Ref         string
 }
 
 // Response is one HTTP response.
@@ -151,13 +164,14 @@ func schedulesCollectionPath() Path {
 		},
 		"post": {
 			Summary: "Create a scan schedule.",
-			Description: "Body: CreateScheduleRequest. Cadence is mutually-exclusive " +
-				"interval_seconds OR cron_expr (v1.73+). Optional timezone (IANA, v1.75+). " +
-				"Optional audit_retention_days (v1.89+) per-schedule retention override " +
+			Description: "Cadence is mutually-exclusive interval_seconds OR cron_expr " +
+				"(v1.73+). Optional timezone (IANA, v1.75+). Optional " +
+				"audit_retention_days (v1.89+) per-schedule retention override " +
 				"(0=inherit global).",
-			Tags: tag,
+			Tags:        tag,
+			RequestBody: &RequestBody{Ref: "CreateScheduleRequest", Required: true},
 			Responses: map[string]Response{
-				"201": {Description: "Schedule created.", Ref: "Envelope"},
+				"201": {Description: "Schedule created.", Ref: "ScanSchedule"},
 				"400": {Description: "Validation error (name/template/cadence/cron/tz/retention)."},
 				"503": {Description: "Schedule store unavailable."},
 			},
@@ -168,7 +182,7 @@ func schedulesCollectionPath() Path {
 func schedulesItemPath() Path {
 	tag := []string{"schedules"}
 	envelopeOr404503 := map[string]Response{
-		"200": {Description: "Envelope payload.", Ref: "Envelope"},
+		"200": {Description: "Schedule.", Ref: "ScanSchedule"},
 		"404": {Description: "Schedule not found."},
 		"503": {Description: "Schedule store unavailable."},
 	}
@@ -176,13 +190,13 @@ func schedulesItemPath() Path {
 		"get": {Summary: "Get one schedule.", Tags: tag, Responses: envelopeOr404503},
 		"put": {
 			Summary: "Update a schedule (v1.74+).",
-			Description: "Body: UpdateScheduleRequest (same shape as Create minus operator). " +
-				"Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → 412 on " +
-				"mismatch. Optional X-Schedule-Force-Overwrite: true → audit force-overwrite " +
-				"event (v1.84+).",
-			Tags: tag,
+			Description: "Optional If-Match header (RFC3339 of stored updated_at; v1.78+) → " +
+				"412 on mismatch. Optional X-Schedule-Force-Overwrite: true → audit " +
+				"force-overwrite event (v1.84+).",
+			Tags:        tag,
+			RequestBody: &RequestBody{Ref: "UpdateScheduleRequest", Required: true},
 			Responses: map[string]Response{
-				"200": {Description: "Updated schedule.", Ref: "Envelope"},
+				"200": {Description: "Updated schedule.", Ref: "ScanSchedule"},
 				"400": {Description: "Validation error."},
 				"404": {Description: "Schedule not found."},
 				"412": {Description: "Optimistic-locking precondition failed (If-Match mismatch)."},
@@ -206,8 +220,9 @@ func schedulesPreviewPath() Path {
 	return Path{URL: "/api/v1/schedules/preview", Operations: map[string]Operation{
 		"post": {
 			Summary:     "Preview next fire(s) for a schedule (v1.77+).",
-			Description: "Body: CreateScheduleRequest. Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.",
+			Description: "Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.",
 			Tags:        tag,
+			RequestBody: &RequestBody{Ref: "CreateScheduleRequest", Required: true},
 			Responses: map[string]Response{
 				"200": {Description: "Preview payload.", Ref: "Envelope"},
 				"400": {Description: "Validation error."},
@@ -234,13 +249,13 @@ func schedulesToggleAndClonePaths() []Path {
 		{URL: "/api/v1/schedules/{id}/clone", Operations: map[string]Operation{
 			"post": {
 				Summary: "Duplicate a schedule (v1.93+).",
-				Description: "Optional body: CloneScheduleRequest with override fields " +
-					"(name, cadence, audit_retention_days). Default name is " +
+				Description: "Body fields override the source. Default name is " +
 					"`<source.name> (copy)`. Clone always starts Enabled=true; " +
 					"LastFiredAt reset; operator = the cloner.",
-				Tags: tag,
+				Tags:        tag,
+				RequestBody: &RequestBody{Ref: "CloneScheduleRequest", Required: false, Description: "Optional override fields; empty body = full copy."},
 				Responses: map[string]Response{
-					"201": {Description: "Clone created.", Ref: "Envelope"},
+					"201": {Description: "Clone created.", Ref: "ScanSchedule"},
 					"400": {Description: "Validation error."},
 					"404": {Description: "Source schedule not found."},
 					"503": {Description: "Schedule store unavailable."},
@@ -252,18 +267,17 @@ func schedulesToggleAndClonePaths() []Path {
 
 func schedulesObservabilityPaths() []Path {
 	tag := []string{"schedules"}
-	envelopeOr404503 := map[string]Response{
-		"200": {Description: "Envelope payload.", Ref: "Envelope"},
-		"404": {Description: "Schedule not found."},
-		"503": {Description: "Schedule store unavailable."},
-	}
 	return []Path{
 		{URL: "/api/v1/schedules/{id}/audit", Operations: map[string]Operation{
 			"get": {
 				Summary:     "List audit events for a schedule (v1.84+).",
-				Description: "Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false.",
+				Description: "Returns events newest-first. event_types: force_overwrite, delete, set_enabled_true, set_enabled_false. data is an array of ScheduleAuditEvent.",
 				Tags:        tag,
-				Responses:   envelopeOr404503,
+				Responses: map[string]Response{
+					"200": {Description: "Envelope with data: ScheduleAuditEvent[].", Ref: "Envelope"},
+					"404": {Description: "Schedule not found."},
+					"503": {Description: "Audit store unavailable."},
+				},
 			},
 		}},
 		{URL: "/api/v1/schedules/{id}/runs", Operations: map[string]Operation{
@@ -271,7 +285,11 @@ func schedulesObservabilityPaths() []Path {
 				Summary:     "List scheduler-fired jobs for a schedule (v1.92+).",
 				Description: "Query param: limit (1..1000, default 50). Returns []Job sorted newest-first via the triggered_by_schedule_id linkage (migration 00014).",
 				Tags:        tag,
-				Responses:   envelopeOr404503,
+				Responses: map[string]Response{
+					"200": {Description: "Envelope with data: Job[].", Ref: "Envelope"},
+					"404": {Description: "Schedule not found."},
+					"503": {Description: "Scan store unavailable."},
+				},
 			},
 		}},
 		{URL: "/api/v1/schedules/audit", Operations: map[string]Operation{
@@ -419,7 +437,7 @@ func dbSpecPaths() []Path {
 }
 
 func specComponents() map[string]Schema {
-	return map[string]Schema{
+	out := map[string]Schema{
 		"Envelope": {
 			"type":     "object",
 			"required": []string{"schema", "data"},
@@ -437,6 +455,159 @@ func specComponents() map[string]Schema {
 				"build":        map[string]any{"type": "string", "enum": []string{"default", "offensive"}},
 				"default_port": map[string]any{"type": "integer"},
 				"version":      map[string]any{"type": "string"},
+			},
+		},
+	}
+	// v1.98+: schedule-domain strict schemas.
+	for k, v := range scheduleSchemas() {
+		out[k] = v
+	}
+	return out
+}
+
+// scheduleSchemas (v1.98+) declares JSON Schema components for
+// the scanorch.ScanSchedule + request bodies + supporting types.
+// Split into per-group helpers to satisfy funlen.
+func scheduleSchemas() map[string]Schema {
+	out := map[string]Schema{}
+	for k, v := range scheduleRequestSchemas() {
+		out[k] = v
+	}
+	for k, v := range scheduleResponseSchemas() {
+		out[k] = v
+	}
+	return out
+}
+
+func scheduleRequestSchemas() map[string]Schema {
+	return map[string]Schema{
+		"SubmitRequest": {
+			"type":     "object",
+			"required": []string{"input"},
+			"properties": map[string]any{
+				"input":        map[string]any{"type": "string", "example": "list:fleet.txt"},
+				"plugins":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"default_port": map[string]any{"type": "integer"},
+			},
+		},
+		"CreateScheduleRequest": {
+			"type":     "object",
+			"required": []string{"name", "template"},
+			"properties": map[string]any{
+				"name":                 map[string]any{"type": "string", "example": "nightly-fleet"},
+				"template":             map[string]any{"$ref": "#/components/schemas/SubmitRequest"},
+				"interval_seconds":     map[string]any{"type": "integer", "minimum": 60, "maximum": 604800, "description": "Cadence: interval-based. Mutually exclusive with cron_expr."},
+				"cron_expr":            map[string]any{"type": "string", "example": "0 2 * * *", "description": "Cadence: cron-based (5-field). Mutually exclusive with interval_seconds."},
+				"timezone":             map[string]any{"type": "string", "example": "Europe/Madrid", "description": "IANA zone for cron evaluation. Ignored for interval schedules."},
+				"audit_retention_days": map[string]any{"type": "integer", "minimum": 0, "maximum": 3650, "description": "v1.89+ per-schedule retention override. 0=inherit global, >0=keep N days."},
+			},
+		},
+		"UpdateScheduleRequest": {
+			"type":     "object",
+			"required": []string{"name", "template"},
+			"properties": map[string]any{
+				"name":                 map[string]any{"type": "string"},
+				"template":             map[string]any{"$ref": "#/components/schemas/SubmitRequest"},
+				"interval_seconds":     map[string]any{"type": "integer", "minimum": 60, "maximum": 604800},
+				"cron_expr":            map[string]any{"type": "string"},
+				"timezone":             map[string]any{"type": "string"},
+				"audit_retention_days": map[string]any{"type": "integer", "minimum": 0, "maximum": 3650},
+			},
+		},
+		"CloneScheduleRequest": {
+			"type":        "object",
+			"description": "Optional body for /schedules/{id}/clone. All fields are overrides; missing fields inherit the source.",
+			"properties": map[string]any{
+				"name":                 map[string]any{"type": "string", "description": "Empty → '<source.name> (copy)'."},
+				"interval_seconds":     map[string]any{"type": "integer", "minimum": 60, "maximum": 604800},
+				"cron_expr":            map[string]any{"type": "string"},
+				"timezone":             map[string]any{"type": "string"},
+				"audit_retention_days": map[string]any{"type": "integer", "minimum": 0, "maximum": 3650},
+			},
+		},
+	}
+}
+
+func scheduleResponseSchemas() map[string]Schema {
+	out := map[string]Schema{
+		"ScanSchedule": scanScheduleSchema(),
+		"Stats":        statsSchema(),
+		"Job":          jobSchema(),
+	}
+	for k, v := range scheduleAuditEventSchema() {
+		out[k] = v
+	}
+	return out
+}
+
+func scanScheduleSchema() Schema {
+	return Schema{
+		"type":     "object",
+		"required": []string{"id", "name", "template", "enabled", "created_at", "updated_at"},
+		"properties": map[string]any{
+			"id":                   map[string]any{"type": "string", "example": "abc123def4567890"},
+			"name":                 map[string]any{"type": "string"},
+			"template":             map[string]any{"$ref": "#/components/schemas/SubmitRequest"},
+			"interval_seconds":     map[string]any{"type": "integer"},
+			"cron_expr":            map[string]any{"type": "string"},
+			"timezone":             map[string]any{"type": "string"},
+			"enabled":              map[string]any{"type": "boolean"},
+			"operator":             map[string]any{"type": "string"},
+			"created_at":           map[string]any{"type": "string", "format": "date-time"},
+			"updated_at":           map[string]any{"type": "string", "format": "date-time"},
+			"last_fired_at":        map[string]any{"type": "string", "format": "date-time"},
+			"next_fire_at":         map[string]any{"type": "string", "format": "date-time", "description": "v1.77+ computed; not persisted."},
+			"audit_retention_days": map[string]any{"type": "integer", "description": "v1.89+ per-schedule retention override; 0 = inherit global."},
+		},
+	}
+}
+
+func statsSchema() Schema {
+	return Schema{
+		"type": "object",
+		"properties": map[string]any{
+			"targets_seen":    map[string]any{"type": "integer"},
+			"targets_scanned": map[string]any{"type": "integer"},
+			"findings_count":  map[string]any{"type": "integer"},
+		},
+	}
+}
+
+func jobSchema() Schema {
+	return Schema{
+		"type":     "object",
+		"required": []string{"id", "state", "created_at", "input"},
+		"properties": map[string]any{
+			"id":                       map[string]any{"type": "string"},
+			"state":                    map[string]any{"type": "string", "enum": []string{"queued", "running", "completed", "failed", "cancelled"}},
+			"created_at":               map[string]any{"type": "string", "format": "date-time"},
+			"started_at":               map[string]any{"type": "string", "format": "date-time"},
+			"finished_at":              map[string]any{"type": "string", "format": "date-time"},
+			"input":                    map[string]any{"type": "string"},
+			"plugins":                  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			"default_port":             map[string]any{"type": "integer"},
+			"stats":                    map[string]any{"$ref": "#/components/schemas/Stats"},
+			"findings_by_plugin":       map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "integer"}},
+			"error":                    map[string]any{"type": "string"},
+			"operator":                 map[string]any{"type": "string"},
+			"triggered_by_schedule_id": map[string]any{"type": "string", "description": "v1.92+ FK to schedules.id when scheduler-fired."},
+		},
+	}
+}
+
+func scheduleAuditEventSchema() map[string]Schema {
+	return map[string]Schema{
+		"ScheduleAuditEvent": {
+			"type":     "object",
+			"required": []string{"id", "event_type", "operator", "occurred_at", "payload_before", "payload_after"},
+			"properties": map[string]any{
+				"id":             map[string]any{"type": "string"},
+				"schedule_id":    map[string]any{"type": "string", "description": "NULL after v1.88 schedule delete (FK ON DELETE SET NULL)."},
+				"event_type":     map[string]any{"type": "string", "enum": []string{"force_overwrite", "delete", "set_enabled_true", "set_enabled_false"}},
+				"operator":       map[string]any{"type": "string"},
+				"occurred_at":    map[string]any{"type": "string", "format": "date-time"},
+				"payload_before": map[string]any{"description": "Full ScanSchedule snapshot pre-event."},
+				"payload_after":  map[string]any{"description": "Post-event snapshot; null for delete events."},
 			},
 		},
 	}
@@ -494,6 +665,22 @@ func renderOperation(op Operation) map[string]any {
 	}
 	if len(op.Tags) > 0 {
 		out["tags"] = op.Tags
+	}
+	if op.RequestBody != nil && op.RequestBody.Ref != "" {
+		rb := map[string]any{
+			"content": map[string]any{
+				"application/json": map[string]any{
+					"schema": map[string]any{"$ref": "#/components/schemas/" + op.RequestBody.Ref},
+				},
+			},
+		}
+		if op.RequestBody.Description != "" {
+			rb["description"] = op.RequestBody.Description
+		}
+		if op.RequestBody.Required {
+			rb["required"] = true
+		}
+		out["requestBody"] = rb
 	}
 	if len(op.Responses) > 0 {
 		resps := map[string]any{}

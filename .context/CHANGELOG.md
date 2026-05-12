@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.98 (chunk 1) — **OpenAPI strict
+  schemas.** Operation gains `RequestBody *RequestBody`
+  field; renderOperation emits requestBody.content schema
+  ref. New component schemas: SubmitRequest,
+  CreateScheduleRequest, UpdateScheduleRequest,
+  CloneScheduleRequest, ScanSchedule, Stats, Job,
+  ScheduleAuditEvent. POST/PUT/clone/preview ops now
+  carry typed bodies + ScanSchedule responses. Closes
+  v1.97 carryover. docs/openapi.yaml regrew 410→649 LoC.
+  Snapshot:
+  `.context/snapshots/v1.98.0-openapi-strict-schemas.md`.
+
 - 2026-05-12 — v1.97 (chunk 1) — **Schedules
   export (CSV/NDJSON/JSON).** New
   `GET /api/v1/schedules/export?format=csv|ndjson|json`.

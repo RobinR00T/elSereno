@@ -1,28 +1,30 @@
 ---
-phase: v1.97-closed
-status: v1.16-v1.96 published; v1.97 tag pending push
+phase: v1.98-closed
+status: v1.16-v1.97 published; v1.98 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.97 cycle closed on `main`** (1 chunk +
-close). Schedules export endpoint:
-`GET /api/v1/schedules/export?format=csv|ndjson|json`.
-CSV is 10-column flat; NDJSON is round-trippable via
-POST loop. Dashboard "Export CSV" / "Export NDJSON"
-download links. +3 unit tests.
+**Phase**: **v1.98 cycle closed on `main`** (1 chunk +
+close). OpenAPI strict schemas: Operation gains
+`RequestBody *RequestBody`; 8 new component schemas
+(SubmitRequest, CreateScheduleRequest,
+UpdateScheduleRequest, CloneScheduleRequest, ScanSchedule,
+Stats, Job, ScheduleAuditEvent). POST/PUT/clone/preview
+ops now carry typed bodies + ScanSchedule responses.
+`docs/openapi.yaml` regrew 410→649 LoC.
 
-Snapshot: `.context/snapshots/v1.97.0-schedules-export.md`.
+Snapshot: `.context/snapshots/v1.98.0-openapi-strict-schemas.md`.
 
-**v1.89-v1.96 cycles (closed; per-cycle snapshots)**:
+**v1.89-v1.97 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
 v1.90 advisory-locked pruner. v1.91 pruner runs+events
 counters. v1.92 schedule run history (00014). v1.93
-clone endpoint. v1.94 pruner tick histogram. v1.95
-bulk pause/resume. v1.96 OpenAPI coverage for the 13
-schedule endpoints.
+clone. v1.94 pruner tick histogram. v1.95 bulk pause/
+resume. v1.96 OpenAPI coverage for 13 schedule endpoints.
+v1.97 CSV/NDJSON/JSON export.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot
