@@ -2,6 +2,14 @@ module local/elsereno
 
 go 1.25.7
 
+// Toolchain pin: forces Go ≥1.26.3 at build time, parchando las
+// 6 CVEs de net/http stdlib reportadas por govulncheck contra
+// Go 1.26.2 (GO-2026-4918, -4971, -4977, -4980, -4982, -4986).
+// `go 1.25.7` arriba sigue siendo la versión MÍNIMA de Go
+// lenguaje requerida; `toolchain` selecciona qué compilador
+// real se usa.
+toolchain go1.26.3
+
 require (
 	github.com/awnumar/memguard v0.23.0
 	github.com/charmbracelet/bubbletea v1.3.10

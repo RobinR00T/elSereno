@@ -139,7 +139,7 @@ umask 077 && printf '%s' "$PASSPHRASE" > ~/.elsereno/dev.pp && chmod 0600 ~/.els
 ./bin/elsereno serve        --vault-passphrase-file ~/.elsereno/dev.pp
 ```
 
-See [ADR-026](.context/decisions/026-secret-transport.md) for the secret-
+See [ADR-026](.context/decisions/026-env-vars-with-secrets.md) for the secret-
 transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
