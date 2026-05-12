@@ -281,18 +281,38 @@ fi
 # ====================================================================
 hdr "12. Git tag signatures (last 3 tags)"
 # ====================================================================
+# Local (full) mode: full GPG verification via `git tag -v` — fails
+# if the maintainer's public key isn't in the local keyring.
+# CI mode: presence-only check via `git cat-file -p <tag> | grep
+# -q "BEGIN PGP SIGNATURE"`. CI runners don't have the
+# maintainer's GPG public key + fetching it cleanly is too much
+# scope creep for an audit script. Presence-check is enough to
+# catch "tag pushed but signature stripped".
 TAGS=$(git tag --list 'v*' --sort=-v:refname | head -3)
 if [ -z "$TAGS" ]; then
     skip "No tags yet"
 else
     UNSIGNED=""
     for t in $TAGS; do
-        if ! git tag -v "$t" >/dev/null 2>&1; then
-            UNSIGNED="$UNSIGNED $t"
+        if [ "$MODE" = "ci" ]; then
+            # Tag object includes a "-----BEGIN PGP SIGNATURE-----"
+            # line when signed. Annotated-but-unsigned tags lack
+            # this line.
+            if ! git cat-file -p "$t" 2>/dev/null | grep -q "BEGIN PGP SIGNATURE"; then
+                UNSIGNED="$UNSIGNED $t"
+            fi
+        else
+            if ! git tag -v "$t" >/dev/null 2>&1; then
+                UNSIGNED="$UNSIGNED $t"
+            fi
         fi
     done
     if [ -z "$UNSIGNED" ]; then
-        ok "Last 3 tags GPG-signed: $TAGS"
+        if [ "$MODE" = "ci" ]; then
+            ok "Last 3 tags signed (presence check, CI mode): $TAGS"
+        else
+            ok "Last 3 tags GPG-signed (full verification): $TAGS"
+        fi
     else
         fail "Tags missing GPG signature:$UNSIGNED"
     fi
@@ -312,22 +332,33 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
             skip "Visibility check (unexpected: $VIS)"
         fi
 
-        # Code Scanning
-        CS=$(gh api "repos/$REPO_SLUG/code-scanning/default-setup" --jq '.state' 2>/dev/null || echo "")
-        if [ "$CS" = "configured" ]; then
-            ok "Code Scanning: configured"
+        # Code Scanning + workflow perms require admin/repo scope
+        # on the token. The default GITHUB_TOKEN in workflows
+        # returns 403 for these endpoints — skip in CI mode so
+        # the run doesn't fail on a token-scope artifact. Operator
+        # running locally with `gh auth status` showing repo+admin
+        # scopes gets the full check.
+        if [ "$MODE" = "ci" ]; then
+            skip "Code Scanning check (CI default token lacks admin scope; run locally for full audit)"
+            skip "Workflow permissions check (CI default token lacks admin scope)"
         else
-            fail "Code Scanning state=\"${CS:-not-found}\" (expected: configured)"
-        fi
+            # Code Scanning
+            CS=$(gh api "repos/$REPO_SLUG/code-scanning/default-setup" --jq '.state' 2>/dev/null || echo "")
+            if [ "$CS" = "configured" ]; then
+                ok "Code Scanning: configured"
+            else
+                fail "Code Scanning state=\"${CS:-not-found}\" (expected: configured)"
+            fi
 
-        # Workflow permissions
-        WF_PERM=$(gh api "repos/$REPO_SLUG/actions/permissions/workflow" --jq '.default_workflow_permissions' 2>/dev/null || echo "")
-        if [ "$WF_PERM" = "write" ]; then
-            ok "Workflow permissions: write"
-        elif [ "$WF_PERM" = "read" ]; then
-            fail "Workflow permissions: read (expected write — release flow needs it)"
-        else
-            skip "Workflow permissions check (got: $WF_PERM)"
+            # Workflow permissions
+            WF_PERM=$(gh api "repos/$REPO_SLUG/actions/permissions/workflow" --jq '.default_workflow_permissions' 2>/dev/null || echo "")
+            if [ "$WF_PERM" = "write" ]; then
+                ok "Workflow permissions: write"
+            elif [ "$WF_PERM" = "read" ]; then
+                fail "Workflow permissions: read (expected write — release flow needs it)"
+            else
+                skip "Workflow permissions check (got: $WF_PERM)"
+            fi
         fi
 
         # Open Dependabot PRs (status info only — not a fail)
