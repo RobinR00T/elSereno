@@ -217,6 +217,7 @@ estructurado, ve a [`MANUAL.md §10`](MANUAL.md#10-troubleshooting).
 | Workflow runs reportan "no checks reported" | Approval policy bloquea | §3 |
 | PR tiene "merge conflict" tras merges en main | Base desactualizada | `@dependabot rebase` |
 | `gh pr merge --auto` "failed" | PR ya verde — `--auto` no aplica | Usa `gh pr merge --squash --delete-branch` (sin `--auto`) |
+| Dependency graph UI muestra "Your .github/dependabot.yml contained invalid details" + "did not contain a minimum number of items 1" | `ignore: []` (o cualquier array vacío) en `dependabot.yml` viola el schema (minItems: 1) | Borrar el array vacío o ponerle al menos 1 entry. Documentar formato esperado via comentarios YAML, no via array vacío |
 
 ---
 

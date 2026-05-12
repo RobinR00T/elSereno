@@ -45,9 +45,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # If a bump is consistently a footgun, ignore it here. Empty
-    # by default — operator adds entries as friction surfaces.
-    ignore: []
+    # If a specific bump is a recurring footgun, add an
+    # `ignore:` block below with at least one entry (Dependabot
+    # schema requires minItems: 1, so we don't ship an empty
+    # placeholder). Example:
+    #   ignore:
+    #     - dependency-name: "some-broken-pkg"
+    #       versions: ["1.x"]
 
   # ----------------------------------------------------------
   # GitHub Actions
