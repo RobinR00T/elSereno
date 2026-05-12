@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.94 (chunk 1) — **Pruner tick
+  duration histogram.** New
+  `elsereno_audit_pruner_tick_duration_seconds`
+  histogram with buckets sized for [1ms, 60s].
+  AuditPruner gets `OnTick func(time.Duration)`
+  callback (fires after OnPrune/OnError/OnLockSkipped).
+  cmd_serve wires it. Closes v1.91 carryover.
+  +1 parametric test (3 outcome branches).
+  Snapshot:
+  `.context/snapshots/v1.94.0-pruner-tick-histogram.md`.
+
 - 2026-05-12 — v1.93 (chunk 1) — **Schedule clone
   endpoint.** New `POST /api/v1/schedules/{id}/clone`
   with optional override body (name, cadence,

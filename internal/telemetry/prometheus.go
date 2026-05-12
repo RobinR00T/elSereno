@@ -42,6 +42,13 @@ type Metrics struct {
 	// background pruner. Sum across replicas equals the real
 	// throughput; the advisory lock ensures no double-count.
 	AuditPrunerEventsDeletedTotal prometheus.Counter
+	// AuditPrunerTickDurationSeconds (v1.94+) is a histogram of
+	// per-tick prune duration in seconds. Detects "the audit
+	// table grew enough that pruner ticks are slowing" before
+	// it becomes a deployment incident. Buckets sized for the
+	// realistic range (a few ms for empty prune up to a minute
+	// for a million-row catch-up).
+	AuditPrunerTickDurationSeconds prometheus.Histogram
 }
 
 // NewMetrics constructs and registers the metric set. A nil registry
@@ -62,6 +69,7 @@ func NewMetrics(reg *prometheus.Registry) *Metrics {
 		m.OutboxInflight,
 		m.AuditPrunerRunsTotal,
 		m.AuditPrunerEventsDeletedTotal,
+		m.AuditPrunerTickDurationSeconds,
 	)
 	return m
 }
@@ -126,6 +134,20 @@ func (m *Metrics) buildAuditPrunerInstruments() {
 		Subsystem: "audit_pruner",
 		Name:      "events_deleted_total",
 		Help:      "Cumulative audit events deleted by the background pruner.",
+	})
+	m.AuditPrunerTickDurationSeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "elsereno",
+		Subsystem: "audit_pruner",
+		Name:      "tick_duration_seconds",
+		Help:      "Wall-clock duration of one audit-pruner tick (locked or non-locked).",
+		// Buckets sized for realistic prune workloads:
+		//   1ms  → empty/no-op prune (lock acquired, nothing to delete).
+		//   10ms → typical daily prune on a small fleet.
+		//   100ms → a few thousand events.
+		//   1s → ~100k events.
+		//   10s → ~1M events (catch-up after a long downtime).
+		//   60s → indicates schema/index degraded; alert.
+		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30, 60},
 	})
 }
 

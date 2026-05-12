@@ -1,34 +1,28 @@
 ---
-phase: v1.93-closed
-status: v1.16-v1.92 published; v1.93 tag pending push
+phase: v1.94-closed
+status: v1.16-v1.93 published; v1.94 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.93 cycle closed on `main`** (1 chunk +
-close). Schedule clone endpoint: new
-`POST /api/v1/schedules/{id}/clone` with optional override
-body (name, cadence, audit_retention_days). Defaults to
-"<source> (copy)" naming; clones always Enabled=true with
-fresh LastFiredAt + operator = the cloner. Dashboard
-gets "Clone" per-schedule button. +3 unit tests.
+**Phase**: **v1.94 cycle closed on `main`** (1 chunk +
+close). Pruner tick-duration histogram:
+`elsereno_audit_pruner_tick_duration_seconds` with
+buckets [1ms, 60s]. New `AuditPruner.OnTick` callback
+fires on every tick (success/error/skip) so cmd_serve
+can observe. +1 parametric test (3 outcome branches).
 
-Snapshot: `.context/snapshots/v1.93.0-schedule-clone.md`.
+Snapshot: `.context/snapshots/v1.94.0-pruner-tick-histogram.md`.
 
-**v1.92 cycle (closed, snapshot available)**: Schedule run
-history. Migration 00014 adds NULL-able
-`triggered_by_schedule_id` FK to scan_jobs + partial index.
-New Store methods `SubmitFromSchedule` + `ListBySchedule`.
-Endpoint `GET /api/v1/schedules/{id}/runs?limit=N`.
-Dashboard "Runs" per-row button + viewer table.
-Snapshot: `.context/snapshots/v1.92.0-schedule-run-history.md`.
-
-**v1.89-v1.91 cycles (closed; per-cycle snapshots)**:
+**v1.89-v1.93 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention overrides
 (migration 00013). v1.90 advisory-locked audit pruner.
-v1.91 Prometheus pruner metrics.
+v1.91 Prometheus pruner runs+events counters. v1.92
+schedule run history (migration 00014 + endpoint +
+dashboard). v1.93 schedule clone endpoint + dashboard
+button.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

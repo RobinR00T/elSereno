@@ -367,6 +367,48 @@ func TestAuditPruner_AdvisoryLockKey_LockAcquired(t *testing.T) {
 	}
 }
 
+// TestAuditPruner_OnTick_FiresOnEveryOutcome (v1.94+): the
+// OnTick callback fires once per Tick regardless of outcome
+// (success, error, or lock-skip). Duration is positive on all
+// branches.
+func TestAuditPruner_OnTick_FiresOnEveryOutcome(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		store  scanorch.ScheduleAuditStore
+		lock   int64
+		expect string
+	}{
+		{"happy", scanorch.NewMemoryScheduleAuditStore(), 0, "happy"},
+		{"error", errAuditStore{}, 0, "error"},
+		{"lock_skip", &fakeLockingAuditStore{acquired: false}, scanorch.AuditPrunerLockKey, "skip"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var fired int32
+			var seenDuration time.Duration
+			p := &scanorch.AuditPruner{
+				AuditStore:      tc.store,
+				RetentionPeriod: time.Minute,
+				AdvisoryLockKey: tc.lock,
+				OnTick: func(d time.Duration) {
+					atomic.AddInt32(&fired, 1)
+					seenDuration = d
+				},
+				// Other callbacks are no-ops to silence stderr.
+				OnPrune:       func(int64, time.Time) {},
+				OnError:       func(error) {},
+				OnLockSkipped: func(int64) {},
+			}
+			p.Tick(context.Background())
+			if atomic.LoadInt32(&fired) != 1 {
+				t.Errorf("OnTick fired = %d, want 1", fired)
+			}
+			if seenDuration < 0 {
+				t.Errorf("OnTick duration = %v, want >= 0", seenDuration)
+			}
+		})
+	}
+}
+
 // fakeLockingAuditStore is a test-only ScheduleAuditStore that
 // ALSO implements AdvisoryLockedAuditStore so the AuditPruner
 // type-asserts into the locked path.

@@ -72,6 +72,15 @@ type AuditPruner struct {
 	// to stderr logging so operators can see the
 	// coordination from logs.
 	OnLockSkipped func(key int64)
+	// OnTick (v1.94+, optional) fires on every tick after
+	// OnPrune / OnLockSkipped / OnError. Duration is the
+	// wall-clock cost of the tick (prune SQL + lock acquire
+	// if any). cmd_serve wires this to the
+	// elsereno_audit_pruner_tick_duration_seconds histogram
+	// so operators can detect "the audit table grew enough
+	// that ticks are slowing" before it becomes incident-
+	// shaped.
+	OnTick func(duration time.Duration)
 }
 
 // Sentinels.
@@ -151,6 +160,16 @@ func (p *AuditPruner) Run(ctx context.Context) error {
 // only one instance does the work per cutoff.
 func (p *AuditPruner) tick(ctx context.Context, retention time.Duration, nowFn func() time.Time) {
 	now := nowFn()
+	// v1.94: measure tick duration via wall-clock (not nowFn —
+	// nowFn is the cutoff fixture, not a real clock; using
+	// time.Now keeps histogram observations honest even with
+	// the test-seam time travel pattern).
+	start := time.Now()
+	defer func() {
+		if p.OnTick != nil {
+			p.OnTick(time.Since(start))
+		}
+	}()
 	globalCutoff := now.Add(-retention)
 	overrides := p.collectOverrides(ctx, now)
 	count, acquired, err := p.runPrune(ctx, globalCutoff, overrides)

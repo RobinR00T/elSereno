@@ -249,6 +249,13 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 				"elsereno serve: audit pruner skipped tick — advisory lock %d held by another instance\n", key)
 			telemetry.Global().AuditPrunerRunsTotal.WithLabelValues("skipped_lock").Inc()
 		},
+		// v1.94: tick duration histogram. Observed on every tick
+		// regardless of outcome — operators graphing p99 see the
+		// blended distribution of "got lock + did work" vs.
+		// "skipped" vs. "errored".
+		OnTick: func(d time.Duration) {
+			telemetry.Global().AuditPrunerTickDurationSeconds.Observe(d.Seconds())
+		},
 	}
 	go func() {
 		if err := pruner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
