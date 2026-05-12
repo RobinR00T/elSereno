@@ -114,11 +114,13 @@ func (r *fakeRows) Next() bool {
 // Scan unpacks the test row map into the requested column
 // destinations. Shapes:
 //
+//   - 15 columns → scan_jobs v1.92+ projection
+//     (triggered_by_schedule_id appended after findings_by_plugin).
 //   - 14 columns → AMBIGUOUS between two projections:
-//     · scan_jobs (v1.67+: findings_by_plugin JSONB).
-//     · scan_schedules (v1.89+: audit_retention_days appended).
-//     Disambiguated by detecting the dst[2] type — scan_jobs
-//     uses `*time.Time` (created_at); scan_schedules uses
+//     · scan_jobs pre-v1.92 (legacy tests).
+//     · scan_schedules v1.89+ (audit_retention_days appended).
+//     Disambiguated via dst[2] type — scan_jobs uses
+//     `*time.Time` (created_at); scan_schedules uses
 //     `*string` (template_input).
 //   - 13 columns → scan_schedules pre-v1.89 projection (legacy
 //     tests that haven't migrated).
@@ -134,6 +136,9 @@ func (r *fakeRows) Next() bool {
 func (r *fakeRows) Scan(dst ...any) error {
 	row := r.rows[r.i-1]
 	switch len(dst) {
+	case 15:
+		// v1.92 scan_jobs projection.
+		return scanFakeJob(dst, row)
 	case 14:
 		// dst[2] kind distinguishes scan_jobs (time.Time =
 		// created_at) from scan_schedules (string =
@@ -154,7 +159,7 @@ func (r *fakeRows) Scan(dst ...any) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("fakeRows: scanorch test expected 14, 13, or 1 columns, got %d", len(dst))
+		return fmt.Errorf("fakeRows: scanorch test expected 15, 14, 13, or 1 columns, got %d", len(dst))
 	}
 }
 
@@ -181,6 +186,14 @@ func scanFakeJob(dst []any, row map[string]any) error {
 	*(dst[12].(*string)) = row["operator"].(string)
 	if v, ok := row["findings_by_plugin"].([]byte); ok {
 		*(dst[13].(*[]byte)) = v
+	}
+	// v1.92: triggered_by_schedule_id NULL-able column. Only
+	// present in the 15-column projection; legacy 14-col tests
+	// don't pass this dst slot.
+	if len(dst) >= 15 {
+		if v, ok := row["triggered_by_schedule_id"].(*string); ok {
+			*(dst[14].(**string)) = v
+		}
 	}
 	return nil
 }
@@ -219,18 +232,19 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 // state. Tests override individual columns as needed.
 func makeRow(id, state string) map[string]any {
 	return map[string]any{
-		"id":                 id,
-		"state":              state,
-		"created_at":         time.Now().UTC(),
-		"input":              "stdin",
-		"plugins":            []string{},
-		"default_port":       int(0),
-		"targets_seen":       int64(0),
-		"targets_scanned":    int64(0),
-		"findings_count":     int64(0),
-		"error_msg":          "",
-		"operator":           "alice",
-		"findings_by_plugin": []byte(`{}`),
+		"id":                       id,
+		"state":                    state,
+		"created_at":               time.Now().UTC(),
+		"input":                    "stdin",
+		"plugins":                  []string{},
+		"default_port":             int(0),
+		"targets_seen":             int64(0),
+		"targets_scanned":          int64(0),
+		"findings_count":           int64(0),
+		"error_msg":                "",
+		"operator":                 "alice",
+		"findings_by_plugin":       []byte(`{}`),
+		"triggered_by_schedule_id": (*string)(nil),
 	}
 }
 

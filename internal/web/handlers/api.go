@@ -88,7 +88,9 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
 	// v1.70: scan-schedules sub-router.
-	schedulesHandler := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore)
+	// v1.92: scanStore is passed in so /{id}/runs can list jobs
+	// the scheduler fired for the schedule.
+	schedulesHandler := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore, deps.ScanStore)
 	mux.Handle("POST /api/v1/schedules", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/{id}", schedulesHandler)
@@ -97,6 +99,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("POST /api/v1/schedules/{id}/enable", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/{id}/disable", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/{id}/audit", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules/{id}/runs", schedulesHandler)
 	return mux
 }
 

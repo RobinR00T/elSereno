@@ -122,6 +122,13 @@ type Job struct {
 	// Operator is the identity of whoever submitted the job
 	// (from upstream auth middleware). Free-form string.
 	Operator string `json:"operator,omitempty"`
+	// TriggeredByScheduleID (v1.92+) is the originating schedule
+	// ID when this job was auto-fired by the v1.70+ Scheduler.
+	// Empty for operator-submitted manual scans. The FK
+	// (migration 00014) is ON DELETE SET NULL, so deleting the
+	// schedule leaves the job's history intact but drops the
+	// linkage (matches the v1.88 schedule-audit pattern).
+	TriggeredByScheduleID string `json:"triggered_by_schedule_id,omitempty"`
 }
 
 // Stats is the running per-job counter set the worker maintains.
@@ -167,10 +174,21 @@ type Store interface {
 	// Submit creates a new queued Job from req and returns it.
 	// The Job's ID + CreatedAt are populated by the store.
 	Submit(ctx context.Context, req SubmitRequest, operator string) (Job, error)
+	// SubmitFromSchedule (v1.92+) is the scheduler-side variant
+	// of Submit. It records `scheduleID` on the created job so
+	// the dashboard can later list runs per schedule via the
+	// v1.92 GET /schedules/{id}/runs endpoint. Empty
+	// scheduleID = equivalent to Submit (no linkage).
+	SubmitFromSchedule(ctx context.Context, req SubmitRequest, operator, scheduleID string) (Job, error)
 	// Get returns the Job with the given ID, or ErrJobNotFound.
 	Get(ctx context.Context, id string) (Job, error)
 	// List returns the newest jobs first, capped at limit.
 	List(ctx context.Context, limit int) ([]Job, error)
+	// ListBySchedule (v1.92+) returns the newest jobs first
+	// for jobs triggered by `scheduleID`, capped at limit.
+	// Empty slice when the schedule has no recorded runs (or
+	// never fired). Limit <= 0 → store-defined default (50).
+	ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error)
 	// Transition moves a job between states. The worker uses
 	// this to advance queued → running → completed/failed; the
 	// operator uses it to cancel a queued/running job.
@@ -247,7 +265,14 @@ func NewMemoryStore() *MemoryStore {
 }
 
 // Submit creates a queued job from req.
-func (s *MemoryStore) Submit(_ context.Context, req SubmitRequest, operator string) (Job, error) {
+func (s *MemoryStore) Submit(ctx context.Context, req SubmitRequest, operator string) (Job, error) {
+	return s.SubmitFromSchedule(ctx, req, operator, "")
+}
+
+// SubmitFromSchedule (v1.92+) is Submit + records the
+// originating schedule ID so the dashboard can list runs by
+// schedule. Empty scheduleID → behaves identically to Submit.
+func (s *MemoryStore) SubmitFromSchedule(_ context.Context, req SubmitRequest, operator, scheduleID string) (Job, error) {
 	if req.Input == "" {
 		return Job{}, ErrInputRequired
 	}
@@ -256,13 +281,14 @@ func (s *MemoryStore) Submit(_ context.Context, req SubmitRequest, operator stri
 		return Job{}, err
 	}
 	job := Job{
-		ID:          id,
-		State:       StateQueued,
-		CreatedAt:   time.Now().UTC().Truncate(time.Microsecond),
-		Input:       req.Input,
-		Plugins:     append([]string(nil), req.Plugins...),
-		DefaultPort: req.DefaultPort,
-		Operator:    operator,
+		ID:                    id,
+		State:                 StateQueued,
+		CreatedAt:             time.Now().UTC().Truncate(time.Microsecond),
+		Input:                 req.Input,
+		Plugins:               append([]string(nil), req.Plugins...),
+		DefaultPort:           req.DefaultPort,
+		Operator:              operator,
+		TriggeredByScheduleID: scheduleID,
 	}
 	s.mu.Lock()
 	s.jobs[id] = job
@@ -295,6 +321,29 @@ func (s *MemoryStore) List(_ context.Context, limit int) ([]Job, error) {
 		if job, ok := s.jobs[s.order[i]]; ok {
 			out = append(out, job)
 		}
+	}
+	return out, nil
+}
+
+// ListBySchedule (v1.92+) returns jobs triggered by the given
+// schedule ID, newest first, capped at limit. Empty slice for
+// schedules with no recorded runs (or never fired).
+func (s *MemoryStore) ListBySchedule(_ context.Context, scheduleID string, limit int) ([]Job, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Job, 0, limit)
+	for i := len(s.order) - 1; i >= 0 && len(out) < limit; i-- {
+		job, ok := s.jobs[s.order[i]]
+		if !ok {
+			continue
+		}
+		if job.TriggeredByScheduleID != scheduleID {
+			continue
+		}
+		out = append(out, job)
 	}
 	return out, nil
 }

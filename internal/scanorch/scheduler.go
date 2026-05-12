@@ -114,7 +114,10 @@ func (s *Scheduler) fire(ctx context.Context, sched ScanSchedule, now time.Time)
 		// firing, we'd loop on the next tick.
 		return
 	}
-	job, err := s.ScanStore.Submit(ctx, sched.Template, sched.Operator)
+	// v1.92: SubmitFromSchedule records sched.ID on the job so
+	// GET /api/v1/schedules/{id}/runs can list this firing's
+	// run history.
+	job, err := s.ScanStore.SubmitFromSchedule(ctx, sched.Template, sched.Operator, sched.ID)
 	if err != nil {
 		if s.OnFireError != nil {
 			s.OnFireError(sched.ID, err)

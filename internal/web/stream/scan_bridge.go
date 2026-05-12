@@ -100,6 +100,19 @@ func (s *BroadcastingStore) Submit(ctx context.Context, req scanorch.SubmitReque
 	return job, nil
 }
 
+// SubmitFromSchedule (v1.92+) calls through then publishes the
+// queued Job. Same broadcast semantics as Submit; the schedule
+// linkage on the resulting Job propagates through the SSE
+// payload because the inner store stamped it.
+func (s *BroadcastingStore) SubmitFromSchedule(ctx context.Context, req scanorch.SubmitRequest, operator, scheduleID string) (scanorch.Job, error) {
+	job, err := s.inner.SubmitFromSchedule(ctx, req, operator, scheduleID)
+	if err != nil {
+		return job, err
+	}
+	PublishScanState(s.b, job)
+	return job, nil
+}
+
 // Get is a pure read; no event is published.
 func (s *BroadcastingStore) Get(ctx context.Context, id string) (scanorch.Job, error) {
 	return s.inner.Get(ctx, id)
@@ -108,6 +121,11 @@ func (s *BroadcastingStore) Get(ctx context.Context, id string) (scanorch.Job, e
 // List is a pure read; no event is published.
 func (s *BroadcastingStore) List(ctx context.Context, limit int) ([]scanorch.Job, error) {
 	return s.inner.List(ctx, limit)
+}
+
+// ListBySchedule (v1.92+) is a pure read; no event is published.
+func (s *BroadcastingStore) ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]scanorch.Job, error) {
+	return s.inner.ListBySchedule(ctx, scheduleID, limit)
 }
 
 // Transition calls through then publishes the result. Terminal

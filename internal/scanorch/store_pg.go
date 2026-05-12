@@ -43,6 +43,13 @@ func NewDBStore(q Querier) *DBStore { return &DBStore{q: q} }
 
 // Submit inserts a new queued job.
 func (s *DBStore) Submit(ctx context.Context, req SubmitRequest, operator string) (Job, error) {
+	return s.SubmitFromSchedule(ctx, req, operator, "")
+}
+
+// SubmitFromSchedule (v1.92+) is Submit + records the
+// originating schedule ID on the inserted row. Empty
+// scheduleID maps to NULL via nullableString.
+func (s *DBStore) SubmitFromSchedule(ctx context.Context, req SubmitRequest, operator, scheduleID string) (Job, error) {
 	if req.Input == "" {
 		return Job{}, ErrInputRequired
 	}
@@ -56,20 +63,31 @@ func (s *DBStore) Submit(ctx context.Context, req SubmitRequest, operator string
 		plugins = []string{} // postgres ARRAY can't take nil
 	}
 	const sql = `
-INSERT INTO scan_jobs(id, state, created_at, input, plugins, default_port, operator)
-VALUES ($1, 'queued', $2, $3, $4, $5, $6)`
-	if _, err := s.q.Exec(ctx, sql, id, now, req.Input, plugins, req.DefaultPort, operator); err != nil {
+INSERT INTO scan_jobs(id, state, created_at, input, plugins, default_port, operator, triggered_by_schedule_id)
+VALUES ($1, 'queued', $2, $3, $4, $5, $6, $7)`
+	if _, err := s.q.Exec(ctx, sql, id, now, req.Input, plugins, req.DefaultPort, operator, nullableString(scheduleID)); err != nil {
 		return Job{}, fmt.Errorf("scanorch: insert job: %w", err)
 	}
 	return Job{
-		ID:          id,
-		State:       StateQueued,
-		CreatedAt:   now,
-		Input:       req.Input,
-		Plugins:     append([]string(nil), plugins...),
-		DefaultPort: req.DefaultPort,
-		Operator:    operator,
+		ID:                    id,
+		State:                 StateQueued,
+		CreatedAt:             now,
+		Input:                 req.Input,
+		Plugins:               append([]string(nil), plugins...),
+		DefaultPort:           req.DefaultPort,
+		Operator:              operator,
+		TriggeredByScheduleID: scheduleID,
 	}, nil
+}
+
+// nullableString returns nil for empty input + a *string
+// pointer for non-empty. Used by the v1.92 schedule-linkage
+// column which the dashboard's "manual scan" path leaves NULL.
+func nullableString(v string) any {
+	if v == "" {
+		return nil
+	}
+	return v
 }
 
 // jobColumns is the column list returned by every Get/List/
@@ -77,11 +95,13 @@ VALUES ($1, 'queued', $2, $3, $4, $5, $6)`
 // projection + the rowScanner.
 //
 // v1.67+: includes findings_by_plugin (JSONB).
+// v1.92+: includes triggered_by_schedule_id (nullable TEXT FK).
 const jobColumns = `
 id, state, created_at, started_at, finished_at,
 input, plugins, default_port,
 targets_seen, targets_scanned, findings_count,
-error_msg, operator, findings_by_plugin`
+error_msg, operator, findings_by_plugin,
+triggered_by_schedule_id`
 
 // Get returns the job with the given ID.
 func (s *DBStore) Get(ctx context.Context, id string) (Job, error) {
@@ -121,6 +141,44 @@ func (s *DBStore) List(ctx context.Context, limit int) ([]Job, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("scanorch: list jobs (rows): %w", err)
+	}
+	return jobs, nil
+}
+
+// ListBySchedule (v1.92+) returns jobs triggered by the given
+// schedule ID, newest first, capped at limit. Empty slice when
+// the schedule has no recorded runs. Uses the v1.92 partial
+// index (idx_scan_jobs_triggered_by_schedule) for fast lookups.
+func (s *DBStore) ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error) {
+	if scheduleID == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	rows, err := s.q.Query(ctx,
+		"SELECT "+jobColumns+
+			" FROM scan_jobs"+
+			" WHERE triggered_by_schedule_id = $1"+
+			" ORDER BY created_at DESC LIMIT $2",
+		scheduleID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: list jobs by schedule: %w", err)
+	}
+	defer rows.Close()
+	jobs := make([]Job, 0, limit)
+	for rows.Next() {
+		j, scanErr := scanJob(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		jobs = append(jobs, j)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanorch: list jobs by schedule (rows): %w", err)
 	}
 	return jobs, nil
 }
@@ -302,22 +360,24 @@ func itoa(n int) string {
 // output, no spurious empty tooltip on the dashboard).
 func scanJob(rows pgx.Rows) (Job, error) {
 	var (
-		j                 Job
-		stateStr          string
-		startedAt         *time.Time
-		finishedAt        *time.Time
-		plugins           []string
-		errorMsg          string
-		operator          string
-		defaultPort       int
-		seen, scd, fnd    int64
-		findingsByPlugRaw []byte
+		j                     Job
+		stateStr              string
+		startedAt             *time.Time
+		finishedAt            *time.Time
+		plugins               []string
+		errorMsg              string
+		operator              string
+		defaultPort           int
+		seen, scd, fnd        int64
+		findingsByPlugRaw     []byte
+		triggeredByScheduleID *string
 	)
 	if err := rows.Scan(
 		&j.ID, &stateStr, &j.CreatedAt, &startedAt, &finishedAt,
 		&j.Input, &plugins, &defaultPort,
 		&seen, &scd, &fnd,
 		&errorMsg, &operator, &findingsByPlugRaw,
+		&triggeredByScheduleID,
 	); err != nil {
 		return Job{}, fmt.Errorf("scanorch: scan job: %w", err)
 	}
@@ -348,6 +408,9 @@ func scanJob(rows pgx.Rows) (Job, error) {
 		if len(byPlugin) > 0 {
 			j.FindingsByPlugin = byPlugin
 		}
+	}
+	if triggeredByScheduleID != nil {
+		j.TriggeredByScheduleID = *triggeredByScheduleID
 	}
 	return j, nil
 }

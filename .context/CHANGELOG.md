@@ -8,6 +8,20 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.92 (chunk 1) — **Schedule run
+  history.** Migration 00014 adds NULL-able
+  `triggered_by_schedule_id` to scan_jobs +
+  partial index. Job struct gains
+  `TriggeredByScheduleID` field. New Store methods:
+  `SubmitFromSchedule` (recorded linkage) +
+  `ListBySchedule` (newest-first per-schedule jobs).
+  Scheduler.fire writes the linkage on each tick.
+  New REST endpoint `GET
+  /api/v1/schedules/{id}/runs?limit=N`. Dashboard
+  gets per-row "Runs" button + new viewer panel. +3
+  unit tests. Snapshot:
+  `.context/snapshots/v1.92.0-schedule-run-history.md`.
+
 - 2026-05-12 — v1.91 (chunk 1) — **Pruner Prometheus
   metrics.** New labelled counter
   `elsereno_audit_pruner_runs_total{result=acquired|

@@ -578,6 +578,21 @@ const overviewHTML = `<!doctype html>
         </table>
         <button type="button" id="schedule-audit-close-button" onclick="closeAuditView()" style="margin-top: 0.3em;">Close</button>
       </div>
+      <!-- v1.92: per-schedule run history. Loaded on demand from
+           /api/v1/schedules/{id}/runs. Empty until openRunsView fires. -->
+      <div id="schedule-runs-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
+        <h3 style="margin: 0 0 0.3em;">Run history</h3>
+        <div class="sub" id="schedule-runs-subtitle"></div>
+        <table id="schedule-runs-table" style="margin-top: 0.3em;">
+          <thead>
+            <tr><th>When</th><th>State</th><th>Job ID</th><th>Findings</th><th>Targets</th></tr>
+          </thead>
+          <tbody id="schedule-runs-body">
+            <tr class="empty"><td colspan="5">loading…</td></tr>
+          </tbody>
+        </table>
+        <button type="button" id="schedule-runs-close-button" onclick="closeRunsView()" style="margin-top: 0.3em;">Close</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -1274,6 +1289,9 @@ const overviewHTML = `<!doctype html>
             '" data-sched-name="' + escAttr(s.name || s.id) +
             '" onclick="openAuditView(this.dataset.schedId, this.dataset.schedName)">History</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" data-sched-name="' + escAttr(s.name || s.id) +
+            '" onclick="openRunsView(this.dataset.schedId, this.dataset.schedName)">Runs</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
           return '<tr data-sched-id="' + escAttr(s.id) + '">' +
             '<td>' + escText(s.name || "") + '</td>' +
@@ -1829,6 +1847,59 @@ const overviewHTML = `<!doctype html>
     var view = document.getElementById("schedule-audit-view");
     if (view) view.style.display = "none";
   }
+  // openRunsView (v1.92) fetches /api/v1/schedules/{id}/runs +
+  // renders the jobs as a table. Newest-first by created_at.
+  // 503 (scan store nil) surfaces an "unavailable" message
+  // inside the panel — the button is always rendered for UI
+  // consistency.
+  function openRunsView(id, displayName) {
+    var view = document.getElementById("schedule-runs-view");
+    var body = document.getElementById("schedule-runs-body");
+    var subtitle = document.getElementById("schedule-runs-subtitle");
+    if (!view || !body) return;
+    if (subtitle) {
+      subtitle.textContent = displayName ? (displayName + " · " + id) : id;
+    }
+    body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
+    view.style.display = "";
+    view.scrollIntoView({block: "nearest"});
+    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/runs", {
+      credentials: "same-origin"
+    }).then(function (r) {
+      if (r.status === 503) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable — run with --scan-store=db to enable persistence</td></tr>';
+        return null;
+      }
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      if (res === null) return;
+      var jobs = (res && res.data) || [];
+      if (!jobs.length) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">no runs recorded for this schedule yet</td></tr>';
+        return;
+      }
+      body.innerHTML = jobs.map(function (j) {
+        var when = j.created_at ? new Date(j.created_at).toLocaleString() : "—";
+        var state = j.state || "—";
+        var findings = (j.stats && j.stats.findings_count) || 0;
+        var targets = (j.stats && (j.stats.targets_scanned || 0) + "/" + (j.stats.targets_seen || 0)) || "0/0";
+        return '<tr>' +
+          '<td>' + escText(when) + '</td>' +
+          '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
+          '<td><code>' + escText(j.id || "—") + '</code></td>' +
+          '<td>' + escText(String(findings)) + '</td>' +
+          '<td>' + escText(targets) + '</td>' +
+          '</tr>';
+      }).join("");
+    }).catch(function (err) {
+      body.innerHTML = '<tr class="empty"><td colspan="5">runs fetch failed: ' + escText(err.message) + '</td></tr>';
+    });
+  }
+  function closeRunsView() {
+    var view = document.getElementById("schedule-runs-view");
+    if (view) view.style.display = "none";
+  }
   // computeAuditEventDiff: parse payload_before + payload_after
   // and produce a list of {field, before, after} for each
   // editable field that changed. Reuses the v1.81 strify
@@ -2021,6 +2092,9 @@ const overviewHTML = `<!doctype html>
   // v1.85 audit history view.
   window.openAuditView = openAuditView;
   window.closeAuditView = closeAuditView;
+  // v1.92 run history view.
+  window.openRunsView = openRunsView;
+  window.closeRunsView = closeRunsView;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

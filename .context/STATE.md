@@ -1,22 +1,29 @@
 ---
-phase: v1.91-closed
-status: v1.16-v1.90 published; v1.91 tag pending push
+phase: v1.92-closed
+status: v1.16-v1.91 published; v1.92 tag pending push
 last-updated: 2026-05-12
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.91 cycle closed on `main`** (1 chunk +
-close). Pruner Prometheus metrics: labelled counter
-`elsereno_audit_pruner_runs_total{result=acquired|
-skipped_lock|error}` + cumulative
-`elsereno_audit_pruner_events_deleted_total`. Wired
-through the existing OnPrune / OnError / OnLockSkipped
-callbacks in cmd_serve. Closes v1.90 carryover. Refactored
-`NewMetrics` into core+pruner builders. +1 unit test.
+**Phase**: **v1.92 cycle closed on `main`** (1 chunk +
+close). Schedule run history: migration 00014 adds
+NULL-able `triggered_by_schedule_id` FK to scan_jobs +
+partial index. Scheduler.fire now writes the linkage via
+new `SubmitFromSchedule` Store method. New endpoint
+`GET /api/v1/schedules/{id}/runs?limit=N`. Dashboard gets
+"Runs" per-schedule button + viewer panel. +3 unit tests.
 
-Snapshot: `.context/snapshots/v1.91.0-pruner-metrics.md`.
+Snapshot: `.context/snapshots/v1.92.0-schedule-run-history.md`.
+
+**v1.91 cycle (closed, snapshot available)**: Pruner
+Prometheus metrics — labelled counter
+`elsereno_audit_pruner_runs_total{result}` + cumulative
+`elsereno_audit_pruner_events_deleted_total`. Refactored
+`NewMetrics` into core+pruner builders. Closes v1.90
+carryover. Snapshot:
+`.context/snapshots/v1.91.0-pruner-metrics.md`.
 
 **v1.90 cycle (closed, snapshot available)**: Advisory-
 locked audit pruner. `AdvisoryLockedAuditStore` interface +

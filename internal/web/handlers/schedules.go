@@ -22,6 +22,7 @@ import (
 //	POST   /api/v1/schedules/{id}/disable
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
+//	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
@@ -32,7 +33,12 @@ import (
 // persist a before/after snapshot. nil audit → header is
 // honored as "skip If-Match" but no audit row is written.
 // /{id}/audit returns 503 in that case.
-func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
+//
+// v1.92+: scanStore is also optional. /{id}/runs returns 503
+// when nil; otherwise lists the last N jobs the scheduler
+// fired for this schedule (linked via the v1.92
+// triggered_by_schedule_id column).
+func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, scanStore scanorch.Store) http.Handler {
 	mux := http.NewServeMux()
 	if store == nil {
 		serviceUnavailable := func(w http.ResponseWriter, _ *http.Request) {
@@ -47,6 +53,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) 
 		mux.HandleFunc("POST /api/v1/schedules/{id}/disable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
+		mux.HandleFunc("GET /api/v1/schedules/{id}/runs", serviceUnavailable)
 		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
@@ -64,8 +71,58 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) 
 	mux.Handle("POST /api/v1/schedules/{id}/enable", setScheduleEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
+	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
+}
+
+// listScheduleRuns (v1.92+) handles GET /schedules/{id}/runs.
+// Returns the last N jobs (default 50, capped at 1000) the
+// scheduler fired for this schedule, sorted newest-first.
+//
+// The schedule must exist (404 otherwise). 503 when the scan
+// store is nil (memory-only deployments that disabled the
+// scan store). Empty list is a valid response — a schedule
+// that hasn't fired yet returns [].
+//
+// Optional ?limit= query param: positive int. Default 50.
+func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if scanStore == nil {
+			http.Error(w, "schedules: scan store unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		if _, err := store.Get(r.Context(), id); err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		limit := 50
+		if raw := r.URL.Query().Get("limit"); raw != "" {
+			n, parseErr := strconv.Atoi(raw)
+			if parseErr != nil {
+				http.Error(w, "schedules: malformed limit query: "+parseErr.Error(), http.StatusBadRequest)
+				return
+			}
+			if n > 0 {
+				limit = n
+			}
+		}
+		jobs, err := scanStore.ListBySchedule(r.Context(), id, limit)
+		if err != nil {
+			http.Error(w, "schedules: list runs: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: jobs})
+	})
 }
 
 // withNextFire (v1.77+) populates s.NextFireAt before

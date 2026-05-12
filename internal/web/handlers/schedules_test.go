@@ -15,13 +15,19 @@ import (
 )
 
 func newSchedRouter(store scanorch.ScheduleStore) http.Handler {
-	return handlers.Schedules(store, nil)
+	return handlers.Schedules(store, nil, nil)
 }
 
 // newSchedRouterWithAudit (v1.84+) routes the audit-enabled
 // path. Used by force-overwrite + audit-list tests.
 func newSchedRouterWithAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
-	return handlers.Schedules(store, audit)
+	return handlers.Schedules(store, audit, nil)
+}
+
+// newSchedRouterWithScan (v1.92+) routes the scan-store-enabled
+// path. Used by run-history tests.
+func newSchedRouterWithScan(store scanorch.ScheduleStore, scanStore scanorch.Store) http.Handler {
+	return handlers.Schedules(store, nil, scanStore)
 }
 
 // TestCreateSchedule_Happy: POST returns 201 + the schedule.
@@ -917,5 +923,87 @@ func TestSchedules_NilStoreReturns503(t *testing.T) {
 				t.Errorf("status = %d, want 503", rr.Code)
 			}
 		})
+	}
+}
+
+// TestListScheduleRuns_Happy (v1.92+): scheduler-fired jobs
+// surface via GET /schedules/{id}/runs in newest-first order.
+func TestListScheduleRuns_Happy(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "fleet-hourly",
+		Template:        scanorch.SubmitRequest{Input: "list:fleet.txt"},
+		IntervalSeconds: 3600,
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create err = %v", err)
+	}
+	// Append 3 scheduler-fired jobs.
+	for i := 0; i < 3; i++ {
+		if _, err := scanStore.SubmitFromSchedule(context.Background(),
+			sched.Template, "alice", sched.ID); err != nil {
+			t.Fatalf("SubmitFromSchedule err = %v", err)
+		}
+	}
+	// And a manual job that must NOT appear in the listing.
+	if _, err := scanStore.Submit(context.Background(),
+		scanorch.SubmitRequest{Input: "stdin"}, "alice"); err != nil {
+		t.Fatalf("Submit err = %v", err)
+	}
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data []scanorch.Job `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode err = %v", err)
+	}
+	if len(resp.Data) != 3 {
+		t.Errorf("runs = %d, want 3", len(resp.Data))
+	}
+	for _, j := range resp.Data {
+		if j.TriggeredByScheduleID != sched.ID {
+			t.Errorf("job %s TriggeredByScheduleID = %q, want %q",
+				j.ID, j.TriggeredByScheduleID, sched.ID)
+		}
+	}
+}
+
+// TestListScheduleRuns_ScheduleNotFound (v1.92+): unknown
+// schedule ID → 404.
+func TestListScheduleRuns_ScheduleNotFound(t *testing.T) {
+	router := newSchedRouterWithScan(scanorch.NewMemoryScheduleStore(), scanorch.NewMemoryStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/notreal/runs", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestListScheduleRuns_NoScanStore (v1.92+): nil scan store
+// → 503.
+func TestListScheduleRuns_NoScanStore(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rr.Code)
 	}
 }
