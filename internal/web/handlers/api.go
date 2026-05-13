@@ -106,6 +106,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("POST /api/v1/schedules/bulk/disable", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/export", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/import", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules/tags", schedulesHandler)
 	return mux
 }
 

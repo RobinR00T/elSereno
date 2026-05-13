@@ -207,6 +207,36 @@ RETURNING ` + scheduleColumns
 	)
 }
 
+// TagCounts (v2.5+) aggregates tag occurrences across the
+// table via UNNEST + GROUP BY. Sort by count DESC, tag ASC
+// for stable dashboard rendering.
+func (s *DBScheduleStore) TagCounts(ctx context.Context) ([]TagCount, error) {
+	const sql = `
+SELECT tag, COUNT(*)::int8 AS n
+FROM (SELECT UNNEST(tags) AS tag FROM scan_schedules) t
+GROUP BY tag
+ORDER BY n DESC, tag ASC`
+	rows, err := s.q.Query(ctx, sql)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: tag counts: %w", err)
+	}
+	defer rows.Close()
+	var out []TagCount
+	for rows.Next() {
+		var tc TagCount
+		var n int64
+		if err := rows.Scan(&tc.Tag, &n); err != nil {
+			return nil, fmt.Errorf("scanorch: scan tag count: %w", err)
+		}
+		tc.Count = int(n)
+		out = append(out, tc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanorch: tag counts (rows): %w", err)
+	}
+	return out, nil
+}
+
 // ListByTag (v2.4+) uses the GIN index from migration 00016
 // for fast `tags && ARRAY[$1]` overlap filters.
 func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error) {

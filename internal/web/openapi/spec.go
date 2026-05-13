@@ -330,9 +330,15 @@ func schedulesObservabilityPaths() []Path {
 }
 
 // schedulesBulkSpecPaths (v1.96+) returns the v1.95 bulk
-// pause/resume endpoints. Split from schedulesSpecPaths to
-// keep each function under the funlen cap.
+// pause/resume endpoints + the v1.97 export + v1.99 import +
+// v2.5 tags-aggregate. Split into helpers to satisfy funlen.
 func schedulesBulkSpecPaths() []Path {
+	paths := schedulesBulkTogglePaths()
+	paths = append(paths, schedulesIOPaths()...)
+	return paths
+}
+
+func schedulesBulkTogglePaths() []Path {
 	tag := []string{"schedules"}
 	resp := map[string]Response{
 		"200": {Description: "{affected, failed_audits, target_state}.", Ref: "Envelope"},
@@ -355,6 +361,23 @@ func schedulesBulkSpecPaths() []Path {
 				Responses:   resp,
 			},
 		}},
+		{URL: "/api/v1/schedules/tags", Operations: map[string]Operation{
+			"get": {
+				Summary:     "Aggregate tag-counts across the fleet (v2.5+).",
+				Description: "Returns [{tag, count}] sorted by count DESC, tag ASC. Empty fleet → empty array.",
+				Tags:        tag,
+				Responses: map[string]Response{
+					"200": {Description: "TagCount array.", Ref: "Envelope"},
+					"503": {Description: "Schedule store unavailable."},
+				},
+			},
+		}},
+	}
+}
+
+func schedulesIOPaths() []Path {
+	tag := []string{"schedules"}
+	return []Path{
 		{URL: "/api/v1/schedules/export", Operations: map[string]Operation{
 			"get": {
 				Summary: "Export schedules for backup (v1.97+).",

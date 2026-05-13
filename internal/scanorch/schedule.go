@@ -240,6 +240,18 @@ type ScheduleStore interface {
 	// contains `tag` (exact-match). Empty tag → equivalent
 	// to List. Empty result is valid.
 	ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error)
+	// TagCounts (v2.5+) returns aggregate (tag → count)
+	// across every schedule. Sorted by count DESC, then
+	// name ASC for stable ordering. Empty store → empty
+	// slice. Operators graph this for tag-cloud + autocomplete.
+	TagCounts(ctx context.Context) ([]TagCount, error)
+}
+
+// TagCount (v2.5+) is the aggregate row for the tag-cloud
+// endpoint. Wire shape matches the dashboard chip render.
+type TagCount struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
 }
 
 // UpdateScheduleRequest is the dashboard's edit body. Same
@@ -584,6 +596,41 @@ func (s *MemoryScheduleStore) MarkFired(_ context.Context, id string, now time.T
 	sched.LastFiredAt = now.UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
 	return nil
+}
+
+// TagCounts (v2.5+) aggregates tag occurrences across the
+// in-memory schedule set. Returns the slice sorted by count
+// desc, name asc.
+func (s *MemoryScheduleStore) TagCounts(_ context.Context) ([]TagCount, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	counts := make(map[string]int)
+	for _, sched := range s.schedules {
+		for _, t := range sched.Tags {
+			counts[t]++
+		}
+	}
+	out := make([]TagCount, 0, len(counts))
+	for tag, n := range counts {
+		out = append(out, TagCount{Tag: tag, Count: n})
+	}
+	sortTagCounts(out)
+	return out, nil
+}
+
+// sortTagCounts orders the slice count-DESC + name-ASC for
+// deterministic dashboard rendering. Insertion sort — tag
+// space is small (< 50 typical).
+func sortTagCounts(s []TagCount) {
+	for i := 1; i < len(s); i++ {
+		v := s[i]
+		j := i - 1
+		for j >= 0 && (s[j].Count < v.Count || (s[j].Count == v.Count && s[j].Tag > v.Tag)) {
+			s[j+1] = s[j]
+			j--
+		}
+		s[j+1] = v
+	}
 }
 
 // ListByTag (v2.4+) returns the schedules tagged with `tag`.

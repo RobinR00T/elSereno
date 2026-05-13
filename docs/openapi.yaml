@@ -652,6 +652,21 @@ paths:
       summary: Preview next fire(s) for a schedule (v1.77+).
       tags:
         - schedules
+  /api/v1/schedules/tags:
+    get:
+      description: Returns [{tag, count}] sorted by count DESC, tag ASC. Empty fleet → empty array.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: TagCount array.
+        "503":
+          description: Schedule store unavailable.
+      summary: Aggregate tag-counts across the fleet (v2.5+).
+      tags:
+        - schedules
   /api/v1/scoring:
     get:
       responses:

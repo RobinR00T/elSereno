@@ -30,6 +30,7 @@ import (
 //	POST   /api/v1/schedules/bulk/disable     bulk-disable every schedule (v1.95+)
 //	GET    /api/v1/schedules/export           CSV/NDJSON backup (v1.97+)
 //	POST   /api/v1/schedules/import           NDJSON/JSON restore (v1.99+)
+//	GET    /api/v1/schedules/tags             tag-cloud aggregate (v2.5+)
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
@@ -50,35 +51,57 @@ import (
 // fired for this schedule (linked via the v1.92
 // triggered_by_schedule_id column).
 func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, scanStore scanorch.Store) http.Handler {
-	mux := http.NewServeMux()
 	if store == nil {
-		serviceUnavailable := func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "scan schedules unavailable", http.StatusServiceUnavailable)
-		}
-		mux.HandleFunc("POST /api/v1/schedules", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules/{id}", serviceUnavailable)
-		mux.HandleFunc("PUT /api/v1/schedules/{id}", serviceUnavailable)
-		mux.HandleFunc("DELETE /api/v1/schedules/{id}", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/{id}/enable", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/{id}/disable", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules/{id}/runs", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules/{id}/stats", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/{id}/clone", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/bulk/enable", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/bulk/disable", serviceUnavailable)
-		mux.HandleFunc("GET /api/v1/schedules/export", serviceUnavailable)
-		mux.HandleFunc("POST /api/v1/schedules/import", serviceUnavailable)
-		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
-		return mux
+		return schedulesUnavailableMux()
 	}
-	// v1.77: /preview is registered BEFORE /{id} so the path
-	// matcher routes `/preview` to the preview handler instead
-	// of treating it as an id. Go's net/http mux gives literal
-	// segments priority over wildcards but we keep the
-	// declaration order obvious.
+	return schedulesActiveMux(store, audit, scanStore)
+}
+
+// schedulesUnavailableMux returns the 503-on-everything mux
+// used when the operator deployed without a schedule store.
+func schedulesUnavailableMux() http.Handler {
+	mux := http.NewServeMux()
+	serviceUnavailable := func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "scan schedules unavailable", http.StatusServiceUnavailable)
+	}
+	paths := []string{
+		"POST /api/v1/schedules",
+		"GET /api/v1/schedules",
+		"GET /api/v1/schedules/{id}",
+		"PUT /api/v1/schedules/{id}",
+		"DELETE /api/v1/schedules/{id}",
+		"POST /api/v1/schedules/{id}/enable",
+		"POST /api/v1/schedules/{id}/disable",
+		"POST /api/v1/schedules/preview",
+		"GET /api/v1/schedules/{id}/audit",
+		"GET /api/v1/schedules/{id}/runs",
+		"GET /api/v1/schedules/{id}/stats",
+		"POST /api/v1/schedules/{id}/clone",
+		"POST /api/v1/schedules/bulk/enable",
+		"POST /api/v1/schedules/bulk/disable",
+		"GET /api/v1/schedules/export",
+		"POST /api/v1/schedules/import",
+		"GET /api/v1/schedules/tags",
+		"DELETE /api/v1/schedules/audit",
+	}
+	for _, p := range paths {
+		mux.HandleFunc(p, serviceUnavailable)
+	}
+	return mux
+}
+
+// schedulesActiveMux wires the real per-endpoint handlers.
+// Split from Schedules() so the funlen rule stays satisfied
+// as the endpoint set grows (currently 18 routes; expect
+// more in future cycles).
+//
+// v1.77: /preview is registered BEFORE /{id} so the path
+// matcher routes `/preview` to the preview handler instead
+// of treating it as an id. Go's net/http mux gives literal
+// segments priority over wildcards but we keep the
+// declaration order obvious.
+func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, scanStore scanorch.Store) http.Handler {
+	mux := http.NewServeMux()
 	mux.Handle("POST /api/v1/schedules/preview", previewSchedule())
 	mux.Handle("POST /api/v1/schedules", createSchedule(store))
 	mux.Handle("GET /api/v1/schedules", listSchedules(store))
@@ -95,6 +118,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/export", exportSchedules(store))
 	mux.Handle("POST /api/v1/schedules/import", importSchedules(store))
+	mux.Handle("GET /api/v1/schedules/tags", listScheduleTags(store))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
 }
@@ -1084,6 +1108,27 @@ const (
 	importOutcomeSkipped     = "skipped"
 	importOutcomeError       = "error"
 )
+
+// listScheduleTags (v2.5+) handles GET /schedules/tags. Returns
+// the aggregate (tag → count) across every schedule, sorted by
+// count DESC + tag ASC. Used by the dashboard tag-cloud +
+// autocomplete; operators graph tag distribution to spot gaps
+// ("how many schedules are tagged 'prod'?").
+func listScheduleTags(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		counts, err := store.TagCounts(r.Context())
+		if err != nil {
+			http.Error(w, "schedules: tag counts: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Always-non-nil slice so JSON renders `"tags": []`
+		// when empty (dashboards don't need null-checks).
+		if counts == nil {
+			counts = []scanorch.TagCount{}
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: counts})
+	})
+}
 
 // ScheduleImportResult (v1.99+) is the per-row outcome of
 // importSchedules. The aggregate response has a counts struct

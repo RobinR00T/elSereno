@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.5 (chunk 1) — **Schedule
+  tag-counts aggregate.** New
+  `GET /api/v1/schedules/tags` returns
+  `[{tag, count}]` sorted count DESC, tag ASC. New
+  `Store.TagCounts` method (Memory walks +
+  insertion-sort; PG uses `UNNEST(tags) GROUP BY`).
+  TagCount struct added. Closes v2.4 carryover #2.
+  Refactored `Schedules()` factory into
+  unavailable/active mux helpers (funlen). +2 unit
+  tests + OpenAPI entry. Snapshot:
+  `.context/snapshots/v2.5.0-schedule-tag-counts.md`.
+
 - 2026-05-13 — v2.4 (chunk 1) — **Schedule
   tags/labels.** Migration 00016 adds `tags TEXT[]`
   + GIN index. ScanSchedule + Create + Update accept

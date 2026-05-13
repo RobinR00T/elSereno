@@ -1143,6 +1143,69 @@ func TestListSchedules_ByTag(t *testing.T) {
 	}
 }
 
+// TestListScheduleTags (v2.5+): tag aggregate counts across
+// the store sorted by count DESC, tag ASC.
+func TestListScheduleTags(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("a", "prod")
+	mk("b", "prod", "critical")
+	mk("c", "prod", "critical")
+	mk("d", "dev")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/tags", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.TagCount `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 3 {
+		t.Fatalf("tag counts = %d, want 3", len(resp.Data))
+	}
+	if resp.Data[0].Tag != "prod" || resp.Data[0].Count != 3 {
+		t.Errorf("first = (%q, %d), want (prod, 3)", resp.Data[0].Tag, resp.Data[0].Count)
+	}
+	if resp.Data[1].Tag != "critical" || resp.Data[1].Count != 2 {
+		t.Errorf("second = (%q, %d), want (critical, 2)", resp.Data[1].Tag, resp.Data[1].Count)
+	}
+	if resp.Data[2].Tag != "dev" || resp.Data[2].Count != 1 {
+		t.Errorf("third = (%q, %d), want (dev, 1)", resp.Data[2].Tag, resp.Data[2].Count)
+	}
+}
+
+// TestListScheduleTags_Empty (v2.5+): no schedules → empty
+// array so dashboards render `tags: []`.
+func TestListScheduleTags_Empty(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/tags", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	// Body should contain a `"data"` key whose value is an
+	// empty array. Pretty-print whitespace varies; just decode
+	// and check len==0 + that Data is non-nil-and-empty (not
+	// JSON null).
+	var resp struct {
+		Data []scanorch.TagCount `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if len(resp.Data) != 0 {
+		t.Errorf("data len = %d, want 0", len(resp.Data))
+	}
+}
+
 // TestScheduleStats_Empty (v2.2+): no runs → all zeros, valid
 // payload (no NaN from division-by-zero).
 func TestScheduleStats_Empty(t *testing.T) {
