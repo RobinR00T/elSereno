@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.8 (chunk 1) — **Schedule CLI
+  mutating verbs.** Adds `enable`, `disable`,
+  `clone --name N`, `import <file>
+  [--on-conflict ...]`, `pause-all`, `resume-all`.
+  All honour `--dry-run`. New `httpDoWithBody` helper
+  picks Content-Type by file extension on import
+  (.json → application/json, else
+  application/x-ndjson). Closes v2.3 carryover.
+  Snapshot:
+  `.context/snapshots/v2.8.0-schedule-cli-mutating.md`.
+
 - 2026-05-13 — v2.7 (chunk 1) — **ETag /
   If-None-Match support.** New `writeJSONWithETag`
   helper computes SHA-256 of the response body,

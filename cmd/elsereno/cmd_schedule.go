@@ -66,6 +66,13 @@ func newScheduleCmd() *cobra.Command {
 	cmd.AddCommand(newScheduleDeleteCmd())
 	cmd.AddCommand(newScheduleStatsCmd())
 	cmd.AddCommand(newScheduleExportCmd())
+	// v2.8+ mutating verbs.
+	cmd.AddCommand(newScheduleEnableCmd())
+	cmd.AddCommand(newScheduleDisableCmd())
+	cmd.AddCommand(newScheduleCloneCmd())
+	cmd.AddCommand(newScheduleImportCmd())
+	cmd.AddCommand(newSchedulePauseAllCmd())
+	cmd.AddCommand(newScheduleResumeAllCmd())
 	return cmd
 }
 
@@ -119,21 +126,34 @@ func readTokenFile() string {
 }
 
 // httpDo executes one HTTP request against the serve, applying
-// the Bearer token + standard timeouts. Closes the response
-// body internally + returns the bytes. Non-2xx status codes
-// surface as errors with the response body embedded — callers
-// that need status-specific branching can switch on
-// errors.Is(...). Today every caller just propagates.
+// the Bearer token + standard timeouts. Body-less request via
+// http.NoBody. See httpDoWithBody for POST/PUT calls with a
+// JSON payload.
 func httpDo(opts scheduleClientOpts, method, path string) ([]byte, error) {
-	req, err := http.NewRequest(method, opts.URL+path, http.NoBody) //nolint:noctx // CLI; long timeouts are fine.
+	return httpDoWithBody(opts, method, path, nil, "")
+}
+
+// httpDoWithBody (v2.8+) is the JSON-body-aware variant. When
+// `body` is non-nil, content-type is set to `application/json`
+// (override via the contentType arg for non-JSON imports). The
+// body is sent verbatim — the caller marshals.
+func httpDoWithBody(opts scheduleClientOpts, method, path string, body []byte, contentType string) ([]byte, error) {
+	var reqBody io.Reader = http.NoBody
+	if len(body) > 0 {
+		reqBody = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, opts.URL+path, reqBody) //nolint:noctx // CLI; long timeouts are fine.
 	if err != nil {
 		return nil, err
 	}
 	if opts.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+opts.Token)
 	}
-	if method == http.MethodPost || method == http.MethodPut {
-		req.Header.Set("Content-Type", "application/json")
+	if len(body) > 0 {
+		if contentType == "" {
+			contentType = "application/json"
+		}
+		req.Header.Set("Content-Type", contentType)
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -418,5 +438,190 @@ func (a *alignedWriter) Flush() {
 			}
 		}
 		_, _ = a.out.Write([]byte("\n"))
+	}
+}
+
+// ---- v2.8 mutating verbs ----
+
+// newScheduleEnableCmd / newScheduleDisableCmd post to
+// /enable + /disable. Both honour --dry-run.
+func newScheduleEnableCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "enable <id>",
+		Short: "Enable a schedule (v2.8+)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  scheduleToggleRunE("enable"),
+	}
+}
+
+func newScheduleDisableCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "disable <id>",
+		Short: "Disable a schedule (v2.8+)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  scheduleToggleRunE("disable"),
+	}
+}
+
+// scheduleToggleRunE is the shared RunE for enable/disable.
+func scheduleToggleRunE(action string) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		opts := resolveScheduleOpts(cmd)
+		if flagDryRun {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would %s schedule %s\n", action, args[0])
+			return nil
+		}
+		path := "/api/v1/schedules/" + args[0] + "/" + action
+		if _, err := httpDo(opts, http.MethodPost, path); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%sd %s\n", action, args[0])
+		return nil
+	}
+}
+
+// newScheduleCloneCmd posts to /clone with optional rename
+// payload. v2.8+.
+func newScheduleCloneCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "clone <id>",
+		Short: "Clone a schedule (v2.8+)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := resolveScheduleOpts(cmd)
+			name, _ := cmd.Flags().GetString("name")
+			body, err := encodeOptionalCloneBody(name)
+			if err != nil {
+				return err
+			}
+			if flagDryRun {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would clone %s (name=%q)\n", args[0], name)
+				return nil
+			}
+			resp, err := httpDoWithBody(opts, http.MethodPost,
+				"/api/v1/schedules/"+args[0]+"/clone", body, "")
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if strings.ToLower(flagFormat) == scheduleFormatJSON {
+				_, _ = out.Write(resp)
+				return nil
+			}
+			var pretty bytes.Buffer
+			if err := json.Indent(&pretty, resp, "", "  "); err != nil {
+				// Body wasn't valid JSON; emit raw + surface
+				// the error so the operator knows the server
+				// returned something unexpected.
+				_, _ = out.Write(resp)
+				return fmt.Errorf("indent clone response: %w", err)
+			}
+			_, _ = out.Write(pretty.Bytes())
+			_, _ = fmt.Fprintln(out)
+			return nil
+		},
+	}
+	cmd.Flags().String("name", "", "name for the clone (default '<source.name> (copy)')")
+	return cmd
+}
+
+// encodeOptionalCloneBody returns the JSON body for /clone.
+// Empty name → nil body (server picks the default).
+func encodeOptionalCloneBody(name string) ([]byte, error) {
+	if name == "" {
+		return nil, nil
+	}
+	return json.Marshal(map[string]any{"name": name})
+}
+
+// newScheduleImportCmd posts a file's contents to /import.
+// File extension drives the Content-Type header:
+//   - .ndjson → application/x-ndjson
+//   - .json   → application/json
+//   - other   → application/x-ndjson (server auto-detects)
+//
+// v2.8+.
+func newScheduleImportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "import <file>",
+		Short: "Import schedules from NDJSON/JSON (v2.8+, server v1.99+)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts := resolveScheduleOpts(cmd)
+			data, err := os.ReadFile(args[0]) // #nosec G304 — CLI takes operator-supplied path.
+			if err != nil {
+				return fmt.Errorf("read import file: %w", err)
+			}
+			onConflict, _ := cmd.Flags().GetString("on-conflict")
+			path := "/api/v1/schedules/import?on_conflict=" + onConflict
+			ct := importContentType(args[0])
+			if flagDryRun {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(),
+					"[dry-run] would POST %d bytes (%s) to %s\n", len(data), ct, path)
+				return nil
+			}
+			resp, err := httpDoWithBody(opts, http.MethodPost, path, data, ct)
+			if err != nil {
+				return err
+			}
+			_, _ = cmd.OutOrStdout().Write(resp)
+			return nil
+		},
+	}
+	cmd.Flags().String("on-conflict", "skip", "conflict resolution: skip|overwrite|rename")
+	return cmd
+}
+
+func importContentType(filename string) string {
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".json":
+		return "application/json"
+	case ".ndjson":
+		return "application/x-ndjson"
+	default:
+		// Server auto-detects via the first non-whitespace
+		// byte. Default to NDJSON since that's what the
+		// v1.97 export ships.
+		return "application/x-ndjson"
+	}
+}
+
+// newSchedulePauseAllCmd / newScheduleResumeAllCmd hit the
+// v1.95 bulk endpoints.
+func newSchedulePauseAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pause-all",
+		Short: "Disable every schedule (v2.8+; server v1.95+)",
+		RunE:  scheduleBulkRunE("disable"),
+	}
+}
+
+func newScheduleResumeAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "resume-all",
+		Short: "Enable every schedule (v2.8+; server v1.95+)",
+		RunE:  scheduleBulkRunE("enable"),
+	}
+}
+
+func scheduleBulkRunE(action string) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		opts := resolveScheduleOpts(cmd)
+		if flagDryRun {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] would POST bulk/%s\n", action)
+			return nil
+		}
+		resp, err := httpDo(opts, http.MethodPost, "/api/v1/schedules/bulk/"+action)
+		if err != nil {
+			return err
+		}
+		var pretty bytes.Buffer
+		if err := json.Indent(&pretty, resp, "", "  "); err == nil {
+			_, _ = cmd.OutOrStdout().Write(pretty.Bytes())
+			_, _ = fmt.Fprintln(cmd.OutOrStdout())
+			return nil
+		}
+		_, _ = cmd.OutOrStdout().Write(resp)
+		return nil
 	}
 }

@@ -1,24 +1,23 @@
 ---
-phase: v2.7-closed
-status: v1.16-v2.6 published; v2.7 tag pending push
+phase: v2.8-closed
+status: v1.16-v2.7 published; v2.8 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.7 cycle closed on `main`** (1 chunk +
-close). ETag/If-None-Match support: new
-`writeJSONWithETag` helper. Wired into low-churn read
-endpoints (`/schedules/tags`, `/{id}/audit`, `/{id}/runs`).
-SHA-256 truncated to 64-bit hex. +1 test.
+**Phase**: **v2.8 cycle closed on `main`** (1 chunk +
+close). Schedule CLI mutating verbs:
+`enable/disable/clone/import/pause-all/resume-all` added
+to `elsereno schedule`. All honour `--dry-run`. New
+`httpDoWithBody` helper. Closes v2.3 carryover.
 
-Snapshot: `.context/snapshots/v2.7.0-etag-support.md`.
+Snapshot: `.context/snapshots/v2.8.0-schedule-cli-mutating.md`.
 
-**v2.6 cycle (closed, snapshot)**: Dashboard tag UI —
-chips per row + tag-cloud widget + filter toggle. Pure
-dashboard.
-Snapshot: `.context/snapshots/v2.6.0-dashboard-tag-ui.md`.
+**v2.6 + v2.7 cycles (closed; per-cycle snapshots)**:
+v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on
+`/tags`, `/{id}/audit`, `/{id}/runs`.
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
