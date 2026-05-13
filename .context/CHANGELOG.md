@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.7 (chunk 1) — **ETag /
+  If-None-Match support.** New `writeJSONWithETag`
+  helper computes SHA-256 of the response body,
+  emits ETag header, honors `If-None-Match` → 304.
+  Wired into `/schedules/tags`, `/schedules/{id}/audit`,
+  `/schedules/{id}/runs`. `/schedules` + `/stats`
+  intentionally NOT wired (second-resolution `now`
+  fields would defeat cache). +1 unit test. Snapshot:
+  `.context/snapshots/v2.7.0-etag-support.md`.
+
 - 2026-05-13 — v2.6 (chunk 1) — **Dashboard tag UI.**
   Schedules table gains "Tags" column with clickable
   chips (toggle the global tag filter). Tag-cloud

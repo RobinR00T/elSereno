@@ -1183,6 +1183,66 @@ func TestListScheduleTags(t *testing.T) {
 	}
 }
 
+// TestListScheduleTags_ETag (v2.7+): first call returns
+// ETag header + 200; second call with matching
+// If-None-Match returns 304.
+func TestListScheduleTags_ETag(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "a", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60, Tags: []string{"prod"},
+	}, "alice")
+	router := newSchedRouter(store)
+
+	// First request: no If-None-Match → 200 + ETag.
+	rr1 := httptest.NewRecorder()
+	router.ServeHTTP(rr1, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/tags", nil))
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("first call status = %d", rr1.Code)
+	}
+	etag := rr1.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("first call missing ETag header")
+	}
+
+	// Second request: matching If-None-Match → 304.
+	req2 := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/tags", nil)
+	req2.Header.Set("If-None-Match", etag)
+	rr2 := httptest.NewRecorder()
+	router.ServeHTTP(rr2, req2)
+	if rr2.Code != http.StatusNotModified {
+		t.Errorf("304 expected on matching If-None-Match, got %d", rr2.Code)
+	}
+	// Body must be empty on 304.
+	if rr2.Body.Len() != 0 {
+		t.Errorf("304 body len = %d, want 0", rr2.Body.Len())
+	}
+	// ETag header still set on 304 (RFC 7232).
+	if rr2.Header().Get("ETag") != etag {
+		t.Errorf("304 ETag mismatch")
+	}
+
+	// Third request: mutate the store, then re-send the OLD
+	// If-None-Match → 200 + different ETag.
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "b", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60, Tags: []string{"dev"},
+	}, "alice")
+	req3 := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/tags", nil)
+	req3.Header.Set("If-None-Match", etag)
+	rr3 := httptest.NewRecorder()
+	router.ServeHTTP(rr3, req3)
+	if rr3.Code != http.StatusOK {
+		t.Errorf("post-mutation status = %d, want 200", rr3.Code)
+	}
+	if rr3.Header().Get("ETag") == etag {
+		t.Errorf("ETag should differ after mutation; both = %s", etag)
+	}
+}
+
 // TestListScheduleTags_Empty (v2.5+): no schedules → empty
 // array so dashboards render `tags: []`.
 func TestListScheduleTags_Empty(t *testing.T) {

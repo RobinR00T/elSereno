@@ -481,7 +481,9 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 			return
 		}
 		payload := buildRunsResponse(jobs, limit)
-		writeJSON(w, scanResponse{Schema: "api:v1", Data: payload})
+		// v2.7: ETag — runs are append-only at the head of
+		// the list; old pages are stable.
+		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: payload})
 	})
 }
 
@@ -699,6 +701,11 @@ func listSchedules(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// v2.7: deliberately NOT using ETag here. NextFireAt
+		// is computed at second-resolution `now` → the hash
+		// changes on every call regardless of schedule
+		// content. ETag is applied to lower-churn endpoints
+		// (/tags, /{id}/audit, /{id}/runs, /{id}/stats).
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFireSlice(schedules, time.Now().UTC())})
 	})
 }
@@ -919,7 +926,10 @@ func listScheduleAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAudi
 			http.Error(w, "schedules: audit list: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, scanResponse{Schema: "api:v1", Data: events})
+		// v2.7: ETag — audit events are immutable past
+		// records; new appends invalidate the hash but
+		// otherwise polls return 304.
+		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: events})
 	})
 }
 
@@ -1126,7 +1136,10 @@ func listScheduleTags(store scanorch.ScheduleStore) http.Handler {
 		if counts == nil {
 			counts = []scanorch.TagCount{}
 		}
-		writeJSON(w, scanResponse{Schema: "api:v1", Data: counts})
+		// v2.7: ETag — tag-counts is low-churn (tags rarely
+		// change), heavy-poll (dashboard widget refreshes
+		// every 30s). 304 path saves bandwidth.
+		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: counts})
 	})
 }
 

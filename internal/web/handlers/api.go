@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -199,4 +201,41 @@ func writeJSON(w http.ResponseWriter, v any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(v)
+}
+
+// writeJSONWithETag (v2.7+) is the cache-aware variant of
+// writeJSON. Marshals v, computes a SHA-256 ETag over the
+// payload, and:
+//
+//   - If the request's `If-None-Match` matches the computed
+//     ETag → respond 304 Not Modified with the ETag header
+//     (body omitted).
+//   - Otherwise → 200 with ETag header + the body.
+//
+// Cache-Control is `private, max-age=0, must-revalidate` so
+// downstream proxies can cache but the dashboard always
+// revalidates. Matches the dashboard's 30s polling pattern
+// for read-heavy endpoints (schedules list, tag-counts,
+// audit history).
+//
+// ETag is the first 16 hex chars of SHA-256 (64 bits of
+// collision-resistance; sufficient for cache validation +
+// keeps the header small).
+func writeJSONWithETag(w http.ResponseWriter, r *http.Request, v any) {
+	body, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	sum := sha256.Sum256(body)
+	etag := `"` + hex.EncodeToString(sum[:8]) + `"` // 16 hex chars + quotes (RFC 7232).
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "private, max-age=0, must-revalidate")
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(body)
+	_, _ = w.Write([]byte("\n"))
 }

@@ -1,19 +1,23 @@
 ---
-phase: v2.6-closed
-status: v1.16-v2.5 published; v2.6 tag pending push
+phase: v2.7-closed
+status: v1.16-v2.6 published; v2.7 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.6 cycle closed on `main`** (1 chunk +
-close). Dashboard tag UI: schedules table gains "Tags"
-column with clickable chips that toggle the global
-filter; tag-cloud widget above the table sources
-`/schedules/tags`. Form gains comma-separated tags
-input. Closes v2.4 + v2.5 dashboard carryover.
+**Phase**: **v2.7 cycle closed on `main`** (1 chunk +
+close). ETag/If-None-Match support: new
+`writeJSONWithETag` helper. Wired into low-churn read
+endpoints (`/schedules/tags`, `/{id}/audit`, `/{id}/runs`).
+SHA-256 truncated to 64-bit hex. +1 test.
 
+Snapshot: `.context/snapshots/v2.7.0-etag-support.md`.
+
+**v2.6 cycle (closed, snapshot)**: Dashboard tag UI —
+chips per row + tag-cloud widget + filter toggle. Pure
+dashboard.
 Snapshot: `.context/snapshots/v2.6.0-dashboard-tag-ui.md`.
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
