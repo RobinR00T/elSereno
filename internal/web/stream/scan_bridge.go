@@ -128,6 +128,11 @@ func (s *BroadcastingStore) ListBySchedule(ctx context.Context, scheduleID strin
 	return s.inner.ListBySchedule(ctx, scheduleID, limit)
 }
 
+// ListByScheduleBefore (v2.0+) is a pure read; no event published.
+func (s *BroadcastingStore) ListByScheduleBefore(ctx context.Context, scheduleID string, before time.Time, limit int) ([]scanorch.Job, error) {
+	return s.inner.ListByScheduleBefore(ctx, scheduleID, before, limit)
+}
+
 // Transition calls through then publishes the result. Terminal
 // transitions also clear the per-job throttle state so a long-
 // running serve doesn't accumulate entries for completed jobs.

@@ -1,31 +1,30 @@
 ---
-phase: v1.99-closed
-status: v1.16-v1.98 published; v1.99 tag pending push
+phase: v2.0-closed
+status: v1.16-v1.99 published; v2.0 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v1.99 cycle closed on `main`** (1 chunk +
-close). Schedule import endpoint:
-`POST /api/v1/schedules/import` accepts NDJSON or JSON
-array; conflict resolution via `on_conflict=skip|
-overwrite|rename`. Server generates fresh IDs. Returns
-aggregate counts + per-row outcomes. Closes the v1.97
-DR-backup story (round-trip with export). +5 unit tests
-+ OpenAPI entry.
+**Phase**: **v2.0 cycle closed on `main`** (1 chunk +
+close). Cursor pagination on /schedules/{id}/runs:
+response shape changed (BREAKING) to
+`{items, next_before?}`. New Store method
+`ListByScheduleBefore` (Memory + DB + BroadcastingStore).
+Dashboard "Load more" button. +2 unit tests. Closes
+v1.92 carryover.
 
-Snapshot: `.context/snapshots/v1.99.0-schedule-import.md`.
+Snapshot: `.context/snapshots/v2.0.0-runs-cursor-pagination.md`.
 
-**v1.89-v1.98 cycles (closed; per-cycle snapshots)**:
+**v1.89-v1.99 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
-v1.90 advisory-locked pruner. v1.91 pruner runs+events
-counters. v1.92 schedule run history (00014). v1.93
-clone. v1.94 pruner tick histogram. v1.95 bulk pause/
-resume. v1.96 OpenAPI coverage for 13 schedule endpoints.
-v1.97 CSV/NDJSON/JSON export. v1.98 OpenAPI strict
-schemas (8 component refs).
+v1.90 advisory-locked pruner. v1.91 pruner counters.
+v1.92 schedule run history (00014). v1.93 clone. v1.94
+pruner tick histogram. v1.95 bulk pause/resume. v1.96
+OpenAPI coverage for 13 schedule endpoints. v1.97 export
+CSV/NDJSON/JSON. v1.98 OpenAPI strict schemas. v1.99
+schedule import endpoint.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

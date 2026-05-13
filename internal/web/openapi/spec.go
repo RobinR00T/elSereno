@@ -282,11 +282,15 @@ func schedulesObservabilityPaths() []Path {
 		}},
 		{URL: "/api/v1/schedules/{id}/runs", Operations: map[string]Operation{
 			"get": {
-				Summary:     "List scheduler-fired jobs for a schedule (v1.92+).",
-				Description: "Query param: limit (1..1000, default 50). Returns []Job sorted newest-first via the triggered_by_schedule_id linkage (migration 00014).",
-				Tags:        tag,
+				Summary: "List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor).",
+				Description: "Query params: limit (1..1000, default 50), before (RFC3339 cursor). " +
+					"v2.0+: response is now {items: Job[], next_before?: rfc3339}. " +
+					"Paginate by reading next_before + passing it back as ?before=. " +
+					"Empty next_before ≡ last page.",
+				Tags: tag,
 				Responses: map[string]Response{
-					"200": {Description: "Envelope with data: Job[].", Ref: "Envelope"},
+					"200": {Description: "{items, next_before?} envelope.", Ref: "Envelope"},
+					"400": {Description: "Malformed ?before query (RFC3339 required)."},
 					"404": {Description: "Schedule not found."},
 					"503": {Description: "Scan store unavailable."},
 				},

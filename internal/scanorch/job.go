@@ -189,6 +189,15 @@ type Store interface {
 	// Empty slice when the schedule has no recorded runs (or
 	// never fired). Limit <= 0 → store-defined default (50).
 	ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error)
+	// ListByScheduleBefore (v2.0+) is the cursor-paginated
+	// variant of ListBySchedule. Returns jobs where
+	// created_at < before, newest first, capped at limit.
+	// Zero `before` → no upper bound (equivalent to
+	// ListBySchedule). Empty slice when no more jobs exist
+	// older than `before`. Operator paginates by passing the
+	// oldest returned row's `created_at` back as `before` on
+	// the next request.
+	ListByScheduleBefore(ctx context.Context, scheduleID string, before time.Time, limit int) ([]Job, error)
 	// Transition moves a job between states. The worker uses
 	// this to advance queued → running → completed/failed; the
 	// operator uses it to cancel a queued/running job.
@@ -328,7 +337,18 @@ func (s *MemoryStore) List(_ context.Context, limit int) ([]Job, error) {
 // ListBySchedule (v1.92+) returns jobs triggered by the given
 // schedule ID, newest first, capped at limit. Empty slice for
 // schedules with no recorded runs (or never fired).
-func (s *MemoryStore) ListBySchedule(_ context.Context, scheduleID string, limit int) ([]Job, error) {
+//
+// v2.0+: thin wrapper over ListByScheduleBefore with no
+// upper-bound cursor.
+func (s *MemoryStore) ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error) {
+	return s.ListByScheduleBefore(ctx, scheduleID, time.Time{}, limit)
+}
+
+// ListByScheduleBefore (v2.0+) is the cursor-paginated variant.
+// Zero `before` skips the cursor filter (equivalent to
+// ListBySchedule). Otherwise only jobs with CreatedAt < before
+// are returned. Same newest-first ordering, same limit clamping.
+func (s *MemoryStore) ListByScheduleBefore(_ context.Context, scheduleID string, before time.Time, limit int) ([]Job, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -341,6 +361,9 @@ func (s *MemoryStore) ListBySchedule(_ context.Context, scheduleID string, limit
 			continue
 		}
 		if job.TriggeredByScheduleID != scheduleID {
+			continue
+		}
+		if !before.IsZero() && !job.CreatedAt.Before(before) {
 			continue
 		}
 		out = append(out, job)

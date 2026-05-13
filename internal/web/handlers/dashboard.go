@@ -600,7 +600,10 @@ const overviewHTML = `<!doctype html>
             <tr class="empty"><td colspan="5">loading…</td></tr>
           </tbody>
         </table>
-        <button type="button" id="schedule-runs-close-button" onclick="closeRunsView()" style="margin-top: 0.3em;">Close</button>
+        <div style="margin-top: 0.3em; display: flex; gap: 0.4em;">
+          <button type="button" id="schedule-runs-more-button" onclick="loadMoreRuns()" style="display: none;">Load more</button>
+          <button type="button" id="schedule-runs-close-button" onclick="closeRunsView()">Close</button>
+        </div>
       </div>
     </section>
 
@@ -1858,11 +1861,15 @@ const overviewHTML = `<!doctype html>
     var view = document.getElementById("schedule-audit-view");
     if (view) view.style.display = "none";
   }
-  // openRunsView (v1.92) fetches /api/v1/schedules/{id}/runs +
-  // renders the jobs as a table. Newest-first by created_at.
-  // 503 (scan store nil) surfaces an "unavailable" message
-  // inside the panel — the button is always rendered for UI
-  // consistency.
+  // openRunsView (v1.92, v2.0 cursor pagination) fetches
+  // /api/v1/schedules/{id}/runs + renders the jobs as a table.
+  // Newest-first by created_at. 503 (scan store nil) surfaces
+  // an "unavailable" message inside the panel.
+  //
+  // v2.0: the response is now {items, next_before?}. If
+  // next_before is present, a "Load more" button below the
+  // table fetches the next page with ?before=<cursor>.
+  var runsState = {scheduleID: "", cursor: ""};
   function openRunsView(id, displayName) {
     var view = document.getElementById("schedule-runs-view");
     var body = document.getElementById("schedule-runs-body");
@@ -1874,9 +1881,17 @@ const overviewHTML = `<!doctype html>
     body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
     view.style.display = "";
     view.scrollIntoView({block: "nearest"});
-    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/runs", {
-      credentials: "same-origin"
-    }).then(function (r) {
+    runsState.scheduleID = id;
+    runsState.cursor = "";
+    // Hide any leftover "Load more" button from a previous open.
+    var moreBtn = document.getElementById("schedule-runs-more-button");
+    if (moreBtn) moreBtn.style.display = "none";
+    fetchRunsPage(id, "", body, /*append=*/false);
+  }
+  function fetchRunsPage(id, before, body, append) {
+    var url = "/api/v1/schedules/" + encodeURIComponent(id) + "/runs?limit=50";
+    if (before) url += "&before=" + encodeURIComponent(before);
+    fetch(url, {credentials: "same-origin"}).then(function (r) {
       if (r.status === 503) {
         body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable — run with --scan-store=db to enable persistence</td></tr>';
         return null;
@@ -1885,12 +1900,14 @@ const overviewHTML = `<!doctype html>
       return r.json();
     }).then(function (res) {
       if (res === null) return;
-      var jobs = (res && res.data) || [];
-      if (!jobs.length) {
+      var data = (res && res.data) || {};
+      var jobs = data.items || [];
+      if (!append && !jobs.length) {
         body.innerHTML = '<tr class="empty"><td colspan="5">no runs recorded for this schedule yet</td></tr>';
+        runsState.cursor = "";
         return;
       }
-      body.innerHTML = jobs.map(function (j) {
+      var rowsHTML = jobs.map(function (j) {
         var when = j.created_at ? new Date(j.created_at).toLocaleString() : "—";
         var state = j.state || "—";
         var findings = (j.stats && j.stats.findings_count) || 0;
@@ -1903,9 +1920,23 @@ const overviewHTML = `<!doctype html>
           '<td>' + escText(targets) + '</td>' +
           '</tr>';
       }).join("");
+      if (append) {
+        body.insertAdjacentHTML("beforeend", rowsHTML);
+      } else {
+        body.innerHTML = rowsHTML || '<tr class="empty"><td colspan="5">no more runs</td></tr>';
+      }
+      runsState.cursor = data.next_before || "";
+      var moreBtn = document.getElementById("schedule-runs-more-button");
+      if (moreBtn) moreBtn.style.display = runsState.cursor ? "" : "none";
     }).catch(function (err) {
       body.innerHTML = '<tr class="empty"><td colspan="5">runs fetch failed: ' + escText(err.message) + '</td></tr>';
     });
+  }
+  function loadMoreRuns() {
+    if (!runsState.scheduleID || !runsState.cursor) return;
+    var body = document.getElementById("schedule-runs-body");
+    if (!body) return;
+    fetchRunsPage(runsState.scheduleID, runsState.cursor, body, /*append=*/true);
   }
   function closeRunsView() {
     var view = document.getElementById("schedule-runs-view");
@@ -2161,6 +2192,8 @@ const overviewHTML = `<!doctype html>
   // v1.92 run history view.
   window.openRunsView = openRunsView;
   window.closeRunsView = closeRunsView;
+  // v2.0 cursor pagination.
+  window.loadMoreRuns = loadMoreRuns;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

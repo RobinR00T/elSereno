@@ -389,7 +389,11 @@ func buildCloneRequest(source scanorch.ScanSchedule, override CloneScheduleReque
 // scan store). Empty list is a valid response — a schedule
 // that hasn't fired yet returns [].
 //
-// Optional ?limit= query param: positive int. Default 50.
+// v2.0+: optional ?before=<rfc3339> cursor for keyset
+// pagination. Operators paginate by reading the response's
+// `next_before` value (the oldest returned row's created_at)
+// and passing it back on the next call. `next_before` is
+// omitted when no more rows exist.
 func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if scanStore == nil {
@@ -409,24 +413,76 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		limit := 50
-		if raw := r.URL.Query().Get("limit"); raw != "" {
-			n, parseErr := strconv.Atoi(raw)
-			if parseErr != nil {
-				http.Error(w, "schedules: malformed limit query: "+parseErr.Error(), http.StatusBadRequest)
-				return
-			}
-			if n > 0 {
-				limit = n
-			}
+		limit, lerr := parseRunsLimit(r)
+		if lerr != nil {
+			http.Error(w, "schedules: "+lerr.Error(), http.StatusBadRequest)
+			return
 		}
-		jobs, err := scanStore.ListBySchedule(r.Context(), id, limit)
+		before, berr := parseRunsBefore(r)
+		if berr != nil {
+			http.Error(w, "schedules: "+berr.Error(), http.StatusBadRequest)
+			return
+		}
+		jobs, err := scanStore.ListByScheduleBefore(r.Context(), id, before, limit)
 		if err != nil {
 			http.Error(w, "schedules: list runs: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, scanResponse{Schema: "api:v1", Data: jobs})
+		payload := buildRunsResponse(jobs, limit)
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: payload})
 	})
+}
+
+// parseRunsLimit validates ?limit=. Empty → default 50.
+func parseRunsLimit(r *http.Request) (int, error) {
+	raw := r.URL.Query().Get("limit")
+	if raw == "" {
+		return 50, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("malformed limit query: %w", err)
+	}
+	if n <= 0 {
+		return 50, nil
+	}
+	return n, nil
+}
+
+// parseRunsBefore validates ?before= (RFC3339). Empty → zero
+// time (no cursor).
+func parseRunsBefore(r *http.Request) (time.Time, error) {
+	raw := r.URL.Query().Get("before")
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, raw)
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("malformed before query (RFC3339): %w", err)
+	}
+	return t, nil
+}
+
+// buildRunsResponse wraps the jobs slice + emits the
+// next_before cursor when the page is full (which means more
+// older rows likely exist; the operator can paginate). When
+// fewer rows than `limit` are returned we know the page is
+// the last + omit next_before.
+func buildRunsResponse(jobs []scanorch.Job, limit int) map[string]any {
+	out := map[string]any{
+		"items": jobs,
+	}
+	if len(jobs) >= limit && limit > 0 {
+		// Oldest row in the page = the next cursor anchor.
+		oldest := jobs[len(jobs)-1].CreatedAt
+		if !oldest.IsZero() {
+			out["next_before"] = oldest.UTC().Format(time.RFC3339Nano)
+		}
+	}
+	return out
 }
 
 // withNextFire (v1.77+) populates s.NextFireAt before

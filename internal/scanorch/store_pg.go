@@ -149,7 +149,19 @@ func (s *DBStore) List(ctx context.Context, limit int) ([]Job, error) {
 // schedule ID, newest first, capped at limit. Empty slice when
 // the schedule has no recorded runs. Uses the v1.92 partial
 // index (idx_scan_jobs_triggered_by_schedule) for fast lookups.
+//
+// v2.0+: thin wrapper over ListByScheduleBefore with no
+// upper-bound cursor.
 func (s *DBStore) ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error) {
+	return s.ListByScheduleBefore(ctx, scheduleID, time.Time{}, limit)
+}
+
+// ListByScheduleBefore (v2.0+) is the cursor-paginated variant.
+// Zero `before` returns the newest page (matches ListBySchedule).
+// Otherwise WHERE created_at < $2 adds a cursor predicate that
+// composes with the v1.92 partial index for cheap pagination
+// across long histories.
+func (s *DBStore) ListByScheduleBefore(ctx context.Context, scheduleID string, before time.Time, limit int) ([]Job, error) {
 	if scheduleID == "" {
 		return nil, nil
 	}
@@ -159,6 +171,25 @@ func (s *DBStore) ListBySchedule(ctx context.Context, scheduleID string, limit i
 	if limit > 1000 {
 		limit = 1000
 	}
+	if before.IsZero() {
+		return s.listByScheduleNewest(ctx, scheduleID, limit)
+	}
+	rows, err := s.q.Query(ctx,
+		"SELECT "+jobColumns+
+			" FROM scan_jobs"+
+			" WHERE triggered_by_schedule_id = $1 AND created_at < $2"+
+			" ORDER BY created_at DESC LIMIT $3",
+		scheduleID, before.UTC(), limit)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: list jobs by schedule (before): %w", err)
+	}
+	return collectJobs(rows, limit)
+}
+
+// listByScheduleNewest is the no-cursor fast-path (saves a $2
+// parameter binding when the operator wants the most-recent
+// page).
+func (s *DBStore) listByScheduleNewest(ctx context.Context, scheduleID string, limit int) ([]Job, error) {
 	rows, err := s.q.Query(ctx,
 		"SELECT "+jobColumns+
 			" FROM scan_jobs"+
@@ -168,6 +199,13 @@ func (s *DBStore) ListBySchedule(ctx context.Context, scheduleID string, limit i
 	if err != nil {
 		return nil, fmt.Errorf("scanorch: list jobs by schedule: %w", err)
 	}
+	return collectJobs(rows, limit)
+}
+
+// collectJobs drains the pgx.Rows + scans each row into a Job.
+// Shared body of ListBySchedule + ListByScheduleBefore. Always
+// calls rows.Close on exit.
+func collectJobs(rows pgx.Rows, limit int) ([]Job, error) {
 	defer rows.Close()
 	jobs := make([]Job, 0, limit)
 	for rows.Next() {
@@ -178,7 +216,7 @@ func (s *DBStore) ListBySchedule(ctx context.Context, scheduleID string, limit i
 		jobs = append(jobs, j)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scanorch: list jobs by schedule (rows): %w", err)
+		return nil, fmt.Errorf("scanorch: list jobs (rows): %w", err)
 	}
 	return jobs, nil
 }

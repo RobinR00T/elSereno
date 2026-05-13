@@ -959,20 +959,131 @@ func TestListScheduleRuns_Happy(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
 	}
+	// v2.0: response is now {items, next_before?} envelope.
 	var resp struct {
-		Data []scanorch.Job `json:"data"`
+		Data struct {
+			Items      []scanorch.Job `json:"items"`
+			NextBefore string         `json:"next_before"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode err = %v", err)
 	}
-	if len(resp.Data) != 3 {
-		t.Errorf("runs = %d, want 3", len(resp.Data))
+	if len(resp.Data.Items) != 3 {
+		t.Errorf("runs = %d, want 3", len(resp.Data.Items))
 	}
-	for _, j := range resp.Data {
+	for _, j := range resp.Data.Items {
 		if j.TriggeredByScheduleID != sched.ID {
 			t.Errorf("job %s TriggeredByScheduleID = %q, want %q",
 				j.ID, j.TriggeredByScheduleID, sched.ID)
 		}
+	}
+	// 3 jobs < default limit (50) → no next_before cursor.
+	if resp.Data.NextBefore != "" {
+		t.Errorf("next_before = %q, want empty (full page should be a complete result)", resp.Data.NextBefore)
+	}
+}
+
+// TestListScheduleRuns_Pagination (v2.0+): full-page request
+// returns next_before; using that cursor returns the next page;
+// final page omits next_before.
+func TestListScheduleRuns_Pagination(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "paginated",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	// Insert 5 jobs with deterministic ordering. Each Submit
+	// stamps a fresh CreatedAt; the in-memory store preserves
+	// insert-order.
+	for i := 0; i < 5; i++ {
+		_, _ = scanStore.SubmitFromSchedule(context.Background(),
+			sched.Template, "alice", sched.ID)
+		time.Sleep(time.Millisecond) // ensure distinct CreatedAt.
+	}
+	router := newSchedRouterWithScan(store, scanStore)
+
+	// Page 1: limit=2 → newest 2 jobs + next_before cursor.
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs?limit=2", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("page1 status = %d", rr.Code)
+	}
+	var page1 struct {
+		Data struct {
+			Items      []scanorch.Job `json:"items"`
+			NextBefore string         `json:"next_before"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &page1)
+	if len(page1.Data.Items) != 2 {
+		t.Fatalf("page1 items = %d, want 2", len(page1.Data.Items))
+	}
+	if page1.Data.NextBefore == "" {
+		t.Fatal("page1 next_before should be present (full page)")
+	}
+
+	// Page 2: use cursor → next 2 jobs.
+	rr2 := httptest.NewRecorder()
+	router.ServeHTTP(rr2, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs?limit=2&before="+page1.Data.NextBefore, nil))
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("page2 status = %d body=%s", rr2.Code, rr2.Body.String())
+	}
+	var page2 struct {
+		Data struct {
+			Items      []scanorch.Job `json:"items"`
+			NextBefore string         `json:"next_before"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr2.Body.Bytes(), &page2)
+	if len(page2.Data.Items) != 2 {
+		t.Errorf("page2 items = %d, want 2", len(page2.Data.Items))
+	}
+	if page1.Data.Items[0].ID == page2.Data.Items[0].ID {
+		t.Errorf("page1 + page2 should not share IDs; first ID = %q", page1.Data.Items[0].ID)
+	}
+
+	// Page 3: last single row (5 total - 4 returned = 1
+	// remaining); should NOT have a next_before cursor since
+	// the response is partial.
+	rr3 := httptest.NewRecorder()
+	router.ServeHTTP(rr3, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs?limit=2&before="+page2.Data.NextBefore, nil))
+	var page3 struct {
+		Data struct {
+			Items      []scanorch.Job `json:"items"`
+			NextBefore string         `json:"next_before"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr3.Body.Bytes(), &page3)
+	if len(page3.Data.Items) != 1 {
+		t.Errorf("page3 items = %d, want 1", len(page3.Data.Items))
+	}
+	if page3.Data.NextBefore != "" {
+		t.Errorf("page3 next_before = %q, want empty (partial page = last page)", page3.Data.NextBefore)
+	}
+}
+
+// TestListScheduleRuns_BadBefore (v2.0+): malformed cursor → 400.
+func TestListScheduleRuns_BadBefore(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/runs?before=not-a-date", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
 	}
 }
 

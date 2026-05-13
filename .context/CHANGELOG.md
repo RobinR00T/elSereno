@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.0 (chunk 1) — **Cursor pagination
+  on /schedules/{id}/runs.** Response shape changed
+  (BREAKING) from `data: Job[]` to
+  `data: {items: Job[], next_before?: rfc3339}`.
+  Operators paginate keyset-style via the cursor.
+  New Store method `ListByScheduleBefore`; Memory +
+  DB + BroadcastingStore impls. PG variant adds
+  `created_at < $2` to the v1.92 index-friendly query.
+  Dashboard: "Load more" button below the runs table.
+  +2 unit tests. Closes v1.92 carryover. Snapshot:
+  `.context/snapshots/v2.0.0-runs-cursor-pagination.md`.
+
 - 2026-05-12 — v1.99 (chunk 1) — **Schedule import
   endpoint.** New `POST /api/v1/schedules/import` accepts
   NDJSON (line-delimited) OR JSON array of ScanSchedule.
