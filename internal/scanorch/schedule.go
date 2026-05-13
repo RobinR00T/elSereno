@@ -97,6 +97,19 @@ type ScanSchedule struct {
 	// are clamped to 365*10 (10 years) to keep the column
 	// bounded.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+	// SourceScheduleID (v2.10+) is the ID of the schedule
+	// this one was cloned from (via the v1.93 clone endpoint).
+	// Empty when the schedule was operator-created directly.
+	// Wire-level JSON renders empty as omitempty so the
+	// dominant case stays compact.
+	//
+	// FK is ON DELETE SET NULL (migration 00017) so the
+	// clone row outlasts the source — matches v1.88 + v1.92
+	// "history outlasts source" patterns. Operators querying
+	// `GET /schedules/{id}/clones` see only existing live
+	// clones; orphaned source_schedule_id rows are filtered
+	// out by the JOIN.
+	SourceScheduleID string `json:"source_schedule_id,omitempty"`
 	// Tags (v2.4+) is the per-schedule label set used by the
 	// list endpoint's `?tag=` filter + the dashboard's group-
 	// by-tag rendering. Operators with N schedules tag by
@@ -252,6 +265,15 @@ type ScheduleStore interface {
 	// name ASC for stable ordering. Empty store → empty
 	// slice. Operators graph this for tag-cloud + autocomplete.
 	TagCounts(ctx context.Context) ([]TagCount, error)
+	// ListClonesOf (v2.10+) returns schedules whose
+	// source_schedule_id equals `sourceID`. Used by the
+	// dashboard's clone-provenance view + the `GET
+	// /schedules/{id}/clones` endpoint.
+	ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error)
+	// CreateClone (v2.10+) is the clone-specific path that
+	// stamps source_schedule_id alongside the new row. Mirrors
+	// Create's signature but takes the source id.
+	CreateClone(ctx context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error)
 }
 
 // Tag filter operators for ListByTags.
@@ -317,15 +339,40 @@ func NewMemoryScheduleStore() *MemoryScheduleStore {
 }
 
 // Create validates + clamps + stores.
-func (s *MemoryScheduleStore) Create(_ context.Context, req CreateScheduleRequest, operator string) (ScanSchedule, error) {
+func (s *MemoryScheduleStore) Create(ctx context.Context, req CreateScheduleRequest, operator string) (ScanSchedule, error) {
+	return s.CreateClone(ctx, req, operator, "")
+}
+
+// CreateClone (v2.10+) is Create + stamps source_schedule_id.
+// Empty sourceID → behaves like Create (no clone linkage).
+func (s *MemoryScheduleStore) CreateClone(_ context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error) {
 	sched, err := buildScheduleFromRequest(req, operator)
 	if err != nil {
 		return ScanSchedule{}, err
 	}
+	sched.SourceScheduleID = sourceID
 	s.mu.Lock()
 	s.schedules[sched.ID] = sched
 	s.mu.Unlock()
 	return sched, nil
+}
+
+// ListClonesOf (v2.10+) returns clones whose source_schedule_id
+// equals `sourceID`. Empty sourceID → empty slice.
+func (s *MemoryScheduleStore) ListClonesOf(_ context.Context, sourceID string) ([]ScanSchedule, error) {
+	if sourceID == "" {
+		return nil, nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]ScanSchedule, 0)
+	for _, sched := range s.schedules {
+		if sched.SourceScheduleID == sourceID {
+			out = append(out, sched)
+		}
+	}
+	sortSchedulesByName(out)
+	return out, nil
 }
 
 // buildScheduleFromRequest validates the request + applies

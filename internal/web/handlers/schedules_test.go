@@ -1143,6 +1143,70 @@ func TestListSchedules_ByTag(t *testing.T) {
 	}
 }
 
+// TestListScheduleClones_AfterClone (v2.10+): clone via POST,
+// then /clones returns the new schedule.
+func TestListScheduleClones_AfterClone(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	// Clone twice with explicit names.
+	for _, n := range []string{"clone-a", "clone-b"} {
+		body := strings.NewReader(`{"name":"` + n + `"}`)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/schedules/"+source.ID+"/clone", body)
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("clone %q status = %d body=%s", n, rr.Code, rr.Body.String())
+		}
+	}
+	// /clones returns both.
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+source.ID+"/clones", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 2 {
+		t.Fatalf("clones = %d, want 2", len(resp.Data))
+	}
+	for _, c := range resp.Data {
+		if c.SourceScheduleID != source.ID {
+			t.Errorf("clone %s has SourceScheduleID = %q, want %q",
+				c.Name, c.SourceScheduleID, source.ID)
+		}
+	}
+}
+
+// TestListScheduleClones_None (v2.10+): never-cloned source →
+// empty array.
+func TestListScheduleClones_None(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+source.ID+"/clones", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+}
+
 // TestListSchedules_MultiTag_And (v2.9+): all-of semantics.
 func TestListSchedules_MultiTag_And(t *testing.T) {
 	store := scanorch.NewMemoryScheduleStore()

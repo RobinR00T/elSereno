@@ -103,6 +103,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/schedules/{id}/audit", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/{id}/runs", schedulesHandler)
 	mux.Handle("GET /api/v1/schedules/{id}/stats", schedulesHandler)
+	mux.Handle("GET /api/v1/schedules/{id}/clones", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/{id}/clone", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/bulk/enable", schedulesHandler)
 	mux.Handle("POST /api/v1/schedules/bulk/disable", schedulesHandler)

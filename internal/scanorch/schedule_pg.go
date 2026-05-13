@@ -36,16 +36,25 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 // v1.78+: includes updated_at.
 // v1.89+: includes audit_retention_days (NULL-able).
 // v2.4+: includes tags (TEXT[], DEFAULT empty array).
+// v2.10+: includes source_schedule_id (NULL-able TEXT FK).
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
 interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at, last_fired_at,
-audit_retention_days, tags`
+audit_retention_days, tags, source_schedule_id`
 
 // Create inserts a new schedule. Validation + cadence
 // resolution shares buildScheduleFromRequest with
 // MemoryScheduleStore so the rules are a single source of
 // truth (including the v1.73+ cron_expr alternative).
+//
+// v2.10+: thin wrapper over CreateClone with empty sourceID.
 func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest, operator string) (ScanSchedule, error) {
+	return s.CreateClone(ctx, req, operator, "")
+}
+
+// CreateClone (v2.10+) is Create + stamps source_schedule_id.
+// Empty sourceID stores NULL (operator-created, not a clone).
+func (s *DBScheduleStore) CreateClone(ctx context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error) {
 	sched, err := buildScheduleFromRequest(req, operator)
 	if err != nil {
 		return ScanSchedule{}, err
@@ -62,19 +71,49 @@ func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest,
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
    interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at,
-   audit_retention_days, tags)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13)`
+   audit_retention_days, tags, source_schedule_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
 		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt, sched.UpdatedAt,
-		auditRetentionDaysToDB(sched.AuditRetentionDays), tags,
+		auditRetentionDaysToDB(sched.AuditRetentionDays), tags, nullableString(sourceID),
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
 	// Defensive copy of plugins for the returned struct so the
 	// caller's mutation can't alias into the persisted row.
 	sched.Template.Plugins = append([]string(nil), plugins...)
+	sched.SourceScheduleID = sourceID
 	return sched, nil
+}
+
+// ListClonesOf (v2.10+) uses the partial index from
+// migration 00017 for fast clone-provenance lookups.
+func (s *DBScheduleStore) ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error) {
+	if sourceID == "" {
+		return nil, nil
+	}
+	rows, err := s.q.Query(ctx,
+		"SELECT "+scheduleColumns+
+			" FROM scan_schedules WHERE source_schedule_id = $1"+
+			" ORDER BY name ASC",
+		sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: list clones of: %w", err)
+	}
+	defer rows.Close()
+	var out []ScanSchedule
+	for rows.Next() {
+		sched, scanErr := scanSchedule(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, sched)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanorch: list clones of (rows): %w", err)
+	}
+	return out, nil
 }
 
 // Get returns the schedule by ID.
@@ -353,13 +392,14 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 		lastFiredAt        *time.Time
 		auditRetentionDays *int32
 		tags               []string
+		sourceScheduleID   *string
 	)
 	if err := rows.Scan(
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
 		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
 		&s.CreatedAt, &s.UpdatedAt, &lastFiredAt,
-		&auditRetentionDays, &tags,
+		&auditRetentionDays, &tags, &sourceScheduleID,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)
 	}
@@ -376,6 +416,9 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	}
 	if len(tags) > 0 {
 		s.Tags = tags
+	}
+	if sourceScheduleID != nil {
+		s.SourceScheduleID = *sourceScheduleID
 	}
 	return s, nil
 }

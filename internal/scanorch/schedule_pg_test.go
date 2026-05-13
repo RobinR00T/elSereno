@@ -36,6 +36,8 @@ func makeScheduleRow(id, name string) map[string]any {
 		"audit_retention_days": (*int32)(nil),
 		// v2.4: tags column (TEXT[] NOT NULL DEFAULT '{}').
 		"tags": []string{},
+		// v2.10: source_schedule_id (NULL-able FK).
+		"source_schedule_id": (*string)(nil),
 	}
 }
 

@@ -1,25 +1,26 @@
 ---
-phase: v2.9-closed
-status: v1.16-v2.8 published; v2.9 tag pending push
+phase: v2.10-closed
+status: v1.16-v2.9 published; v2.10 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.9 cycle closed on `main`** (1 chunk +
-close). Multi-tag AND/OR filter on /schedules: repeated
-`?tag=a&tag=b&op=and|or` (default AND). New
-`Store.ListByTags` method; v2.4 `ListByTag` thin wrapper.
-PG uses `tags @>` / `tags &&`, both GIN-indexed. +3
-tests. Closes v2.6 carryover.
+**Phase**: **v2.10 cycle closed on `main`** (1 chunk +
+close). source_schedule_id provenance: migration 00017
+adds FK + partial index. New `Store.CreateClone` +
+`ListClonesOf` methods. Endpoint
+`GET /api/v1/schedules/{id}/clones`. fakeRows extended
+15→16 cols. Closes v2.1 carryover (direct provenance
+query instead of audit-log grep).
 
-Snapshot: `.context/snapshots/v2.9.0-multi-tag-filter.md`.
+Snapshot: `.context/snapshots/v2.10.0-source-schedule-id.md`.
 
-**v2.6 + v2.7 + v2.8 cycles (closed)**:
-v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on low-
-churn read endpoints. v2.8 schedule CLI mutating verbs
-(enable/disable/clone/import/pause-all/resume-all).
+**v2.6-v2.9 cycles (closed)**:
+v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on
+low-churn endpoints. v2.8 schedule CLI mutating verbs.
+v2.9 multi-tag AND/OR filter.
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).

@@ -35,6 +35,7 @@ import (
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
 //	GET    /api/v1/schedules/{id}/stats       aggregate stats (v2.2+)
+//	GET    /api/v1/schedules/{id}/clones      direct clone provenance (v2.10+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
@@ -76,6 +77,7 @@ func schedulesUnavailableMux() http.Handler {
 		"GET /api/v1/schedules/{id}/audit",
 		"GET /api/v1/schedules/{id}/runs",
 		"GET /api/v1/schedules/{id}/stats",
+		"GET /api/v1/schedules/{id}/clones",
 		"POST /api/v1/schedules/{id}/clone",
 		"POST /api/v1/schedules/bulk/enable",
 		"POST /api/v1/schedules/bulk/disable",
@@ -113,6 +115,7 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
 	mux.Handle("GET /api/v1/schedules/{id}/stats", scheduleStats(store, scanStore))
+	mux.Handle("GET /api/v1/schedules/{id}/clones", listScheduleClones(store))
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
@@ -364,7 +367,9 @@ func cloneSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditSto
 		}
 		req := buildCloneRequest(source, override)
 		operator := operatorFromRequest(r)
-		clone, err := store.Create(r.Context(), req, operator)
+		// v2.10: stamp source_schedule_id so the clone is
+		// fast-queryable via GET /schedules/{id}/clones.
+		clone, err := store.CreateClone(r.Context(), req, operator, source.ID)
 		if err != nil {
 			writeScheduleValidationError(w, err)
 			return
@@ -484,6 +489,43 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 		// v2.7: ETag — runs are append-only at the head of
 		// the list; old pages are stable.
 		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: payload})
+	})
+}
+
+// listScheduleClones (v2.10+) handles
+// GET /schedules/{id}/clones. Returns all schedules whose
+// source_schedule_id equals the path param. Empty slice when
+// nothing was cloned from this id.
+//
+// 404 when the source schedule itself is unknown (guards
+// against typo-id queries returning empty + confusing the
+// operator).
+func listScheduleClones(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		if _, err := store.Get(r.Context(), id); err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		clones, err := store.ListClonesOf(r.Context(), id)
+		if err != nil {
+			http.Error(w, "schedules: list clones: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if clones == nil {
+			clones = []scanorch.ScanSchedule{}
+		}
+		// NOT ETag-wrapped: NextFireAt second-resolution
+		// defeats cache (same reason as /schedules list).
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFireSlice(clones, time.Now().UTC())})
 	})
 }
 

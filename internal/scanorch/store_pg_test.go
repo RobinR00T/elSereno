@@ -114,31 +114,27 @@ func (r *fakeRows) Next() bool {
 // Scan unpacks the test row map into the requested column
 // destinations. Shapes:
 //
-//   - 15 columns → AMBIGUOUS between:
-//     · scan_jobs v1.92+ projection (triggered_by_schedule_id
-//     appended after findings_by_plugin).
-//     · scan_schedules v2.4+ projection (tags appended after
-//     audit_retention_days).
-//     Disambiguated by dst[2] type — scan_jobs uses
-//     `*time.Time`; scan_schedules uses `*string`.
-//   - 14 columns → AMBIGUOUS between:
-//     · scan_jobs pre-v1.92 (legacy tests).
+//   - 16 columns → scan_schedules v2.10+ projection
+//     (source_schedule_id appended after tags).
+//   - 15 columns → AMBIGUOUS:
+//     · scan_jobs v1.92+ (triggered_by_schedule_id).
+//     · scan_schedules v2.4-v2.9 (tags but no source).
+//     Disambiguated by dst[2] type.
+//   - 14 columns → AMBIGUOUS:
+//     · scan_jobs pre-v1.92.
 //     · scan_schedules v1.89-v2.3.
 //     Same dst[2]-type disambiguation.
 //   - 13 columns → scan_schedules pre-v1.89.
 //   - 1 column → existence-check projection.
 //
-// Routing by arity keeps the fake compatible with both stores
-// in the same test file without polluting the row maps with
-// shape tags.
-//
 //nolint:forcetypeassert // test fixture; assertion failure is a programming error
 func (r *fakeRows) Scan(dst ...any) error {
 	row := r.rows[r.i-1]
 	switch len(dst) {
+	case 16:
+		// v2.10 scan_schedules projection only.
+		return scanFakeSchedule(dst, row)
 	case 15:
-		// dst[2] kind: scan_jobs (time.Time) vs.
-		// scan_schedules (string).
 		if _, isString := dst[2].(*string); isString {
 			return scanFakeSchedule(dst, row)
 		}
@@ -159,7 +155,7 @@ func (r *fakeRows) Scan(dst ...any) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("fakeRows: scanorch test expected 15, 14, 13, or 1 columns, got %d", len(dst))
+		return fmt.Errorf("fakeRows: scanorch test expected 16, 15, 14, 13, or 1 columns, got %d", len(dst))
 	}
 }
 
@@ -225,10 +221,18 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 			*(dst[13].(**int32)) = v
 		}
 	}
-	// v2.4: tags column TEXT[]. Only in 15-column projection.
+	// v2.4: tags column TEXT[]. Only in 15-column projection
+	// (and onwards).
 	if len(dst) >= 15 {
 		if v, ok := row["tags"].([]string); ok {
 			*(dst[14].(*[]string)) = v
+		}
+	}
+	// v2.10: source_schedule_id NULL-able TEXT. Only in
+	// 16-column projection.
+	if len(dst) >= 16 {
+		if v, ok := row["source_schedule_id"].(*string); ok {
+			*(dst[15].(**string)) = v
 		}
 	}
 	return nil

@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.10 (chunk 1) — **source_schedule_id
+  provenance column.** Migration 00017 adds NULL-able
+  FK to scan_schedules + partial index. ScanSchedule
+  gains SourceScheduleID. New Store methods
+  `CreateClone` (stamps source on insert) +
+  `ListClonesOf` (fast lookup via partial index).
+  Clone handler now uses CreateClone. New endpoint
+  `GET /api/v1/schedules/{id}/clones`. fakeRows
+  extends 15→16 col projection for v2.10. Closes
+  v2.1 carryover (direct provenance query). +2
+  tests. Snapshot:
+  `.context/snapshots/v2.10.0-source-schedule-id.md`.
+
 - 2026-05-13 — v2.9 (chunk 1) — **Multi-tag AND/OR
   filter on /schedules.** Repeated `?tag=a&tag=b&op=`
   (and|or, default and). New `Store.ListByTags`
