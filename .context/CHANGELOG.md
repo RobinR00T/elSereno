@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-12 — v1.99 (chunk 1) — **Schedule import
+  endpoint.** New `POST /api/v1/schedules/import` accepts
+  NDJSON (line-delimited) OR JSON array of ScanSchedule.
+  Query `on_conflict=skip|overwrite|rename` (default skip).
+  Server generates fresh IDs regardless of input. Returns
+  aggregate `{imported, skipped, overwritten, renamed,
+  errors}` + per-row items list. Closes v1.97 carryover.
+  +5 unit tests + OpenAPI entry. Snapshot:
+  `.context/snapshots/v1.99.0-schedule-import.md`.
+
 - 2026-05-12 — v1.98 (chunk 1) — **OpenAPI strict
   schemas.** Operation gains `RequestBody *RequestBody`
   field; renderOperation emits requestBody.content schema

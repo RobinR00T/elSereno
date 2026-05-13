@@ -1137,6 +1137,161 @@ func TestExportSchedules_NDJSON(t *testing.T) {
 	}
 }
 
+// TestImportSchedules_NDJSON_CreateFresh (v1.99+): import 2
+// schedules into an empty store; both created with fresh IDs.
+func TestImportSchedules_NDJSON_CreateFresh(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	body := strings.NewReader(
+		`{"id":"old-id-a","name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n" +
+			`{"id":"old-id-b","name":"beta","template":{"input":"stdin"},"interval_seconds":120}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Imported int                             `json:"imported"`
+			Skipped  int                             `json:"skipped"`
+			Items    []handlers.ScheduleImportResult `json:"items"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.Imported != 2 {
+		t.Errorf("imported = %d, want 2", resp.Data.Imported)
+	}
+	if len(resp.Data.Items) != 2 {
+		t.Errorf("items = %d, want 2", len(resp.Data.Items))
+	}
+	for _, item := range resp.Data.Items {
+		if item.Outcome != "created" {
+			t.Errorf("item[%d] outcome = %q, want created", item.Index, item.Outcome)
+		}
+		if strings.HasPrefix(item.ID, "old-id-") {
+			t.Errorf("item[%d] ID = %q, expected fresh ID not the source's", item.Index, item.ID)
+		}
+	}
+}
+
+// TestImportSchedules_Skip_OnConflict (v1.99+): default `skip`
+// policy leaves existing same-named schedules alone.
+func TestImportSchedules_Skip_OnConflict(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	existing, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "alpha",
+		Template:        scanorch.SubmitRequest{Input: "ORIG"},
+		IntervalSeconds: 60,
+	}, "alice")
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"NEW"},"interval_seconds":120}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	got, _ := store.Get(context.Background(), existing.ID)
+	if got.Template.Input != "ORIG" {
+		t.Errorf("input = %q, want ORIG (skip should not overwrite)", got.Template.Input)
+	}
+}
+
+// TestImportSchedules_Overwrite (v1.99+): `?on_conflict=overwrite`
+// updates the existing row in-place (same ID).
+func TestImportSchedules_Overwrite(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	existing, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "alpha",
+		Template:        scanorch.SubmitRequest{Input: "ORIG"},
+		IntervalSeconds: 60,
+	}, "alice")
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"NEW"},"interval_seconds":120}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?on_conflict=overwrite", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	got, _ := store.Get(context.Background(), existing.ID)
+	if got.Template.Input != "NEW" {
+		t.Errorf("input = %q, want NEW (overwrite)", got.Template.Input)
+	}
+	if got.IntervalSeconds != 120 {
+		t.Errorf("interval = %d, want 120", got.IntervalSeconds)
+	}
+}
+
+// TestImportSchedules_Rename (v1.99+): `?on_conflict=rename`
+// creates a fresh schedule with " (imported)" suffix.
+func TestImportSchedules_Rename(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "alpha",
+		Template:        scanorch.SubmitRequest{Input: "ORIG"},
+		IntervalSeconds: 60,
+	}, "alice")
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"NEW"},"interval_seconds":120}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?on_conflict=rename", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 2 {
+		t.Fatalf("schedules count = %d, want 2", len(all))
+	}
+	var renamed *scanorch.ScanSchedule
+	for i := range all {
+		if all[i].Name == "alpha (imported)" {
+			renamed = &all[i]
+		}
+	}
+	if renamed == nil {
+		t.Errorf("renamed schedule not found; names = %v", names(all))
+	}
+}
+
+func names(s []scanorch.ScanSchedule) []string {
+	out := make([]string, len(s))
+	for i := range s {
+		out[i] = s[i].Name
+	}
+	return out
+}
+
+// TestImportSchedules_BadConflict (v1.99+): unsupported
+// on_conflict → 400.
+func TestImportSchedules_BadConflict(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?on_conflict=replace", strings.NewReader("{}"))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestExportSchedules_BadFormat (v1.97+): unsupported format
 // → 400.
 func TestExportSchedules_BadFormat(t *testing.T) {

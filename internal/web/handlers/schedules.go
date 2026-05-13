@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,6 +29,7 @@ import (
 //	POST   /api/v1/schedules/bulk/enable      bulk-enable every schedule (v1.95+)
 //	POST   /api/v1/schedules/bulk/disable     bulk-disable every schedule (v1.95+)
 //	GET    /api/v1/schedules/export           CSV/NDJSON backup (v1.97+)
+//	POST   /api/v1/schedules/import           NDJSON/JSON restore (v1.99+)
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
@@ -64,6 +68,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 		mux.HandleFunc("POST /api/v1/schedules/bulk/enable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/bulk/disable", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/export", serviceUnavailable)
+		mux.HandleFunc("POST /api/v1/schedules/import", serviceUnavailable)
 		mux.HandleFunc("DELETE /api/v1/schedules/audit", serviceUnavailable)
 		return mux
 	}
@@ -86,6 +91,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/export", exportSchedules(store))
+	mux.Handle("POST /api/v1/schedules/import", importSchedules(store))
 	mux.Handle("DELETE /api/v1/schedules/audit", pruneScheduleAudit(audit))
 	return mux
 }
@@ -887,4 +893,295 @@ func previewSchedule() http.Handler {
 			"timezone":     req.Timezone,
 		}})
 	})
+}
+
+// Conflict-resolution strategies for v1.99 schedule import.
+const (
+	importConflictSkip      = "skip"
+	importConflictOverwrite = "overwrite"
+	importConflictRename    = "rename"
+)
+
+// Per-row outcomes from v1.99 schedule import.
+const (
+	importOutcomeCreated     = "created"
+	importOutcomeRenamed     = "renamed"
+	importOutcomeOverwritten = "overwritten"
+	importOutcomeSkipped     = "skipped"
+	importOutcomeError       = "error"
+)
+
+// ScheduleImportResult (v1.99+) is the per-row outcome of
+// importSchedules. The aggregate response has a counts struct
+// + an items list with one entry per input line.
+type ScheduleImportResult struct {
+	Index    int    `json:"index"`           // 0-based input row.
+	Name     string `json:"name"`            // Imported name (possibly renamed).
+	Outcome  string `json:"outcome"`         // created | skipped | overwritten | renamed | error
+	ID       string `json:"id,omitempty"`    // ID of the resulting schedule (when not skipped/error).
+	ErrorMsg string `json:"error,omitempty"` // Set when outcome == "error".
+}
+
+// importSchedules (v1.99+) handles POST /api/v1/schedules/import.
+// Body is either NDJSON (one ScanSchedule per line; matches
+// the v1.97 export `format=ndjson` output) or a JSON array.
+// Disambiguated by Content-Type:
+//
+//	application/x-ndjson → NDJSON line-delimited.
+//	application/json     → JSON array of ScanSchedule.
+//	other / missing      → try NDJSON first; fall back to JSON array.
+//
+// Query param `?on_conflict=skip|overwrite|rename` (default
+// `skip`) controls behaviour when a schedule with the same
+// name already exists.
+//
+//	skip       → leave existing alone; outcome="skipped".
+//	overwrite  → Update the existing in-place; outcome="overwritten".
+//	rename     → append " (imported)" to name; Create; outcome="renamed".
+//
+// Server generates fresh IDs in every case — operators
+// importing from another deployment shouldn't have to coordinate
+// IDs. UpdatedAt + CreatedAt are stamped fresh on Create;
+// LastFiredAt is dropped (the import isn't a fire).
+//
+// Returns:
+//
+//	{
+//	  "schema": "api:v1",
+//	  "data": {
+//	    "imported": <total_created+renamed>,
+//	    "skipped":  <count>,
+//	    "overwritten": <count>,
+//	    "renamed":  <count>,
+//	    "errors":   <count>,
+//	    "items":    [ScheduleImportResult, ...]
+//	  }
+//	}
+func importSchedules(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		strategy := r.URL.Query().Get("on_conflict")
+		if strategy == "" {
+			strategy = importConflictSkip
+		}
+		if !isValidConflictStrategy(strategy) {
+			http.Error(w, "schedules: on_conflict must be skip|overwrite|rename", http.StatusBadRequest)
+			return
+		}
+		rows, err := decodeImportBody(r)
+		if err != nil {
+			http.Error(w, "schedules: malformed import body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		// Build name → existing map once so per-row conflict
+		// lookups are O(1). The List could grow stale during
+		// the loop if another writer is mutating concurrently;
+		// import is a maintenance operation usually run after
+		// bulk/disable (v1.95), so the race is benign.
+		existing, err := buildScheduleNameIndex(r.Context(), store)
+		if err != nil {
+			http.Error(w, "schedules: list for import: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		operator := operatorFromRequest(r)
+		items := make([]ScheduleImportResult, 0, len(rows))
+		var counts importCounts
+		for i, row := range rows {
+			result := applyImportRow(r.Context(), store, existing, operator, strategy, i, row)
+			items = append(items, result)
+			counts.bump(result.Outcome)
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"imported":    counts.imported,
+			"skipped":     counts.skipped,
+			"overwritten": counts.overwritten,
+			"renamed":     counts.renamed,
+			"errors":      counts.errors,
+			"items":       items,
+		}})
+	})
+}
+
+type importCounts struct {
+	imported, skipped, overwritten, renamed, errors int
+}
+
+func (c *importCounts) bump(outcome string) {
+	switch outcome {
+	case importOutcomeCreated:
+		c.imported++
+	case importOutcomeRenamed:
+		c.imported++
+		c.renamed++
+	case importOutcomeOverwritten:
+		c.overwritten++
+	case importOutcomeSkipped:
+		c.skipped++
+	case importOutcomeError:
+		c.errors++
+	}
+}
+
+// isValidConflictStrategy guards the on_conflict query param.
+func isValidConflictStrategy(s string) bool {
+	switch s {
+	case importConflictSkip, importConflictOverwrite, importConflictRename:
+		return true
+	}
+	return false
+}
+
+// decodeImportBody parses the request body as NDJSON (one
+// ScanSchedule per line) OR as a single JSON array. The
+// Content-Type header is preferred; on unknown/missing types
+// we try NDJSON first then fall back to JSON array.
+func decodeImportBody(r *http.Request) ([]scanorch.ScanSchedule, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	ct := r.Header.Get("Content-Type")
+	switch ct {
+	case "application/x-ndjson":
+		return decodeNDJSON(body)
+	case "application/json":
+		return decodeJSONArray(body)
+	}
+	// Heuristic for missing/unknown CT: a trimmed body that
+	// starts with `[` is a JSON array; otherwise NDJSON. Tests
+	// + curl users without an explicit -H benefit.
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return decodeJSONArray(body)
+	}
+	return decodeNDJSON(body)
+}
+
+// decodeNDJSON parses one ScanSchedule per non-empty line.
+func decodeNDJSON(body []byte) ([]scanorch.ScanSchedule, error) {
+	var out []scanorch.ScanSchedule
+	dec := json.NewDecoder(bytes.NewReader(body))
+	for dec.More() {
+		var s scanorch.ScanSchedule
+		if err := dec.Decode(&s); err != nil {
+			return nil, fmt.Errorf("ndjson decode: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// decodeJSONArray parses [ScanSchedule, …].
+func decodeJSONArray(body []byte) ([]scanorch.ScanSchedule, error) {
+	var out []scanorch.ScanSchedule
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("json array decode: %w", err)
+	}
+	return out, nil
+}
+
+// buildScheduleNameIndex builds a name → ScanSchedule map from
+// the current Store.List. Used by importSchedules to detect
+// conflicts in O(1) per row.
+func buildScheduleNameIndex(ctx context.Context, store scanorch.ScheduleStore) (map[string]scanorch.ScanSchedule, error) {
+	all, err := store.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]scanorch.ScanSchedule, len(all))
+	for _, s := range all {
+		out[s.Name] = s
+	}
+	return out, nil
+}
+
+// applyImportRow handles one input row per the resolution
+// strategy. Updates `existing` so a same-name row appearing
+// twice in the input (or renamed) doesn't collide with itself.
+func applyImportRow(ctx context.Context, store scanorch.ScheduleStore, existing map[string]scanorch.ScanSchedule, operator, strategy string, index int, row scanorch.ScanSchedule) ScheduleImportResult {
+	res := ScheduleImportResult{Index: index, Name: row.Name}
+	prior, conflict := existing[row.Name]
+	if conflict {
+		switch strategy {
+		case importConflictSkip:
+			res.Outcome = importOutcomeSkipped
+			res.ID = prior.ID
+			return res
+		case importConflictOverwrite:
+			return applyImportOverwrite(ctx, store, existing, prior, row, res)
+		case importConflictRename:
+			row.Name = uniqueRenameFor(row.Name, existing)
+			res.Name = row.Name
+			res = applyImportCreate(ctx, store, existing, operator, row, res)
+			res.Outcome = importOutcomeRenamed
+			return res
+		}
+	}
+	return applyImportCreate(ctx, store, existing, operator, row, res)
+}
+
+// applyImportCreate calls Create + updates the existing index.
+func applyImportCreate(ctx context.Context, store scanorch.ScheduleStore, existing map[string]scanorch.ScanSchedule, operator string, row scanorch.ScanSchedule, base ScheduleImportResult) ScheduleImportResult {
+	req := scanorch.CreateScheduleRequest{
+		Name:               row.Name,
+		Template:           row.Template,
+		IntervalSeconds:    row.IntervalSeconds,
+		CronExpr:           row.CronExpr,
+		Timezone:           row.Timezone,
+		AuditRetentionDays: row.AuditRetentionDays,
+	}
+	created, err := store.Create(ctx, req, operator)
+	if err != nil {
+		base.Outcome = importOutcomeError
+		base.ErrorMsg = err.Error()
+		return base
+	}
+	existing[created.Name] = created
+	base.Outcome = importOutcomeCreated
+	base.ID = created.ID
+	return base
+}
+
+// applyImportOverwrite Updates the existing schedule in-place.
+// Preserves the existing ID + CreatedAt + LastFiredAt
+// (Update's semantics).
+func applyImportOverwrite(ctx context.Context, store scanorch.ScheduleStore, existing map[string]scanorch.ScanSchedule, prior, row scanorch.ScanSchedule, base ScheduleImportResult) ScheduleImportResult {
+	req := scanorch.UpdateScheduleRequest{
+		Name:               row.Name,
+		Template:           row.Template,
+		IntervalSeconds:    row.IntervalSeconds,
+		CronExpr:           row.CronExpr,
+		Timezone:           row.Timezone,
+		AuditRetentionDays: row.AuditRetentionDays,
+		// IfMatch nil → skip optimistic-lock check (operator
+		// importing knows they're stomping the row).
+	}
+	updated, err := store.Update(ctx, prior.ID, req)
+	if err != nil {
+		base.Outcome = importOutcomeError
+		base.ErrorMsg = err.Error()
+		return base
+	}
+	existing[updated.Name] = updated
+	base.Outcome = importOutcomeOverwritten
+	base.ID = updated.ID
+	return base
+}
+
+// uniqueRenameFor returns the input name with " (imported)"
+// suffixed; if THAT collides too, appends an integer suffix
+// until a free name is found. Bounded loop: ~1000 attempts.
+func uniqueRenameFor(base string, existing map[string]scanorch.ScanSchedule) string {
+	candidate := base + " (imported)"
+	if _, conflict := existing[candidate]; !conflict {
+		return candidate
+	}
+	for i := 2; i < 1000; i++ {
+		candidate = base + " (imported " + strconv.Itoa(i) + ")"
+		if _, conflict := existing[candidate]; !conflict {
+			return candidate
+		}
+	}
+	// Bounded fallback: append a timestamp suffix so we don't
+	// loop forever even in absurd-input scenarios.
+	return base + " (imported " + strconv.FormatInt(time.Now().UnixNano(), 10) + ")"
 }

@@ -572,6 +572,23 @@ paths:
       summary: Export schedules for backup (v1.97+).
       tags:
         - schedules
+  /api/v1/schedules/import:
+    post:
+      description: 'Body: NDJSON (one ScanSchedule per line; matches the v1.97 export format) OR JSON array. Content-Type drives the parser; unknown CT auto-detects via the first non-whitespace byte. Query param `on_conflict=skip|overwrite|rename` (default skip). IDs from the input are IGNORED — the server generates fresh IDs in every case. Returns aggregate counts + per-row items.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Import result with per-row outcomes.
+        "400":
+          description: Malformed body or unsupported on_conflict value.
+        "503":
+          description: Schedule store unavailable.
+      summary: Import schedules (v1.99+).
+      tags:
+        - schedules
   /api/v1/schedules/preview:
     post:
       description: 'Query param: count (1..10, default 1; v1.79+). Returns next_fire_at + next_fires[] + timezone. Validation mirrors POST /schedules.'

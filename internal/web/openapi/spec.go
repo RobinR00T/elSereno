@@ -349,6 +349,24 @@ func schedulesBulkSpecPaths() []Path {
 				},
 			},
 		}},
+		{URL: "/api/v1/schedules/import", Operations: map[string]Operation{
+			"post": {
+				Summary: "Import schedules (v1.99+).",
+				Description: "Body: NDJSON (one ScanSchedule per line; matches the " +
+					"v1.97 export format) OR JSON array. Content-Type drives the " +
+					"parser; unknown CT auto-detects via the first non-whitespace " +
+					"byte. Query param `on_conflict=skip|overwrite|rename` " +
+					"(default skip). IDs from the input are IGNORED — the server " +
+					"generates fresh IDs in every case. Returns aggregate counts + " +
+					"per-row items.",
+				Tags: tag,
+				Responses: map[string]Response{
+					"200": {Description: "Import result with per-row outcomes.", Ref: "Envelope"},
+					"400": {Description: "Malformed body or unsupported on_conflict value."},
+					"503": {Description: "Schedule store unavailable."},
+				},
+			},
+		}},
 	}
 }
 
