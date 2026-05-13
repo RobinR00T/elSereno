@@ -687,15 +687,29 @@ func listSchedules(store scanorch.ScheduleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// v2.4: optional ?tag= filter via the new ListByTag
 		// store method. Empty tag → full list (back-compat).
-		tag := r.URL.Query().Get("tag")
+		// v2.9: multi-tag via repeated ?tag=a&tag=b + ?op=
+		// (and|or, default and). Single-tag query stays
+		// back-compat.
+		tags := r.URL.Query()["tag"]
+		op := strings.ToLower(r.URL.Query().Get("op"))
+		if op == "" {
+			op = scanorch.TagOpAnd
+		}
+		if op != scanorch.TagOpAnd && op != scanorch.TagOpOr {
+			http.Error(w, "schedules: op must be 'and' or 'or'", http.StatusBadRequest)
+			return
+		}
 		var (
 			schedules []scanorch.ScanSchedule
 			err       error
 		)
-		if tag != "" {
-			schedules, err = store.ListByTag(r.Context(), tag)
-		} else {
+		switch {
+		case len(tags) == 0:
 			schedules, err = store.List(r.Context())
+		case len(tags) == 1:
+			schedules, err = store.ListByTag(r.Context(), tags[0])
+		default:
+			schedules, err = store.ListByTags(r.Context(), tags, op)
 		}
 		if err != nil {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)

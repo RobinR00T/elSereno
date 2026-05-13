@@ -1,23 +1,25 @@
 ---
-phase: v2.8-closed
-status: v1.16-v2.7 published; v2.8 tag pending push
+phase: v2.9-closed
+status: v1.16-v2.8 published; v2.9 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.8 cycle closed on `main`** (1 chunk +
-close). Schedule CLI mutating verbs:
-`enable/disable/clone/import/pause-all/resume-all` added
-to `elsereno schedule`. All honour `--dry-run`. New
-`httpDoWithBody` helper. Closes v2.3 carryover.
+**Phase**: **v2.9 cycle closed on `main`** (1 chunk +
+close). Multi-tag AND/OR filter on /schedules: repeated
+`?tag=a&tag=b&op=and|or` (default AND). New
+`Store.ListByTags` method; v2.4 `ListByTag` thin wrapper.
+PG uses `tags @>` / `tags &&`, both GIN-indexed. +3
+tests. Closes v2.6 carryover.
 
-Snapshot: `.context/snapshots/v2.8.0-schedule-cli-mutating.md`.
+Snapshot: `.context/snapshots/v2.9.0-multi-tag-filter.md`.
 
-**v2.6 + v2.7 cycles (closed; per-cycle snapshots)**:
-v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on
-`/tags`, `/{id}/audit`, `/{id}/runs`.
+**v2.6 + v2.7 + v2.8 cycles (closed)**:
+v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on low-
+churn read endpoints. v2.8 schedule CLI mutating verbs
+(enable/disable/clone/import/pause-all/resume-all).
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).

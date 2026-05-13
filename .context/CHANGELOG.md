@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.9 (chunk 1) — **Multi-tag AND/OR
+  filter on /schedules.** Repeated `?tag=a&tag=b&op=`
+  (and|or, default and). New `Store.ListByTags`
+  method; v2.4 `ListByTag` becomes thin wrapper. PG
+  uses `tags @> $1` (AND) / `tags && $1` (OR), both
+  GIN-indexed. 400 on unknown op. Closes v2.6
+  carryover. +3 tests. Snapshot:
+  `.context/snapshots/v2.9.0-multi-tag-filter.md`.
+
 - 2026-05-13 — v2.8 (chunk 1) — **Schedule CLI
   mutating verbs.** Adds `enable`, `disable`,
   `clone --name N`, `import <file>

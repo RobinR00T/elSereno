@@ -240,12 +240,25 @@ type ScheduleStore interface {
 	// contains `tag` (exact-match). Empty tag → equivalent
 	// to List. Empty result is valid.
 	ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error)
+	// ListByTags (v2.9+) is the multi-tag variant. `op`
+	// controls the boolean composition:
+	//   - "and" (default): schedule must carry ALL of
+	//     `tags`.
+	//   - "or": schedule must carry AT LEAST ONE of `tags`.
+	// Empty tags → equivalent to List (no filter).
+	ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error)
 	// TagCounts (v2.5+) returns aggregate (tag → count)
 	// across every schedule. Sorted by count DESC, then
 	// name ASC for stable ordering. Empty store → empty
 	// slice. Operators graph this for tag-cloud + autocomplete.
 	TagCounts(ctx context.Context) ([]TagCount, error)
 }
+
+// Tag filter operators for ListByTags.
+const (
+	TagOpAnd = "and"
+	TagOpOr  = "or"
+)
 
 // TagCount (v2.5+) is the aggregate row for the tag-cloud
 // endpoint. Wire shape matches the dashboard chip render.
@@ -635,23 +648,60 @@ func sortTagCounts(s []TagCount) {
 
 // ListByTag (v2.4+) returns the schedules tagged with `tag`.
 // Empty tag → List. Empty slice when no match.
+//
+// v2.9+: thin wrapper over ListByTags with a single tag +
+// AND op.
 func (s *MemoryScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error) {
 	if tag == "" {
 		return s.List(ctx)
+	}
+	return s.ListByTags(ctx, []string{tag}, TagOpAnd)
+}
+
+// ListByTags (v2.9+) is the multi-tag variant. See interface
+// doc for semantics.
+func (s *MemoryScheduleStore) ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error) {
+	if len(tags) == 0 {
+		return s.List(ctx)
+	}
+	if op != TagOpOr {
+		op = TagOpAnd
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]ScanSchedule, 0)
 	for _, sched := range s.schedules {
-		for _, t := range sched.Tags {
-			if t == tag {
-				out = append(out, sched)
-				break
-			}
+		if matchesTags(sched.Tags, tags, op) {
+			out = append(out, sched)
 		}
 	}
 	sortSchedulesByName(out)
 	return out, nil
+}
+
+// matchesTags returns true when `have` satisfies the
+// (`want`, `op`) filter. "and" → all of `want` ⊆ `have`.
+// "or" → at least one of `want` ∈ `have`.
+func matchesTags(have, want []string, op string) bool {
+	set := make(map[string]struct{}, len(have))
+	for _, t := range have {
+		set[t] = struct{}{}
+	}
+	if op == TagOpOr {
+		for _, t := range want {
+			if _, ok := set[t]; ok {
+				return true
+			}
+		}
+		return false
+	}
+	// AND
+	for _, t := range want {
+		if _, ok := set[t]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // SetEnabled toggles the kill-switch.

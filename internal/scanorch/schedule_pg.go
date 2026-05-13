@@ -239,17 +239,37 @@ ORDER BY n DESC, tag ASC`
 
 // ListByTag (v2.4+) uses the GIN index from migration 00016
 // for fast `tags && ARRAY[$1]` overlap filters.
+//
+// v2.9+: thin wrapper over ListByTags with a single tag.
 func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error) {
 	if tag == "" {
 		return s.List(ctx)
 	}
+	return s.ListByTags(ctx, []string{tag}, TagOpAnd)
+}
+
+// ListByTags (v2.9+) uses array operators on the v2.4 GIN
+// index:
+//   - AND → `tags @> ARRAY[$1]::text[]` (contains all).
+//   - OR  → `tags && ARRAY[$1]::text[]` (overlaps).
+//
+// Both operators are GIN-friendly. The OR variant matches
+// v2.4 ListByTag's single-tag behaviour exactly.
+func (s *DBScheduleStore) ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error) {
+	if len(tags) == 0 {
+		return s.List(ctx)
+	}
+	predicate := "tags @> $1::text[]" // AND
+	if op == TagOpOr {
+		predicate = "tags && $1::text[]" // OR
+	}
 	rows, err := s.q.Query(ctx,
 		"SELECT "+scheduleColumns+
-			" FROM scan_schedules WHERE tags && ARRAY[$1]::text[]"+
+			" FROM scan_schedules WHERE "+predicate+
 			" ORDER BY name ASC",
-		tag)
+		tags)
 	if err != nil {
-		return nil, fmt.Errorf("scanorch: list schedules by tag: %w", err)
+		return nil, fmt.Errorf("scanorch: list schedules by tags: %w", err)
 	}
 	defer rows.Close()
 	var out []ScanSchedule
@@ -261,7 +281,7 @@ func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSche
 		out = append(out, sched)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scanorch: list schedules by tag (rows): %w", err)
+		return nil, fmt.Errorf("scanorch: list schedules by tags (rows): %w", err)
 	}
 	return out, nil
 }

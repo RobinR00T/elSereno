@@ -1143,6 +1143,79 @@ func TestListSchedules_ByTag(t *testing.T) {
 	}
 }
 
+// TestListSchedules_MultiTag_And (v2.9+): all-of semantics.
+func TestListSchedules_MultiTag_And(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("a", "prod", "critical")
+	mk("b", "prod")
+	mk("c", "critical")
+	mk("d", "dev", "critical")
+	router := newSchedRouter(store)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=prod&tag=critical", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 1 || resp.Data[0].Name != "a" {
+		t.Errorf("AND filter result = %v, want [a]", resp.Data)
+	}
+}
+
+// TestListSchedules_MultiTag_Or (v2.9+): any-of semantics.
+func TestListSchedules_MultiTag_Or(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("a", "prod", "critical")
+	mk("b", "prod")
+	mk("c", "critical")
+	mk("d", "dev")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=prod&tag=critical&op=or", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 3 {
+		t.Errorf("OR filter count = %d, want 3 (a,b,c)", len(resp.Data))
+	}
+}
+
+// TestListSchedules_BadOp (v2.9+): unknown op → 400.
+func TestListSchedules_BadOp(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=x&op=xor", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleTags (v2.5+): tag aggregate counts across
 // the store sorted by count DESC, tag ASC.
 func TestListScheduleTags(t *testing.T) {
