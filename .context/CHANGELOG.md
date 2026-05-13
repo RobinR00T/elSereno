@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.6 (chunk 1) — **Dashboard tag UI.**
+  Schedules table gains "Tags" column with clickable
+  chips (toggle the global tag filter). Tag-cloud
+  widget above the table shows `<tag> (<count>)`
+  from `/schedules/tags`; active chip highlighted.
+  Form gains comma-separated `tags` input. Closes
+  v2.4 + v2.5 dashboard carryover. Snapshot:
+  `.context/snapshots/v2.6.0-dashboard-tag-ui.md`.
+
 - 2026-05-13 — v2.5 (chunk 1) — **Schedule
   tag-counts aggregate.** New
   `GET /api/v1/schedules/tags` returns

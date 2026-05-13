@@ -543,6 +543,9 @@ const overviewHTML = `<!doctype html>
         <label title="v1.89+ per-schedule audit retention override. 0 = inherit global --audit-retention-days.">audit days:
           <input type="number" id="schedule-audit-retention-days" min="0" max="3650" value="0" size="6" />
         </label>
+        <label title="v2.4+ comma-separated tags. 1..32 chars each; [a-z0-9_-] only; max 10.">tags:
+          <input type="text" id="schedule-tags" placeholder="prod,critical,net-team" size="24" autocomplete="off" />
+        </label>
         <button type="submit" id="schedule-submit-button">Create</button>
         <button type="button" id="schedule-cancel-button" onclick="cancelEditSchedule()" style="display: none;">Cancel</button>
         <button type="button" id="schedule-preview-button" onclick="previewNextFire()" style="margin-left: 0.5em;">Preview next fire</button>
@@ -557,10 +560,19 @@ const overviewHTML = `<!doctype html>
           <button type="button" id="schedule-force-overwrite-button" onclick="forceOverwriteSchedule()" style="margin-left: 0.5em;">Force overwrite (re-submit ignoring If-Match)</button>
         </div>
       </form>
+      <!-- v2.6: tag-cloud widget. Populated from
+           /api/v1/schedules/tags. Clicking a chip toggles a
+           ?tag= filter on the schedules table. -->
+      <div id="schedule-tag-cloud" style="margin: 0.4em 0; display: flex; flex-wrap: wrap; gap: 0.3em; align-items: baseline;">
+        <span class="sub" style="margin-right: 0.4em;">Filter by tag:</span>
+        <span id="schedule-tag-cloud-chips" style="display: inline-flex; flex-wrap: wrap; gap: 0.3em;"></span>
+        <button type="button" id="schedule-tag-cloud-clear" onclick="clearScheduleTagFilter()" style="display: none; margin-left: 0.4em;">Clear filter</button>
+      </div>
       <table id="schedules-table">
         <thead>
           <tr>
             <th>Name</th>
+            <th>Tags</th>
             <th>Input</th>
             <th>Plugins</th>
             <th>Interval</th>
@@ -571,7 +583,7 @@ const overviewHTML = `<!doctype html>
           </tr>
         </thead>
         <tbody id="schedules-body">
-          <tr class="empty"><td colspan="8">loading…</td></tr>
+          <tr class="empty"><td colspan="9">loading…</td></tr>
         </tbody>
       </table>
       <div id="schedule-audit-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
@@ -1229,8 +1241,20 @@ const overviewHTML = `<!doctype html>
     if (schedulesPollTimer) clearTimeout(schedulesPollTimer);
     schedulesPollTimer = setTimeout(renderSchedules, delayMs);
   }
+  // v2.6: tag filter state (clicking a chip in the
+  // tag-cloud sets this; the rendered table re-fetches
+  // with ?tag=…).
+  var scheduleTagFilter = "";
   function renderSchedules() {
-    fetch("/api/v1/schedules", {credentials: "same-origin"})
+    // v2.6: kick off the tag-cloud refresh in parallel with
+    // the schedules list. Independent endpoints; no need to
+    // sequence them.
+    refreshScheduleTagCloud();
+    var url = "/api/v1/schedules";
+    if (scheduleTagFilter) {
+      url += "?tag=" + encodeURIComponent(scheduleTagFilter);
+    }
+    fetch(url, {credentials: "same-origin"})
       .then(function (r) {
         if (r.status === 503) {
           return Promise.reject(new Error("scan orchestration disabled (start serve with --scan-store=memory or =db)"));
@@ -1245,7 +1269,10 @@ const overviewHTML = `<!doctype html>
         var body = document.getElementById("schedules-body");
         if (!body) return;
         if (rows.length === 0) {
-          body.innerHTML = '<tr class="empty"><td colspan="8">no schedules — create one above</td></tr>';
+          var emptyMsg = scheduleTagFilter
+            ? 'no schedules tagged "' + escText(scheduleTagFilter) + '"'
+            : "no schedules — create one above";
+          body.innerHTML = '<tr class="empty"><td colspan="9">' + emptyMsg + '</td></tr>';
           scheduleSchedulesPoll(30000);
           return;
         }
@@ -1307,8 +1334,22 @@ const overviewHTML = `<!doctype html>
             '" onclick="cloneSchedule(this.dataset.schedId)">Clone</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
+          // v2.6: tag chips per row. Empty array → "—".
+          // Each chip is clickable: sets the global filter
+          // to that tag (operator drills into "show me only
+          // 'prod' schedules" by clicking the chip).
+          var tagsHTML = "—";
+          if (Array.isArray(s.tags) && s.tags.length > 0) {
+            tagsHTML = s.tags.map(function (t) {
+              return '<button type="button" class="tag-chip" data-tag="' + escAttr(t) +
+                '" onclick="setScheduleTagFilter(this.dataset.tag)" ' +
+                'style="background:#dde; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; margin-right:0.2em; cursor:pointer; font-size:0.85em;">' +
+                escText(t) + '</button>';
+            }).join("");
+          }
           return '<tr data-sched-id="' + escAttr(s.id) + '">' +
             '<td>' + escText(s.name || "") + '</td>' +
+            '<td>' + tagsHTML + '</td>' +
             '<td><code>' + escText((s.template && s.template.input) || "") + '</code></td>' +
             '<td><code>' + escText(plugins) + '</code></td>' +
             '<td>' + escText(intervalDisplay) + '</td>' +
@@ -1402,6 +1443,10 @@ const overviewHTML = `<!doctype html>
       // submit would zero it out by accident).
       var auditEl = document.getElementById("schedule-audit-retention-days");
       if (auditEl) auditEl.value = (s.audit_retention_days != null ? s.audit_retention_days : 0);
+      // v2.6: load tags into the input so Update round-trips
+      // them (otherwise the submit would clear them).
+      var tagsEl = document.getElementById("schedule-tags");
+      if (tagsEl) tagsEl.value = Array.isArray(s.tags) ? s.tags.join(",") : "";
       if (submitBtn) submitBtn.textContent = "Update";
       if (cancelBtn) cancelBtn.style.display = "";
       if (status) status.textContent = "editing " + (s.id || "").slice(0, 8) + "…";
@@ -1441,6 +1486,9 @@ const overviewHTML = `<!doctype html>
     // v1.89: reset the audit retention override to 0 (inherit).
     var auditEl = document.getElementById("schedule-audit-retention-days");
     if (auditEl) auditEl.value = 0;
+    // v2.6: reset tag input.
+    var tagsEl = document.getElementById("schedule-tags");
+    if (tagsEl) tagsEl.value = "";
     var modeEl = document.getElementById("schedule-cadence-mode");
     if (modeEl) {
       modeEl.value = "interval";
@@ -1490,6 +1538,16 @@ const overviewHTML = `<!doctype html>
     if (auditDays > 3650) auditDays = 3650;
     if (auditDays > 0) {
       payload.audit_retention_days = auditDays;
+    }
+    // v2.6: comma-separated tag input → array. Server canonicalises
+    // (dedupe + sort + shape validation); we send what the operator
+    // typed (lowercased + trimmed) and let the server reject bad ones.
+    var tagsRaw = (document.getElementById("schedule-tags") || {}).value || "";
+    var tags = tagsRaw.split(",")
+      .map(function (s) { return s.trim().toLowerCase(); })
+      .filter(function (s) { return s.length > 0; });
+    if (tags.length > 0) {
+      payload.tags = tags;
     }
     var body = JSON.stringify(payload);
     var isUpdate = editingScheduleID !== "";
@@ -2116,6 +2174,61 @@ const overviewHTML = `<!doctype html>
       if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
+  // refreshScheduleTagCloud (v2.6) fetches
+  // /api/v1/schedules/tags + renders chips. Each chip is a
+  // button that calls setScheduleTagFilter(tag) to filter the
+  // table. The active chip gets a highlight.
+  function refreshScheduleTagCloud() {
+    var chips = document.getElementById("schedule-tag-cloud-chips");
+    if (!chips) return;
+    fetch("/api/v1/schedules/tags", {credentials: "same-origin"})
+      .then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then(function (res) {
+        if (res === null) {
+          chips.innerHTML = '<span class="sub">tags unavailable</span>';
+          return;
+        }
+        var counts = (res && res.data) || [];
+        if (counts.length === 0) {
+          chips.innerHTML = '<span class="sub">no tags yet</span>';
+          return;
+        }
+        chips.innerHTML = counts.map(function (tc) {
+          var isActive = (scheduleTagFilter === tc.tag);
+          var bg = isActive ? "#99c" : "#dde";
+          var fg = isActive ? "#fff" : "#333";
+          return '<button type="button" class="tag-chip" data-tag="' + escAttr(tc.tag) +
+            '" onclick="setScheduleTagFilter(this.dataset.tag)" ' +
+            'style="background:' + bg + '; color:' + fg + '; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; cursor:pointer; font-size:0.85em;">' +
+            escText(tc.tag) + ' (' + tc.count + ')</button>';
+        }).join("");
+        var clearBtn = document.getElementById("schedule-tag-cloud-clear");
+        if (clearBtn) clearBtn.style.display = scheduleTagFilter ? "" : "none";
+      })
+      .catch(function () {
+        chips.innerHTML = '<span class="sub">tags fetch failed</span>';
+      });
+  }
+  // setScheduleTagFilter (v2.6) toggles the active filter +
+  // re-renders the table.
+  function setScheduleTagFilter(tag) {
+    if (!tag) return;
+    // Click an already-active chip → clear filter (toggle).
+    if (scheduleTagFilter === tag) {
+      scheduleTagFilter = "";
+    } else {
+      scheduleTagFilter = tag;
+    }
+    renderSchedules();
+  }
+  function clearScheduleTagFilter() {
+    scheduleTagFilter = "";
+    renderSchedules();
+  }
+
   // bulkScheduleEnable (v1.95) POSTs to
   // /schedules/bulk/{enable|disable}. Shows the affected count
   // in the status line + re-renders the table.
@@ -2202,6 +2315,9 @@ const overviewHTML = `<!doctype html>
   window.closeRunsView = closeRunsView;
   // v2.0 cursor pagination.
   window.loadMoreRuns = loadMoreRuns;
+  // v2.6 tag-cloud + filter.
+  window.setScheduleTagFilter = setScheduleTagFilter;
+  window.clearScheduleTagFilter = clearScheduleTagFilter;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

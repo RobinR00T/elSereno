@@ -1,32 +1,31 @@
 ---
-phase: v2.5-closed
-status: v1.16-v2.4 published; v2.5 tag pending push
+phase: v2.6-closed
+status: v1.16-v2.5 published; v2.6 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.5 cycle closed on `main`** (1 chunk +
-close). Tag-counts aggregate: new
-`GET /api/v1/schedules/tags` returns
-`[{tag, count}]` sorted DESC+ASC. New `Store.TagCounts`
-method (Memory + PG via UNNEST/GROUP BY). Refactored
-Schedules() factory into unavailable/active helpers.
-+2 tests. Closes v2.4 carryover.
+**Phase**: **v2.6 cycle closed on `main`** (1 chunk +
+close). Dashboard tag UI: schedules table gains "Tags"
+column with clickable chips that toggle the global
+filter; tag-cloud widget above the table sources
+`/schedules/tags`. Form gains comma-separated tags
+input. Closes v2.4 + v2.5 dashboard carryover.
 
-Snapshot: `.context/snapshots/v2.5.0-schedule-tag-counts.md`.
+Snapshot: `.context/snapshots/v2.6.0-dashboard-tag-ui.md`.
 
-**v1.89-v2.4 cycles (closed; per-cycle snapshots)**:
+**v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
 v1.90 advisory-locked pruner. v1.91 pruner counters.
 v1.92 schedule run history (00014). v1.93 clone. v1.94
 pruner tick histogram. v1.95 bulk pause/resume. v1.96
 OpenAPI coverage. v1.97 export. v1.98 OpenAPI strict
-schemas. v1.99 import. v2.0 cursor pagination (BREAKING).
-v2.1 cloned_from audit event (00015). v2.2 run-stats
-aggregate. v2.3 schedule CLI verbs. v2.4 tags + GIN
-index (00016).
+schemas. v1.99 import. v2.0 cursor pagination
+(BREAKING). v2.1 cloned_from audit event (00015).
+v2.2 run-stats aggregate. v2.3 schedule CLI verbs.
+v2.4 tags + GIN index (00016). v2.5 tag-counts.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot
