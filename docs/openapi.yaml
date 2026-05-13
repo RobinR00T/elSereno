@@ -178,6 +178,7 @@ components:
             - delete
             - set_enabled_true
             - set_enabled_false
+            - cloned_from
           type: string
         id:
           type: string

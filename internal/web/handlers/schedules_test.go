@@ -1482,6 +1482,79 @@ func TestBulkSetEnabled_DisableAll(t *testing.T) {
 	}
 }
 
+// TestCloneSchedule_WritesAudit (v2.1+): clone with audit
+// store wired writes one `cloned_from` event keyed on the
+// clone's ID with payload_before = source snapshot.
+func TestCloneSchedule_WritesAudit(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	audit := scanorch.NewMemoryScheduleAuditStore()
+	source, err := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "list:s.txt"},
+		IntervalSeconds: 60,
+	}, "alice")
+	if err != nil {
+		t.Fatalf("Create err = %v", err)
+	}
+	router := newSchedRouterWithAudit(store, audit)
+	body := strings.NewReader(`{"name":"clone"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/"+source.ID+"/clone", body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Operator", "bob")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	// Audit row exists on the CLONE's ID.
+	events, err := audit.ListBySchedule(context.Background(), resp.Data.ID)
+	if err != nil {
+		t.Fatalf("ListBySchedule err = %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("audit events = %d, want 1", len(events))
+	}
+	ev := events[0]
+	if ev.EventType != scanorch.ScheduleAuditEventClonedFrom {
+		t.Errorf("event_type = %q, want cloned_from", ev.EventType)
+	}
+	if ev.Operator != "bob" {
+		t.Errorf("operator = %q, want bob", ev.Operator)
+	}
+	// Source snapshot in payload_before.
+	var srcSnap scanorch.ScanSchedule
+	if err := json.Unmarshal(ev.PayloadBefore, &srcSnap); err != nil {
+		t.Fatalf("decode payload_before: %v", err)
+	}
+	if srcSnap.ID != source.ID {
+		t.Errorf("payload_before.id = %q, want source ID %q", srcSnap.ID, source.ID)
+	}
+}
+
+// TestCloneSchedule_NoAuditStore_StillSucceeds (v2.1+): nil
+// audit store → clone still works, no audit row written.
+func TestCloneSchedule_NoAuditStore_StillSucceeds(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store) // nil audit
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/"+source.ID+"/clone", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Errorf("status = %d", rr.Code)
+	}
+}
+
 // TestCloneSchedule_NotFound (v1.93+): unknown source → 404.
 func TestCloneSchedule_NotFound(t *testing.T) {
 	router := newSchedRouter(scanorch.NewMemoryScheduleStore())

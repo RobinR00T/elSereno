@@ -38,6 +38,15 @@ const (
 	// ScheduleAuditEventSetEnabledFalse (v1.88+): schedule
 	// was disabled via POST /api/v1/schedules/{id}/disable.
 	ScheduleAuditEventSetEnabledFalse ScheduleAuditEventType = "set_enabled_false"
+	// ScheduleAuditEventClonedFrom (v2.1+): schedule was
+	// created by cloning an existing one via
+	// POST /api/v1/schedules/{id}/clone. The audit row is
+	// keyed on the CLONE's id (this is its origin event);
+	// payload_before is the source's full snapshot at clone
+	// time, payload_after is the clone's snapshot. Operators
+	// auditing provenance grep event_type='cloned_from'
+	// + payload_before.id to find clone-source pairs.
+	ScheduleAuditEventClonedFrom ScheduleAuditEventType = "cloned_from"
 )
 
 // ValidScheduleAuditEventTypes is the canonical set, used by
@@ -47,6 +56,7 @@ var ValidScheduleAuditEventTypes = []ScheduleAuditEventType{
 	ScheduleAuditEventDelete,
 	ScheduleAuditEventSetEnabledTrue,
 	ScheduleAuditEventSetEnabledFalse,
+	ScheduleAuditEventClonedFrom,
 }
 
 // ScheduleAuditEvent (v1.84+) is one row of the audit log

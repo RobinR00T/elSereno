@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.1 (chunk 1) — **cloned_from audit
+  event.** Migration 00015 extends scan_schedule_audit
+  CHECK enum with `cloned_from`. cloneSchedule
+  signature gains audit param; on success writes one
+  row keyed on clone.ID with payload_before = source
+  snapshot. Dashboard renders blue "CLONED FROM" badge +
+  source name/id line (parallel to v1.89 DELETED badge).
+  Best-effort persistence (X-Schedule-Audit-Warning on
+  failure). +2 unit tests + OpenAPI enum update. Closes
+  v1.93 carryover. Snapshot:
+  `.context/snapshots/v2.1.0-cloned-from-audit.md`.
+
 - 2026-05-13 — v2.0 (chunk 1) — **Cursor pagination
   on /schedules/{id}/runs.** Response shape changed
   (BREAKING) from `data: Job[]` to

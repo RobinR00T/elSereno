@@ -87,7 +87,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
-	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store))
+	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/export", exportSchedules(store))
@@ -309,7 +309,7 @@ type CloneScheduleRequest struct {
 //     header), NOT the original schedule's operator.
 //     Preserves provenance per-creation; original schedule
 //     unaffected.
-func cloneSchedule(store scanorch.ScheduleStore) http.Handler {
+func cloneSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {
@@ -342,9 +342,34 @@ func cloneSchedule(store scanorch.ScheduleStore) http.Handler {
 			writeScheduleValidationError(w, err)
 			return
 		}
+		// v2.1: best-effort cloned_from audit row keyed on
+		// clone.ID. payload_before = source snapshot, after =
+		// clone snapshot. Failure surfaces as
+		// X-Schedule-Audit-Warning per v1.84 pattern.
+		if audit != nil {
+			recordClonedFromAudit(r.Context(), audit, clone.ID, operator, source, clone, w)
+		}
 		w.WriteHeader(http.StatusCreated)
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: withNextFire(clone, time.Now().UTC())})
 	})
+}
+
+// recordClonedFromAudit is best-effort: a failure to persist
+// does NOT undo the clone; we surface a warning header so
+// dashboard ops can investigate (mirrors v1.84 force-overwrite
+// + v1.88 delete patterns).
+func recordClonedFromAudit(ctx context.Context, audit scanorch.ScheduleAuditStore, cloneID, operator string, source, clone scanorch.ScanSchedule, w http.ResponseWriter) {
+	beforeJSON, _ := json.Marshal(source)
+	afterJSON, _ := json.Marshal(clone)
+	if _, err := audit.Append(ctx, scanorch.ScheduleAuditEvent{
+		ScheduleID:    cloneID,
+		EventType:     scanorch.ScheduleAuditEventClonedFrom,
+		Operator:      operator,
+		PayloadBefore: beforeJSON,
+		PayloadAfter:  afterJSON,
+	}); err != nil {
+		w.Header().Set("X-Schedule-Audit-Warning", err.Error())
+	}
 }
 
 // buildCloneRequest copies the source schedule + applies

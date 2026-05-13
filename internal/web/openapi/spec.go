@@ -625,7 +625,7 @@ func scheduleAuditEventSchema() map[string]Schema {
 			"properties": map[string]any{
 				"id":             map[string]any{"type": "string"},
 				"schedule_id":    map[string]any{"type": "string", "description": "NULL after v1.88 schedule delete (FK ON DELETE SET NULL)."},
-				"event_type":     map[string]any{"type": "string", "enum": []string{"force_overwrite", "delete", "set_enabled_true", "set_enabled_false"}},
+				"event_type":     map[string]any{"type": "string", "enum": []string{"force_overwrite", "delete", "set_enabled_true", "set_enabled_false", "cloned_from"}},
 				"operator":       map[string]any{"type": "string"},
 				"occurred_at":    map[string]any{"type": "string", "format": "date-time"},
 				"payload_before": map[string]any{"description": "Full ScanSchedule snapshot pre-event."},

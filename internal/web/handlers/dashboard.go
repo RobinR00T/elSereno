@@ -1809,29 +1809,37 @@ const overviewHTML = `<!doctype html>
       body.innerHTML = events.map(function (e) {
         var when = e.occurred_at ? new Date(e.occurred_at).toLocaleString() : "—";
         // v1.89: dedicated "Deleted" badge for event_type='delete'.
-        // The v1.88 audit event captures the pre-delete state in
-        // payload_before; payload_after is JSON null. Rendering
-        // every field as "X → —" works but obscures the actual
-        // operator intent. Show a red "Deleted" badge + the
-        // pre-delete name/input so operators recognise the row
-        // at a glance.
+        // v2.1: similar "Cloned from" badge for event_type='cloned_from'.
+        // These special-case events have non-diff semantics —
+        // rendering as field-by-field changes obscures intent.
         var diffHTML;
         var eventBadgeHTML;
+        function parsePayload(raw) {
+          if (raw == null) return null;
+          if (typeof raw === "string") {
+            try { return JSON.parse(raw); } catch (_) { return null; }
+          }
+          return raw;
+        }
         if (e.event_type === "delete") {
           eventBadgeHTML = '<span style="background:#c33;color:#fff;padding:0.1em 0.5em;border-radius:0.3em;font-weight:bold;">DELETED</span>';
-          var preDelete = (function () {
-            if (e.payload_before == null) return null;
-            if (typeof e.payload_before === "string") {
-              try { return JSON.parse(e.payload_before); } catch (_) { return null; }
-            }
-            return e.payload_before;
-          })();
+          var preDelete = parsePayload(e.payload_before);
           if (preDelete) {
             diffHTML = '<span class="sub">pre-delete snapshot:</span> ' +
               '<code>' + escText(preDelete.name || "—") + '</code>' +
               ' / input=<code>' + escText((preDelete.template || {}).input || "—") + '</code>';
           } else {
             diffHTML = '<span class="sub">(no pre-delete snapshot)</span>';
+          }
+        } else if (e.event_type === "cloned_from") {
+          eventBadgeHTML = '<span style="background:#28a;color:#fff;padding:0.1em 0.5em;border-radius:0.3em;font-weight:bold;">CLONED FROM</span>';
+          var src = parsePayload(e.payload_before);
+          if (src) {
+            diffHTML = '<span class="sub">source:</span> ' +
+              '<code>' + escText(src.name || "—") + '</code>' +
+              ' (id=<code>' + escText(src.id || "—") + '</code>)';
+          } else {
+            diffHTML = '<span class="sub">(no source snapshot)</span>';
           }
         } else {
           eventBadgeHTML = '<code>' + escText(e.event_type || "—") + '</code>';
