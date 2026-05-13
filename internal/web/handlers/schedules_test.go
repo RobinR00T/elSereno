@@ -1068,6 +1068,81 @@ func TestListScheduleRuns_Pagination(t *testing.T) {
 	}
 }
 
+// TestCreateSchedule_Tags (v2.4+): tags round-trip through
+// create + canonicalised (deduped + sorted).
+func TestCreateSchedule_Tags(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	body := []byte(`{"name":"tagged","template":{"input":"stdin"},"interval_seconds":60,"tags":["prod","net-team","prod"]}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	want := []string{"net-team", "prod"}
+	if len(resp.Data.Tags) != len(want) {
+		t.Fatalf("tags = %v, want %v", resp.Data.Tags, want)
+	}
+	for i := range want {
+		if resp.Data.Tags[i] != want[i] {
+			t.Errorf("tags[%d] = %q, want %q", i, resp.Data.Tags[i], want[i])
+		}
+	}
+}
+
+// TestCreateSchedule_TagsInvalidShape (v2.4+): uppercase /
+// space → 400.
+func TestCreateSchedule_TagsInvalidShape(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := []byte(`{"name":"x","template":{"input":"stdin"},"interval_seconds":60,"tags":["Bad Tag"]}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestListSchedules_ByTag (v2.4+): ?tag=critical filters.
+func TestListSchedules_ByTag(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "a", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60, Tags: []string{"prod", "critical"},
+	}, "alice")
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "b", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60, Tags: []string{"dev"},
+	}, "alice")
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "c", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60, Tags: []string{"prod"},
+	}, "alice")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=critical", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 1 || resp.Data[0].Name != "a" {
+		t.Errorf("filtered = %v, want [a]", resp.Data)
+	}
+}
+
 // TestScheduleStats_Empty (v2.2+): no runs → all zeros, valid
 // payload (no NaN from division-by-zero).
 func TestScheduleStats_Empty(t *testing.T) {

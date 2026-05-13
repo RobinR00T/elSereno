@@ -630,6 +630,10 @@ func writeScheduleValidationError(w http.ResponseWriter, err error) {
 		http.Error(w, "schedules: "+err.Error(), http.StatusBadRequest)
 	case errors.Is(err, scanorch.ErrScheduleInvalidAuditRetentionDays):
 		http.Error(w, "schedules: audit_retention_days must be >= 0", http.StatusBadRequest)
+	case errors.Is(err, scanorch.ErrScheduleInvalidTag):
+		http.Error(w, "schedules: tag invalid (1..32 chars, [a-z0-9_-] only)", http.StatusBadRequest)
+	case errors.Is(err, scanorch.ErrScheduleTooManyTags):
+		http.Error(w, "schedules: too many tags (max 10)", http.StatusBadRequest)
 	default:
 		http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 	}
@@ -655,7 +659,18 @@ func createSchedule(store scanorch.ScheduleStore) http.Handler {
 
 func listSchedules(store scanorch.ScheduleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		schedules, err := store.List(r.Context())
+		// v2.4: optional ?tag= filter via the new ListByTag
+		// store method. Empty tag → full list (back-compat).
+		tag := r.URL.Query().Get("tag")
+		var (
+			schedules []scanorch.ScanSchedule
+			err       error
+		)
+		if tag != "" {
+			schedules, err = store.ListByTag(r.Context(), tag)
+		} else {
+			schedules, err = store.List(r.Context())
+		}
 		if err != nil {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return

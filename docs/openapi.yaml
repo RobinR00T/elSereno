@@ -38,6 +38,13 @@ components:
         name:
           example: nightly-fleet
           type: string
+        tags:
+          description: v2.4+ grouping labels.
+          items:
+            pattern: ^[a-z0-9_-]{1,32}$
+            type: string
+          maxItems: 10
+          type: array
         template:
           $ref: '#/components/schemas/SubmitRequest'
         timezone:
@@ -155,6 +162,11 @@ components:
           type: string
         operator:
           type: string
+        tags:
+          description: 'v2.4+ grouping labels (canonicalised: sorted + deduped).'
+          items:
+            type: string
+          type: array
         template:
           $ref: '#/components/schemas/SubmitRequest'
         timezone:
@@ -239,6 +251,12 @@ components:
           type: integer
         name:
           type: string
+        tags:
+          items:
+            pattern: ^[a-z0-9_-]{1,32}$
+            type: string
+          maxItems: 10
+          type: array
         template:
           $ref: '#/components/schemas/SubmitRequest'
         timezone:
@@ -336,7 +354,7 @@ paths:
         - runs
   /api/v1/schedules:
     get:
-      description: Returns every schedule sorted by name. `next_fire_at` is computed per response (v1.77+).
+      description: 'Returns every schedule sorted by name. `next_fire_at` is computed per response (v1.77+). v2.4+: optional `?tag=<value>` filters via array-overlap on the tags column.'
       responses:
         "200":
           content:
@@ -344,7 +362,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Envelope'
           description: Envelope payload.
-      summary: List scan schedules (v1.70+).
+      summary: List scan schedules (v1.70+, v2.4 ?tag= filter).
       tags:
         - schedules
     post:

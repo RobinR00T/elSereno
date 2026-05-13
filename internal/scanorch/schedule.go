@@ -97,6 +97,26 @@ type ScanSchedule struct {
 	// are clamped to 365*10 (10 years) to keep the column
 	// bounded.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+	// Tags (v2.4+) is the per-schedule label set used by the
+	// list endpoint's `?tag=` filter + the dashboard's group-
+	// by-tag rendering. Operators with N schedules tag by
+	// environment ("dev"/"prod"), criticality
+	// ("critical"/"best-effort"), or owner ("net-team") +
+	// filter accordingly.
+	//
+	// Validation (Go-side; DB stays shape-agnostic for
+	// evolvability):
+	//   - At most 10 tags per schedule.
+	//   - Each tag 1..32 characters.
+	//   - Each tag matches /^[a-z0-9_-]+$/ (lowercase only;
+	//     spaces / uppercase / unicode rejected to keep URL
+	//     param parsing simple).
+	//   - Duplicates within a schedule are deduped silently.
+	//
+	// Empty slice is canonical "no tags" (matches DB DEFAULT
+	// ARRAY[]). Wire-level omitempty hides it from JSON when
+	// the slice is empty so the response stays compact.
+	Tags []string `json:"tags,omitempty"`
 }
 
 // CreateScheduleRequest is the dashboard's request body. The
@@ -122,6 +142,9 @@ type CreateScheduleRequest struct {
 	// --audit-retention-days". See ScanSchedule.AuditRetentionDays
 	// for semantics + clamping.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+	// Tags (v2.4+, optional) is the operator's grouping
+	// label set. See ScanSchedule.Tags for validation rules.
+	Tags []string `json:"tags,omitempty"`
 }
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
@@ -176,6 +199,14 @@ var (
 	// Clamping handles >max silently; only the < 0 case is a
 	// hard error (operator likely mistyped a sign).
 	ErrScheduleInvalidAuditRetentionDays = errors.New("scanorch: schedule audit_retention_days must be >= 0")
+	// ErrScheduleInvalidTag (v2.4+) means one of the tags
+	// failed shape validation: empty, > 32 chars, or
+	// contained anything outside [a-z0-9_-].
+	ErrScheduleInvalidTag = errors.New("scanorch: schedule tag invalid (1..32 chars, [a-z0-9_-] only)")
+	// ErrScheduleTooManyTags (v2.4+) means the operator
+	// exceeded the per-schedule tag cap (10). Keeps DB row
+	// size + UI rendering bounded.
+	ErrScheduleTooManyTags = errors.New("scanorch: schedule has too many tags (max 10)")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -205,6 +236,10 @@ type ScheduleStore interface {
 	// SetEnabled toggles the kill-switch. Disabled schedules
 	// stay in the store but the Scheduler skips them.
 	SetEnabled(ctx context.Context, id string, enabled bool) error
+	// ListByTag (v2.4+) returns schedules whose Tags slice
+	// contains `tag` (exact-match). Empty tag → equivalent
+	// to List. Empty result is valid.
+	ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error)
 }
 
 // UpdateScheduleRequest is the dashboard's edit body. Same
@@ -226,6 +261,10 @@ type UpdateScheduleRequest struct {
 	// the value through to the stored row — operator setting
 	// it from N back to 0 reverts to global inheritance.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+	// Tags (v2.4+, optional) replaces the stored tag set.
+	// Empty/nil tags clear all tags. See ScanSchedule.Tags
+	// for validation.
+	Tags []string `json:"tags,omitempty"`
 	// IfMatch (v1.78+) is the optimistic-locking
 	// precondition. When non-nil, the Update only
 	// proceeds if the schedule's stored UpdatedAt equals
@@ -284,6 +323,10 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 	if err := validateAuditRetention(req.AuditRetentionDays); err != nil {
 		return ScanSchedule{}, err
 	}
+	tags, err := canonicaliseTags(req.Tags)
+	if err != nil {
+		return ScanSchedule{}, err
+	}
 	id, err := generateID()
 	if err != nil {
 		return ScanSchedule{}, err
@@ -298,6 +341,7 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 		Operator:           operator,
 		CreatedAt:          now,
 		AuditRetentionDays: clampAuditRetention(req.AuditRetentionDays),
+		Tags:               tags,
 		// v1.78+: UpdatedAt = CreatedAt at creation time.
 		// Future Updates bump this; the optimistic-locking
 		// If-Match check compares against this value.
@@ -317,6 +361,67 @@ func validateAuditRetention(days int) error {
 		return ErrScheduleInvalidAuditRetentionDays
 	}
 	return nil
+}
+
+// scheduleMaxTags + scheduleMaxTagLen bound the tag space per
+// schedule. Tag-shape regex (a-z0-9_-) keeps URL parsing
+// simple + sidesteps Unicode normalisation issues. Operators
+// wanting spaces / uppercase should encode them via
+// underscores.
+const (
+	scheduleMaxTags   = 10
+	scheduleMaxTagLen = 32
+)
+
+// canonicaliseTags validates + dedupes + sorts tags. Returns
+// the canonical slice + error. Nil/empty input returns nil
+// (canonical "no tags"). Caller must apply the returned
+// slice (not the original input).
+func canonicaliseTags(in []string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	if len(in) > scheduleMaxTags {
+		return nil, ErrScheduleTooManyTags
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, t := range in {
+		if !isValidTag(t) {
+			return nil, ErrScheduleInvalidTag
+		}
+		if _, dup := seen[t]; dup {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	if len(out) > scheduleMaxTags {
+		return nil, ErrScheduleTooManyTags
+	}
+	sortStrings(out)
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+// isValidTag enforces the [a-z0-9_-]{1,32} shape rule.
+func isValidTag(t string) bool {
+	if t == "" || len(t) > scheduleMaxTagLen {
+		return false
+	}
+	for i := 0; i < len(t); i++ {
+		c := t[i]
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= '0' && c <= '9':
+		case c == '_' || c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // clampAuditRetention bounds the override at
@@ -444,6 +549,10 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	if err := validateAuditRetention(req.AuditRetentionDays); err != nil {
 		return ScanSchedule{}, err
 	}
+	tags, err := canonicaliseTags(req.Tags)
+	if err != nil {
+		return ScanSchedule{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sched, ok := s.schedules[id]
@@ -457,6 +566,7 @@ func (s *MemoryScheduleStore) Update(_ context.Context, id string, req UpdateSch
 	sched.Template = req.Template
 	sched.Timezone = req.Timezone
 	sched.AuditRetentionDays = clampAuditRetention(req.AuditRetentionDays)
+	sched.Tags = tags
 	applyCadence(&sched, req.IntervalSeconds, req.CronExpr)
 	sched.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
@@ -474,6 +584,27 @@ func (s *MemoryScheduleStore) MarkFired(_ context.Context, id string, now time.T
 	sched.LastFiredAt = now.UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
 	return nil
+}
+
+// ListByTag (v2.4+) returns the schedules tagged with `tag`.
+// Empty tag → List. Empty slice when no match.
+func (s *MemoryScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error) {
+	if tag == "" {
+		return s.List(ctx)
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]ScanSchedule, 0)
+	for _, sched := range s.schedules {
+		for _, t := range sched.Tags {
+			if t == tag {
+				out = append(out, sched)
+				break
+			}
+		}
+	}
+	sortSchedulesByName(out)
+	return out, nil
 }
 
 // SetEnabled toggles the kill-switch.

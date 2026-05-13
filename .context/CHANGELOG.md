@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.4 (chunk 1) — **Schedule
+  tags/labels.** Migration 00016 adds `tags TEXT[]`
+  + GIN index. ScanSchedule + Create + Update accept
+  tags (1..10 per schedule, 1..32 chars,
+  `[a-z0-9_-]` only, deduped + sorted). New
+  `Store.ListByTag` method (Memory + PG); PG uses
+  `tags && ARRAY[$1]::text[]`. List endpoint accepts
+  `?tag=<value>` filter. 2 new sentinels
+  (ErrScheduleInvalidTag,
+  ErrScheduleTooManyTags). OpenAPI schemas updated
+  with pattern + maxItems. +3 unit tests. Snapshot:
+  `.context/snapshots/v2.4.0-schedule-tags.md`.
+
 - 2026-05-13 — v2.3 (chunk 1) — **`elsereno
   schedule` CLI verbs.** Read-only subset (list/get/
   delete/stats/export) over the local serve HTTP API.

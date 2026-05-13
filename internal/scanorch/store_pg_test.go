@@ -114,19 +114,19 @@ func (r *fakeRows) Next() bool {
 // Scan unpacks the test row map into the requested column
 // destinations. Shapes:
 //
-//   - 15 columns → scan_jobs v1.92+ projection
-//     (triggered_by_schedule_id appended after findings_by_plugin).
-//   - 14 columns → AMBIGUOUS between two projections:
+//   - 15 columns → AMBIGUOUS between:
+//     · scan_jobs v1.92+ projection (triggered_by_schedule_id
+//     appended after findings_by_plugin).
+//     · scan_schedules v2.4+ projection (tags appended after
+//     audit_retention_days).
+//     Disambiguated by dst[2] type — scan_jobs uses
+//     `*time.Time`; scan_schedules uses `*string`.
+//   - 14 columns → AMBIGUOUS between:
 //     · scan_jobs pre-v1.92 (legacy tests).
-//     · scan_schedules v1.89+ (audit_retention_days appended).
-//     Disambiguated via dst[2] type — scan_jobs uses
-//     `*time.Time` (created_at); scan_schedules uses
-//     `*string` (template_input).
-//   - 13 columns → scan_schedules pre-v1.89 projection (legacy
-//     tests that haven't migrated).
-//   - 1 column → existence-check projection (v1.78+:
-//     SELECT 1 used by DBScheduleStore.scheduleExists to
-//     disambiguate not-found vs. precondition-failure).
+//     · scan_schedules v1.89-v2.3.
+//     Same dst[2]-type disambiguation.
+//   - 13 columns → scan_schedules pre-v1.89.
+//   - 1 column → existence-check projection.
 //
 // Routing by arity keeps the fake compatible with both stores
 // in the same test file without polluting the row maps with
@@ -137,13 +137,13 @@ func (r *fakeRows) Scan(dst ...any) error {
 	row := r.rows[r.i-1]
 	switch len(dst) {
 	case 15:
-		// v1.92 scan_jobs projection.
+		// dst[2] kind: scan_jobs (time.Time) vs.
+		// scan_schedules (string).
+		if _, isString := dst[2].(*string); isString {
+			return scanFakeSchedule(dst, row)
+		}
 		return scanFakeJob(dst, row)
 	case 14:
-		// dst[2] kind distinguishes scan_jobs (time.Time =
-		// created_at) from scan_schedules (string =
-		// template_input). Schedules projection adds
-		// audit_retention_days at the tail since v1.89.
 		if _, isString := dst[2].(*string); isString {
 			return scanFakeSchedule(dst, row)
 		}
@@ -223,6 +223,12 @@ func scanFakeSchedule(dst []any, row map[string]any) error {
 	if len(dst) >= 14 {
 		if v, ok := row["audit_retention_days"].(*int32); ok {
 			*(dst[13].(**int32)) = v
+		}
+	}
+	// v2.4: tags column TEXT[]. Only in 15-column projection.
+	if len(dst) >= 15 {
+		if v, ok := row["tags"].([]string); ok {
+			*(dst[14].(*[]string)) = v
 		}
 	}
 	return nil

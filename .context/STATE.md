@@ -1,30 +1,31 @@
 ---
-phase: v2.3-closed
-status: v1.16-v2.2 published; v2.3 tag pending push
+phase: v2.4-closed
+status: v1.16-v2.3 published; v2.4 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.3 cycle closed on `main`** (1 chunk +
-close). `elsereno schedule` CLI verbs: list / get /
-delete / stats / export over the local serve HTTP API.
-Persistent flags `--url` + `--token` with env/file
-fallbacks (mode-0600 enforced). Tab-aligned table
-output by default.
+**Phase**: **v2.4 cycle closed on `main`** (1 chunk +
+close). Schedule tags/labels: migration 00016 adds
+`tags TEXT[]` + GIN index. Validation: 1..10 tags,
+1..32 chars, `[a-z0-9_-]` only, deduped + sorted.
+New `Store.ListByTag` + `?tag=` filter on /schedules.
++3 tests + OpenAPI schemas updated.
 
-Snapshot: `.context/snapshots/v2.3.0-schedule-cli.md`.
+Snapshot: `.context/snapshots/v2.4.0-schedule-tags.md`.
 
-**v1.89-v2.2 cycles (closed; per-cycle snapshots)**:
+**v1.89-v2.3 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
 v1.90 advisory-locked pruner. v1.91 pruner counters.
 v1.92 schedule run history (00014). v1.93 clone. v1.94
 pruner tick histogram. v1.95 bulk pause/resume. v1.96
 OpenAPI coverage. v1.97 export. v1.98 OpenAPI strict
-schemas. v1.99 import. v2.0 cursor pagination (BREAKING).
-v2.1 cloned_from audit event (00015). v2.2 schedule
-run-stats aggregate.
+schemas. v1.99 import. v2.0 cursor pagination
+(BREAKING). v2.1 cloned_from audit event (00015).
+v2.2 schedule run-stats aggregate. v2.3 schedule CLI
+verbs.
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

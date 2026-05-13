@@ -34,6 +34,8 @@ func makeScheduleRow(id, name string) map[string]any {
 		// nil → inherit global. *int32 pointer to override. Tests
 		// override when verifying the v1.89 round-trip.
 		"audit_retention_days": (*int32)(nil),
+		// v2.4: tags column (TEXT[] NOT NULL DEFAULT '{}').
+		"tags": []string{},
 	}
 }
 

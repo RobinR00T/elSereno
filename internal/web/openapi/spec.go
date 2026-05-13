@@ -157,10 +157,12 @@ func schedulesCollectionPath() Path {
 	tag := []string{"schedules"}
 	return Path{URL: "/api/v1/schedules", Operations: map[string]Operation{
 		"get": {
-			Summary:     "List scan schedules (v1.70+).",
-			Description: "Returns every schedule sorted by name. `next_fire_at` is computed per response (v1.77+).",
-			Tags:        tag,
-			Responses:   envelopeResponses(),
+			Summary: "List scan schedules (v1.70+, v2.4 ?tag= filter).",
+			Description: "Returns every schedule sorted by name. " +
+				"`next_fire_at` is computed per response (v1.77+). " +
+				"v2.4+: optional `?tag=<value>` filters via array-overlap on the tags column.",
+			Tags:      tag,
+			Responses: envelopeResponses(),
 		},
 		"post": {
 			Summary: "Create a scan schedule.",
@@ -538,6 +540,7 @@ func scheduleRequestSchemas() map[string]Schema {
 				"cron_expr":            map[string]any{"type": "string", "example": "0 2 * * *", "description": "Cadence: cron-based (5-field). Mutually exclusive with interval_seconds."},
 				"timezone":             map[string]any{"type": "string", "example": "Europe/Madrid", "description": "IANA zone for cron evaluation. Ignored for interval schedules."},
 				"audit_retention_days": map[string]any{"type": "integer", "minimum": 0, "maximum": 3650, "description": "v1.89+ per-schedule retention override. 0=inherit global, >0=keep N days."},
+				"tags":                 map[string]any{"type": "array", "items": map[string]any{"type": "string", "pattern": "^[a-z0-9_-]{1,32}$"}, "maxItems": 10, "description": "v2.4+ grouping labels."},
 			},
 		},
 		"UpdateScheduleRequest": {
@@ -550,6 +553,7 @@ func scheduleRequestSchemas() map[string]Schema {
 				"cron_expr":            map[string]any{"type": "string"},
 				"timezone":             map[string]any{"type": "string"},
 				"audit_retention_days": map[string]any{"type": "integer", "minimum": 0, "maximum": 3650},
+				"tags":                 map[string]any{"type": "array", "items": map[string]any{"type": "string", "pattern": "^[a-z0-9_-]{1,32}$"}, "maxItems": 10},
 			},
 		},
 		"CloneScheduleRequest": {
@@ -596,6 +600,7 @@ func scanScheduleSchema() Schema {
 			"last_fired_at":        map[string]any{"type": "string", "format": "date-time"},
 			"next_fire_at":         map[string]any{"type": "string", "format": "date-time", "description": "v1.77+ computed; not persisted."},
 			"audit_retention_days": map[string]any{"type": "integer", "description": "v1.89+ per-schedule retention override; 0 = inherit global."},
+			"tags":                 map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "v2.4+ grouping labels (canonicalised: sorted + deduped)."},
 		},
 	}
 }

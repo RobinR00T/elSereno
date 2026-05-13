@@ -35,10 +35,11 @@ func NewDBScheduleStore(q Querier) *DBScheduleStore { return &DBScheduleStore{q:
 // v1.75+: includes timezone.
 // v1.78+: includes updated_at.
 // v1.89+: includes audit_retention_days (NULL-able).
+// v2.4+: includes tags (TEXT[], DEFAULT empty array).
 const scheduleColumns = `
 id, name, template_input, template_plugins, template_default_port,
 interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at, last_fired_at,
-audit_retention_days`
+audit_retention_days, tags`
 
 // Create inserts a new schedule. Validation + cadence
 // resolution shares buildScheduleFromRequest with
@@ -53,16 +54,20 @@ func (s *DBScheduleStore) Create(ctx context.Context, req CreateScheduleRequest,
 	if plugins == nil {
 		plugins = []string{}
 	}
+	tags := sched.Tags
+	if tags == nil {
+		tags = []string{} // postgres ARRAY can't take nil.
+	}
 	const sql = `
 INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
    interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at,
-   audit_retention_days)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12)`
+   audit_retention_days, tags)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
 		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt, sched.UpdatedAt,
-		auditRetentionDaysToDB(sched.AuditRetentionDays),
+		auditRetentionDaysToDB(sched.AuditRetentionDays), tags,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}
@@ -170,32 +175,65 @@ func (s *DBScheduleStore) updateExec(ctx context.Context, id string, req UpdateS
 	applyCadence(&staged, req.IntervalSeconds, req.CronExpr)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	auditDays := auditRetentionDaysToDB(clampAuditRetention(req.AuditRetentionDays))
+	tags, _ := canonicaliseTags(req.Tags)
+	if tags == nil {
+		tags = []string{}
+	}
 	if req.IfMatch != nil {
 		const sqlIfMatch = `
 UPDATE scan_schedules
 SET name = $2, template_input = $3, template_plugins = $4,
     template_default_port = $5, interval_seconds = $6, cron_expr = $7,
-    timezone = $8, updated_at = $10, audit_retention_days = $11
+    timezone = $8, updated_at = $10, audit_retention_days = $11, tags = $12
 WHERE id = $1 AND updated_at = $9
 RETURNING ` + scheduleColumns
 		return s.q.Query(ctx, sqlIfMatch,
 			id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
 			staged.IntervalSeconds, staged.CronExpr, req.Timezone, *req.IfMatch, now,
-			auditDays,
+			auditDays, tags,
 		)
 	}
 	const sqlNoMatch = `
 UPDATE scan_schedules
 SET name = $2, template_input = $3, template_plugins = $4,
     template_default_port = $5, interval_seconds = $6, cron_expr = $7,
-    timezone = $8, updated_at = $9, audit_retention_days = $10
+    timezone = $8, updated_at = $9, audit_retention_days = $10, tags = $11
 WHERE id = $1
 RETURNING ` + scheduleColumns
 	return s.q.Query(ctx, sqlNoMatch,
 		id, req.Name, req.Template.Input, plugins, req.Template.DefaultPort,
 		staged.IntervalSeconds, staged.CronExpr, req.Timezone, now,
-		auditDays,
+		auditDays, tags,
 	)
+}
+
+// ListByTag (v2.4+) uses the GIN index from migration 00016
+// for fast `tags && ARRAY[$1]` overlap filters.
+func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSchedule, error) {
+	if tag == "" {
+		return s.List(ctx)
+	}
+	rows, err := s.q.Query(ctx,
+		"SELECT "+scheduleColumns+
+			" FROM scan_schedules WHERE tags && ARRAY[$1]::text[]"+
+			" ORDER BY name ASC",
+		tag)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: list schedules by tag: %w", err)
+	}
+	defer rows.Close()
+	var out []ScanSchedule
+	for rows.Next() {
+		sched, scanErr := scanSchedule(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		out = append(out, sched)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanorch: list schedules by tag (rows): %w", err)
+	}
+	return out, nil
 }
 
 // scheduleExists is a small helper used to disambiguate
@@ -264,13 +302,14 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 		templateDefaultPt  int
 		lastFiredAt        *time.Time
 		auditRetentionDays *int32
+		tags               []string
 	)
 	if err := rows.Scan(
 		&s.ID, &s.Name,
 		&templateInput, &templatePlugins, &templateDefaultPt,
 		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
 		&s.CreatedAt, &s.UpdatedAt, &lastFiredAt,
-		&auditRetentionDays,
+		&auditRetentionDays, &tags,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: scan schedule: %w", err)
 	}
@@ -284,6 +323,9 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 	}
 	if auditRetentionDays != nil {
 		s.AuditRetentionDays = int(*auditRetentionDays)
+	}
+	if len(tags) > 0 {
+		s.Tags = tags
 	}
 	return s, nil
 }
