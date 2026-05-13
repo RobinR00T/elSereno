@@ -1,29 +1,30 @@
 ---
-phase: v2.1-closed
-status: v1.16-v2.0 published; v2.1 tag pending push
+phase: v2.2-closed
+status: v1.16-v2.1 published; v2.2 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.1 cycle closed on `main`** (1 chunk +
-close). cloned_from audit event: migration 00015
-extends CHECK enum; cloneSchedule writes audit row on
-success (best-effort) keyed on clone.ID. Dashboard
-renders blue "CLONED FROM" badge + source name/id line.
-+2 tests. Closes v1.93 carryover.
+**Phase**: **v2.2 cycle closed on `main`** (1 chunk +
+close). Per-schedule run-stats aggregate: new
+`GET /api/v1/schedules/{id}/stats?days=N` returns
+total_runs + per-state counters + success_rate +
+avg_duration + avg_findings + total_findings.
+`StatsBySchedule` Store method (Memory walk; PG single
+aggregate SQL with FILTER). +3 tests.
 
-Snapshot: `.context/snapshots/v2.1.0-cloned-from-audit.md`.
+Snapshot: `.context/snapshots/v2.2.0-schedule-stats.md`.
 
-**v1.89-v2.0 cycles (closed; per-cycle snapshots)**:
+**v1.89-v2.1 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
 v1.90 advisory-locked pruner. v1.91 pruner counters.
 v1.92 schedule run history (00014). v1.93 clone. v1.94
 pruner tick histogram. v1.95 bulk pause/resume. v1.96
-OpenAPI coverage. v1.97 export CSV/NDJSON/JSON. v1.98
-OpenAPI strict schemas. v1.99 import endpoint. v2.0
-cursor pagination on /runs (BREAKING).
+OpenAPI coverage. v1.97 export. v1.98 OpenAPI strict
+schemas. v1.99 import. v2.0 cursor pagination
+(BREAKING). v2.1 cloned_from audit event (00015).
 
 **v1.89 cycle (closed, snapshot available)**: Deleted badge
 in audit-history view (red "DELETED" + pre-delete snapshot

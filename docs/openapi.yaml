@@ -515,6 +515,25 @@ paths:
       summary: List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor).
       tags:
         - schedules
+  /api/v1/schedules/{id}/stats:
+    get:
+      description: 'Query param: days (1..365, default 7). Returns total_runs / per-state counters / success_rate / avg_duration_seconds / avg_findings_per_run / total_findings over the window.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Aggregate stats payload.
+        "400":
+          description: Malformed ?days query.
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Scan store unavailable.
+      summary: Aggregate run-stats for a schedule (v2.2+).
+      tags:
+        - schedules
   /api/v1/schedules/audit:
     delete:
       description: Operator must opt into a cutoff explicitly. Returns {deleted_count, cutoff}.

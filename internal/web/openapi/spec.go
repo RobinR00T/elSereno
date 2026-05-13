@@ -280,6 +280,22 @@ func schedulesObservabilityPaths() []Path {
 				},
 			},
 		}},
+		{URL: "/api/v1/schedules/{id}/stats", Operations: map[string]Operation{
+			"get": {
+				Summary: "Aggregate run-stats for a schedule (v2.2+).",
+				Description: "Query param: days (1..365, default 7). Returns " +
+					"total_runs / per-state counters / success_rate / " +
+					"avg_duration_seconds / avg_findings_per_run / " +
+					"total_findings over the window.",
+				Tags: tag,
+				Responses: map[string]Response{
+					"200": {Description: "Aggregate stats payload.", Ref: "Envelope"},
+					"400": {Description: "Malformed ?days query."},
+					"404": {Description: "Schedule not found."},
+					"503": {Description: "Scan store unavailable."},
+				},
+			},
+		}},
 		{URL: "/api/v1/schedules/{id}/runs", Operations: map[string]Operation{
 			"get": {
 				Summary: "List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor).",

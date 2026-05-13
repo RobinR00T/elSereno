@@ -1068,6 +1068,126 @@ func TestListScheduleRuns_Pagination(t *testing.T) {
 	}
 }
 
+// TestScheduleStats_Empty (v2.2+): no runs → all zeros, valid
+// payload (no NaN from division-by-zero).
+func TestScheduleStats_Empty(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "empty",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/stats", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			TotalRuns   int     `json:"total_runs"`
+			SuccessRate float64 `json:"success_rate"`
+			WindowDays  int     `json:"window_days"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.TotalRuns != 0 {
+		t.Errorf("total_runs = %d, want 0", resp.Data.TotalRuns)
+	}
+	if resp.Data.SuccessRate != 0 {
+		t.Errorf("success_rate = %f, want 0 (no NaN)", resp.Data.SuccessRate)
+	}
+	if resp.Data.WindowDays != 7 {
+		t.Errorf("window_days = %d, want 7 (default)", resp.Data.WindowDays)
+	}
+}
+
+// TestScheduleStats_HappyMix (v2.2+): runs in mixed states →
+// per-state counters + success rate correct.
+func TestScheduleStats_HappyMix(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "mix",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	// 2 completed + 1 failed = 3 runs. SuccessRate = 2/3.
+	for i := 0; i < 3; i++ {
+		job, _ := scanStore.SubmitFromSchedule(context.Background(),
+			sched.Template, "alice", sched.ID)
+		_, _ = scanStore.Transition(context.Background(), job.ID, scanorch.StateRunning, scanorch.TransitionFields{})
+		toState := scanorch.StateCompleted
+		if i == 2 {
+			toState = scanorch.StateFailed
+		}
+		_, _ = scanStore.Transition(context.Background(), job.ID, toState, scanorch.TransitionFields{
+			Stats: &scanorch.Stats{FindingsCount: 5},
+		})
+	}
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/stats?days=30", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			TotalRuns         int     `json:"total_runs"`
+			Completed         int     `json:"completed"`
+			Failed            int     `json:"failed"`
+			SuccessRate       float64 `json:"success_rate"`
+			TotalFindings     int     `json:"total_findings"`
+			AvgFindingsPerRun float64 `json:"avg_findings_per_run"`
+			WindowDays        int     `json:"window_days"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.TotalRuns != 3 {
+		t.Errorf("total_runs = %d, want 3", resp.Data.TotalRuns)
+	}
+	if resp.Data.Completed != 2 {
+		t.Errorf("completed = %d, want 2", resp.Data.Completed)
+	}
+	if resp.Data.Failed != 1 {
+		t.Errorf("failed = %d, want 1", resp.Data.Failed)
+	}
+	wantRate := 2.0 / 3.0
+	if resp.Data.SuccessRate < wantRate-0.001 || resp.Data.SuccessRate > wantRate+0.001 {
+		t.Errorf("success_rate = %f, want ~%f", resp.Data.SuccessRate, wantRate)
+	}
+	if resp.Data.TotalFindings != 15 {
+		t.Errorf("total_findings = %d, want 15", resp.Data.TotalFindings)
+	}
+	if resp.Data.WindowDays != 30 {
+		t.Errorf("window_days = %d, want 30", resp.Data.WindowDays)
+	}
+}
+
+// TestScheduleStats_BadDays (v2.2+): malformed ?days= → 400.
+func TestScheduleStats_BadDays(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "x",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/stats?days=abc", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleRuns_BadBefore (v2.0+): malformed cursor → 400.
 func TestListScheduleRuns_BadBefore(t *testing.T) {
 	store := scanorch.NewMemoryScheduleStore()

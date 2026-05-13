@@ -33,6 +33,7 @@ import (
 //	POST   /api/v1/schedules/preview          next-fire preview (v1.77+)
 //	GET    /api/v1/schedules/{id}/audit       audit log (v1.84+)
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
+//	GET    /api/v1/schedules/{id}/stats       aggregate stats (v2.2+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
@@ -64,6 +65,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 		mux.HandleFunc("POST /api/v1/schedules/preview", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/audit", serviceUnavailable)
 		mux.HandleFunc("GET /api/v1/schedules/{id}/runs", serviceUnavailable)
+		mux.HandleFunc("GET /api/v1/schedules/{id}/stats", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/{id}/clone", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/bulk/enable", serviceUnavailable)
 		mux.HandleFunc("POST /api/v1/schedules/bulk/disable", serviceUnavailable)
@@ -87,6 +89,7 @@ func Schedules(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, 
 	mux.Handle("POST /api/v1/schedules/{id}/disable", setScheduleEnabled(store, audit, false))
 	mux.Handle("GET /api/v1/schedules/{id}/audit", listScheduleAudit(store, audit))
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
+	mux.Handle("GET /api/v1/schedules/{id}/stats", scheduleStats(store, scanStore))
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
@@ -456,6 +459,81 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 		payload := buildRunsResponse(jobs, limit)
 		writeJSON(w, scanResponse{Schema: "api:v1", Data: payload})
 	})
+}
+
+// scheduleStats (v2.2+) handles GET /schedules/{id}/stats.
+// Query param `?days=N` (1..365, default 7) sets the window.
+// Returns aggregate run stats over the window.
+//
+// 404 unknown schedule. 503 nil scan store. 400 on bad days
+// param.
+func scheduleStats(store scanorch.ScheduleStore, scanStore scanorch.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if scanStore == nil {
+			http.Error(w, "schedules: scan store unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		if _, err := store.Get(r.Context(), id); err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		days, derr := parseStatsDays(r)
+		if derr != nil {
+			http.Error(w, "schedules: "+derr.Error(), http.StatusBadRequest)
+			return
+		}
+		since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour)
+		stats, err := scanStore.StatsBySchedule(r.Context(), id, since)
+		if err != nil {
+			http.Error(w, "schedules: stats: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"schedule_id":          stats.ScheduleID,
+			"window_days":          days,
+			"since":                stats.Since.Format(time.RFC3339),
+			"now":                  stats.Now.Format(time.RFC3339),
+			"total_runs":           stats.TotalRuns,
+			"completed":            stats.Completed,
+			"failed":               stats.Failed,
+			"cancelled":            stats.Cancelled,
+			"running":              stats.Running,
+			"queued":               stats.Queued,
+			"success_rate":         stats.SuccessRate,
+			"avg_duration_seconds": stats.AvgDurationSeconds,
+			"avg_findings_per_run": stats.AvgFindingsPerRun,
+			"total_findings":       stats.TotalFindings,
+		}})
+	})
+}
+
+// parseStatsDays validates ?days=. Empty → default 7. Clamped
+// to [1, 365].
+func parseStatsDays(r *http.Request) (int, error) {
+	raw := r.URL.Query().Get("days")
+	if raw == "" {
+		return 7, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("malformed days query: %w", err)
+	}
+	if n < 1 {
+		n = 1
+	}
+	if n > 365 {
+		n = 365
+	}
+	return n, nil
 }
 
 // parseRunsLimit validates ?limit=. Empty → default 50.

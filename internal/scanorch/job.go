@@ -198,12 +198,60 @@ type Store interface {
 	// oldest returned row's `created_at` back as `before` on
 	// the next request.
 	ListByScheduleBefore(ctx context.Context, scheduleID string, before time.Time, limit int) ([]Job, error)
+	// StatsBySchedule (v2.2+) returns aggregate run-stats for
+	// jobs triggered by `scheduleID` since `since`. Default
+	// window when `since` is zero is the last 7 days.
+	// Operators graph these to answer "is my critical schedule
+	// healthy?" without scrolling /runs.
+	StatsBySchedule(ctx context.Context, scheduleID string, since time.Time) (ScheduleRunStats, error)
 	// Transition moves a job between states. The worker uses
 	// this to advance queued → running → completed/failed; the
 	// operator uses it to cancel a queued/running job.
 	// Returns ErrInvalidTransition if `to` isn't reachable from
 	// the job's current state.
 	Transition(ctx context.Context, id string, to State, fields TransitionFields) (Job, error)
+}
+
+// ScheduleRunStats (v2.2+) is the per-schedule aggregate
+// response for GET /schedules/{id}/stats. All counters are
+// over the window [since, now]; "now" is the moment the stats
+// were computed.
+type ScheduleRunStats struct {
+	// ScheduleID is the queried schedule.
+	ScheduleID string `json:"schedule_id"`
+	// Since is the lower bound of the window.
+	Since time.Time `json:"since"`
+	// Now is the moment the stats were computed (upper
+	// bound of the window).
+	Now time.Time `json:"now"`
+	// TotalRuns counts every job in the window regardless of
+	// state.
+	TotalRuns int `json:"total_runs"`
+	// Per-state counters. Always non-nil; zero entries are
+	// emitted explicitly so dashboards don't need
+	// special-case "key missing" handling.
+	Completed int `json:"completed"`
+	Failed    int `json:"failed"`
+	Cancelled int `json:"cancelled"`
+	Running   int `json:"running"`
+	Queued    int `json:"queued"`
+	// SuccessRate = Completed / TotalRuns. Range [0, 1].
+	// Zero TotalRuns → SuccessRate=0 (defensive — divides
+	// by zero are nasty in JSON).
+	SuccessRate float64 `json:"success_rate"`
+	// AvgDurationSeconds is the mean (FinishedAt - StartedAt)
+	// for jobs that completed AND have both timestamps. Jobs
+	// still running / queued are excluded from the divisor.
+	AvgDurationSeconds float64 `json:"avg_duration_seconds"`
+	// AvgFindingsPerRun is the mean stats.findings_count
+	// across all runs in the window (including failed/
+	// cancelled; matches "what did this schedule produce on
+	// average").
+	AvgFindingsPerRun float64 `json:"avg_findings_per_run"`
+	// TotalFindings is the sum of findings_count across the
+	// window. Useful for "how much noise is this schedule
+	// producing per week".
+	TotalFindings int `json:"total_findings"`
 }
 
 // TransitionFields carries optional updates that travel with a
@@ -342,6 +390,58 @@ func (s *MemoryStore) List(_ context.Context, limit int) ([]Job, error) {
 // upper-bound cursor.
 func (s *MemoryStore) ListBySchedule(ctx context.Context, scheduleID string, limit int) ([]Job, error) {
 	return s.ListByScheduleBefore(ctx, scheduleID, time.Time{}, limit)
+}
+
+// StatsBySchedule (v2.2+) computes aggregate stats over the
+// in-memory job set. Zero `since` defaults to "7 days ago".
+func (s *MemoryStore) StatsBySchedule(_ context.Context, scheduleID string, since time.Time) (ScheduleRunStats, error) {
+	now := time.Now().UTC()
+	if since.IsZero() {
+		since = now.Add(-7 * 24 * time.Hour)
+	}
+	out := ScheduleRunStats{ScheduleID: scheduleID, Since: since, Now: now}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var durationSum time.Duration
+	var durationCount int
+	for _, id := range s.order {
+		job, ok := s.jobs[id]
+		if !ok {
+			continue
+		}
+		if job.TriggeredByScheduleID != scheduleID {
+			continue
+		}
+		if job.CreatedAt.Before(since) {
+			continue
+		}
+		out.TotalRuns++
+		switch job.State {
+		case StateCompleted:
+			out.Completed++
+		case StateFailed:
+			out.Failed++
+		case StateCancelled:
+			out.Cancelled++
+		case StateRunning:
+			out.Running++
+		case StateQueued:
+			out.Queued++
+		}
+		out.TotalFindings += job.Stats.FindingsCount
+		if !job.StartedAt.IsZero() && !job.FinishedAt.IsZero() {
+			durationSum += job.FinishedAt.Sub(job.StartedAt)
+			durationCount++
+		}
+	}
+	if out.TotalRuns > 0 {
+		out.SuccessRate = float64(out.Completed) / float64(out.TotalRuns)
+		out.AvgFindingsPerRun = float64(out.TotalFindings) / float64(out.TotalRuns)
+	}
+	if durationCount > 0 {
+		out.AvgDurationSeconds = durationSum.Seconds() / float64(durationCount)
+	}
+	return out, nil
 }
 
 // ListByScheduleBefore (v2.0+) is the cursor-paginated variant.

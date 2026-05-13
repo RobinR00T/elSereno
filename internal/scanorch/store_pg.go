@@ -202,6 +202,57 @@ func (s *DBStore) listByScheduleNewest(ctx context.Context, scheduleID string, l
 	return collectJobs(rows, limit)
 }
 
+// StatsBySchedule (v2.2+) returns aggregate stats via a single
+// aggregate SQL query. Zero `since` defaults to "7 days ago".
+//
+// Uses FILTER (WHERE …) per-state counters in one COUNT call so
+// the planner gets a single index scan over
+// idx_scan_jobs_triggered_by_schedule.
+func (s *DBStore) StatsBySchedule(ctx context.Context, scheduleID string, since time.Time) (ScheduleRunStats, error) {
+	now := time.Now().UTC()
+	if since.IsZero() {
+		since = now.Add(-7 * 24 * time.Hour)
+	}
+	out := ScheduleRunStats{ScheduleID: scheduleID, Since: since, Now: now}
+	if scheduleID == "" {
+		return out, nil
+	}
+	const sql = `
+SELECT
+  COUNT(*)                                         AS total_runs,
+  COUNT(*) FILTER (WHERE state = 'completed')      AS completed,
+  COUNT(*) FILTER (WHERE state = 'failed')         AS failed,
+  COUNT(*) FILTER (WHERE state = 'cancelled')      AS cancelled,
+  COUNT(*) FILTER (WHERE state = 'running')        AS running,
+  COUNT(*) FILTER (WHERE state = 'queued')         AS queued,
+  COALESCE(SUM(findings_count), 0)                 AS total_findings,
+  COALESCE(AVG(EXTRACT(EPOCH FROM (finished_at - started_at)))
+    FILTER (WHERE finished_at IS NOT NULL AND started_at IS NOT NULL), 0)
+                                                    AS avg_duration_seconds
+FROM scan_jobs
+WHERE triggered_by_schedule_id = $1 AND created_at >= $2`
+	row := s.q.QueryRow(ctx, sql, scheduleID, since.UTC())
+	var (
+		totalFindings int64
+		avgDuration   float64
+	)
+	if err := row.Scan(
+		&out.TotalRuns,
+		&out.Completed, &out.Failed, &out.Cancelled, &out.Running, &out.Queued,
+		&totalFindings,
+		&avgDuration,
+	); err != nil {
+		return out, fmt.Errorf("scanorch: stats by schedule: %w", err)
+	}
+	out.TotalFindings = int(totalFindings)
+	out.AvgDurationSeconds = avgDuration
+	if out.TotalRuns > 0 {
+		out.SuccessRate = float64(out.Completed) / float64(out.TotalRuns)
+		out.AvgFindingsPerRun = float64(out.TotalFindings) / float64(out.TotalRuns)
+	}
+	return out, nil
+}
+
 // collectJobs drains the pgx.Rows + scans each row into a Job.
 // Shared body of ListBySchedule + ListByScheduleBefore. Always
 // calls rows.Close on exit.

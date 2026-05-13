@@ -133,6 +133,11 @@ func (s *BroadcastingStore) ListByScheduleBefore(ctx context.Context, scheduleID
 	return s.inner.ListByScheduleBefore(ctx, scheduleID, before, limit)
 }
 
+// StatsBySchedule (v2.2+) is a pure read; no event published.
+func (s *BroadcastingStore) StatsBySchedule(ctx context.Context, scheduleID string, since time.Time) (scanorch.ScheduleRunStats, error) {
+	return s.inner.StatsBySchedule(ctx, scheduleID, since)
+}
+
 // Transition calls through then publishes the result. Terminal
 // transitions also clear the per-job throttle state so a long-
 // running serve doesn't accumulate entries for completed jobs.

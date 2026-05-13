@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.2 (chunk 1) — **Per-schedule
+  run-stats aggregate endpoint.** New
+  `GET /api/v1/schedules/{id}/stats?days=N` returns
+  total_runs + per-state counters + success_rate +
+  avg_duration_seconds + avg_findings_per_run +
+  total_findings over the window (default 7 days,
+  clamped [1, 365]). New `StatsBySchedule` Store
+  method (Memory walks the order list; PG uses one
+  aggregate SQL with FILTER per state). Includes
+  ScheduleRunStats struct + +3 unit tests + OpenAPI
+  entry. Snapshot:
+  `.context/snapshots/v2.2.0-schedule-stats.md`.
+
 - 2026-05-13 — v2.1 (chunk 1) — **cloned_from audit
   event.** Migration 00015 extends scan_schedule_audit
   CHECK enum with `cloned_from`. cloneSchedule
