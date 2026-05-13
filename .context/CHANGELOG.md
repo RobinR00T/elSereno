@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.3 (chunk 1) — **`elsereno
+  schedule` CLI verbs.** Read-only subset (list/get/
+  delete/stats/export) over the local serve HTTP API.
+  Persistent flags `--url` + `--token` with fallbacks
+  via `$ELSERENO_URL` / `$ELSERENO_TOKEN` /
+  `~/.elsereno/token` (mode-0600 enforced). Tab-aligned
+  output for table format; `--format json|ndjson` via
+  the existing root flag. Snapshot:
+  `.context/snapshots/v2.3.0-schedule-cli.md`.
+
 - 2026-05-13 — v2.2 (chunk 1) — **Per-schedule
   run-stats aggregate endpoint.** New
   `GET /api/v1/schedules/{id}/stats?days=N` returns
