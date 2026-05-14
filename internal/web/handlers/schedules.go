@@ -1316,6 +1316,7 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: on_conflict must be skip|overwrite|rename", http.StatusBadRequest)
 			return
 		}
+		atomic := r.URL.Query().Get("atomic") == "true"
 		rows, err := decodeImportBody(r)
 		if err != nil {
 			http.Error(w, "schedules: malformed import body: "+err.Error(), http.StatusBadRequest)
@@ -1331,6 +1332,18 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: list for import: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// v2.12: atomic mode runs a validation-only pass first.
+		// Any row that would fail validation aborts the request
+		// with 400 + the per-row error list. No writes happen.
+		// Caveat (documented): post-validation transient DB
+		// errors can still leave partial state since we don't
+		// wrap Create calls in a tx.
+		if atomic {
+			if errs := preflightImport(rows, existing, strategy); len(errs) > 0 {
+				writeImportPreflightError(w, errs)
+				return
+			}
+		}
 		operator := operatorFromRequest(r)
 		items := make([]ScheduleImportResult, 0, len(rows))
 		var counts importCounts
@@ -1345,9 +1358,87 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			"overwritten": counts.overwritten,
 			"renamed":     counts.renamed,
 			"errors":      counts.errors,
+			"atomic":      atomic,
 			"items":       items,
 		}})
 	})
+}
+
+// preflightImport (v2.12+) validates every row without touching
+// the store. Returns a slice of per-row errors (empty when all
+// rows pass). Doesn't mutate `existing` — actual writes happen
+// in the second pass after preflight passes.
+//
+// What's validated:
+//   - canonicaliseTags (shape + count limits).
+//   - validateScheduleFields (name/template/cadence/tz).
+//   - validateAuditRetention.
+//
+// What's NOT validated (acceptable):
+//   - Race-conditional conflict shifts (another writer creates
+//     a conflicting row between preflight + apply).
+//   - DB-level transient errors at Create time.
+//   - on_conflict=overwrite uses Update which might fail for
+//     reasons not preflight-detectable (e.g. precondition
+//     failures — though we pass nil IfMatch).
+//
+// Operators wanting end-to-end atomicity should use the
+// future ?atomic=tx mode (deferred — requires Store-level
+// transaction support).
+type importPreflightError struct {
+	Index   int    `json:"index"`
+	Name    string `json:"name"`
+	Message string `json:"error"`
+}
+
+func preflightImport(rows []scanorch.ScanSchedule, existing map[string]scanorch.ScanSchedule, strategy string) []importPreflightError {
+	var errs []importPreflightError
+	// Track name-clones-from-input so duplicates in the same
+	// upload also get caught (e.g. NDJSON with the same name
+	// twice would normally hit conflict-resolution mid-loop).
+	seen := make(map[string]struct{}, len(rows))
+	for i, row := range rows {
+		if err := validateImportRow(row); err != nil {
+			errs = append(errs, importPreflightError{Index: i, Name: row.Name, Message: err.Error()})
+			continue
+		}
+		if _, dup := seen[row.Name]; dup && strategy != importConflictRename {
+			errs = append(errs, importPreflightError{Index: i, Name: row.Name,
+				Message: "duplicate name in input batch (use on_conflict=rename to allow)"})
+			continue
+		}
+		seen[row.Name] = struct{}{}
+		_ = existing // not used in atomic preflight; conflicts are operator-acknowledged via on_conflict.
+	}
+	return errs
+}
+
+// validateImportRow exercises the same validation as
+// buildScheduleFromRequest without generating an ID or
+// stamping timestamps.
+func validateImportRow(row scanorch.ScanSchedule) error {
+	if err := scanorch.ValidateScheduleFieldsForImport(row.Name, row.Template, row.IntervalSeconds, row.CronExpr, row.Timezone); err != nil {
+		return err
+	}
+	if err := scanorch.ValidateAuditRetentionForImport(row.AuditRetentionDays); err != nil {
+		return err
+	}
+	if _, err := scanorch.CanonicaliseTagsForImport(row.Tags); err != nil {
+		return err
+	}
+	return nil
+}
+
+// writeImportPreflightError emits the 400 with the per-row
+// error list. Keeps the wire shape consistent with the
+// successful response (data envelope).
+func writeImportPreflightError(w http.ResponseWriter, errs []importPreflightError) {
+	w.WriteHeader(http.StatusBadRequest)
+	writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+		"error":         "preflight validation failed; no writes performed",
+		"failure_count": len(errs),
+		"failures":      errs,
+	}})
 }
 
 type importCounts struct {

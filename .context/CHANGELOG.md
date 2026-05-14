@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-14 — v2.12 (chunk 1) — **Atomic import
+  preflight.** New `?atomic=true` on
+  `POST /schedules/import` runs a validation-only
+  pass first; any row that would fail → 400 with
+  `failures[]` per-row + zero writes. Non-atomic
+  mode keeps v1.99's partial-success behaviour.
+  New exported `scanorch.{ValidateScheduleFieldsForImport,
+  ValidateAuditRetentionForImport,
+  CanonicaliseTagsForImport}` wrappers for the
+  preflight pass. Closes v1.99 carryover. +2 tests.
+  Snapshot:
+  `.context/snapshots/v2.12.0-atomic-import.md`.
+
 - 2026-05-13 — v2.11 (chunk 1) — **Time-bucketed
   stats endpoint.** New
   `GET /schedules/{id}/stats/timeseries?bucket=hour|day|week&days=N`.

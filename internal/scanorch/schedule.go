@@ -423,6 +423,32 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 	return sched, nil
 }
 
+// ValidateScheduleFieldsForImport (v2.12+) is the
+// import-preflight-facing variant of the private
+// validateScheduleFields. Exported so the v2.12 atomic
+// import handler can validate rows without mutating the
+// store.
+//
+// Mirrors the Create/Update validation surface:
+// name+template non-empty, cadence XOR, cron parses,
+// timezone resolvable.
+func ValidateScheduleFieldsForImport(name string, template SubmitRequest, intervalSeconds int, cronExpr, timezone string) error {
+	return validateScheduleFields(name, template, intervalSeconds, cronExpr, timezone)
+}
+
+// ValidateAuditRetentionForImport (v2.12+) exports
+// validateAuditRetention for the preflight pass.
+func ValidateAuditRetentionForImport(days int) error {
+	return validateAuditRetention(days)
+}
+
+// CanonicaliseTagsForImport (v2.12+) exports canonicaliseTags
+// for the preflight pass. Returns the canonical tag slice
+// (deduped+sorted) or a shape/count error.
+func CanonicaliseTagsForImport(tags []string) ([]string, error) {
+	return canonicaliseTags(tags)
+}
+
 // validateAuditRetention (v1.89+) returns
 // ErrScheduleInvalidAuditRetentionDays for negative values.
 // Values > scheduleMaxAuditRetentionDays are clamped at apply

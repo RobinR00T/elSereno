@@ -1,25 +1,27 @@
 ---
-phase: v2.11-closed
-status: v1.16-v2.10 published; v2.11 tag pending push
-last-updated: 2026-05-13
+phase: v2.12-closed
+status: v1.16-v2.11 published; v2.12 tag pending push
+last-updated: 2026-05-14
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.11 cycle closed on `main`** (1 chunk +
-close). Time-bucketed stats endpoint:
-`GET /schedules/{id}/stats/timeseries?bucket=hour|day|week`.
-Memory variant pre-fills empty buckets; PG uses
-`date_trunc` + GROUP BY. New ScheduleStatsBucket struct
-+ StatsTimeseries Store method. Closes v2.2 carryover.
+**Phase**: **v2.12 cycle closed on `main`** (1 chunk +
+close). Atomic import preflight: new `?atomic=true` on
+POST /schedules/import runs validation-only pass first;
+any failure → 400 + zero writes. New exported
+`scanorch.ValidateScheduleFieldsForImport` +
+`ValidateAuditRetentionForImport` +
+`CanonicaliseTagsForImport`. Closes v1.99 carryover.
++2 tests.
 
-Snapshot: `.context/snapshots/v2.11.0-stats-timeseries.md`.
+Snapshot: `.context/snapshots/v2.12.0-atomic-import.md`.
 
-**v2.6-v2.10 cycles (closed)**:
+**v2.6-v2.11 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating
 verbs. v2.9 multi-tag AND/OR. v2.10 source_schedule_id
-provenance (00017).
+provenance (00017). v2.11 time-bucketed stats.
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).

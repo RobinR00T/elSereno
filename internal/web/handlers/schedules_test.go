@@ -1920,6 +1920,73 @@ func names(s []scanorch.ScanSchedule) []string {
 	return out
 }
 
+// TestImportSchedules_Atomic_HappyPath (v2.12+): atomic=true
+// with all-valid rows → all imported.
+func TestImportSchedules_Atomic_HappyPath(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n" +
+			`{"name":"beta","template":{"input":"stdin"},"interval_seconds":120}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?atomic=true", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 2 {
+		t.Errorf("imported = %d, want 2", len(all))
+	}
+}
+
+// TestImportSchedules_Atomic_AbortsOnInvalidRow (v2.12+):
+// atomic=true with any invalid row → 400 + no writes.
+func TestImportSchedules_Atomic_AbortsOnInvalidRow(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	// 1st row valid; 2nd row invalid (bad tag); 3rd valid.
+	// Non-atomic mode would have imported 2; atomic must
+	// import 0.
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n" +
+			`{"name":"bad","template":{"input":"stdin"},"interval_seconds":60,"tags":["BAD TAG"]}` + "\n" +
+			`{"name":"gamma","template":{"input":"stdin"},"interval_seconds":60}` + "\n",
+	)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?atomic=true", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 body=%s", rr.Code, rr.Body.String())
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 0 {
+		t.Errorf("atomic abort: %d schedules written, want 0", len(all))
+	}
+	// Response includes a failures array with the bad row.
+	var resp struct {
+		Data struct {
+			FailureCount int `json:"failure_count"`
+			Failures     []struct {
+				Index int    `json:"index"`
+				Name  string `json:"name"`
+			} `json:"failures"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.FailureCount != 1 || len(resp.Data.Failures) != 1 {
+		t.Errorf("failure_count = %d, want 1", resp.Data.FailureCount)
+	}
+	if resp.Data.Failures[0].Index != 1 || resp.Data.Failures[0].Name != "bad" {
+		t.Errorf("failure[0] = %+v, want index=1 name=bad", resp.Data.Failures[0])
+	}
+}
+
 // TestImportSchedules_BadConflict (v1.99+): unsupported
 // on_conflict → 400.
 func TestImportSchedules_BadConflict(t *testing.T) {
