@@ -36,6 +36,7 @@ import (
 //	GET    /api/v1/schedules/{id}/runs        run history (v1.92+)
 //	GET    /api/v1/schedules/{id}/stats       aggregate stats (v2.2+)
 //	GET    /api/v1/schedules/{id}/clones      direct clone provenance (v2.10+)
+//	GET    /api/v1/schedules/{id}/stats/timeseries  time-bucketed stats (v2.11+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
@@ -78,6 +79,7 @@ func schedulesUnavailableMux() http.Handler {
 		"GET /api/v1/schedules/{id}/runs",
 		"GET /api/v1/schedules/{id}/stats",
 		"GET /api/v1/schedules/{id}/clones",
+		"GET /api/v1/schedules/{id}/stats/timeseries",
 		"POST /api/v1/schedules/{id}/clone",
 		"POST /api/v1/schedules/bulk/enable",
 		"POST /api/v1/schedules/bulk/disable",
@@ -116,6 +118,7 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 	mux.Handle("GET /api/v1/schedules/{id}/runs", listScheduleRuns(store, scanStore))
 	mux.Handle("GET /api/v1/schedules/{id}/stats", scheduleStats(store, scanStore))
 	mux.Handle("GET /api/v1/schedules/{id}/clones", listScheduleClones(store))
+	mux.Handle("GET /api/v1/schedules/{id}/stats/timeseries", scheduleStatsTimeseries(store, scanStore))
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
@@ -489,6 +492,64 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 		// v2.7: ETag — runs are append-only at the head of
 		// the list; old pages are stable.
 		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: payload})
+	})
+}
+
+// scheduleStatsTimeseries (v2.11+) handles
+// GET /schedules/{id}/stats/timeseries.
+//
+// Query params:
+//   - ?bucket=hour|day|week (default day).
+//   - ?days=N (1..365, default 7).
+//
+// Returns the time-bucketed stats for the schedule.
+func scheduleStatsTimeseries(store scanorch.ScheduleStore, scanStore scanorch.Store) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if scanStore == nil {
+			http.Error(w, "schedules: scan store unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "schedules: id is required", http.StatusBadRequest)
+			return
+		}
+		if _, err := store.Get(r.Context(), id); err != nil {
+			if errors.Is(err, scanorch.ErrScheduleNotFound) {
+				http.Error(w, "schedules: not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		bucket := r.URL.Query().Get("bucket")
+		if bucket == "" {
+			bucket = scanorch.StatsBucketDay
+		}
+		days, derr := parseStatsDays(r)
+		if derr != nil {
+			http.Error(w, "schedules: "+derr.Error(), http.StatusBadRequest)
+			return
+		}
+		since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour)
+		series, err := scanStore.StatsTimeseries(r.Context(), id, since, bucket)
+		if err != nil {
+			if errors.Is(err, scanorch.ErrInvalidStatsBucket) {
+				http.Error(w, "schedules: bucket must be hour|day|week", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "schedules: timeseries: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if series == nil {
+			series = []scanorch.ScheduleStatsBucket{}
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"schedule_id": id,
+			"bucket":      bucket,
+			"window_days": days,
+			"series":      series,
+		}})
 	})
 }
 

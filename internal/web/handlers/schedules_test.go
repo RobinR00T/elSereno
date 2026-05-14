@@ -1143,6 +1143,81 @@ func TestListSchedules_ByTag(t *testing.T) {
 	}
 }
 
+// TestScheduleStatsTimeseries (v2.11+): bucketed stats.
+func TestScheduleStatsTimeseries(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "ts", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	// Submit a single completed job at "now".
+	job, _ := scanStore.SubmitFromSchedule(context.Background(),
+		sched.Template, "alice", sched.ID)
+	_, _ = scanStore.Transition(context.Background(), job.ID, scanorch.StateRunning, scanorch.TransitionFields{})
+	_, _ = scanStore.Transition(context.Background(), job.ID, scanorch.StateCompleted,
+		scanorch.TransitionFields{Stats: &scanorch.Stats{FindingsCount: 7}})
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/stats/timeseries?bucket=hour&days=2", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Bucket string                         `json:"bucket"`
+			Series []scanorch.ScheduleStatsBucket `json:"series"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.Bucket != "hour" {
+		t.Errorf("bucket = %q, want hour", resp.Data.Bucket)
+	}
+	// 2 days = 48 hour buckets (pre-filled).
+	if len(resp.Data.Series) < 47 || len(resp.Data.Series) > 49 {
+		t.Errorf("series len = %d, want ~48", len(resp.Data.Series))
+	}
+	// Exactly one bucket should have TotalRuns=1; the rest are zero.
+	var nonzeroCount, totalRuns, totalFindings int
+	for _, b := range resp.Data.Series {
+		if b.TotalRuns > 0 {
+			nonzeroCount++
+		}
+		totalRuns += b.TotalRuns
+		totalFindings += b.TotalFindings
+	}
+	if nonzeroCount != 1 {
+		t.Errorf("nonzero buckets = %d, want 1", nonzeroCount)
+	}
+	if totalRuns != 1 {
+		t.Errorf("total runs across series = %d, want 1", totalRuns)
+	}
+	if totalFindings != 7 {
+		t.Errorf("total findings across series = %d, want 7", totalFindings)
+	}
+}
+
+// TestScheduleStatsTimeseries_BadBucket (v2.11+): unknown
+// bucket → 400.
+func TestScheduleStatsTimeseries_BadBucket(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "x", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, scanStore)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+sched.ID+"/stats/timeseries?bucket=month", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleClones_AfterClone (v2.10+): clone via POST,
 // then /clones returns the new schedule.
 func TestListScheduleClones_AfterClone(t *testing.T) {

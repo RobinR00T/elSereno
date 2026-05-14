@@ -138,6 +138,11 @@ func (s *BroadcastingStore) StatsBySchedule(ctx context.Context, scheduleID stri
 	return s.inner.StatsBySchedule(ctx, scheduleID, since)
 }
 
+// StatsTimeseries (v2.11+) is a pure read; no event published.
+func (s *BroadcastingStore) StatsTimeseries(ctx context.Context, scheduleID string, since time.Time, bucket string) ([]scanorch.ScheduleStatsBucket, error) {
+	return s.inner.StatsTimeseries(ctx, scheduleID, since, bucket)
+}
+
 // Transition calls through then publishes the result. Terminal
 // transitions also clear the per-job throttle state so a long-
 // running serve doesn't accumulate entries for completed jobs.

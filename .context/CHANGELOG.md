@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-13 — v2.11 (chunk 1) — **Time-bucketed
+  stats endpoint.** New
+  `GET /schedules/{id}/stats/timeseries?bucket=hour|day|week&days=N`.
+  Memory variant pre-fills empty buckets; PG uses
+  `date_trunc` + GROUP BY. New
+  `ScheduleStatsBucket` struct + `StatsTimeseries`
+  Store method + bucket-grain constants +
+  `ErrInvalidStatsBucket`. Closes v2.2 carryover.
+  +2 tests. Snapshot:
+  `.context/snapshots/v2.11.0-stats-timeseries.md`.
+
 - 2026-05-13 — v2.10 (chunk 1) — **source_schedule_id
   provenance column.** Migration 00017 adds NULL-able
   FK to scan_schedules + partial index. ScanSchedule

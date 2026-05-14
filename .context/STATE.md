@@ -1,26 +1,25 @@
 ---
-phase: v2.10-closed
-status: v1.16-v2.9 published; v2.10 tag pending push
+phase: v2.11-closed
+status: v1.16-v2.10 published; v2.11 tag pending push
 last-updated: 2026-05-13
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.10 cycle closed on `main`** (1 chunk +
-close). source_schedule_id provenance: migration 00017
-adds FK + partial index. New `Store.CreateClone` +
-`ListClonesOf` methods. Endpoint
-`GET /api/v1/schedules/{id}/clones`. fakeRows extended
-15→16 cols. Closes v2.1 carryover (direct provenance
-query instead of audit-log grep).
+**Phase**: **v2.11 cycle closed on `main`** (1 chunk +
+close). Time-bucketed stats endpoint:
+`GET /schedules/{id}/stats/timeseries?bucket=hour|day|week`.
+Memory variant pre-fills empty buckets; PG uses
+`date_trunc` + GROUP BY. New ScheduleStatsBucket struct
++ StatsTimeseries Store method. Closes v2.2 carryover.
 
-Snapshot: `.context/snapshots/v2.10.0-source-schedule-id.md`.
+Snapshot: `.context/snapshots/v2.11.0-stats-timeseries.md`.
 
-**v2.6-v2.9 cycles (closed)**:
-v2.6 dashboard tag UI. v2.7 ETag/If-None-Match on
-low-churn endpoints. v2.8 schedule CLI mutating verbs.
-v2.9 multi-tag AND/OR filter.
+**v2.6-v2.10 cycles (closed)**:
+v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating
+verbs. v2.9 multi-tag AND/OR. v2.10 source_schedule_id
+provenance (00017).
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).

@@ -204,6 +204,14 @@ type Store interface {
 	// Operators graph these to answer "is my critical schedule
 	// healthy?" without scrolling /runs.
 	StatsBySchedule(ctx context.Context, scheduleID string, since time.Time) (ScheduleRunStats, error)
+	// StatsTimeseries (v2.11+) is the time-bucketed variant of
+	// StatsBySchedule. Returns one row per bucket since `since`
+	// up to now. Empty bucket → row with zero counters (callers
+	// can skip them if their UI prefers gaps).
+	//
+	// Bucket is one of "hour", "day", "week". Invalid bucket
+	// returns ErrInvalidStatsBucket.
+	StatsTimeseries(ctx context.Context, scheduleID string, since time.Time, bucket string) ([]ScheduleStatsBucket, error)
 	// Transition moves a job between states. The worker uses
 	// this to advance queued → running → completed/failed; the
 	// operator uses it to cancel a queued/running job.
@@ -211,6 +219,28 @@ type Store interface {
 	// the job's current state.
 	Transition(ctx context.Context, id string, to State, fields TransitionFields) (Job, error)
 }
+
+// ScheduleStatsBucket (v2.11+) is one bin of the time-bucketed
+// run-stats for a schedule.
+type ScheduleStatsBucket struct {
+	BucketStart   time.Time `json:"bucket_start"`
+	TotalRuns     int       `json:"total_runs"`
+	Completed     int       `json:"completed"`
+	Failed        int       `json:"failed"`
+	Cancelled     int       `json:"cancelled"`
+	TotalFindings int       `json:"total_findings"`
+}
+
+// Bucket grain values for StatsTimeseries.
+const (
+	StatsBucketHour = "hour"
+	StatsBucketDay  = "day"
+	StatsBucketWeek = "week"
+)
+
+// ErrInvalidStatsBucket (v2.11+) means the bucket arg to
+// StatsTimeseries wasn't one of StatsBucketHour/Day/Week.
+var ErrInvalidStatsBucket = errors.New("scanorch: stats bucket must be hour|day|week")
 
 // ScheduleRunStats (v2.2+) is the per-schedule aggregate
 // response for GET /schedules/{id}/stats. All counters are
@@ -442,6 +472,104 @@ func (s *MemoryStore) StatsBySchedule(_ context.Context, scheduleID string, sinc
 		out.AvgDurationSeconds = durationSum.Seconds() / float64(durationCount)
 	}
 	return out, nil
+}
+
+// StatsTimeseries (v2.11+) buckets jobs by `bucket` grain
+// starting from `since`. Empty buckets get zero rows.
+func (s *MemoryStore) StatsTimeseries(_ context.Context, scheduleID string, since time.Time, bucket string) ([]ScheduleStatsBucket, error) {
+	step, err := bucketDuration(bucket)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	if since.IsZero() {
+		since = now.Add(-7 * 24 * time.Hour)
+	}
+	// Truncate `since` to the bucket boundary so the first
+	// bucket aligns cleanly with the grain.
+	start := truncateToBucket(since.UTC(), bucket)
+	// Pre-fill buckets so the caller gets a stable row count
+	// + can render a sparkline with no gaps.
+	buckets := make(map[int64]*ScheduleStatsBucket)
+	var order []int64
+	for t := start; !t.After(now); t = t.Add(step) {
+		key := t.Unix()
+		buckets[key] = &ScheduleStatsBucket{BucketStart: t}
+		order = append(order, key)
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, id := range s.order {
+		job, ok := s.jobs[id]
+		if !ok {
+			continue
+		}
+		if job.TriggeredByScheduleID != scheduleID {
+			continue
+		}
+		if job.CreatedAt.Before(since) {
+			continue
+		}
+		key := truncateToBucket(job.CreatedAt.UTC(), bucket).Unix()
+		b, ok := buckets[key]
+		if !ok {
+			// Future-dated job (shouldn't happen post-truncation).
+			continue
+		}
+		b.TotalRuns++
+		switch job.State { //nolint:exhaustive // queued+running counted only via TotalRuns; per-state buckets are terminal-only.
+		case StateCompleted:
+			b.Completed++
+		case StateFailed:
+			b.Failed++
+		case StateCancelled:
+			b.Cancelled++
+		}
+		b.TotalFindings += job.Stats.FindingsCount
+	}
+	out := make([]ScheduleStatsBucket, 0, len(order))
+	for _, k := range order {
+		out = append(out, *buckets[k])
+	}
+	return out, nil
+}
+
+// bucketDuration maps the bucket name to a time.Duration. Note
+// "week" is a tidy 7*24h — not 7-day-clock-week-with-DST. The
+// PG variant uses date_trunc('week', …) which IS DST-aware,
+// minor divergence at week boundaries.
+func bucketDuration(bucket string) (time.Duration, error) {
+	switch bucket {
+	case StatsBucketHour:
+		return time.Hour, nil
+	case StatsBucketDay:
+		return 24 * time.Hour, nil
+	case StatsBucketWeek:
+		return 7 * 24 * time.Hour, nil
+	}
+	return 0, ErrInvalidStatsBucket
+}
+
+// truncateToBucket truncates t down to the bucket boundary
+// (e.g. day → 00:00 UTC, week → Monday 00:00 UTC).
+func truncateToBucket(t time.Time, bucket string) time.Time {
+	switch bucket {
+	case StatsBucketHour:
+		return t.Truncate(time.Hour)
+	case StatsBucketDay:
+		return t.Truncate(24 * time.Hour)
+	case StatsBucketWeek:
+		// Truncate to day then walk back to Monday.
+		day := t.Truncate(24 * time.Hour)
+		// time.Weekday: Sunday=0, Monday=1, … Saturday=6.
+		// We want Monday-start; offset back by (weekday-1).
+		offset := int(day.Weekday()) - 1
+		if offset < 0 {
+			offset = 6 // Sunday → 6 days back to Monday.
+		}
+		return day.AddDate(0, 0, -offset)
+	}
+	return t
 }
 
 // ListByScheduleBefore (v2.0+) is the cursor-paginated variant.

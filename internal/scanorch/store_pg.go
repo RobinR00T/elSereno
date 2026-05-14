@@ -253,6 +253,65 @@ WHERE triggered_by_schedule_id = $1 AND created_at >= $2`
 	return out, nil
 }
 
+// StatsTimeseries (v2.11+) buckets via PG's date_trunc.
+// Empty buckets are NOT auto-filled by SQL — caller would
+// have to generate_series() and LEFT JOIN. Today the dashboard
+// renders gaps naturally; if a future cycle needs continuous
+// timelines, we can revisit. Memory variant DOES auto-fill.
+func (s *DBStore) StatsTimeseries(ctx context.Context, scheduleID string, since time.Time, bucket string) ([]ScheduleStatsBucket, error) {
+	if scheduleID == "" {
+		return nil, nil
+	}
+	switch bucket {
+	case StatsBucketHour, StatsBucketDay, StatsBucketWeek:
+		// OK.
+	default:
+		return nil, ErrInvalidStatsBucket
+	}
+	now := time.Now().UTC()
+	if since.IsZero() {
+		since = now.Add(-7 * 24 * time.Hour)
+	}
+	// date_trunc is parametric on its first arg; we whitelist
+	// the bucket above so this format string is safe (not
+	// SQL injection-vulnerable).
+	q := fmt.Sprintf(`
+SELECT
+  date_trunc('%s', created_at) AS bucket_start,
+  COUNT(*)::bigint                                  AS total_runs,
+  COUNT(*) FILTER (WHERE state = 'completed')::bigint AS completed,
+  COUNT(*) FILTER (WHERE state = 'failed')::bigint    AS failed,
+  COUNT(*) FILTER (WHERE state = 'cancelled')::bigint AS cancelled,
+  COALESCE(SUM(findings_count), 0)::bigint           AS total_findings
+FROM scan_jobs
+WHERE triggered_by_schedule_id = $1 AND created_at >= $2
+GROUP BY bucket_start
+ORDER BY bucket_start ASC`, bucket)
+	rows, err := s.q.Query(ctx, q, scheduleID, since.UTC())
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: stats timeseries: %w", err)
+	}
+	defer rows.Close()
+	var out []ScheduleStatsBucket
+	for rows.Next() {
+		var b ScheduleStatsBucket
+		var total, completed, failed, cancelled, findings int64
+		if err := rows.Scan(&b.BucketStart, &total, &completed, &failed, &cancelled, &findings); err != nil {
+			return nil, fmt.Errorf("scanorch: scan timeseries: %w", err)
+		}
+		b.TotalRuns = int(total)
+		b.Completed = int(completed)
+		b.Failed = int(failed)
+		b.Cancelled = int(cancelled)
+		b.TotalFindings = int(findings)
+		out = append(out, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scanorch: stats timeseries (rows): %w", err)
+	}
+	return out, nil
+}
+
 // collectJobs drains the pgx.Rows + scans each row into a Job.
 // Shared body of ListBySchedule + ListByScheduleBefore. Always
 // calls rows.Close on exit.
