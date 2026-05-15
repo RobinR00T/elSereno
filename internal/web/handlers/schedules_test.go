@@ -2059,6 +2059,71 @@ func names(s []scanorch.ScanSchedule) []string {
 	return out
 }
 
+// TestImport_IdempotencyKey_Replays (v2.18+): same key +
+// same body → replay; no second write.
+func TestImport_IdempotencyKey_Replays(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	doImport := func() *httptest.ResponseRecorder {
+		body := strings.NewReader(
+			`{"name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n")
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/schedules/import", body)
+		req.Header.Set("Content-Type", "application/x-ndjson")
+		req.Header.Set("Idempotency-Key", "test-key-replay-1")
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		return rr
+	}
+	rr1 := doImport()
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("first call status = %d", rr1.Code)
+	}
+	if rr1.Header().Get("Idempotency-Replay") == "true" {
+		t.Errorf("first call should NOT carry Idempotency-Replay")
+	}
+	rr2 := doImport()
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("replay status = %d", rr2.Code)
+	}
+	if rr2.Header().Get("Idempotency-Replay") != "true" {
+		t.Errorf("replay missing Idempotency-Replay header")
+	}
+	if rr1.Body.String() != rr2.Body.String() {
+		t.Errorf("replay body differs")
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 1 {
+		t.Errorf("store len = %d, want 1 (idempotency suppresses duplicate writes)", len(all))
+	}
+}
+
+// TestImport_IdempotencyKey_BodyMismatchConflict (v2.18+):
+// same key + different body → 409.
+func TestImport_IdempotencyKey_BodyMismatchConflict(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	doImport := func(name string) *httptest.ResponseRecorder {
+		body := strings.NewReader(
+			`{"name":"` + name + `","template":{"input":"stdin"},"interval_seconds":60}` + "\n")
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/schedules/import", body)
+		req.Header.Set("Content-Type", "application/x-ndjson")
+		req.Header.Set("Idempotency-Key", "test-key-conflict-1")
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		return rr
+	}
+	rr1 := doImport("first")
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("first status = %d", rr1.Code)
+	}
+	rr2 := doImport("DIFFERENT")
+	if rr2.Code != http.StatusConflict {
+		t.Errorf("conflict status = %d, want 409", rr2.Code)
+	}
+}
+
 // TestImportSchedules_Atomic_HappyPath (v2.12+): atomic=true
 // with all-valid rows → all imported.
 func TestImportSchedules_Atomic_HappyPath(t *testing.T) {

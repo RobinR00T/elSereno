@@ -1352,36 +1352,29 @@ type ScheduleImportResult struct {
 //	}
 func importSchedules(store scanorch.ScheduleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		strategy := r.URL.Query().Get("on_conflict")
-		if strategy == "" {
-			strategy = importConflictSkip
-		}
-		if !isValidConflictStrategy(strategy) {
-			http.Error(w, "schedules: on_conflict must be skip|overwrite|rename", http.StatusBadRequest)
+		strategy, atomic, ok := parseImportParams(w, r)
+		if !ok {
 			return
 		}
-		atomic := r.URL.Query().Get("atomic") == "true"
-		rows, err := decodeImportBody(r)
+		body, readErr := io.ReadAll(r.Body)
+		if readErr != nil {
+			http.Error(w, "schedules: read body: "+readErr.Error(), http.StatusBadRequest)
+			return
+		}
+		idemKey := r.Header.Get("Idempotency-Key")
+		if handled := tryReplayIdempotency(w, idemKey, body); handled {
+			return
+		}
+		rows, err := decodeImportBodyBytes(body, r.Header.Get("Content-Type"))
 		if err != nil {
 			http.Error(w, "schedules: malformed import body: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		// Build name → existing map once so per-row conflict
-		// lookups are O(1). The List could grow stale during
-		// the loop if another writer is mutating concurrently;
-		// import is a maintenance operation usually run after
-		// bulk/disable (v1.95), so the race is benign.
 		existing, err := buildScheduleNameIndex(r.Context(), store)
 		if err != nil {
 			http.Error(w, "schedules: list for import: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// v2.12: atomic mode runs a validation-only pass first.
-		// Any row that would fail validation aborts the request
-		// with 400 + the per-row error list. No writes happen.
-		// Caveat (documented): post-validation transient DB
-		// errors can still leave partial state since we don't
-		// wrap Create calls in a tx.
 		if atomic {
 			if errs := preflightImport(rows, existing, strategy); len(errs) > 0 {
 				writeImportPreflightError(w, errs)
@@ -1396,7 +1389,7 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			items = append(items, result)
 			counts.bump(result.Outcome)
 		}
-		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+		writeJSONAndCache(w, idemKey, body, scanResponse{Schema: "api:v1", Data: map[string]any{
 			"imported":    counts.imported,
 			"skipped":     counts.skipped,
 			"overwritten": counts.overwritten,
@@ -1406,6 +1399,66 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			"items":       items,
 		}})
 	})
+}
+
+// parseImportParams validates ?on_conflict + ?atomic. Returns
+// (strategy, atomic, ok=true) on success. On invalid → writes
+// 400 and returns ok=false so the caller short-circuits.
+func parseImportParams(w http.ResponseWriter, r *http.Request) (string, bool, bool) {
+	strategy := r.URL.Query().Get("on_conflict")
+	if strategy == "" {
+		strategy = importConflictSkip
+	}
+	if !isValidConflictStrategy(strategy) {
+		http.Error(w, "schedules: on_conflict must be skip|overwrite|rename", http.StatusBadRequest)
+		return "", false, false
+	}
+	atomic := r.URL.Query().Get("atomic") == "true"
+	return strategy, atomic, true
+}
+
+// tryReplayIdempotency consults the idempotency cache and
+// returns true when the response has been served from cache
+// (caller must return). Returns false when the caller should
+// proceed with normal processing.
+func tryReplayIdempotency(w http.ResponseWriter, idemKey string, body []byte) bool {
+	if idemKey == "" {
+		return false
+	}
+	result, entry := defaultIdempotencyCache.Lookup(idemKey, body)
+	switch result {
+	case idempotencyHit:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Idempotency-Replay", "true")
+		w.WriteHeader(entry.statusCode)
+		_, _ = w.Write(entry.response)
+		return true
+	case idempotencyConflict:
+		http.Error(w, "schedules: Idempotency-Key matches a prior request with different body", http.StatusConflict)
+		return true
+	case idempotencyMiss:
+		return false
+	}
+	return false
+}
+
+// writeJSONAndCache (v2.18+) marshals + writes the response
+// like writeJSON, AND stores it under the idempotency key
+// when non-empty. Cache stores the post-marshal bytes so a
+// replay is byte-identical.
+func writeJSONAndCache(w http.ResponseWriter, idemKey string, reqBody []byte, v any) {
+	body, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	body = append(body, '\n')
+	if idemKey != "" {
+		defaultIdempotencyCache.Store(idemKey, reqBody, http.StatusOK, body)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(body)
 }
 
 // preflightImport (v2.12+) validates every row without touching
@@ -1514,25 +1567,18 @@ func isValidConflictStrategy(s string) bool {
 	return false
 }
 
-// decodeImportBody parses the request body as NDJSON (one
-// ScanSchedule per line) OR as a single JSON array. The
-// Content-Type header is preferred; on unknown/missing types
-// we try NDJSON first then fall back to JSON array.
-func decodeImportBody(r *http.Request) ([]scanorch.ScanSchedule, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	ct := r.Header.Get("Content-Type")
-	switch ct {
+// decodeImportBodyBytes (v2.18+) parses a previously-buffered
+// body. Hoisted from decodeImportBody so the v2.18
+// Idempotency-Key handler can hash the body before decoding.
+func decodeImportBodyBytes(body []byte, contentType string) ([]scanorch.ScanSchedule, error) {
+	switch contentType {
 	case "application/x-ndjson":
 		return decodeNDJSON(body)
 	case "application/json":
 		return decodeJSONArray(body)
 	}
 	// Heuristic for missing/unknown CT: a trimmed body that
-	// starts with `[` is a JSON array; otherwise NDJSON. Tests
-	// + curl users without an explicit -H benefit.
+	// starts with `[` is a JSON array; otherwise NDJSON.
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) > 0 && trimmed[0] == '[' {
 		return decodeJSONArray(body)

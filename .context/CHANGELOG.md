@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.18 (chunk 1) — **Idempotency-Key
+  on /import.** New `idempotencyCache` (in-memory,
+  TTL=1h, maxSize=256, LRU eviction, SHA-256 body
+  fingerprint). Handler protocol: first call processes
+  + caches; same key + same body → replay with
+  `Idempotency-Replay: true`; same key + different body
+  → 409. funlen refactor: importSchedules split into
+  parseImportParams + tryReplayIdempotency helpers.
+  Closes v2.12 carryover. +2 tests. Snapshot:
+  `.context/snapshots/v2.18.0-idempotency-key.md`.
+
 - 2026-05-15 — v2.17 (chunk 1) — **NOT operator on
   tag filter.** New `?op=not_in` excludes schedules
   that carry any of the listed tags. New constant

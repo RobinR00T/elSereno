@@ -1,25 +1,25 @@
 ---
-phase: v2.17-closed
-status: v1.16-v2.12 published; v2.13-v2.17 tags pending push (gh token expired)
+phase: v2.18-closed
+status: v1.16-v2.12 published; v2.13-v2.18 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.17 cycle closed on `main`** (1 chunk +
-close). NOT operator on tag filter:
-`?op=not_in&tag=dev&tag=staging` excludes schedules
-carrying any of the listed tags. New `scanorch.TagOpNotIn`
-constant. PG falls back to seq scan (GIN can't accelerate
-negation). Closes v2.9 carryover (NOT operator).
-+2 tests.
+**Phase**: **v2.18 cycle closed on `main`** (1 chunk +
+close). Idempotency-Key on /import: new
+`idempotencyCache` (TTL=1h, LRU=256, SHA-256 body
+fingerprint). Wire protocol: first call processes +
+caches; same key+body → replay; same key+different body
+→ 409. importSchedules refactored via parseImportParams
++ tryReplayIdempotency helpers (funlen). Closes v2.12
+carryover. +2 tests.
 
-Snapshot: `.context/snapshots/v2.17.0-tag-not-in.md`.
+Snapshot: `.context/snapshots/v2.18.0-idempotency-key.md`.
 
-**v2.13-v2.16 cycles (closed)**: v2.13 sparkline.
-v2.14 clones view. v2.15 ETag plumbing. v2.16 bulk
-tag-rename + APIV1 mountScheduleRoutes refactor.
+**v2.13-v2.17 cycles (closed)**: sparkline, clones view,
+ETag plumbing, bulk tag-rename, NOT operator.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating
