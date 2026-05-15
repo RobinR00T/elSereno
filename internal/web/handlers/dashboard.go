@@ -562,10 +562,18 @@ const overviewHTML = `<!doctype html>
       </form>
       <!-- v2.6: tag-cloud widget. Populated from
            /api/v1/schedules/tags. Clicking a chip toggles a
-           ?tag= filter on the schedules table. -->
+           ?tag= filter on the schedules table.
+           v2.19: Shift+Click adds/removes from multi-select. -->
       <div id="schedule-tag-cloud" style="margin: 0.4em 0; display: flex; flex-wrap: wrap; gap: 0.3em; align-items: baseline;">
-        <span class="sub" style="margin-right: 0.4em;">Filter by tag:</span>
+        <span class="sub" style="margin-right: 0.4em;">Filter by tag (Shift+Click for multi-select):</span>
         <span id="schedule-tag-cloud-chips" style="display: inline-flex; flex-wrap: wrap; gap: 0.3em;"></span>
+        <label style="margin-left: 0.4em;">op:
+          <select id="schedule-tag-filter-op" onchange="onScheduleTagFilterOpChange()">
+            <option value="and">AND (all of)</option>
+            <option value="or" selected>OR (any of)</option>
+            <option value="not_in">NOT IN (none of)</option>
+          </select>
+        </label>
         <button type="button" id="schedule-tag-cloud-clear" onclick="clearScheduleTagFilter()" style="display: none; margin-left: 0.4em;">Clear filter</button>
       </div>
       <table id="schedules-table">
@@ -1282,18 +1290,24 @@ const overviewHTML = `<!doctype html>
     if (schedulesPollTimer) clearTimeout(schedulesPollTimer);
     schedulesPollTimer = setTimeout(renderSchedules, delayMs);
   }
-  // v2.6: tag filter state (clicking a chip in the
-  // tag-cloud sets this; the rendered table re-fetches
-  // with ?tag=…).
+  // v2.6: tag filter state (single tag).
+  // v2.19: upgraded to array + op selector for multi-select.
+  // For back-compat readers, scheduleTagFilter mirrors
+  // scheduleTagFilterSet[0] when length === 1, else empty.
   var scheduleTagFilter = "";
+  var scheduleTagFilterSet = [];
+  var scheduleTagFilterOp = "or";
   function renderSchedules() {
     // v2.6: kick off the tag-cloud refresh in parallel with
     // the schedules list. Independent endpoints; no need to
     // sequence them.
     refreshScheduleTagCloud();
     var url = "/api/v1/schedules";
-    if (scheduleTagFilter) {
-      url += "?tag=" + encodeURIComponent(scheduleTagFilter);
+    if (scheduleTagFilterSet.length > 0) {
+      var qs = scheduleTagFilterSet.map(function (t) {
+        return "tag=" + encodeURIComponent(t);
+      }).join("&");
+      url += "?" + qs + "&op=" + encodeURIComponent(scheduleTagFilterOp);
     }
     fetch(url, {credentials: "same-origin"})
       .then(function (r) {
@@ -1310,8 +1324,9 @@ const overviewHTML = `<!doctype html>
         var body = document.getElementById("schedules-body");
         if (!body) return;
         if (rows.length === 0) {
-          var emptyMsg = scheduleTagFilter
-            ? 'no schedules tagged "' + escText(scheduleTagFilter) + '"'
+          var emptyMsg = scheduleTagFilterSet.length > 0
+            ? 'no schedules match filter [' + scheduleTagFilterSet.join(",") +
+              '] op=' + scheduleTagFilterOp
             : "no schedules — create one above";
           body.innerHTML = '<tr class="empty"><td colspan="9">' + emptyMsg + '</td></tr>';
           scheduleSchedulesPoll(30000);
@@ -1389,7 +1404,7 @@ const overviewHTML = `<!doctype html>
           if (Array.isArray(s.tags) && s.tags.length > 0) {
             tagsHTML = s.tags.map(function (t) {
               return '<button type="button" class="tag-chip" data-tag="' + escAttr(t) +
-                '" onclick="setScheduleTagFilter(this.dataset.tag)" ' +
+                '" onclick="setScheduleTagFilter(this.dataset.tag, event)" ' +
                 'style="background:#dde; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; margin-right:0.2em; cursor:pointer; font-size:0.85em;">' +
                 escText(t) + '</button>';
             }).join("");
@@ -2439,16 +2454,16 @@ const overviewHTML = `<!doctype html>
           return;
         }
         chips.innerHTML = counts.map(function (tc) {
-          var isActive = (scheduleTagFilter === tc.tag);
+          var isActive = scheduleTagFilterSet.indexOf(tc.tag) >= 0;
           var bg = isActive ? "#99c" : "#dde";
           var fg = isActive ? "#fff" : "#333";
           return '<button type="button" class="tag-chip" data-tag="' + escAttr(tc.tag) +
-            '" onclick="setScheduleTagFilter(this.dataset.tag)" ' +
+            '" onclick="setScheduleTagFilter(this.dataset.tag, event)" ' +
             'style="background:' + bg + '; color:' + fg + '; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; cursor:pointer; font-size:0.85em;">' +
             escText(tc.tag) + ' (' + tc.count + ')</button>';
         }).join("");
         var clearBtn = document.getElementById("schedule-tag-cloud-clear");
-        if (clearBtn) clearBtn.style.display = scheduleTagFilter ? "" : "none";
+        if (clearBtn) clearBtn.style.display = scheduleTagFilterSet.length > 0 ? "" : "none";
       })
       .catch(function () {
         chips.innerHTML = '<span class="sub">tags fetch failed</span>';
@@ -2457,32 +2472,55 @@ const overviewHTML = `<!doctype html>
   // repaintTagCloudHighlight (v2.15) re-applies the active
   // chip highlight without re-fetching. Used on 304 paths
   // when the chip set is unchanged but filter state shifted.
+  // v2.19: respects the multi-select set.
   function repaintTagCloudHighlight() {
     var chips = document.querySelectorAll("#schedule-tag-cloud-chips .tag-chip");
     for (var i = 0; i < chips.length; i++) {
       var t = chips[i].dataset.tag || "";
-      var isActive = (scheduleTagFilter === t);
+      var isActive = scheduleTagFilterSet.indexOf(t) >= 0;
       chips[i].style.background = isActive ? "#99c" : "#dde";
       chips[i].style.color = isActive ? "#fff" : "#333";
     }
     var clearBtn = document.getElementById("schedule-tag-cloud-clear");
-    if (clearBtn) clearBtn.style.display = scheduleTagFilter ? "" : "none";
+    if (clearBtn) clearBtn.style.display = scheduleTagFilterSet.length > 0 ? "" : "none";
   }
-  // setScheduleTagFilter (v2.6) toggles the active filter +
-  // re-renders the table.
-  function setScheduleTagFilter(tag) {
+  // setScheduleTagFilter (v2.6) and v2.19 — Shift+Click
+  // adds/removes from the multi-select set; plain click
+  // becomes "set as sole filter" (replaces the set).
+  function setScheduleTagFilter(tag, ev) {
     if (!tag) return;
-    // Click an already-active chip → clear filter (toggle).
-    if (scheduleTagFilter === tag) {
-      scheduleTagFilter = "";
+    var shift = !!(ev && ev.shiftKey);
+    if (shift) {
+      // Multi-select: toggle membership.
+      var idx = scheduleTagFilterSet.indexOf(tag);
+      if (idx >= 0) {
+        scheduleTagFilterSet.splice(idx, 1);
+      } else {
+        scheduleTagFilterSet.push(tag);
+      }
     } else {
-      scheduleTagFilter = tag;
+      // Plain click: replace set with just this tag (or
+      // clear if it was the sole entry already).
+      if (scheduleTagFilterSet.length === 1 && scheduleTagFilterSet[0] === tag) {
+        scheduleTagFilterSet = [];
+      } else {
+        scheduleTagFilterSet = [tag];
+      }
     }
+    // Mirror first-entry to legacy scalar for any old readers.
+    scheduleTagFilter = scheduleTagFilterSet.length === 1 ? scheduleTagFilterSet[0] : "";
     renderSchedules();
   }
   function clearScheduleTagFilter() {
     scheduleTagFilter = "";
+    scheduleTagFilterSet = [];
     renderSchedules();
+  }
+  function onScheduleTagFilterOpChange() {
+    var sel = document.getElementById("schedule-tag-filter-op");
+    if (!sel) return;
+    scheduleTagFilterOp = sel.value || "or";
+    if (scheduleTagFilterSet.length > 0) renderSchedules();
   }
 
   // bulkScheduleEnable (v1.95) POSTs to
@@ -2574,6 +2612,8 @@ const overviewHTML = `<!doctype html>
   // v2.6 tag-cloud + filter.
   window.setScheduleTagFilter = setScheduleTagFilter;
   window.clearScheduleTagFilter = clearScheduleTagFilter;
+  // v2.19 op-selector handler.
+  window.onScheduleTagFilterOpChange = onScheduleTagFilterOpChange;
   // v2.13 sparkline view.
   window.openSparklineView = openSparklineView;
   window.closeSparklineView = closeSparklineView;

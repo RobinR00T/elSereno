@@ -1,25 +1,23 @@
 ---
-phase: v2.18-closed
-status: v1.16-v2.12 published; v2.13-v2.18 tags pending push (gh token expired)
+phase: v2.19-closed
+status: v1.16-v2.12 published; v2.13-v2.19 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.18 cycle closed on `main`** (1 chunk +
-close). Idempotency-Key on /import: new
-`idempotencyCache` (TTL=1h, LRU=256, SHA-256 body
-fingerprint). Wire protocol: first call processes +
-caches; same key+body → replay; same key+different body
-→ 409. importSchedules refactored via parseImportParams
-+ tryReplayIdempotency helpers (funlen). Closes v2.12
-carryover. +2 tests.
+**Phase**: **v2.19 cycle closed on `main`** (1 chunk +
+close). Multi-select Shift+Click on tag chips: plain
+click → sole filter; Shift+Click → toggle. New op
+dropdown (AND/OR/NOT IN). scheduleTagFilterSet array +
+op state. Closes v2.6 dashboard carryover.
 
-Snapshot: `.context/snapshots/v2.18.0-idempotency-key.md`.
+Snapshot: `.context/snapshots/v2.19.0-multiselect-tag-chips.md`.
 
-**v2.13-v2.17 cycles (closed)**: sparkline, clones view,
-ETag plumbing, bulk tag-rename, NOT operator.
+**v2.13-v2.18 cycles (closed)**: sparkline, clones,
+ETag plumbing, bulk tag-rename, NOT operator,
+Idempotency-Key on /import.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.19 (chunk 1) — **Multi-select
+  Shift+Click on tag chips.** Plain click → set as
+  sole filter; Shift+Click → toggle membership. New
+  op:`AND|OR|NOT IN` dropdown next to the tag cloud.
+  scheduleTagFilter array + scheduleTagFilterOp state.
+  URL plumbing through ?tag=&tag=&op=. Closes v2.6
+  dashboard carryover. Snapshot:
+  `.context/snapshots/v2.19.0-multiselect-tag-chips.md`.
+
 - 2026-05-15 — v2.18 (chunk 1) — **Idempotency-Key
   on /import.** New `idempotencyCache` (in-memory,
   TTL=1h, maxSize=256, LRU eviction, SHA-256 body
