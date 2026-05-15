@@ -599,6 +599,32 @@ const overviewHTML = `<!doctype html>
         </table>
         <button type="button" id="schedule-audit-close-button" onclick="closeAuditView()" style="margin-top: 0.3em;">Close</button>
       </div>
+      <!-- v2.13: per-schedule sparkline panel. Loaded on demand
+           from /api/v1/schedules/{id}/stats/timeseries. -->
+      <div id="schedule-sparkline-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
+        <h3 style="margin: 0 0 0.3em;">Run-rate sparkline</h3>
+        <div class="sub" id="schedule-sparkline-subtitle"></div>
+        <div style="margin: 0.3em 0; display: flex; gap: 0.4em; align-items: center; flex-wrap: wrap;">
+          <label>bucket:
+            <select id="schedule-sparkline-bucket" onchange="reloadSparkline()">
+              <option value="hour">hour</option>
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+          <label>days:
+            <input type="number" id="schedule-sparkline-days" min="1" max="365" value="7" size="4" onchange="reloadSparkline()" />
+          </label>
+          <span class="sub" id="schedule-sparkline-summary"></span>
+        </div>
+        <div id="schedule-sparkline-svg" style="margin-top: 0.3em; min-height: 80px;"></div>
+        <div style="margin-top: 0.3em; display: flex; gap: 0.4em; align-items: center;">
+          <span class="sub"><span style="display:inline-block;width:0.8em;height:0.8em;background:#36c;border-radius:0.1em;vertical-align:middle;"></span> total runs</span>
+          <span class="sub"><span style="display:inline-block;width:0.8em;height:0.8em;background:#c33;border-radius:0.1em;vertical-align:middle;"></span> failed</span>
+          <span class="sub"><span style="display:inline-block;width:0.8em;height:0.8em;background:#393;border-radius:0.1em;vertical-align:middle;"></span> findings (avg/bucket)</span>
+        </div>
+        <button type="button" onclick="closeSparklineView()" style="margin-top: 0.3em;">Close</button>
+      </div>
       <!-- v1.92: per-schedule run history. Loaded on demand from
            /api/v1/schedules/{id}/runs. Empty until openRunsView fires. -->
       <div id="schedule-runs-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
@@ -1331,6 +1357,9 @@ const overviewHTML = `<!doctype html>
             '" data-sched-name="' + escAttr(s.name || s.id) +
             '" onclick="openRunsView(this.dataset.schedId, this.dataset.schedName)">Runs</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" data-sched-name="' + escAttr(s.name || s.id) +
+            '" onclick="openSparklineView(this.dataset.schedId, this.dataset.schedName)">Sparkline</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="cloneSchedule(this.dataset.schedId)">Clone</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
@@ -2008,6 +2037,113 @@ const overviewHTML = `<!doctype html>
     var view = document.getElementById("schedule-runs-view");
     if (view) view.style.display = "none";
   }
+  // ---- v2.13: sparkline view ----
+  // openSparklineView fetches /api/v1/schedules/{id}/stats/timeseries
+  // and renders the response as an inline SVG sparkline. State is
+  // tracked in module-level vars so reloadSparkline (bucket /
+  // days dropdowns) can re-hit the endpoint without re-opening.
+  var sparklineSchedID = "";
+  var sparklineSchedName = "";
+  function openSparklineView(id, displayName) {
+    sparklineSchedID = id;
+    sparklineSchedName = displayName || id;
+    var view = document.getElementById("schedule-sparkline-view");
+    if (!view) return;
+    var subtitle = document.getElementById("schedule-sparkline-subtitle");
+    if (subtitle) subtitle.textContent = sparklineSchedName + " · " + id;
+    view.style.display = "";
+    view.scrollIntoView({block: "nearest"});
+    reloadSparkline();
+  }
+  function closeSparklineView() {
+    var view = document.getElementById("schedule-sparkline-view");
+    if (view) view.style.display = "none";
+    sparklineSchedID = "";
+  }
+  function reloadSparkline() {
+    if (!sparklineSchedID) return;
+    var bucket = (document.getElementById("schedule-sparkline-bucket") || {}).value || "day";
+    var days = (document.getElementById("schedule-sparkline-days") || {}).value || "7";
+    var url = "/api/v1/schedules/" + encodeURIComponent(sparklineSchedID) +
+      "/stats/timeseries?bucket=" + encodeURIComponent(bucket) +
+      "&days=" + encodeURIComponent(days);
+    var svg = document.getElementById("schedule-sparkline-svg");
+    var summary = document.getElementById("schedule-sparkline-summary");
+    if (svg) svg.innerHTML = '<span class="sub">loading…</span>';
+    if (summary) summary.textContent = "";
+    fetch(url, {credentials: "same-origin"})
+      .then(function (r) {
+        if (r.status === 503) {
+          throw new Error("scan store unavailable (run with --scan-store=db)");
+        }
+        if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+        return r.json();
+      })
+      .then(function (res) {
+        var data = (res && res.data) || {};
+        var series = data.series || [];
+        renderSparklineSVG(series);
+        renderSparklineSummary(series, summary);
+      })
+      .catch(function (err) {
+        if (svg) svg.innerHTML = '<span class="sub">load failed: ' + escText(err.message) + '</span>';
+      });
+  }
+  function renderSparklineSummary(series, el) {
+    if (!el) return;
+    var totalRuns = 0, totalFailed = 0, totalFindings = 0;
+    for (var i = 0; i < series.length; i++) {
+      totalRuns += (series[i].total_runs || 0);
+      totalFailed += (series[i].failed || 0);
+      totalFindings += (series[i].total_findings || 0);
+    }
+    el.textContent = "(" + series.length + " buckets · " + totalRuns +
+      " runs · " + totalFailed + " failed · " + totalFindings + " findings)";
+  }
+  // renderSparklineSVG draws a 3-series sparkline: blue total_runs,
+  // red failed, green total_findings. All series share the X-axis
+  // (bucket index); Y-axis is auto-scaled per series so a low-
+  // count failed line is still visible.
+  function renderSparklineSVG(series) {
+    var svg = document.getElementById("schedule-sparkline-svg");
+    if (!svg) return;
+    if (!series.length) {
+      svg.innerHTML = '<span class="sub">no data in window</span>';
+      return;
+    }
+    var w = 600, h = 80, pad = 6;
+    var n = series.length;
+    function maxOf(field) {
+      var m = 0;
+      for (var i = 0; i < n; i++) { if (series[i][field] > m) m = series[i][field]; }
+      return m || 1;
+    }
+    var maxRuns = maxOf("total_runs");
+    var maxFailed = maxOf("failed");
+    var maxFindings = maxOf("total_findings");
+    function buildPath(field, scale) {
+      var parts = [];
+      for (var i = 0; i < n; i++) {
+        var x = pad + (n > 1 ? (i * (w - 2 * pad) / (n - 1)) : (w / 2));
+        var y = h - pad - ((series[i][field] || 0) / scale) * (h - 2 * pad);
+        parts.push((i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1));
+      }
+      return parts.join(" ");
+    }
+    var pathRuns = buildPath("total_runs", maxRuns);
+    var pathFailed = buildPath("failed", maxFailed);
+    var pathFindings = buildPath("total_findings", maxFindings);
+    // Title hover per polyline gives raw counts. Background grid
+    // is a faint hr at 50% for visual reference.
+    var midY = (h / 2).toFixed(1);
+    var html = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width: 100%; height: 80px; border: 1px solid #ccc; background: #fafafa;">' +
+      '<line x1="0" y1="' + midY + '" x2="' + w + '" y2="' + midY + '" stroke="#eee" stroke-width="1"/>' +
+      '<path d="' + pathRuns + '" stroke="#36c" stroke-width="2" fill="none"><title>total runs (max ' + maxRuns + ')</title></path>' +
+      '<path d="' + pathFailed + '" stroke="#c33" stroke-width="1.5" fill="none"><title>failed (max ' + maxFailed + ')</title></path>' +
+      '<path d="' + pathFindings + '" stroke="#393" stroke-width="1" fill="none" stroke-dasharray="3,2"><title>findings (max ' + maxFindings + ')</title></path>' +
+      '</svg>';
+    svg.innerHTML = html;
+  }
   // computeAuditEventDiff: parse payload_before + payload_after
   // and produce a list of {field, before, after} for each
   // editable field that changed. Reuses the v1.81 strify
@@ -2318,6 +2454,10 @@ const overviewHTML = `<!doctype html>
   // v2.6 tag-cloud + filter.
   window.setScheduleTagFilter = setScheduleTagFilter;
   window.clearScheduleTagFilter = clearScheduleTagFilter;
+  // v2.13 sparkline view.
+  window.openSparklineView = openSparklineView;
+  window.closeSparklineView = closeSparklineView;
+  window.reloadSparkline = reloadSparkline;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503

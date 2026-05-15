@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-14 — v2.13 (chunk 1) — **Dashboard
+  sparkline widget.** New "Sparkline" button per
+  schedule row opens an inline 3-series SVG widget
+  consuming /stats/timeseries. Series:
+  total_runs (solid blue), failed (red),
+  total_findings (dashed green). Independent auto-
+  scale per series. Bucket + days selectors
+  re-fetch live. Closes v2.11 carryover. Snapshot:
+  `.context/snapshots/v2.13.0-sparkline-widget.md`.
+
 - 2026-05-14 — v2.12 (chunk 1) — **Atomic import
   preflight.** New `?atomic=true` on
   `POST /schedules/import` runs a validation-only

@@ -1,27 +1,26 @@
 ---
-phase: v2.12-closed
-status: v1.16-v2.11 published; v2.12 tag pending push
+phase: v2.13-closed
+status: v1.16-v2.12 published; v2.13 tag pending push
 last-updated: 2026-05-14
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.12 cycle closed on `main`** (1 chunk +
-close). Atomic import preflight: new `?atomic=true` on
-POST /schedules/import runs validation-only pass first;
-any failure → 400 + zero writes. New exported
-`scanorch.ValidateScheduleFieldsForImport` +
-`ValidateAuditRetentionForImport` +
-`CanonicaliseTagsForImport`. Closes v1.99 carryover.
-+2 tests.
+**Phase**: **v2.13 cycle closed on `main`** (1 chunk +
+close). Dashboard sparkline widget: new "Sparkline"
+button per schedule row opens an inline 3-series SVG
+(total_runs blue, failed red, findings green-dashed).
+Independent auto-scale per series. Bucket + days
+re-fetch live. Closes v2.11 carryover.
 
-Snapshot: `.context/snapshots/v2.12.0-atomic-import.md`.
+Snapshot: `.context/snapshots/v2.13.0-sparkline-widget.md`.
 
-**v2.6-v2.11 cycles (closed)**:
+**v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating
 verbs. v2.9 multi-tag AND/OR. v2.10 source_schedule_id
-provenance (00017). v2.11 time-bucketed stats.
+provenance (00017). v2.11 time-bucketed stats. v2.12
+atomic import preflight.
 
 **v1.89-v2.5 cycles (closed; per-cycle snapshots)**:
 v1.89 deleted badge + per-schedule retention (00013).
