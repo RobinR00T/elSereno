@@ -1,24 +1,23 @@
 ---
-phase: v2.15-closed
-status: v1.16-v2.12 published; v2.13/v2.14/v2.15 tags pending push (gh token expired)
+phase: v2.16-closed
+status: v1.16-v2.12 published; v2.13-v2.16 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.15 cycle closed on `main`** (1 chunk +
-close). Dashboard If-None-Match plumbing: module-level
-etagCache + fetchWithETag helper. Wired into
-refreshScheduleTagCloud (30s poll). 304 path applies
-filter-highlight via repaintTagCloudHighlight without
-re-rendering body. Closes v2.7 carryover.
+**Phase**: **v2.16 cycle closed on `main`** (1 chunk +
+close). Bulk tag-rename endpoint:
+`POST /api/v1/schedules/tags/rename` with `{from, to}`.
+New `Store.RenameTag` (Memory + PG via ARRAY_REPLACE +
+canonicalising array_agg). APIV1 funlen refactor via
+`mountScheduleRoutes` helper. +3 tests.
 
-Snapshot: `.context/snapshots/v2.15.0-dashboard-etag-plumbing.md`.
+Snapshot: `.context/snapshots/v2.16.0-bulk-tag-rename.md`.
 
-**v2.13 + v2.14 cycles (closed)**: v2.13 sparkline
-widget from /stats/timeseries. v2.14 clones view from
-/{id}/clones.
+**v2.13-v2.15 cycles (closed)**: v2.13 sparkline
+widget. v2.14 clones view. v2.15 dashboard ETag plumbing.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

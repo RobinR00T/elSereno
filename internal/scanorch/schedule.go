@@ -220,6 +220,12 @@ var (
 	// exceeded the per-schedule tag cap (10). Keeps DB row
 	// size + UI rendering bounded.
 	ErrScheduleTooManyTags = errors.New("scanorch: schedule has too many tags (max 10)")
+	// ErrTagRenameRequiresBoth (v2.16+) means RenameTag was
+	// called with empty `from` or `to`. Rename is a swap;
+	// use the per-schedule update path to drop a tag.
+	ErrTagRenameRequiresBoth = errors.New("scanorch: tag rename requires both from + to")
+	// ErrTagRenameNoOp (v2.16+) means `from == to`.
+	ErrTagRenameNoOp = errors.New("scanorch: tag rename from == to")
 )
 
 // ScheduleStore is the persistence interface for scan
@@ -274,6 +280,15 @@ type ScheduleStore interface {
 	// stamps source_schedule_id alongside the new row. Mirrors
 	// Create's signature but takes the source id.
 	CreateClone(ctx context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error)
+	// RenameTag (v2.16+) swaps `from` → `to` across every
+	// schedule's tags slice. Idempotent: schedules already
+	// carrying `to` simply gain no extra membership; the
+	// resulting tags slice is deduped + sorted (canonical).
+	// Returns the count of mutated rows.
+	//
+	// Both `from` and `to` are canonicalised via the v2.4
+	// tag-shape rules. Empty/invalid `to` → error sentinel.
+	RenameTag(ctx context.Context, from, to string) (int64, error)
 }
 
 // Tag filter operators for ListByTags.
@@ -682,6 +697,68 @@ func (s *MemoryScheduleStore) MarkFired(_ context.Context, id string, now time.T
 	sched.LastFiredAt = now.UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
 	return nil
+}
+
+// RenameTag (v2.16+) swaps every occurrence of `from` for
+// `to` in the in-memory schedule set. Schedules that already
+// carry `to` simply drop the duplicate via canonicaliseTags.
+// Returns the count of mutated rows.
+func (s *MemoryScheduleStore) RenameTag(_ context.Context, from, to string) (int64, error) {
+	if from == "" || to == "" {
+		return 0, ErrTagRenameRequiresBoth
+	}
+	if from == to {
+		return 0, ErrTagRenameNoOp
+	}
+	// Canonicalise + validate both ends so a bad-shape `to`
+	// fails fast.
+	if _, err := canonicaliseTags([]string{from}); err != nil {
+		return 0, err
+	}
+	if _, err := canonicaliseTags([]string{to}); err != nil {
+		return 0, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var changed int64
+	for id, sched := range s.schedules {
+		if !tagSliceContains(sched.Tags, from) {
+			continue
+		}
+		// Build the new slice: replace `from` with `to`, then
+		// canonicalise (dedupes if `to` already present +
+		// re-sorts).
+		next := make([]string, 0, len(sched.Tags))
+		for _, t := range sched.Tags {
+			if t == from {
+				next = append(next, to)
+			} else {
+				next = append(next, t)
+			}
+		}
+		canon, err := canonicaliseTags(next)
+		if err != nil {
+			return changed, err
+		}
+		sched.Tags = canon
+		// Bump UpdatedAt so optimistic-locking clients see
+		// the change (matches v1.78 Update semantics).
+		sched.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
+		s.schedules[id] = sched
+		changed++
+	}
+	return changed, nil
+}
+
+// tagSliceContains reports membership. Small N; linear scan
+// is fine.
+func tagSliceContains(s []string, target string) bool {
+	for _, v := range s {
+		if v == target {
+			return true
+		}
+	}
+	return false
 }
 
 // TagCounts (v2.5+) aggregates tag occurrences across the

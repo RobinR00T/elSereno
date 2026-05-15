@@ -89,29 +89,40 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/scans", scansHandler)
 	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
 	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
-	// v1.70: scan-schedules sub-router.
-	// v1.92: scanStore is passed in so /{id}/runs can list jobs
-	// the scheduler fired for the schedule.
-	schedulesHandler := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore, deps.ScanStore)
-	mux.Handle("POST /api/v1/schedules", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}", schedulesHandler)
-	mux.Handle("PUT /api/v1/schedules/{id}", schedulesHandler)
-	mux.Handle("DELETE /api/v1/schedules/{id}", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/{id}/enable", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/{id}/disable", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}/audit", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}/runs", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}/stats", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}/clones", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/{id}/stats/timeseries", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/{id}/clone", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/bulk/enable", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/bulk/disable", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/export", schedulesHandler)
-	mux.Handle("POST /api/v1/schedules/import", schedulesHandler)
-	mux.Handle("GET /api/v1/schedules/tags", schedulesHandler)
+	mountScheduleRoutes(mux, deps)
 	return mux
+}
+
+// mountScheduleRoutes (v2.16+) registers every
+// /api/v1/schedules/* route on `mux`. Extracted so APIV1
+// stays under the funlen statement cap as the schedule
+// surface grows.
+func mountScheduleRoutes(mux *http.ServeMux, deps APIV1Deps) {
+	h := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore, deps.ScanStore)
+	routes := []string{
+		"POST /api/v1/schedules",
+		"GET /api/v1/schedules",
+		"GET /api/v1/schedules/{id}",
+		"PUT /api/v1/schedules/{id}",
+		"DELETE /api/v1/schedules/{id}",
+		"POST /api/v1/schedules/{id}/enable",
+		"POST /api/v1/schedules/{id}/disable",
+		"GET /api/v1/schedules/{id}/audit",
+		"GET /api/v1/schedules/{id}/runs",
+		"GET /api/v1/schedules/{id}/stats",
+		"GET /api/v1/schedules/{id}/clones",
+		"GET /api/v1/schedules/{id}/stats/timeseries",
+		"POST /api/v1/schedules/tags/rename",
+		"POST /api/v1/schedules/{id}/clone",
+		"POST /api/v1/schedules/bulk/enable",
+		"POST /api/v1/schedules/bulk/disable",
+		"GET /api/v1/schedules/export",
+		"POST /api/v1/schedules/import",
+		"GET /api/v1/schedules/tags",
+	}
+	for _, r := range routes {
+		mux.Handle(r, h)
+	}
 }
 
 // getOpenAPI serves the code-sourced OpenAPI 3.1 YAML. The same

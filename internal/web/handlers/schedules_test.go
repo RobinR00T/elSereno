@@ -1395,6 +1395,79 @@ func TestListScheduleTags(t *testing.T) {
 	}
 }
 
+// TestRenameTag_HappyPath (v2.16+): rename swaps + dedupes.
+func TestRenameTag_HappyPath(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("a", "prod", "critical")
+	mk("b", "production", "critical") // already has new tag
+	mk("c", "dev")                    // unaffected
+	router := newSchedRouter(store)
+	body := strings.NewReader(`{"from":"prod","to":"production"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/tags/rename", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			From         string `json:"from"`
+			To           string `json:"to"`
+			RenamedCount int64  `json:"renamed_count"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Data.RenamedCount != 1 {
+		t.Errorf("renamed_count = %d, want 1 (only schedule 'a' had 'prod')", resp.Data.RenamedCount)
+	}
+	// Verify 'a' now has [critical, production] canonical.
+	all, _ := store.List(context.Background())
+	for _, s := range all {
+		if s.Name == "a" {
+			if len(s.Tags) != 2 || s.Tags[0] != "critical" || s.Tags[1] != "production" {
+				t.Errorf("a.Tags = %v, want [critical production]", s.Tags)
+			}
+		}
+	}
+}
+
+// TestRenameTag_NoOp (v2.16+): from == to → 400.
+func TestRenameTag_NoOp(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := strings.NewReader(`{"from":"x","to":"x"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/tags/rename", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
+// TestRenameTag_BadShape (v2.16+): to contains bad chars
+// → 400.
+func TestRenameTag_BadShape(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := strings.NewReader(`{"from":"prod","to":"BAD TAG"}`)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/tags/rename", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleTags_ETag (v2.7+): first call returns
 // ETag header + 200; second call with matching
 // If-None-Match returns 304.

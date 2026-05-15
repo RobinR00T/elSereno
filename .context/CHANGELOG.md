@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.16 (chunk 1) — **Bulk tag-rename
+  endpoint.** New `POST /schedules/tags/rename`
+  with `{from, to}` body. New `Store.RenameTag`
+  method (Memory + PG via ARRAY_REPLACE + array_agg
+  DISTINCT ORDER BY). Sentinels: ErrTagRenameRequiresBoth,
+  ErrTagRenameNoOp. `updated_at` bumped on every
+  mutated row. APIV1 funlen refactor:
+  `mountScheduleRoutes` helper extracts the schedule
+  route declarations. +3 tests. Snapshot:
+  `.context/snapshots/v2.16.0-bulk-tag-rename.md`.
+
 - 2026-05-15 — v2.15 (chunk 1) — **Dashboard
   If-None-Match plumbing.** Module-level etagCache
   map + fetchWithETag helper. Wired into

@@ -87,6 +87,43 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
 	return sched, nil
 }
 
+// RenameTag (v2.16+) atomic SQL replace + canonicalise.
+// ARRAY_REPLACE swaps every `from` → `to`; the unnest +
+// array_agg DISTINCT ORDER BY pass dedupes + re-sorts the
+// resulting array so the canonical invariant survives.
+func (s *DBScheduleStore) RenameTag(ctx context.Context, from, to string) (int64, error) {
+	if from == "" || to == "" {
+		return 0, ErrTagRenameRequiresBoth
+	}
+	if from == to {
+		return 0, ErrTagRenameNoOp
+	}
+	if _, err := canonicaliseTags([]string{from}); err != nil {
+		return 0, err
+	}
+	if _, err := canonicaliseTags([]string{to}); err != nil {
+		return 0, err
+	}
+	// Bump updated_at so v1.78 optimistic-locking clients
+	// pick up the change. Single UPDATE → tx-atomic per row;
+	// across-rows the operation is "best-effort consistent"
+	// (a concurrent reader between rows may see a half-
+	// renamed fleet for a few ms).
+	const sql = `
+UPDATE scan_schedules
+SET tags = (
+  SELECT COALESCE(array_agg(DISTINCT t ORDER BY t), ARRAY[]::text[])
+  FROM unnest(ARRAY_REPLACE(tags, $1, $2)) AS t
+),
+    updated_at = NOW()
+WHERE $1 = ANY(tags)`
+	tag, err := s.q.Exec(ctx, sql, from, to)
+	if err != nil {
+		return 0, fmt.Errorf("scanorch: rename tag: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // ListClonesOf (v2.10+) uses the partial index from
 // migration 00017 for fast clone-provenance lookups.
 func (s *DBScheduleStore) ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error) {

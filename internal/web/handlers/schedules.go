@@ -37,6 +37,7 @@ import (
 //	GET    /api/v1/schedules/{id}/stats       aggregate stats (v2.2+)
 //	GET    /api/v1/schedules/{id}/clones      direct clone provenance (v2.10+)
 //	GET    /api/v1/schedules/{id}/stats/timeseries  time-bucketed stats (v2.11+)
+//	POST   /api/v1/schedules/tags/rename      bulk tag rename (v2.16+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
 // A nil store yields 503 — same degraded-deps pattern as the
@@ -80,6 +81,7 @@ func schedulesUnavailableMux() http.Handler {
 		"GET /api/v1/schedules/{id}/stats",
 		"GET /api/v1/schedules/{id}/clones",
 		"GET /api/v1/schedules/{id}/stats/timeseries",
+		"POST /api/v1/schedules/tags/rename",
 		"POST /api/v1/schedules/{id}/clone",
 		"POST /api/v1/schedules/bulk/enable",
 		"POST /api/v1/schedules/bulk/disable",
@@ -119,6 +121,7 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 	mux.Handle("GET /api/v1/schedules/{id}/stats", scheduleStats(store, scanStore))
 	mux.Handle("GET /api/v1/schedules/{id}/clones", listScheduleClones(store))
 	mux.Handle("GET /api/v1/schedules/{id}/stats/timeseries", scheduleStatsTimeseries(store, scanStore))
+	mux.Handle("POST /api/v1/schedules/tags/rename", renameScheduleTag(store))
 	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
 	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
 	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
@@ -549,6 +552,44 @@ func scheduleStatsTimeseries(store scanorch.ScheduleStore, scanStore scanorch.St
 			"bucket":      bucket,
 			"window_days": days,
 			"series":      series,
+		}})
+	})
+}
+
+// renameScheduleTag (v2.16+) handles POST
+// /api/v1/schedules/tags/rename. Body:
+// `{"from": "old", "to": "new"}`. Both required;
+// shape-validated against the v2.4 canonical tag rules.
+// Returns `{from, to, renamed_count}`.
+func renameScheduleTag(store scanorch.ScheduleStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "schedules: malformed JSON: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		count, err := store.RenameTag(r.Context(), req.From, req.To)
+		if err != nil {
+			switch {
+			case errors.Is(err, scanorch.ErrTagRenameRequiresBoth):
+				http.Error(w, "schedules: from + to both required", http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrTagRenameNoOp):
+				http.Error(w, "schedules: from == to (no-op)", http.StatusBadRequest)
+			case errors.Is(err, scanorch.ErrScheduleInvalidTag),
+				errors.Is(err, scanorch.ErrScheduleTooManyTags):
+				http.Error(w, "schedules: "+err.Error(), http.StatusBadRequest)
+			default:
+				http.Error(w, "schedules: rename tag: "+err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		writeJSON(w, scanResponse{Schema: "api:v1", Data: map[string]any{
+			"from":          req.From,
+			"to":            req.To,
+			"renamed_count": count,
 		}})
 	})
 }
