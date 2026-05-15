@@ -1,24 +1,24 @@
 ---
-phase: v2.14-closed
-status: v1.16-v2.12 published; v2.13+v2.14 tags pending push (token expired)
+phase: v2.15-closed
+status: v1.16-v2.12 published; v2.13/v2.14/v2.15 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.14 cycle closed on `main`** (1 chunk +
-close). Dashboard clones view: "Clones" button per
-schedule row opens inline panel with Name / Created /
-State / Tags / Edit-into action. Closes v2.10
-carryover.
+**Phase**: **v2.15 cycle closed on `main`** (1 chunk +
+close). Dashboard If-None-Match plumbing: module-level
+etagCache + fetchWithETag helper. Wired into
+refreshScheduleTagCloud (30s poll). 304 path applies
+filter-highlight via repaintTagCloudHighlight without
+re-rendering body. Closes v2.7 carryover.
 
-Snapshot: `.context/snapshots/v2.14.0-dashboard-clones-view.md`.
+Snapshot: `.context/snapshots/v2.15.0-dashboard-etag-plumbing.md`.
 
-**v2.13 cycle (closed, snapshot)**: dashboard
-sparkline widget — 3-series SVG from /stats/timeseries.
-Closes v2.11 carryover.
-Snapshot: `.context/snapshots/v2.13.0-sparkline-widget.md`.
+**v2.13 + v2.14 cycles (closed)**: v2.13 sparkline
+widget from /stats/timeseries. v2.14 clones view from
+/{id}/clones.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

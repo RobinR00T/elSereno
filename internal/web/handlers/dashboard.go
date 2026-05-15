@@ -2373,6 +2373,45 @@ const overviewHTML = `<!doctype html>
       if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
+  // ---- v2.15: ETag plumbing ----
+  // Module-level URL → ETag map. Populated on each 200
+  // response. Subsequent fetches to the same URL send
+  // If-None-Match → server returns 304 if unchanged →
+  // we skip body rendering.
+  var etagCache = {};
+  // fetchWithETag wraps window.fetch to add If-None-Match
+  // automatically + update the cache on 200. On 304, the
+  // returned promise resolves to {notModified: true,
+  // etag: "..."}; on 200, resolves to {notModified: false,
+  // etag: "...", json: <parsed body>}; on error throws.
+  // (Note: avoid backticks in this comment — the file is
+  // a Go raw-string literal.)
+  function fetchWithETag(url) {
+    var headers = {};
+    var prev = etagCache[url];
+    if (prev) headers["If-None-Match"] = prev;
+    return fetch(url, {credentials: "same-origin", headers: headers})
+      .then(function (r) {
+        if (r.status === 304) {
+          return {notModified: true, etag: prev, status: 304};
+        }
+        if (!r.ok) {
+          return r.text().then(function (t) {
+            var err = new Error("HTTP " + r.status + ": " + t);
+            err.status = r.status;
+            throw err;
+          });
+        }
+        var newTag = r.headers.get("ETag");
+        return r.json().then(function (j) {
+          if (newTag) etagCache[url] = newTag;
+          return {notModified: false, etag: newTag, status: 200, json: j};
+        });
+      });
+  }
+  // Expose for handlers that wrap their own poll cycles.
+  window.fetchWithETag = fetchWithETag;
+
   // refreshScheduleTagCloud (v2.6) fetches
   // /api/v1/schedules/tags + renders chips. Each chip is a
   // button that calls setScheduleTagFilter(tag) to filter the
@@ -2380,16 +2419,20 @@ const overviewHTML = `<!doctype html>
   function refreshScheduleTagCloud() {
     var chips = document.getElementById("schedule-tag-cloud-chips");
     if (!chips) return;
-    fetch("/api/v1/schedules/tags", {credentials: "same-origin"})
-      .then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then(function (res) {
-        if (res === null) {
-          chips.innerHTML = '<span class="sub">tags unavailable</span>';
+    // v2.15: ETag-aware fetch. 304 → re-render skipped
+    // (current chips stay; minor: highlight may be stale if
+    // scheduleTagFilter changed but counts didn't, so we
+    // ALSO re-render highlight-only on 304 below).
+    fetchWithETag("/api/v1/schedules/tags")
+      .then(function (resp) {
+        if (resp.notModified) {
+          // Counts unchanged but filter-highlight might have
+          // flipped (operator clicked a chip). Reapply
+          // highlight without re-fetching.
+          repaintTagCloudHighlight();
           return;
         }
+        var res = resp.json;
         var counts = (res && res.data) || [];
         if (counts.length === 0) {
           chips.innerHTML = '<span class="sub">no tags yet</span>';
@@ -2410,6 +2453,20 @@ const overviewHTML = `<!doctype html>
       .catch(function () {
         chips.innerHTML = '<span class="sub">tags fetch failed</span>';
       });
+  }
+  // repaintTagCloudHighlight (v2.15) re-applies the active
+  // chip highlight without re-fetching. Used on 304 paths
+  // when the chip set is unchanged but filter state shifted.
+  function repaintTagCloudHighlight() {
+    var chips = document.querySelectorAll("#schedule-tag-cloud-chips .tag-chip");
+    for (var i = 0; i < chips.length; i++) {
+      var t = chips[i].dataset.tag || "";
+      var isActive = (scheduleTagFilter === t);
+      chips[i].style.background = isActive ? "#99c" : "#dde";
+      chips[i].style.color = isActive ? "#fff" : "#333";
+    }
+    var clearBtn = document.getElementById("schedule-tag-cloud-clear");
+    if (clearBtn) clearBtn.style.display = scheduleTagFilter ? "" : "none";
   }
   // setScheduleTagFilter (v2.6) toggles the active filter +
   // re-renders the table.

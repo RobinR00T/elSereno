@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.15 (chunk 1) — **Dashboard
+  If-None-Match plumbing.** Module-level etagCache
+  map + fetchWithETag helper. Wired into
+  refreshScheduleTagCloud (30s poll); 304 path
+  skips body re-render + applies filter-highlight
+  via repaintTagCloudHighlight. Closes v2.7
+  carryover (server-side ETag → client-side
+  consumption). Gotcha: backticks in JS comments
+  inside the Go raw-string literal break the
+  parser. Snapshot:
+  `.context/snapshots/v2.15.0-dashboard-etag-plumbing.md`.
+
 - 2026-05-15 — v2.14 (chunk 1) — **Dashboard
   clones view.** New "Clones" button per schedule
   row opens an inline panel showing clones (Name /
