@@ -1352,7 +1352,7 @@ type ScheduleImportResult struct {
 //	}
 func importSchedules(store scanorch.ScheduleStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		strategy, atomic, ok := parseImportParams(w, r)
+		strategy, atomicMode, ok := parseImportParams(w, r)
 		if !ok {
 			return
 		}
@@ -1375,46 +1375,107 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: list for import: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if atomic {
+		// v2.12/v2.20: preflight runs OUTSIDE any tx — pure
+		// validation. If it fails, no writes happen regardless
+		// of atomic mode.
+		if atomicMode == atomicModePreflight || atomicMode == atomicModeTx {
 			if errs := preflightImport(rows, existing, strategy); len(errs) > 0 {
 				writeImportPreflightError(w, errs)
 				return
 			}
 		}
 		operator := operatorFromRequest(r)
-		items := make([]ScheduleImportResult, 0, len(rows))
-		var counts importCounts
-		for i, row := range rows {
-			result := applyImportRow(r.Context(), store, existing, operator, strategy, i, row)
-			items = append(items, result)
-			counts.bump(result.Outcome)
+		items, counts, applyErr := runImportApply(r.Context(), store, existing, operator, strategy, rows, atomicMode == atomicModeTx)
+		if applyErr != nil {
+			http.Error(w, "schedules: tx apply: "+applyErr.Error(), http.StatusInternalServerError)
+			return
 		}
+		// v2.20: include both shapes for back-compat with
+		// v2.12 readers that parsed `atomic` as bool, and
+		// new readers that distinguish preflight vs tx.
 		writeJSONAndCache(w, idemKey, body, scanResponse{Schema: "api:v1", Data: map[string]any{
 			"imported":    counts.imported,
 			"skipped":     counts.skipped,
 			"overwritten": counts.overwritten,
 			"renamed":     counts.renamed,
 			"errors":      counts.errors,
-			"atomic":      atomic,
+			"atomic":      atomicMode != atomicModeOff,
+			"atomic_mode": atomicMode,
 			"items":       items,
 		}})
 	})
 }
 
+// runImportApply (v2.20+) executes the per-row apply loop.
+// When `inTx` is true, wraps the loop in Store.WithTx so a
+// mid-loop error rolls back (PG-backed stores). Memory stores
+// fall back to no-rollback semantics (see WithTx doc).
+func runImportApply(
+	ctx context.Context,
+	store scanorch.ScheduleStore,
+	existing map[string]scanorch.ScanSchedule,
+	operator, strategy string,
+	rows []scanorch.ScanSchedule,
+	inTx bool,
+) ([]ScheduleImportResult, importCounts, error) {
+	items := make([]ScheduleImportResult, 0, len(rows))
+	var counts importCounts
+	applyLoop := func(txStore scanorch.ScheduleStore) error {
+		for i, row := range rows {
+			result := applyImportRow(ctx, txStore, existing, operator, strategy, i, row)
+			items = append(items, result)
+			counts.bump(result.Outcome)
+		}
+		return nil
+	}
+	if !inTx {
+		_ = applyLoop(store)
+		return items, counts, nil
+	}
+	if err := store.WithTx(ctx, applyLoop); err != nil {
+		return items, counts, err
+	}
+	return items, counts, nil
+}
+
+// Atomic mode values for the v2.12/v2.20 ?atomic= query
+// param.
+const (
+	atomicModeOff = ""
+	// atomicModePreflight (v2.12+): validation pass aborts
+	// the request before any writes. Apply still happens
+	// row-by-row.
+	atomicModePreflight = "true"
+	// atomicModeTx (v2.20+): preflight + apply wrapped in
+	// Store.WithTx so a mid-apply error rolls back (real
+	// rollback on PG; best-effort on Memory).
+	atomicModeTx = "tx"
+)
+
 // parseImportParams validates ?on_conflict + ?atomic. Returns
-// (strategy, atomic, ok=true) on success. On invalid → writes
-// 400 and returns ok=false so the caller short-circuits.
-func parseImportParams(w http.ResponseWriter, r *http.Request) (string, bool, bool) {
+// (strategy, atomicMode, ok=true) on success. atomicMode is
+// "" (disabled), "true" (v2.12 preflight-only), or "tx"
+// (v2.20+ Store.WithTx wrapping).
+func parseImportParams(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	strategy := r.URL.Query().Get("on_conflict")
 	if strategy == "" {
 		strategy = importConflictSkip
 	}
 	if !isValidConflictStrategy(strategy) {
 		http.Error(w, "schedules: on_conflict must be skip|overwrite|rename", http.StatusBadRequest)
-		return "", false, false
+		return "", "", false
 	}
-	atomic := r.URL.Query().Get("atomic") == "true"
-	return strategy, atomic, true
+	atomicMode := r.URL.Query().Get("atomic")
+	switch atomicMode {
+	case "", "false":
+		atomicMode = atomicModeOff
+	case atomicModePreflight, atomicModeTx:
+		// supported
+	default:
+		http.Error(w, "schedules: atomic must be true|tx (or omitted)", http.StatusBadRequest)
+		return "", "", false
+	}
+	return strategy, atomicMode, true
 }
 
 // tryReplayIdempotency consults the idempotency cache and

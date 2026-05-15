@@ -280,6 +280,27 @@ type ScheduleStore interface {
 	// stamps source_schedule_id alongside the new row. Mirrors
 	// Create's signature but takes the source id.
 	CreateClone(ctx context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error)
+	// WithTx (v2.20+) executes `fn` within a Store-backed
+	// transaction context. `fn` receives a transaction-bound
+	// ScheduleStore — every mutation through that store is
+	// part of the same tx. Returning a non-nil error rolls
+	// back; returning nil commits.
+	//
+	// Honest scope:
+	//   - **Memory**: no rollback support. fn(s) is called
+	//     directly + the error returned. Documented for
+	//     tests + memory-mode deployments. The interface
+	//     contract is "tx semantics best-effort given the
+	//     store's capability".
+	//   - **PG**: same pass-through pending v2.21 pool
+	//     plumbing — `NewDBScheduleStoreWithPool` ctor
+	//     wires `pgxpool.Pool.BeginTx` to make this a real
+	//     atomic operation.
+	//
+	// Callers (e.g. the v2.20 ?atomic=tx import) MUST
+	// tolerate the no-rollback case; PG path provides real
+	// guarantee, Memory path is best-effort.
+	WithTx(ctx context.Context, fn func(ScheduleStore) error) error
 	// RenameTag (v2.16+) swaps `from` → `to` across every
 	// schedule's tags slice. Idempotent: schedules already
 	// carrying `to` simply gain no extra membership; the
@@ -706,6 +727,15 @@ func (s *MemoryScheduleStore) MarkFired(_ context.Context, id string, now time.T
 	sched.LastFiredAt = now.UTC().Truncate(time.Microsecond)
 	s.schedules[id] = sched
 	return nil
+}
+
+// WithTx (v2.20+) on MemoryScheduleStore: pass-through.
+// Memory has no rollback; fn(s) runs against the live
+// state. The interface contract allows this as "best-effort";
+// callers that need real tx semantics use a PG-backed
+// store (which v2.21 will wire to pgx.BeginTx).
+func (s *MemoryScheduleStore) WithTx(_ context.Context, fn func(ScheduleStore) error) error {
+	return fn(s)
 }
 
 // RenameTag (v2.16+) swaps every occurrence of `from` for

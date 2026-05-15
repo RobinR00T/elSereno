@@ -2059,6 +2059,57 @@ func names(s []scanorch.ScanSchedule) []string {
 	return out
 }
 
+// TestImport_AtomicTx_HappyPath (v2.20+): ?atomic=tx with
+// all-valid rows → 200 + response carries atomic=tx.
+func TestImport_AtomicTx_HappyPath(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n" +
+			`{"name":"beta","template":{"input":"stdin"},"interval_seconds":120}` + "\n")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?atomic=tx", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Atomic     bool   `json:"atomic"`
+			AtomicMode string `json:"atomic_mode"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if !resp.Data.Atomic {
+		t.Errorf("data.atomic = false, want true")
+	}
+	if resp.Data.AtomicMode != "tx" {
+		t.Errorf("data.atomic_mode = %q, want tx", resp.Data.AtomicMode)
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 2 {
+		t.Errorf("imported = %d, want 2", len(all))
+	}
+}
+
+// TestImport_Atomic_UnknownMode (v2.20+): unknown atomic
+// value → 400.
+func TestImport_Atomic_UnknownMode(t *testing.T) {
+	router := newSchedRouter(scanorch.NewMemoryScheduleStore())
+	body := strings.NewReader(
+		`{"name":"alpha","template":{"input":"stdin"},"interval_seconds":60}` + "\n")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/api/v1/schedules/import?atomic=banana", body)
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestImport_IdempotencyKey_Replays (v2.18+): same key +
 // same body → replay; no second write.
 func TestImport_IdempotencyKey_Replays(t *testing.T) {

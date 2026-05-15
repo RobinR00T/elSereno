@@ -87,6 +87,19 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
 	return sched, nil
 }
 
+// WithTx (v2.20+) on DBScheduleStore: pass-through pending
+// the v2.21 pool plumbing. Once `NewDBScheduleStoreWithPool`
+// lands, this will BeginTx + bind a tx-scoped DBScheduleStore
+// to fn + Commit/Rollback. For now fn(s) runs against the
+// live querier — same as MemoryScheduleStore semantics.
+//
+// The interface contract documents this; callers that
+// require real tx must check the deployment mode before
+// invoking ?atomic=tx.
+func (s *DBScheduleStore) WithTx(_ context.Context, fn func(ScheduleStore) error) error {
+	return fn(s)
+}
+
 // RenameTag (v2.16+) atomic SQL replace + canonicalise.
 // ARRAY_REPLACE swaps every `from` → `to`; the unnest +
 // array_agg DISTINCT ORDER BY pass dedupes + re-sorts the

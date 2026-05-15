@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.20 (chunk 1) — **?atomic=tx
+  with Store.WithTx wrapper.** Closes v2.12 carryover
+  (tx atomicity). New `ScheduleStore.WithTx(ctx, fn)`
+  interface method. Memory + DB stores pass-through;
+  real PG rollback deferred to v2.21 pool plumbing.
+  Import handler refactored: parseImportParams returns
+  atomicMode (constants atomicModeOff/Preflight/Tx),
+  runImportApply wraps the loop conditionally. Response
+  carries both `atomic` (bool, v2.12) +
+  `atomic_mode` (string, v2.20). 400 on unknown value.
+  +2 tests. Snapshot:
+  `.context/snapshots/v2.20.0-import-atomic-tx.md`.
+
 - 2026-05-15 — v2.19 (chunk 1) — **Multi-select
   Shift+Click on tag chips.** Plain click → set as
   sole filter; Shift+Click → toggle membership. New

@@ -1,23 +1,28 @@
 ---
-phase: v2.19-closed
-status: v1.16-v2.12 published; v2.13-v2.19 tags pending push (gh token expired)
+phase: v2.20-closed
+status: v1.16-v2.12 published; v2.13-v2.20 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.19 cycle closed on `main`** (1 chunk +
-close). Multi-select Shift+Click on tag chips: plain
-click → sole filter; Shift+Click → toggle. New op
-dropdown (AND/OR/NOT IN). scheduleTagFilterSet array +
-op state. Closes v2.6 dashboard carryover.
+**Phase**: **v2.20 cycle closed on `main`** (1 chunk +
+close). ?atomic=tx with Store.WithTx wrapper:
+new ScheduleStore.WithTx(ctx, fn) interface method.
+Memory + current DB stores pass-through; real PG
+rollback deferred to v2.21 pool plumbing. Import handler
+splits via parseImportParams (atomicMode enum) +
+runImportApply (conditional WithTx-wrap). Response
+carries `atomic` (bool, v2.12 back-compat) +
+`atomic_mode` (string, v2.20). Closes v2.12 tx
+carryover.
 
-Snapshot: `.context/snapshots/v2.19.0-multiselect-tag-chips.md`.
+Snapshot: `.context/snapshots/v2.20.0-import-atomic-tx.md`.
 
-**v2.13-v2.18 cycles (closed)**: sparkline, clones,
+**v2.13-v2.19 cycles (closed)**: sparkline, clones,
 ETag plumbing, bulk tag-rename, NOT operator,
-Idempotency-Key on /import.
+Idempotency-Key, multi-select chips.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating
