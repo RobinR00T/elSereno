@@ -8,6 +8,13 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.14 (chunk 1) — **Dashboard
+  clones view.** New "Clones" button per schedule
+  row opens an inline panel showing clones (Name /
+  Created / State / Tags / Edit-into). Closes v2.10
+  carryover. Snapshot:
+  `.context/snapshots/v2.14.0-dashboard-clones-view.md`.
+
 - 2026-05-14 — v2.13 (chunk 1) — **Dashboard
   sparkline widget.** New "Sparkline" button per
   schedule row opens an inline 3-series SVG widget

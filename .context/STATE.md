@@ -1,19 +1,23 @@
 ---
-phase: v2.13-closed
-status: v1.16-v2.12 published; v2.13 tag pending push
-last-updated: 2026-05-14
+phase: v2.14-closed
+status: v1.16-v2.12 published; v2.13+v2.14 tags pending push (token expired)
+last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.13 cycle closed on `main`** (1 chunk +
-close). Dashboard sparkline widget: new "Sparkline"
-button per schedule row opens an inline 3-series SVG
-(total_runs blue, failed red, findings green-dashed).
-Independent auto-scale per series. Bucket + days
-re-fetch live. Closes v2.11 carryover.
+**Phase**: **v2.14 cycle closed on `main`** (1 chunk +
+close). Dashboard clones view: "Clones" button per
+schedule row opens inline panel with Name / Created /
+State / Tags / Edit-into action. Closes v2.10
+carryover.
 
+Snapshot: `.context/snapshots/v2.14.0-dashboard-clones-view.md`.
+
+**v2.13 cycle (closed, snapshot)**: dashboard
+sparkline widget — 3-series SVG from /stats/timeseries.
+Closes v2.11 carryover.
 Snapshot: `.context/snapshots/v2.13.0-sparkline-widget.md`.
 
 **v2.6-v2.12 cycles (closed)**:
@@ -33,85 +37,19 @@ schemas. v1.99 import. v2.0 cursor pagination
 v2.2 run-stats aggregate. v2.3 schedule CLI verbs.
 v2.4 tags + GIN index (00016). v2.5 tag-counts.
 
-**v1.89 cycle (closed, snapshot available)**: Deleted badge
-in audit-history view (red "DELETED" + pre-delete snapshot
-for `event_type='delete'`) + per-schedule audit retention
-overrides (migration 00013 adds NULL-able
-`audit_retention_days` to `scan_schedules`).
-`PruneWithOverrides` audit-store method (Memory + PG).
-`AuditPruner.ScheduleStore` field plumbs per-schedule
-cutoffs through the v1.87 background pruner. Dashboard form
-gets `audit days` input. Side-quest: pre-existing Linux-
-only lint issues in `offensive/sandbox/*` excluded via
-`.golangci.yml` + proactive `scripts/audit.sh` +
-`.github/workflows/audit.yml` CI gate. Snapshot:
-`.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
-
-**v1.88 cycle (closed, snapshot available)**: Expanded
-schedule audit event types: migration 00012 adds delete +
-set_enabled_{true,false} to the CHECK enumeration and
-switches the FK from CASCADE to SET NULL (audit rows
-survive schedule deletion). deleteSchedule +
-setScheduleEnabled handlers write the new events
-(best-effort, matches v1.84). 4 REST tests.
-
-Snapshot: `.context/snapshots/v1.88.0-expanded-audit-events.md`.
-
-**v1.85 → v1.87 cycles** (closed; per-cycle snapshots
-in `.context/snapshots/`): dashboard audit history view
-(v1.85 `e7a20f6` + `4432efe`), retention PruneOlderThan
-+ DELETE /audit?before= (v1.86 `51012c1` + `1b50b65`),
-auto background pruner via `--audit-retention-days N`
-(v1.87 `3248a9a` + `28df963`).
-
-**v1.84 cycle (closed, snapshot available)**:
-Force-overwrite audit log. ScheduleAuditStore +
-migration 00011 + GET /audit + cmd_serve wiring.
-1 chunk + close: `0c80bd5`, `31864d8`. Snapshot:
-`.context/snapshots/v1.84.0-force-overwrite-audit.md`.
-
-**v1.79 → v1.83 cycles** (closed; per-cycle snapshots
-in `.context/snapshots/`): multi-fire preview /count=N
-(v1.79 `64ebb77` + `52c382b`), live debounced preview
-(v1.80 `321b960` + `91d6634`), 412 merge-view UI
-(v1.81 `ba6e721` + `896aa6c`), AbortController on
-/preview (v1.82 `8ffffb3` + `71b8d30`), cherry-pick
-merge view (v1.83 `c7e7e1a` + `56b9eda`).
-
-**v1.78 cycle (closed, snapshot available)**:
-Optimistic locking on schedule edits (UpdatedAt +
-If-Match → 412). Migration 00010 + DB conditional UPDATE.
-1 chunk + close: `c31fedf`, `bbe6eb8`. Snapshot:
-`.context/snapshots/v1.78.0-optimistic-locking.md`.
-
-**v1.77 cycle (closed, snapshot available)**:
-Dashboard next-fire preview (tz-aware). 1 chunk + close:
-`21756ad`, `7e711b7`. Snapshot:
-`.context/snapshots/v1.77.0-next-fire-preview.md`.
-
-**v1.76 cycle (closed, snapshot available)**:
-Named cron shortcuts (@daily/@hourly/etc.). 1 chunk +
-close: `b7bd346`, `29d63fb`. Snapshot:
-`.context/snapshots/v1.76.0-cron-shortcuts.md`.
-
-**v1.75 cycle (closed, snapshot available)**:
-Per-schedule timezone for cron expressions. cronIsDue
-converts anchor + now to s.Timezone before computing
-Next/Match. Migration 00009 + scheduleColumns 11 → 12.
-1 chunk + close: `01011dd`, `ab89a32`. Snapshot:
-`.context/snapshots/v1.75.0-schedule-timezone.md`.
-
-**v1.74 cycle (closed, snapshot available)**:
-Schedule edit path (Update + PUT /schedules/{id} +
-dashboard edit-mode toggle). 1 chunk + close:
-`e72fc73`, `3293769`. Snapshot:
-`.context/snapshots/v1.74.0-schedule-edit.md`.
-
-**v1.73 cycle (closed, snapshot available)**:
-Cron expressions as alternative cadence (5-field
-parser + migration 00008 cadence-XOR CHECK). 1 chunk
-+ close: `50ad219`, `577ca14`. Snapshot:
-`.context/snapshots/v1.73.0-cron-expressions.md`.
+**v1.73 → v1.89 cycles** (closed; per-cycle snapshots in
+`.context/snapshots/v1.<N>.0-*.md`): schedule domain
+build-out from cron expressions through audit retention.
+Highlights: v1.73 cron parser + 00008 XOR check, v1.74
+edit, v1.75 timezone (00009), v1.76 @daily shortcuts, v1.77
+next-fire preview, v1.78 optimistic locking (00010), v1.79
+multi-fire preview, v1.80 debounced preview, v1.81 412
+merge-view, v1.82 AbortController, v1.83 cherry-pick merge,
+v1.84 force-overwrite audit (00011), v1.85 audit-history
+UI, v1.86 PruneOlderThan, v1.87 background pruner, v1.88
+expanded audit event types (00012), v1.89 deleted badge +
+per-schedule retention (00013) + `scripts/audit.sh` +
+`.github/workflows/audit.yml`.
 
 **v1.72 cycle (closed, snapshot available)**:
 Dashboard "Scheduled scans" panel. 1 chunk + close:

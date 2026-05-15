@@ -599,6 +599,21 @@ const overviewHTML = `<!doctype html>
         </table>
         <button type="button" id="schedule-audit-close-button" onclick="closeAuditView()" style="margin-top: 0.3em;">Close</button>
       </div>
+      <!-- v2.14: per-schedule clones list. Loaded on demand from
+           /api/v1/schedules/{id}/clones. Empty until openClonesView. -->
+      <div id="schedule-clones-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
+        <h3 style="margin: 0 0 0.3em;">Clones</h3>
+        <div class="sub" id="schedule-clones-subtitle"></div>
+        <table id="schedule-clones-table" style="margin-top: 0.3em;">
+          <thead>
+            <tr><th>Name</th><th>Created</th><th>State</th><th>Tags</th><th>Action</th></tr>
+          </thead>
+          <tbody id="schedule-clones-body">
+            <tr class="empty"><td colspan="5">loading…</td></tr>
+          </tbody>
+        </table>
+        <button type="button" onclick="closeClonesView()" style="margin-top: 0.3em;">Close</button>
+      </div>
       <!-- v2.13: per-schedule sparkline panel. Loaded on demand
            from /api/v1/schedules/{id}/stats/timeseries. -->
       <div id="schedule-sparkline-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
@@ -1360,6 +1375,9 @@ const overviewHTML = `<!doctype html>
             '" data-sched-name="' + escAttr(s.name || s.id) +
             '" onclick="openSparklineView(this.dataset.schedId, this.dataset.schedName)">Sparkline</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
+            '" data-sched-name="' + escAttr(s.name || s.id) +
+            '" onclick="openClonesView(this.dataset.schedId, this.dataset.schedName)">Clones</button>' +
+            ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="cloneSchedule(this.dataset.schedId)">Clone</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
@@ -2037,6 +2055,51 @@ const overviewHTML = `<!doctype html>
     var view = document.getElementById("schedule-runs-view");
     if (view) view.style.display = "none";
   }
+  // ---- v2.14: clones view ----
+  function openClonesView(id, displayName) {
+    var view = document.getElementById("schedule-clones-view");
+    var body = document.getElementById("schedule-clones-body");
+    var subtitle = document.getElementById("schedule-clones-subtitle");
+    if (!view || !body) return;
+    if (subtitle) subtitle.textContent = (displayName || id) + " · " + id;
+    body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
+    view.style.display = "";
+    view.scrollIntoView({block: "nearest"});
+    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/clones", {credentials: "same-origin"})
+      .then(function (r) {
+        if (r.status === 404) { throw new Error("schedule not found"); }
+        if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+        return r.json();
+      })
+      .then(function (res) {
+        var rows = (res && res.data) || [];
+        if (!rows.length) {
+          body.innerHTML = '<tr class="empty"><td colspan="5">no clones of this schedule</td></tr>';
+          return;
+        }
+        body.innerHTML = rows.map(function (s) {
+          var created = s.created_at ? new Date(s.created_at).toLocaleString() : "—";
+          var state = s.enabled ? "enabled" : "disabled";
+          var tags = Array.isArray(s.tags) && s.tags.length ? s.tags.join(",") : "—";
+          var action = '<button type="button" data-sched-id="' + escAttr(s.id) +
+            '" onclick="beginEditSchedule(this.dataset.schedId); closeClonesView();">Edit</button>';
+          return '<tr>' +
+            '<td>' + escText(s.name || "") + '</td>' +
+            '<td>' + escText(created) + '</td>' +
+            '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
+            '<td><code>' + escText(tags) + '</code></td>' +
+            '<td>' + action + '</td>' +
+            '</tr>';
+        }).join("");
+      })
+      .catch(function (err) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">load failed: ' + escText(err.message) + '</td></tr>';
+      });
+  }
+  function closeClonesView() {
+    var view = document.getElementById("schedule-clones-view");
+    if (view) view.style.display = "none";
+  }
   // ---- v2.13: sparkline view ----
   // openSparklineView fetches /api/v1/schedules/{id}/stats/timeseries
   // and renders the response as an inline SVG sparkline. State is
@@ -2458,6 +2521,9 @@ const overviewHTML = `<!doctype html>
   window.openSparklineView = openSparklineView;
   window.closeSparklineView = closeSparklineView;
   window.reloadSparkline = reloadSparkline;
+  // v2.14 clones view.
+  window.openClonesView = openClonesView;
+  window.closeClonesView = closeClonesView;
 
   // v1.68: load the plugin list once on page boot to populate
   // the scan-submit form's <datalist>. Best-effort: a 503
