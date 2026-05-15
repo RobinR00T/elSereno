@@ -1,25 +1,24 @@
 ---
-phase: v2.21-closed
-status: v1.16-v2.12 published; v2.13-v2.21 tags pending push (gh token expired)
+phase: v2.22-closed
+status: v1.16-v2.12 published; v2.13-v2.22 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.21 cycle closed on `main`** (1 chunk +
-close). Real PG WithTx implementation: type-asserts
-Querier to v1.90 txQuerier (BeginTx) + Commit/Rollback.
-Falls back to pass-through on test-fake Queriers
-(preserves v2.20 semantics). Closes v2.20 implementation
-gap. +1 test.
+**Phase**: **v2.22 cycle closed on `main`** (1 chunk +
+close). Sparkline bucket tooltips: invisible
+per-bucket hit-target rects on the SVG carry
+`<title>` with bucket-start + runs/failed/findings.
+Closes v2.13 tooltip carryover.
 
-Snapshot: `.context/snapshots/v2.21.0-pg-withtx.md`.
+Snapshot: `.context/snapshots/v2.22.0-sparkline-bucket-tooltips.md`.
 
-**v2.13-v2.20 cycles (closed)**: sparkline, clones,
+**v2.13-v2.21 cycles (closed)**: sparkline, clones,
 ETag plumbing, bulk tag-rename, NOT operator,
-Idempotency-Key, multi-select chips, ?atomic=tx
-interface.
+Idempotency-Key, multi-select chips, ?atomic=tx,
+real PG WithTx.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

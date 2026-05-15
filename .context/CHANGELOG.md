@@ -8,6 +8,14 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.22 (chunk 1) — **Sparkline
+  bucket tooltips.** v2.13 sparkline only carried
+  per-polyline series-max tooltips. v2.22 adds
+  invisible per-bucket hit-target rects so hovering
+  any column reveals the full bucket data
+  (bucket-start + runs/failed/findings). Snapshot:
+  `.context/snapshots/v2.22.0-sparkline-bucket-tooltips.md`.
+
 - 2026-05-15 — v2.21 (chunk 1) — **Real PG
   WithTx.** Closes v2.20 implementation carryover.
   DBScheduleStore.WithTx now type-asserts the

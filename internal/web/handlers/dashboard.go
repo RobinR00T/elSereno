@@ -2182,6 +2182,11 @@ const overviewHTML = `<!doctype html>
   // red failed, green total_findings. All series share the X-axis
   // (bucket index); Y-axis is auto-scaled per series so a low-
   // count failed line is still visible.
+  //
+  // v2.22: each bucket gets an invisible hit-target rect + a
+  // per-bucket <title> showing bucket_start + counts, so
+  // hovering reveals the full bucket data instead of just the
+  // series max.
   function renderSparklineSVG(series) {
     var svg = document.getElementById("schedule-sparkline-svg");
     if (!svg) return;
@@ -2211,14 +2216,35 @@ const overviewHTML = `<!doctype html>
     var pathRuns = buildPath("total_runs", maxRuns);
     var pathFailed = buildPath("failed", maxFailed);
     var pathFindings = buildPath("total_findings", maxFindings);
-    // Title hover per polyline gives raw counts. Background grid
-    // is a faint hr at 50% for visual reference.
     var midY = (h / 2).toFixed(1);
+    // v2.22: build per-bucket hit-target rects + dots so
+    // hovering anywhere in a bucket's vertical slice shows
+    // the per-bucket tooltip.
+    var hitRects = [];
+    var bucketWidth = n > 1 ? ((w - 2 * pad) / (n - 1)) : (w - 2 * pad);
+    for (var i = 0; i < n; i++) {
+      var bx = pad + (n > 1 ? (i * (w - 2 * pad) / (n - 1)) : ((w - 2 * pad) / 2));
+      var rx = bx - bucketWidth / 2;
+      var rw = bucketWidth;
+      if (rx < 0) { rw += rx; rx = 0; }
+      if (rx + rw > w) rw = w - rx;
+      var b = series[i];
+      var when = b.bucket_start ? new Date(b.bucket_start).toLocaleString() : "(?)";
+      var tip = when + " — runs:" + (b.total_runs || 0) +
+        " failed:" + (b.failed || 0) +
+        " findings:" + (b.total_findings || 0);
+      hitRects.push(
+        '<rect x="' + rx.toFixed(1) + '" y="0" width="' + rw.toFixed(1) +
+        '" height="' + h + '" fill="transparent">' +
+        '<title>' + escAttr(tip) + '</title></rect>'
+      );
+    }
     var html = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width: 100%; height: 80px; border: 1px solid #ccc; background: #fafafa;">' +
       '<line x1="0" y1="' + midY + '" x2="' + w + '" y2="' + midY + '" stroke="#eee" stroke-width="1"/>' +
       '<path d="' + pathRuns + '" stroke="#36c" stroke-width="2" fill="none"><title>total runs (max ' + maxRuns + ')</title></path>' +
       '<path d="' + pathFailed + '" stroke="#c33" stroke-width="1.5" fill="none"><title>failed (max ' + maxFailed + ')</title></path>' +
       '<path d="' + pathFindings + '" stroke="#393" stroke-width="1" fill="none" stroke-dasharray="3,2"><title>findings (max ' + maxFindings + ')</title></path>' +
+      hitRects.join("") +
       '</svg>';
     svg.innerHTML = html;
   }
