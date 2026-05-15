@@ -1,23 +1,25 @@
 ---
-phase: v2.16-closed
-status: v1.16-v2.12 published; v2.13-v2.16 tags pending push (gh token expired)
+phase: v2.17-closed
+status: v1.16-v2.12 published; v2.13-v2.17 tags pending push (gh token expired)
 last-updated: 2026-05-15
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.16 cycle closed on `main`** (1 chunk +
-close). Bulk tag-rename endpoint:
-`POST /api/v1/schedules/tags/rename` with `{from, to}`.
-New `Store.RenameTag` (Memory + PG via ARRAY_REPLACE +
-canonicalising array_agg). APIV1 funlen refactor via
-`mountScheduleRoutes` helper. +3 tests.
+**Phase**: **v2.17 cycle closed on `main`** (1 chunk +
+close). NOT operator on tag filter:
+`?op=not_in&tag=dev&tag=staging` excludes schedules
+carrying any of the listed tags. New `scanorch.TagOpNotIn`
+constant. PG falls back to seq scan (GIN can't accelerate
+negation). Closes v2.9 carryover (NOT operator).
++2 tests.
 
-Snapshot: `.context/snapshots/v2.16.0-bulk-tag-rename.md`.
+Snapshot: `.context/snapshots/v2.17.0-tag-not-in.md`.
 
-**v2.13-v2.15 cycles (closed)**: v2.13 sparkline
-widget. v2.14 clones view. v2.15 dashboard ETag plumbing.
+**v2.13-v2.16 cycles (closed)**: v2.13 sparkline.
+v2.14 clones view. v2.15 ETag plumbing. v2.16 bulk
+tag-rename + APIV1 mountScheduleRoutes refactor.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

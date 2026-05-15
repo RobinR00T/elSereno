@@ -326,18 +326,26 @@ func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSche
 
 // ListByTags (v2.9+) uses array operators on the v2.4 GIN
 // index:
-//   - AND → `tags @> ARRAY[$1]::text[]` (contains all).
-//   - OR  → `tags && ARRAY[$1]::text[]` (overlaps).
+//   - AND     → `tags @> $1::text[]` (contains all).
+//   - OR      → `tags && $1::text[]` (overlaps).
+//   - not_in  → `NOT (tags && $1::text[])` (no overlap;
+//     v2.17+).
 //
-// Both operators are GIN-friendly. The OR variant matches
-// v2.4 ListByTag's single-tag behaviour exactly.
+// AND + OR are GIN-friendly. NOT can't use the GIN index
+// directly; the planner falls back to seq scan + filter —
+// acceptable for typical fleets (<10k schedules).
 func (s *DBScheduleStore) ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error) {
 	if len(tags) == 0 {
 		return s.List(ctx)
 	}
-	predicate := "tags @> $1::text[]" // AND
-	if op == TagOpOr {
-		predicate = "tags && $1::text[]" // OR
+	var predicate string
+	switch op {
+	case TagOpOr:
+		predicate = "tags && $1::text[]"
+	case TagOpNotIn:
+		predicate = "NOT (tags && $1::text[])"
+	default: // AND
+		predicate = "tags @> $1::text[]"
 	}
 	rows, err := s.q.Query(ctx,
 		"SELECT "+scheduleColumns+

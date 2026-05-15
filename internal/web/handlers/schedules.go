@@ -839,8 +839,9 @@ func listSchedules(store scanorch.ScheduleStore) http.Handler {
 		if op == "" {
 			op = scanorch.TagOpAnd
 		}
-		if op != scanorch.TagOpAnd && op != scanorch.TagOpOr {
-			http.Error(w, "schedules: op must be 'and' or 'or'", http.StatusBadRequest)
+		// v2.17+: not_in joins and/or as the third valid op.
+		if op != scanorch.TagOpAnd && op != scanorch.TagOpOr && op != scanorch.TagOpNotIn {
+			http.Error(w, "schedules: op must be 'and', 'or', or 'not_in'", http.StatusBadRequest)
 			return
 		}
 		var (
@@ -850,7 +851,9 @@ func listSchedules(store scanorch.ScheduleStore) http.Handler {
 		switch {
 		case len(tags) == 0:
 			schedules, err = store.List(r.Context())
-		case len(tags) == 1:
+		case len(tags) == 1 && op == scanorch.TagOpAnd:
+			// v2.4 single-tag fast path. Skipped for v2.17
+			// not_in (semantics differ).
 			schedules, err = store.ListByTag(r.Context(), tags[0])
 		default:
 			schedules, err = store.ListByTags(r.Context(), tags, op)

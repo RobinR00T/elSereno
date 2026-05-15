@@ -293,8 +293,17 @@ type ScheduleStore interface {
 
 // Tag filter operators for ListByTags.
 const (
+	// TagOpAnd (v2.9+) → schedule must carry ALL of the
+	// supplied tags.
 	TagOpAnd = "and"
-	TagOpOr  = "or"
+	// TagOpOr (v2.9+) → schedule must carry AT LEAST ONE of
+	// the supplied tags.
+	TagOpOr = "or"
+	// TagOpNotIn (v2.17+) → schedule must carry NONE of the
+	// supplied tags. Useful for "exclude dev/staging from
+	// the production sweep". Schedules with no tags at all
+	// match (empty intersection with any set is empty).
+	TagOpNotIn = "not_in"
 )
 
 // TagCount (v2.5+) is the aggregate row for the tag-cloud
@@ -809,12 +818,14 @@ func (s *MemoryScheduleStore) ListByTag(ctx context.Context, tag string) ([]Scan
 }
 
 // ListByTags (v2.9+) is the multi-tag variant. See interface
-// doc for semantics.
+// doc for semantics. v2.17+ adds TagOpNotIn.
 func (s *MemoryScheduleStore) ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error) {
 	if len(tags) == 0 {
 		return s.List(ctx)
 	}
-	if op != TagOpOr {
+	switch op {
+	case TagOpAnd, TagOpOr, TagOpNotIn:
+	default:
 		op = TagOpAnd
 	}
 	s.mu.RLock()
@@ -830,28 +841,40 @@ func (s *MemoryScheduleStore) ListByTags(ctx context.Context, tags []string, op 
 }
 
 // matchesTags returns true when `have` satisfies the
-// (`want`, `op`) filter. "and" → all of `want` ⊆ `have`.
-// "or" → at least one of `want` ∈ `have`.
+// (`want`, `op`) filter:
+//   - "and"    → all of `want` ⊆ `have`.
+//   - "or"     → at least one of `want` ∈ `have`.
+//   - "not_in" → no `want` ∈ `have` (empty intersection).
+//     Schedules with no tags match (their `have` set is
+//     empty; intersection with anything is empty).
 func matchesTags(have, want []string, op string) bool {
 	set := make(map[string]struct{}, len(have))
 	for _, t := range have {
 		set[t] = struct{}{}
 	}
-	if op == TagOpOr {
+	switch op {
+	case TagOpOr:
 		for _, t := range want {
 			if _, ok := set[t]; ok {
 				return true
 			}
 		}
 		return false
-	}
-	// AND
-	for _, t := range want {
-		if _, ok := set[t]; !ok {
-			return false
+	case TagOpNotIn:
+		for _, t := range want {
+			if _, ok := set[t]; ok {
+				return false
+			}
 		}
+		return true
+	default: // AND
+		for _, t := range want {
+			if _, ok := set[t]; !ok {
+				return false
+			}
+		}
+		return true
 	}
-	return true
 }
 
 // SetEnabled toggles the kill-switch.

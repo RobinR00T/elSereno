@@ -1395,6 +1395,72 @@ func TestListScheduleTags(t *testing.T) {
 	}
 }
 
+// TestListSchedules_TagNotIn (v2.17+): exclude schedules
+// carrying any of the listed tags.
+func TestListSchedules_TagNotIn(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("a", "prod")             // exclude
+	mk("b", "dev")              // exclude
+	mk("c", "staging")          // include (not in list)
+	mk("d")                     // include (untagged)
+	mk("e", "prod", "critical") // exclude (has prod)
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=prod&tag=dev&op=not_in", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 2 {
+		t.Fatalf("count = %d, want 2 (c + d)", len(resp.Data))
+	}
+	names := []string{resp.Data[0].Name, resp.Data[1].Name}
+	if names[0] != "c" || names[1] != "d" {
+		t.Errorf("names = %v, want [c d]", names)
+	}
+}
+
+// TestListSchedules_TagNotIn_SingleTag (v2.17+): even with a
+// single tag the not_in path bypasses the v2.4 single-tag
+// fast path (which would do contains-semantics).
+func TestListSchedules_TagNotIn_SingleTag(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	mk := func(name string, tags ...string) {
+		_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+			Name: name, Template: scanorch.SubmitRequest{Input: "stdin"},
+			IntervalSeconds: 60, Tags: tags,
+		}, "alice")
+	}
+	mk("with-prod", "prod")
+	mk("no-prod")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules?tag=prod&op=not_in", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var resp struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data) != 1 || resp.Data[0].Name != "no-prod" {
+		t.Errorf("got %v, want [no-prod]", resp.Data)
+	}
+}
+
 // TestRenameTag_HappyPath (v2.16+): rename swaps + dedupes.
 func TestRenameTag_HappyPath(t *testing.T) {
 	store := scanorch.NewMemoryScheduleStore()

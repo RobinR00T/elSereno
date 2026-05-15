@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.17 (chunk 1) — **NOT operator on
+  tag filter.** New `?op=not_in` excludes schedules
+  that carry any of the listed tags. New constant
+  `scanorch.TagOpNotIn`. Memory: matchesTags third
+  case. PG: `NOT (tags && $1::text[])` predicate
+  (seq scan; GIN can't accelerate negation). Single-
+  tag + op=not_in bypasses v2.4 fast path. Closes
+  v2.9 carryover. +2 tests. Snapshot:
+  `.context/snapshots/v2.17.0-tag-not-in.md`.
+
 - 2026-05-15 — v2.16 (chunk 1) — **Bulk tag-rename
   endpoint.** New `POST /schedules/tags/rename`
   with `{from, to}` body. New `Store.RenameTag`
