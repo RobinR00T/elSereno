@@ -429,3 +429,33 @@ func TestDBScheduleStore_Update_IfMatchMissing(t *testing.T) {
 func TestDBScheduleStore_SatisfiesScheduleStoreInterface(_ *testing.T) {
 	var _ scanorch.ScheduleStore = scanorch.NewDBScheduleStore(&fakeQuerier{})
 }
+
+// TestDBScheduleStore_WithTx_FakeQuerier_FallsThrough (v2.21):
+// the test-fake Querier doesn't implement txQuerier, so WithTx
+// falls back to pass-through. fn receives the same store; fn
+// errors propagate verbatim.
+func TestDBScheduleStore_WithTx_FakeQuerier_FallsThrough(t *testing.T) {
+	store := scanorch.NewDBScheduleStore(&fakeQuerier{})
+	var invocations int
+	err := store.WithTx(context.Background(), func(s scanorch.ScheduleStore) error {
+		invocations++
+		if s == nil {
+			t.Errorf("fn received nil store")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Errorf("WithTx err = %v, want nil", err)
+	}
+	if invocations != 1 {
+		t.Errorf("invocations = %d, want 1", invocations)
+	}
+	// Propagated error case.
+	sentinel := errors.New("synthetic")
+	err = store.WithTx(context.Background(), func(_ scanorch.ScheduleStore) error {
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Errorf("propagated err = %v, want sentinel", err)
+	}
+}

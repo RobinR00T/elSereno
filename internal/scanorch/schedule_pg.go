@@ -87,17 +87,41 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
 	return sched, nil
 }
 
-// WithTx (v2.20+) on DBScheduleStore: pass-through pending
-// the v2.21 pool plumbing. Once `NewDBScheduleStoreWithPool`
-// lands, this will BeginTx + bind a tx-scoped DBScheduleStore
-// to fn + Commit/Rollback. For now fn(s) runs against the
-// live querier — same as MemoryScheduleStore semantics.
+// WithTx (v2.20 interface; v2.21 implementation) executes fn
+// within a single PG transaction. Type-asserts the Querier to
+// the txQuerier interface (BeginTx); falls back to pass-through
+// if the Querier doesn't support transactions (unit-test
+// fakes).
 //
-// The interface contract documents this; callers that
-// require real tx must check the deployment mode before
-// invoking ?atomic=tx.
-func (s *DBScheduleStore) WithTx(_ context.Context, fn func(ScheduleStore) error) error {
-	return fn(s)
+// Semantics:
+//   - fn returns nil → Commit.
+//   - fn returns non-nil → Rollback + return that error.
+//   - BeginTx error → returned verbatim (no fn invocation).
+//   - Commit error → returned verbatim (changes lost; rare).
+//
+// The tx-scoped DBScheduleStore handed to fn shares the same
+// schema accessors but bound to the pgx.Tx so all CRUD inside
+// fn participates in the tx.
+func (s *DBScheduleStore) WithTx(ctx context.Context, fn func(ScheduleStore) error) error {
+	beginner, ok := s.q.(txQuerier)
+	if !ok {
+		// Test-fake fallback — no real BeginTx; document
+		// matches MemoryScheduleStore.
+		return fn(s)
+	}
+	tx, err := beginner.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("scanorch: schedule begin tx: %w", err)
+	}
+	txStore := &DBScheduleStore{q: tx}
+	if fnErr := fn(txStore); fnErr != nil {
+		_ = tx.Rollback(ctx) // best-effort
+		return fnErr
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("scanorch: schedule commit tx: %w", err)
+	}
+	return nil
 }
 
 // RenameTag (v2.16+) atomic SQL replace + canonicalise.

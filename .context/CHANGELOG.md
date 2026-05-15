@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-15 — v2.21 (chunk 1) — **Real PG
+  WithTx.** Closes v2.20 implementation carryover.
+  DBScheduleStore.WithTx now type-asserts the
+  Querier to v1.90's txQuerier (BeginTx) +
+  Commit/Rollback. Falls back to pass-through on
+  test-fake Queriers (preserves v2.20 unit-test
+  semantics). +1 test. Snapshot:
+  `.context/snapshots/v2.21.0-pg-withtx.md`.
+
 - 2026-05-15 — v2.20 (chunk 1) — **?atomic=tx
   with Store.WithTx wrapper.** Closes v2.12 carryover
   (tx atomicity). New `ScheduleStore.WithTx(ctx, fn)`
