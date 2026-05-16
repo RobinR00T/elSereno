@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.26 (chunk 1) — **PG-backed
+  Idempotency cache.** Migration 00018:
+  `idempotency_keys` table. New
+  `IdempotencyStore` interface; v2.18 in-memory +
+  v2.26 PG impls both satisfy. Global swappable via
+  `SetDefaultIdempotencyCache(store)`. PG: INSERT
+  ON CONFLICT DO NOTHING (first-write-wins);
+  SELECT filters by created_at >= cutoff for TTL.
+  cmd_serve wires PG cache when --scan-store=db.
+  Snapshot:
+  `.context/snapshots/v2.26.0-pg-idempotency.md`.
+
 - 2026-05-16 — v2.25 (chunk 1) — **Idempotency-Key
   on /clone + bulk.** New `withIdempotencyKey(h)`
   middleware wrapper reuses the v2.18 cache.

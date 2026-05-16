@@ -21,6 +21,7 @@ import (
 	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/telemetry"
 	"local/elsereno/internal/web"
+	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/stream"
 )
 
@@ -176,6 +177,11 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 		// v1.84: DB-backed audit store survives serve
 		// restart, matching the schedule store's durability.
 		auditStore = scanorch.NewDBScheduleAuditStore(pool)
+		// v2.26: PG-backed Idempotency-Key cache. Multi-
+		// process serve deployments now share replay state.
+		// Operators running --scan-store=memory keep the
+		// in-memory cache (per-process; documented).
+		handlers.SetDefaultIdempotencyCache(handlers.NewPGIdempotencyCache(pool))
 	} else {
 		scheduleStore = scanorch.NewMemoryScheduleStore()
 		// v1.84: memory-mode audit lives only for the

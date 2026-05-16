@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -10,18 +11,19 @@ import (
 	"time"
 )
 
-// idempotencyCache (v2.18+) is a tiny in-memory cache for
-// Idempotency-Key replay. Keyed by the operator-supplied
-// header value; stores the response body hash + the rendered
-// response so a retry with the SAME body returns the cached
-// response, and a retry with a DIFFERENT body returns a
-// conflict.
-//
-// Scope: per-process. Multi-process serve deployments don't
-// share keys (acceptable — idempotency is a UX feature, not
-// a correctness guarantee; an unlucky failover may double-
-// commit). Future work: back this with the audit advisory
-// lock from v1.90 for cross-process consistency.
+// IdempotencyStore (v2.26+) is the interface satisfied by both
+// the v2.18 in-memory cache + the v2.26 PG-backed cache. The
+// handler middleware depends only on this interface; ops can
+// swap the implementation in cmd_serve.
+type IdempotencyStore interface {
+	Lookup(ctx context.Context, key string, body []byte) (idempotencyLookupResult, idempotencyEntry)
+	Store(ctx context.Context, key string, body []byte, status int, response []byte)
+}
+
+// idempotencyCache (v2.18+) is the in-memory implementation.
+// Per-process. Multi-process serve deployments lose replay
+// semantics on retry-to-different-worker; v2.26 PGIdempotencyCache
+// fixes that by sharing state via the DB.
 type idempotencyCache struct {
 	mu      sync.Mutex
 	entries map[string]idempotencyEntry
@@ -69,7 +71,10 @@ const (
 // Lookup checks the cache. Returns (result, entry). For
 // idempotencyMiss the entry is zero. Purges expired entries
 // during the walk.
-func (c *idempotencyCache) Lookup(key string, body []byte) (idempotencyLookupResult, idempotencyEntry) {
+//
+// Context arg ignored (in-memory has no IO). PG variant uses
+// it.
+func (c *idempotencyCache) Lookup(_ context.Context, key string, body []byte) (idempotencyLookupResult, idempotencyEntry) {
 	if key == "" {
 		return idempotencyMiss, idempotencyEntry{}
 	}
@@ -89,7 +94,7 @@ func (c *idempotencyCache) Lookup(key string, body []byte) (idempotencyLookupRes
 
 // Store stores a (key, body, status, response) tuple. No-op
 // for empty key. Evicts the oldest entry when over maxSize.
-func (c *idempotencyCache) Store(key string, body []byte, status int, response []byte) {
+func (c *idempotencyCache) Store(_ context.Context, key string, body []byte, status int, response []byte) {
 	if key == "" {
 		return
 	}
@@ -145,9 +150,31 @@ func hashBody(body []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Module-level default cache: 1h TTL, 256 entries. Shared by
-// all import requests across the process.
-var defaultIdempotencyCache = newIdempotencyCache(time.Hour, 256)
+// Module-level default cache: 1h TTL, 256 entries. In-memory
+// by default; cmd_serve may swap to PGIdempotencyCache via
+// SetDefaultIdempotencyCache.
+var (
+	defaultIdempotencyCacheMu sync.RWMutex
+	defaultIdempotencyCache   IdempotencyStore = newIdempotencyCache(time.Hour, 256)
+)
+
+// SetDefaultIdempotencyCache (v2.26+) swaps the global
+// idempotency store. Called by cmd_serve when --scan-store=db
+// to enable cross-process replay via PG.
+func SetDefaultIdempotencyCache(s IdempotencyStore) {
+	defaultIdempotencyCacheMu.Lock()
+	defer defaultIdempotencyCacheMu.Unlock()
+	defaultIdempotencyCache = s
+}
+
+// idempotencyStoreNow returns the current global store under
+// a read lock. The handler middleware uses this to avoid
+// racing with SetDefaultIdempotencyCache.
+func idempotencyStoreNow() IdempotencyStore {
+	defaultIdempotencyCacheMu.RLock()
+	defer defaultIdempotencyCacheMu.RUnlock()
+	return defaultIdempotencyCache
+}
 
 // withIdempotencyKey (v2.25+) is a generic wrapper that
 // applies the v2.18 Idempotency-Key protocol to any handler.
@@ -170,7 +197,7 @@ func withIdempotencyKey(h http.Handler) http.Handler {
 			http.Error(w, "idempotency: read body: "+readErr.Error(), http.StatusBadRequest)
 			return
 		}
-		if handled := tryReplayIdempotency(w, key, body); handled {
+		if handled := tryReplayIdempotency(w, r, key, body); handled {
 			return
 		}
 		rec := &idempotencyResponseRecorder{
@@ -181,7 +208,7 @@ func withIdempotencyKey(h http.Handler) http.Handler {
 		// Only cache 2xx responses — replaying a 4xx/5xx is
 		// surprising and rarely useful.
 		if rec.status >= 200 && rec.status < 300 {
-			defaultIdempotencyCache.Store(key, body, rec.status, rec.buf.Bytes())
+			idempotencyStoreNow().Store(r.Context(), key, body, rec.status, rec.buf.Bytes())
 		}
 	})
 }

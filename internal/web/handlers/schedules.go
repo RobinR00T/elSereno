@@ -1377,7 +1377,7 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			return
 		}
 		idemKey := r.Header.Get("Idempotency-Key")
-		if handled := tryReplayIdempotency(w, idemKey, body); handled {
+		if handled := tryReplayIdempotency(w, r, idemKey, body); handled {
 			return
 		}
 		rows, err := decodeImportBodyBytes(body, r.Header.Get("Content-Type"))
@@ -1408,7 +1408,7 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 		// v2.20: include both shapes for back-compat with
 		// v2.12 readers that parsed `atomic` as bool, and
 		// new readers that distinguish preflight vs tx.
-		writeJSONAndCache(w, idemKey, body, scanResponse{Schema: "api:v1", Data: map[string]any{
+		writeJSONAndCache(w, r, idemKey, body, scanResponse{Schema: "api:v1", Data: map[string]any{
 			"imported":    counts.imported,
 			"skipped":     counts.skipped,
 			"overwritten": counts.overwritten,
@@ -1497,11 +1497,11 @@ func parseImportParams(w http.ResponseWriter, r *http.Request) (string, string, 
 // returns true when the response has been served from cache
 // (caller must return). Returns false when the caller should
 // proceed with normal processing.
-func tryReplayIdempotency(w http.ResponseWriter, idemKey string, body []byte) bool {
+func tryReplayIdempotency(w http.ResponseWriter, r *http.Request, idemKey string, body []byte) bool {
 	if idemKey == "" {
 		return false
 	}
-	result, entry := defaultIdempotencyCache.Lookup(idemKey, body)
+	result, entry := idempotencyStoreNow().Lookup(r.Context(), idemKey, body)
 	switch result {
 	case idempotencyHit:
 		w.Header().Set("Content-Type", "application/json")
@@ -1522,7 +1522,7 @@ func tryReplayIdempotency(w http.ResponseWriter, idemKey string, body []byte) bo
 // like writeJSON, AND stores it under the idempotency key
 // when non-empty. Cache stores the post-marshal bytes so a
 // replay is byte-identical.
-func writeJSONAndCache(w http.ResponseWriter, idemKey string, reqBody []byte, v any) {
+func writeJSONAndCache(w http.ResponseWriter, r *http.Request, idemKey string, reqBody []byte, v any) {
 	body, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		http.Error(w, "marshal: "+err.Error(), http.StatusInternalServerError)
@@ -1530,7 +1530,7 @@ func writeJSONAndCache(w http.ResponseWriter, idemKey string, reqBody []byte, v 
 	}
 	body = append(body, '\n')
 	if idemKey != "" {
-		defaultIdempotencyCache.Store(idemKey, reqBody, http.StatusOK, body)
+		idempotencyStoreNow().Store(r.Context(), idemKey, reqBody, http.StatusOK, body)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
