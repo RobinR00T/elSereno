@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -145,3 +148,84 @@ func hashBody(body []byte) string {
 // Module-level default cache: 1h TTL, 256 entries. Shared by
 // all import requests across the process.
 var defaultIdempotencyCache = newIdempotencyCache(time.Hour, 256)
+
+// withIdempotencyKey (v2.25+) is a generic wrapper that
+// applies the v2.18 Idempotency-Key protocol to any handler.
+// On replay → emits the cached response and short-circuits.
+// On conflict → 409. On miss → invokes the inner handler
+// against a response recorder, then caches the rendered
+// bytes.
+//
+// Bodies are buffered upfront so the inner handler can read
+// them via r.Body normally. Empty body is fine (bulk endpoints).
+func withIdempotencyKey(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Header.Get("Idempotency-Key")
+		if key == "" {
+			h.ServeHTTP(w, r)
+			return
+		}
+		body, readErr := readAndRestoreBody(r)
+		if readErr != nil {
+			http.Error(w, "idempotency: read body: "+readErr.Error(), http.StatusBadRequest)
+			return
+		}
+		if handled := tryReplayIdempotency(w, key, body); handled {
+			return
+		}
+		rec := &idempotencyResponseRecorder{
+			ResponseWriter: w,
+			status:         http.StatusOK,
+		}
+		h.ServeHTTP(rec, r)
+		// Only cache 2xx responses — replaying a 4xx/5xx is
+		// surprising and rarely useful.
+		if rec.status >= 200 && rec.status < 300 {
+			defaultIdempotencyCache.Store(key, body, rec.status, rec.buf.Bytes())
+		}
+	})
+}
+
+// readAndRestoreBody buffers r.Body so the wrapped handler
+// can still read it. http.NoBody is preserved for body-less
+// requests (avoid allocating an empty bytes.Buffer just to
+// satisfy the inner handler's io.ReadCloser).
+func readAndRestoreBody(r *http.Request) ([]byte, error) {
+	if r.Body == nil || r.Body == http.NoBody {
+		return nil, nil
+	}
+	body, err := io.ReadAll(r.Body)
+	_ = r.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, nil
+}
+
+// idempotencyResponseRecorder captures the inner handler's
+// status + body so withIdempotencyKey can re-emit it from
+// the cache on retry.
+type idempotencyResponseRecorder struct {
+	http.ResponseWriter
+	status      int
+	buf         bytes.Buffer
+	wroteHeader bool
+}
+
+func (r *idempotencyResponseRecorder) WriteHeader(code int) {
+	if r.wroteHeader {
+		return
+	}
+	r.wroteHeader = true
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *idempotencyResponseRecorder) Write(p []byte) (int, error) {
+	if !r.wroteHeader {
+		r.WriteHeader(http.StatusOK)
+	}
+	r.buf.Write(p)
+	return r.ResponseWriter.Write(p)
+}

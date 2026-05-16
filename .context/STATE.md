@@ -1,26 +1,25 @@
 ---
-phase: v2.24-closed
-status: v1.16-v2.12 published; v2.13-v2.24 tags pending push (gh token expired)
+phase: v2.25-closed
+status: v1.16-v2.12 published; v2.13-v2.25 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.24 cycle closed on `main`** (1 chunk +
-close). localStorage ETag cache: v2.15 in-memory map
-persisted under `elsereno:etag-cache:v1`. Hydrate
-on script load, re-write on every 200. Quota errors
-silently swallowed. `window.elserenoResetEtagCache()`
-escape hatch.
+**Phase**: **v2.25 cycle closed on `main`** (1 chunk +
+close). Idempotency-Key extended to /clone + bulk
+endpoints via new `withIdempotencyKey(h)` middleware.
+Buffers body, replays 2xx on hit, 409 on conflict.
+4xx/5xx pass through uncached. +1 test.
 
-Snapshot: `.context/snapshots/v2.24.0-localstorage-etag.md`.
+Snapshot: `.context/snapshots/v2.25.0-idempotency-clone-bulk.md`.
 
-**v2.13-v2.23 cycles (closed)**: sparkline, clones,
+**v2.13-v2.24 cycles (closed)**: sparkline, clones,
 ETag plumbing, bulk tag-rename, NOT operator,
-Idempotency-Key, multi-select chips, ?atomic=tx,
-real PG WithTx, sparkline tooltips, recursive
-clone-chain.
+Idempotency-Key /import, multi-select chips,
+?atomic=tx, real PG WithTx, sparkline tooltips,
+recursive clone-chain, localStorage ETag cache.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

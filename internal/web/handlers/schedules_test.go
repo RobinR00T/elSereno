@@ -2130,6 +2130,43 @@ func names(s []scanorch.ScanSchedule) []string {
 	return out
 }
 
+// TestClone_IdempotencyKey_Replays (v2.25+): same key + same
+// body → replay; only one clone created.
+func TestClone_IdempotencyKey_Replays(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	doClone := func() *httptest.ResponseRecorder {
+		body := strings.NewReader(`{"name":"clone-once"}`)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/schedules/"+source.ID+"/clone", body)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "clone-test-key-1")
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		return rr
+	}
+	rr1 := doClone()
+	if rr1.Code != http.StatusCreated {
+		t.Fatalf("first clone status = %d body=%s", rr1.Code, rr1.Body.String())
+	}
+	rr2 := doClone()
+	if rr2.Code != http.StatusCreated {
+		t.Fatalf("replay status = %d, want 201", rr2.Code)
+	}
+	if rr2.Header().Get("Idempotency-Replay") != "true" {
+		t.Errorf("replay missing Idempotency-Replay header")
+	}
+	all, _ := store.List(context.Background())
+	if len(all) != 2 { // source + one clone
+		t.Errorf("store len = %d, want 2", len(all))
+	}
+}
+
 // TestImport_AtomicTx_HappyPath (v2.20+): ?atomic=tx with
 // all-valid rows → 200 + response carries atomic=tx.
 func TestImport_AtomicTx_HappyPath(t *testing.T) {

@@ -122,9 +122,12 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 	mux.Handle("GET /api/v1/schedules/{id}/clones", listScheduleClones(store))
 	mux.Handle("GET /api/v1/schedules/{id}/stats/timeseries", scheduleStatsTimeseries(store, scanStore))
 	mux.Handle("POST /api/v1/schedules/tags/rename", renameScheduleTag(store))
-	mux.Handle("POST /api/v1/schedules/{id}/clone", cloneSchedule(store, audit))
-	mux.Handle("POST /api/v1/schedules/bulk/enable", bulkSetEnabled(store, audit, true))
-	mux.Handle("POST /api/v1/schedules/bulk/disable", bulkSetEnabled(store, audit, false))
+	// v2.25: clone + bulk endpoints honour Idempotency-Key.
+	// Retries with the same key replay the cached response
+	// instead of double-cloning or double-toggling.
+	mux.Handle("POST /api/v1/schedules/{id}/clone", withIdempotencyKey(cloneSchedule(store, audit)))
+	mux.Handle("POST /api/v1/schedules/bulk/enable", withIdempotencyKey(bulkSetEnabled(store, audit, true)))
+	mux.Handle("POST /api/v1/schedules/bulk/disable", withIdempotencyKey(bulkSetEnabled(store, audit, false)))
 	mux.Handle("GET /api/v1/schedules/export", exportSchedules(store))
 	mux.Handle("POST /api/v1/schedules/import", importSchedules(store))
 	mux.Handle("GET /api/v1/schedules/tags", listScheduleTags(store))

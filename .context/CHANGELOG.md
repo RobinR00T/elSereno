@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.25 (chunk 1) — **Idempotency-Key
+  on /clone + bulk.** New `withIdempotencyKey(h)`
+  middleware wrapper reuses the v2.18 cache.
+  Buffers body, looks up, replays cached 2xx on hit,
+  409 on conflict, invokes inner handler via
+  idempotencyResponseRecorder on miss. Wired on
+  /clone, /bulk/enable, /bulk/disable. +1 test.
+  Snapshot:
+  `.context/snapshots/v2.25.0-idempotency-clone-bulk.md`.
+
 - 2026-05-16 — v2.24 (chunk 1) — **localStorage
   ETag cache.** v2.15 in-memory map persisted under
   `elsereno:etag-cache:v1`. Hydrate on script load,
