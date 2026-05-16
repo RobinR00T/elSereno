@@ -115,6 +115,13 @@ func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
 		}
 	case ProfileExploit:
 		// No arg-filter preset — see argRulesFor's docstring.
+	case ProfileScan:
+		// v2.32+: scan subprocess mirrors Harvest for the
+		// write-flag denial — openat without write flags only.
+		// Allows reading probe data + writing nothing on disk.
+		if nums.Openat != 0 {
+			out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
+		}
 	}
 	return out
 }

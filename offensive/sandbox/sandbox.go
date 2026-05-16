@@ -2,7 +2,8 @@
 
 package sandbox
 
-// Profile names the three operational profiles declared in ADR-042.
+// Profile names the operational profiles declared in ADR-042.
+// v2.32+ adds ProfileScan for read-only scan subprocesses.
 type Profile string
 
 // Profile values.
@@ -16,12 +17,19 @@ const (
 	// ProfileDial — for dial subprocesses. TTY ioctls allowed,
 	// network socket calls denied.
 	ProfileDial Profile = "dial"
+	// ProfileScan (v2.32+) — for read-only scan subprocesses
+	// (default-build scanners). Network read+write allowed for
+	// probing; file writes blocked entirely; process-exec
+	// blocked so a compromised target can't pivot. Defence
+	// in depth — the default scan path is already "safe" but
+	// dropping unused capabilities tightens the blast radius.
+	ProfileScan Profile = "scan"
 )
 
 // Valid reports whether p is a recognised profile.
 func (p Profile) Valid() bool {
 	switch p {
-	case ProfileExploit, ProfileHarvest, ProfileDial:
+	case ProfileExploit, ProfileHarvest, ProfileDial, ProfileScan:
 		return true
 	}
 	return false

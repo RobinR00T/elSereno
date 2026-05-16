@@ -1,18 +1,19 @@
 ---
-phase: v2.31-closed
-status: v1.16-v2.12 published; v2.13-v2.31 tags pending push (gh token expired)
+phase: v2.32-closed
+status: v1.16-v2.12 published; v2.13-v2.32 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.31 cycle closed on `main`** (1 chunk +
-close). TUI findings-pane polish: header shows total
-count + cursor position; severity column colour-coded
-via existing severityColor() helper. Triage UX win.
+**Phase**: **v2.32 cycle closed on `main`** (1 chunk +
+close). ProfileScan sandbox profile: 4th profile next to
+Exploit/Harvest/Dial. macOS .sb scheme + Linux seccomp +
+argfilter policy. Defence-in-depth for the default scan
+path; callsite plumbing deferred.
 
-Snapshot: `.context/snapshots/v2.31.0-tui-polish.md`.
+Snapshot: `.context/snapshots/v2.32.0-sandbox-profile-scan.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +

@@ -129,6 +129,25 @@ var macSandboxProfileSCM = map[Profile]string{
 (allow sysctl-read)
 (deny process-exec)
 `,
+
+	// ProfileScan (v2.32+) — read-only scan subprocesses.
+	// Network allowed (probes). All file writes denied
+	// (the scanner shouldn't be writing to disk; the
+	// parent process serialises findings via the audit
+	// chain). process-exec denied to prevent post-compromise
+	// pivots from a malicious target response.
+	ProfileScan: `(version 1)
+(deny default (with no-log))
+(allow process-fork)
+(allow process-info-pidinfo)
+(allow signal (target self))
+(allow file-read*)
+(deny file-write*)
+(allow network*)
+(allow mach-lookup)
+(allow sysctl-read)
+(deny process-exec)
+`,
 }
 
 // Load applies the kernel sandbox for profile via

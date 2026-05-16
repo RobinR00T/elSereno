@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.32 (chunk 1) — **ProfileScan
+  for read-only scan subprocesses.** Adds a 4th
+  sandbox profile alongside Exploit/Harvest/Dial.
+  macOS .sb scheme denies file-write* + process-exec
+  + allows network. Linux seccomp mirrors Harvest's
+  destructive-fs deny list + openat write-flag arg
+  filter. Defence in depth for the default scan
+  path. Snapshot:
+  `.context/snapshots/v2.32.0-sandbox-profile-scan.md`.
+
 - 2026-05-16 — v2.31 (chunk 1) — **TUI
   findings-pane polish.** Header now shows total
   finding count + cursor position

@@ -251,6 +251,21 @@ func blockedSyscalls(p Profile, n syscallNums) []uint32 {
 		// calls out (no process-spawn, no namespace-escape, no
 		// module-load, no ptrace). Network + fs I/O are allowed
 		// because the exploit IS network I/O.
+	case ProfileScan:
+		// v2.32+: read-only scan subprocess. Network allowed
+		// (probes), destructive fs syscalls denied. Mirrors
+		// ProfileHarvest's set — scans should NEVER write to
+		// the local filesystem; findings flow back to the
+		// parent via stdout/audit chain.
+		extra = []uint32{
+			n.Truncate, n.Ftruncate,
+			n.Unlink, n.Unlinkat,
+			n.Mknod, n.Mknodat,
+			n.Chmod, n.Fchmod, n.Fchmodat,
+			n.Rename, n.Renameat, n.Renameat2,
+			n.Symlink, n.Symlinkat,
+			n.Link, n.Linkat,
+		}
 	}
 
 	all := make([]uint32, 0, len(base)+len(extra))
