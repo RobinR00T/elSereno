@@ -150,6 +150,39 @@ func appendBytes(prefix []byte, suffix ...byte) []byte {
 	return append(prefix, suffix...)
 }
 
+// TestExtractModelHint_v230Prefixes (v2.30+): the expanded
+// family prefix table picks up VersaMax-M / CIMPLICITY /
+// IS220 / IS215 / MarkVIe / Series-One / Series-90 / PAC-IO
+// strings embedded in a 56-byte mailbox response.
+func TestExtractModelHint_v230Prefixes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		want string
+	}{
+		{"VersaMax-M07A", "VersaMax-M07A"},
+		{"CIMPLICITY-HMI", "CIMPLICITY-HMI"},
+		{"IS220PCAAH1A", "IS220PCAAH1A"},
+		{"IS215UCVEH2A", "IS215UCVEH2A"},
+		{"MarkVIe-Ctlr_05", "MarkVIe-Ctlr_05"},
+		{"Series-One-2", "Series-One-2"},
+		{"Series-90-30", "Series-90-30"},
+		{"PAC-IO-RT01", "PAC-IO-RT01"},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			buf := make([]byte, 56)
+			copy(buf[20:], []byte(c.name)) // arbitrary offset
+			got := wire.ExtractModelHint(buf)
+			if got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
 func TestIsMailboxResponseTrueOnly(t *testing.T) {
 	t.Parallel()
 	resp := make([]byte, 56)

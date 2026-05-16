@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.30 (chunk 1) — **GE-SRTP
+  family-prefix expansion.** Adds 8 new model-family
+  prefixes to ExtractModelHint: VersaMax-M,
+  CIMPLICITY, IS220, IS215, MarkVIe, Series-One,
+  Series-90, PAC-IO. Closes the v2.x "GE-SRTP
+  service-0x21 follow-up" carryover (the 0x21
+  service-builder + parser shipped in v1.28; v2.30
+  broadens the recognised vocabulary). +1 parametric
+  test. Snapshot:
+  `.context/snapshots/v2.30.0-gesrtp-prefixes.md`.
+
 - 2026-05-16 — v2.29 (chunk 1) — **fetchWithETag
   on /audit + /runs views.** openAuditView +
   fetchRunsPage now use the v2.15 helper. 304 →

@@ -275,14 +275,27 @@ outer:
 // model prefixes the extractor recognises. Order matters: the
 // scanner returns the first match, so longer / more-specific
 // prefixes go first.
+//
+// v2.30+: expanded with VersaMax-M, Mark VIe, CIMPLICITY,
+// Series One/Three/Five legacy, IS220 turbine controller, and
+// EFM/PAC-IO controller variants. Coverage drawn from GE
+// Automation product catalogue + public nmap NSE references.
 var gePLCFamilyPrefixes = []string{
 	"PACSystems", // RX3i / RX7i marketing umbrella
+	"VersaMax-M", // VersaMax Micro (sub-family of IC200; v2.30)
+	"CIMPLICITY", // GE HMI line (rare but seen on SRTP probes; v2.30)
+	"IS220",      // Mark VIe Distributed Controller (v2.30)
+	"IS215",      // Mark VIe legacy controller (v2.30)
 	"IC693",      // Series 90-30
 	"IC695",      // RX3i
 	"IC697",      // Series 90-70
 	"IC200",      // VersaMax
 	"RX3i",       // RX3i short form
 	"RX7i",       // RX7i short form
+	"MarkVIe",    // turbine controller (firmware string lacks space; v2.30)
+	"Series-One", // Series One legacy (v2.30)
+	"Series-90",  // Series 90 family umbrella (v2.30)
+	"PAC-IO",     // PAC-IO modular controller (v2.30)
 }
 
 // ExtractModelHint scans the buffer for the first printable-ASCII

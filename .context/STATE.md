@@ -1,19 +1,20 @@
 ---
-phase: v2.29-closed
-status: v1.16-v2.12 published; v2.13-v2.29 tags pending push (gh token expired)
+phase: v2.30-closed
+status: v1.16-v2.12 published; v2.13-v2.30 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.29 cycle closed on `main`** (1 chunk +
-close). fetchWithETag on /audit + /runs views.
-openAuditView + fetchRunsPage now go through the v2.15
-helper. 304 → no-op; 503 → unchanged "unavailable"
-message via `err.status === 503` branch.
+**Phase**: **v2.30 cycle closed on `main`** (1 chunk +
+close). GE-SRTP family-prefix expansion: 8 new prefixes
+(VersaMax-M, CIMPLICITY, IS220, IS215, MarkVIe,
+Series-One, Series-90, PAC-IO). Closes the v2.x
+service-0x21 carryover (0x21 service-builder shipped
+in v1.28; v2.30 broadens recognised vocabulary).
 
-Snapshot: `.context/snapshots/v2.29.0-etag-audit-runs.md`.
+Snapshot: `.context/snapshots/v2.30.0-gesrtp-prefixes.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +
