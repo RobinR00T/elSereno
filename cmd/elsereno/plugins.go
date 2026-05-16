@@ -22,6 +22,7 @@ import (
 	"local/elsereno/internal/protocols/mms"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/opcua"
+	"local/elsereno/internal/protocols/opcuahttps"
 	"local/elsereno/internal/protocols/pbxhttp"
 	"local/elsereno/internal/protocols/pcworx"
 	"local/elsereno/internal/protocols/proconos"
@@ -50,6 +51,11 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: fox.Default().Metadata(), Factory: func() core.Protocol { return fox.Default() }})
 	core.Register(core.Plugin{PluginMetadata: atg.Default().Metadata(), Factory: func() core.Protocol { return atg.Default() }})
 	core.Register(core.Plugin{PluginMetadata: opcua.Default().Metadata(), Factory: func() core.Protocol { return opcua.Default() }})
+	// v2.35: OPC UA HTTPS binding (Part 6) — separate plugin for the
+	// HTTPS transport since it has different default port (4843),
+	// different framing (HTTP over TLS), and different failure modes
+	// than the existing opcua plugin (raw UA-TCP on 4840).
+	core.Register(core.Plugin{PluginMetadata: opcuahttps.Default().Metadata(), Factory: func() core.Protocol { return opcuahttps.Default() }})
 	core.Register(core.Plugin{PluginMetadata: sip.Default().Metadata(), Factory: func() core.Protocol { return sip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: iax2.Default().Metadata(), Factory: func() core.Protocol { return iax2.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pbxhttp.Default().Metadata(), Factory: func() core.Protocol { return pbxhttp.Default() }})

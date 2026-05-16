@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.35 (chunk 1) — **OPC UA HTTPS
+  fingerprint plugin.** New `opcuahttps` default-build
+  plugin probes the Part 6 HTTPS binding on 4843. TLS
+  dial + POST /discovery + classify response headers
+  (binary/JSON Content-Type → strong; UA Server header
+  → weak; else nil). Curated UA-stack list (Unified
+  Automation, Prosys, Kepware, open62541, etc.).
+  Default plugin count 25 → 26. Closes deferred
+  roadmap item #3 (medio-grande). +5 tests. Snapshot:
+  `.context/snapshots/v2.35.0-opcua-https.md`.
+
 - 2026-05-16 — v2.34 (chunk 1) — **Windows
   cross-compile target.** Default + mini builds now
   ship `windows/amd64` and `windows/arm64`. Offensive

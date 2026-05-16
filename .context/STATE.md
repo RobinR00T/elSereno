@@ -1,19 +1,24 @@
 ---
-phase: v2.34-closed
-status: v1.16-v2.12 published; v2.13-v2.34 tags pending push (gh token expired)
+phase: v2.35-closed
+status: v1.16-v2.34 published; v2.35 tag pending push
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.34 cycle closed on `main`** (1 chunk +
-close). Windows cross-compile target: default + mini
-builds add `windows/amd64` + `windows/arm64`. Offensive
-stays unix-only. checkDisk split by platform; goreleaser
-matrix updated. Closes the long-deferred Windows carryover.
+**Phase**: **v2.35 cycle closed on `main`** (1 chunk +
+close). OPC UA HTTPS fingerprint plugin (`opcuahttps`):
+TLS dial + POST /discovery + classify response headers.
+Strong hit on `application/opcua+uabinary` or
+`opcua+uajson` Content-Type; weak hit on UA Server
+header. Default plugin count 25 → 26. Closes deferred
+roadmap item #3.
 
-Snapshot: `.context/snapshots/v2.34.0-windows-cross-compile.md`.
+Snapshot: `.context/snapshots/v2.35.0-opcua-https.md`.
+
+**v2.34 cycle (closed)**: Windows cross-compile target
+(default + mini, offensive stays unix-only).
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +
