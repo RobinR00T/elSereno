@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ func newDialCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newDialValidateCmd())
 	cmd.AddCommand(newDialBatchCmd())
+	cmd.AddCommand(newDialWardialCmd())
 	return cmd
 }
 
@@ -181,4 +183,95 @@ func printBatchSummary(cmd *cobra.Command, results []dial.BatchResult, auditPath
 	}
 	cmd.Printf("audit chain appended to: %s\n", auditPath)
 	cmd.Println("Verify the chain with: elsereno audit verify-file")
+}
+
+// wardialFlags bundles the wardial verb's flag state so the
+// cobra RunE closure stays under funlen limits.
+type wardialFlags struct {
+	rangeSpec      string
+	numbersPath    string
+	scopePath      string
+	workers        int
+	ratePerSec     float64
+	checkpointPath string
+	disposition    string
+}
+
+// newDialWardialCmd is the v2.37+ wardialing orchestrator verb.
+// Differs from `dial batch` in that it adds range-spec
+// expansion + concurrency + rate-limiting + resume-from-
+// checkpoint. The single-shot `dial batch` is preserved for
+// short list-driven workflows.
+func newDialWardialCmd() *cobra.Command {
+	f := &wardialFlags{}
+	cmd := &cobra.Command{
+		Use:   "wardial",
+		Short: "Concurrent wardialing batch (v2.37+; range expansion + rate-limit + resume)",
+		Long: `Like 'dial batch', but with:
+
+  --range A..B    expand a range spec (e.g. 555-0100..555-0199 = 100 numbers)
+  --workers N     fan-out classification across N goroutines (clamp 1..32)
+  --rate R        global cap of R numbers/second (0 = no limit)
+  --checkpoint F  append each completed number to F; on resume,
+                  skip lines already in F.
+
+Disposition is "preview" by default (audit-only dry run).
+v2.37 ships the orchestration; hardware delivery is still
+vNext.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runDialWardial(cmd, f)
+		},
+	}
+	cmd.Flags().StringVar(&f.rangeSpec, "range", "", "range spec (start..end). Mutually exclusive with --numbers-file")
+	cmd.Flags().StringVar(&f.numbersPath, "numbers-file", "", "file with one number per line (omit for stdin)")
+	cmd.Flags().StringVar(&f.scopePath, "scope", "", "optional scope.yaml path")
+	cmd.Flags().IntVar(&f.workers, "workers", 1, "concurrent classification workers (1..32)")
+	cmd.Flags().Float64Var(&f.ratePerSec, "rate", 0, "max numbers/second (0 = no limit)")
+	cmd.Flags().StringVar(&f.checkpointPath, "checkpoint", "", "append each completed number; resume skips lines in this file")
+	cmd.Flags().StringVar(&f.disposition, "disposition", "preview",
+		"audit disposition: preview | delivery-requested (actual dial is vNext)")
+	return cmd
+}
+
+// runDialWardial is the extracted RunE body to satisfy funlen.
+// Loads scope + audit + sandbox, opens input (range or file),
+// runs the Wardial orchestrator, prints summary.
+func runDialWardial(cmd *cobra.Command, f *wardialFlags) error {
+	sc, err := loadScope(f.scopePath)
+	if err != nil {
+		return err
+	}
+	rt, err := newAuditOnlyRuntime()
+	if err != nil {
+		return err
+	}
+	defer rt.Close()
+	if err := rt.ApplySandbox(cmd.Context(), sandbox.ProfileDial); err != nil {
+		return fail(core.ExitSoftware, fmt.Errorf("sandbox: %w", err))
+	}
+	var inputR io.Reader
+	if f.rangeSpec == "" {
+		inR, cleanup, openErr := openNumbersInput(f.numbersPath)
+		if openErr != nil {
+			return openErr
+		}
+		defer cleanup()
+		inputR = inR
+	}
+	w := &dial.Wardial{
+		Scope:          sc,
+		Writer:         rt.Writer,
+		Actor:          rt.Actor,
+		Disposition:    f.disposition,
+		Operation:      "dial_wardial",
+		Workers:        f.workers,
+		RatePerSecond:  f.ratePerSec,
+		CheckpointPath: f.checkpointPath,
+	}
+	results, err := w.Run(cmd.Context(), f.rangeSpec, inputR)
+	if err != nil {
+		return fail(core.ExitError, err)
+	}
+	printBatchSummary(cmd, results, rt.AuditPath())
+	return nil
 }

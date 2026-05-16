@@ -1,25 +1,25 @@
 ---
-phase: v2.36-closed
-status: v1.16-v2.34 published; v2.35-v2.36 tags pending push
+phase: v2.37-closed
+status: v1.16-v2.34 published; v2.35-v2.37 tags pending push
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.36 cycle closed on `main`** (1 chunk +
-close). MMS vendor hint + LD enumeration. Extends the
-v1.51 mms plugin past ACSE association: vendor-marker
-extraction from AARE (19 curated names) + confirmed-
-service GetServerDirectory request to enumerate Logical
-Devices. Findings carry vendor-hint + LD list. Closes
-deferred roadmap item #2 (grande).
+**Phase**: **v2.37 cycle closed on `main`** (1 chunk +
+close). Wardialing batch orchestrator. New
+`offensive/dial/range.go` (range expansion, caps 10k) +
+`offensive/dial/wardial.go` (Workers + RatePerSecond +
+CheckpointPath). New CLI verb `dial wardial`. Hardware
+delivery still vNext; disposition=preview by default.
+Closes deferred roadmap item #1 (grande).
 
-Snapshot: `.context/snapshots/v2.36.0-mms-vendor-ld.md`.
+Snapshot: `.context/snapshots/v2.37.0-wardialing-batch.md`.
 
-**v2.35 cycle (closed)**: OPC UA HTTPS fingerprint
-plugin (Part 6 binding on 4843). Default plugin count
-25 → 26. Closes deferred roadmap item #3 (medio-grande).
+**v2.35 + v2.36 cycles (closed)**: v2.35 OPC UA HTTPS
+fingerprint plugin. v2.36 MMS vendor hint + LD
+enumeration.
 
 **v2.34 cycle (closed)**: Windows cross-compile target.
 

@@ -8,6 +8,20 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.37 (chunk 1) — **Wardialing batch
+  orchestrator.** Closes deferred roadmap item #1
+  (grande). New `offensive/dial/range.go` (range
+  expansion `555-0100..555-0199` → 100 numbers; caps
+  at 10k) + `offensive/dial/wardial.go` (orchestrator
+  with Workers, RatePerSecond, CheckpointPath
+  resume). New CLI verb `elsereno-offensive dial
+  wardial`. Hardware delivery still vNext;
+  disposition=preview by default (audit-only).
+  ≤3-digit hard block + scope.blocked_numbers
+  invariants preserved. +18 tests (11 range + 7
+  wardial). Snapshot:
+  `.context/snapshots/v2.37.0-wardialing-batch.md`.
+
 - 2026-05-16 — v2.36 (chunk 1) — **MMS vendor
   hint + LD enumeration.** Extends the v1.51 mms
   plugin past ACSE association into the actual
