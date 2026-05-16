@@ -1,19 +1,19 @@
 ---
-phase: v2.28-closed
-status: v1.16-v2.12 published; v2.13-v2.28 tags pending push (gh token expired)
+phase: v2.29-closed
+status: v1.16-v2.12 published; v2.13-v2.29 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.28 cycle closed on `main`** (1 chunk +
-close). Dashboard rename-tag form: from + to inputs
-above the tag-cloud, POSTs v2.16 bulk-rename endpoint
-+ migrates active filter on success. v2.27 right-click
-exclude closed.
+**Phase**: **v2.29 cycle closed on `main`** (1 chunk +
+close). fetchWithETag on /audit + /runs views.
+openAuditView + fetchRunsPage now go through the v2.15
+helper. 304 → no-op; 503 → unchanged "unavailable"
+message via `err.status === 503` branch.
 
-Snapshot: `.context/snapshots/v2.28.0-rename-tag-form.md`.
+Snapshot: `.context/snapshots/v2.29.0-etag-audit-runs.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +

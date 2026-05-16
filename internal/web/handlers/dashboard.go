@@ -1932,17 +1932,13 @@ const overviewHTML = `<!doctype html>
     body.innerHTML = '<tr class="empty"><td colspan="4">loading…</td></tr>';
     view.style.display = "";
     view.scrollIntoView({block: "nearest"});
-    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/audit", {
-      credentials: "same-origin"
-    }).then(function (r) {
-      if (r.status === 503) {
-        body.innerHTML = '<tr class="empty"><td colspan="4">audit log unavailable — run with --scan-store=db to enable</td></tr>';
-        return null;
+    // v2.29: ETag-aware fetch. 304 short-circuits — current
+    // body is already correct, no re-render needed.
+    fetchWithETag("/api/v1/schedules/" + encodeURIComponent(id) + "/audit").then(function (resp) {
+      if (resp.notModified) {
+        return null; // no re-render
       }
-      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
-      return r.json();
-    }).then(function (res) {
-      if (res === null) return;
+      var res = resp.json;
       var events = (res && res.data) || [];
       if (!events.length) {
         body.innerHTML = '<tr class="empty"><td colspan="4">no audit events recorded for this schedule</td></tr>';
@@ -2004,6 +2000,10 @@ const overviewHTML = `<!doctype html>
           '</tr>';
       }).join("");
     }).catch(function (err) {
+      if (err && err.status === 503) {
+        body.innerHTML = '<tr class="empty"><td colspan="4">audit log unavailable — run with --scan-store=db to enable</td></tr>';
+        return;
+      }
       body.innerHTML = '<tr class="empty"><td colspan="4">audit fetch failed: ' + escText(err.message) + '</td></tr>';
     });
   }
@@ -2041,15 +2041,12 @@ const overviewHTML = `<!doctype html>
   function fetchRunsPage(id, before, body, append) {
     var url = "/api/v1/schedules/" + encodeURIComponent(id) + "/runs?limit=50";
     if (before) url += "&before=" + encodeURIComponent(before);
-    fetch(url, {credentials: "same-origin"}).then(function (r) {
-      if (r.status === 503) {
-        body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable — run with --scan-store=db to enable persistence</td></tr>';
-        return null;
+    // v2.29: ETag-aware. 304 short-circuits page re-render.
+    fetchWithETag(url).then(function (resp) {
+      if (resp.notModified) {
+        return; // already rendered; cursor remains valid for Load more.
       }
-      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
-      return r.json();
-    }).then(function (res) {
-      if (res === null) return;
+      var res = resp.json;
       var data = (res && res.data) || {};
       var jobs = data.items || [];
       if (!append && !jobs.length) {
@@ -2079,6 +2076,10 @@ const overviewHTML = `<!doctype html>
       var moreBtn = document.getElementById("schedule-runs-more-button");
       if (moreBtn) moreBtn.style.display = runsState.cursor ? "" : "none";
     }).catch(function (err) {
+      if (err && err.status === 503) {
+        body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable — run with --scan-store=db to enable persistence</td></tr>';
+        return;
+      }
       body.innerHTML = '<tr class="empty"><td colspan="5">runs fetch failed: ' + escText(err.message) + '</td></tr>';
     });
   }

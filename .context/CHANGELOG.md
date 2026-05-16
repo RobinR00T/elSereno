@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.29 (chunk 1) — **fetchWithETag
+  on /audit + /runs views.** openAuditView +
+  fetchRunsPage now use the v2.15 helper. 304 →
+  no-op (stale table stays correct). 503 →
+  unchanged "unavailable" message via
+  `err.status === 503` branch. Closes v2.15
+  dashboard-ETag carryover. Snapshot:
+  `.context/snapshots/v2.29.0-etag-audit-runs.md`.
+
 - 2026-05-16 — v2.28 (chunk 1) — **Dashboard
   rename-tag form.** Consumes v2.16 bulk-rename
   endpoint. `from` + `to` inputs (HTML5 pattern
