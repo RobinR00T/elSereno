@@ -1,21 +1,19 @@
 ---
-phase: v2.26-closed
-status: v1.16-v2.12 published; v2.13-v2.26 tags pending push (gh token expired)
+phase: v2.27-closed
+status: v1.16-v2.12 published; v2.13-v2.27 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.26 cycle closed on `main`** (1 chunk +
-close). PG-backed Idempotency cache: migration 00018,
-new `IdempotencyStore` interface (in-memory + PG
-impls), global swappable via
-`SetDefaultIdempotencyCache`. cmd_serve auto-swaps
-to PG when `--scan-store=db`. PG impl uses INSERT ON
-CONFLICT DO NOTHING + TTL via SELECT filter.
+**Phase**: **v2.27 cycle closed on `main`** (1 chunk +
+close). Right-click chip exclude: third tag-filter
+gesture. Right-click adds tag to filter set AND
+switches op to not_in in one action. v2.26 PG
+Idempotency cache closed.
 
-Snapshot: `.context/snapshots/v2.26.0-pg-idempotency.md`.
+Snapshot: `.context/snapshots/v2.27.0-right-click-exclude.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +

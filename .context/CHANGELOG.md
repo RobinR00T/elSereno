@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.27 (chunk 1) — **Right-click
+  tag-chip exclude.** Third tag-filter gesture
+  complementing v2.6 click + v2.19 Shift+Click.
+  Right-click toggles membership AND switches op
+  to `not_in` in one action. `setScheduleTagFilter`
+  gains optional `forceOp` arg that also updates the
+  visible op `<select>`. Chip `title` documents
+  all three gestures. Snapshot:
+  `.context/snapshots/v2.27.0-right-click-exclude.md`.
+
 - 2026-05-16 — v2.26 (chunk 1) — **PG-backed
   Idempotency cache.** Migration 00018:
   `idempotency_keys` table. New

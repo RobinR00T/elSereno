@@ -1403,9 +1403,12 @@ const overviewHTML = `<!doctype html>
           var tagsHTML = "—";
           if (Array.isArray(s.tags) && s.tags.length > 0) {
             tagsHTML = s.tags.map(function (t) {
+              // v2.27: same context-menu plumbing on row chips.
               return '<button type="button" class="tag-chip" data-tag="' + escAttr(t) +
-                '" onclick="setScheduleTagFilter(this.dataset.tag, event)" ' +
-                'style="background:#dde; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; margin-right:0.2em; cursor:pointer; font-size:0.85em;">' +
+                '" onclick="setScheduleTagFilter(this.dataset.tag, event)"' +
+                ' oncontextmenu="return setScheduleTagExclude(this.dataset.tag, event)"' +
+                ' title="Click = filter · Shift+Click = multi · Right-click = exclude"' +
+                ' style="background:#dde; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; margin-right:0.2em; cursor:pointer; font-size:0.85em;">' +
                 escText(t) + '</button>';
             }).join("");
           }
@@ -2517,9 +2520,12 @@ const overviewHTML = `<!doctype html>
           var isActive = scheduleTagFilterSet.indexOf(tc.tag) >= 0;
           var bg = isActive ? "#99c" : "#dde";
           var fg = isActive ? "#fff" : "#333";
+          // v2.27: oncontextmenu (right-click) → exclude.
           return '<button type="button" class="tag-chip" data-tag="' + escAttr(tc.tag) +
-            '" onclick="setScheduleTagFilter(this.dataset.tag, event)" ' +
-            'style="background:' + bg + '; color:' + fg + '; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; cursor:pointer; font-size:0.85em;">' +
+            '" onclick="setScheduleTagFilter(this.dataset.tag, event)"' +
+            ' oncontextmenu="return setScheduleTagExclude(this.dataset.tag, event)"' +
+            ' title="Click = filter · Shift+Click = multi · Right-click = exclude (not_in)"' +
+            ' style="background:' + bg + '; color:' + fg + '; border:1px solid #99c; border-radius:0.6em; padding:0.05em 0.5em; cursor:pointer; font-size:0.85em;">' +
             escText(tc.tag) + ' (' + tc.count + ')</button>';
         }).join("");
         var clearBtn = document.getElementById("schedule-tag-cloud-clear");
@@ -2547,11 +2553,12 @@ const overviewHTML = `<!doctype html>
   // setScheduleTagFilter (v2.6) and v2.19 — Shift+Click
   // adds/removes from the multi-select set; plain click
   // becomes "set as sole filter" (replaces the set).
-  function setScheduleTagFilter(tag, ev) {
+  // v2.27: forceOp arg lets context-menu (right-click)
+  // path also switch the op to "not_in" in one action.
+  function setScheduleTagFilter(tag, ev, forceOp) {
     if (!tag) return;
     var shift = !!(ev && ev.shiftKey);
     if (shift) {
-      // Multi-select: toggle membership.
       var idx = scheduleTagFilterSet.indexOf(tag);
       if (idx >= 0) {
         scheduleTagFilterSet.splice(idx, 1);
@@ -2559,17 +2566,29 @@ const overviewHTML = `<!doctype html>
         scheduleTagFilterSet.push(tag);
       }
     } else {
-      // Plain click: replace set with just this tag (or
-      // clear if it was the sole entry already).
       if (scheduleTagFilterSet.length === 1 && scheduleTagFilterSet[0] === tag) {
         scheduleTagFilterSet = [];
       } else {
         scheduleTagFilterSet = [tag];
       }
     }
-    // Mirror first-entry to legacy scalar for any old readers.
+    if (forceOp) {
+      scheduleTagFilterOp = forceOp;
+      var sel = document.getElementById("schedule-tag-filter-op");
+      if (sel) sel.value = forceOp;
+    }
     scheduleTagFilter = scheduleTagFilterSet.length === 1 ? scheduleTagFilterSet[0] : "";
     renderSchedules();
+  }
+  // setScheduleTagExclude (v2.27): right-click handler.
+  // Adds the tag to the filter set + switches op to
+  // not_in. preventDefault is called inline in the
+  // oncontextmenu attribute so the browser context menu
+  // doesn't open.
+  function setScheduleTagExclude(tag, ev) {
+    if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+    setScheduleTagFilter(tag, {shiftKey: true}, "not_in");
+    return false;
   }
   function clearScheduleTagFilter() {
     scheduleTagFilter = "";
@@ -2674,6 +2693,8 @@ const overviewHTML = `<!doctype html>
   window.clearScheduleTagFilter = clearScheduleTagFilter;
   // v2.19 op-selector handler.
   window.onScheduleTagFilterOpChange = onScheduleTagFilterOpChange;
+  // v2.27 right-click exclude.
+  window.setScheduleTagExclude = setScheduleTagExclude;
   // v2.13 sparkline view.
   window.openSparklineView = openSparklineView;
   window.closeSparklineView = closeSparklineView;
