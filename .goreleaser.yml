@@ -79,6 +79,12 @@ archives:
     ids:
       - elsereno-default
       - elsereno-offensive
+    # v2.34+: linux/macOS ship 2 binaries (default + offensive),
+    # Windows ships 1 (offensive is unix-only by design — SIGUSR1
+    # + libsandbox + posix-only paths). The escape hatch flag
+    # silences goreleaser's "different binary count per platform"
+    # error; it's the intentional, documented behaviour.
+    allow_different_binary_count: true
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
