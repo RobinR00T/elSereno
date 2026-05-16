@@ -135,14 +135,27 @@ func (m Model) renderFindingsPane() string {
 			start = m.Cursor
 		}
 	}
-	rows := []string{"Findings:  (cursor → ▸)"}
+	// v2.31: header carries total count + cursor position so the
+	// operator knows what fraction of findings is on-screen even
+	// when the scroll window is small (incident triage often has
+	// 100+ findings; "cursor on 87 of 312" is more useful than the
+	// previous bare "Findings:" header).
+	header := fmt.Sprintf("Findings (%d total · cursor on %d):  (▸ = active row)",
+		len(m.Findings), m.Cursor+1)
+	rows := []string{header}
 	for i := start; i < len(m.Findings); i++ {
 		f := m.Findings[i]
+		// v2.31: severity column gets the colour-coded label
+		// instead of the bare truncated string — at-a-glance
+		// triage scan.
+		sevLabel := lipgloss.NewStyle().
+			Foreground(severityColor(Severity(f.Severity))).
+			Render(truncate(string(f.Severity), 10))
 		row := fmt.Sprintf(" %s  %3d  %-8s  %s",
 			truncate(string(f.ID), 8),
 			f.Score,
 			truncate(f.Protocol, 8),
-			truncate(string(f.Severity), 10),
+			sevLabel,
 		)
 		if i == m.Cursor && m.FocusedPane == PaneFindings {
 			row = styles.cursorRow.Render("▸" + row)

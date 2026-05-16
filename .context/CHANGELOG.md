@@ -8,6 +8,14 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.31 (chunk 1) — **TUI
+  findings-pane polish.** Header now shows total
+  finding count + cursor position
+  ("Findings (N · cursor on M):"). Severity column
+  colour-coded via the previously-unused
+  severityColor() helper. Snapshot:
+  `.context/snapshots/v2.31.0-tui-polish.md`.
+
 - 2026-05-16 — v2.30 (chunk 1) — **GE-SRTP
   family-prefix expansion.** Adds 8 new model-family
   prefixes to ExtractModelHint: VersaMax-M,

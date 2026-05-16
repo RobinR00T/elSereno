@@ -1,20 +1,18 @@
 ---
-phase: v2.30-closed
-status: v1.16-v2.12 published; v2.13-v2.30 tags pending push (gh token expired)
+phase: v2.31-closed
+status: v1.16-v2.12 published; v2.13-v2.31 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.30 cycle closed on `main`** (1 chunk +
-close). GE-SRTP family-prefix expansion: 8 new prefixes
-(VersaMax-M, CIMPLICITY, IS220, IS215, MarkVIe,
-Series-One, Series-90, PAC-IO). Closes the v2.x
-service-0x21 carryover (0x21 service-builder shipped
-in v1.28; v2.30 broadens recognised vocabulary).
+**Phase**: **v2.31 cycle closed on `main`** (1 chunk +
+close). TUI findings-pane polish: header shows total
+count + cursor position; severity column colour-coded
+via existing severityColor() helper. Triage UX win.
 
-Snapshot: `.context/snapshots/v2.30.0-gesrtp-prefixes.md`.
+Snapshot: `.context/snapshots/v2.31.0-tui-polish.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +
