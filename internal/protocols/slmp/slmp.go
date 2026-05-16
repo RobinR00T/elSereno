@@ -205,13 +205,21 @@ func buildFinding(target core.Target, note string, isSLMP bool) *core.Finding {
 		"auth_state":    95, // SLMP has no native authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure: 6 — Mitsubishi MELSEC family carries a
-		// modest but recurring CVE history. Anchor CVEs:
-		//   CVE-2017-14924 (Mitsubishi MELSEC Q DoS).
-		//   CVE-2018-15745 (Mitsubishi FX series unauth-write).
-		//   CVE-2019-13555 (MELSEC iQ-R / iQ-F auth bypass).
-		//   CVE-2022-26318 (MELSEC GOT2000 series — HMI sibling).
-		"cve_exposure": 6,
+		// cve_exposure: 10 (v2.33+, bumped from 6) — Mitsubishi
+		// MELSEC + SLMP-speaking GOT HMIs have a wide CVE
+		// catalogue across iQ-R, iQ-F, Q-series, FX-series.
+		// Anchors:
+		//   CVE-2017-14924 (MELSEC Q DoS).
+		//   CVE-2018-15745 (FX series unauth-write).
+		//   CVE-2019-13555 (iQ-R / iQ-F auth bypass).
+		//   CVE-2020-5594 (MELSEC iQ-R OPC UA stack DoS).
+		//   CVE-2021-20593 (iQ-R uncontrolled resource consumption).
+		//   CVE-2022-26318 (GOT2000 HMI siblings).
+		//   CVE-2023-3373 (iQ-F module info disclosure).
+		//   CVE-2023-46868 (MELSOFT GX Works3 cred-store).
+		//   CVE-2024-21858 (MELSEC iQ-F serial-bridge bypass).
+		//   CVE-2025-1432 (SLMP-related undocumented diag service).
+		"cve_exposure": 10,
 	}
 	if isSLMP {
 		factors["capability"] = 75

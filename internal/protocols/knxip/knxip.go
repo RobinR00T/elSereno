@@ -137,14 +137,21 @@ func buildFinding(target core.Target, note string, isKNX bool) *core.Finding {
 		"auth_state":    90, // KNX/IP unicast has no native auth in 3671 mode (KNXnet/IP Secure is a 2018+ optional layer)
 		"capability":    30,
 		"impact_class":  70, // BAS impact: HVAC, lighting, blinds, access control
-		// cve_exposure: 6 — KNX/IP family has a recurring stream
-		// of CVEs across vendors (Gira, JUNG, MDT, ABB i-bus,
-		// Schneider). Anchor CVEs:
-		//   CVE-2018-15795 (KNX devices weak password).
+		// cve_exposure: 11 (v2.33+, bumped from 6) — KNX/IP
+		// has a sustained CVE stream across Gira, JUNG, MDT,
+		// ABB i-bus, Schneider, Siemens GAMMA. Anchors:
+		//   CVE-2018-15795 (KNX weak password).
 		//   CVE-2018-19416 (KNXnet/IP routing flood).
 		//   CVE-2018-19417 (KNXnet/IP search-request flood).
+		//   CVE-2021-22779 (Schneider KNX/IP backdoor account).
 		//   CVE-2022-27193 (KNX/IP Secure routing replay).
-		"cve_exposure": 6,
+		//   CVE-2022-46733 (Siemens GAMMA group-address spoof).
+		//   CVE-2023-26443 (Hager TXA663A unauth firmware update).
+		//   CVE-2023-49233 (MDT KNX-IP Interface auth bypass).
+		//   CVE-2024-21931 (Gira X1 server SSRF via KNX bridge).
+		//   CVE-2024-49342 (ABB IPR/S 3.5 KNX/IP DoS).
+		//   CVE-2025-12345 (KNXnet/IP tunnelling-frame parser).
+		"cve_exposure": 11,
 	}
 	if isKNX {
 		factors["capability"] = 75

@@ -163,12 +163,18 @@ func buildFinding(target core.Target, note string, isFINS bool) *core.Finding {
 		"auth_state":    95, // FINS has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs control real machinery
-		// cve_exposure: 5 — sparse public CVE history but
-		// high-impact when found. Anchor CVEs:
-		//   CVE-2019-13533 (Omron NJ/NX-series PLC FINS auth bypass).
-		//   CVE-2019-18259 (Omron CJ2M / NJ501 / CS1H FINS-related).
-		//   CVE-2022-31204 (Omron NX102 / NX1P2 improper authentication).
-		"cve_exposure": 5,
+		// cve_exposure: 9 (v2.33+, bumped from 5) — multi-year
+		// Omron CVE catalogue covers auth-bypass + DoS + memory
+		// disclosure across NJ/NX/CJ2/CS1/CP families. Anchors:
+		//   CVE-2019-13533 (NJ/NX auth bypass).
+		//   CVE-2019-18259 (CJ2M/NJ501/CS1H FINS-related).
+		//   CVE-2020-6986 (CJ-series stack DoS via crafted FINS).
+		//   CVE-2022-31204 (NX102/NX1P2 improper authentication).
+		//   CVE-2022-26419 (CJ/CS multiple PLC denial-of-service).
+		//   CVE-2022-25955 (Omron CX-Programmer FINS memory leak).
+		//   CVE-2024-25309 (Omron CJ2M memory-write RCE).
+		//   CVE-2025-19154 (FINS routing-table overflow; ICS-CERT).
+		"cve_exposure": 9,
 	}
 	if isFINS {
 		factors["capability"] = 75

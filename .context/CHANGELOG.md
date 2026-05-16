@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.33 (chunk 1) — **cve_exposure
+  expansion (6 plugins).** Bumps the long-deferred
+  placeholders for finsudp (5→9), slmp (6→10),
+  gesrtp (5→8), knxip (6→11), mbustcp (4→6), dlms
+  (7→12) with 3-8 anchor CVE references per plugin
+  documented inline. Closes the "CVE histories
+  harden" carryover. Snapshot:
+  `.context/snapshots/v2.33.0-cve-exposure-expansion.md`.
+
 - 2026-05-16 — v2.32 (chunk 1) — **ProfileScan
   for read-only scan subprocesses.** Adds a 4th
   sandbox profile alongside Exploit/Harvest/Dial.

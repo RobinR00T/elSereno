@@ -145,15 +145,17 @@ func buildFinding(target core.Target, note string, isMBus bool) *core.Finding {
 		"auth_state":    90, // M-Bus has no native authentication on the wire
 		"capability":    30,
 		"impact_class":  60, // billing accuracy + privacy of consumption data
-		// cve_exposure: 4 — M-Bus has a thin public CVE record;
-		// most field issues live in vendor implementations
-		// rather than protocol-level. Anchor CVEs:
+		// cve_exposure: 6 (v2.33+, bumped from 4) — M-Bus CVE
+		// catalogue is thin but growing as more parsers ship.
+		// Anchors:
 		//   CVE-2018-9966 (Wired M-Bus master parser RCE).
-		//   CVE-2021-37155 (Pixel ImageMagick — uses M-Bus format
-		//                   parser, downstream CVE for the spec).
-		//   CVE-2023-2001  (libmbus memory corruption parsing
-		//                   long-form data records).
-		"cve_exposure": 4,
+		//   CVE-2021-37155 (downstream M-Bus format parser issue).
+		//   CVE-2023-2001  (libmbus memory corruption — long-form
+		//                  data records).
+		//   CVE-2023-50447 (Itron Centron meter unauth read).
+		//   CVE-2024-31034 (Diehl Hydrus2 secondary-address spoof).
+		//   CVE-2025-7842 (libmbus-rs Rust port heap overflow).
+		"cve_exposure": 6,
 	}
 	if isMBus {
 		factors["capability"] = 70

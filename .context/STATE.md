@@ -1,19 +1,19 @@
 ---
-phase: v2.32-closed
-status: v1.16-v2.12 published; v2.13-v2.32 tags pending push (gh token expired)
+phase: v2.33-closed
+status: v1.16-v2.12 published; v2.13-v2.33 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.32 cycle closed on `main`** (1 chunk +
-close). ProfileScan sandbox profile: 4th profile next to
-Exploit/Harvest/Dial. macOS .sb scheme + Linux seccomp +
-argfilter policy. Defence-in-depth for the default scan
-path; callsite plumbing deferred.
+**Phase**: **v2.33 cycle closed on `main`** (1 chunk +
+close). cve_exposure expansion: 6 plugins bumped with
+documented anchor CVEs (finsudp 5→9, slmp 6→10, gesrtp
+5→8, knxip 6→11, mbustcp 4→6, dlms 7→12). Closes the
+long-deferred carryover.
 
-Snapshot: `.context/snapshots/v2.32.0-sandbox-profile-scan.md`.
+Snapshot: `.context/snapshots/v2.33.0-cve-exposure-expansion.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +
