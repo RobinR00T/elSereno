@@ -93,39 +93,84 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// short response) falls back to the COTP-level note —
 	// the v1.25 behaviour is preserved for non-IEC 61850
 	// MMS-style servers.
-	if acseNote, ok := tryACSEAssociate(conn, p.IOTimeout); ok {
-		return buildFinding(target, acseNote, true), nil
+	// v2.36+: on a successful ACSE associate, extract a
+	// vendor hint from the AARE bytes + try a follow-up
+	// GetServerDirectory to enumerate Logical Devices. Any
+	// step failure degrades gracefully (we still keep the
+	// ACSE-level finding).
+	if acseNote, aareBytes, ok := tryACSEAssociate(conn, p.IOTimeout); ok {
+		hint := wire.ExtractMMSVendorHint(aareBytes)
+		lds, _ := tryGetServerDirectory(conn, p.IOTimeout)
+		fullNote := acseNote
+		if hint != "" {
+			fullNote += " · vendor-hint: " + hint
+		}
+		if len(lds) > 0 {
+			fullNote += " · " + wire.FormatLDList(lds)
+		}
+		return buildFinding(target, fullNote, true), nil
 	}
 	return buildFinding(target, "MMS "+note, true), nil
 }
 
 // tryACSEAssociate sends an A-ASSOCIATE-REQUEST and looks
 // for the IEC 61850-8-1 OID in the response. Returns
-// (note, true) when the AARE confirms IEC 61850; (_, false)
-// otherwise. Caller falls back to COTP-level fingerprint
-// note on false.
+// (note, aareBytes, true) when the AARE confirms IEC 61850;
+// (_, _, false) otherwise. Caller falls back to COTP-level
+// fingerprint note on false.
+//
+// v2.36+: also returns the raw AARE payload bytes (after the
+// COTP DT header) so the caller can extract vendor hints.
 //
 // Wraps the AARQ in COTP DT (LI=02, type=0xF0, TPDU-nr=0x80
 // = end-of-TSDU marker) before TPKT. The conn deadline
 // already covers this exchange — operator-tunable via
 // Plugin.IOTimeout.
-func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, bool) {
+func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, []byte, bool) {
 	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
 	aarq := wire.BuildACSEAssociateRequestMMS()
 	frame := make([]byte, 0, 3+len(aarq))
 	frame = append(frame, 0x02, 0xF0, 0x80) // COTP DT header
 	frame = append(frame, aarq...)
 	if err := wire.WriteTPKT(conn, frame); err != nil {
-		return "", false
+		return "", nil, false
 	}
 	respTPKT, err := wire.ReadTPKT(conn)
 	if err != nil {
-		return "", false
+		return "", nil, false
 	}
 	if err := wire.ParseACSEAssociateResponseMMS(respTPKT.Payload); err != nil {
-		return "", false
+		return "", nil, false
 	}
-	return "MMS ACSE associated (IEC 61850-8-1)", true
+	return "MMS ACSE associated (IEC 61850-8-1)", respTPKT.Payload, true
+}
+
+// tryGetServerDirectory issues a confirmed-service
+// GetServerDirectory (objectClass=domain) on the already-
+// associated MMS session. Returns the list of LD names plus
+// (best-effort) any error. v2.36+.
+//
+// Frames the MMS PDU in COTP DT (same header as the ACSE
+// associate). The conn deadline is reset for this exchange.
+func tryGetServerDirectory(conn net.Conn, ioTimeout time.Duration) ([]string, error) {
+	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
+	pdu := wire.BuildMMSGetServerDirectoryRequest()
+	frame := make([]byte, 0, 3+len(pdu))
+	frame = append(frame, 0x02, 0xF0, 0x80) // COTP DT header
+	frame = append(frame, pdu...)
+	if err := wire.WriteTPKT(conn, frame); err != nil {
+		return nil, fmt.Errorf("mms: write GetServerDirectory: %w", err)
+	}
+	respTPKT, err := wire.ReadTPKT(conn)
+	if err != nil {
+		return nil, fmt.Errorf("mms: read GetServerDirectory: %w", err)
+	}
+	// Strip COTP DT header (3 bytes) before parsing.
+	body := respTPKT.Payload
+	if len(body) > 3 {
+		body = body[3:]
+	}
+	return wire.ParseMMSGetServerDirectoryResponse(body)
 }
 
 // REPL stub — consistent with every other protocol plugin.

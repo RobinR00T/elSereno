@@ -1,24 +1,27 @@
 ---
-phase: v2.35-closed
-status: v1.16-v2.34 published; v2.35 tag pending push
+phase: v2.36-closed
+status: v1.16-v2.34 published; v2.35-v2.36 tags pending push
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.35 cycle closed on `main`** (1 chunk +
-close). OPC UA HTTPS fingerprint plugin (`opcuahttps`):
-TLS dial + POST /discovery + classify response headers.
-Strong hit on `application/opcua+uabinary` or
-`opcua+uajson` Content-Type; weak hit on UA Server
-header. Default plugin count 25 → 26. Closes deferred
-roadmap item #3.
+**Phase**: **v2.36 cycle closed on `main`** (1 chunk +
+close). MMS vendor hint + LD enumeration. Extends the
+v1.51 mms plugin past ACSE association: vendor-marker
+extraction from AARE (19 curated names) + confirmed-
+service GetServerDirectory request to enumerate Logical
+Devices. Findings carry vendor-hint + LD list. Closes
+deferred roadmap item #2 (grande).
 
-Snapshot: `.context/snapshots/v2.35.0-opcua-https.md`.
+Snapshot: `.context/snapshots/v2.36.0-mms-vendor-ld.md`.
 
-**v2.34 cycle (closed)**: Windows cross-compile target
-(default + mini, offensive stays unix-only).
+**v2.35 cycle (closed)**: OPC UA HTTPS fingerprint
+plugin (Part 6 binding on 4843). Default plugin count
+25 → 26. Closes deferred roadmap item #3 (medio-grande).
+
+**v2.34 cycle (closed)**: Windows cross-compile target.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +

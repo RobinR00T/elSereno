@@ -8,6 +8,21 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.36 (chunk 1) — **MMS vendor
+  hint + LD enumeration.** Extends the v1.51 mms
+  plugin past ACSE association into the actual
+  service layer. New `wire/mms_services.go` with
+  `ExtractMMSVendorHint` (19 curated markers) +
+  `BuildMMSGetServerDirectoryRequest` +
+  `ParseMMSGetServerDirectoryResponse`. Plugin
+  chains AARE-hint extraction + GetServerDirectory
+  on successful associate. Findings note now reads:
+  `MMS ACSE associated (IEC 61850-8-1) · vendor-
+  hint: ...SIEMENS SIPROTEC 5... · LDs: [CTRL, ...]`.
+  Closes deferred roadmap item #2 (grande). +9 tests.
+  Snapshot:
+  `.context/snapshots/v2.36.0-mms-vendor-ld.md`.
+
 - 2026-05-16 — v2.35 (chunk 1) — **OPC UA HTTPS
   fingerprint plugin.** New `opcuahttps` default-build
   plugin probes the Part 6 HTTPS binding on 4843. TLS
