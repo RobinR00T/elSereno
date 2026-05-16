@@ -167,22 +167,6 @@ func checkIPv6() doctorResult {
 	return doctorResult{name: "ipv6", status: doctorWarn, message: "no IPv6 address on any interface"}
 }
 
-func checkDisk() doctorResult {
-	var st syscall.Statfs_t
-	if err := syscall.Statfs(".", &st); err != nil {
-		return doctorResult{name: "disk", status: doctorWarn, message: err.Error()}
-	}
-	// Bytes free in the current filesystem. Statfs field types differ
-	// by platform (darwin: Bavail uint64, Bsize uint32; linux: Bavail
-	// uint64, Bsize int64). Explicit uint64 conversions normalise both.
-	// golangci-lint's bundled gosec accepts the line-above `//nolint`;
-	// the standalone gosec binary run in CI's `sec` job only honours
-	// same-line `// #nosec` (PITF-030).
-	//nolint:unconvert // cross-platform widening; one side may already be uint64
-	free := uint64(st.Bavail) * uint64(st.Bsize) // #nosec G115 -- cross-platform widening
-	const oneGiB = uint64(1 << 30)
-	if free < oneGiB {
-		return doctorResult{name: "disk", status: doctorFail, message: fmt.Sprintf("only %d MiB free in %q", free>>20, ".")}
-	}
-	return doctorResult{name: "disk", status: doctorOK, message: fmt.Sprintf("%d MiB free", free>>20)}
-}
+// checkDisk lives in cmd_doctor_disk_unix.go (linux + darwin)
+// and cmd_doctor_disk_windows.go (v2.34+ stub) so the Windows
+// build doesn't pull in syscall.Statfs.

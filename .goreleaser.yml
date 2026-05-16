@@ -22,7 +22,11 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
-    goos: [linux, darwin]
+    # v2.34+: Windows joins linux+darwin for the default
+    # build. The mini variant also ships Windows (read-only
+    # subset); offensive stays unix-only (SIGUSR1 +
+    # libsandbox).
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
   - id: elsereno-offensive
@@ -65,7 +69,8 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
-    goos: [linux, darwin]
+    # v2.34+: Windows joins the mini build matrix.
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
 archives:

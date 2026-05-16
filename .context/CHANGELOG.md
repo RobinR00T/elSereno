@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.34 (chunk 1) — **Windows
+  cross-compile target.** Default + mini builds now
+  ship `windows/amd64` and `windows/arm64`. Offensive
+  stays unix-only (SIGUSR1 + libsandbox). Split
+  `checkDisk` doctor check: `cmd_doctor_disk_unix.go`
+  (syscall.Statfs) +
+  `cmd_doctor_disk_windows.go`
+  (kernel32.GetDiskFreeSpaceExW via syscall.LazyDLL,
+  no x/sys dep). .goreleaser.yml default + mini
+  goos lists add windows. Snapshot:
+  `.context/snapshots/v2.34.0-windows-cross-compile.md`.
+
 - 2026-05-16 — v2.33 (chunk 1) — **cve_exposure
   expansion (6 plugins).** Bumps the long-deferred
   placeholders for finsudp (5→9), slmp (6→10),

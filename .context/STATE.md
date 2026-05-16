@@ -1,19 +1,19 @@
 ---
-phase: v2.33-closed
-status: v1.16-v2.12 published; v2.13-v2.33 tags pending push (gh token expired)
+phase: v2.34-closed
+status: v1.16-v2.12 published; v2.13-v2.34 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.33 cycle closed on `main`** (1 chunk +
-close). cve_exposure expansion: 6 plugins bumped with
-documented anchor CVEs (finsudp 5→9, slmp 6→10, gesrtp
-5→8, knxip 6→11, mbustcp 4→6, dlms 7→12). Closes the
-long-deferred carryover.
+**Phase**: **v2.34 cycle closed on `main`** (1 chunk +
+close). Windows cross-compile target: default + mini
+builds add `windows/amd64` + `windows/arm64`. Offensive
+stays unix-only. checkDisk split by platform; goreleaser
+matrix updated. Closes the long-deferred Windows carryover.
 
-Snapshot: `.context/snapshots/v2.33.0-cve-exposure-expansion.md`.
+Snapshot: `.context/snapshots/v2.34.0-windows-cross-compile.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +
