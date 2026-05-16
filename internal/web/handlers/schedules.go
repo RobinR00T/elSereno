@@ -617,7 +617,19 @@ func listScheduleClones(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		clones, err := store.ListClonesOf(r.Context(), id)
+		// v2.23: ?depth=N (default 1, clamped to [1, 10]) walks
+		// the clone chain. Default behaviour matches v2.10
+		// (direct children only).
+		depth := 1
+		if raw := r.URL.Query().Get("depth"); raw != "" {
+			n, parseErr := strconv.Atoi(raw)
+			if parseErr != nil || n < 1 {
+				http.Error(w, "schedules: depth must be 1..10", http.StatusBadRequest)
+				return
+			}
+			depth = n
+		}
+		clones, err := store.ListClonesOfDeep(r.Context(), id, depth)
 		if err != nil {
 			http.Error(w, "schedules: list clones: "+err.Error(), http.StatusInternalServerError)
 			return

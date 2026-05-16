@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.23 (chunk 1) — **Recursive
+  clone-chain ?depth=N.** New
+  `ListClonesOfDeep(ctx, id, depth)` on the
+  ScheduleStore interface (Memory = BFS; PG =
+  recursive CTE). `ScanSchedule.CloneDepth` computed
+  field. Constants CloneDepthMin=1, CloneDepthMax=10.
+  Handler accepts `?depth=N`, clamped, 400 on
+  malformed. `ListClonesOf` now thin wrapper passing
+  depth=1. +2 tests. Snapshot:
+  `.context/snapshots/v2.23.0-recursive-clone-chain.md`.
+
 - 2026-05-15 — v2.22 (chunk 1) — **Sparkline
   bucket tooltips.** v2.13 sparkline only carried
   per-polyline series-max tooltips. v2.22 adds

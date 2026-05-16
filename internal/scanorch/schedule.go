@@ -97,6 +97,10 @@ type ScanSchedule struct {
 	// are clamped to 365*10 (10 years) to keep the column
 	// bounded.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
+	// CloneDepth (v2.23+) is a computed-at-read field used by
+	// ListClonesOfDeep to indicate the BFS distance from the
+	// root source. NOT persisted; zero in default reads.
+	CloneDepth int `json:"clone_depth,omitempty"`
 	// SourceScheduleID (v2.10+) is the ID of the schedule
 	// this one was cloned from (via the v1.93 clone endpoint).
 	// Empty when the schedule was operator-created directly.
@@ -276,6 +280,18 @@ type ScheduleStore interface {
 	// dashboard's clone-provenance view + the `GET
 	// /schedules/{id}/clones` endpoint.
 	ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error)
+	// ListClonesOfDeep (v2.23+) walks the clone chain `depth`
+	// hops deep (depth=1 is identical to ListClonesOf;
+	// depth=N includes clones-of-clones up to N levels).
+	// Result is sorted by depth ASC, then name ASC, so the
+	// dashboard can group by generation.
+	//
+	// Each returned schedule's `clone_depth` field (computed,
+	// not persisted) carries the BFS depth at which it was
+	// discovered. Cycles are impossible by construction
+	// (source is set at clone time + can't be retargeted)
+	// but the walker still tracks visited IDs defensively.
+	ListClonesOfDeep(ctx context.Context, sourceID string, depth int) ([]ScanSchedule, error)
 	// CreateClone (v2.10+) is the clone-specific path that
 	// stamps source_schedule_id alongside the new row. Mirrors
 	// Create's signature but takes the source id.
@@ -404,20 +420,76 @@ func (s *MemoryScheduleStore) CreateClone(_ context.Context, req CreateScheduleR
 
 // ListClonesOf (v2.10+) returns clones whose source_schedule_id
 // equals `sourceID`. Empty sourceID → empty slice.
-func (s *MemoryScheduleStore) ListClonesOf(_ context.Context, sourceID string) ([]ScanSchedule, error) {
+//
+// v2.23+: thin wrapper over ListClonesOfDeep with depth=1.
+func (s *MemoryScheduleStore) ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error) {
+	return s.ListClonesOfDeep(ctx, sourceID, 1)
+}
+
+// CloneDepthMin/Max (v2.23+) clamp the depth parameter.
+// depth=1 = direct children only; depth=10 is the maximum
+// useful walk (operators rarely have chains deeper than this;
+// keep the recursion bounded).
+const (
+	CloneDepthMin = 1
+	CloneDepthMax = 10
+)
+
+// ListClonesOfDeep (v2.23+) walks the clone chain BFS up to
+// `depth` levels. depth clamped to [1, 10]. See interface doc.
+func (s *MemoryScheduleStore) ListClonesOfDeep(_ context.Context, sourceID string, depth int) ([]ScanSchedule, error) {
 	if sourceID == "" {
 		return nil, nil
 	}
+	if depth < CloneDepthMin {
+		depth = CloneDepthMin
+	}
+	if depth > CloneDepthMax {
+		depth = CloneDepthMax
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	// BFS: frontier of source-IDs to expand next round; out
+	// accumulates results with their depth stamps.
+	visited := make(map[string]struct{})
+	frontier := []string{sourceID}
 	out := make([]ScanSchedule, 0)
-	for _, sched := range s.schedules {
-		if sched.SourceScheduleID == sourceID {
-			out = append(out, sched)
+	for d := 1; d <= depth && len(frontier) > 0; d++ {
+		var nextFrontier []string
+		for _, src := range frontier {
+			if _, dup := visited[src]; dup {
+				continue
+			}
+			visited[src] = struct{}{}
+			for _, sched := range s.schedules {
+				if sched.SourceScheduleID != src {
+					continue
+				}
+				sched.CloneDepth = d
+				out = append(out, sched)
+				nextFrontier = append(nextFrontier, sched.ID)
+			}
 		}
+		frontier = nextFrontier
 	}
-	sortSchedulesByName(out)
+	sortClonesByDepthThenName(out)
 	return out, nil
+}
+
+// sortClonesByDepthThenName orders clones depth-ASC, then
+// name-ASC. Insertion sort; clone chains stay small in
+// practice.
+func sortClonesByDepthThenName(c []ScanSchedule) {
+	for i := 1; i < len(c); i++ {
+		v := c[i]
+		j := i - 1
+		for j >= 0 && (c[j].CloneDepth > v.CloneDepth ||
+			(c[j].CloneDepth == v.CloneDepth && c[j].Name > v.Name)) {
+			c[j+1] = c[j]
+			j--
+		}
+		c[j+1] = v
+	}
 }
 
 // buildScheduleFromRequest validates the request + applies

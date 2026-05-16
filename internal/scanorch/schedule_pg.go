@@ -163,31 +163,110 @@ WHERE $1 = ANY(tags)`
 
 // ListClonesOf (v2.10+) uses the partial index from
 // migration 00017 for fast clone-provenance lookups.
+//
+// v2.23+: thin wrapper over ListClonesOfDeep with depth=1.
 func (s *DBScheduleStore) ListClonesOf(ctx context.Context, sourceID string) ([]ScanSchedule, error) {
+	return s.ListClonesOfDeep(ctx, sourceID, 1)
+}
+
+// ListClonesOfDeep (v2.23+) walks the clone chain via a
+// recursive CTE. Each row carries its BFS depth via the
+// `clone_depth` projection alias.
+func (s *DBScheduleStore) ListClonesOfDeep(ctx context.Context, sourceID string, depth int) ([]ScanSchedule, error) {
 	if sourceID == "" {
 		return nil, nil
 	}
-	rows, err := s.q.Query(ctx,
-		"SELECT "+scheduleColumns+
-			" FROM scan_schedules WHERE source_schedule_id = $1"+
-			" ORDER BY name ASC",
-		sourceID)
+	if depth < CloneDepthMin {
+		depth = CloneDepthMin
+	}
+	if depth > CloneDepthMax {
+		depth = CloneDepthMax
+	}
+	// Recursive CTE: start with direct children, recurse up
+	// to `depth` levels. The base case sets depth=1; each
+	// recursive iteration adds 1 + filters when depth = N.
+	//
+	// LIMIT clause on the recursive step keeps a chain from
+	// runaway-walking if data ever gets corrupted (FK SET
+	// NULL + can't-retarget invariants mean cycles are
+	// impossible, but defence in depth).
+	const sql = `
+WITH RECURSIVE chain AS (
+  SELECT s.*, 1 AS clone_depth
+  FROM scan_schedules s
+  WHERE s.source_schedule_id = $1
+  UNION ALL
+  SELECT s.*, c.clone_depth + 1
+  FROM scan_schedules s
+  JOIN chain c ON s.source_schedule_id = c.id
+  WHERE c.clone_depth < $2
+)
+SELECT ` + scheduleColumns + `, clone_depth
+FROM chain
+ORDER BY clone_depth ASC, name ASC`
+	rows, err := s.q.Query(ctx, sql, sourceID, depth)
 	if err != nil {
-		return nil, fmt.Errorf("scanorch: list clones of: %w", err)
+		return nil, fmt.Errorf("scanorch: list clones deep: %w", err)
 	}
 	defer rows.Close()
-	var out []ScanSchedule
+	out := make([]ScanSchedule, 0)
 	for rows.Next() {
-		sched, scanErr := scanSchedule(rows)
+		sched, depthVal, scanErr := scanScheduleWithDepth(rows)
 		if scanErr != nil {
 			return nil, scanErr
 		}
+		sched.CloneDepth = depthVal
 		out = append(out, sched)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scanorch: list clones of (rows): %w", err)
+		return nil, fmt.Errorf("scanorch: list clones deep (rows): %w", err)
 	}
 	return out, nil
+}
+
+// scanScheduleWithDepth (v2.23+) extends scanSchedule for the
+// recursive-CTE projection that includes clone_depth as the
+// trailing column.
+func scanScheduleWithDepth(rows pgx.Rows) (ScanSchedule, int, error) {
+	var (
+		s                  ScanSchedule
+		templateInput      string
+		templatePlugins    []string
+		templateDefaultPt  int
+		lastFiredAt        *time.Time
+		auditRetentionDays *int32
+		tags               []string
+		sourceScheduleID   *string
+		cloneDepth         int32
+	)
+	if err := rows.Scan(
+		&s.ID, &s.Name,
+		&templateInput, &templatePlugins, &templateDefaultPt,
+		&s.IntervalSeconds, &s.CronExpr, &s.Timezone, &s.Enabled, &s.Operator,
+		&s.CreatedAt, &s.UpdatedAt, &lastFiredAt,
+		&auditRetentionDays, &tags, &sourceScheduleID,
+		&cloneDepth,
+	); err != nil {
+		return ScanSchedule{}, 0, fmt.Errorf("scanorch: scan schedule (with depth): %w", err)
+	}
+	s.Template = SubmitRequest{
+		Input:       templateInput,
+		Plugins:     templatePlugins,
+		DefaultPort: templateDefaultPt,
+	}
+	if lastFiredAt != nil {
+		s.LastFiredAt = *lastFiredAt
+	}
+	if auditRetentionDays != nil {
+		s.AuditRetentionDays = int(*auditRetentionDays)
+	}
+	if len(tags) > 0 {
+		s.Tags = tags
+	}
+	if sourceScheduleID != nil {
+		s.SourceScheduleID = *sourceScheduleID
+	}
+	return s, int(cloneDepth), nil
 }
 
 // Get returns the schedule by ID.

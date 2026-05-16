@@ -1218,6 +1218,77 @@ func TestScheduleStatsTimeseries_BadBucket(t *testing.T) {
 	}
 }
 
+// TestListScheduleClones_Deep (v2.23+): recursive chain walk.
+func TestListScheduleClones_Deep(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	// Build root → child1 → grandchild → great-grandchild.
+	root, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "root",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	child, _ := store.CreateClone(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "child", Template: root.Template, IntervalSeconds: 60,
+	}, "alice", root.ID)
+	grand, _ := store.CreateClone(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "grand", Template: root.Template, IntervalSeconds: 60,
+	}, "alice", child.ID)
+	_, _ = store.CreateClone(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "great-grand", Template: root.Template, IntervalSeconds: 60,
+	}, "alice", grand.ID)
+
+	router := newSchedRouter(store)
+	// depth=1: only direct child.
+	rr1 := httptest.NewRecorder()
+	router.ServeHTTP(rr1, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+root.ID+"/clones?depth=1", nil))
+	var resp1 struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr1.Body.Bytes(), &resp1)
+	if len(resp1.Data) != 1 || resp1.Data[0].Name != "child" {
+		t.Errorf("depth=1 got %v, want [child]", resp1.Data)
+	}
+	if resp1.Data[0].CloneDepth != 1 {
+		t.Errorf("depth=1 CloneDepth = %d, want 1", resp1.Data[0].CloneDepth)
+	}
+	// depth=3: all three descendants.
+	rr3 := httptest.NewRecorder()
+	router.ServeHTTP(rr3, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+root.ID+"/clones?depth=3", nil))
+	var resp3 struct {
+		Data []scanorch.ScanSchedule `json:"data"`
+	}
+	_ = json.Unmarshal(rr3.Body.Bytes(), &resp3)
+	if len(resp3.Data) != 3 {
+		t.Fatalf("depth=3 got %d items, want 3", len(resp3.Data))
+	}
+	// Sorted by depth ASC then name ASC.
+	wantDepths := []int{1, 2, 3}
+	for i, want := range wantDepths {
+		if resp3.Data[i].CloneDepth != want {
+			t.Errorf("Data[%d].CloneDepth = %d, want %d", i, resp3.Data[i].CloneDepth, want)
+		}
+	}
+}
+
+// TestListScheduleClones_DeepBadDepth (v2.23+): depth=0 → 400.
+func TestListScheduleClones_DeepBadDepth(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	src, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "src",
+		Template:        scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouter(store)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/"+src.ID+"/clones?depth=0", nil))
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleClones_AfterClone (v2.10+): clone via POST,
 // then /clones returns the new schedule.
 func TestListScheduleClones_AfterClone(t *testing.T) {
