@@ -1,19 +1,19 @@
 ---
-phase: v2.27-closed
-status: v1.16-v2.12 published; v2.13-v2.27 tags pending push (gh token expired)
+phase: v2.28-closed
+status: v1.16-v2.12 published; v2.13-v2.28 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.27 cycle closed on `main`** (1 chunk +
-close). Right-click chip exclude: third tag-filter
-gesture. Right-click adds tag to filter set AND
-switches op to not_in in one action. v2.26 PG
-Idempotency cache closed.
+**Phase**: **v2.28 cycle closed on `main`** (1 chunk +
+close). Dashboard rename-tag form: from + to inputs
+above the tag-cloud, POSTs v2.16 bulk-rename endpoint
++ migrates active filter on success. v2.27 right-click
+exclude closed.
 
-Snapshot: `.context/snapshots/v2.27.0-right-click-exclude.md`.
+Snapshot: `.context/snapshots/v2.28.0-rename-tag-form.md`.
 
 **v2.13-v2.25 cycles (closed)**: sparkline + clones +
 ETag plumbing + bulk tag-rename + NOT operator +

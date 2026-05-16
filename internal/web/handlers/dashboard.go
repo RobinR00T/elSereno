@@ -560,6 +560,25 @@ const overviewHTML = `<!doctype html>
           <button type="button" id="schedule-force-overwrite-button" onclick="forceOverwriteSchedule()" style="margin-left: 0.5em;">Force overwrite (re-submit ignoring If-Match)</button>
         </div>
       </form>
+      <!-- v2.28: bulk tag-rename form. POSTs to v2.16
+           /api/v1/schedules/tags/rename and refreshes
+           the cloud + table on success. -->
+      <form id="schedule-tag-rename-form" onsubmit="return submitTagRename(event);"
+            style="margin: 0.3em 0; display: flex; gap: 0.3em; align-items: baseline; flex-wrap: wrap;">
+        <span class="sub">Rename tag:</span>
+        <label>from
+          <input type="text" id="tag-rename-from" size="12" required
+            pattern="[a-z0-9_-]{1,32}" autocomplete="off"
+            placeholder="prod" />
+        </label>
+        <label>to
+          <input type="text" id="tag-rename-to" size="12" required
+            pattern="[a-z0-9_-]{1,32}" autocomplete="off"
+            placeholder="production" />
+        </label>
+        <button type="submit">Rename</button>
+        <span id="tag-rename-status" class="sub" style="margin-left:0.4em;"></span>
+      </form>
       <!-- v2.6: tag-cloud widget. Populated from
            /api/v1/schedules/tags. Clicking a chip toggles a
            ?tag= filter on the schedules table.
@@ -2580,6 +2599,54 @@ const overviewHTML = `<!doctype html>
     scheduleTagFilter = scheduleTagFilterSet.length === 1 ? scheduleTagFilterSet[0] : "";
     renderSchedules();
   }
+  // submitTagRename (v2.28) POSTs to the v2.16 bulk
+  // tag-rename endpoint, then refreshes the tag-cloud +
+  // schedules table. On 4xx surfaces the server's error
+  // message inline.
+  function submitTagRename(ev) {
+    if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+    var from = ((document.getElementById("tag-rename-from") || {}).value || "").trim().toLowerCase();
+    var to = ((document.getElementById("tag-rename-to") || {}).value || "").trim().toLowerCase();
+    var status = document.getElementById("tag-rename-status");
+    if (status) status.textContent = "renaming…";
+    if (!from || !to) {
+      if (status) status.textContent = "both from + to required";
+      return false;
+    }
+    if (from === to) {
+      if (status) status.textContent = "from == to (no-op)";
+      return false;
+    }
+    fetch("/api/v1/schedules/tags/rename", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      credentials: "same-origin",
+      body: JSON.stringify({from: from, to: to})
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
+      return r.json();
+    }).then(function (res) {
+      var n = (res && res.data && res.data.renamed_count) || 0;
+      if (status) status.textContent = "renamed " + n + " schedule" + (n === 1 ? "" : "s");
+      var fromInput = document.getElementById("tag-rename-from");
+      var toInput = document.getElementById("tag-rename-to");
+      if (fromInput) fromInput.value = "";
+      if (toInput) toInput.value = "";
+      // v2.28: also reset any active filter referencing the
+      // old tag so it doesn't dangle on the renamed tags.
+      var idx = scheduleTagFilterSet.indexOf(from);
+      if (idx >= 0) {
+        scheduleTagFilterSet.splice(idx, 1);
+        if (scheduleTagFilterSet.indexOf(to) < 0) {
+          scheduleTagFilterSet.push(to);
+        }
+      }
+      renderSchedules();
+    }).catch(function (err) {
+      if (status) status.textContent = "rename failed: " + err.message;
+    });
+    return false;
+  }
   // setScheduleTagExclude (v2.27): right-click handler.
   // Adds the tag to the filter set + switches op to
   // not_in. preventDefault is called inline in the
@@ -2695,6 +2762,8 @@ const overviewHTML = `<!doctype html>
   window.onScheduleTagFilterOpChange = onScheduleTagFilterOpChange;
   // v2.27 right-click exclude.
   window.setScheduleTagExclude = setScheduleTagExclude;
+  // v2.28 rename-tag form.
+  window.submitTagRename = submitTagRename;
   // v2.13 sparkline view.
   window.openSparklineView = openSparklineView;
   window.closeSparklineView = closeSparklineView;

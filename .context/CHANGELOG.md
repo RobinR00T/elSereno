@@ -8,6 +8,14 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.28 (chunk 1) — **Dashboard
+  rename-tag form.** Consumes v2.16 bulk-rename
+  endpoint. `from` + `to` inputs (HTML5 pattern
+  validation) + inline status. On success: inputs
+  cleared, active filter migrates from→to.
+  Snapshot:
+  `.context/snapshots/v2.28.0-rename-tag-form.md`.
+
 - 2026-05-16 — v2.27 (chunk 1) — **Right-click
   tag-chip exclude.** Third tag-filter gesture
   complementing v2.6 click + v2.19 Shift+Click.
