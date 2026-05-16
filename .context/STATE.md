@@ -1,24 +1,26 @@
 ---
-phase: v2.23-closed
-status: v1.16-v2.12 published; v2.13-v2.23 tags pending push (gh token expired)
+phase: v2.24-closed
+status: v1.16-v2.12 published; v2.13-v2.24 tags pending push (gh token expired)
 last-updated: 2026-05-16
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.23 cycle closed on `main`** (1 chunk +
-close). Recursive clone-chain ?depth=N: new
-`ListClonesOfDeep` Store method (Memory BFS + PG
-recursive CTE). ScanSchedule.CloneDepth computed
-field. Handler clamps depth to [1, 10]. +2 tests.
+**Phase**: **v2.24 cycle closed on `main`** (1 chunk +
+close). localStorage ETag cache: v2.15 in-memory map
+persisted under `elsereno:etag-cache:v1`. Hydrate
+on script load, re-write on every 200. Quota errors
+silently swallowed. `window.elserenoResetEtagCache()`
+escape hatch.
 
-Snapshot: `.context/snapshots/v2.23.0-recursive-clone-chain.md`.
+Snapshot: `.context/snapshots/v2.24.0-localstorage-etag.md`.
 
-**v2.13-v2.22 cycles (closed)**: sparkline, clones,
+**v2.13-v2.23 cycles (closed)**: sparkline, clones,
 ETag plumbing, bulk tag-rename, NOT operator,
 Idempotency-Key, multi-select chips, ?atomic=tx,
-real PG WithTx, sparkline bucket tooltips.
+real PG WithTx, sparkline tooltips, recursive
+clone-chain.
 
 **v2.6-v2.12 cycles (closed)**:
 v2.6 dashboard tag UI. v2.7 ETag. v2.8 CLI mutating

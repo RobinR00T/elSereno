@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-16 — v2.24 (chunk 1) — **localStorage
+  ETag cache.** v2.15 in-memory map persisted under
+  `elsereno:etag-cache:v1`. Hydrate on script load,
+  re-write on every 200. Quota / disabled-storage
+  errors silently swallowed (cache is optimisation,
+  not correctness). New `window.elserenoResetEtagCache()`
+  escape hatch. Snapshot:
+  `.context/snapshots/v2.24.0-localstorage-etag.md`.
+
 - 2026-05-16 — v2.23 (chunk 1) — **Recursive
   clone-chain ?depth=N.** New
   `ListClonesOfDeep(ctx, id, depth)` on the

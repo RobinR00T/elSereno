@@ -2414,19 +2414,39 @@ const overviewHTML = `<!doctype html>
       if (body) body.innerHTML = '<tr class="empty"><td colspan="8">delete failed: ' + escText(e.message) + '</td></tr>';
     });
   }
-  // ---- v2.15: ETag plumbing ----
-  // Module-level URL → ETag map. Populated on each 200
-  // response. Subsequent fetches to the same URL send
-  // If-None-Match → server returns 304 if unchanged →
-  // we skip body rendering.
-  var etagCache = {};
+  // ---- v2.15: ETag plumbing / v2.24: localStorage backing ----
+  // In-memory mirror of the etag store. localStorage is the
+  // source of truth across page refreshes; the in-memory
+  // map avoids JSON.parse on every fetch.
+  // (Note: avoid backticks in JS comments — Go raw-string
+  // literal.)
+  var ETAG_STORAGE_KEY = "elsereno:etag-cache:v1";
+  var etagCache = (function loadEtagCacheFromStorage() {
+    try {
+      var raw = window.localStorage && window.localStorage.getItem(ETAG_STORAGE_KEY);
+      if (!raw) return {};
+      var parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === "object") ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  })();
+  // persistEtagCache writes the in-memory map back to
+  // localStorage. Quota / DOM errors are swallowed — the
+  // ETag cache is purely an optimisation, not a correctness
+  // requirement.
+  function persistEtagCache() {
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(ETAG_STORAGE_KEY, JSON.stringify(etagCache));
+      }
+    } catch (e) { /* quota / private-mode / disabled — ignore */ }
+  }
   // fetchWithETag wraps window.fetch to add If-None-Match
   // automatically + update the cache on 200. On 304, the
   // returned promise resolves to {notModified: true,
   // etag: "..."}; on 200, resolves to {notModified: false,
   // etag: "...", json: <parsed body>}; on error throws.
-  // (Note: avoid backticks in this comment — the file is
-  // a Go raw-string literal.)
   function fetchWithETag(url) {
     var headers = {};
     var prev = etagCache[url];
@@ -2445,13 +2465,27 @@ const overviewHTML = `<!doctype html>
         }
         var newTag = r.headers.get("ETag");
         return r.json().then(function (j) {
-          if (newTag) etagCache[url] = newTag;
+          if (newTag) {
+            etagCache[url] = newTag;
+            persistEtagCache();
+          }
           return {notModified: false, etag: newTag, status: 200, json: j};
         });
       });
   }
-  // Expose for handlers that wrap their own poll cycles.
+  // clearEtagCache (v2.24): operator escape hatch via
+  // localStorage.removeItem(...) or via
+  // window.elserenoResetEtagCache(). Useful when debugging
+  // perceived staleness after a server upgrade.
+  function elserenoResetEtagCache() {
+    etagCache = {};
+    try {
+      if (window.localStorage) window.localStorage.removeItem(ETAG_STORAGE_KEY);
+    } catch (e) { /* ignore */ }
+  }
+  // Expose for handlers + operator debug.
   window.fetchWithETag = fetchWithETag;
+  window.elserenoResetEtagCache = elserenoResetEtagCache;
 
   // refreshScheduleTagCloud (v2.6) fetches
   // /api/v1/schedules/tags + renders chips. Each chip is a
