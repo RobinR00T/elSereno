@@ -17,6 +17,45 @@ type Config struct {
 	ReadyZ    ReadyZConfig    `koanf:"readyz"    yaml:"readyz"`
 	Exec      ExecConfig      `koanf:"exec"      yaml:"exec"`
 	Outbox    OutboxConfig    `koanf:"outbox"    yaml:"outbox"`
+	// Auth (v2.43+) holds OIDC bearer-token validation
+	// settings. When empty, the web layer falls back to
+	// X-Operator dev-mode behaviour (the v1.58 baseline).
+	Auth AuthConfig `koanf:"auth" yaml:"auth"`
+}
+
+// AuthConfig (v2.43+) groups the auth-related runtime
+// settings. Currently only OIDC; future modes (mTLS, basic
+// auth for air-gapped deployments) can extend this stanza
+// without bumping the YAML schema for everyone.
+type AuthConfig struct {
+	OIDC OIDCConfig `koanf:"oidc" yaml:"oidc"`
+}
+
+// OIDCConfig declares the bearer-token validator settings.
+// Empty issuer/audience/jwks_url → OIDC enforcement off
+// (back-compat dev mode; X-Operator header is honoured).
+//
+// All three URLs are validated for shape at Validate() time:
+//   - issuer: full URL with scheme + host (https:// strongly
+//     recommended; http:// allowed for loopback dev only).
+//   - audience: opaque string matched against the JWT `aud`.
+//   - jwks_url: full URL to the JWKS endpoint (typically
+//     <issuer>/.well-known/jwks.json or similar).
+//
+// clock_skew defaults to 60s when zero.
+type OIDCConfig struct {
+	Issuer    string        `koanf:"issuer"     yaml:"issuer"`
+	Audience  string        `koanf:"audience"   yaml:"audience"`
+	JWKSURL   string        `koanf:"jwks_url"   yaml:"jwks_url"`
+	ClockSkew time.Duration `koanf:"clock_skew" yaml:"clock_skew"`
+}
+
+// Enabled reports whether OIDC enforcement is active. All
+// three fields must be non-empty; partial config is treated
+// as disabled to prevent footguns (e.g. issuer set but
+// jwks_url forgotten silently passes everything).
+func (o OIDCConfig) Enabled() bool {
+	return o.Issuer != "" && o.Audience != "" && o.JWKSURL != ""
 }
 
 // RetentionConfig covers per-class retention in days. Evidence additionally

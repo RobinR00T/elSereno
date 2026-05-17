@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.43 (chunk 1) — **auth.oidc koanf
+  config stanza.** New AuthConfig + OIDCConfig
+  declared. YAML: `auth.oidc.{issuer, audience,
+  jwks_url, clock_skew}`. Footgun-safe
+  `Enabled()` requires ALL three URL fields
+  (partial config → disabled → fail-open dev mode,
+  never fail-quiet-pass on unverified tokens).
+  Wiring into cmd_serve deferred to v2.44+. +3
+  tests. Snapshot:
+  `.context/snapshots/v2.43.0-auth-oidc-config.md`.
+
 - 2026-05-17 — v2.42 (chunk 1) — **PROFINET vendor
   + device-id resolution table.** 20 vendors curated
   (Siemens, Phoenix Contact, Hilscher, Pilz,
