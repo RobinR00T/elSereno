@@ -135,19 +135,26 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 	return mux
 }
 
-// exportSchedules (v1.97+) handles GET /schedules/export. Returns
-// every schedule in one of two formats for DR backup or audit
-// review:
+// exportSchedules (v1.97+, +v2.49 ics) handles GET
+// /schedules/export. Returns every schedule in one of four
+// formats for DR backup or audit review:
 //
 //	?format=csv    → text/csv with a header row.
 //	?format=ndjson → application/x-ndjson, one schedule per line.
 //	?format=json   → application/json (default; matches /schedules).
+//	?format=ics    → text/calendar; iCalendar (RFC 5545) — schedule
+//	                 fires render as VEVENT entries with RRULE per
+//	                 cadence. Operators import the .ics into their
+//	                 SOC team calendar.
 //
 // CSV is intentionally lossy — only top-level fields. NDJSON is
 // the canonical round-trip format: pipe through
 // `cat | jq -s '.' | curl -XPOST ... /schedules` is the
 // restore recipe (one POST per line; out of scope for this
 // endpoint to do server-side).
+//
+// ICS is a one-way view — operators don't re-import calendars
+// back into elsereno.
 //
 // Content-Disposition is set to `attachment; filename=...`
 // so `curl -O` saves a sensible default name.
@@ -169,10 +176,146 @@ func exportSchedules(store scanorch.ScheduleStore) http.Handler {
 			writeSchedulesNDJSON(w, schedules)
 		case "json":
 			writeJSON(w, scanResponse{Schema: "api:v1", Data: schedules})
+		case "ics":
+			writeSchedulesICS(w, schedules)
 		default:
-			http.Error(w, "schedules: unsupported format (csv|ndjson|json)", http.StatusBadRequest)
+			http.Error(w, "schedules: unsupported format (csv|ndjson|json|ics)", http.StatusBadRequest)
 		}
 	})
+}
+
+// writeSchedulesICS emits an iCalendar (RFC 5545) VCALENDAR
+// containing one VEVENT per schedule. Cadence translates:
+//   - interval (1..7d) → RRULE:FREQ=DAILY;INTERVAL=N or
+//     FREQ=HOURLY;INTERVAL=N (best-fit; sub-hour intervals
+//     stay HOURLY rounding up to keep iCalendar consumers
+//     happy — most calendar apps don't render finer than
+//     hourly).
+//   - cron → emitted as a comment in DESCRIPTION; calendar
+//     clients display cron expressions as opaque text since
+//     iCalendar lacks a native cron RRULE.
+//
+// Each VEVENT's DTSTART is the next predicted fire-time per
+// ScanSchedule.NextFire(now). Disabled schedules render with
+// STATUS:CANCELLED so calendar UI grey-styles them.
+func writeSchedulesICS(w http.ResponseWriter, schedules []scanorch.ScanSchedule) {
+	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
+	w.Header().Set("Content-Disposition",
+		`attachment; filename="elsereno-schedules.ics"`)
+	now := time.Now().UTC()
+	var b strings.Builder
+	b.WriteString("BEGIN:VCALENDAR\r\n")
+	b.WriteString("VERSION:2.0\r\n")
+	b.WriteString("PRODID:-//ElSereno//Schedule Export v2.49//EN\r\n")
+	b.WriteString("CALSCALE:GREGORIAN\r\n")
+	b.WriteString("METHOD:PUBLISH\r\n")
+	for _, s := range schedules {
+		writeICSEvent(&b, s, now)
+	}
+	b.WriteString("END:VCALENDAR\r\n")
+	_, _ = w.Write([]byte(b.String()))
+}
+
+// writeICSEvent renders one VEVENT block. RFC 5545 lines wrap
+// at 75 octets but in practice modern parsers handle long
+// lines; we don't fold for simplicity.
+func writeICSEvent(b *strings.Builder, s scanorch.ScanSchedule, now time.Time) {
+	next := s.NextFire(now)
+	if next.IsZero() {
+		next = now // calendar parser wants SOMETHING for DTSTART
+	}
+	b.WriteString("BEGIN:VEVENT\r\n")
+	b.WriteString("UID:" + icsEscape(s.ID) + "@elsereno\r\n")
+	b.WriteString("DTSTAMP:" + now.Format("20060102T150405Z") + "\r\n")
+	b.WriteString("DTSTART:" + next.UTC().Format("20060102T150405Z") + "\r\n")
+	b.WriteString("DURATION:PT5M\r\n")
+	b.WriteString("SUMMARY:" + icsEscape(s.Name) + "\r\n")
+	desc := buildICSDescription(s)
+	b.WriteString("DESCRIPTION:" + icsEscape(desc) + "\r\n")
+	if s.CronExpr != "" {
+		// Cron → DESCRIPTION-only (handled above). No RRULE.
+	} else if s.IntervalSeconds >= 60 {
+		// Interval → RRULE best-fit.
+		rrule := icsRRuleForInterval(s.IntervalSeconds)
+		if rrule != "" {
+			b.WriteString("RRULE:" + rrule + "\r\n")
+		}
+	}
+	if !s.Enabled {
+		b.WriteString("STATUS:CANCELLED\r\n")
+	} else {
+		b.WriteString("STATUS:CONFIRMED\r\n")
+	}
+	b.WriteString("END:VEVENT\r\n")
+}
+
+// buildICSDescription assembles a human-readable summary
+// for the calendar UI. Includes cadence, plugins, operator,
+// tags.
+func buildICSDescription(s scanorch.ScanSchedule) string {
+	parts := []string{"ElSereno scheduled scan"}
+	if s.CronExpr != "" {
+		parts = append(parts, "cron="+s.CronExpr)
+		if s.Timezone != "" {
+			parts = append(parts, "tz="+s.Timezone)
+		}
+	} else {
+		parts = append(parts, "interval="+strconv.Itoa(s.IntervalSeconds)+"s")
+	}
+	if s.Template.Input != "" {
+		parts = append(parts, "input="+s.Template.Input)
+	}
+	if len(s.Template.Plugins) > 0 {
+		parts = append(parts, "plugins="+strings.Join(s.Template.Plugins, ","))
+	}
+	if s.Operator != "" {
+		parts = append(parts, "operator="+s.Operator)
+	}
+	if len(s.Tags) > 0 {
+		parts = append(parts, "tags="+strings.Join(s.Tags, ","))
+	}
+	return strings.Join(parts, " · ")
+}
+
+// icsEscape per RFC 5545 §3.3.11:
+//   - backslash → \\
+//   - newline   → \n
+//   - comma     → \,
+//   - semicolon → \;
+func icsEscape(s string) string {
+	r := strings.NewReplacer(
+		`\`, `\\`,
+		"\n", `\n`,
+		"\r", "",
+		`,`, `\,`,
+		`;`, `\;`,
+	)
+	return r.Replace(s)
+}
+
+// icsRRuleForInterval maps an interval-seconds value to a
+// best-fit iCalendar RRULE. Returns empty when the interval
+// doesn't map cleanly (e.g. 7-day boundary edge cases).
+//
+//	60..3599   → FREQ=HOURLY;INTERVAL=1 (round up)
+//	3600..86400 → FREQ=HOURLY;INTERVAL=N where N=hours
+//	>86400      → FREQ=DAILY;INTERVAL=N where N=days
+func icsRRuleForInterval(seconds int) string {
+	if seconds < 3600 {
+		return "FREQ=HOURLY;INTERVAL=1"
+	}
+	if seconds <= 86400 {
+		hours := seconds / 3600
+		if hours < 1 {
+			hours = 1
+		}
+		return "FREQ=HOURLY;INTERVAL=" + strconv.Itoa(hours)
+	}
+	days := seconds / 86400
+	if days < 1 {
+		days = 1
+	}
+	return "FREQ=DAILY;INTERVAL=" + strconv.Itoa(days)
 }
 
 // writeSchedulesCSV emits a 10-column CSV: id, name, cadence

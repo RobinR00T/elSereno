@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.49 (chunk 1) — **Schedule export
+  to iCalendar (.ics).** 4th format for
+  /schedules/export: `?format=ics` returns a
+  VCALENDAR per RFC 5545. Interval cadence → RRULE
+  FREQ=HOURLY/DAILY best-fit. Cron cadence rendered
+  as DESCRIPTION-only text (no native RRULE). Disabled
+  schedules → STATUS:CANCELLED. RFC 5545 §3.3.11
+  escaping. +2 tests. Snapshot:
+  `.context/snapshots/v2.49.0-export-ics.md`.
+
 - 2026-05-17 — v2.48 (chunk 1) — **OIDC binding
   extended to /scans + /audit + /findings.** Builds
   on v2.40 (which covered /schedules/* only). 12 more

@@ -1,24 +1,22 @@
 ---
-phase: v2.48-closed
-status: v1.16-v2.34 published; v2.35-v2.48 tags pending push
+phase: v2.49-closed
+status: v1.16-v2.34 published; v2.35-v2.49 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.48 cycle closed on `main`** (1 chunk +
-close). OIDC RequireRole extended to /scans + /audit +
-/findings (12 routes). Total 27/27 /api/v1 endpoints
-role-bound (excluding intentional unbound: /stream,
-/health, /plugins, /scoring, /openapi.yaml).
+**Phase**: **v2.49 cycle closed on `main`** (1 chunk +
+close). Schedule export to iCalendar (.ics) — 4th format
+for /schedules/export. Interval→RRULE best-fit; cron→
+DESCRIPTION-only. Disabled→STATUS:CANCELLED. +2 tests.
 
-Snapshot:
-`.context/snapshots/v2.48.0-oidc-scans-audit-binding.md`.
+Snapshot: `.context/snapshots/v2.49.0-export-ics.md`.
 
+**v2.48 cycle (closed)**: OIDC binding extended.
 **v2.47 cycle (closed)**: GE-SRTP service-0x21 follow-up.
 **v2.46 cycle (closed)**: sparkline drill-down → /runs.
-**v2.45 cycle (closed)**: /runs ?since/until filter.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

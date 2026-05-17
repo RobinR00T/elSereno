@@ -1218,6 +1218,79 @@ func TestScheduleStatsTimeseries_BadBucket(t *testing.T) {
 	}
 }
 
+// TestExportSchedules_ICS (v2.49+): ICS format roundtrips
+// schedule cadence into VEVENT entries.
+func TestExportSchedules_ICS(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:            "hourly-fleet",
+		Template:        scanorch.SubmitRequest{Input: "stdin", Plugins: []string{"banner"}},
+		IntervalSeconds: 3600,
+	}, "alice")
+	_, _ = store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name:     "nightly-cron",
+		Template: scanorch.SubmitRequest{Input: "stdin"},
+		CronExpr: "0 2 * * *",
+		Timezone: "UTC",
+	}, "alice")
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/export?format=ics", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	if !strings.HasPrefix(body, "BEGIN:VCALENDAR\r\n") {
+		t.Errorf("body should start with BEGIN:VCALENDAR; got prefix %q",
+			body[:min(60, len(body))])
+	}
+	if !strings.Contains(body, "END:VCALENDAR") {
+		t.Errorf("body should end with END:VCALENDAR")
+	}
+	// Two VEVENTs (one per schedule).
+	veventCount := strings.Count(body, "BEGIN:VEVENT")
+	if veventCount != 2 {
+		t.Errorf("VEVENT count = %d, want 2", veventCount)
+	}
+	// Interval schedule emits RRULE.
+	if !strings.Contains(body, "RRULE:FREQ=HOURLY") {
+		t.Errorf("expected RRULE:FREQ=HOURLY for 3600s interval")
+	}
+	// Cron schedule includes cron in DESCRIPTION (no RRULE).
+	if !strings.Contains(body, "cron=0 2 * * *") {
+		t.Errorf("expected cron=0 2 * * * in DESCRIPTION; got body excerpt:\n%s",
+			body[:min(800, len(body))])
+	}
+	// Content-Type header set correctly.
+	ct := rr.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/calendar") {
+		t.Errorf("Content-Type = %q, want text/calendar", ct)
+	}
+}
+
+// TestExportSchedules_ICSBadCadence (v2.49+): empty store
+// still renders a valid empty calendar.
+func TestExportSchedules_ICSEmpty(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	router := newSchedRouter(store)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/schedules/export?format=ics", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "BEGIN:VCALENDAR") || !strings.Contains(body, "END:VCALENDAR") {
+		t.Errorf("empty calendar should still wrap with BEGIN/END:VCALENDAR")
+	}
+	if strings.Contains(body, "BEGIN:VEVENT") {
+		t.Errorf("empty store should produce no VEVENT")
+	}
+}
+
 // TestListScheduleRuns_SinceUntil (v2.45+): time-window
 // filter via ?since= / ?until= on /runs.
 func TestListScheduleRuns_SinceUntil(t *testing.T) {
