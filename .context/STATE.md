@@ -1,22 +1,23 @@
 ---
-phase: v2.49-closed
-status: v1.16-v2.34 published; v2.35-v2.49 tags pending push
+phase: v2.50-closed
+status: v1.16-v2.34 published; v2.35-v2.50 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.49 cycle closed on `main`** (1 chunk +
-close). Schedule export to iCalendar (.ics) — 4th format
-for /schedules/export. Interval→RRULE best-fit; cron→
-DESCRIPTION-only. Disabled→STATUS:CANCELLED. +2 tests.
+**Phase**: **v2.50 cycle closed on `main`** (1 chunk +
+close). Dashboard theme toggle. Header gets a 3-state
+cycle button (auto/light/dark) with localStorage
+persistence. CSS overrides via body.theme-{light,dark}
+take precedence over prefers-color-scheme.
 
-Snapshot: `.context/snapshots/v2.49.0-export-ics.md`.
+Snapshot: `.context/snapshots/v2.50.0-dashboard-theme-toggle.md`.
 
+**v2.49 cycle (closed)**: schedule export to iCalendar (.ics).
 **v2.48 cycle (closed)**: OIDC binding extended.
 **v2.47 cycle (closed)**: GE-SRTP service-0x21 follow-up.
-**v2.46 cycle (closed)**: sparkline drill-down → /runs.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

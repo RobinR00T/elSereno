@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.50 (chunk 1) — **Dashboard theme
+  toggle.** Header gets a 3-state cycle button:
+  auto (🌓, OS-following) → light (☀️) → dark (🌙).
+  Choice persists in localStorage. New
+  `body.theme-light` + `body.theme-dark` CSS
+  overrides take precedence over the existing
+  prefers-color-scheme @media rules. Snapshot:
+  `.context/snapshots/v2.50.0-dashboard-theme-toggle.md`.
+
 - 2026-05-17 — v2.49 (chunk 1) — **Schedule export
   to iCalendar (.ics).** 4th format for
   /schedules/export: `?format=ics` returns a

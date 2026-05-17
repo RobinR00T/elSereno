@@ -135,6 +135,27 @@ const overviewHTML = `<!doctype html>
       --accent-soft: #1e3a8a;
     }
   }
+  /* v2.50: explicit theme overrides. body.theme-light /
+     body.theme-dark take precedence over the OS preference.
+     body without either class follows OS preference (auto). */
+  body.theme-light {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --ink: #1a1d21;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #0f62fe;
+    --accent-soft: #dbeafe;
+  }
+  body.theme-dark {
+    --bg: #0b0d10;
+    --panel: #13161a;
+    --ink: #e5e7eb;
+    --muted: #9ca3af;
+    --border: #2a2f37;
+    --accent: #3b82f6;
+    --accent-soft: #1e3a8a;
+  }
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -193,6 +214,9 @@ const overviewHTML = `<!doctype html>
   @media (prefers-color-scheme: dark) {
     .badge.offensive { background: #3f1515; color: #f87171; }
   }
+  /* v2.50: explicit-dark override for offensive badge. */
+  body.theme-dark .badge.offensive { background: #3f1515; color: #f87171; }
+  body.theme-light .badge.offensive { background: #fee2e2; color: var(--danger); }
   .kv { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; font-size: .9rem; }
   .kv .k { color: var(--muted); }
   .kv .v { font-variant-numeric: tabular-nums; text-align: right; }
@@ -315,9 +339,17 @@ const overviewHTML = `<!doctype html>
 </style>
 </head>
 <body>
-<header>
-  <h1>{{.Title}}</h1>
-  <div class="meta"><span class="ok-dot"></span>Overview · refreshed {{.GeneratedAt}}</div>
+<header style="display: flex; justify-content: space-between; align-items: start;">
+  <div>
+    <h1>{{.Title}}</h1>
+    <div class="meta"><span class="ok-dot"></span>Overview · refreshed {{.GeneratedAt}}</div>
+  </div>
+  <!-- v2.50: theme toggle. Cycles through auto → light → dark. -->
+  <button type="button" id="theme-toggle" onclick="cycleTheme()"
+    title="Toggle theme: auto (OS) → light → dark"
+    style="border: 1px solid var(--border); background: var(--panel); color: var(--ink); padding: 0.4em 0.8em; border-radius: 6px; cursor: pointer; font-size: 0.85em; align-self: start;">
+    🌓 auto
+  </button>
 </header>
 
 <nav>
@@ -2551,6 +2583,43 @@ const overviewHTML = `<!doctype html>
   // map avoids JSON.parse on every fetch.
   // (Note: avoid backticks in JS comments — Go raw-string
   // literal.)
+  // v2.50: theme cycle — auto → light → dark → auto.
+  // Persisted in localStorage. Applied at page boot below.
+  var THEME_STORAGE_KEY = "elsereno:theme:v1";
+  var THEME_ORDER = ["auto", "light", "dark"];
+  var THEME_LABEL = {auto: "🌓 auto", light: "☀️ light", dark: "🌙 dark"};
+  function applyTheme(theme) {
+    var body = document.body;
+    if (!body) return;
+    body.classList.remove("theme-light", "theme-dark");
+    if (theme === "light") body.classList.add("theme-light");
+    else if (theme === "dark") body.classList.add("theme-dark");
+    // "auto" → no class → CSS @media (prefers-color-scheme) kicks in.
+    var btn = document.getElementById("theme-toggle");
+    if (btn) btn.textContent = THEME_LABEL[theme] || THEME_LABEL.auto;
+  }
+  function currentTheme() {
+    try {
+      var v = window.localStorage && window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (v === "light" || v === "dark" || v === "auto") return v;
+    } catch (e) { /* ignore */ }
+    return "auto";
+  }
+  function cycleTheme() {
+    var now = currentTheme();
+    var idx = THEME_ORDER.indexOf(now);
+    var next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+    try {
+      if (window.localStorage) window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch (e) { /* quota / private-mode — ignore */ }
+    applyTheme(next);
+  }
+  // Apply persisted theme at first script execution (no
+  // FOUC because the toggle is the only theme-explicit
+  // element; everything else uses CSS variables which
+  // resolve from body class).
+  applyTheme(currentTheme());
+
   var ETAG_STORAGE_KEY = "elsereno:etag-cache:v1";
   var etagCache = (function loadEtagCacheFromStorage() {
     try {
@@ -2867,6 +2936,8 @@ const overviewHTML = `<!doctype html>
   // v2.6 tag-cloud + filter.
   window.setScheduleTagFilter = setScheduleTagFilter;
   window.clearScheduleTagFilter = clearScheduleTagFilter;
+  // v2.50: theme toggle.
+  window.cycleTheme = cycleTheme;
   // v2.19 op-selector handler.
   window.onScheduleTagFilterOpChange = onScheduleTagFilterOpChange;
   // v2.27 right-click exclude.
