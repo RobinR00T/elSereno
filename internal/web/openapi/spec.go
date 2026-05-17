@@ -142,6 +142,7 @@ func schedulesSpecPaths() []Path {
 	paths := schedulesCRUDPaths()
 	paths = append(paths, schedulesToggleAndClonePaths()...)
 	paths = append(paths, schedulesObservabilityPaths()...)
+	paths = append(paths, schedulesExtendedObservabilityPaths()...)
 	return paths
 }
 
@@ -300,33 +301,87 @@ func schedulesObservabilityPaths() []Path {
 		}},
 		{URL: "/api/v1/schedules/{id}/runs", Operations: map[string]Operation{
 			"get": {
-				Summary: "List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor).",
+				Summary: "List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor, v2.45 window).",
 				Description: "Query params: limit (1..1000, default 50), before (RFC3339 cursor). " +
 					"v2.0+: response is now {items: Job[], next_before?: rfc3339}. " +
 					"Paginate by reading next_before + passing it back as ?before=. " +
-					"Empty next_before ≡ last page.",
+					"Empty next_before ≡ last page. " +
+					"v2.45+: optional since=<rfc3339> + until=<rfc3339> for time-window " +
+					"filter; mutually exclusive with cursor (window supersedes when set). " +
+					"Inverted window (until<since) → 400.",
 				Tags: tag,
 				Responses: map[string]Response{
 					"200": {Description: "{items, next_before?} envelope.", Ref: "Envelope"},
-					"400": {Description: "Malformed ?before query (RFC3339 required)."},
+					"400": {Description: "Malformed ?before / ?since / ?until; or inverted range."},
 					"404": {Description: "Schedule not found."},
 					"503": {Description: "Scan store unavailable."},
 				},
 			},
 		}},
-		{URL: "/api/v1/schedules/audit", Operations: map[string]Operation{
-			"delete": {
-				Summary:     "Prune audit events older than ?before=<rfc3339> (v1.86+).",
-				Description: "Operator must opt into a cutoff explicitly. Returns {deleted_count, cutoff}.",
-				Tags:        tag,
+		// v2.54: clones + stats/timeseries + prune-audit moved
+		// to schedulesExtendedObservabilityPaths() to keep this
+		// function under funlen.
+	}
+}
+
+func schedulesPruneAuditPath() Path {
+	tag := []string{"schedules"}
+	return Path{URL: "/api/v1/schedules/audit", Operations: map[string]Operation{
+		"delete": {
+			Summary:     "Prune audit events older than ?before=<rfc3339> (v1.86+).",
+			Description: "Operator must opt into a cutoff explicitly. Returns {deleted_count, cutoff}.",
+			Tags:        tag,
+			Responses: map[string]Response{
+				"200": {Description: "Prune result.", Ref: "Envelope"},
+				"400": {Description: "Missing or malformed ?before."},
+				"503": {Description: "Audit store unavailable."},
+			},
+		},
+	}}
+}
+
+// schedulesExtendedObservabilityPaths (v2.54+) extracts the
+// v2.10 /clones + v2.11 /stats/timeseries entries so the
+// parent observability function stays under funlen.
+func schedulesExtendedObservabilityPaths() []Path {
+	tag := []string{"schedules"}
+	out := []Path{
+		{URL: "/api/v1/schedules/{id}/clones", Operations: map[string]Operation{
+			"get": {
+				Summary: "List clones of a schedule (v2.10+, v2.23 depth).",
+				Description: "Query param: depth (1..10, default 1; v2.23+). depth=1 returns " +
+					"direct clones only; depth=N walks the chain N hops. Result rows " +
+					"carry `clone_depth` (1..N) so the UI can render an ASCII tree. " +
+					"404 when the source schedule itself is unknown.",
+				Tags: tag,
 				Responses: map[string]Response{
-					"200": {Description: "Prune result.", Ref: "Envelope"},
-					"400": {Description: "Missing or malformed ?before."},
-					"503": {Description: "Audit store unavailable."},
+					"200": {Description: "Envelope with data: ScanSchedule[] (clone_depth populated).", Ref: "Envelope"},
+					"400": {Description: "Malformed ?depth (must be 1..10)."},
+					"404": {Description: "Source schedule not found."},
+					"503": {Description: "Schedule store unavailable."},
+				},
+			},
+		}},
+		{URL: "/api/v1/schedules/{id}/stats/timeseries", Operations: map[string]Operation{
+			"get": {
+				Summary: "Time-bucketed run-stats for a schedule (v2.11+).",
+				Description: "Query params: bucket=hour|day|week (default day), " +
+					"days=N (1..365, default 7). Returns {schedule_id, bucket, " +
+					"window_days, series: [{bucket_start, total_runs, completed, " +
+					"failed, cancelled, total_findings}]}. Memory store pre-fills " +
+					"empty buckets; PG store omits them.",
+				Tags: tag,
+				Responses: map[string]Response{
+					"200": {Description: "Envelope with timeseries payload.", Ref: "Envelope"},
+					"400": {Description: "Unknown ?bucket (must be hour|day|week)."},
+					"404": {Description: "Schedule not found."},
+					"503": {Description: "Scan store unavailable."},
 				},
 			},
 		}},
 	}
+	out = append(out, schedulesPruneAuditPath())
+	return out
 }
 
 // schedulesBulkSpecPaths (v1.96+) returns the v1.95 bulk
@@ -380,12 +435,15 @@ func schedulesIOPaths() []Path {
 	return []Path{
 		{URL: "/api/v1/schedules/export", Operations: map[string]Operation{
 			"get": {
-				Summary: "Export schedules for backup (v1.97+).",
-				Description: "Query param: format=csv|ndjson|json (default json). " +
+				Summary: "Export schedules for backup (v1.97+, v2.49 ics).",
+				Description: "Query param: format=csv|ndjson|json|ics (default json). " +
 					"CSV is 10-column flat (id, name, cadence, enabled, operator, " +
 					"created_at, last_fired_at, audit_retention_days, input, plugins). " +
 					"NDJSON is round-trippable via per-line POST. " +
-					"Content-Disposition: attachment with sensible filenames.",
+					"v2.49+: ics emits RFC 5545 iCalendar — interval cadence → RRULE " +
+					"FREQ=HOURLY/DAILY best-fit; cron → DESCRIPTION-only; disabled → " +
+					"STATUS:CANCELLED. Content-Disposition: attachment with sensible " +
+					"filenames.",
 				Tags: tag,
 				Responses: map[string]Response{
 					"200": {Description: "Body in the requested format."},
@@ -445,6 +503,22 @@ func metaSpecPaths() []Path {
 			Summary:   "API-level health with server timestamp.",
 			Tags:      []string{"health"},
 			Responses: envelopeResponses(),
+		}}},
+		{URL: "/api/v1/health/pool", Operations: map[string]Operation{"get": {
+			Summary: "pgxpool runtime stats (v2.52+).",
+			Description: "Returns the pgx connection-pool snapshot: " +
+				"acquire_count, acquire_duration_ns, acquired_conns, " +
+				"canceled_acquire_count, constructing_conns, " +
+				"empty_acquire_count, idle_conns, max_conns, total_conns, " +
+				"new_conns_count, max_lifetime_destroy_count, " +
+				"max_idle_destroy_count. Operators graph these to size " +
+				"the pool under load. 503 when no pool is configured " +
+				"(memory-mode deployments).",
+			Tags: []string{"health"},
+			Responses: map[string]Response{
+				"200": {Description: "Envelope with pool stats payload.", Ref: "Envelope"},
+				"503": {Description: "Pool not configured."},
+			},
 		}}},
 		{URL: "/api/v1/openapi.yaml", Operations: map[string]Operation{"get": {
 			Summary:   "Return this OpenAPI 3.1 spec.",

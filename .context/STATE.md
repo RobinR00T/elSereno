@@ -1,24 +1,23 @@
 ---
-phase: v2.53-closed
-status: v1.16-v2.34 published; v2.35-v2.53 tags pending push
+phase: v2.54-closed
+status: v1.16-v2.34 published; v2.35-v2.54 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.53 cycle closed on `main`** (1 chunk +
-close). TUI replay pause + rate keybindings.
-space=pause/resume, [=halve, ]=double. New
-feeds.ReplayControl shared-pointer + tui.ReplayController
-interface. streamNDJSONDynamic for mid-playback rate
-changes. cmd_tui wiring deferred. +7 tests.
+**Phase**: **v2.54 cycle closed on `main`** (1 chunk +
+close). OpenAPI doc backfill for /clones (depth), /stats/
+timeseries, /runs since/until, /export ics, /health/pool.
+funlen split (Observability core + extended + prune
+helper). docs/openapi.yaml: 619→774 lines.
 
-Snapshot: `.context/snapshots/v2.53.0-tui-replay-control.md`.
+Snapshot: `.context/snapshots/v2.54.0-openapi-doc-expansion.md`.
 
+**v2.53 cycle (closed)**: TUI replay pause + rate keys.
 **v2.52 cycle (closed)**: pgxpool health endpoint.
 **v2.51 cycle (closed)**: TUI replay status progress.
-**v2.50 cycle (closed)**: dashboard theme toggle.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.54 (chunk 1) — **OpenAPI doc
+  for v2.10/v2.11/v2.45/v2.49/v2.52 endpoints.**
+  Backfills the spec for /clones (depth=N), /stats/
+  timeseries (bucket+days), /runs (since/until +
+  inverted-range 400), /export (?format=ics), and
+  /health/pool. funlen refactor:
+  `schedulesObservabilityPaths` split into core +
+  extended + pruneAudit helpers. docs/openapi.yaml
+  regenerated to 774 lines (+155 vs pre-v2.54).
+  Snapshot:
+  `.context/snapshots/v2.54.0-openapi-doc-expansion.md`.
+
 - 2026-05-17 — v2.53 (chunk 1) — **TUI replay
   pause + rate keybindings.** space=pause/resume,
   `[`=halve rate, `]`=double rate. New

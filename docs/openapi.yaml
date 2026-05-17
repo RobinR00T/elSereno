@@ -298,6 +298,21 @@ paths:
       summary: API-level health with server timestamp.
       tags:
         - health
+  /api/v1/health/pool:
+    get:
+      description: 'Returns the pgx connection-pool snapshot: acquire_count, acquire_duration_ns, acquired_conns, canceled_acquire_count, constructing_conns, empty_acquire_count, idle_conns, max_conns, total_conns, new_conns_count, max_lifetime_destroy_count, max_idle_destroy_count. Operators graph these to size the pool under load. 503 when no pool is configured (memory-mode deployments).'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope with pool stats payload.
+        "503":
+          description: Pool not configured.
+      summary: pgxpool runtime stats (v2.52+).
+      tags:
+        - health
   /api/v1/inputs/preview:
     get:
       description: 'Query params: kind=list:<path>|nmap:<path>|stdin (required), default_port=<int> (optional, host-only entries fall back here). Returns {count, targets[], truncated}; sample is capped at 200 entries. Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT in scope here — they need credentials + rate-limit tuning that the dashboard process intentionally doesn''t carry; use the CLI scan verb for those. v1.36+.'
@@ -482,6 +497,25 @@ paths:
       summary: Duplicate a schedule (v1.93+).
       tags:
         - schedules
+  /api/v1/schedules/{id}/clones:
+    get:
+      description: 'Query param: depth (1..10, default 1; v2.23+). depth=1 returns direct clones only; depth=N walks the chain N hops. Result rows carry `clone_depth` (1..N) so the UI can render an ASCII tree. 404 when the source schedule itself is unknown.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: 'Envelope with data: ScanSchedule[] (clone_depth populated).'
+        "400":
+          description: Malformed ?depth (must be 1..10).
+        "404":
+          description: Source schedule not found.
+        "503":
+          description: Schedule store unavailable.
+      summary: List clones of a schedule (v2.10+, v2.23 depth).
+      tags:
+        - schedules
   /api/v1/schedules/{id}/disable:
     post:
       responses:
@@ -516,7 +550,7 @@ paths:
         - schedules
   /api/v1/schedules/{id}/runs:
     get:
-      description: 'Query params: limit (1..1000, default 50), before (RFC3339 cursor). v2.0+: response is now {items: Job[], next_before?: rfc3339}. Paginate by reading next_before + passing it back as ?before=. Empty next_before ≡ last page.'
+      description: 'Query params: limit (1..1000, default 50), before (RFC3339 cursor). v2.0+: response is now {items: Job[], next_before?: rfc3339}. Paginate by reading next_before + passing it back as ?before=. Empty next_before ≡ last page. v2.45+: optional since=<rfc3339> + until=<rfc3339> for time-window filter; mutually exclusive with cursor (window supersedes when set). Inverted window (until<since) → 400.'
       responses:
         "200":
           content:
@@ -525,12 +559,12 @@ paths:
                 $ref: '#/components/schemas/Envelope'
           description: '{items, next_before?} envelope.'
         "400":
-          description: Malformed ?before query (RFC3339 required).
+          description: Malformed ?before / ?since / ?until; or inverted range.
         "404":
           description: Schedule not found.
         "503":
           description: Scan store unavailable.
-      summary: List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor).
+      summary: List scheduler-fired jobs for a schedule (v1.92+, v2.0 cursor, v2.45 window).
       tags:
         - schedules
   /api/v1/schedules/{id}/stats:
@@ -550,6 +584,25 @@ paths:
         "503":
           description: Scan store unavailable.
       summary: Aggregate run-stats for a schedule (v2.2+).
+      tags:
+        - schedules
+  /api/v1/schedules/{id}/stats/timeseries:
+    get:
+      description: 'Query params: bucket=hour|day|week (default day), days=N (1..365, default 7). Returns {schedule_id, bucket, window_days, series: [{bucket_start, total_runs, completed, failed, cancelled, total_findings}]}. Memory store pre-fills empty buckets; PG store omits them.'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+          description: Envelope with timeseries payload.
+        "400":
+          description: Unknown ?bucket (must be hour|day|week).
+        "404":
+          description: Schedule not found.
+        "503":
+          description: Scan store unavailable.
+      summary: Time-bucketed run-stats for a schedule (v2.11+).
       tags:
         - schedules
   /api/v1/schedules/audit:
@@ -601,7 +654,7 @@ paths:
         - schedules
   /api/v1/schedules/export:
     get:
-      description: 'Query param: format=csv|ndjson|json (default json). CSV is 10-column flat (id, name, cadence, enabled, operator, created_at, last_fired_at, audit_retention_days, input, plugins). NDJSON is round-trippable via per-line POST. Content-Disposition: attachment with sensible filenames.'
+      description: 'Query param: format=csv|ndjson|json|ics (default json). CSV is 10-column flat (id, name, cadence, enabled, operator, created_at, last_fired_at, audit_retention_days, input, plugins). NDJSON is round-trippable via per-line POST. v2.49+: ics emits RFC 5545 iCalendar — interval cadence → RRULE FREQ=HOURLY/DAILY best-fit; cron → DESCRIPTION-only; disabled → STATUS:CANCELLED. Content-Disposition: attachment with sensible filenames.'
       responses:
         "200":
           description: Body in the requested format.
@@ -609,7 +662,7 @@ paths:
           description: Unsupported format.
         "503":
           description: Schedule store unavailable.
-      summary: Export schedules for backup (v1.97+).
+      summary: Export schedules for backup (v1.97+, v2.49 ics).
       tags:
         - schedules
   /api/v1/schedules/import:
