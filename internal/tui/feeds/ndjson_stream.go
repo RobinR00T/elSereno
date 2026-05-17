@@ -26,6 +26,42 @@ import (
 // pace > 0 introduces a wallclock delay between lines (slow
 // playback for demos). pace == 0 streams as fast as the
 // scheduler permits.
+// streamNDJSONDynamic (v2.53+) is the variant where the pacing
+// delay is re-computed before each emission via the supplied
+// pacer func. Lets a TUI key handler change replay rate
+// mid-stream by mutating shared state the pacer reads.
+//
+// pacer returns 0 to skip pacing entirely.
+func streamNDJSONDynamic(ctx context.Context, src io.Reader, emit func(tea.Msg), pacer func() time.Duration) error {
+	scanner := bufio.NewScanner(src)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	lineNo := 0
+	for scanner.Scan() {
+		lineNo++
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		msg, _ := parseRecord(line, lineNo)
+		emit(msg)
+		pace := pacer()
+		if pace > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pace):
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("ndjson stream: %w", err)
+	}
+	return nil
+}
+
 func streamNDJSON(ctx context.Context, src io.Reader, emit func(tea.Msg), pace time.Duration) error {
 	scanner := bufio.NewScanner(src)
 	// Findings can carry large payload metadata; bump the buffer

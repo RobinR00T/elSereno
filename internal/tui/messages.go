@@ -53,3 +53,20 @@ type ReplayStatusMsg struct {
 	// uncapped). Surfaced for the operator's reference.
 	Rate float64
 }
+
+// ReplayController (v2.53+) is the minimum surface the TUI
+// key handler needs to drive runtime playback control. The
+// concrete impl lives in internal/tui/feeds.ReplayControl;
+// using an interface here breaks the would-be cycle (tui →
+// feeds → tui).
+type ReplayController interface {
+	// TogglePause flips paused state. Returns the new state.
+	TogglePause() bool
+	// Paused reports whether playback is paused.
+	Paused() bool
+	// HalveRate / DoubleRate adjust the playback rate.
+	HalveRate()
+	DoubleRate()
+	// Rate returns the current rate (lines/sec; 0 = uncapped).
+	Rate() float64
+}

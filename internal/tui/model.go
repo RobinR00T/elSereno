@@ -130,6 +130,12 @@ type Model struct {
 	// MaxFindings + MaxAuditEvents bound the rolling windows.
 	MaxFindings    int
 	MaxAuditEvents int
+
+	// ReplayCtl (v2.53+) is the optional handle to a Replay
+	// feed's runtime controller. Nil for non-replay modes;
+	// when set, the key handler binds space (pause), [ (halve
+	// rate), ] (double rate).
+	ReplayCtl ReplayController
 }
 
 // NewModel returns a Model initialised with sensible defaults

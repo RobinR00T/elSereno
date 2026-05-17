@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -35,11 +36,17 @@ type Replay struct {
 	Path string
 	// Rate is the playback rate in lines per second. 0 (the
 	// default) plays as fast as the goroutine schedules.
+	// Ignored when Control is non-nil — Control.Rate() wins.
 	Rate float64
 	// StatusEvery (v2.51+) is the line-count interval between
 	// ReplayStatusMsg emissions. 0 (default) → 100. Set to
 	// -1 to disable status messages entirely.
 	StatusEvery int
+	// Control (v2.53+) is the optional shared-pointer control
+	// surface for runtime pause / rate adjustment from the TUI
+	// key handler. Nil → Replay uses static Rate from the
+	// struct field.
+	Control *ReplayControl
 }
 
 // Name implements tui.Feed.
@@ -66,6 +73,9 @@ func (r Replay) Run(ctx context.Context, emit func(tea.Msg)) error {
 //
 // v2.51+: wraps `emit` with a status-counting wrapper so the
 // TUI sees a ReplayStatusMsg every StatusEvery lines.
+// v2.53+: when Control is non-nil, the stream pre-emit hook
+// (a) blocks on pause, (b) re-reads the current rate so
+// `[` / `]` mid-playback take effect by the next line.
 func (r Replay) stream(ctx context.Context, src io.Reader, emit func(tea.Msg)) error {
 	statusEvery := r.StatusEvery
 	if statusEvery == 0 {
@@ -73,21 +83,36 @@ func (r Replay) stream(ctx context.Context, src io.Reader, emit func(tea.Msg)) e
 	}
 	var lineCount int64
 	wrapped := func(m tea.Msg) {
+		// v2.53: honour pause + rate-change before the
+		// emission. WaitIfPaused returns true when it had to
+		// block — that already burns the time we'd otherwise
+		// have paced, so we skip the next paceDelay sleep
+		// when it does.
+		if r.Control != nil {
+			r.Control.WaitIfPaused()
+		}
 		emit(m)
-		// Count only message types that represent emitted
-		// records — FindingMsg / AuditMsg. Skip protocol
-		// internal messages (FeedClosedMsg, etc).
 		switch m.(type) {
 		case tui.FindingMsg, tui.AuditMsg:
 			lineCount++
 			if statusEvery > 0 && lineCount%int64(statusEvery) == 0 {
+				curRate := r.Rate
+				if r.Control != nil {
+					curRate = r.Control.Rate()
+				}
 				emit(tui.ReplayStatusMsg{
 					Path:      r.Path,
 					LineCount: lineCount,
-					Rate:      r.Rate,
+					Rate:      curRate,
 				})
 			}
 		}
 	}
-	return streamNDJSON(ctx, src, wrapped, paceFromRate(r.Rate))
+	pacer := func() time.Duration {
+		if r.Control != nil {
+			return r.Control.PaceDelay()
+		}
+		return paceFromRate(r.Rate)
+	}
+	return streamNDJSONDynamic(ctx, src, wrapped, pacer)
 }

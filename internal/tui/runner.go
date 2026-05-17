@@ -43,6 +43,10 @@ type RunOpts struct {
 	// the filesystem lifecycle of the underlying file (the
 	// CLI verb opens + the recorder closes via this handle).
 	Record io.WriteCloser
+	// ReplayCtl (v2.53+) is the optional shared-pointer
+	// controller for the Replay feed. When set, the TUI key
+	// handler binds space (pause) and [ / ] (rate adjust).
+	ReplayCtl ReplayController
 }
 
 // Run starts the bubbletea program with the supplied Feed +
@@ -63,6 +67,9 @@ func Run(ctx context.Context, mode Mode, feed Feed, out io.Writer, in io.Reader)
 // command line.
 func RunWithOpts(ctx context.Context, mode Mode, feed Feed, out io.Writer, in io.Reader, opts RunOpts) error {
 	model := NewModel(mode)
+	if opts.ReplayCtl != nil {
+		model.ReplayCtl = opts.ReplayCtl
+	}
 	prog := tea.NewProgram(
 		model,
 		tea.WithContext(ctx),

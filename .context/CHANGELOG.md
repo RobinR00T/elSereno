@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.53 (chunk 1) — **TUI replay
+  pause + rate keybindings.** space=pause/resume,
+  `[`=halve rate, `]`=double rate. New
+  `feeds.ReplayControl` shared-pointer struct +
+  `tui.ReplayController` interface (decouples for
+  no-cycle). `streamNDJSONDynamic` lets the rate
+  change mid-playback by reading via a pacer
+  callback. cmd_tui wiring deferred. +7 tests.
+  Snapshot:
+  `.context/snapshots/v2.53.0-tui-replay-control.md`.
+
 - 2026-05-17 — v2.52 (chunk 1) — **pgxpool health
   endpoint.** New `GET /api/v1/health/pool` exposes
   pgxpool runtime stats (acquire_count,

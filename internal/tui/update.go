@@ -94,8 +94,41 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// the draft.
 		m.AuditFilter = ""
 		return m, nil
+	case " ", "space", "[", "]":
+		// v2.53: replay playback control keys.
+		return m.handleReplayKey(key), nil
 	}
 	return m.handleNavKey(key), nil
+}
+
+// handleReplayKey (v2.53+) dispatches the playback-control
+// subset (space / [ / ]). Returns m unchanged when no
+// ReplayCtl is attached.
+func (m Model) handleReplayKey(key string) Model {
+	if m.ReplayCtl == nil {
+		return m
+	}
+	switch key {
+	case " ", "space":
+		paused := m.ReplayCtl.TogglePause()
+		line := "(replay: resumed)"
+		if paused {
+			line = "(replay: paused)"
+		}
+		return m.AddAuditEvent(line)
+	case "[":
+		m.ReplayCtl.HalveRate()
+		return m.AddAuditEvent(fmt.Sprintf("(replay rate: %.2f/s)", m.ReplayCtl.Rate()))
+	case "]":
+		m.ReplayCtl.DoubleRate()
+		r := m.ReplayCtl.Rate()
+		rateStr := "uncapped"
+		if r > 0 {
+			rateStr = fmt.Sprintf("%.2f/s", r)
+		}
+		return m.AddAuditEvent("(replay rate: " + rateStr + ")")
+	}
+	return m
 }
 
 // handleNavKey routes the j/k/g/G + arrow + home/end navigation
