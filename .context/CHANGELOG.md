@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.52 (chunk 1) — **pgxpool health
+  endpoint.** New `GET /api/v1/health/pool` exposes
+  pgxpool runtime stats (acquire_count,
+  acquire_duration, idle/max/total_conns, etc.) so
+  operators graph DB pressure under load. New
+  `PoolStatter` interface keeps handlers package free
+  of pgxpool import. 503 when no pool configured. +3
+  tests. cmd_serve adapter wiring is a follow-up.
+  Snapshot:
+  `.context/snapshots/v2.52.0-pool-health-endpoint.md`.
+
 - 2026-05-17 — v2.51 (chunk 1) — **TUI replay
   status progress.** New `tui.ReplayStatusMsg`
   emitted by `feeds.Replay` every N lines (default

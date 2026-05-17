@@ -48,6 +48,39 @@ type APIV1Deps struct {
 	//   - POST/PUT/DELETE on schedules: operator minimum.
 	//   - Bulk + import + tag-rename + audit-delete: admin.
 	AuthVerifier *auth.Verifier
+	// PoolStatter (v2.52+) is the optional pgxpool.Pool that
+	// backs GET /api/v1/health/pool. Nil → 503 ("pool not
+	// configured"); set to a *pgxpool.Pool in cmd_serve when
+	// the DB pool exists. Operators graph TotalConns /
+	// IdleConns / AcquireDuration to size their fleet under
+	// load.
+	PoolStatter PoolStatter
+}
+
+// PoolStatter is the minimum surface the pool-health endpoint
+// needs. *pgxpool.Pool satisfies it (Stat() *pgxpool.Stat);
+// tests use a synthetic stub.
+type PoolStatter interface {
+	Stat() *PoolStat
+}
+
+// PoolStat is the local shape of pgxpool.Stat-relevant fields
+// — flattened so the handler doesn't pull pgxpool into its
+// import graph. Adapter in cmd_serve converts the real
+// pgxpool.Stat into this shape.
+type PoolStat struct {
+	AcquireCount            int64         `json:"acquire_count"`
+	AcquireDuration         time.Duration `json:"acquire_duration_ns"`
+	AcquiredConns           int32         `json:"acquired_conns"`
+	CanceledAcquireCount    int64         `json:"canceled_acquire_count"`
+	ConstructingConns       int32         `json:"constructing_conns"`
+	EmptyAcquireCount       int64         `json:"empty_acquire_count"`
+	IdleConns               int32         `json:"idle_conns"`
+	MaxConns                int32         `json:"max_conns"`
+	TotalConns              int32         `json:"total_conns"`
+	NewConnsCount           int64         `json:"new_conns_count"`
+	MaxLifetimeDestroyCount int64         `json:"max_lifetime_destroy_count"`
+	MaxIdleDestroyCount     int64         `json:"max_idle_destroy_count"`
 }
 
 // APIV1 returns the /api/v1 sub-router. Endpoints:
@@ -68,6 +101,10 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.HandleFunc("GET /api/v1/scoring", getScoring)
 	mux.HandleFunc("GET /api/v1/health", getHealth)
 	mux.HandleFunc("GET /api/v1/openapi.yaml", getOpenAPI)
+	// v2.52: /health/pool exposes pgxpool runtime stats so
+	// operators can graph DB pressure under load. 503 when
+	// no Pool is wired (memory-mode deployments).
+	mux.Handle("GET /api/v1/health/pool", poolHealth(deps.PoolStatter))
 	if deps.Broadcaster != nil {
 		mux.Handle("GET /api/v1/stream", Stream(deps.Broadcaster))
 	} else {
@@ -262,6 +299,32 @@ func getHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, envelope{
 		Schema: "api:" + APIVersion,
 		Data:   healthResponse{Status: "ok", Timestamp: time.Now().UTC()},
+	})
+}
+
+// poolHealth (v2.52+) returns the pgxpool runtime stats as
+// JSON. 503 when no PoolStatter is configured (memory-mode
+// or pre-DB-bootstrap deployments).
+func poolHealth(ps PoolStatter) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if ps == nil {
+			http.Error(w, "pool not configured (memory-mode or pre-DB)",
+				http.StatusServiceUnavailable)
+			return
+		}
+		s := ps.Stat()
+		if s == nil {
+			http.Error(w, "pool stat unavailable",
+				http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, envelope{
+			Schema: "api:" + APIVersion,
+			Data: map[string]any{
+				"pool":      s,
+				"timestamp": time.Now().UTC(),
+			},
+		})
 	})
 }
 

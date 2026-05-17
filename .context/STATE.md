@@ -1,24 +1,23 @@
 ---
-phase: v2.51-closed
-status: v1.16-v2.34 published; v2.35-v2.51 tags pending push
+phase: v2.52-closed
+status: v1.16-v2.34 published; v2.35-v2.52 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.51 cycle closed on `main`** (1 chunk +
-close). TUI replay status progress. New
-`tui.ReplayStatusMsg` emitted by Replay every N lines
-(default 100). Audit pane renders "(replay progress: 500
-lines @ 5.0/s · path)" so operators see heartbeat
-during long captures.
+**Phase**: **v2.52 cycle closed on `main`** (1 chunk +
+close). pgxpool health endpoint
+(`GET /api/v1/health/pool`). New PoolStatter interface
+keeps handlers free of pgxpool import. 503 when no
+pool. +3 tests. cmd_serve adapter wiring deferred.
 
-Snapshot: `.context/snapshots/v2.51.0-tui-replay-status.md`.
+Snapshot: `.context/snapshots/v2.52.0-pool-health-endpoint.md`.
 
+**v2.51 cycle (closed)**: TUI replay status progress.
 **v2.50 cycle (closed)**: dashboard theme toggle.
 **v2.49 cycle (closed)**: schedule export to iCalendar.
-**v2.48 cycle (closed)**: OIDC binding extended.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.
