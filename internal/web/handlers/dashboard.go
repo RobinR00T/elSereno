@@ -626,14 +626,20 @@ const overviewHTML = `<!doctype html>
         </table>
         <button type="button" id="schedule-audit-close-button" onclick="closeAuditView()" style="margin-top: 0.3em;">Close</button>
       </div>
-      <!-- v2.14: per-schedule clones list. Loaded on demand from
-           /api/v1/schedules/{id}/clones. Empty until openClonesView. -->
+      <!-- v2.14 (+v2.44 depth control): per-schedule clones view.
+           Loaded on demand from /api/v1/schedules/{id}/clones?depth=N. -->
       <div id="schedule-clones-view" style="display: none; margin-top: 0.6em; padding: 0.5em; border: 1px solid #aaa; background: #f6f6f6;">
-        <h3 style="margin: 0 0 0.3em;">Clones</h3>
+        <h3 style="margin: 0 0 0.3em;">Clone descendants</h3>
         <div class="sub" id="schedule-clones-subtitle"></div>
-        <table id="schedule-clones-table" style="margin-top: 0.3em;">
+        <div style="margin: 0.3em 0; display: flex; gap: 0.4em; align-items: center;">
+          <label>depth:
+            <input type="number" id="schedule-clones-depth" min="1" max="10" value="3" size="3" onchange="reloadClones()" />
+          </label>
+          <span class="sub" id="schedule-clones-summary"></span>
+        </div>
+        <table id="schedule-clones-table" style="margin-top: 0.3em; width: 100%;">
           <thead>
-            <tr><th>Name</th><th>Created</th><th>State</th><th>Tags</th><th>Action</th></tr>
+            <tr><th>Depth</th><th>Name</th><th>ID</th><th>Operator</th><th>Created</th></tr>
           </thead>
           <tbody id="schedule-clones-body">
             <tr class="empty"><td colspan="5">loading…</td></tr>
@@ -2093,17 +2099,33 @@ const overviewHTML = `<!doctype html>
     var view = document.getElementById("schedule-runs-view");
     if (view) view.style.display = "none";
   }
-  // ---- v2.14: clones view ----
+  // ---- v2.14 + v2.44 depth control: clones view ----
+  // Module-level state so reloadClones (depth input onchange)
+  // can re-hit the endpoint without re-opening.
+  var clonesSchedID = "";
+  var clonesSchedName = "";
   function openClonesView(id, displayName) {
+    clonesSchedID = id;
+    clonesSchedName = displayName || id;
     var view = document.getElementById("schedule-clones-view");
-    var body = document.getElementById("schedule-clones-body");
     var subtitle = document.getElementById("schedule-clones-subtitle");
-    if (!view || !body) return;
-    if (subtitle) subtitle.textContent = (displayName || id) + " · " + id;
-    body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
+    if (!view) return;
+    if (subtitle) subtitle.textContent = clonesSchedName + " · " + id;
     view.style.display = "";
     view.scrollIntoView({block: "nearest"});
-    fetch("/api/v1/schedules/" + encodeURIComponent(id) + "/clones", {credentials: "same-origin"})
+    reloadClones();
+  }
+  function reloadClones() {
+    if (!clonesSchedID) return;
+    var depth = (document.getElementById("schedule-clones-depth") || {}).value || "3";
+    var body = document.getElementById("schedule-clones-body");
+    var summary = document.getElementById("schedule-clones-summary");
+    if (!body) return;
+    body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
+    if (summary) summary.textContent = "";
+    var url = "/api/v1/schedules/" + encodeURIComponent(clonesSchedID) +
+      "/clones?depth=" + encodeURIComponent(depth);
+    fetch(url, {credentials: "same-origin"})
       .then(function (r) {
         if (r.status === 404) { throw new Error("schedule not found"); }
         if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + ": " + t); });
@@ -2112,23 +2134,33 @@ const overviewHTML = `<!doctype html>
       .then(function (res) {
         var rows = (res && res.data) || [];
         if (!rows.length) {
-          body.innerHTML = '<tr class="empty"><td colspan="5">no clones of this schedule</td></tr>';
+          body.innerHTML = '<tr class="empty"><td colspan="5">no clones of this schedule (depth=' + escText(depth) + ')</td></tr>';
           return;
         }
         body.innerHTML = rows.map(function (s) {
+          var d = (s.clone_depth || 1);
+          // Indent name proportional to depth for visual chain.
+          var indent = (d > 1) ? Array(d).join("· ") : "";
           var created = s.created_at ? new Date(s.created_at).toLocaleString() : "—";
-          var state = s.enabled ? "enabled" : "disabled";
-          var tags = Array.isArray(s.tags) && s.tags.length ? s.tags.join(",") : "—";
-          var action = '<button type="button" data-sched-id="' + escAttr(s.id) +
-            '" onclick="beginEditSchedule(this.dataset.schedId); closeClonesView();">Edit</button>';
           return '<tr>' +
-            '<td>' + escText(s.name || "") + '</td>' +
+            '<td>' + d + '</td>' +
+            '<td>' + escText(indent) + escText(s.name || "") + '</td>' +
+            '<td><code>' + escText((s.id || "").slice(0, 12)) + '…</code></td>' +
+            '<td>' + escText(s.operator || "—") + '</td>' +
             '<td>' + escText(created) + '</td>' +
-            '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
-            '<td><code>' + escText(tags) + '</code></td>' +
-            '<td>' + action + '</td>' +
             '</tr>';
         }).join("");
+        // Tally per-depth.
+        var byDepth = {};
+        for (var i = 0; i < rows.length; i++) {
+          var k = rows[i].clone_depth || 1;
+          byDepth[k] = (byDepth[k] || 0) + 1;
+        }
+        var pieces = [];
+        Object.keys(byDepth).sort().forEach(function (k) {
+          pieces.push("d" + k + ":" + byDepth[k]);
+        });
+        if (summary) summary.textContent = "(" + rows.length + " total · " + pieces.join(" · ") + ")";
       })
       .catch(function (err) {
         body.innerHTML = '<tr class="empty"><td colspan="5">load failed: ' + escText(err.message) + '</td></tr>';
@@ -2137,6 +2169,7 @@ const overviewHTML = `<!doctype html>
   function closeClonesView() {
     var view = document.getElementById("schedule-clones-view");
     if (view) view.style.display = "none";
+    clonesSchedID = "";
   }
   // ---- v2.13: sparkline view ----
   // openSparklineView fetches /api/v1/schedules/{id}/stats/timeseries
@@ -2771,6 +2804,8 @@ const overviewHTML = `<!doctype html>
   window.reloadSparkline = reloadSparkline;
   // v2.14 clones view.
   window.openClonesView = openClonesView;
+  window.closeClonesView = closeClonesView;
+  window.reloadClones = reloadClones;
   window.closeClonesView = closeClonesView;
 
   // v1.68: load the plugin list once on page boot to populate

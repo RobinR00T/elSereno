@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.44 (chunk 1) — **Dashboard
+  clones view + depth control.** Upgrades the v2.14
+  minimal panel with v2.23 `?depth=N` chain
+  traversal. Depth input (1..10, default 3) +
+  per-depth tally + ASCII-tree indented names.
+  Removed duplicate-ID v2.14 div. window-exposed
+  reloadClones for the depth input. Snapshot:
+  `.context/snapshots/v2.44.0-dashboard-clones-depth.md`.
+
 - 2026-05-17 — v2.43 (chunk 1) — **auth.oidc koanf
   config stanza.** New AuthConfig + OIDCConfig
   declared. YAML: `auth.oidc.{issuer, audience,

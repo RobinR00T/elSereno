@@ -1,22 +1,21 @@
 ---
-phase: v2.43-closed
-status: v1.16-v2.34 published; v2.35-v2.43 tags pending push
+phase: v2.44-closed
+status: v1.16-v2.34 published; v2.35-v2.44 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.43 cycle closed on `main`** (1 chunk +
-close). auth.oidc koanf config stanza. New
-AuthConfig{OIDC{Issuer, Audience, JWKSURL, ClockSkew}}.
-Footgun-safe `Enabled()` requires all three URLs.
-Wiring into cmd_serve deferred to v2.44+.
+**Phase**: **v2.44 cycle closed on `main`** (1 chunk +
+close). Dashboard clones view + depth control. Upgrades
+v2.14 minimal panel with v2.23 `?depth=N` traversal,
+per-depth tally, ASCII-tree indented names.
 
-Snapshot: `.context/snapshots/v2.43.0-auth-oidc-config.md`.
+Snapshot: `.context/snapshots/v2.44.0-dashboard-clones-depth.md`.
 
-**v2.42 cycle (closed)**: PROFINET vendor + device-id
-resolution table.
+**v2.43 cycle (closed)**: auth.oidc koanf config stanza.
+**v2.42 cycle (closed)**: PROFINET vendor + device-id table.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.
