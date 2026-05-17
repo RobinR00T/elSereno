@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.48 (chunk 1) — **OIDC binding
+  extended to /scans + /audit + /findings.** Builds
+  on v2.40 (which covered /schedules/* only). 12 more
+  routes role-bound: reads→viewer (findings, runs,
+  triage, audit, audit/cadence, inputs/preview,
+  scans, scans/{id}), mutations→operator (POST /scans,
+  /scans/bulk, /scans/{id}/cancel). Total: 27 of 27
+  /api/v1 endpoints now declaratively role-bound.
+  /stream + /plugins + /scoring + /health +
+  /openapi.yaml intentionally unbound (SSE / health
+  probes). Snapshot:
+  `.context/snapshots/v2.48.0-oidc-scans-audit-binding.md`.
+
 - 2026-05-17 — v2.47 (chunk 1) — **GE-SRTP
   service-0x21 follow-up.** Closes long-deferred
   carryover. 8 new family prefixes (EFM3530,

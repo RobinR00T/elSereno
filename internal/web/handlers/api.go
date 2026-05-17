@@ -75,12 +75,17 @@ func APIV1(deps APIV1Deps) http.Handler {
 			http.Error(w, "live feed unavailable", http.StatusServiceUnavailable)
 		})
 	}
-	mux.Handle("GET /api/v1/findings", Findings(deps.Querier))
-	mux.Handle("GET /api/v1/findings/diff", FindingsDiff(deps.Querier))
-	mux.Handle("GET /api/v1/runs", Runs(deps.Querier))
-	mux.Handle("GET /api/v1/triage", Triage(deps.Querier))
-	mux.Handle("GET /api/v1/audit", Audit(deps.Querier))
-	mux.Handle("GET /api/v1/audit/cadence", AuditCadence(deps.Querier))
+	// v2.48: extend per-route OIDC binding to /findings,
+	// /runs, /triage, /audit, /audit/cadence. All read-only
+	// → viewer minimum. wrapWithRole no-ops when AuthVerifier
+	// is nil/disabled (back-compat preserved).
+	v := deps.AuthVerifier
+	mux.Handle("GET /api/v1/findings", wrapWithRole(v, auth.RoleViewer, Findings(deps.Querier)))
+	mux.Handle("GET /api/v1/findings/diff", wrapWithRole(v, auth.RoleViewer, FindingsDiff(deps.Querier)))
+	mux.Handle("GET /api/v1/runs", wrapWithRole(v, auth.RoleViewer, Runs(deps.Querier)))
+	mux.Handle("GET /api/v1/triage", wrapWithRole(v, auth.RoleViewer, Triage(deps.Querier)))
+	mux.Handle("GET /api/v1/audit", wrapWithRole(v, auth.RoleViewer, Audit(deps.Querier)))
+	mux.Handle("GET /api/v1/audit/cadence", wrapWithRole(v, auth.RoleViewer, AuditCadence(deps.Querier)))
 	// v1.36+: input-preview parity with the `scan` / `tui`
 	// CLI verbs. Read-only — does NOT run a scan; just parses
 	// the input file + returns the resolved targets so
@@ -89,16 +94,22 @@ func APIV1(deps APIV1Deps) http.Handler {
 	// Provider kinds (shodan: / etc.) are out of scope here
 	// because they need creds + rate-limit tuning that the
 	// dashboard process intentionally doesn't carry.
-	mux.Handle("GET /api/v1/inputs/preview", PreviewInput())
+	// v2.48: viewer-level for preview (read-only side-effect-free).
+	mux.Handle("GET /api/v1/inputs/preview", wrapWithRole(v, auth.RoleViewer, PreviewInput()))
 	// v1.58 chunk 1: scan orchestration endpoints. Three
 	// handlers (POST /scans, GET /scans, GET /scans/{id}) are
 	// served by the Scans sub-router.
+	//
+	// v2.48 role split:
+	//   GET /scans + GET /scans/{id}                 → viewer
+	//   POST /scans + POST /scans/bulk               → operator
+	//   POST /scans/{id}/cancel                      → operator
 	scansHandler := Scans(deps.ScanStore)
-	mux.Handle("POST /api/v1/scans", scansHandler)
-	mux.Handle("POST /api/v1/scans/bulk", scansHandler)
-	mux.Handle("GET /api/v1/scans", scansHandler)
-	mux.Handle("GET /api/v1/scans/{id}", scansHandler)
-	mux.Handle("POST /api/v1/scans/{id}/cancel", scansHandler)
+	mux.Handle("POST /api/v1/scans", wrapWithRole(v, auth.RoleOperator, scansHandler))
+	mux.Handle("POST /api/v1/scans/bulk", wrapWithRole(v, auth.RoleOperator, scansHandler))
+	mux.Handle("GET /api/v1/scans", wrapWithRole(v, auth.RoleViewer, scansHandler))
+	mux.Handle("GET /api/v1/scans/{id}", wrapWithRole(v, auth.RoleViewer, scansHandler))
+	mux.Handle("POST /api/v1/scans/{id}/cancel", wrapWithRole(v, auth.RoleOperator, scansHandler))
 	mountScheduleRoutes(mux, deps)
 	return mux
 }

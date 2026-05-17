@@ -1,23 +1,24 @@
 ---
-phase: v2.47-closed
-status: v1.16-v2.34 published; v2.35-v2.47 tags pending push
+phase: v2.48-closed
+status: v1.16-v2.34 published; v2.35-v2.48 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.47 cycle closed on `main`** (1 chunk +
-close). GE-SRTP service-0x21 follow-up. 8 new family
-prefixes + LongStatusInfo.RawHex (first 128B) +
-SerialHint heuristic. Closes long-deferred carryover.
+**Phase**: **v2.48 cycle closed on `main`** (1 chunk +
+close). OIDC RequireRole extended to /scans + /audit +
+/findings (12 routes). Total 27/27 /api/v1 endpoints
+role-bound (excluding intentional unbound: /stream,
+/health, /plugins, /scoring, /openapi.yaml).
 
 Snapshot:
-`.context/snapshots/v2.47.0-gesrtp-service-0x21-followup.md`.
+`.context/snapshots/v2.48.0-oidc-scans-audit-binding.md`.
 
+**v2.47 cycle (closed)**: GE-SRTP service-0x21 follow-up.
 **v2.46 cycle (closed)**: sparkline drill-down → /runs.
 **v2.45 cycle (closed)**: /runs ?since/until filter.
-**v2.44 cycle (closed)**: dashboard clones view.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.
