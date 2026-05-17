@@ -1218,6 +1218,82 @@ func TestScheduleStatsTimeseries_BadBucket(t *testing.T) {
 	}
 }
 
+// TestListScheduleRuns_SinceUntil (v2.45+): time-window
+// filter via ?since= / ?until= on /runs.
+func TestListScheduleRuns_SinceUntil(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "rng", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	// Submit 3 jobs; transition to running so they get
+	// stable CreatedAt timestamps.
+	for i := 0; i < 3; i++ {
+		_, _ = scanStore.SubmitFromSchedule(context.Background(),
+			sched.Template, "alice", sched.ID)
+	}
+	// Manual call to ListByScheduleRange with explicit window:
+	// inclusive [-time.Hour, +time.Hour] should match all 3.
+	now := time.Now().UTC()
+	wide, err := scanStore.ListByScheduleRange(context.Background(),
+		sched.ID, now.Add(-time.Hour), now.Add(time.Hour), 100)
+	if err != nil {
+		t.Fatalf("range err: %v", err)
+	}
+	if len(wide) != 3 {
+		t.Errorf("wide window jobs = %d, want 3", len(wide))
+	}
+	// Far-future since → 0 results.
+	none, err := scanStore.ListByScheduleRange(context.Background(),
+		sched.ID, now.Add(24*time.Hour), time.Time{}, 100)
+	if err != nil {
+		t.Fatalf("none err: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("future-since jobs = %d, want 0", len(none))
+	}
+	// HTTP-layer: ?since=&until= roundtrip.
+	router := newSchedRouterWithScan(store, scanStore)
+	url := "/api/v1/schedules/" + sched.ID + "/runs?since=" +
+		now.Add(-time.Hour).Format(time.RFC3339)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Items []scanorch.Job `json:"items"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Data.Items) != 3 {
+		t.Errorf("HTTP since-only jobs = %d, want 3", len(resp.Data.Items))
+	}
+}
+
+// TestListScheduleRuns_InvertedWindow (v2.45+): until<since
+// → 400.
+func TestListScheduleRuns_InvertedWindow(t *testing.T) {
+	store := scanorch.NewMemoryScheduleStore()
+	scanStore := scanorch.NewMemoryStore()
+	sched, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
+		Name: "i", Template: scanorch.SubmitRequest{Input: "stdin"},
+		IntervalSeconds: 60,
+	}, "alice")
+	router := newSchedRouterWithScan(store, scanStore)
+	url := "/api/v1/schedules/" + sched.ID +
+		"/runs?since=2026-05-17T12:00:00Z&until=2026-05-17T10:00:00Z"
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rr.Code)
+	}
+}
+
 // TestListScheduleClones_Deep (v2.23+): recursive chain walk.
 func TestListScheduleClones_Deep(t *testing.T) {
 	store := scanorch.NewMemoryScheduleStore()

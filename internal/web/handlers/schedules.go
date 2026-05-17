@@ -489,7 +489,26 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 			http.Error(w, "schedules: "+berr.Error(), http.StatusBadRequest)
 			return
 		}
-		jobs, err := scanStore.ListByScheduleBefore(r.Context(), id, before, limit)
+		// v2.45+: optional ?since= / ?until= window filter.
+		// Mutually-exclusive with ?before= (cursor pagination)
+		// — operators wanting both filter + pagination should
+		// page within the window using the same cursor semantics
+		// (a future cycle can add that; for now, since/until
+		// supersede before when set).
+		since, until, terr := parseRunsTimeWindow(r)
+		if terr != nil {
+			http.Error(w, "schedules: "+terr.Error(), http.StatusBadRequest)
+			return
+		}
+		var (
+			jobs []scanorch.Job
+			err  error
+		)
+		if !since.IsZero() || !until.IsZero() {
+			jobs, err = scanStore.ListByScheduleRange(r.Context(), id, since, until, limit)
+		} else {
+			jobs, err = scanStore.ListByScheduleBefore(r.Context(), id, before, limit)
+		}
 		if err != nil {
 			http.Error(w, "schedules: list runs: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -750,6 +769,41 @@ func parseRunsBefore(r *http.Request) (time.Time, error) {
 	}
 	if err != nil {
 		return time.Time{}, fmt.Errorf("malformed before query (RFC3339): %w", err)
+	}
+	return t, nil
+}
+
+// parseRunsTimeWindow (v2.45+) reads ?since= / ?until=
+// inclusive RFC3339 timestamps. Returns (zero, zero, nil)
+// when neither is set. If only one is set, the other stays
+// zero (no bound on that side). Inverted ranges (until<since)
+// → error.
+func parseRunsTimeWindow(r *http.Request) (time.Time, time.Time, error) {
+	since, sErr := parseOptionalRFC3339(r.URL.Query().Get("since"), "since")
+	if sErr != nil {
+		return time.Time{}, time.Time{}, sErr
+	}
+	until, uErr := parseOptionalRFC3339(r.URL.Query().Get("until"), "until")
+	if uErr != nil {
+		return time.Time{}, time.Time{}, uErr
+	}
+	if !since.IsZero() && !until.IsZero() && until.Before(since) {
+		return time.Time{}, time.Time{}, fmt.Errorf("until (%s) is before since (%s)",
+			until.Format(time.RFC3339), since.Format(time.RFC3339))
+	}
+	return since, until, nil
+}
+
+func parseOptionalRFC3339(raw, field string) (time.Time, error) {
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, raw)
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("malformed %s query (RFC3339): %w", field, err)
 	}
 	return t, nil
 }

@@ -133,6 +133,11 @@ func (s *BroadcastingStore) ListByScheduleBefore(ctx context.Context, scheduleID
 	return s.inner.ListByScheduleBefore(ctx, scheduleID, before, limit)
 }
 
+// ListByScheduleRange (v2.45+) passthrough.
+func (s *BroadcastingStore) ListByScheduleRange(ctx context.Context, scheduleID string, since, until time.Time, limit int) ([]scanorch.Job, error) {
+	return s.inner.ListByScheduleRange(ctx, scheduleID, since, until, limit)
+}
+
 // StatsBySchedule (v2.2+) is a pure read; no event published.
 func (s *BroadcastingStore) StatsBySchedule(ctx context.Context, scheduleID string, since time.Time) (scanorch.ScheduleRunStats, error) {
 	return s.inner.StatsBySchedule(ctx, scheduleID, since)

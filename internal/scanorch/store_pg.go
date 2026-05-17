@@ -186,6 +186,45 @@ func (s *DBStore) ListByScheduleBefore(ctx context.Context, scheduleID string, b
 	return collectJobs(rows, limit)
 }
 
+// ListByScheduleRange (v2.45+) filters by an inclusive
+// [since, until] CreatedAt window. Both zero → equivalent to
+// ListBySchedule. Mixed zeroes fall through to whichever bound
+// is set. Newest-first ordering preserved.
+//
+// SQL composes the predicates dynamically so all 4 cases
+// (both/since-only/until-only/none) hit the same partial
+// index from v1.92 (CREATE INDEX ... ON scan_jobs
+// (triggered_by_schedule_id, created_at DESC)).
+func (s *DBStore) ListByScheduleRange(ctx context.Context, scheduleID string, since, until time.Time, limit int) ([]Job, error) {
+	if scheduleID == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	sql := "SELECT " + jobColumns +
+		" FROM scan_jobs WHERE triggered_by_schedule_id = $1"
+	args := []any{scheduleID}
+	if !since.IsZero() {
+		args = append(args, since.UTC())
+		sql += fmt.Sprintf(" AND created_at >= $%d", len(args))
+	}
+	if !until.IsZero() {
+		args = append(args, until.UTC())
+		sql += fmt.Sprintf(" AND created_at <= $%d", len(args))
+	}
+	args = append(args, limit)
+	sql += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d", len(args))
+	rows, err := s.q.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, fmt.Errorf("scanorch: list jobs by schedule range: %w", err)
+	}
+	return collectJobs(rows, limit)
+}
+
 // listByScheduleNewest is the no-cursor fast-path (saves a $2
 // parameter binding when the operator wants the most-recent
 // page).

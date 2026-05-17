@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.45 (chunk 1) — **/runs
+  ?since= / ?until= time-window filter.** New
+  `Store.ListByScheduleRange` (Memory + PG +
+  BroadcastingStore). Handler dispatches to
+  Range when window-set, else falls through to
+  v2.0 Before-cursor path. Inverted ranges → 400.
+  Enables v2.46 sparkline bucket drill-down. +2
+  tests. Snapshot:
+  `.context/snapshots/v2.45.0-runs-time-window.md`.
+
 - 2026-05-17 — v2.44 (chunk 1) — **Dashboard
   clones view + depth control.** Upgrades the v2.14
   minimal panel with v2.23 `?depth=N` chain

@@ -1,21 +1,22 @@
 ---
-phase: v2.44-closed
-status: v1.16-v2.34 published; v2.35-v2.44 tags pending push
+phase: v2.45-closed
+status: v1.16-v2.34 published; v2.35-v2.45 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.44 cycle closed on `main`** (1 chunk +
-close). Dashboard clones view + depth control. Upgrades
-v2.14 minimal panel with v2.23 `?depth=N` traversal,
-per-depth tally, ASCII-tree indented names.
+**Phase**: **v2.45 cycle closed on `main`** (1 chunk +
+close). /runs ?since= / ?until= time-window filter. New
+`Store.ListByScheduleRange`. Enables v2.46 sparkline
+bucket drill-down. Inverted ranges → 400. +2 tests.
 
-Snapshot: `.context/snapshots/v2.44.0-dashboard-clones-depth.md`.
+Snapshot: `.context/snapshots/v2.45.0-runs-time-window.md`.
 
+**v2.44 cycle (closed)**: dashboard clones view + depth.
 **v2.43 cycle (closed)**: auth.oidc koanf config stanza.
-**v2.42 cycle (closed)**: PROFINET vendor + device-id table.
+**v2.42 cycle (closed)**: PROFINET vendor table.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

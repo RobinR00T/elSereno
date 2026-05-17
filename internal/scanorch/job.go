@@ -198,6 +198,13 @@ type Store interface {
 	// oldest returned row's `created_at` back as `before` on
 	// the next request.
 	ListByScheduleBefore(ctx context.Context, scheduleID string, before time.Time, limit int) ([]Job, error)
+	// ListByScheduleRange (v2.45+) filters jobs by an
+	// inclusive time window: CreatedAt ∈ [since, until].
+	// Zero `since` → no lower bound. Zero `until` → no
+	// upper bound. Both zero → equivalent to
+	// ListBySchedule. Used by the dashboard sparkline
+	// drill-down + by /runs?since=&until= query.
+	ListByScheduleRange(ctx context.Context, scheduleID string, since, until time.Time, limit int) ([]Job, error)
 	// StatsBySchedule (v2.2+) returns aggregate run-stats for
 	// jobs triggered by `scheduleID` since `since`. Default
 	// window when `since` is zero is the last 7 days.
@@ -592,6 +599,34 @@ func (s *MemoryStore) ListByScheduleBefore(_ context.Context, scheduleID string,
 			continue
 		}
 		if !before.IsZero() && !job.CreatedAt.Before(before) {
+			continue
+		}
+		out = append(out, job)
+	}
+	return out, nil
+}
+
+// ListByScheduleRange (v2.45+) filters jobs by an inclusive
+// [since, until] window. Newest-first ordering preserved.
+func (s *MemoryStore) ListByScheduleRange(_ context.Context, scheduleID string, since, until time.Time, limit int) ([]Job, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Job, 0, limit)
+	for i := len(s.order) - 1; i >= 0 && len(out) < limit; i-- {
+		job, ok := s.jobs[s.order[i]]
+		if !ok {
+			continue
+		}
+		if job.TriggeredByScheduleID != scheduleID {
+			continue
+		}
+		if !since.IsZero() && job.CreatedAt.Before(since) {
+			continue
+		}
+		if !until.IsZero() && job.CreatedAt.After(until) {
 			continue
 		}
 		out = append(out, job)
