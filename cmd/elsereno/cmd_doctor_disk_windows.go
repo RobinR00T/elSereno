@@ -15,8 +15,9 @@ import (
 // kernel32.dll directly through syscall.LazyDLL — keeps the
 // Windows mini build dependency-light.
 //
-//nolint:gocritic // the LazyDLL trampoline is the idiomatic
 // pattern for one-shot Windows API calls without x/sys.
+//
+//nolint:gocritic // the LazyDLL trampoline is the idiomatic
 func checkDisk() doctorResult {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	proc := kernel32.NewProc("GetDiskFreeSpaceExW")

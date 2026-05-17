@@ -1,22 +1,21 @@
 ---
-phase: v2.41-closed
-status: v1.16-v2.34 published; v2.35-v2.41 tags pending push
+phase: v2.42-closed
+status: v1.16-v2.34 published; v2.35-v2.42 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.41 cycle closed on `main`** (1 chunk +
-close). PROFINET CLI decode + encode verb. Closes v2.39
-carryover: `elsereno profinet decode --hex|--file
-[--strip-l2 N] [--json]` + `encode-identify --xid N`.
-Tolerant hex parser. Smoke-tested via encode → decode
-round-trip.
+**Phase**: **v2.42 cycle closed on `main`** (1 chunk +
+close). PROFINET vendor + device-id resolution table.
+20 vendors + 26 device families curated. CLI decode +
+JSON output show human names.
 
-Snapshot: `.context/snapshots/v2.41.0-profinet-cli.md`.
+Snapshot: `.context/snapshots/v2.42.0-profinet-vendor-table.md`.
 
-**v2.40 cycle (closed)**: per-route OIDC RequireRole binding.
+**v2.41 cycle (closed)**: PROFINET CLI decode/encode.
+**v2.40 cycle (closed)**: per-route OIDC binding.
 **v2.39 cycle (closed)**: PROFINET DCP wire codec.
 **v2.38 cycle (closed)**: OIDC + roles auth package.
 

@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.42 (chunk 1) — **PROFINET vendor
+  + device-id resolution table.** 20 vendors curated
+  (Siemens, Phoenix Contact, Hilscher, Pilz,
+  Schneider, ABB, Rockwell, WAGO, Beckhoff, B&R,
+  Hitachi, Bosch Rexroth, Endress+Hauser, Festo,
+  Yokogawa, SICK, TURCK, Murrelektronik, MTS) + 26
+  device families. CLI decode output now reads
+  `0x002A (Siemens AG)` + `0x010E (S7-1500 CPU ...)`.
+  JSON gains vendor_name/device_name/vendor_device
+  fields. +7 tests. Snapshot:
+  `.context/snapshots/v2.42.0-profinet-vendor-table.md`.
+
 - 2026-05-17 — v2.41 (chunk 1) — **PROFINET CLI
   decode + encode verb.** Closes v2.39 carryover.
   `elsereno profinet decode --hex|--file [--strip-l2 N]

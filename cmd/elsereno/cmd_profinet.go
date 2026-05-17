@@ -176,8 +176,8 @@ func renderProfinetText(out io.Writer, f *profinet.Frame, decErr error) {
 		resp := profinet.ParseIdentifyResponse(f)
 		_, _ = fmt.Fprintf(out, "\nIdentify summary:\n")
 		_, _ = fmt.Fprintf(out, "  NameOfStation: %s\n", resp.NameOfStation)
-		_, _ = fmt.Fprintf(out, "  VendorID:      0x%04X\n", resp.VendorID)
-		_, _ = fmt.Fprintf(out, "  DeviceID:      0x%04X\n", resp.DeviceID)
+		_, _ = fmt.Fprintf(out, "  VendorID:      0x%04X (%s)\n", resp.VendorID, orDash(profinet.VendorName(resp.VendorID)))
+		_, _ = fmt.Fprintf(out, "  DeviceID:      0x%04X (%s)\n", resp.DeviceID, orDash(profinet.DeviceName(resp.VendorID, resp.DeviceID)))
 		_, _ = fmt.Fprintf(out, "  Role:          %s (0x%02X)\n", profinet.FormatDeviceRole(resp.DeviceRole), resp.DeviceRole)
 		if resp.OEMDeviceID != "" {
 			_, _ = fmt.Fprintf(out, "  OEMDeviceID:   %s\n", resp.OEMDeviceID)
@@ -212,7 +212,10 @@ func renderProfinetJSON(out io.Writer, f *profinet.Frame, decErr error) error {
 		payload["identify_summary"] = map[string]any{
 			"name_of_station": resp.NameOfStation,
 			"vendor_id":       resp.VendorID,
+			"vendor_name":     profinet.VendorName(resp.VendorID),
 			"device_id":       resp.DeviceID,
+			"device_name":     profinet.DeviceName(resp.VendorID, resp.DeviceID),
+			"vendor_device":   profinet.FormatVendorDevice(resp.VendorID, resp.DeviceID),
 			"device_role":     resp.DeviceRole,
 			"device_role_str": profinet.FormatDeviceRole(resp.DeviceRole),
 			"oem_device_id":   resp.OEMDeviceID,
@@ -264,6 +267,15 @@ func profinetServiceTypeName(t uint8) string {
 	default:
 		return "?"
 	}
+}
+
+// orDash returns "—" when s is empty so output stays
+// visually aligned for both known + unknown vendors.
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func profinetOptionName(o uint8) string {
