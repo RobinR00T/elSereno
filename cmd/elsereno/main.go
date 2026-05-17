@@ -156,6 +156,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTUICmd())
 	root.AddCommand(newFingerprintCmd())
 	root.AddCommand(newScheduleCmd())
+	root.AddCommand(newProfinetCmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

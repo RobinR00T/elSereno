@@ -8,6 +8,14 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.41 (chunk 1) — **PROFINET CLI
+  decode + encode verb.** Closes v2.39 carryover.
+  `elsereno profinet decode --hex|--file [--strip-l2 N]
+  [--json]` + `encode-identify --xid 0xN`. Tolerant hex
+  parser (whitespace + 0x + `:` + `-`). Smoke-tested
+  via round-trip encode → decode. Snapshot:
+  `.context/snapshots/v2.41.0-profinet-cli.md`.
+
 - 2026-05-17 — v2.40 (chunk 1) — **Per-route OIDC
   RequireRole binding.** Wires the v2.38 auth package
   into every /api/v1/schedules/* route via a

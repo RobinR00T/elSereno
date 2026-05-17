@@ -1,22 +1,22 @@
 ---
-phase: v2.40-closed
-status: v1.16-v2.34 published; v2.35-v2.40 tags pending push
+phase: v2.41-closed
+status: v1.16-v2.34 published; v2.35-v2.41 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.40 cycle closed on `main`** (1 chunk +
-close). Per-route OIDC RequireRole binding. Wires the
-v2.38 auth package into every /api/v1/schedules/* via
-a (pattern → min-role) table: reads=viewer,
-single-schedule mutations=operator, bulk/import/tag-rename=admin.
-Back-compat pass-through when AuthVerifier nil/disabled.
-operatorFromRequest now prefers OIDC ctx-bound identity.
+**Phase**: **v2.41 cycle closed on `main`** (1 chunk +
+close). PROFINET CLI decode + encode verb. Closes v2.39
+carryover: `elsereno profinet decode --hex|--file
+[--strip-l2 N] [--json]` + `encode-identify --xid N`.
+Tolerant hex parser. Smoke-tested via encode → decode
+round-trip.
 
-Snapshot: `.context/snapshots/v2.40.0-oidc-route-binding.md`.
+Snapshot: `.context/snapshots/v2.41.0-profinet-cli.md`.
 
+**v2.40 cycle (closed)**: per-route OIDC RequireRole binding.
 **v2.39 cycle (closed)**: PROFINET DCP wire codec.
 **v2.38 cycle (closed)**: OIDC + roles auth package.
 
