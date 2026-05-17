@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/web/auth"
 )
 
 // note: writeJSON lives in api.go; this file re-uses it.
@@ -226,11 +227,19 @@ func parseLimit(raw string) int {
 }
 
 // operatorFromRequest extracts the operator identity from the
-// request. v1.58 chunk 1 reads the X-Operator header set by the
-// upstream auth middleware (or empty for unauthenticated dev
-// runs); a future chunk wires this through the shared session
-// context that the audit + findings endpoints already use.
+// request. Precedence (v2.40+):
+//
+//  1. ctx-bound operator from OIDC claims (email > sub),
+//     stashed by auth.Verifier.RequireRole middleware.
+//  2. X-Operator header (v1.58 dev-mode + back-compat).
+//  3. "" (anonymous; audit row carries "anonymous" upstream).
+//
+// When OIDC enforcement is enabled, (1) always wins — the
+// header can't impersonate a token-bound identity.
 func operatorFromRequest(r *http.Request) string {
+	if op := auth.OperatorFromContext(r.Context()); op != "" {
+		return op
+	}
 	if v := r.Header.Get("X-Operator"); v != "" {
 		return v
 	}

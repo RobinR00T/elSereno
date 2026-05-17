@@ -10,6 +10,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/repo"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/web/auth"
 	"local/elsereno/internal/web/openapi"
 	"local/elsereno/internal/web/stream"
 )
@@ -38,6 +39,15 @@ type APIV1Deps struct {
 	// PUTs still succeed but no row is persisted, and
 	// GET /api/v1/schedules/{id}/audit returns 503.
 	ScheduleAuditStore scanorch.ScheduleAuditStore
+	// AuthVerifier (v2.40+) enforces OIDC bearer-token validation
+	// + role-based access control on mutating endpoints. Nil OR
+	// v.Enabled()==false → back-compat dev mode (every route
+	// passes the upstream auth middleware unchanged; X-Operator
+	// header carries identity). When enabled, role rules are:
+	//   - GET routes: viewer minimum.
+	//   - POST/PUT/DELETE on schedules: operator minimum.
+	//   - Bulk + import + tag-rename + audit-delete: admin.
+	AuthVerifier *auth.Verifier
 }
 
 // APIV1 returns the /api/v1 sub-router. Endpoints:
@@ -93,36 +103,72 @@ func APIV1(deps APIV1Deps) http.Handler {
 	return mux
 }
 
-// mountScheduleRoutes (v2.16+) registers every
-// /api/v1/schedules/* route on `mux`. Extracted so APIV1
-// stays under the funlen statement cap as the schedule
-// surface grows.
+// mountScheduleRoutes (v2.16+, v2.40 role-aware) registers
+// every /api/v1/schedules/* route on `mux` with per-route OIDC
+// role enforcement. Extracted so APIV1 stays under the funlen
+// statement cap as the schedule surface grows.
+//
+// Role rules (when deps.AuthVerifier is enabled):
+//   - GET routes  → viewer.
+//   - PUT / DELETE / POST on a single schedule → operator.
+//   - Bulk endpoints + tag-rename + import → admin.
+//
+// When AuthVerifier is nil or disabled, every route passes
+// through unchanged (preserves the v1.58 X-Operator workflow).
 func mountScheduleRoutes(mux *http.ServeMux, deps APIV1Deps) {
 	h := Schedules(deps.ScheduleStore, deps.ScheduleAuditStore, deps.ScanStore)
-	routes := []string{
-		"POST /api/v1/schedules",
-		"GET /api/v1/schedules",
-		"GET /api/v1/schedules/{id}",
-		"PUT /api/v1/schedules/{id}",
-		"DELETE /api/v1/schedules/{id}",
-		"POST /api/v1/schedules/{id}/enable",
-		"POST /api/v1/schedules/{id}/disable",
-		"GET /api/v1/schedules/{id}/audit",
-		"GET /api/v1/schedules/{id}/runs",
-		"GET /api/v1/schedules/{id}/stats",
-		"GET /api/v1/schedules/{id}/clones",
-		"GET /api/v1/schedules/{id}/stats/timeseries",
-		"POST /api/v1/schedules/tags/rename",
-		"POST /api/v1/schedules/{id}/clone",
-		"POST /api/v1/schedules/bulk/enable",
-		"POST /api/v1/schedules/bulk/disable",
-		"GET /api/v1/schedules/export",
-		"POST /api/v1/schedules/import",
-		"GET /api/v1/schedules/tags",
+	v := deps.AuthVerifier
+	for _, entry := range scheduleRoutes() {
+		guarded := wrapWithRole(v, entry.role, h)
+		mux.Handle(entry.pattern, guarded)
 	}
-	for _, r := range routes {
-		mux.Handle(r, h)
+}
+
+// scheduleRouteEntry is one declarative routing record: HTTP
+// method + path + minimum role required.
+type scheduleRouteEntry struct {
+	pattern string
+	role    auth.Role
+}
+
+// scheduleRoutes is the canonical (pattern → role) table.
+// Single source of truth for both mountScheduleRoutes and the
+// future docs/openapi spec annotation cycle.
+func scheduleRoutes() []scheduleRouteEntry {
+	return []scheduleRouteEntry{
+		// Reads — viewer.
+		{"GET /api/v1/schedules", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}/audit", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}/runs", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}/stats", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}/clones", auth.RoleViewer},
+		{"GET /api/v1/schedules/{id}/stats/timeseries", auth.RoleViewer},
+		{"GET /api/v1/schedules/export", auth.RoleViewer},
+		{"GET /api/v1/schedules/tags", auth.RoleViewer},
+		// Single-schedule mutations — operator.
+		{"POST /api/v1/schedules", auth.RoleOperator},
+		{"PUT /api/v1/schedules/{id}", auth.RoleOperator},
+		{"DELETE /api/v1/schedules/{id}", auth.RoleOperator},
+		{"POST /api/v1/schedules/{id}/enable", auth.RoleOperator},
+		{"POST /api/v1/schedules/{id}/disable", auth.RoleOperator},
+		{"POST /api/v1/schedules/{id}/clone", auth.RoleOperator},
+		// Fleet-wide / destructive — admin.
+		{"POST /api/v1/schedules/tags/rename", auth.RoleAdmin},
+		{"POST /api/v1/schedules/bulk/enable", auth.RoleAdmin},
+		{"POST /api/v1/schedules/bulk/disable", auth.RoleAdmin},
+		{"POST /api/v1/schedules/import", auth.RoleAdmin},
 	}
+}
+
+// wrapWithRole composes the role-check middleware around h.
+// Nil verifier or disabled verifier → returns h unchanged
+// (zero-overhead back-compat).
+func wrapWithRole(v *auth.Verifier, required auth.Role, h http.Handler) http.Handler {
+	if v == nil || !v.Enabled() {
+		return h
+	}
+	return v.RequireRole(required, h)
 }
 
 // getOpenAPI serves the code-sourced OpenAPI 3.1 YAML. The same

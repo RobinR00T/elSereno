@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.40 (chunk 1) — **Per-route OIDC
+  RequireRole binding.** Wires the v2.38 auth package
+  into every /api/v1/schedules/* route via a
+  declarative (pattern → min-role) table. Reads →
+  viewer, single-schedule mutations → operator,
+  bulk + tag-rename + import → admin (19 routes).
+  Nil/disabled Verifier → back-compat pass-through.
+  operatorFromRequest now prefers OIDC ctx-bound
+  identity over X-Operator header. Snapshot:
+  `.context/snapshots/v2.40.0-oidc-route-binding.md`.
+
 - 2026-05-17 — v2.39 (chunk 1) — **PROFINET DCP
   wire codec.** New `internal/protocols/profinet/`
   pure-stdlib encoder + decoder for IEC 61784-2 DCP
