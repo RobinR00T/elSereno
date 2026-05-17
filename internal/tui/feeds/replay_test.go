@@ -95,6 +95,62 @@ func TestReplayHappyPath(t *testing.T) {
 	}
 }
 
+// TestReplay_StatusEmission (v2.51+): with StatusEvery=2 and
+// 5 valid findings, we expect 2 ReplayStatusMsg emissions
+// (at line counts 2 and 4).
+func TestReplay_StatusEmission(t *testing.T) {
+	src := strings.NewReader(strings.Join([]string{
+		findingFixture(91, "modbus"),
+		findingFixture(72, "s7"),
+		findingFixture(33, "snmp"),
+		findingFixture(85, "bacnet"),
+		findingFixture(60, "dnp3"),
+	}, "\n"))
+	d := &drain{}
+	ctx := context.Background()
+	r := Replay{Path: "test", StatusEvery: 2}
+	if err := r.stream(ctx, src, d.emit()); err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	var statusCount int
+	var lastStatus tui.ReplayStatusMsg
+	for _, m := range d.msgs {
+		if s, ok := m.(tui.ReplayStatusMsg); ok {
+			statusCount++
+			lastStatus = s
+		}
+	}
+	if statusCount != 2 {
+		t.Errorf("status emissions = %d, want 2 (msgs: %v)", statusCount, d.msgs)
+	}
+	if lastStatus.LineCount != 4 {
+		t.Errorf("last status line count = %d, want 4", lastStatus.LineCount)
+	}
+	if lastStatus.Path != "test" {
+		t.Errorf("last status path = %q, want test", lastStatus.Path)
+	}
+}
+
+// TestReplay_StatusDisabled (v2.51+): StatusEvery=-1 disables
+// status emissions entirely.
+func TestReplay_StatusDisabled(t *testing.T) {
+	src := strings.NewReader(strings.Join([]string{
+		findingFixture(91, "modbus"),
+		findingFixture(72, "s7"),
+	}, "\n"))
+	d := &drain{}
+	ctx := context.Background()
+	r := Replay{Path: "test", StatusEvery: -1}
+	if err := r.stream(ctx, src, d.emit()); err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	for _, m := range d.msgs {
+		if _, ok := m.(tui.ReplayStatusMsg); ok {
+			t.Errorf("status emitted despite StatusEvery=-1: %v", m)
+		}
+	}
+}
+
 // TestReplayMalformedLineSkipped — a bad JSON line becomes an
 // AuditMsg ("skipped malformed line N: …") instead of aborting.
 func TestReplayMalformedLineSkipped(t *testing.T) {

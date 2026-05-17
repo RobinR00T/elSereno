@@ -10,6 +10,8 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"local/elsereno/internal/tui"
 )
 
 // Replay reads an ndjson:v1 capture file from disk and emits one
@@ -34,6 +36,10 @@ type Replay struct {
 	// Rate is the playback rate in lines per second. 0 (the
 	// default) plays as fast as the goroutine schedules.
 	Rate float64
+	// StatusEvery (v2.51+) is the line-count interval between
+	// ReplayStatusMsg emissions. 0 (default) → 100. Set to
+	// -1 to disable status messages entirely.
+	StatusEvery int
 }
 
 // Name implements tui.Feed.
@@ -57,6 +63,31 @@ func (r Replay) Run(ctx context.Context, emit func(tea.Msg)) error {
 }
 
 // stream is split out so tests drive an io.Reader directly.
+//
+// v2.51+: wraps `emit` with a status-counting wrapper so the
+// TUI sees a ReplayStatusMsg every StatusEvery lines.
 func (r Replay) stream(ctx context.Context, src io.Reader, emit func(tea.Msg)) error {
-	return streamNDJSON(ctx, src, emit, paceFromRate(r.Rate))
+	statusEvery := r.StatusEvery
+	if statusEvery == 0 {
+		statusEvery = 100
+	}
+	var lineCount int64
+	wrapped := func(m tea.Msg) {
+		emit(m)
+		// Count only message types that represent emitted
+		// records — FindingMsg / AuditMsg. Skip protocol
+		// internal messages (FeedClosedMsg, etc).
+		switch m.(type) {
+		case tui.FindingMsg, tui.AuditMsg:
+			lineCount++
+			if statusEvery > 0 && lineCount%int64(statusEvery) == 0 {
+				emit(tui.ReplayStatusMsg{
+					Path:      r.Path,
+					LineCount: lineCount,
+					Rate:      r.Rate,
+				})
+			}
+		}
+	}
+	return streamNDJSON(ctx, src, wrapped, paceFromRate(r.Rate))
 }

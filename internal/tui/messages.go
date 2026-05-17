@@ -36,3 +36,20 @@ type FeedClosedMsg struct {
 	Mode Mode
 	Err  error
 }
+
+// ReplayStatusMsg (v2.51+) is emitted periodically by the
+// Replay feed so the TUI can render playback progress in the
+// audit pane. Useful for long captures where the operator
+// wants to know "am I 10% or 90% through?".
+//
+// The feed emits one ReplayStatusMsg every N lines (configured
+// via Replay.StatusEvery) — typically every 100 lines.
+type ReplayStatusMsg struct {
+	// Path of the capture file being replayed.
+	Path string
+	// LineCount is the number of lines emitted so far.
+	LineCount int64
+	// Rate is the configured playback rate (lines/sec; 0 =
+	// uncapped). Surfaced for the operator's reference.
+	Rate float64
+}

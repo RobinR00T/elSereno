@@ -3,6 +3,8 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -38,6 +40,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			line = "(feed closed with error: " + msg.Err.Error() + ")"
 		}
+		m = m.AddAuditEvent(line)
+		return m, nil
+
+	case ReplayStatusMsg:
+		// v2.51: surface replay progress in the audit pane so
+		// the operator sees "I'm at line 500" during a long
+		// capture replay.
+		rateStr := "uncapped"
+		if msg.Rate > 0 {
+			rateStr = fmt.Sprintf("%.1f/s", msg.Rate)
+		}
+		line := fmt.Sprintf("(replay progress: %d lines @ %s · %s)",
+			msg.LineCount, rateStr, msg.Path)
 		m = m.AddAuditEvent(line)
 		return m, nil
 	}

@@ -1,23 +1,24 @@
 ---
-phase: v2.50-closed
-status: v1.16-v2.34 published; v2.35-v2.50 tags pending push
+phase: v2.51-closed
+status: v1.16-v2.34 published; v2.35-v2.51 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.50 cycle closed on `main`** (1 chunk +
-close). Dashboard theme toggle. Header gets a 3-state
-cycle button (auto/light/dark) with localStorage
-persistence. CSS overrides via body.theme-{light,dark}
-take precedence over prefers-color-scheme.
+**Phase**: **v2.51 cycle closed on `main`** (1 chunk +
+close). TUI replay status progress. New
+`tui.ReplayStatusMsg` emitted by Replay every N lines
+(default 100). Audit pane renders "(replay progress: 500
+lines @ 5.0/s · path)" so operators see heartbeat
+during long captures.
 
-Snapshot: `.context/snapshots/v2.50.0-dashboard-theme-toggle.md`.
+Snapshot: `.context/snapshots/v2.51.0-tui-replay-status.md`.
 
-**v2.49 cycle (closed)**: schedule export to iCalendar (.ics).
+**v2.50 cycle (closed)**: dashboard theme toggle.
+**v2.49 cycle (closed)**: schedule export to iCalendar.
 **v2.48 cycle (closed)**: OIDC binding extended.
-**v2.47 cycle (closed)**: GE-SRTP service-0x21 follow-up.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.51 (chunk 1) — **TUI replay
+  status progress.** New `tui.ReplayStatusMsg`
+  emitted by `feeds.Replay` every N lines (default
+  100; configurable via `StatusEvery`). Update
+  handler renders it as an audit-pane line so
+  operators see playback heartbeat during long
+  captures. +2 tests. Snapshot:
+  `.context/snapshots/v2.51.0-tui-replay-status.md`.
+
 - 2026-05-17 — v2.50 (chunk 1) — **Dashboard theme
   toggle.** Header gets a 3-state cycle button:
   auto (🌓, OS-following) → light (☀️) → dark (🌙).
