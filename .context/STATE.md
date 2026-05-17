@@ -1,22 +1,23 @@
 ---
-phase: v2.45-closed
-status: v1.16-v2.34 published; v2.35-v2.45 tags pending push
+phase: v2.46-closed
+status: v1.16-v2.34 published; v2.35-v2.46 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.45 cycle closed on `main`** (1 chunk +
-close). /runs ?since= / ?until= time-window filter. New
-`Store.ListByScheduleRange`. Enables v2.46 sparkline
-bucket drill-down. Inverted ranges → 400. +2 tests.
+**Phase**: **v2.46 cycle closed on `main`** (1 chunk +
+close). Sparkline bucket click → drill into /runs. Bucket
+rects cursor:pointer + onclick → opens runs filtered to
+that bucket's [since, until] window. Closes v2.22
+carryover.
 
-Snapshot: `.context/snapshots/v2.45.0-runs-time-window.md`.
+Snapshot: `.context/snapshots/v2.46.0-sparkline-drill-down.md`.
 
-**v2.44 cycle (closed)**: dashboard clones view + depth.
-**v2.43 cycle (closed)**: auth.oidc koanf config stanza.
-**v2.42 cycle (closed)**: PROFINET vendor table.
+**v2.45 cycle (closed)**: /runs ?since/until filter.
+**v2.44 cycle (closed)**: dashboard clones view.
+**v2.43 cycle (closed)**: auth.oidc config stanza.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.46 (chunk 1) — **Sparkline
+  bucket click → drill into /runs.** Closes v2.22
+  carryover. Bucket rects get cursor:pointer +
+  onclick → opens runs view filtered to that
+  bucket's [since, until] window (until =
+  bucket_start + grain_step - 1ms). Subtitle
+  shows active filter + clear button. Closing
+  runs view auto-clears filter. Snapshot:
+  `.context/snapshots/v2.46.0-sparkline-drill-down.md`.
+
 - 2026-05-17 — v2.45 (chunk 1) — **/runs
   ?since= / ?until= time-window filter.** New
   `Store.ListByScheduleRange` (Memory + PG +

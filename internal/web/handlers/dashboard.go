@@ -2032,7 +2032,17 @@ const overviewHTML = `<!doctype html>
     var subtitle = document.getElementById("schedule-runs-subtitle");
     if (!view || !body) return;
     if (subtitle) {
-      subtitle.textContent = displayName ? (displayName + " · " + id) : id;
+      var sub = displayName ? (displayName + " · " + id) : id;
+      // v2.46: surface active sparkline-drilled filter so
+      // operators know why they see a narrow result set.
+      if (runsFilterSince || runsFilterUntil) {
+        sub += " · filtered " + (runsFilterSince || "—") +
+          " → " + (runsFilterUntil || "—") +
+          ' <button type="button" onclick="clearRunsFilter()" style="font-size:0.85em;">clear filter</button>';
+        subtitle.innerHTML = sub;
+      } else {
+        subtitle.textContent = sub;
+      }
     }
     body.innerHTML = '<tr class="empty"><td colspan="5">loading…</td></tr>';
     view.style.display = "";
@@ -2047,6 +2057,12 @@ const overviewHTML = `<!doctype html>
   function fetchRunsPage(id, before, body, append) {
     var url = "/api/v1/schedules/" + encodeURIComponent(id) + "/runs?limit=50";
     if (before) url += "&before=" + encodeURIComponent(before);
+    // v2.46: when drillSparklineBucket stashed a filter window,
+    // append it to the URL. since/until supersede the before
+    // cursor (server-side) — pagination within the window is
+    // a future cycle (v2.45 honest scope).
+    if (runsFilterSince) url += "&since=" + encodeURIComponent(runsFilterSince);
+    if (runsFilterUntil) url += "&until=" + encodeURIComponent(runsFilterUntil);
     // v2.29: ETag-aware. 304 short-circuits page re-render.
     fetchWithETag(url).then(function (resp) {
       if (resp.notModified) {
@@ -2098,6 +2114,20 @@ const overviewHTML = `<!doctype html>
   function closeRunsView() {
     var view = document.getElementById("schedule-runs-view");
     if (view) view.style.display = "none";
+    // v2.46: closing the view clears the drilled filter so
+    // the next open starts unfiltered.
+    runsFilterSince = "";
+    runsFilterUntil = "";
+  }
+  // clearRunsFilter (v2.46): operator escape hatch from the
+  // subtitle's "clear filter" button. Re-opens the runs view
+  // without since/until.
+  function clearRunsFilter() {
+    runsFilterSince = "";
+    runsFilterUntil = "";
+    if (runsState.scheduleID) {
+      openRunsView(runsState.scheduleID, "");
+    }
   }
   // ---- v2.14 + v2.44 depth control: clones view ----
   // Module-level state so reloadClones (depth input onchange)
@@ -2178,6 +2208,9 @@ const overviewHTML = `<!doctype html>
   // days dropdowns) can re-hit the endpoint without re-opening.
   var sparklineSchedID = "";
   var sparklineSchedName = "";
+  // v2.46: track the current bucket grain so the drill-down
+  // click handler knows the until-since delta.
+  var sparklineBucketGrain = "day";
   function openSparklineView(id, displayName) {
     sparklineSchedID = id;
     sparklineSchedName = displayName || id;
@@ -2194,10 +2227,28 @@ const overviewHTML = `<!doctype html>
     if (view) view.style.display = "none";
     sparklineSchedID = "";
   }
+  // drillSparklineBucket (v2.46): bound from each bucket rect's
+  // onclick. Closes the sparkline view + opens the runs view
+  // pre-filtered to the clicked bucket's [since, until] window
+  // by stashing the values into module-level filterSince /
+  // filterUntil consumed by fetchRunsPage on next open.
+  var runsFilterSince = "";
+  var runsFilterUntil = "";
+  function drillSparklineBucket(since, until) {
+    if (!sparklineSchedID || !since || !until) return;
+    runsFilterSince = since;
+    runsFilterUntil = until;
+    var id = sparklineSchedID;
+    var name = sparklineSchedName;
+    closeSparklineView();
+    openRunsView(id, name);
+  }
   function reloadSparkline() {
     if (!sparklineSchedID) return;
     var bucket = (document.getElementById("schedule-sparkline-bucket") || {}).value || "day";
     var days = (document.getElementById("schedule-sparkline-days") || {}).value || "7";
+    // v2.46: remember the grain for the click-to-drill handler.
+    sparklineBucketGrain = bucket;
     var url = "/api/v1/schedules/" + encodeURIComponent(sparklineSchedID) +
       "/stats/timeseries?bucket=" + encodeURIComponent(bucket) +
       "&days=" + encodeURIComponent(days);
@@ -2273,11 +2324,20 @@ const overviewHTML = `<!doctype html>
     var pathFailed = buildPath("failed", maxFailed);
     var pathFindings = buildPath("total_findings", maxFindings);
     var midY = (h / 2).toFixed(1);
-    // v2.22: build per-bucket hit-target rects + dots so
-    // hovering anywhere in a bucket's vertical slice shows
-    // the per-bucket tooltip.
+    // v2.22 + v2.46: build per-bucket hit-target rects so
+    // hovering shows the per-bucket tooltip; clicking opens
+    // /runs?since=&until= filtered to that bucket's window.
+    // The bucket grain (hour/day/week) drives the until-since
+    // delta — Runs view shows everything that fired within
+    // that window.
     var hitRects = [];
     var bucketWidth = n > 1 ? ((w - 2 * pad) / (n - 1)) : (w - 2 * pad);
+    // bucketStep in ms for the until-since delta.
+    var bucketStepMs = (
+      sparklineBucketGrain === "hour" ? 3600 * 1000 :
+      sparklineBucketGrain === "week" ? 7 * 24 * 3600 * 1000 :
+      24 * 3600 * 1000
+    );
     for (var i = 0; i < n; i++) {
       var bx = pad + (n > 1 ? (i * (w - 2 * pad) / (n - 1)) : ((w - 2 * pad) / 2));
       var rx = bx - bucketWidth / 2;
@@ -2288,10 +2348,25 @@ const overviewHTML = `<!doctype html>
       var when = b.bucket_start ? new Date(b.bucket_start).toLocaleString() : "(?)";
       var tip = when + " — runs:" + (b.total_runs || 0) +
         " failed:" + (b.failed || 0) +
-        " findings:" + (b.total_findings || 0);
+        " findings:" + (b.total_findings || 0) +
+        " · click to drill";
+      // Compute since/until as RFC3339; bucket_start is the
+      // inclusive lower bound, bucket_start + step is the
+      // exclusive upper. Server tolerates inclusive [since,
+      // until]; we use until = next-bucket-start - 1ms.
+      var sinceISO = "";
+      var untilISO = "";
+      if (b.bucket_start) {
+        var startMs = new Date(b.bucket_start).getTime();
+        sinceISO = new Date(startMs).toISOString();
+        untilISO = new Date(startMs + bucketStepMs - 1).toISOString();
+      }
       hitRects.push(
         '<rect x="' + rx.toFixed(1) + '" y="0" width="' + rw.toFixed(1) +
-        '" height="' + h + '" fill="transparent">' +
+        '" height="' + h + '" fill="transparent" style="cursor:pointer;"' +
+        ' data-since="' + escAttr(sinceISO) + '"' +
+        ' data-until="' + escAttr(untilISO) + '"' +
+        ' onclick="drillSparklineBucket(this.dataset.since, this.dataset.until)">' +
         '<title>' + escAttr(tip) + '</title></rect>'
       );
     }
@@ -2806,6 +2881,9 @@ const overviewHTML = `<!doctype html>
   window.openClonesView = openClonesView;
   window.closeClonesView = closeClonesView;
   window.reloadClones = reloadClones;
+  // v2.46 sparkline drill-down.
+  window.drillSparklineBucket = drillSparklineBucket;
+  window.clearRunsFilter = clearRunsFilter;
   window.closeClonesView = closeClonesView;
 
   // v1.68: load the plugin list once on page boot to populate
