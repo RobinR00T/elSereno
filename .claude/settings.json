@@ -105,7 +105,24 @@
       "mcp__Claude_in_Chrome__navigate",
       "mcp__Claude_in_Chrome__get_page_text",
       "Bash(gofmt:*)",
-      "Bash(elsereno plugins:*)"
+      "Bash(elsereno plugins:*)",
+      "Bash(GOOS=linux golangci-lint:*)",
+      "Bash(GOOS=darwin golangci-lint:*)",
+      "Bash(scripts/audit.sh:*)",
+      "Bash(./scripts/audit.sh:*)",
+      "Bash(ruby -ryaml:*)",
+      "Bash(goreleaser release --clean:*)",
+      "Bash(git push:*)",
+      "Bash(git tag -d:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh release upload:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run view --log-failed:*)",
+      "Bash(gh api repos/:*)",
+      "Bash(gh release delete:*)"
     ]
   }
 }

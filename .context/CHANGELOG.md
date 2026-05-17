@@ -8,6 +8,19 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.38 (chunk 1) — **OIDC + roles
+  auth package.** New `internal/web/auth/`
+  stdlib-only OIDC bearer-token validator. RS256/384/512
+  + ES256/384/512 supported; `none` + HS* rejected.
+  JWKS TTL-cached fetcher + force-refresh on unknown
+  KID. 3-role model (viewer < operator < admin) with
+  claim-walk (roles/groups/namespaced). `Verifier.RequireRole`
+  http.Handler middleware with back-compat pass-through
+  when no JWKS URL configured. +11 tests using crypto/
+  rand RSA + httptest JWKS server. Per-endpoint binding
+  deferred to v2.40+. Snapshot:
+  `.context/snapshots/v2.38.0-oidc-roles-auth.md`.
+
 - 2026-05-16 — v2.37 (chunk 1) — **Wardialing batch
   orchestrator.** Closes deferred roadmap item #1
   (grande). New `offensive/dial/range.go` (range

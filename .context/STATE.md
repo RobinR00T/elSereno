@@ -1,21 +1,31 @@
 ---
-phase: v2.37-closed
-status: v1.16-v2.34 published; v2.35-v2.37 tags pending push
-last-updated: 2026-05-16
+phase: v2.38-closed
+status: v1.16-v2.34 published; v2.35-v2.38 tags pending push
+last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.37 cycle closed on `main`** (1 chunk +
-close). Wardialing batch orchestrator. New
-`offensive/dial/range.go` (range expansion, caps 10k) +
-`offensive/dial/wardial.go` (Workers + RatePerSecond +
-CheckpointPath). New CLI verb `dial wardial`. Hardware
-delivery still vNext; disposition=preview by default.
-Closes deferred roadmap item #1 (grande).
+**Phase**: **v2.38 cycle closed on `main`** (1 chunk +
+close). OIDC + roles auth package. Stdlib-only
+`internal/web/auth/`: JWT validator
+(RS256/384/512 + ES256/384/512; `none` and HS* rejected),
+TTL-cached JWKS fetcher (RSA + EC P-256/384/521), 3-role
+model (viewer<operator<admin), `Verifier.RequireRole`
+middleware with back-compat pass-through. Per-endpoint
+binding deferred to v2.40+.
 
-Snapshot: `.context/snapshots/v2.37.0-wardialing-batch.md`.
+Snapshot: `.context/snapshots/v2.38.0-oidc-roles-auth.md`.
+
+**v2.37 cycle (closed)**: Wardialing batch orchestrator
+(range + workers + rate-limit + checkpoint).
+
+**v2.36 cycle (closed)**: MMS vendor hint + LD
+enumeration.
+
+**v2.35 cycle (closed)**: OPC UA HTTPS fingerprint
+plugin.
 
 **v2.35 + v2.36 cycles (closed)**: v2.35 OPC UA HTTPS
 fingerprint plugin. v2.36 MMS vendor hint + LD
