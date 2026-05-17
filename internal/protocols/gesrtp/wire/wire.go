@@ -174,6 +174,18 @@ type LongStatusInfo struct {
 	// authoritatively documented; consider it a best-effort
 	// extraction.
 	Firmware string
+	// RawHex (v2.47+) is the first 128 bytes of the service-
+	// 0x21 response, hex-encoded. Operators with physical
+	// PLCs can post-process this to validate / extend the
+	// parser. Empty when payload was already processed and
+	// we don't have the bytes (defensive default).
+	RawHex string
+	// SerialHint (v2.47+) is a best-effort printable-ASCII
+	// run that looks like a serial number — typically 8-16
+	// chars of digits + uppercase letters that appears
+	// after the firmware string. Empty when no plausible
+	// match found.
+	SerialHint string
 }
 
 // ParseLongStatus reads a service-0x21 response mailbox + scans
@@ -200,17 +212,88 @@ func ParseLongStatus(buf []byte) LongStatusInfo {
 	}
 	model := ExtractModelHint(buf)
 	if model == "" {
-		return LongStatusInfo{}
+		// Even without a model marker, surface the raw hex so
+		// operators can decode it manually.
+		return LongStatusInfo{RawHex: rawHexPrefix(buf)}
 	}
 	// Find the model substring's end + scan forward for a
 	// version-like ASCII run.
 	idx := indexOf(buf, []byte(model))
+	info := LongStatusInfo{Model: model, RawHex: rawHexPrefix(buf)}
 	if idx < 0 {
-		return LongStatusInfo{Model: model}
+		return info
 	}
 	tail := buf[idx+len(model):]
-	firmware := extractFirmwareTag(tail)
-	return LongStatusInfo{Model: model, Firmware: firmware}
+	info.Firmware = extractFirmwareTag(tail)
+	// v2.47+: best-effort serial extraction after firmware.
+	if info.Firmware != "" {
+		serialTail := buf[idx+len(model):]
+		if fwIdx := indexOf(serialTail, []byte(info.Firmware)); fwIdx >= 0 {
+			info.SerialHint = extractSerialHint(serialTail[fwIdx+len(info.Firmware):])
+		}
+	}
+	return info
+}
+
+// rawHexPrefix returns the first 128 bytes of buf as lowercase
+// hex. Operators with physical PLCs paste this into a hex
+// editor to validate / extend the heuristic parsers.
+func rawHexPrefix(buf []byte) string {
+	const maxBytes = 128
+	n := len(buf)
+	if n > maxBytes {
+		n = maxBytes
+	}
+	const hexChars = "0123456789abcdef"
+	out := make([]byte, n*2)
+	for i := 0; i < n; i++ {
+		out[i*2] = hexChars[buf[i]>>4]
+		out[i*2+1] = hexChars[buf[i]&0x0F]
+	}
+	return string(out)
+}
+
+// extractSerialHint scans for the first printable-ASCII run
+// of [A-Z0-9-]{8,16} characters in the first 64 bytes after
+// the firmware tag. GE serial numbers are commonly 9-12
+// chars in that alphabet. Returns "" when no plausible
+// match found.
+func extractSerialHint(buf []byte) string {
+	const scanWindow = 64
+	const minLen = 8
+	const maxLen = 16
+	limit := len(buf)
+	if limit > scanWindow {
+		limit = scanWindow
+	}
+	for i := 0; i < limit; i++ {
+		if !isSerialByte(buf[i]) {
+			continue
+		}
+		j := i
+		for j < limit && isSerialByte(buf[j]) {
+			j++
+		}
+		runLen := j - i
+		if runLen >= minLen && runLen <= maxLen {
+			return string(buf[i:j])
+		}
+		i = j - 1 // continue after the rejected run
+	}
+	return ""
+}
+
+// isSerialByte: digits + uppercase + dash.
+func isSerialByte(b byte) bool {
+	switch {
+	case b >= '0' && b <= '9':
+		return true
+	case b >= 'A' && b <= 'Z':
+		return true
+	case b == '-':
+		return true
+	}
+	return false
 }
 
 // extractFirmwareTag scans the buffer for the first printable-
@@ -286,6 +369,17 @@ var gePLCFamilyPrefixes = []string{
 	"CIMPLICITY", // GE HMI line (rare but seen on SRTP probes; v2.30)
 	"IS220",      // Mark VIe Distributed Controller (v2.30)
 	"IS215",      // Mark VIe legacy controller (v2.30)
+	// v2.47: additional families observed on GE Automation
+	// installed base; safe additive expansion of the
+	// curated list.
+	"EFM3530",    // EX2100e turbine control (v2.47)
+	"RX3iCPE",    // RX3i CPE100/CPE115 sub-family explicit (v2.47)
+	"RX3iCPL",    // RX3i CPL410 / Linux PLC family (v2.47)
+	"VersaPro",   // legacy VersaPro engineering tool fingerprint (v2.47)
+	"S90Micro",   // Series 90 Micro (compact PLC line; v2.47)
+	"PAC9000",    // legacy PAC9000 family (v2.47)
+	"PACMotion",  // PACMotion controller (v2.47)
+	"PACEdge",    // PACEdge edge-compute device (v2.47)
 	"IC693",      // Series 90-30
 	"IC695",      // RX3i
 	"IC697",      // Series 90-70

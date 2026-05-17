@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.47 (chunk 1) — **GE-SRTP
+  service-0x21 follow-up.** Closes long-deferred
+  carryover. 8 new family prefixes (EFM3530,
+  RX3iCPE/CPL, VersaPro, S90Micro, PAC9000,
+  PACMotion, PACEdge). LongStatusInfo gains RawHex
+  (first 128B for operator post-processing) +
+  SerialHint (best-effort `[A-Z0-9-]{8,16}` after
+  firmware tag). ParseLongStatus now returns RawHex
+  even on unknown-model responses. Honest scope:
+  still no physical-device validation. Snapshot:
+  `.context/snapshots/v2.47.0-gesrtp-service-0x21-followup.md`.
+
 - 2026-05-17 — v2.46 (chunk 1) — **Sparkline
   bucket click → drill into /runs.** Closes v2.22
   carryover. Bucket rects get cursor:pointer +
