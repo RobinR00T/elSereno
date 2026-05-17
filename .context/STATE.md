@@ -1,22 +1,25 @@
 ---
-phase: v2.38-closed
-status: v1.16-v2.34 published; v2.35-v2.38 tags pending push
+phase: v2.39-closed
+status: v1.16-v2.34 published; v2.35-v2.39 tags pending push
 last-updated: 2026-05-17
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.38 cycle closed on `main`** (1 chunk +
-close). OIDC + roles auth package. Stdlib-only
-`internal/web/auth/`: JWT validator
-(RS256/384/512 + ES256/384/512; `none` and HS* rejected),
-TTL-cached JWKS fetcher (RSA + EC P-256/384/521), 3-role
-model (viewer<operator<admin), `Verifier.RequireRole`
-middleware with back-compat pass-through. Per-endpoint
-binding deferred to v2.40+.
+**Phase**: **v2.39 cycle closed on `main`** (1 chunk +
+close). PROFINET DCP wire codec (IEC 61784-2). New
+`internal/protocols/profinet/` pure-stdlib encoder +
+decoder for the L2 Discovery and Configuration Protocol.
+EncodeDCPIdentifyAll + DecodeDCP + ParseIdentifyResponse.
+Defensive read-only — Set/FactoryReset NOT generated.
+Live L2 capture deferred to vNext behind raw-socket
+build tag. Closes the last deferred roadmap item.
 
-Snapshot: `.context/snapshots/v2.38.0-oidc-roles-auth.md`.
+Snapshot: `.context/snapshots/v2.39.0-profinet-dcp-codec.md`.
+
+**v2.38 cycle (closed)**: OIDC + roles auth package
+(stdlib-only JWT + JWKS + RequireRole middleware).
 
 **v2.37 cycle (closed)**: Wardialing batch orchestrator
 (range + workers + rate-limit + checkpoint).

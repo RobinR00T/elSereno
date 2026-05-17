@@ -8,6 +8,22 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-17 — v2.39 (chunk 1) — **PROFINET DCP
+  wire codec.** New `internal/protocols/profinet/`
+  pure-stdlib encoder + decoder for IEC 61784-2 DCP
+  frames (Discovery and Configuration Protocol).
+  `EncodeDCPIdentifyAll(xid)` builds the 18-byte
+  Identify-All request; `DecodeDCP(buf)` walks TLV
+  blocks; `ParseIdentifyResponse(f)` extracts
+  NameOfStation / VendorID / DeviceID / DeviceRole /
+  IP-config / OEMDeviceID. Constants for FrameID,
+  Service, Option, Suboption (Device + IP). Defensive
+  read-only — Set / FactoryReset NOT generated. L2
+  live capture deferred to vNext (gopacket+root).
+  Closes last deferred roadmap item. +5 tests.
+  Snapshot:
+  `.context/snapshots/v2.39.0-profinet-dcp-codec.md`.
+
 - 2026-05-17 — v2.38 (chunk 1) — **OIDC + roles
   auth package.** New `internal/web/auth/`
   stdlib-only OIDC bearer-token validator. RS256/384/512
