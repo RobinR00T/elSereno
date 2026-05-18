@@ -63,7 +63,14 @@ func newTUICmd() *cobra.Command {
     dashboard's SSE feed (read-only).
 
 Tab cycles focus between panes; j/k navigate the findings
-table; q quits; / filters the audit pane substring.`,
+table; q quits; / filters the audit pane substring.
+
+v2.53+ replay controls (only when --replay is set):
+  space    pause / resume playback
+  [        halve playback rate (uncapped → 1.0/s)
+  ]        double playback rate (no-op when uncapped)
+Audit pane shows live "(replay: paused)" / "(replay rate:
+N.NN/s)" feedback.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			mode, feed, err := pickFeed(cmd.Context(), args)
 			if err != nil {
@@ -72,6 +79,13 @@ table; q quits; / filters the audit pane substring.`,
 			runOpts, err := openRecordSink(args.recordPath)
 			if err != nil {
 				return fail(core.ExitOSErr, err)
+			}
+			// v2.56: when the chosen feed is Replay, surface
+			// its Control to the TUI so the key handler can
+			// bind space (pause) / [ / ] (rate). Non-replay
+			// modes leave runOpts.ReplayCtl nil.
+			if rep, ok := feed.(feeds.Replay); ok && rep.Control != nil {
+				runOpts.ReplayCtl = rep.Control
 			}
 			ctx := cmd.Context()
 			if err := tui.RunWithOpts(ctx, mode, feed, os.Stdout, os.Stdin, runOpts); err != nil {
@@ -161,7 +175,17 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 		} else if info.IsDir() {
 			return "", nil, fmt.Errorf("tui: --replay: %s is a directory", a.replayPath)
 		}
-		return tui.ModeReplay, feeds.Replay{Path: a.replayPath, Rate: a.rate}, nil
+		// v2.56: construct a ReplayControl up-front so the
+		// caller can plumb it into both feeds.Replay (for
+		// pace/pause from the feed loop) AND tui.RunOpts
+		// (for the key-handler bindings). rate=0 → uncapped
+		// until operator hits `[` to halve.
+		ctl := feeds.NewReplayControl(a.rate)
+		return tui.ModeReplay, feeds.Replay{
+			Path:    a.replayPath,
+			Rate:    a.rate,
+			Control: ctl,
+		}, nil
 	case hasFeed:
 		// Only `-` is supported (stdin). `--feed FILE` is
 		// redundant with `--replay FILE`; rejecting it here

@@ -8,6 +8,16 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.56 (chunk 1) — **cmd_tui
+  ReplayControl wiring.** Closes v2.53 carryover.
+  pickFeed (replay branch) constructs a
+  `feeds.NewReplayControl(rate)` + sets it on both
+  `feeds.Replay.Control` AND `runOpts.ReplayCtl` so
+  the v2.53 keys (space / [ / ]) work out of the box
+  with `elsereno tui --replay`. Long-help text
+  documents the bindings. Snapshot:
+  `.context/snapshots/v2.56.0-cmd-tui-replay-wiring.md`.
+
 - 2026-05-18 — v2.55 (chunk 1) — **Prometheus
   pool-stats collector.** New `telemetry.PoolCollector`
   implements prometheus.Collector with 7 counters +

@@ -1,23 +1,25 @@
 ---
-phase: v2.55-closed
-status: v1.16-v2.34 published; v2.35-v2.55 tags pending push
+phase: v2.56-closed
+status: v1.16-v2.34 published; v2.35-v2.56 tags pending push
 last-updated: 2026-05-18
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.55 cycle closed on `main`** (1 chunk +
-close). Prometheus pool-stats collector. 12 metrics under
-`elsereno_pool_*` (7 counters + 5 gauges). Lazy scrape.
-+3 tests. cmd_serve adapter wiring deferred.
+**Phase**: **v2.56 cycle closed on `main`** (1 chunk +
+close). cmd_tui ReplayControl wiring. Closes v2.53
+carryover. `elsereno tui --replay` now constructs a
+`feeds.ReplayControl` + plumbs it into both the Replay
+feed AND runOpts.ReplayCtl so space/[/]/keys work
+out of the box. CLI help documents the bindings.
 
 Snapshot:
-`.context/snapshots/v2.55.0-prometheus-pool-collector.md`.
+`.context/snapshots/v2.56.0-cmd-tui-replay-wiring.md`.
 
+**v2.55 cycle (closed)**: Prometheus pool-stats collector.
 **v2.54 cycle (closed)**: OpenAPI doc backfill.
 **v2.53 cycle (closed)**: TUI replay pause + rate keys.
-**v2.52 cycle (closed)**: pgxpool health endpoint.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.
