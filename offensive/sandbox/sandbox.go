@@ -26,11 +26,24 @@ const (
 	ProfileScan Profile = "scan"
 )
 
+// Profiles (v2.61+) returns the canonical list of recognised
+// profile values in declaration order. Tests and operator
+// tooling that need to iterate every profile should source from
+// here rather than hand-listing — historically v2.32 added
+// ProfileScan but the v1.50 darwin tests kept iterating the
+// original 3-element slice and silently missed it for 9 cycles.
+// Single source of truth: this function. Valid() delegates here
+// so the two stay in sync by construction.
+func Profiles() []Profile {
+	return []Profile{ProfileExploit, ProfileHarvest, ProfileDial, ProfileScan}
+}
+
 // Valid reports whether p is a recognised profile.
 func (p Profile) Valid() bool {
-	switch p {
-	case ProfileExploit, ProfileHarvest, ProfileDial, ProfileScan:
-		return true
+	for _, known := range Profiles() {
+		if p == known {
+			return true
+		}
 	}
 	return false
 }

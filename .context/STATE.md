@@ -1,21 +1,30 @@
 ---
-phase: v2.60-closed
-status: v1.16-v2.34 published; v2.35-v2.60 tags pending push
+phase: v2.61-closed
+status: v1.16-v2.34 published; v2.35-v2.61 tags pending push
 last-updated: 2026-05-18
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.60 cycle closed on `main`** (1 chunk +
-close). /metrics endpoint + pool collector wiring.
-cmd_serve constructs MetricsHandler via
+**Phase**: **v2.61 cycle closed on `main`** (1 chunk +
+close). Sandbox profile introspection + ProfileScan test
+gap closure. New `Profiles()` enumeration helper (single
+source of truth) — closes 29-cycle ProfileScan regression
+where v1.50 darwin tests hand-listed 3 of 4 profiles. New
+`SchemeFor()` darwin+cgo accessor for introspection.
+Hardened sandbox_init errbuf-empty path + profile-named
+success Reason. +3 tests.
+
+Snapshot:
+`.context/snapshots/v2.61.0-sandbox-introspection.md`.
+
+**v2.60 cycle (closed)**: /metrics endpoint + pool
+collector wiring. cmd_serve constructs MetricsHandler via
 buildMetricsHandler (registers v2.55 PoolCollector via
 handlers↔telemetry shim, then returns
 telemetry.Global().Handler()). +2 tests. New
 Server.Handler() accessor for tests.
-
-Snapshot: `.context/snapshots/v2.60.0-metrics-endpoint.md`.
 
 **v2.59 cycle (closed)**: cmd_serve OIDC Verifier wiring.
 **v2.58 cycle (closed)**: cmd_serve PoolStat adapter.

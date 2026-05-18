@@ -8,6 +8,24 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.61 (chunk 1) — **sandbox profile
+  introspection + ProfileScan test-gap closure.**
+  New `Profiles()` enumeration helper in
+  `offensive/sandbox/sandbox.go` becomes the single
+  source of truth; `Valid()` delegates. v1.50 darwin
+  tests now iterate Profiles() (previously hand-listed
+  3 of 4 — silently missed ProfileScan for 29 cycles).
+  New `SchemeFor(p Profile) (string, bool)` on the
+  darwin+cgo build exposes the .sb Scheme string for
+  introspection (`elsereno sandbox introspect` verb is
+  vNext). Hardened error message: kernel-rc≠0 with no
+  errbuf now substitutes "kernel did not provide a
+  reason" sentinel; success `Reason` now includes the
+  applied profile name. +3 tests
+  (TestProfilesEnumerationStable, TestDarwinSchemeFor,
+  ProfileScan shape). Snapshot:
+  `.context/snapshots/v2.61.0-sandbox-introspection.md`.
+
 - 2026-05-18 — v2.60 (chunk 1) — **`/metrics`
   endpoint + pool collector registration.** Mounts
   the Prometheus expo at `GET /metrics` when

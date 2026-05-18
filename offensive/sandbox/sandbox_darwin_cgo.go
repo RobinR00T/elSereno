@@ -182,10 +182,20 @@ func Load(profile Profile) (LoadResult, error) {
 	//nolint:gocritic // gocritic dupSubExpr false positive on the cgo prologue's auto-generated check.
 	rc := C.sandbox_init(cProfile, 0, &cErrBuf)
 	if rc != 0 {
+		// v2.61+: if the kernel returns non-zero but doesn't
+		// populate errbuf (rare but observed on EINVAL with
+		// some macOS-14 hosts), the previous code surfaced
+		// "sandbox_init:  (rc=22)" — a confusing message with
+		// a literal double-space. Fall back to a stable
+		// human-readable sentinel so the audit log + operator
+		// stderr never show a blank reason.
 		errMsg := ""
 		if cErrBuf != nil {
 			errMsg = C.GoString(cErrBuf)
 			C.sandbox_free_error(cErrBuf)
+		}
+		if errMsg == "" {
+			errMsg = "kernel did not provide a reason"
 		}
 		return LoadResult{}, fmt.Errorf("sandbox_init: %s (rc=%d)", errMsg, int(rc))
 	}
@@ -195,7 +205,26 @@ func Load(profile Profile) (LoadResult, error) {
 		Availability: Availability{
 			Available: true,
 			Kind:      "sandbox-init",
-			Reason:    "macOS sandbox_init(3) profile applied",
+			// v2.61+: include the profile name in the Reason
+			// so audit-log readers can distinguish "exploit
+			// applied" from "harvest applied" without
+			// parsing the parent LoadResult.Profile field.
+			Reason: fmt.Sprintf("macOS sandbox_init(3) profile=%s applied", profile),
 		},
 	}, nil
+}
+
+// SchemeFor (v2.61+) returns the .sb Scheme string for profile
+// without applying it. Operators can call this from a
+// `sandbox introspect` verb or audit-tooling to inspect the
+// effective policy before forking a subprocess. Returns
+// ("", false) for unknown profiles.
+//
+// Only available on darwin+cgo builds — the schemes are
+// macOS-specific and have no analogue on Linux (seccomp-bpf
+// has its own filter program). Linux builds expose no
+// equivalent because the BPF program is a binary blob.
+func SchemeFor(p Profile) (string, bool) {
+	scm, ok := macSandboxProfileSCM[p]
+	return scm, ok
 }

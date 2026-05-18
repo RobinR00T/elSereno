@@ -5,13 +5,36 @@ package sandbox
 import "testing"
 
 func TestProfileValid(t *testing.T) {
-	for _, p := range []Profile{ProfileExploit, ProfileHarvest, ProfileDial} {
+	// v2.61+: iterate Profiles() — single source of truth.
+	// Before v2.61 this slice was hand-rolled and silently
+	// missed ProfileScan (added in v2.32).
+	for _, p := range Profiles() {
 		if !p.Valid() {
 			t.Errorf("%q should be valid", p)
 		}
 	}
 	if Profile("bogus").Valid() {
 		t.Error("bogus should not be valid")
+	}
+}
+
+// TestProfilesEnumerationStable (v2.61+) — Profiles() returns
+// the canonical 4 values in declaration order. A regression
+// that dropped or reordered an entry would surface here.
+// Single source of truth: this slice. If a new profile is
+// added, update sandbox.go's Profiles() and add the constant
+// to the want list below — the .sb scheme map (darwin+cgo)
+// has its own present/non-empty check.
+func TestProfilesEnumerationStable(t *testing.T) {
+	want := []Profile{ProfileExploit, ProfileHarvest, ProfileDial, ProfileScan}
+	got := Profiles()
+	if len(got) != len(want) {
+		t.Fatalf("Profiles() length = %d, want %d", len(got), len(want))
+	}
+	for i, p := range want {
+		if got[i] != p {
+			t.Errorf("Profiles()[%d] = %q, want %q", i, got[i], p)
+		}
 	}
 }
 
