@@ -8,6 +8,15 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.57 (chunk 1) — **OpenAPI
+  top-level examples.** Schema components gain
+  `example:` blocks for ScanSchedule, Job, and
+  CreateScheduleRequest so Swagger UI / Stoplight /
+  openapi-generator render concrete payloads.
+  Per-field examples added too. docs/openapi.yaml
+  regenerated: 774→851 lines. Snapshot:
+  `.context/snapshots/v2.57.0-openapi-examples.md`.
+
 - 2026-05-18 — v2.56 (chunk 1) — **cmd_tui
   ReplayControl wiring.** Closes v2.53 carryover.
   pickFeed (replay branch) constructs a

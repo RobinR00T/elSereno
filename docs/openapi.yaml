@@ -20,6 +20,19 @@ components:
           type: string
       type: object
     CreateScheduleRequest:
+      example:
+        cron_expr: 0 2 * * *
+        name: nightly-fleet
+        tags:
+          - prod
+          - critical
+        template:
+          input: list:fleet.txt
+          plugins:
+            - modbus
+            - s7
+            - bacnet
+        timezone: Europe/Madrid
       properties:
         audit_retention_days:
           description: v1.89+ per-schedule retention override. 0=inherit global, >0=keep N days.
@@ -66,28 +79,60 @@ components:
         - data
       type: object
     Job:
+      example:
+        created_at: "2026-05-17T08:00:00Z"
+        default_port: 0
+        findings_by_plugin:
+          bacnet: 3
+          modbus: 12
+          s7: 3
+        finished_at: "2026-05-17T08:03:42Z"
+        id: 9f8e7d6c5b4a3210
+        input: list:fleet.txt
+        operator: alice@example.com
+        plugins:
+          - modbus
+          - s7
+          - bacnet
+        started_at: "2026-05-17T08:00:01Z"
+        state: completed
+        stats:
+          findings_count: 18
+          targets_scanned: 145
+          targets_seen: 145
+        triggered_by_schedule_id: abc123def4567890
       properties:
         created_at:
           format: date-time
           type: string
         default_port:
+          example: 502
           type: integer
         error:
           type: string
         findings_by_plugin:
           additionalProperties:
             type: integer
+          example:
+            modbus: 12
+            s7: 3
           type: object
         finished_at:
           format: date-time
           type: string
         id:
+          example: 9f8e7d6c5b4a3210
           type: string
         input:
+          example: list:fleet.txt
           type: string
         operator:
+          example: alice@example.com
           type: string
         plugins:
+          example:
+            - modbus
+            - s7
           items:
             type: string
           type: array
@@ -101,11 +146,13 @@ components:
             - completed
             - failed
             - cancelled
+          example: completed
           type: string
         stats:
           $ref: '#/components/schemas/Stats'
         triggered_by_schedule_id:
           description: v1.92+ FK to schedules.id when scheduler-fired.
+          example: abc123def4567890
           type: string
       required:
         - id
@@ -135,41 +182,71 @@ components:
         - version
       type: object
     ScanSchedule:
+      example:
+        audit_retention_days: 30
+        created_at: "2026-05-15T08:00:00Z"
+        enabled: true
+        id: abc123def4567890
+        interval_seconds: 3600
+        name: nightly-fleet
+        next_fire_at: "2026-05-18T09:00:00Z"
+        operator: alice@example.com
+        tags:
+          - critical
+          - prod
+        template:
+          input: list:fleet.txt
+          plugins:
+            - modbus
+            - s7
+            - bacnet
+        timezone: ""
+        updated_at: "2026-05-15T08:00:00Z"
       properties:
         audit_retention_days:
           description: v1.89+ per-schedule retention override; 0 = inherit global.
+          example: 30
           type: integer
         created_at:
           format: date-time
           type: string
         cron_expr:
+          example: 0 2 * * *
           type: string
         enabled:
+          example: true
           type: boolean
         id:
           example: abc123def4567890
           type: string
         interval_seconds:
+          example: 3600
           type: integer
         last_fired_at:
           format: date-time
           type: string
         name:
+          example: nightly-fleet
           type: string
         next_fire_at:
           description: v1.77+ computed; not persisted.
           format: date-time
           type: string
         operator:
+          example: alice@example.com
           type: string
         tags:
           description: 'v2.4+ grouping labels (canonicalised: sorted + deduped).'
+          example:
+            - prod
+            - critical
           items:
             type: string
           type: array
         template:
           $ref: '#/components/schemas/SubmitRequest'
         timezone:
+          example: Europe/Madrid
           type: string
         updated_at:
           format: date-time
