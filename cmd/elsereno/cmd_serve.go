@@ -140,8 +140,47 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 	}
 	if pool != nil {
 		out.Querier = pool
+		// v2.58: wire the pgxpool through a PoolStatter shim
+		// so /api/v1/health/pool exposes runtime stats. Shim
+		// adapts pgxpool.Stat (a *pgxpool.Stat) into the local
+		// handlers.PoolStat shape per its public methods.
+		out.PoolStatter = &pgxpoolStatter{pool: pool}
 	}
 	return out
+}
+
+// pgxpoolStatter (v2.58+) adapts a *pgxpool.Pool to the
+// handlers.PoolStatter interface. Single Stat() call per scrape;
+// no caching needed (pgxpool.Pool.Stat() is cheap — it builds
+// a fresh struct from atomic counters on each call).
+type pgxpoolStatter struct {
+	pool *pgxpool.Pool
+}
+
+// Stat reads the live pgxpool snapshot + projects it into the
+// handlers.PoolStat shape. nil pool → nil stat (handler 503s).
+func (p *pgxpoolStatter) Stat() *handlers.PoolStat {
+	if p == nil || p.pool == nil {
+		return nil
+	}
+	s := p.pool.Stat()
+	if s == nil {
+		return nil
+	}
+	return &handlers.PoolStat{
+		AcquireCount:            s.AcquireCount(),
+		AcquireDuration:         s.AcquireDuration(),
+		AcquiredConns:           s.AcquiredConns(),
+		CanceledAcquireCount:    s.CanceledAcquireCount(),
+		ConstructingConns:       s.ConstructingConns(),
+		EmptyAcquireCount:       s.EmptyAcquireCount(),
+		IdleConns:               s.IdleConns(),
+		MaxConns:                s.MaxConns(),
+		TotalConns:              s.TotalConns(),
+		NewConnsCount:           s.NewConnsCount(),
+		MaxLifetimeDestroyCount: s.MaxLifetimeDestroyCount(),
+		MaxIdleDestroyCount:     s.MaxIdleDestroyCount(),
+	}
 }
 
 // buildScanAndSchedule wraps buildScanOrchestrator with the

@@ -61,6 +61,14 @@ type Options struct {
 	// bus the dashboard listens to. nil means NewServer creates
 	// its own internal broadcaster (back-compat with v1.62-).
 	Broadcaster *stream.Broadcaster
+
+	// PoolStatter (optional, v2.58+) is the *pgxpool.Pool that
+	// backs GET /api/v1/health/pool. Nil → endpoint returns
+	// 503 (memory-mode + pre-DB-bootstrap deployments).
+	// cmd_serve adapts the pgxpool.Pool.Stat() snapshot into
+	// the handlers.PoolStat shape via a tiny shim so this
+	// package stays free of the pgxpool import.
+	PoolStatter handlers.PoolStatter
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -116,6 +124,8 @@ func NewServer(opts Options) (*Server, error) {
 		ScanStore:          opts.ScanStore,
 		ScheduleStore:      opts.ScheduleStore,
 		ScheduleAuditStore: opts.ScheduleAuditStore,
+		// v2.58: forward the pgxpool stat surface.
+		PoolStatter: opts.PoolStatter,
 	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())

@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.58 (chunk 1) — **cmd_serve
+  PoolStat adapter.** Closes v2.52 + v2.55
+  carryover. New `web.Options.PoolStatter` field;
+  `cmd_serve` builds a `pgxpoolStatter` shim that
+  projects `*pgxpool.Pool.Stat()` into the local
+  `handlers.PoolStat` shape (all 12 fields). Memory
+  mode → nil PoolStatter → 503. `GET /api/v1/health/
+  pool` + Prometheus collector now light up on
+  db-mode deployments. Snapshot:
+  `.context/snapshots/v2.58.0-cmd-serve-pool-stat-wiring.md`.
+
 - 2026-05-18 — v2.57 (chunk 1) — **OpenAPI
   top-level examples.** Schema components gain
   `example:` blocks for ScanSchedule, Job, and
