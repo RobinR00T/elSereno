@@ -13,6 +13,7 @@ import (
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/repo"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/web/auth"
 	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/httpctx"
 	"local/elsereno/internal/web/stream"
@@ -69,6 +70,13 @@ type Options struct {
 	// the handlers.PoolStat shape via a tiny shim so this
 	// package stays free of the pgxpool import.
 	PoolStatter handlers.PoolStatter
+
+	// AuthVerifier (optional, v2.59+) enforces OIDC bearer-
+	// token validation on /api/v1/* routes. Nil OR
+	// Enabled()==false → back-compat dev mode (X-Operator
+	// header carries identity, no token check). cmd_serve
+	// constructs from cfg.Auth.OIDC.* when fully configured.
+	AuthVerifier *auth.Verifier
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -126,6 +134,8 @@ func NewServer(opts Options) (*Server, error) {
 		ScheduleAuditStore: opts.ScheduleAuditStore,
 		// v2.58: forward the pgxpool stat surface.
 		PoolStatter: opts.PoolStatter,
+		// v2.59: forward the OIDC verifier (nil = back-compat).
+		AuthVerifier: opts.AuthVerifier,
 	}))
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())

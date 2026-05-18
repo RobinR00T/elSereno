@@ -1,25 +1,24 @@
 ---
-phase: v2.58-closed
-status: v1.16-v2.34 published; v2.35-v2.58 tags pending push
+phase: v2.59-closed
+status: v1.16-v2.34 published; v2.35-v2.59 tags pending push
 last-updated: 2026-05-18
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.58 cycle closed on `main`** (1 chunk +
-close). cmd_serve PoolStat adapter. New
-`web.Options.PoolStatter` + `pgxpoolStatter` shim in
-cmd_serve projects live `*pgxpool.Pool.Stat()` into
-`handlers.PoolStat`. /api/v1/health/pool + Prometheus
-collector both light up on db-mode deployments now.
+**Phase**: **v2.59 cycle closed on `main`** (1 chunk +
+close). cmd_serve OIDC Verifier wiring. Closes the
+v2.38/v2.40/v2.43/v2.48 chain end-to-end:
+elsereno.yaml.auth.oidc → koanf → auth.NewVerifier →
+web.Options.AuthVerifier → APIV1Deps → RequireRole
+middleware. Startup log shows ENABLED vs DEV mode.
 
-Snapshot:
-`.context/snapshots/v2.58.0-cmd-serve-pool-stat-wiring.md`.
+Snapshot: `.context/snapshots/v2.59.0-cmd-serve-oidc-wiring.md`.
 
+**v2.58 cycle (closed)**: cmd_serve PoolStat adapter.
 **v2.57 cycle (closed)**: OpenAPI top-level examples.
 **v2.56 cycle (closed)**: cmd_tui ReplayControl wiring.
-**v2.55 cycle (closed)**: Prometheus pool-stats collector.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

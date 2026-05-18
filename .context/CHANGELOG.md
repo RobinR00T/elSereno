@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.59 (chunk 1) — **cmd_serve OIDC
+  Verifier wiring.** Closes v2.38 + v2.40 + v2.43 +
+  v2.48 carryover end-to-end. `buildWebOptions`
+  calls `auth.NewVerifier(...)` when
+  `cfg.Auth.OIDC.Enabled()` + injects via
+  `web.Options.AuthVerifier` → APIV1Deps → per-route
+  RequireRole middleware. Startup log prints
+  "OIDC enforcement ENABLED" or "auth in DEV mode"
+  so operators see the mode at a glance. Snapshot:
+  `.context/snapshots/v2.59.0-cmd-serve-oidc-wiring.md`.
+
 - 2026-05-18 — v2.58 (chunk 1) — **cmd_serve
   PoolStat adapter.** Closes v2.52 + v2.55
   carryover. New `web.Options.PoolStatter` field;

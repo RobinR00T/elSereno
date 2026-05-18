@@ -21,6 +21,7 @@ import (
 	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/telemetry"
 	"local/elsereno/internal/web"
+	"local/elsereno/internal/web/auth"
 	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/stream"
 )
@@ -116,6 +117,17 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	defer stopAuditTail()
 
 	_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: listening on %s\n", opts.addr)
+	// v2.59: surface auth mode at startup so operators
+	// don't deploy with "thought I configured OIDC" foot-
+	// guns. Dev mode (X-Operator) is the back-compat default.
+	if cfg.Auth.OIDC.Enabled() {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"elsereno serve: OIDC enforcement ENABLED (issuer=%s aud=%s)\n",
+			cfg.Auth.OIDC.Issuer, cfg.Auth.OIDC.Audience)
+	} else {
+		_, _ = fmt.Fprintln(os.Stderr,
+			"elsereno serve: auth in DEV mode (X-Operator header; no OIDC)")
+	}
 	if err := srv.Run(cmd.Context()); err != nil &&
 		!errors.Is(err, http.ErrServerClosed) && !errors.Is(err, context.Canceled) {
 		return fail(core.ExitSoftware, err)
@@ -145,6 +157,16 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 		// adapts pgxpool.Stat (a *pgxpool.Stat) into the local
 		// handlers.PoolStat shape per its public methods.
 		out.PoolStatter = &pgxpoolStatter{pool: pool}
+	}
+	// v2.59: when cfg.Auth.OIDC is fully configured, wire the
+	// verifier. Footgun-safe — partial config (Enabled()==
+	// false) falls through to nil → back-compat dev mode.
+	if cfg.Auth.OIDC.Enabled() {
+		out.AuthVerifier = auth.NewVerifier(
+			cfg.Auth.OIDC.Issuer,
+			cfg.Auth.OIDC.Audience,
+			cfg.Auth.OIDC.JWKSURL,
+		)
 	}
 	return out
 }
