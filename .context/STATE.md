@@ -1,23 +1,23 @@
 ---
-phase: v2.54-closed
-status: v1.16-v2.34 published; v2.35-v2.54 tags pending push
-last-updated: 2026-05-17
+phase: v2.55-closed
+status: v1.16-v2.34 published; v2.35-v2.55 tags pending push
+last-updated: 2026-05-18
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.54 cycle closed on `main`** (1 chunk +
-close). OpenAPI doc backfill for /clones (depth), /stats/
-timeseries, /runs since/until, /export ics, /health/pool.
-funlen split (Observability core + extended + prune
-helper). docs/openapi.yaml: 619→774 lines.
+**Phase**: **v2.55 cycle closed on `main`** (1 chunk +
+close). Prometheus pool-stats collector. 12 metrics under
+`elsereno_pool_*` (7 counters + 5 gauges). Lazy scrape.
++3 tests. cmd_serve adapter wiring deferred.
 
-Snapshot: `.context/snapshots/v2.54.0-openapi-doc-expansion.md`.
+Snapshot:
+`.context/snapshots/v2.55.0-prometheus-pool-collector.md`.
 
+**v2.54 cycle (closed)**: OpenAPI doc backfill.
 **v2.53 cycle (closed)**: TUI replay pause + rate keys.
 **v2.52 cycle (closed)**: pgxpool health endpoint.
-**v2.51 cycle (closed)**: TUI replay status progress.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.

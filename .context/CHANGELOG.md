@@ -8,6 +8,17 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.55 (chunk 1) — **Prometheus
+  pool-stats collector.** New `telemetry.PoolCollector`
+  implements prometheus.Collector with 7 counters +
+  5 gauges under `elsereno_pool_*`. Lazy scrape (no
+  background poll). PoolStatProvider interface
+  + flat PoolStat struct keep telemetry pgxpool-free.
+  funlen split: buildCounters + buildGauges helpers +
+  poolDesc tiny ctor. +3 tests. cmd_serve adapter
+  wiring deferred. Snapshot:
+  `.context/snapshots/v2.55.0-prometheus-pool-collector.md`.
+
 - 2026-05-17 — v2.54 (chunk 1) — **OpenAPI doc
   for v2.10/v2.11/v2.45/v2.49/v2.52 endpoints.**
   Backfills the spec for /clones (depth=N), /stats/
