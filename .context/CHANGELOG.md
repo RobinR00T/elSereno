@@ -8,6 +8,18 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-18 — v2.60 (chunk 1) — **`/metrics`
+  endpoint + pool collector registration.** Mounts
+  the Prometheus expo at `GET /metrics` when
+  `Options.MetricsHandler` is set. cmd_serve builds
+  it via `buildMetricsHandler`: registers the v2.55
+  PoolCollector over a handlers↔telemetry PoolStat
+  shim. Nil MetricsHandler → route stays unbound +
+  falls through to the dashboard "/" handler. +2
+  tests. New `Server.Handler()` accessor for tests.
+  Snapshot:
+  `.context/snapshots/v2.60.0-metrics-endpoint.md`.
+
 - 2026-05-18 — v2.59 (chunk 1) — **cmd_serve OIDC
   Verifier wiring.** Closes v2.38 + v2.40 + v2.43 +
   v2.48 carryover end-to-end. `buildWebOptions`

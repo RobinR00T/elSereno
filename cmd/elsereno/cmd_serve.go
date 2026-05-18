@@ -168,7 +168,60 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 			cfg.Auth.OIDC.JWKSURL,
 		)
 	}
+	// v2.60: mount /metrics. We register the pool collector on
+	// the global Metrics registry first (when a pool exists)
+	// so the elsereno_pool_* gauges show up alongside the
+	// pre-v2.55 counters/histograms.
+	out.MetricsHandler = buildMetricsHandler(out.PoolStatter)
 	return out
+}
+
+// buildMetricsHandler (v2.60+) returns the Prometheus handler
+// for /metrics. Registers any deployment-specific collectors
+// onto the global telemetry registry first.
+func buildMetricsHandler(stat handlers.PoolStatter) http.Handler {
+	m := telemetry.Global()
+	if stat != nil {
+		// Adapt handlers.PoolStat (web-facing JSON shape) into
+		// telemetry.PoolStat (Prometheus-facing — same fields,
+		// different struct so each package stays dep-light).
+		collector := telemetry.NewPoolCollector(&handlersToTelemetryStat{src: stat})
+		// MustRegister panics on duplicate registration; in
+		// production cmd_serve runs once per process, so re-
+		// registration is impossible. Tests that construct
+		// multiple serve options would need a fresh telemetry
+		// registry; out of scope here.
+		_ = m.Registry().Register(collector)
+	}
+	return m.Handler()
+}
+
+// handlersToTelemetryStat (v2.60+) bridges the two PoolStat
+// shapes. Both packages declare their own struct so neither
+// pulls a heavy dep on the other.
+type handlersToTelemetryStat struct {
+	src handlers.PoolStatter
+}
+
+func (h *handlersToTelemetryStat) Stat() *telemetry.PoolStat {
+	s := h.src.Stat()
+	if s == nil {
+		return nil
+	}
+	return &telemetry.PoolStat{
+		AcquireCount:            s.AcquireCount,
+		AcquireDurationNS:       int64(s.AcquireDuration),
+		AcquiredConns:           s.AcquiredConns,
+		CanceledAcquireCount:    s.CanceledAcquireCount,
+		ConstructingConns:       s.ConstructingConns,
+		EmptyAcquireCount:       s.EmptyAcquireCount,
+		IdleConns:               s.IdleConns,
+		MaxConns:                s.MaxConns,
+		TotalConns:              s.TotalConns,
+		NewConnsCount:           s.NewConnsCount,
+		MaxLifetimeDestroyCount: s.MaxLifetimeDestroyCount,
+		MaxIdleDestroyCount:     s.MaxIdleDestroyCount,
+	}
 }
 
 // pgxpoolStatter (v2.58+) adapts a *pgxpool.Pool to the

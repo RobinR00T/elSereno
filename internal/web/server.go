@@ -77,6 +77,14 @@ type Options struct {
 	// header carries identity, no token check). cmd_serve
 	// constructs from cfg.Auth.OIDC.* when fully configured.
 	AuthVerifier *auth.Verifier
+
+	// MetricsHandler (optional, v2.60+) is the
+	// `promhttp.Handler` mounted at `GET /metrics`.
+	// Constructed in cmd_serve from telemetry.Global().Handler()
+	// after registering any deployment-specific collectors
+	// (PoolCollector etc.). Nil → no /metrics route is
+	// installed (operators can run without Prometheus).
+	MetricsHandler http.Handler
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -126,6 +134,12 @@ func NewServer(opts Options) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
+	// v2.60: /metrics exposes the Prometheus expo. Optional —
+	// when MetricsHandler is nil the route stays unbound (404
+	// in default deployments that don't run Prometheus).
+	if opts.MetricsHandler != nil {
+		mux.Handle("/metrics", opts.MetricsHandler)
+	}
 	mux.Handle("/api/v1/", handlers.APIV1(handlers.APIV1Deps{
 		Broadcaster:        s.broadcaster,
 		Querier:            opts.Querier,
@@ -182,6 +196,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 // Addr returns the bound address (for tests; Run must have started).
 func (s *Server) Addr() string { return s.server.Addr }
+
+// Handler exposes the assembled http.Handler so tests can
+// fire requests via httptest without binding a real port.
+// Stable since v2.60+.
+func (s *Server) Handler() http.Handler { return s.server.Handler }
 
 // Broadcaster returns the SSE broadcaster so the process's publishers
 // (scanner, audit writer, offensive verbs) can push events to

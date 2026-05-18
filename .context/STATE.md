@@ -1,24 +1,25 @@
 ---
-phase: v2.59-closed
-status: v1.16-v2.34 published; v2.35-v2.59 tags pending push
+phase: v2.60-closed
+status: v1.16-v2.34 published; v2.35-v2.60 tags pending push
 last-updated: 2026-05-18
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.59 cycle closed on `main`** (1 chunk +
-close). cmd_serve OIDC Verifier wiring. Closes the
-v2.38/v2.40/v2.43/v2.48 chain end-to-end:
-elsereno.yaml.auth.oidc → koanf → auth.NewVerifier →
-web.Options.AuthVerifier → APIV1Deps → RequireRole
-middleware. Startup log shows ENABLED vs DEV mode.
+**Phase**: **v2.60 cycle closed on `main`** (1 chunk +
+close). /metrics endpoint + pool collector wiring.
+cmd_serve constructs MetricsHandler via
+buildMetricsHandler (registers v2.55 PoolCollector via
+handlers↔telemetry shim, then returns
+telemetry.Global().Handler()). +2 tests. New
+Server.Handler() accessor for tests.
 
-Snapshot: `.context/snapshots/v2.59.0-cmd-serve-oidc-wiring.md`.
+Snapshot: `.context/snapshots/v2.60.0-metrics-endpoint.md`.
 
+**v2.59 cycle (closed)**: cmd_serve OIDC Verifier wiring.
 **v2.58 cycle (closed)**: cmd_serve PoolStat adapter.
 **v2.57 cycle (closed)**: OpenAPI top-level examples.
-**v2.56 cycle (closed)**: cmd_tui ReplayControl wiring.
 
 **v2.41 cycle (closed)**: PROFINET CLI decode/encode.
 **v2.40 cycle (closed)**: per-route OIDC binding.
