@@ -224,6 +224,7 @@ docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
 | Offensive proxy listen + write/exploit | ✅ | ✅ | offensive tag image | triple-confirm fences |
 | seccomp-bpf sandbox for harvest / dial | ✅ | ❌ | ✅ | macOS uses sandbox_init via opt-in cgo build (v1.50+) |
 | macOS `sandbox_init(3)` (cgo-gated) | n/a | ✅ via `build-offensive-darwin-sandboxed` | n/a | v1.50+; NOT in release tarballs |
+| `elsereno sandbox` (list + introspect) | ✅ (list only) | ✅ (full introspection on cgo build) | ✅ (list only) | v2.62+; read-only dry-run verbs — safe pre-flight before forking offensive subprocesses |
 | systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
 | deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
 | Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |

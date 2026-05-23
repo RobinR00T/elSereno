@@ -8,6 +8,23 @@ last-updated: 2026-05-10
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-05-19 — v2.62 (chunk 1) — **`elsereno sandbox`
+  CLI verb tree (list + introspect).** Surfaces the
+  v2.61 `SchemeFor()` accessor to operators. `list`
+  prints the 4 profile names in declaration order;
+  `introspect [PROFILE] [--all] [--format=text|json]`
+  dumps the .sb Scheme for one or every profile. On
+  darwin+cgo the real Scheme is emitted; on every other
+  offensive build a sentinel `{"scheme": ""}` row keeps
+  the JSON shape stable for `jq` pipelines. Platform
+  split via 3 files (offensive / darwin+cgo /
+  offensive-other) with a `sandboxIntrospectionAvailable`
+  bool const that lets tests branch on the same source.
+  +7 tests passing on both cgo and non-cgo offensive
+  builds. INSTALL.md feature matrix updated with new
+  row. Snapshot:
+  `.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
+
 - 2026-05-18 — v2.61 (chunk 1) — **sandbox profile
   introspection + ProfileScan test-gap closure.**
   New `Profiles()` enumeration helper in

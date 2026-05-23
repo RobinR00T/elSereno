@@ -1,23 +1,26 @@
 ---
-phase: v2.61-closed
-status: v1.16-v2.34 published; v2.35-v2.61 tags pending push
-last-updated: 2026-05-18
+phase: v2.62-closed
+status: v1.16-v2.34 published; v2.35-v2.62 tags pending push
+last-updated: 2026-05-19
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.61 cycle closed on `main`** (1 chunk +
-close). Sandbox profile introspection + ProfileScan test
-gap closure. New `Profiles()` enumeration helper (single
-source of truth) — closes 29-cycle ProfileScan regression
-where v1.50 darwin tests hand-listed 3 of 4 profiles. New
-`SchemeFor()` darwin+cgo accessor for introspection.
-Hardened sandbox_init errbuf-empty path + profile-named
-success Reason. +3 tests.
+**Phase**: **v2.62 cycle closed on `main`** (1 chunk +
+close). `elsereno sandbox` CLI verb (list + introspect)
+surfaces the v2.61 `SchemeFor()` accessor. Platform split:
+darwin+cgo emits real .sb Schemes; other offensive builds
+emit sentinel `{"scheme": ""}` rows for stable JSON shape.
++7 tests on both build paths. INSTALL.md matrix updated.
 
 Snapshot:
-`.context/snapshots/v2.61.0-sandbox-introspection.md`.
+`.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
+
+**v2.61 cycle (closed)**: sandbox profile introspection +
+ProfileScan test-gap closure. New `Profiles()`
+enumeration helper. New `SchemeFor()` darwin+cgo
+accessor. Hardened sandbox_init errbuf-empty path.
 
 **v2.60 cycle (closed)**: /metrics endpoint + pool
 collector wiring. cmd_serve constructs MetricsHandler via

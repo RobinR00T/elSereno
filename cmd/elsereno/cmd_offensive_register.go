@@ -16,6 +16,12 @@ func registerOffensiveCmds(root *cobra.Command) {
 	root.AddCommand(newExploitCmd())
 	root.AddCommand(newHarvestCmd())
 	root.AddCommand(newDialCmd())
+	// v2.62+: read-only sandbox introspection (list +
+	// introspect). No write surface; safe on every offensive
+	// build (the darwin+cgo build emits real .sb Schemes,
+	// other offensive builds report introspection-unavailable
+	// via a stable JSON sentinel).
+	root.AddCommand(newSandboxCmd())
 
 	replaceProxyStubWithOffensiveCmd(root)
 }
