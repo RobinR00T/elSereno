@@ -109,6 +109,10 @@ func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
 		if nums.Openat != 0 {
 			out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
 		}
+		if nums.Open != 0 {
+			// open(path, flags, mode): flags is arg 1 (openat's is 2).
+			out = append(out, NewArgDenyMaskAny(nums.Open, 1, writeBits))
+		}
 	case ProfileDial:
 		if nums.Socket != 0 {
 			out = append(out, NewArgDenyEqual(nums.Socket, 0, afPacket, afNetlink))
@@ -121,6 +125,9 @@ func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
 		// Allows reading probe data + writing nothing on disk.
 		if nums.Openat != 0 {
 			out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
+		}
+		if nums.Open != 0 {
+			out = append(out, NewArgDenyMaskAny(nums.Open, 1, writeBits))
 		}
 	}
 	return out
@@ -151,6 +158,10 @@ func ArgFilterPresets(nums syscallNums) []ArgDenyRule {
 	if nums.Openat != 0 {
 		// openat(dirfd, pathname, flags, mode) — flags is arg 2.
 		out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
+	}
+	if nums.Open != 0 {
+		// open(pathname, flags, mode) — flags is arg 1.
+		out = append(out, NewArgDenyMaskAny(nums.Open, 1, writeBits))
 	}
 	if nums.Socket != 0 {
 		// socket(domain, type, protocol) — domain is arg 0.

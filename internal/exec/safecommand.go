@@ -127,6 +127,12 @@ func resolveBinary(name string, allowed []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("exec: Abs(%s): %w", full, err)
 	}
+	// Resolve symlinks before the allowlist check so a link that sits
+	// under an allowed dir cannot point execution at a binary outside
+	// it (e.g. /usr/local/bin/nmap -> /tmp/evil).
+	if resolved, rerr := filepath.EvalSymlinks(abs); rerr == nil {
+		abs = resolved
+	}
 	for _, prefix := range allowed {
 		if strings.HasPrefix(abs, strings.TrimRight(prefix, "/")+"/") {
 			return abs, nil

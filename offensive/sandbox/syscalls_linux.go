@@ -68,6 +68,13 @@ type syscallNums struct {
 
 	// v1.26 chunk 2 — arg-filter targets.
 	Openat uint32
+	// File-open hardening: open(2) is arg-filtered like openat;
+	// openat2(2) carries flags in a struct by pointer (not filterable
+	// by a register mask) and creat(2) always writes, so both are
+	// denied outright in the no-write profiles. See PITF-039 family.
+	Open    uint32
+	Openat2 uint32
+	Creat   uint32
 }
 
 // syscallsAMD64 is the x86_64 Linux syscall number table. Source:
@@ -130,7 +137,10 @@ var syscallsAMD64 = syscallNums{
 	Sendmmsg:   307,
 	Setsockopt: 54,
 
-	Openat: 257,
+	Openat:  257,
+	Open:    2,
+	Openat2: 437,
+	Creat:   85,
 }
 
 // syscallsARM64 is the aarch64 Linux syscall number table. Source:
@@ -192,7 +202,10 @@ var syscallsARM64 = syscallNums{
 	Sendmmsg:   269,
 	Setsockopt: 208,
 
-	Openat: 56,
+	Openat:  56,
+	Open:    0, // arm64 generic ABI has no open(2); openat only
+	Openat2: 437,
+	Creat:   0, // arm64 generic ABI has no creat(2)
 }
 
 // blockedSyscalls returns the deduped, zero-filtered list of
@@ -234,6 +247,10 @@ func blockedSyscalls(p Profile, n syscallNums) []uint32 {
 			n.Rename, n.Renameat, n.Renameat2,
 			n.Symlink, n.Symlinkat,
 			n.Link, n.Linkat,
+			// open(2) is arg-filtered on write flags (argRulesFor);
+			// openat2 is unfilterable (flags in a struct by pointer)
+			// and creat always writes, so deny both outright.
+			n.Openat2, n.Creat,
 		}
 	case ProfileDial:
 		// Dial works through /dev/tty* via open+ioctl. It must not
@@ -265,6 +282,10 @@ func blockedSyscalls(p Profile, n syscallNums) []uint32 {
 			n.Rename, n.Renameat, n.Renameat2,
 			n.Symlink, n.Symlinkat,
 			n.Link, n.Linkat,
+			// open(2) is arg-filtered on write flags (argRulesFor);
+			// openat2 is unfilterable (flags in a struct by pointer)
+			// and creat always writes, so deny both outright.
+			n.Openat2, n.Creat,
 		}
 	}
 

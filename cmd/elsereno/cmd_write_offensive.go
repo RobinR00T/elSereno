@@ -418,10 +418,38 @@ func newWriteModbusDryRunCmd() *cobra.Command {
 	return cmd
 }
 
+// resolveConfirmToken returns the confirm-token from --confirm-token or
+// --confirm-token-file (a 0600 file, so the token is not exposed via ps
+// or shell history). The two flags are mutually exclusive.
+func resolveConfirmToken(token, tokenFile string) (string, error) {
+	if tokenFile == "" {
+		return token, nil
+	}
+	if token != "" {
+		return "", errors.New("--confirm-token and --confirm-token-file are mutually exclusive")
+	}
+	b, err := loadPassphraseFile(tokenFile)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// registerWriteSendFlags registers the flags for `write modbus send`.
+// Extracted so newWriteModbusSendCmd stays under funlen.
+func registerWriteSendFlags(cmd *cobra.Command, f *modbusFlags, acceptWrites *bool, confirmTarget, confirmToken, confirmTokenFile, ppFile *string) {
+	addModbusFlags(cmd, f)
+	cmd.Flags().BoolVar(acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
+	cmd.Flags().StringVar(confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
+	cmd.Flags().StringVar(confirmToken, "confirm-token", "", "HMAC token minted during the dry-run (leaks via ps/history; prefer --confirm-token-file)")
+	cmd.Flags().StringVar(confirmTokenFile, "confirm-token-file", "", "read the confirm-token from a 0600 file instead of argv")
+	addPassphraseFileFlag(cmd, ppFile)
+}
+
 func newWriteModbusSendCmd() *cobra.Command {
 	var f modbusFlags
 	var acceptWrites bool
-	var confirmTarget, confirmToken, ppFile string
+	var confirmTarget, confirmToken, confirmTokenFile, ppFile string
 	cmd := &cobra.Command{
 		Use:   "send",
 		Short: "Authorise + send a Modbus write (requires triple confirm + vault)",
@@ -436,8 +464,13 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 			if !acceptWrites {
 				return fail(core.ExitUsage, errors.New("--accept-writes is required for real delivery"))
 			}
+			ct, terr := resolveConfirmToken(confirmToken, confirmTokenFile)
+			if terr != nil {
+				return fail(core.ExitUsage, terr)
+			}
+			confirmToken = ct
 			if confirmTarget == "" || confirmToken == "" {
-				return fail(core.ExitUsage, errors.New("--confirm-target and --confirm-token are required"))
+				return fail(core.ExitUsage, errors.New("--confirm-target and --confirm-token (or --confirm-token-file) are required"))
 			}
 			r, err := buildModbusRequest(f.target, f.op, f.address, f.value, f.txID, f.coil, f.unit)
 			if err != nil {
@@ -471,10 +504,6 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 			return nil
 		},
 	}
-	addModbusFlags(cmd, &f)
-	cmd.Flags().BoolVar(&acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
-	cmd.Flags().StringVar(&confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
-	cmd.Flags().StringVar(&confirmToken, "confirm-token", "", "HMAC token minted during the dry-run")
-	addPassphraseFileFlag(cmd, &ppFile)
+	registerWriteSendFlags(cmd, &f, &acceptWrites, &confirmTarget, &confirmToken, &confirmTokenFile, &ppFile)
 	return cmd
 }

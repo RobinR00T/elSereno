@@ -84,6 +84,15 @@ func NewWorker(store Store, deliverer Deliverer) *Worker {
 
 // Run polls until ctx is cancelled or Stop is called.
 func (w *Worker) Run(ctx context.Context) error {
+	// One reusable ticker instead of a fresh time.After timer per
+	// iteration: the old timer stayed alive until it fired even when
+	// the loop exited via ctx/stop (a small per-tick timer leak).
+	interval := w.PollInterval
+	if interval <= 0 {
+		interval = time.Millisecond
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -98,7 +107,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-w.stopCh:
 			return ErrStopped
-		case <-time.After(w.PollInterval):
+		case <-ticker.C:
 		}
 	}
 }

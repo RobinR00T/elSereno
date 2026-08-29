@@ -172,7 +172,8 @@ func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 	cmd.Flags().StringVar(&opts.allowFile, "allow-file", "", "read --plugin/--target/allowlist from a YAML file (see docs/manual for schema)")
 	cmd.Flags().BoolVar(&opts.acceptWrites, "accept-writes", false, "positive opt-in for real delivery (ADR-039)")
 	cmd.Flags().StringVar(&opts.confirmTarget, "confirm-target", "", "must match --target byte-for-byte")
-	cmd.Flags().StringVar(&opts.confirmToken, "confirm-token", "", "confirm-token derived from dry-run")
+	cmd.Flags().StringVar(&opts.confirmToken, "confirm-token", "", "confirm-token derived from dry-run (leaks via ps/history; prefer --confirm-token-file)")
+	cmd.Flags().StringVar(&opts.confirmTokenFile, "confirm-token-file", "", "read the confirm-token from a 0600 file instead of argv")
 	cmd.Flags().DurationVar(&opts.dialTimeout, "dial-timeout", 5*time.Second, "upstream dial timeout")
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
@@ -331,12 +332,12 @@ type proxyListenOpts struct {
 	// allow-file's `writes:` field. Kept separate from CLI so the
 	// loader can overwrite without losing the legacy functions
 	// list (which may also be present in the same YAML).
-	modbusWritesYAML                    []proxyModbusWrite
-	allowFile                           string
-	acceptWrites                        bool
-	confirmTarget, confirmToken, ppFile string
-	dialTimeout, idleTimeout            time.Duration
-	maxConns                            int
+	modbusWritesYAML                                      []proxyModbusWrite
+	allowFile                                             string
+	acceptWrites                                          bool
+	confirmTarget, confirmToken, confirmTokenFile, ppFile string
+	dialTimeout, idleTimeout                              time.Duration
+	maxConns                                              int
 	// reloadAllowFile enables the v1.17 chunk-4 SIGUSR1
 	// in-process reload. Requires allowFile to be set.
 	reloadAllowFile bool
@@ -369,7 +370,7 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 			return fail(core.ExitUsage, err)
 		}
 	}
-	if err := validateProxyListenOpts(opts); err != nil {
+	if err := resolveAndValidateProxyOpts(&opts); err != nil {
 		return fail(core.ExitUsage, err)
 	}
 	// Canonicalise the IP-literal forms in target / listen /
@@ -543,6 +544,17 @@ var errReloadRequested = errors.New("proxy: SIGHUP reload requested (operator sh
 // validateProxyListenOpts returns a typed error describing the
 // first missing required flag, or nil when the options are
 // structurally complete.
+// resolveAndValidateProxyOpts resolves the confirm-token (from the
+// flag or a 0600 file) into opts, then validates the option set.
+func resolveAndValidateProxyOpts(opts *proxyListenOpts) error {
+	ct, err := resolveConfirmToken(opts.confirmToken, opts.confirmTokenFile)
+	if err != nil {
+		return err
+	}
+	opts.confirmToken = ct
+	return validateProxyListenOpts(*opts)
+}
+
 func validateProxyListenOpts(opts proxyListenOpts) error {
 	if opts.target == "" {
 		return errors.New("--target is required")
@@ -554,7 +566,7 @@ func validateProxyListenOpts(opts proxyListenOpts) error {
 		return errors.New("--accept-writes is required for real delivery")
 	}
 	if opts.confirmTarget == "" || opts.confirmToken == "" {
-		return errors.New("--confirm-target and --confirm-token are required")
+		return errors.New("--confirm-target and --confirm-token (or --confirm-token-file) are required")
 	}
 	if opts.ppFile == "" {
 		return errors.New("--vault-passphrase-file is required (for key derivation + audit)")
