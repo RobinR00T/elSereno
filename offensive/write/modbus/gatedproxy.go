@@ -42,11 +42,13 @@ func (a AllowedWrite) Matches(f mbwire.Frame) bool {
 	if a.StartAddr == 0 && a.EndAddr == 0 {
 		return true
 	}
-	addr, ok := frameAddr(f)
+	start, end, ok := frameAddrRange(f)
 	if !ok {
 		return false
 	}
-	return addr >= a.StartAddr && addr <= a.EndAddr
+	// Check BOTH ends of the range: a multi-register/coil write that
+	// starts inside the allowed window can still run off the top.
+	return start >= a.StartAddr && end <= a.EndAddr
 }
 
 // frameAddr extracts the starting address from a known write FC.
@@ -66,6 +68,45 @@ func frameAddr(f mbwire.Frame) (uint16, bool) {
 		return binary.BigEndian.Uint16(f.PDU[1:3]), true
 	}
 	return 0, false
+}
+
+// frameAddrRange extracts the inclusive [start, end] address range a
+// write frame touches. Returns (_, _, false) for FCs where it cannot
+// be determined. Multi-register/coil writes span start..start+qty-1,
+// so the gate must check both ends, not just the start.
+func frameAddrRange(f mbwire.Frame) (start, end uint16, ok bool) {
+	switch f.FunctionCode() { //nolint:exhaustive // address lives only in write FCs
+	case mbwire.FCWriteSingleCoil, mbwire.FCWriteSingleRegister, mbwire.FCMaskWriteRegister:
+		if len(f.PDU) < 3 {
+			return 0, 0, false
+		}
+		a := binary.BigEndian.Uint16(f.PDU[1:3])
+		return a, a, true
+	case mbwire.FCWriteMultipleCoils, mbwire.FCWriteMultipleRegisters:
+		return spanFromQuantity(f.PDU, 1, 3)
+	case mbwire.FCReadWriteMultipleRegisters:
+		// The write half mutates: write-start at PDU[5:7], qty at [7:9].
+		return spanFromQuantity(f.PDU, 5, 7)
+	}
+	return 0, 0, false
+}
+
+// spanFromQuantity reads a start address at pdu[aOff:aOff+2] and a
+// quantity at pdu[qOff:qOff+2] and returns the inclusive range,
+// rejecting a range that would wrap past the 16-bit address space.
+func spanFromQuantity(pdu []byte, aOff, qOff int) (uint16, uint16, bool) {
+	if len(pdu) < qOff+2 {
+		return 0, 0, false
+	}
+	a := binary.BigEndian.Uint16(pdu[aOff : aOff+2])
+	qty := binary.BigEndian.Uint16(pdu[qOff : qOff+2])
+	if qty == 0 {
+		return a, a, true
+	}
+	if uint32(a)+uint32(qty)-1 > 0xFFFF {
+		return 0, 0, false
+	}
+	return a, a + qty - 1, true
 }
 
 // AllowlistHash returns the deterministic SHA-256 of the allowlist.

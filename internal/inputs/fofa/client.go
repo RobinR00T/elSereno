@@ -92,15 +92,18 @@ func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) 
 	const perPage = 100
 	out := make([]core.Target, 0, totalLimit)
 	for page := 1; len(out) < totalLimit; page++ {
-		hits, err := c.searchPage(ctx, query, page, perPage)
+		hits, raw, err := c.searchPage(ctx, query, page, perPage)
 		if err != nil {
 			return out, err
 		}
-		if len(hits) == 0 {
+		if raw == 0 {
 			break
 		}
 		out = append(out, hits...)
-		if len(hits) < perPage {
+		// Compare the RAW row count (not the filtered hits) to perPage:
+		// rows dropped by mapResults (empty IP, hostname, IPv6) must
+		// not be read as "FOFA exhausted", which would truncate paging.
+		if raw < perPage {
 			break
 		}
 	}
@@ -118,15 +121,16 @@ func (c *Client) Search(ctx context.Context, query string, size int) ([]core.Tar
 	if size <= 0 {
 		size = 100
 	}
-	return c.searchPage(ctx, query, 1, size)
+	hits, _, err := c.searchPage(ctx, query, 1, size)
+	return hits, err
 }
 
 // searchPage issues one /api/v1/search/all call for a specific
 // page. Shared by Search (page 1) and SearchPaged (loop).
-func (c *Client) searchPage(ctx context.Context, query string, page, size int) ([]core.Target, error) {
+func (c *Client) searchPage(ctx context.Context, query string, page, size int) ([]core.Target, int, error) {
 	if c.Limiter != nil {
 		if err := c.Limiter.Wait(ctx); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	qbase64 := base64.StdEncoding.EncodeToString([]byte(query))
@@ -144,28 +148,30 @@ func (c *Client) searchPage(ctx context.Context, query string, page, size int) (
 	u := fmt.Sprintf("%s/api/v1/search/all?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("fofa: request: %w", err)
+		return nil, 0, fmt.Errorf("fofa: request: %w", err)
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fofa: http: %w", err)
+		return nil, 0, fmt.Errorf("fofa: http: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fofa: status %d", resp.StatusCode)
+		return nil, 0, fmt.Errorf("fofa: status %d", resp.StatusCode)
 	}
 
 	var parsed SearchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("fofa: decode: %w", err)
+		return nil, 0, fmt.Errorf("fofa: decode: %w", err)
 	}
 	if parsed.Error {
-		return nil, fmt.Errorf("%w: %s", ErrAPIError, parsed.ErrMsg)
+		return nil, 0, fmt.Errorf("%w: %s", ErrAPIError, parsed.ErrMsg)
 	}
 
-	return mapResults(parsed.Results), nil
+	// Raw row count (not the filtered targets) drives pagination, so
+	// dropped rows do not look like the end of the dataset.
+	return mapResults(parsed.Results), len(parsed.Results), nil
 }
 
 // mapResults converts FOFA rows to core.Target values. Each row

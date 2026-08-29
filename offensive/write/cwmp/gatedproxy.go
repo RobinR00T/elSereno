@@ -930,12 +930,20 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 		return h.forwardRequest(req, client, upstream, upReader)
 	}
 
-	// Buffer the body so we can BOTH inspect it AND replay it
-	// to upstream if the RPC passes.
-	body, err := io.ReadAll(req.Body)
+	// Buffer the body so we can BOTH inspect it AND replay it to
+	// upstream if the RPC passes. Bound it so a giant or never-ending
+	// POST cannot exhaust memory: the gate sits in the untrusted
+	// ACS<->CPE path. 1 MiB matches the SIP proxy. Read one extra byte
+	// so an over-limit body is rejected, not silently truncated and
+	// replayed corrupt.
+	const maxBodyBytes = 1 << 20
+	body, err := io.ReadAll(io.LimitReader(req.Body, maxBodyBytes+1))
 	_ = req.Body.Close()
 	if err != nil {
 		return false, fmt.Errorf("cwmp: read request body: %w", err)
+	}
+	if len(body) > maxBodyBytes {
+		return false, fmt.Errorf("cwmp: request body exceeds %d bytes", maxBodyBytes)
 	}
 	rpc, ok := extractRPCName(body)
 	if !ok || rpc == "" {

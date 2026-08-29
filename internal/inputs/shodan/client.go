@@ -75,7 +75,8 @@ func (c *Client) Search(ctx context.Context, query string, limit int) ([]core.Ta
 	if limit <= 0 {
 		limit = 100
 	}
-	return c.searchPage(ctx, query, 1, limit)
+	hits, _, err := c.searchPage(ctx, query, 1, limit)
+	return hits, err
 }
 
 // SearchPaged calls /shodan/host/search repeatedly, accumulating up
@@ -96,16 +97,19 @@ func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) 
 	const perPage = 100
 	out := make([]core.Target, 0, totalLimit)
 	for page := 1; len(out) < totalLimit; page++ {
-		hits, err := c.searchPage(ctx, query, page, perPage)
+		hits, raw, err := c.searchPage(ctx, query, page, perPage)
 		if err != nil {
 			return out, err
 		}
-		if len(hits) == 0 {
+		if raw == 0 {
 			break
 		}
 		out = append(out, hits...)
-		if len(hits) < perPage {
-			// Shodan returned a partial page → no more results.
+		// Compare the RAW response count (not the filtered hits) to
+		// perPage. Entries dropped by mapHits (unparseable IP/port)
+		// must not be mistaken for "Shodan exhausted", which would
+		// truncate paging and silently lose later pages.
+		if raw < perPage {
 			break
 		}
 	}
@@ -117,10 +121,10 @@ func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) 
 
 // searchPage issues one /shodan/host/search call for a specific
 // page. Shared by Search (page 1) and SearchPaged (loop).
-func (c *Client) searchPage(ctx context.Context, query string, page, limit int) ([]core.Target, error) {
+func (c *Client) searchPage(ctx context.Context, query string, page, limit int) ([]core.Target, int, error) {
 	if c.Limiter != nil {
 		if err := c.Limiter.Wait(ctx); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	q := url.Values{}
@@ -134,25 +138,28 @@ func (c *Client) searchPage(ctx context.Context, query string, page, limit int) 
 	u := fmt.Sprintf("%s/shodan/host/search?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("shodan: request: %w", err)
+		return nil, 0, fmt.Errorf("shodan: request: %w", err)
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("shodan: http: %w", err)
+		return nil, 0, fmt.Errorf("shodan: http: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("shodan: status %d", resp.StatusCode)
+		return nil, 0, fmt.Errorf("shodan: status %d", resp.StatusCode)
 	}
 
 	var parsed SearchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("shodan: decode: %w", err)
+		return nil, 0, fmt.Errorf("shodan: decode: %w", err)
 	}
 
-	return mapHits(parsed.Matches), nil
+	// Return the raw match count alongside the filtered targets so the
+	// pager can tell "page not full" (more pages) from "we dropped
+	// unparseable rows" (still more pages).
+	return mapHits(parsed.Matches), len(parsed.Matches), nil
 }
 
 // mapHits converts Shodan hits to core.Target values, skipping

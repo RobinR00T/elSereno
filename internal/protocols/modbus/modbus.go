@@ -3,6 +3,7 @@ package modbus
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -141,11 +142,39 @@ func shouldBlock(f wire.Frame) bool {
 		// shorter or with a different sub-code is refused.
 		return len(f.PDU) < 2 || f.PDU[1] != 0x0E
 	case wire.CategoryDiagnostic:
-		return false // F5 will tighten this with per-sub-code rules.
+		// FC 8 straddles read/write by sub-function. Block every
+		// sub-function that can change device state (Restart 0x01,
+		// Force Listen Only Mode 0x04, Clear Counters 0x0A, ...) and
+		// only let the pure-read ones through.
+		return !diagnosticIsReadOnly(f)
 	case wire.CategoryUnknown:
 		return true
 	}
 	return true
+}
+
+// diagnosticIsReadOnly reports whether an FC 8 (Diagnostics) frame
+// carries a sub-function that only reads state. The sub-function is a
+// 2-byte big-endian field right after the function-code byte. A
+// malformed/short frame is treated as not-read-only (blocked).
+//
+// Read-only sub-functions: Return Query Data (0x0000, loopback),
+// Return Diagnostic Register (0x0002), and the counter reads
+// 0x000B..0x0012. Everything else can restart comms, force Listen
+// Only Mode, or clear counters, so it is a write for gating purposes.
+func diagnosticIsReadOnly(f wire.Frame) bool {
+	if len(f.PDU) < 3 {
+		return false
+	}
+	sub := binary.BigEndian.Uint16(f.PDU[1:3])
+	switch {
+	case sub == 0x0000, sub == 0x0002:
+		return true
+	case sub >= 0x000B && sub <= 0x0012:
+		return true
+	default:
+		return false
+	}
 }
 
 // exceptionResponse builds a Modbus exception response for `req`.
