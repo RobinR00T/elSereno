@@ -10,6 +10,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/scope"
 )
 
 // writeTargetFile creates a list:-format input file in t.TempDir.
@@ -179,6 +180,38 @@ func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
 	// 1 probe attempt.
 	if stats.TargetsScanned < 1 {
 		t.Errorf("TargetsScanned = %d, want ≥ 1", stats.TargetsScanned)
+	}
+}
+
+// TestDefaultScanRunner_ScopeDropsOutOfScope: a runner wired with a
+// scope guardrail must drop targets outside the declared ranges before
+// dialing, mirroring the CLI. Here 127.0.0.2 is out of a 127.0.0.1/32
+// scope, so only one target is ever seen or scanned. Without the scope
+// wiring (the ALTO-2 bug) both would have been dialed.
+func TestDefaultScanRunner_ScopeDropsOutOfScope(t *testing.T) {
+	scopeFile := filepath.Join(t.TempDir(), "scope.yaml")
+	if err := os.WriteFile(scopeFile, []byte("version: 1\nranges:\n  - cidr: 127.0.0.1/32\n"), 0o600); err != nil {
+		t.Fatalf("write scope file: %v", err)
+	}
+	sc, err := scope.Load(scopeFile)
+	if err != nil {
+		t.Fatalf("scope.Load: %v", err)
+	}
+	r := &defaultScanRunner{scope: sc}
+	listFile := writeTargetFile(t, "127.0.0.1:1\n127.0.0.2:1\n")
+	stats, _, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     []string{"banner"},
+		DefaultPort: 80,
+	}, nil)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if stats.TargetsSeen != 1 {
+		t.Errorf("TargetsSeen = %d, want 1 (127.0.0.2 is out of scope)", stats.TargetsSeen)
+	}
+	if stats.TargetsScanned != 1 {
+		t.Errorf("TargetsScanned = %d, want 1", stats.TargetsScanned)
 	}
 }
 

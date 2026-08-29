@@ -9,6 +9,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/scanner"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/scope"
 )
 
 // defaultScanRunner is the cmd-side scanorch.JobRunner that
@@ -50,6 +51,11 @@ type defaultScanRunner struct {
 	// dials. Operators tune via --scan-pool indirectly (worker
 	// pool concurrency × per-plugin cap = ceiling).
 	concurrency int
+	// scope, when non-nil, is the same scope.yaml guardrail the CLI
+	// applies: targets it rejects are dropped before any dial. A nil
+	// scope is a pass-through (no --scope was set on serve). Without
+	// this, dashboard/API scans could reach targets the CLI refuses.
+	scope *scope.Scope
 }
 
 // Sentinel errors.
@@ -95,6 +101,10 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	if err != nil {
 		return scanorch.Stats{}, nil, fmt.Errorf("scan runner: parse input: %w", err)
 	}
+	// Apply the scope guardrail before anything is dialed, mirroring
+	// the CLI (cmd_scan). filterByScope is a pass-through when r.scope
+	// is nil, so this is a no-op unless serve was started with --scope.
+	targets = filterByScope(r.scope, targets)
 	stats := scanorch.Stats{TargetsSeen: len(targets)}
 	if len(targets) == 0 {
 		return stats, nil, nil

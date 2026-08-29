@@ -19,6 +19,7 @@ import (
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/scanorch"
+	"local/elsereno/internal/scope"
 	"local/elsereno/internal/telemetry"
 	"local/elsereno/internal/web"
 	"local/elsereno/internal/web/auth"
@@ -47,6 +48,8 @@ func newServeCmd() *cobra.Command {
 		"scan-orchestration backend: off (disabled, 503), memory (in-process, lost on restart), db (postgres-persistent, requires DATABASE_URL)")
 	cmd.Flags().IntVar(&opts.scanPool, "scan-pool", 2,
 		"concurrent scan-job workers (clamped to [1, 64])")
+	cmd.Flags().StringVar(&opts.scopePath, "scope", "",
+		"path to scope.yaml; when set, scan-job targets outside scope are rejected before dialing (same guardrail as `elsereno scan --scope`)")
 	cmd.Flags().IntVar(&opts.auditRetentionDays, "audit-retention-days", 0,
 		"schedule-audit retention in days; 0 = disabled, >0 spawns a daily pruner (v1.87+)")
 	addPassphraseFileFlag(cmd, &opts.passphraseFile)
@@ -62,6 +65,10 @@ type serveOpts struct {
 	scanStore string
 	// scanPool sets the worker pool concurrency.
 	scanPool int
+	// scopePath points at a scope.yaml; when set, scan-job targets
+	// outside scope are rejected before dialing, same as the CLI's
+	// `elsereno scan --scope`. Empty means no scope guardrail.
+	scopePath string
 	// auditRetentionDays (v1.87+) controls the background
 	// pruner. Zero (default) disables it; positive values
 	// spawn a daily AuditPruner that deletes audit events
@@ -481,6 +488,18 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 	default:
 		return nil, nil, fmt.Errorf("--scan-store: unknown value %q (off | memory | db)", opts.scanStore)
 	}
+	// Load the scope guardrail once at startup so a malformed
+	// scope.yaml fails serve fast (fail-closed) instead of silently
+	// letting out-of-scope scans through. A nil scope (no --scope) is
+	// a pass-through in the runner.
+	sc, err := scope.Load(opts.scopePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("serve: load scope: %w", err)
+	}
+	if sc != nil {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"elsereno serve: scope guardrail active (%s); out-of-scope scan targets rejected\n", opts.scopePath)
+	}
 	store := stream.NewBroadcastingStore(inner, broadcaster)
 	// v1.65: progress throttle for mid-run Stats snapshots.
 	// Default 500ms cadence — balances "operator sees the
@@ -491,7 +510,7 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 	store.AttachProgressThrottle(progress)
 	worker := &scanorch.Worker{
 		Store:  store,
-		Runner: &defaultScanRunner{},
+		Runner: &defaultScanRunner{scope: sc},
 		OnProgress: func(jobID string, s scanorch.Stats, byPlugin map[string]int) {
 			progress.Report(jobID, s, byPlugin)
 		},
