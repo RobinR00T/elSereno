@@ -12,6 +12,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/protocols/xot/wire"
+	"local/elsereno/internal/scoring"
 )
 
 // Name is the plugin identifier used for Finding.Protocol and
@@ -137,7 +138,7 @@ func fingerprintFromPacket(target core.Target, packet wire.Packet) *core.Finding
 		note = fmt.Sprintf("unexpected %s (PTI=0x%02x)", packet.Type, packet.PTI)
 	}
 
-	score := scoreFor(factors)
+	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
 		ID:          findingID(target, packet.Type, note),
 		Protocol:    Name,
@@ -160,7 +161,7 @@ func fingerprintFromSilence(target core.Target) *core.Finding {
 		"impact_class":  0,
 		"cve_exposure":  0,
 	}
-	score := scoreFor(factors)
+	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
 		ID:          findingID(target, wire.PacketUnknown, "silent reject"),
 		Protocol:    Name,
@@ -170,33 +171,6 @@ func fingerprintFromSilence(target core.Target) *core.Finding {
 		Factors:     factors,
 		FindingHash: hashEvidence(target, wire.PacketUnknown, "silent reject"),
 	}
-}
-
-// scoreFor approximates the scoring engine contribution for the six
-// default factors at the weights defined in ADR-006. The real engine
-// is the source of truth; this is a local helper so plugins do not
-// take a hard dependency on the scoring package at Probe time.
-func scoreFor(factors map[string]int) int {
-	weights := map[string]float64{
-		"protocol_risk": 0.25,
-		"exposure":      0.20,
-		"auth_state":    0.20,
-		"capability":    0.15,
-		"impact_class":  0.10,
-		"cve_exposure":  0.10,
-	}
-	var total float64
-	for k, w := range weights {
-		total += float64(factors[k]) * w
-	}
-	n := int(total + 0.5)
-	if n < 0 {
-		n = 0
-	}
-	if n > 100 {
-		n = 100
-	}
-	return n
 }
 
 // portBytes splits a uint16 port into (hi, lo) so we can hash it

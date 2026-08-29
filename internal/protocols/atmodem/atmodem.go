@@ -13,6 +13,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/protocols/atmodem/wire"
 	"local/elsereno/internal/render"
+	"local/elsereno/internal/scoring"
 )
 
 // Name is the plugin identifier.
@@ -260,7 +261,7 @@ func buildFinding(target core.Target, fp wire.Fingerprint, initial, ati, cgmi st
 	case wire.ClassHayes, wire.ClassUnknown:
 		// keep defaults
 	}
-	score := scoreFor(factors)
+	score := scoring.ScoreDefault(factors)
 	note := fmt.Sprintf("class=%s vendor=%s", fp.Class, fp.Vendor)
 	return &core.Finding{
 		ID:          hashID(target, note),
@@ -284,7 +285,7 @@ func infoFinding(target core.Target, note, initial string) *core.Finding {
 		"impact_class":  5,
 		"cve_exposure":  0,
 	}
-	score := scoreFor(factors)
+	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
 		ID:          hashID(target, note),
 		Protocol:    Name,
@@ -294,29 +295,6 @@ func infoFinding(target core.Target, note, initial string) *core.Finding {
 		Factors:     factors,
 		FindingHash: hashBytes(target, note, initial),
 	}
-}
-
-func scoreFor(factors map[string]int) int {
-	weights := map[string]float64{
-		"protocol_risk": 0.25,
-		"exposure":      0.20,
-		"auth_state":    0.20,
-		"capability":    0.15,
-		"impact_class":  0.10,
-		"cve_exposure":  0.10,
-	}
-	var total float64
-	for k, w := range weights {
-		total += float64(factors[k]) * w
-	}
-	n := int(total + 0.5)
-	if n < 0 {
-		n = 0
-	}
-	if n > 100 {
-		n = 100
-	}
-	return n
 }
 
 // portBytes splits a uint16 port into two bytes (hi, lo) so hashes

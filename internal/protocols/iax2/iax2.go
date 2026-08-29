@@ -14,6 +14,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/protocols/iax2/wire"
+	"local/elsereno/internal/scoring"
 )
 
 // Name is the plugin identifier.
@@ -158,7 +159,7 @@ func buildFinding(target core.Target, note string, iax2Confirmed bool, subclass 
 	if wire.IAXSubclass(subclass) == wire.IAXAuthReq {
 		factors["auth_state"] = 50
 	}
-	score := scoreFor(factors)
+	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
 		ID:          hashID(target, note),
 		Protocol:    Name,
@@ -168,25 +169,6 @@ func buildFinding(target core.Target, note string, iax2Confirmed bool, subclass 
 		Factors:     factors,
 		FindingHash: hashBytes(target, note),
 	}
-}
-
-func scoreFor(factors map[string]int) int {
-	weights := map[string]float64{
-		"protocol_risk": 0.25, "exposure": 0.20, "auth_state": 0.20,
-		"capability": 0.15, "impact_class": 0.10, "cve_exposure": 0.10,
-	}
-	var total float64
-	for k, w := range weights {
-		total += float64(factors[k]) * w
-	}
-	n := int(total + 0.5)
-	if n < 0 {
-		n = 0
-	}
-	if n > 100 {
-		n = 100
-	}
-	return n
 }
 
 func portBytes(p core.Port) [2]byte {
