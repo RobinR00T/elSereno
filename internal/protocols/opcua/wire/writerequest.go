@@ -250,7 +250,15 @@ func walkWriteRequestArrayPrefix(msgBody []byte) (body []byte, arrLen int32, ok 
 	}
 	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115 — -1 null sentinel intentional
 	off += 4
-	if arrLen <= 0 {
+	// arrLen is attacker-controlled (int32 up to ~2.1e9) and the callers
+	// presize a slice with it (make([]T, 0, arrLen)), which reserves the
+	// capacity immediately, so an unbounded value would force an
+	// unrecoverable OOM from a single small frame. Cap it to the same
+	// 1<<16 ceiling skipVariant/skipVariantArray already apply to inner
+	// arrays; a WriteRequest/CallRequest with more entries than that is
+	// not legitimate traffic.
+	const maxArrayLen = 1 << 16
+	if arrLen <= 0 || arrLen > maxArrayLen {
 		return nil, 0, false
 	}
 	return msgBody[off:], arrLen, true

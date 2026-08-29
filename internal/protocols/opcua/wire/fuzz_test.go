@@ -22,3 +22,22 @@ func FuzzParseError(f *testing.F) {
 	f.Add([]byte{})
 	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = ParseError(b) })
 }
+
+// The WriteRequest / CallRequest walkers read an attacker-controlled
+// array length and presize a slice with it; they must not panic or
+// blow memory on malformed input (regression for the arrLen OOM).
+
+func FuzzWriteRequestAllNodesRich(f *testing.F) {
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = WriteRequestAllNodesRich(b) })
+}
+
+func FuzzWriteRequestAllNodes(f *testing.F) {
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = WriteRequestAllNodes(b) })
+}
+
+func FuzzCallRequestAllMethods(f *testing.F) {
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = CallRequestAllMethods(b) })
+}
