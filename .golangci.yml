@@ -29,7 +29,9 @@ linters:
     - funlen
     - dupl
     - misspell
-    - goconst
+    # goconst disabled 2026-08-29: 100+ low-value hits on trivial
+    # repeated strings ("list", "udp", "json", scoring-factor keys).
+    # Re-enable with min-occurrences/min-len settings if wanted.
     - unconvert
     - unparam
     - tagalign

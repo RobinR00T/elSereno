@@ -112,10 +112,8 @@ func TestSandboxIntrospect_AllJSON(t *testing.T) {
 			if !strings.Contains(got[i].Scheme, "(version 1)") {
 				t.Errorf("got[%d].Scheme missing (version 1) header", i)
 			}
-		} else {
-			if got[i].Scheme != "" {
-				t.Errorf("got[%d].Scheme = %q, want \"\" on non-cgo build", i, got[i].Scheme)
-			}
+		} else if got[i].Scheme != "" {
+			t.Errorf("got[%d].Scheme = %q, want \"\" on non-cgo build", i, got[i].Scheme)
 		}
 	}
 }
