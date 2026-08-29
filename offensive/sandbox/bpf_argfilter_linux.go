@@ -4,6 +4,7 @@ package sandbox
 
 import (
 	"fmt"
+	"runtime"
 
 	"golang.org/x/sys/unix"
 )
@@ -203,106 +204,110 @@ func seccompDataArgOffset(idx uint8) uint32 {
 	return uint32(16) + uint32(idx)*uint32(8)
 }
 
-// CompileArgFilter emits BPF instructions implementing the rules
-// in `argRules`. The output is appended to a pre-existing
-// syscall-level filter (compiled by `compileFilter`) by replacing
-// its tail (RET ALLOW + RET ERRNO) with the arg-filter prologue +
-// the syscall-level tails.
-//
-// The simplest way to use it is via CompileFilterWithArgs below,
-// which composes `compileFilter` + this function correctly.
-//
-// Layout per arg rule (each rule is independent of the others):
-//
-//	#  LD  [nr]
-//	#  JEQ syscall, +1, +M       (M = total instr count of this rule)
-//	#  -- rule body if syscall matches --
-//	#    LD  [arg_offset]
-//	#    JEQ value_1, deny, ...        (Equal mode)
-//	#    JEQ value_K, deny, +1
-//	#    -- (or, MaskAny mode) --
-//	#    AND maskBits
-//	#    JEQ 0, allow_through, +1
-//	#  -- rule end (next rule or tail) --
-//
-// The deny target is "RET ERRNO|EPERM" which lives at the very
-// end of the program. The allow_through target is "fall through to
-// the next rule".
-//
-// For v1.26 chunk 2 the implementation is intentionally minimal:
-// each rule appends a self-contained block that ends in a "deny"
-// or "fall through" decision, and rules are ORed together — any
-// rule firing denies the call. This keeps the BPF easy to
-// reason about and lets the unit tests verify the instruction
-// count exactly.
-//
-// Returns ErrArchUnsupported in archFor's sense — the caller is
-// expected to have validated the arch via the FilterProgram call
-// already.
-func CompileArgFilter(argRules []ArgDenyRule) []unix.SockFilter {
-	if len(argRules) == 0 {
-		return nil
+// compiledArgSectionLen returns the number of BPF instructions the
+// arg-rule section contributes to the combined filter: two per rule
+// (LD nr + JEQ syscall) plus the rule body. Rules with an empty body
+// (neither MaskBits nor EqualValues set) emit nothing and are skipped
+// by the emitter, so they are excluded from the count too.
+func compiledArgSectionLen(argRules []ArgDenyRule) int {
+	total := 0
+	for _, r := range argRules {
+		l := ruleBodyLen(r)
+		if l == 0 {
+			continue
+		}
+		total += 2 + l
 	}
-	// The deny-tail (RET ERRNO|EPERM) is at len(insns)+totalLen.
-	// Build forward, recording for each rule how many BPF insns
-	// it emits, so we can compute the relative jump to the deny
-	// tail correctly.
-	//
-	// To keep the code simple we emit:
-	//   for each rule:
-	//     LD nr; JEQ syscall, fall=skip-rule-body, jt=+1
-	//     (rule body — a sequence of JEQs / mask checks; on
-	//     match each jumps forward to the deny tail).
-	//   end:
-	//     RET ALLOW
-	//     RET ERRNO|EPERM
-	//
-	// Computing the jump offsets requires two passes; the
-	// implementation walks the rules twice.
+	return total
+}
 
-	// Pass 1: measure each rule's body length.
-	bodyLens := make([]int, len(argRules))
-	totalBody := 0
-	for i, r := range argRules {
-		bodyLens[i] = ruleBodyLen(r)
-		totalBody += bodyLens[i] + 2 // +2 for LD nr + JEQ syscall
-	}
-	tailLen := 2 // RET ALLOW + RET ERRNO
+// jumpTo returns the 8-bit forward branch offset from the instruction
+// at index `from` to the instruction at index `to` (to > from). A cBPF
+// branch offset counts the instructions to SKIP after the current one,
+// so landing on `to` means skipping (to - from - 1). The combined
+// program is far below the 255-instruction jump ceiling.
+func jumpTo(to, from int) uint8 {
+	return uint8(to - from - 1) // #nosec G115 -- combined program length ≪ 255
+}
 
-	// Pass 2: emit.
-	insns := make([]unix.SockFilter, 0, totalBody+tailLen)
-	emitted := 0
-	for i, r := range argRules {
-		// LD [nr]
+// compileCombinedFilter builds a SINGLE seccomp cBPF program that
+// enforces both the syscall-level denylist and the per-argument
+// denylist, sharing one deny tail.
+//
+// It replaces the earlier broken composition, where an arg-only
+// program that terminated in its own RET ALLOW + RET ERRNO was
+// concatenated in FRONT of the syscall program. Because seccomp
+// evaluates one linear program and stops at the first RET, that made
+// the whole syscall denylist unreachable (every path hit the arg
+// program's RET ALLOW first) and the arg deny-jumps were off by one
+// (they landed on RET ALLOW instead of RET ERRNO).
+//
+// Layout:
+//
+//	[0] LD  [arch]
+//	[1] JEQ auditArch, +1, 0        (arch mismatch -> KILL)
+//	[2] RET KILL
+//	[3] LD  [nr]
+//	    -- syscall denylist: one JEQ per blocked nr, each Jt -> RET ERRNO --
+//	    -- arg-rule blocks: reload nr, JEQ syscall, then the arg body.
+//	       Each deny branch jumps to the shared RET ERRNO; each allow
+//	       branch falls through to the next block / RET ALLOW. --
+//	[M]   RET ALLOW
+//	[M+1] RET ERRNO|EPERM
+//
+// Every deny jump is computed from the instruction's own index to the
+// final RET ERRNO index, so a rule that fires always lands on RET
+// ERRNO and never on RET ALLOW. With argRules empty this is byte-for-
+// byte the same program compileFilter produces.
+func compileCombinedFilter(auditArch uint32, blocked []uint32, argRules []ArgDenyRule) []unix.SockFilter {
+	argLen := compiledArgSectionLen(argRules)
+	// 4 prefix (LD arch, JEQ arch, RET KILL, LD nr) + denylist +
+	// arg section + 2 tail (RET ALLOW, RET ERRNO).
+	total := 4 + len(blocked) + argLen + 2
+	retErrnoIdx := total - 1
+
+	insns := make([]unix.SockFilter, 0, total)
+
+	// [0] LD [arch]; [1] JEQ arch (match -> skip KILL); [2] RET KILL.
+	insns = append(insns, unix.SockFilter{Code: bpfLD | bpfW | bpfABS, K: seccompDataOffsetArch})
+	insns = append(insns, unix.SockFilter{Code: bpfJMP | bpfJEQ | bpfK, Jt: 1, Jf: 0, K: auditArch})
+	insns = append(insns, unix.SockFilter{Code: bpfRET | bpfK, K: seccompRetKill})
+	// [3] LD [nr].
+	insns = append(insns, unix.SockFilter{Code: bpfLD | bpfW | bpfABS, K: seccompDataOffsetNR})
+
+	// Syscall denylist: each JEQ jumps forward to RET ERRNO on match,
+	// falls through to the next check on miss.
+	for i, nr := range blocked {
+		idx := 4 + i
 		insns = append(insns, unix.SockFilter{
-			Code: bpfLD | bpfW | bpfABS,
-			K:    seccompDataOffsetNR,
+			Code: bpfJMP | bpfJEQ | bpfK,
+			Jt:   jumpTo(retErrnoIdx, idx),
+			Jf:   0,
+			K:    nr,
 		})
-		emitted++
+	}
 
-		// JEQ syscall, jt=+1 (fall into rule body), jf=bodyLen[i] (skip rule body)
-		jf := uint8(bodyLens[i]) // #nosec G115 -- bodyLen bounded by ruleBodyLen ≤ 6
+	// Arg-rule blocks. A syscall that survived the denylist is
+	// re-loaded (the arg bodies clobber the accumulator with the
+	// argument value) and matched against each rule's syscall number.
+	for _, r := range argRules {
+		l := ruleBodyLen(r)
+		if l == 0 {
+			continue
+		}
+		// LD [nr]; JEQ syscall (match -> fall into body, miss -> skip body).
+		insns = append(insns, unix.SockFilter{Code: bpfLD | bpfW | bpfABS, K: seccompDataOffsetNR})
 		insns = append(insns, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
 			Jt:   0,
-			Jf:   jf,
+			Jf:   uint8(l), // #nosec G115 -- l == ruleBodyLen(r) ≤ 6
 			K:    r.Syscall,
 		})
-		emitted++
-
-		// rule body — emits exactly bodyLens[i] insns. The deny
-		// jump target is the RET ERRNO insn at the program end:
-		// we compute the offset from the END of the body to that
-		// instruction.
-		distToDeny := totalBody - (emitted + bodyLens[i]) + 1 // +1 to skip RET ALLOW
-		body := emitRuleBody(r, distToDeny)
-		insns = append(insns, body...)
-		emitted += bodyLens[i]
-		_ = i
+		insns = append(insns, emitCombinedRuleBody(r, len(insns), retErrnoIdx)...)
 	}
-	// tail RET ALLOW
+
+	// Tail: RET ALLOW then RET ERRNO|EPERM.
 	insns = append(insns, unix.SockFilter{Code: bpfRET | bpfK, K: seccompRetAllow})
-	// tail RET ERRNO|EPERM
 	insns = append(insns, unix.SockFilter{
 		Code: bpfRET | bpfK,
 		K:    seccompRetErrno | uint32(unix.EPERM),
@@ -325,50 +330,50 @@ func ruleBodyLen(r ArgDenyRule) int {
 	return 0
 }
 
-// emitRuleBody returns the BPF for one rule. Each instruction in
-// the body either falls through to the next or jumps forward by
-// distToDeny instructions to land on the program-tail RET ERRNO.
-func emitRuleBody(r ArgDenyRule, distToDeny int) []unix.SockFilter {
+// emitCombinedRuleBody emits the body of one arg rule for the combined
+// program. bodyStart is the absolute index the body's first
+// instruction will occupy; retErrnoIdx is the shared deny target.
+// Deny branches jump to retErrnoIdx; allow branches fall through to the
+// next block (or, after the last rule, to RET ALLOW).
+func emitCombinedRuleBody(r ArgDenyRule, bodyStart, retErrnoIdx int) []unix.SockFilter {
 	out := make([]unix.SockFilter, 0, ruleBodyLen(r))
 	if r.MaskBits != 0 {
-		// LD [arg]
+		// LD [arg]; AND mask; JEQ 0.
 		out = append(out, unix.SockFilter{
 			Code: bpfLD | bpfW | bpfABS,
 			K:    seccompDataArgOffset(r.ArgIndex),
 		})
-		// AND mask  →  use BPF_ALU|BPF_AND. We don't have those
-		// in the local opcode constants; declare them inline.
+		// AND mask  ->  BPF_ALU|BPF_AND. Not in the local opcode
+		// constants; declare them inline.
 		const bpfALU uint16 = 0x04
 		const bpfAND uint16 = 0x50
 		out = append(out, unix.SockFilter{
 			Code: bpfALU | bpfAND | bpfK,
 			K:    r.MaskBits,
 		})
-		// JEQ 0 — if (arg & mask) == 0 fall through (allow);
-		// otherwise jump distToDeny instructions forward.
-		jt := uint8(distToDeny - 1) // #nosec G115 -- distToDeny bounded by program size
+		// JEQ 0 — (arg & mask) == 0 falls through (allow); != 0 jumps
+		// to the shared RET ERRNO (deny).
+		jeqIdx := bodyStart + 2
 		out = append(out, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
 			Jt:   0,
-			Jf:   jt,
+			Jf:   jumpTo(retErrnoIdx, jeqIdx),
 			K:    0,
 		})
 		return out
 	}
-	// Equal-mode body: LD arg + N × JEQ value. The Nth match
-	// jumps to deny; falls through after the last on no-match.
-	// LD [arg]
+	// Equal-mode body: LD [arg] + N × JEQ value. Any match jumps to
+	// deny; a miss falls through to the next JEQ, and past the last
+	// one to the next block (allow).
 	out = append(out, unix.SockFilter{
 		Code: bpfLD | bpfW | bpfABS,
 		K:    seccompDataArgOffset(r.ArgIndex),
 	})
-	for i, v := range r.EqualValues {
-		// Distance to deny: distToDeny - 1 (already past LD)
-		// - i (each prior JEQ added one) - 1 (this JEQ itself).
-		jt := uint8(distToDeny - 1 - i - 1) // #nosec G115 -- bounded
+	for k, v := range r.EqualValues {
+		jeqIdx := bodyStart + 1 + k
 		out = append(out, unix.SockFilter{
 			Code: bpfJMP | bpfJEQ | bpfK,
-			Jt:   jt,
+			Jt:   jumpTo(retErrnoIdx, jeqIdx),
 			Jf:   0,
 			K:    v,
 		})
@@ -376,33 +381,31 @@ func emitRuleBody(r ArgDenyRule, distToDeny int) []unix.SockFilter {
 	return out
 }
 
-// CompileFilterWithArgs composes the existing syscall-level
-// denylist filter with an arg-level denylist. Returns a single
-// BPF program that:
+// CompileFilterWithArgs builds a single seccomp BPF program that
+// enforces the syscall-level denylist AND the per-argument denylist:
 //
-//   - Returns ALLOW to syscalls not in the denylist AND not
-//     matching any arg-deny rule.
+//   - Returns ALLOW to syscalls not in the denylist AND not matching
+//     any arg-deny rule.
 //   - Returns ERRNO|EPERM to anything that fires either layer.
+//   - Returns KILL to a mismatched architecture (checked first).
 //
-// Architectures: same as FilterProgram (amd64 + arm64). On
-// other arches, returns ErrArchUnsupported.
+// Architectures: same as FilterProgram (amd64 + arm64). On other
+// arches, returns ErrArchUnsupported so Load falls back to the
+// NO_NEW_PRIVS-only degraded mode.
 func CompileFilterWithArgs(p Profile, argRules []ArgDenyRule) ([]unix.SockFilter, error) {
 	if !p.Valid() {
 		return nil, fmt.Errorf("sandbox: unknown profile %q", p)
 	}
-	syscallProg, err := FilterProgram(p)
+	arch, nums, err := archFor(runtime.GOARCH)
 	if err != nil {
 		return nil, err
 	}
+	blocked := blockedSyscalls(p, nums)
 	if len(argRules) == 0 {
-		return syscallProg, nil
+		// No arg rules: the combined builder would produce the same
+		// program compileFilter does, but call it directly to keep
+		// the no-args path identical to FilterProgram.
+		return compileFilter(arch, blocked), nil
 	}
-	argProg := CompileArgFilter(argRules)
-	// Concatenate: the arg-filter program runs FIRST, so any
-	// arg-rule match returns ERRNO|EPERM before the syscall
-	// denylist gets a chance to ALLOW.
-	out := make([]unix.SockFilter, 0, len(argProg)+len(syscallProg))
-	out = append(out, argProg...)
-	out = append(out, syscallProg...)
-	return out, nil
+	return compileCombinedFilter(arch, blocked, argRules), nil
 }

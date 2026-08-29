@@ -113,6 +113,30 @@ jobs:
           name: coverage
           path: coverage.out
 
+  offensive-test:
+    name: offensive tests (sandbox seccomp)
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: '-mod=readonly'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+          cache: true
+      # The `unit` job runs `go test ./...` WITHOUT -tags offensive, so
+      # the whole offensive tree (including the seccomp arg-filter) was
+      # only ever built, never test-executed. That gap let a broken BPF
+      # composition ship green. Run the offensive tests here.
+      - name: offensive unit tests
+        run: go test -tags offensive -count=1 ./...
+      # Gold verification: install a real seccomp-BPF filter on this
+      # kernel and assert the blocked syscalls return EPERM. Proves the
+      # denylist is reachable, not just that the program compiles.
+      - name: sandbox seccomp integration (real kernel)
+        run: go test -tags 'offensive sandbox_integration' -count=1 -run TestLoad ./offensive/sandbox/...
+
   fuzz:
     name: fuzz smoke (30s)
     runs-on: ubuntu-latest

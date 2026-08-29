@@ -87,8 +87,8 @@ func Load(profile Profile) (LoadResult, error) {
 		Availability: Availability{
 			Available: true,
 			Kind:      "seccomp-bpf",
-			Reason: fmt.Sprintf("profile=%s arch=%s blocklist-size=%d arg-rules=%d",
-				profile, runtime.GOARCH, (len(prog) - 5 - argFilterInsnCount(argRules)), len(argRules)),
+			Reason: fmt.Sprintf("profile=%s arch=%s blocklist-size=%d arg-rules=%d prog-insns=%d",
+				profile, runtime.GOARCH, len(blockedSyscalls(profile, nums)), len(argRules), len(prog)),
 		},
 	}, nil
 }
@@ -100,18 +100,6 @@ func Load(profile Profile) (LoadResult, error) {
 func syscallNumsForCurrentArch() (syscallNums, error) {
 	_, nums, err := archFor(runtime.GOARCH)
 	return nums, err
-}
-
-// argFilterInsnCount returns the BPF instruction count
-// CompileArgFilter would emit for argRules, used to subtract
-// from the total program length for the audit Reason's
-// blocklist-size figure (so the figure reflects the syscall-
-// level denylist alone).
-func argFilterInsnCount(argRules []ArgDenyRule) int {
-	if len(argRules) == 0 {
-		return 0
-	}
-	return len(CompileArgFilter(argRules))
 }
 
 // setNoNewPrivs is the single-step degraded install when the
