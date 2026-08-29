@@ -49,9 +49,8 @@ To enable + start:
   2. Initialise + unlock the vault:
        elsereno vault init
        elsereno vault unlock
-  3. Stage the passphrase 0600:
-       echo "<passphrase>" > /etc/elsereno/vault.passphrase
-       chmod 0600 /etc/elsereno/vault.passphrase
+  3. Stage the passphrase 0600 (prompt so it is never in shell history):
+       (umask 077; read -rs -p 'vault passphrase: ' PP && printf '%s' "$PP" > /etc/elsereno/vault.passphrase; unset PP; echo)
        chown elsereno:elsereno /etc/elsereno/vault.passphrase
   4. Enable + start the unit:
        systemctl enable --now elsereno-serve.service

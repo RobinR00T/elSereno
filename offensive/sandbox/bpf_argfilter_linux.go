@@ -8,6 +8,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// cloneNewMask is the OR of the CLONE_NEW* namespace-creation flags.
+// Denying these on clone (while leaving the syscall otherwise allowed,
+// since the Go runtime needs it for thread creation with CLONE_THREAD
+// et al) closes the classic denylist gap where clone(CLONE_NEWUSER|
+// CLONE_NEWNS, ...) could open a fresh namespace.
+const cloneNewMask uint32 = 0x00020000 | // CLONE_NEWNS
+	0x02000000 | // CLONE_NEWCGROUP
+	0x04000000 | // CLONE_NEWUTS
+	0x08000000 | // CLONE_NEWIPC
+	0x10000000 | // CLONE_NEWUSER
+	0x20000000 | // CLONE_NEWPID
+	0x40000000 //  CLONE_NEWNET
+
 // ArgDenyRule describes a per-argument denylist for a single
 // syscall. The kernel's seccomp BPF program is given the syscall
 // number; if it matches Syscall, the program also loads
@@ -104,6 +117,11 @@ func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
 		afNetlink uint32 = 16
 	)
 	out := []ArgDenyRule{}
+	if nums.Clone != 0 {
+		// clone(flags, ...): flags is arg 0. Deny namespace creation;
+		// the thread-creation flags (CLONE_THREAD et al) are untouched.
+		out = append(out, NewArgDenyMaskAny(nums.Clone, 0, cloneNewMask))
+	}
 	switch p {
 	case ProfileHarvest:
 		if nums.Openat != 0 {
@@ -166,6 +184,9 @@ func ArgFilterPresets(nums syscallNums) []ArgDenyRule {
 	if nums.Socket != 0 {
 		// socket(domain, type, protocol) — domain is arg 0.
 		out = append(out, NewArgDenyEqual(nums.Socket, 0, afPacket, afNetlink))
+	}
+	if nums.Clone != 0 {
+		out = append(out, NewArgDenyMaskAny(nums.Clone, 0, cloneNewMask))
 	}
 	return out
 }

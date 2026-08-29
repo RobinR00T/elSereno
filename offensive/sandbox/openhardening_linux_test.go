@@ -40,3 +40,23 @@ func hasOpenWriteRule(rules []ArgDenyRule, openNr uint32) bool {
 	}
 	return false
 }
+
+// clone must be arg-filtered to deny CLONE_NEW* namespace creation on
+// every profile, while staying OUT of the syscall denylist (the Go
+// runtime needs clone for thread creation).
+func TestCloneNamespaceFilter(t *testing.T) {
+	for _, p := range []Profile{ProfileHarvest, ProfileDial, ProfileScan, ProfileExploit} {
+		found := false
+		for _, r := range argRulesFor(p, syscallsAMD64) {
+			if r.Syscall == syscallsAMD64.Clone && r.ArgIndex == 0 && r.MaskBits == cloneNewMask {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%v: no clone CLONE_NEW* arg-filter rule", p)
+		}
+	}
+	if containsSyscall(blockedSyscalls(ProfileExploit, syscallsAMD64), syscallsAMD64.Clone) {
+		t.Error("clone in the denylist would kill the Go runtime")
+	}
+}
