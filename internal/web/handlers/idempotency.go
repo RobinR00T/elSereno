@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"local/elsereno/internal/web/auth"
 )
 
 // IdempotencyStore (v2.26+) is the interface satisfied by both
@@ -150,6 +152,21 @@ func hashBody(body []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// scopeIdempotencyKey namespaces the client-supplied Idempotency-Key by
+// the operator identity and the request method+path before it is used
+// as the cache key. Without this the cache keyed on the raw header
+// value alone, so the same key reused by two operators, or across two
+// endpoints, could replay or suppress each other's request (a
+// cross-operator response leak; the body-hash guard only catches
+// differing bodies). Hashed to a fixed width since the key column is a
+// primary key. An empty header short-circuits upstream, so callers only
+// reach here with a non-empty idemKey.
+func scopeIdempotencyKey(r *http.Request, idemKey string) string {
+	op := auth.OperatorFromContext(r.Context())
+	sum := sha256.Sum256([]byte(op + "\n" + r.Method + " " + r.URL.Path + "\n" + idemKey))
+	return hex.EncodeToString(sum[:])
+}
+
 // Module-level default cache: 1h TTL, 256 entries. In-memory
 // by default; cmd_serve may swap to PGIdempotencyCache via
 // SetDefaultIdempotencyCache.
@@ -206,9 +223,11 @@ func withIdempotencyKey(h http.Handler) http.Handler {
 		}
 		h.ServeHTTP(rec, r)
 		// Only cache 2xx responses — replaying a 4xx/5xx is
-		// surprising and rarely useful.
+		// surprising and rarely useful. Store under the same
+		// operator+route-scoped key tryReplayIdempotency looks up
+		// under, or the entry would never be found.
 		if rec.status >= 200 && rec.status < 300 {
-			idempotencyStoreNow().Store(r.Context(), key, body, rec.status, rec.buf.Bytes())
+			idempotencyStoreNow().Store(r.Context(), scopeIdempotencyKey(r, key), body, rec.status, rec.buf.Bytes())
 		}
 	})
 }

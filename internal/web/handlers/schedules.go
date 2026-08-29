@@ -1698,7 +1698,7 @@ func tryReplayIdempotency(w http.ResponseWriter, r *http.Request, idemKey string
 	if idemKey == "" {
 		return false
 	}
-	result, entry := idempotencyStoreNow().Lookup(r.Context(), idemKey, body)
+	result, entry := idempotencyStoreNow().Lookup(r.Context(), scopeIdempotencyKey(r, idemKey), body)
 	switch result {
 	case idempotencyHit:
 		w.Header().Set("Content-Type", "application/json")
@@ -1727,7 +1727,7 @@ func writeJSONAndCache(w http.ResponseWriter, r *http.Request, idemKey string, r
 	}
 	body = append(body, '\n')
 	if idemKey != "" {
-		idempotencyStoreNow().Store(r.Context(), idemKey, reqBody, http.StatusOK, body)
+		idempotencyStoreNow().Store(r.Context(), scopeIdempotencyKey(r, idemKey), reqBody, http.StatusOK, body)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")

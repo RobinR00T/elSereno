@@ -134,8 +134,14 @@ func APIV1(deps APIV1Deps) http.Handler {
 	// Provider kinds (shodan: / etc.) are out of scope here
 	// because they need creds + rate-limit tuning that the
 	// dashboard process intentionally doesn't carry.
-	// v2.48: viewer-level for preview (read-only side-effect-free).
-	mux.Handle("GET /api/v1/inputs/preview", wrapWithRole(v, auth.RoleViewer, PreviewInput()))
+	// Preview parses list:/nmap: files, so it reads server-local
+	// paths chosen by the caller: a viewer (read-only) could use it as
+	// a filesystem existence + partial-content oracle. It is part of
+	// the operator scan-submission workflow (POST /scans, also
+	// operator, parses the same kinds), so gate it at operator, not
+	// viewer. It stays side-effect-free; the role reflects the
+	// filesystem reach, not a mutation.
+	mux.Handle("GET /api/v1/inputs/preview", wrapWithRole(v, auth.RoleOperator, PreviewInput()))
 	// v1.58 chunk 1: scan orchestration endpoints. Three
 	// handlers (POST /scans, GET /scans, GET /scans/{id}) are
 	// served by the Scans sub-router.
