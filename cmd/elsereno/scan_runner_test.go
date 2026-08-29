@@ -185,9 +185,9 @@ func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
 
 // TestDefaultScanRunner_ScopeDropsOutOfScope: a runner wired with a
 // scope guardrail must drop targets outside the declared ranges before
-// dialing, mirroring the CLI. Here 127.0.0.2 is out of a 127.0.0.1/32
+// dialling, mirroring the CLI. Here 127.0.0.2 is out of a 127.0.0.1/32
 // scope, so only one target is ever seen or scanned. Without the scope
-// wiring (the ALTO-2 bug) both would have been dialed.
+// wiring (the ALTO-2 bug) both would have been dialled.
 func TestDefaultScanRunner_ScopeDropsOutOfScope(t *testing.T) {
 	scopeFile := filepath.Join(t.TempDir(), "scope.yaml")
 	if err := os.WriteFile(scopeFile, []byte("version: 1\nranges:\n  - cidr: 127.0.0.1/32\n"), 0o600); err != nil {

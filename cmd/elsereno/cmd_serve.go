@@ -49,7 +49,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&opts.scanPool, "scan-pool", 2,
 		"concurrent scan-job workers (clamped to [1, 64])")
 	cmd.Flags().StringVar(&opts.scopePath, "scope", "",
-		"path to scope.yaml; when set, scan-job targets outside scope are rejected before dialing (same guardrail as `elsereno scan --scope`)")
+		"path to scope.yaml; when set, scan-job targets outside scope are rejected before dialling (same guardrail as `elsereno scan --scope`)")
 	cmd.Flags().IntVar(&opts.auditRetentionDays, "audit-retention-days", 0,
 		"schedule-audit retention in days; 0 = disabled, >0 spawns a daily pruner (v1.87+)")
 	addPassphraseFileFlag(cmd, &opts.passphraseFile)
@@ -66,7 +66,7 @@ type serveOpts struct {
 	// scanPool sets the worker pool concurrency.
 	scanPool int
 	// scopePath points at a scope.yaml; when set, scan-job targets
-	// outside scope are rejected before dialing, same as the CLI's
+	// outside scope are rejected before dialling, same as the CLI's
 	// `elsereno scan --scope`. Empty means no scope guardrail.
 	scopePath string
 	// auditRetentionDays (v1.87+) controls the background

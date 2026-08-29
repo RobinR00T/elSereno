@@ -101,7 +101,7 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	if err != nil {
 		return scanorch.Stats{}, nil, fmt.Errorf("scan runner: parse input: %w", err)
 	}
-	// Apply the scope guardrail before anything is dialed, mirroring
+	// Apply the scope guardrail before anything is dialled, mirroring
 	// the CLI (cmd_scan). filterByScope is a pass-through when r.scope
 	// is nil, so this is a no-op unless serve was started with --scope.
 	targets = filterByScope(r.scope, targets)

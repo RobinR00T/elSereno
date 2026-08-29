@@ -14,7 +14,7 @@ import (
 // or suppress another operator's (or another endpoint's) request.
 func TestScopeIdempotencyKey_NamespacesByOperatorAndRoute(t *testing.T) {
 	mk := func(op, method, path string) *http.Request {
-		r := httptest.NewRequest(method, path, nil)
+		r := httptest.NewRequestWithContext(t.Context(), method, path, nil)
 		if op != "" {
 			r = r.WithContext(auth.WithOperator(r.Context(), op))
 		}
