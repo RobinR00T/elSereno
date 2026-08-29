@@ -8,7 +8,7 @@ go 1.25.7
 // `go 1.25.7` arriba sigue siendo la versión MÍNIMA de Go
 // lenguaje requerida; `toolchain` selecciona qué compilador
 // real se usa.
-toolchain go1.26.3
+toolchain go1.26.6
 
 require (
 	github.com/awnumar/memguard v0.23.0

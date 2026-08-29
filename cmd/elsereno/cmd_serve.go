@@ -69,6 +69,24 @@ type serveOpts struct {
 	auditRetentionDays int
 }
 
+// validateBindSecurity refuses a network-facing bind that lacks TLS or
+// real auth. A non-loopback bind requires --tls-cert/--tls-key and the
+// explicit --i-know-what-im-doing, and OIDC must be enabled: in DEV
+// mode the operator identity comes from the spoofable X-Operator
+// header, so exposing the API to the network without OIDC is fail-open.
+func validateBindSecurity(opts serveOpts, oidcEnabled bool) error {
+	if isLoopbackAddr(opts.addr) {
+		return nil
+	}
+	if opts.tlsCert == "" || opts.tlsKey == "" || !opts.iKnow {
+		return fmt.Errorf("non-loopback bind %q requires --tls-cert, --tls-key and --i-know-what-im-doing", opts.addr)
+	}
+	if !oidcEnabled {
+		return fmt.Errorf("non-loopback bind %q requires OIDC auth (cfg.Auth.OIDC); refusing to serve the API with the spoofable X-Operator dev header", opts.addr)
+	}
+	return nil
+}
+
 func runServe(cmd *cobra.Command, opts serveOpts) error {
 	cfg, _, err := loadConfig()
 	if err != nil {
@@ -82,9 +100,8 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	if opts.addr == "" {
 		opts.addr = "127.0.0.1:8787"
 	}
-	if !isLoopbackAddr(opts.addr) && (opts.tlsCert == "" || opts.tlsKey == "" || !opts.iKnow) {
-		return fail(core.ExitUsage,
-			fmt.Errorf("non-loopback bind %q requires --tls-cert, --tls-key and --i-know-what-im-doing", opts.addr))
+	if err := validateBindSecurity(opts, cfg.Auth.OIDC.Enabled()); err != nil {
+		return fail(core.ExitUsage, err)
 	}
 
 	// Optional DB pool for the /api/v1/findings, /runs, /triage

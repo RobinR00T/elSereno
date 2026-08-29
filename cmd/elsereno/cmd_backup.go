@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -103,8 +105,17 @@ func newBackupRestoreCmd() *cobra.Command {
 			if !info.IsDir() {
 				return fail(core.ExitUsage, fmt.Errorf("--to %s is not a directory", toDir))
 			}
+			toDirClean := filepath.Clean(toDir)
 			for _, bf := range files {
-				dst := toDir + string(os.PathSeparator) + bf.Name
+				dst := filepath.Join(toDirClean, bf.Name)
+				// Guard against tar-slip: reject a member whose name
+				// escapes --to (e.g. ../../etc/x). The archive is
+				// authenticated under the vault master key, so this
+				// only bites a malicious insider backup; cheap defence
+				// in depth.
+				if dst != toDirClean && !strings.HasPrefix(dst, toDirClean+string(os.PathSeparator)) {
+					return fail(core.ExitUsage, fmt.Errorf("refusing tar member %q: escapes --to %s", bf.Name, toDir))
+				}
 				// bf.Mode comes from a tar header we wrote on
 				// `Create`; narrow to 12-bit Unix perms. The
 				// bit-mask bounds the cast even if bf.Mode is
