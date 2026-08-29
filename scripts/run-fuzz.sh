@@ -42,7 +42,11 @@ run_fuzz_with_retry() {
   while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     echo ">>> fuzz $pkg $target ($DURATION) — attempt $attempt/$MAX_ATTEMPTS"
     set +e
-    output=$(go test -run=^$ -fuzz="^${target}$" -fuzztime="$DURATION" -timeout "$TIMEOUT" "$pkg" 2>&1)
+    # -tags offensive is the superset build: it compiles both the
+    # default packages and the offensive-only ones (e.g. offensive/
+    # write/cwmp), so a fuzz target in an offensive package does not
+    # fail with "setup failed" the way a plain `go test` would.
+    output=$(go test -tags offensive -run=^$ -fuzz="^${target}$" -fuzztime="$DURATION" -timeout "$TIMEOUT" "$pkg" 2>&1)
     rc=$?
     set -e
     echo "$output"
