@@ -189,6 +189,21 @@ type WriteGatedHandler struct {
 	Recorder *replay.Recorder
 
 	authorised bool
+
+	// obs accumulates the CIP service kinds seen on the
+	// client->upstream path, for the false-zero exposure
+	// verdict. Written only by the single forward goroutine
+	// and read via ExposureVerdict after the session ends.
+	obs enipwire.ServiceObservation
+}
+
+// ExposureVerdict applies the false-zero rule to the services
+// observed during the session: blind (no traffic seen, NOT a
+// clean bill of health), clean (reads/connections seen and no
+// write/admin), or active (a write or a Reset/Stop/Start
+// crossed the gate). Meant to be read after Handle returns.
+func (h *WriteGatedHandler) ExposureVerdict() enipwire.ExposureVerdict {
+	return h.obs.Verdict()
 }
 
 // Authorise opens the proxy session.
@@ -232,6 +247,15 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer, client
 		hdr, body, err := enipwire.ReadPacket(client)
 		if err != nil {
 			return err
+		}
+		// Passive observation for the exposure verdict: label the
+		// carried CIP service (if any) and count it. Does not affect
+		// the forward/refuse decision below.
+		if hdr.Command == enipwire.CmdSendRRData || hdr.Command == enipwire.CmdSendUnitData {
+			if svc, tgt, ok := enipwire.ExtractMRService(body); ok {
+				kind, _ := enipwire.ClassifyCIPService(svc, tgt)
+				h.obs.Observe(kind)
+			}
 		}
 		if h.shouldForward(hdr, body) {
 			buf := enipwire.MarshalHeader(hdr)
