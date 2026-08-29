@@ -21,6 +21,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -50,6 +52,7 @@ effect-free, and safe to run without elevation.`,
 	}
 	cmd.AddCommand(newSandboxListCmd())
 	cmd.AddCommand(newSandboxIntrospectCmd())
+	cmd.AddCommand(newSandboxDiffCmd())
 	return cmd
 }
 
@@ -157,6 +160,160 @@ func runSandboxIntrospect(cmd *cobra.Command, posArgs []string, args sandboxIntr
 type sandboxSchemeResult struct {
 	Profile string `json:"profile"`
 	Scheme  string `json:"scheme"`
+}
+
+// newSandboxDiffCmd (v2.63+) — symmetric difference between
+// two profile schemes. Useful for security audits: "what
+// does ProfileExploit allow that ProfileScan does NOT?"
+//
+// Comparison is line-level after trimming whitespace, so
+// the indented continuation lines of multi-line clauses
+// (e.g. `(allow file-write* (subpath "/tmp"))`) are
+// compared as their own lines. Operators get a fast,
+// deterministic answer without paying for a structured
+// Scheme-clause parser.
+func newSandboxDiffCmd() *cobra.Command {
+	var jsonOut bool
+	cmd := &cobra.Command{
+		Use:   "diff PROFILE_A PROFILE_B",
+		Short: "Compare two sandbox profile schemes (darwin+cgo only)",
+		Long: `Shows which lines appear in one profile's .sb Scheme but
+not the other. Comparison is line-level after whitespace
+trimming, so a multi-line clause like
+
+  (allow file-write*
+      (subpath "/tmp"))
+
+is treated as two lines and lines that match across
+profiles are filtered out as "common".
+
+Text mode prints a unified-style report with a header
+naming both profiles and ` + "`+`" + ` / ` + "`-`" + ` line prefixes. JSON
+mode emits a stable shape:
+  {"a": "exploit", "b": "scan",
+   "only_in_a": [...], "only_in_b": [...], "common": [...]}.
+
+Requires the darwin+cgo build. On every other offensive
+build the verb exits with a clear "schemes unavailable"
+error so operators don't silently get an all-empty diff.`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, posArgs []string) error {
+			return runSandboxDiff(cmd, posArgs[0], posArgs[1], jsonOut)
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the diff as a JSON object (a/b/only_in_a/only_in_b/common)")
+	return cmd
+}
+
+// sandboxDiffResult is the JSON-emitted shape for
+// `sandbox diff`. Field names match the documented contract.
+type sandboxDiffResult struct {
+	A       string   `json:"a"`
+	B       string   `json:"b"`
+	OnlyInA []string `json:"only_in_a"`
+	OnlyInB []string `json:"only_in_b"`
+	Common  []string `json:"common"`
+}
+
+// runSandboxDiff fetches both schemes via schemeForProfile,
+// validates the requested profiles, then computes the
+// symmetric difference + intersection. Output rendered in
+// either text-unified or JSON format.
+func runSandboxDiff(cmd *cobra.Command, nameA, nameB string, jsonOut bool) error {
+	pA := sandbox.Profile(nameA)
+	if !pA.Valid() {
+		return fail(core.ExitUsage, fmt.Errorf("sandbox: unknown profile %q (try `elsereno sandbox list`)", nameA))
+	}
+	pB := sandbox.Profile(nameB)
+	if !pB.Valid() {
+		return fail(core.ExitUsage, fmt.Errorf("sandbox: unknown profile %q (try `elsereno sandbox list`)", nameB))
+	}
+
+	scmA, okA, err := schemeForProfile(pA)
+	if err != nil {
+		return err
+	}
+	scmB, okB, err := schemeForProfile(pB)
+	if err != nil {
+		return err
+	}
+	if !okA || !okB || (scmA == "" && scmB == "") {
+		return fail(core.ExitError, fmt.Errorf("sandbox diff: schemes unavailable on this build (need darwin+cgo); see `elsereno sandbox introspect --help`"))
+	}
+
+	result := diffSchemes(string(pA), string(pB), scmA, scmB)
+
+	if jsonOut {
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
+	}
+	cmd.Printf("# diff sandbox profiles: A=%s  B=%s\n", result.A, result.B)
+	cmd.Printf("# common=%d  only_in_a=%d  only_in_b=%d\n",
+		len(result.Common), len(result.OnlyInA), len(result.OnlyInB))
+	if len(result.OnlyInA) == 0 && len(result.OnlyInB) == 0 {
+		cmd.Println("# (profiles are equivalent at line level)")
+		return nil
+	}
+	for _, line := range result.OnlyInA {
+		cmd.Printf("- %s\n", line)
+	}
+	for _, line := range result.OnlyInB {
+		cmd.Printf("+ %s\n", line)
+	}
+	return nil
+}
+
+// diffSchemes computes the line-level set difference +
+// intersection between two .sb Scheme strings. Output
+// arrays are sorted lexicographically so the result is
+// deterministic across runs (operators piping to `diff` /
+// `git diff` of two captures need stable ordering). The
+// "common" array is included so operators can sanity-check
+// that the comparison is comparing what they think.
+//
+// Empty / whitespace-only lines are dropped — they're not
+// semantically meaningful in .sb Scheme.
+func diffSchemes(nameA, nameB, scmA, scmB string) sandboxDiffResult {
+	setA := schemeLineSet(scmA)
+	setB := schemeLineSet(scmB)
+
+	onlyA, onlyB, common := []string{}, []string{}, []string{}
+	for line := range setA {
+		if _, in := setB[line]; in {
+			common = append(common, line)
+		} else {
+			onlyA = append(onlyA, line)
+		}
+	}
+	for line := range setB {
+		if _, in := setA[line]; !in {
+			onlyB = append(onlyB, line)
+		}
+	}
+	sort.Strings(onlyA)
+	sort.Strings(onlyB)
+	sort.Strings(common)
+	return sandboxDiffResult{
+		A:       nameA,
+		B:       nameB,
+		OnlyInA: onlyA,
+		OnlyInB: onlyB,
+		Common:  common,
+	}
+}
+
+// schemeLineSet returns the set of non-whitespace-only lines
+// in scm, with leading/trailing whitespace trimmed from each
+// line. The set keys are the trimmed lines themselves.
+func schemeLineSet(scm string) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, line := range strings.Split(scm, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			continue
+		}
+		out[t] = struct{}{}
+	}
+	return out
 }
 
 // collectSchemes loops over either {posArg} or every

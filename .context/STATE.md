@@ -1,18 +1,30 @@
 ---
-phase: v2.62-closed
-status: v1.16-v2.34 published; v2.35-v2.62 tags pending push
-last-updated: 2026-05-19
+phase: v2.63-closed
+status: v1.16-v2.34 published; v2.35-v2.63 tags pending push
+last-updated: 2026-06-10
 token-budget: 320
 ---
 
 # Current state
 
-**Phase**: **v2.62 cycle closed on `main`** (1 chunk +
-close). `elsereno sandbox` CLI verb (list + introspect)
-surfaces the v2.61 `SchemeFor()` accessor. Platform split:
-darwin+cgo emits real .sb Schemes; other offensive builds
-emit sentinel `{"scheme": ""}` rows for stable JSON shape.
-+7 tests on both build paths. INSTALL.md matrix updated.
+**Phase**: **v2.63 cycle closed on `main`** (1 chunk +
+close). `elsereno sandbox diff PROFILE_A PROFILE_B`
+subverb — line-level symmetric difference of two profile
+.sb Schemes (the vNext follow-up flagged in the v2.62
+snapshot). Text-unified (`+`/`-` prefixes) or `--json`
+(`a`/`b`/`only_in_a`/`only_in_b`/`common`, all sorted).
+Needs darwin+cgo schemes; other offensive builds error
+with "schemes unavailable". +4 tests on both build paths.
+INSTALL.md matrix row updated.
+
+Snapshot:
+`.context/snapshots/v2.63.0-sandbox-diff-verb.md`.
+
+**v2.62 cycle (closed)**: `elsereno sandbox` CLI verb (list
++ introspect) surfaces the v2.61 `SchemeFor()` accessor.
+Platform split: darwin+cgo emits real .sb Schemes; other
+offensive builds emit sentinel `{"scheme": ""}` rows for
+stable JSON shape. +7 tests on both build paths.
 
 Snapshot:
 `.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
