@@ -106,7 +106,10 @@ func APIV1(deps APIV1Deps) http.Handler {
 	// no Pool is wired (memory-mode deployments).
 	mux.Handle("GET /api/v1/health/pool", poolHealth(deps.PoolStatter))
 	if deps.Broadcaster != nil {
-		mux.Handle("GET /api/v1/stream", Stream(deps.Broadcaster))
+		// Same viewer-role gate as the REST reads below: the SSE bus
+		// carries findings + audit entries live, so it must not bypass
+		// the RBAC that protects /findings and /audit.
+		mux.Handle("GET /api/v1/stream", wrapWithRole(deps.AuthVerifier, auth.RoleViewer, Stream(deps.Broadcaster)))
 	} else {
 		mux.HandleFunc("GET /api/v1/stream", func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "live feed unavailable", http.StatusServiceUnavailable)
