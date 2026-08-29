@@ -278,7 +278,6 @@ func TestCombinedFilter_Verdicts(t *testing.T) {
 		cloneThr   uint32 = 0x00010000 // CLONE_THREAD — not a namespace flag
 		cloneNewUs uint32 = 0x10000000 // CLONE_NEWUSER — in cloneNewMask
 		afInet     uint32 = 2
-		afPacket   uint32 = 17
 		benignNR   uint32 = 0xFFFE // not a real syscall: no denylist / arg rule
 	)
 	zero := [6]uint32{}
@@ -321,8 +320,11 @@ func TestCombinedFilter_Verdicts(t *testing.T) {
 		{"harvest clone NEWUSER denied", harvest, arch, nums.Clone, withArg(0, cloneNewUs), retErrno},
 		{"harvest clone THREAD allowed", harvest, arch, nums.Clone, withArg(0, cloneThr), seccompRetAllow},
 		{"exploit clone NEWUSER denied", exploit, arch, nums.Clone, withArg(0, cloneNewUs), retErrno},
-		{"dial socket AF_PACKET denied", dial, arch, nums.Socket, withArg(0, afPacket), retErrno},
-		{"dial socket AF_INET allowed", dial, arch, nums.Socket, withArg(0, afInet), seccompRetAllow},
+		// Dial blocks socket + connect outright at the syscall level
+		// (blockedSyscalls(ProfileDial)), so every socket family is
+		// denied before the arg rule is even reached.
+		{"dial socket denied outright", dial, arch, nums.Socket, withArg(0, afInet), retErrno},
+		{"dial connect denied", dial, arch, nums.Connect, zero, retErrno},
 		// A syscall that is neither blocked nor gated is allowed.
 		{"harvest benign allowed", harvest, arch, benignNR, zero, seccompRetAllow},
 		// Wrong architecture is killed before anything else runs.
@@ -333,6 +335,41 @@ func TestCombinedFilter_Verdicts(t *testing.T) {
 		if got != c.want {
 			t.Errorf("%s: verdict 0x%x, want 0x%x", c.name, got, c.want)
 		}
+	}
+}
+
+// TestCombinedFilter_EqualRuleAllowsAndDenies exercises the equal-mode
+// arg rule's allow AND deny paths directly. It cannot be tested through
+// the Dial profile because that profile blocks socket outright at the
+// syscall level (the denylist shadows the arg rule), so build a
+// synthetic filter whose denylist does not contain the gated syscall.
+func TestCombinedFilter_EqualRuleAllowsAndDenies(t *testing.T) {
+	arch, nums, err := archFor(runtime.GOARCH)
+	if err != nil {
+		t.Skipf("arch %s not supported", runtime.GOARCH)
+	}
+	const (
+		afInet   uint32 = 2
+		afPacket uint32 = 17
+		afNetl   uint32 = 16
+	)
+	// Denylist deliberately excludes socket so the arg rule is reached.
+	prog := compileCombinedFilter(arch, []uint32{nums.Execve},
+		[]ArgDenyRule{NewArgDenyEqual(nums.Socket, 0, afPacket, afNetl)})
+	retErrno := seccompRetErrno | uint32(unix.EPERM)
+	arg := func(v uint32) [6]uint32 { a := [6]uint32{}; a[0] = v; return a }
+
+	if got := evalSeccomp(t, prog, arch, nums.Socket, arg(afPacket)); got != retErrno {
+		t.Errorf("AF_PACKET: verdict 0x%x, want deny 0x%x", got, retErrno)
+	}
+	if got := evalSeccomp(t, prog, arch, nums.Socket, arg(afNetl)); got != retErrno {
+		t.Errorf("AF_NETLINK: verdict 0x%x, want deny 0x%x", got, retErrno)
+	}
+	if got := evalSeccomp(t, prog, arch, nums.Socket, arg(afInet)); got != seccompRetAllow {
+		t.Errorf("AF_INET: verdict 0x%x, want allow 0x%x", got, seccompRetAllow)
+	}
+	if got := evalSeccomp(t, prog, arch, nums.Execve, [6]uint32{}); got != retErrno {
+		t.Errorf("execve: verdict 0x%x, want deny 0x%x", got, retErrno)
 	}
 }
 
