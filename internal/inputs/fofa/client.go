@@ -90,8 +90,15 @@ func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) 
 		totalLimit = 100
 	}
 	const perPage = 100
+	// maxPages bounds the fetch so a provider that returns full pages
+	// of unparseable rows (raw >= perPage but zero parseable hits, so
+	// neither the raw==0 nor the raw<perPage break fires and len(out)
+	// never advances) cannot spin this loop forever. The slack over the
+	// ideal totalLimit/perPage page count tolerates sparse-but-real
+	// pages while still terminating on a hostile/broken response.
+	maxPages := totalLimit/perPage + 64
 	out := make([]core.Target, 0, totalLimit)
-	for page := 1; len(out) < totalLimit; page++ {
+	for page := 1; len(out) < totalLimit && page <= maxPages; page++ {
 		hits, raw, err := c.searchPage(ctx, query, page, perPage)
 		if err != nil {
 			return out, err

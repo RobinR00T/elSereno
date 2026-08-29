@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"local/elsereno/internal/inputs/shodan"
@@ -54,6 +56,44 @@ func TestSearchParsesHits(t *testing.T) {
 	}
 	if targets[0].Address.String() != "10.0.0.1" || int(targets[0].Port) != 502 {
 		t.Fatalf("unexpected hit[0]: %+v", targets[0])
+	}
+}
+
+// TestSearchPagedTerminatesOnUnparseablePages: a provider that keeps
+// returning full pages (raw == perPage) whose rows are all unparseable
+// advances neither len(out) nor the raw<perPage / raw==0 break
+// conditions. The page cap must stop the loop instead of spinning
+// forever.
+func TestSearchPagedTerminatesOnUnparseablePages(t *testing.T) {
+	t.Parallel()
+	var reqs int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&reqs, 1)
+		var b strings.Builder
+		b.WriteString(`{"total":100000,"matches":[`)
+		for i := 0; i < 100; i++ {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(`{"ip_str":"not-an-ip","port":22}`)
+		}
+		b.WriteString(`]}`)
+		fmt.Fprint(w, b.String())
+	}))
+	defer srv.Close()
+	c, _ := shodan.New("k", 0)
+	c.BaseURL = srv.URL
+
+	targets, err := c.SearchPaged(context.Background(), "q", 100)
+	if err != nil {
+		t.Fatalf("SearchPaged: %v", err)
+	}
+	if len(targets) != 0 {
+		t.Fatalf("got %d targets, want 0 (all rows unparseable)", len(targets))
+	}
+	// maxPages = 100/100 + 64 = 65, so the loop is bounded.
+	if n := atomic.LoadInt32(&reqs); n == 0 || n > 66 {
+		t.Fatalf("request count = %d, want in (0, 66] (page cap)", n)
 	}
 }
 
