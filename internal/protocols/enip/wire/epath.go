@@ -158,46 +158,62 @@ func ParseMRPath(path []byte) (EPathTarget, error) {
 // treats false as "no per-attr constraint applies",
 // falling back to the command-level allowlist.
 func ExtractMRTarget(body []byte) (EPathTarget, bool) {
+	_, t, ok := ExtractMRService(body)
+	return t, ok
+}
+
+// ExtractMRService is ExtractMRTarget plus the MR request's
+// service byte (the first byte of the MessageRouter request,
+// before the path size). It is the input the CIP service
+// classifier (cipservice.go) needs to label a frame for the
+// detection / exposure-scoring path.
+//
+// Returns (service, target, true) when the MR can be parsed;
+// (_, _, false) for non-MR encapsulation commands or malformed
+// bodies. ExtractMRTarget delegates here so both share one
+// parser and cannot drift.
+func ExtractMRService(body []byte) (byte, EPathTarget, bool) {
 	// SendRRData prelude: 4 + 2 = 6 bytes.
 	if len(body) < 6 {
-		return EPathTarget{}, false
+		return 0, EPathTarget{}, false
 	}
 	cpf := body[6:]
 	if len(cpf) < 2 {
-		return EPathTarget{}, false
+		return 0, EPathTarget{}, false
 	}
 	itemCount := binary.LittleEndian.Uint16(cpf[0:2])
 	cursor := 2
 	for i := uint16(0); i < itemCount; i++ {
 		if cursor+4 > len(cpf) {
-			return EPathTarget{}, false
+			return 0, EPathTarget{}, false
 		}
 		typeID := binary.LittleEndian.Uint16(cpf[cursor : cursor+2])
 		itemLen := binary.LittleEndian.Uint16(cpf[cursor+2 : cursor+4])
 		cursor += 4
 		if cursor+int(itemLen) > len(cpf) {
-			return EPathTarget{}, false
+			return 0, EPathTarget{}, false
 		}
 		if typeID == 0x00B2 || typeID == 0x00A2 {
 			// Unconnected (B2) or Connected (A2) data item.
 			// MR request: service + pathSize + path + data.
 			itemData := cpf[cursor : cursor+int(itemLen)]
 			if len(itemData) < 2 {
-				return EPathTarget{}, false
+				return 0, EPathTarget{}, false
 			}
+			service := itemData[0]
 			pathSizeWords := int(itemData[1])
 			pathBytes := pathSizeWords * 2
 			if 2+pathBytes > len(itemData) {
-				return EPathTarget{}, false
+				return 0, EPathTarget{}, false
 			}
 			path := itemData[2 : 2+pathBytes]
 			t, err := ParseMRPath(path)
 			if err != nil {
-				return EPathTarget{}, false
+				return 0, EPathTarget{}, false
 			}
-			return t, true
+			return service, t, true
 		}
 		cursor += int(itemLen)
 	}
-	return EPathTarget{}, false
+	return 0, EPathTarget{}, false
 }
