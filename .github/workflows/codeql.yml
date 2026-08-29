@@ -1,17 +1,15 @@
 name: codeql
 
-# Disabled 2026-04-23 — no paid Actions billing. Original triggers
-# preserved below for restoration.
-#
-# Original:
-#   on:
-#     pull_request:
-#     push:
-#       branches: [main]
-#     workflow_call:
-#     schedule:
-#       - cron: "0 4 * * 1"
+# Re-enabled 2026-08-29: public repo, CodeQL is free for public
+# repositories, so the 2026-04-23 community-only pause no longer
+# applies.
 on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+  schedule:
+    - cron: "0 4 * * 1"
   workflow_dispatch:
 
 permissions:

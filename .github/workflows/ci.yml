@@ -1,16 +1,13 @@
 name: ci
 
-# Disabled 2026-04-23 — project went community-only with no paid
-# GitHub Actions billing. Re-enable by restoring the original
-# triggers below and topping up Actions spending limit.
-#
-# Original triggers:
-#   on:
-#     pull_request:
-#     push:
-#       branches: [main]
-#       tags: ["v*"]
+# Re-enabled 2026-08-29: public repo, GitHub-hosted standard runners
+# are free for public repositories, so the 2026-04-23 community-only
+# pause no longer applies.
 on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
