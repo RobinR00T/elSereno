@@ -109,6 +109,14 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 		"enip: CIP encapsulation commands to allow (uint16; e.g. 0x0070 "+
 			"SendUnitData, 0x006F SendRRData). Wire-aware allowlist; the "+
 			"recorder captures every chunk that crosses the gate. v1.35+.")
+	cmd.Flags().StringSliceVar(&opts.cipAttrs, "cip-attr", nil,
+		"enip: tighten the gate to specific CIP objects. Format "+
+			"class=N;instance=N;attr=N (numbers decimal or 0x..). class is "+
+			"required; with attr it matches exact, with instance only the "+
+			"whole instance, with class only every instance. Repeatable. "+
+			"Applies to SendRRData/SendUnitData MR requests; without it the "+
+			"gate is command-level only (a SendRRData allow admits any "+
+			"CIP service, including Reset).")
 	cmd.Flags().UintSliceVar(&opts.s7Functions, "s7-fc", nil,
 		"s7: S7 function codes to allow (uint8; e.g. 0x05 WriteVar). "+
 			"Wire-aware allowlist parsed from TPKT/COTP. v1.35+.")
@@ -358,6 +366,12 @@ type proxyListenOpts struct {
 	// frame's enipwire.ReadPacket and admits only listed Cmd
 	// values.
 	cipCommands []uint
+	// cipAttrs is the enip per-(class,instance,attribute) allowlist
+	// (--cip-attr). When set, a CIP service inside SendRRData /
+	// SendUnitData is admitted only if its MR target matches one entry,
+	// tightening the gate from encapsulation-command level to CIP object
+	// level (so authorising SendRRData no longer admits every service).
+	cipAttrs []string
 	// s7Functions holds the s7 allowlist of S7 function codes
 	// (uint8). Wire-aware; the gate parses each TPKT envelope
 	// and admits only frames whose inner-PDU FC is listed.
@@ -654,9 +668,64 @@ func buildMMSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confi
 	}
 }
 
-// buildENIPHandler — v1.35+. Wire-aware allowlist of CIP
-// encapsulation command codes (uint16). Each --cip-command
-// flag value is mapped 1:1.
+// parseU32 parses a decimal or 0x-hex number into uint32.
+func parseU32(s string) (uint32, error) {
+	v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(v), nil // #nosec G115 -- ParseUint bitSize=32 bounds v to uint32
+}
+
+// parseCIPAttr parses one --cip-attr value: class=N;instance=N;attr=N
+// (numbers decimal or 0x-hex). class is required. The MatchType is
+// inferred: attr present -> exact; instance without attr -> class+
+// instance; class only -> class-only.
+func parseCIPAttr(s string) (enipwrite.AllowedAttribute, error) {
+	var a enipwrite.AllowedAttribute
+	var hasClass, hasInstance, hasAttr bool
+	for _, part := range strings.Split(s, ";") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			return a, fmt.Errorf("--cip-attr %q: want key=value, got %q", s, part)
+		}
+		val, err := parseU32(kv[1])
+		if err != nil {
+			return a, fmt.Errorf("--cip-attr %q: bad number %q: %w", s, kv[1], err)
+		}
+		switch strings.ToLower(strings.TrimSpace(kv[0])) {
+		case "class":
+			a.Class, hasClass = val, true
+		case "instance":
+			a.Instance, hasInstance = val, true
+		case "attr", "attribute":
+			a.Attribute, hasAttr = val, true
+		default:
+			return a, fmt.Errorf("--cip-attr %q: unknown key %q (want class/instance/attr)", s, kv[0])
+		}
+	}
+	if !hasClass {
+		return a, fmt.Errorf("--cip-attr %q: class is required", s)
+	}
+	switch {
+	case hasAttr:
+		a.MatchType = enipwrite.MatchExact
+	case hasInstance:
+		a.MatchType = enipwrite.MatchClassInstance
+	default:
+		a.MatchType = enipwrite.MatchClassOnly
+	}
+	return a, nil
+}
+
+// buildENIPHandler — v1.35+. Wire-aware allowlist of CIP encapsulation
+// command codes (--cip-command) plus an optional per-(class, instance,
+// attribute) object-level allowlist (--cip-attr) that tightens the gate
+// below the encapsulation command.
 func buildENIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*enipwrite.WriteGatedHandler, error) {
 	allowed := make([]enipwrite.AllowedCommand, 0, len(opts.cipCommands))
 	for _, n := range opts.cipCommands {
@@ -665,12 +734,21 @@ func buildENIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		}
 		allowed = append(allowed, enipwrite.AllowedCommand{Cmd: uint16(n)})
 	}
+	attrs := make([]enipwrite.AllowedAttribute, 0, len(opts.cipAttrs))
+	for _, s := range opts.cipAttrs {
+		at, err := parseCIPAttr(s)
+		if err != nil {
+			return nil, err
+		}
+		attrs = append(attrs, at)
+	}
 	return &enipwrite.WriteGatedHandler{
-		Target:         opts.target,
-		Allowed:        allowed,
-		Deriver:        rt.Vault,
-		Auditor:        rt.Auditor,
-		SessionConfirm: c,
+		Target:            opts.target,
+		Allowed:           allowed,
+		AllowedAttributes: attrs,
+		Deriver:           rt.Vault,
+		Auditor:           rt.Auditor,
+		SessionConfirm:    c,
 	}, nil
 }
 
