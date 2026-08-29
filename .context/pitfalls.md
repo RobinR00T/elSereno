@@ -196,5 +196,55 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Regla**: detectores que buscan patrones textuales excluyen los ficheros donde los patrones se definen (típicamente `pitfalls.md` y el propio script) **y** ignoran bloques de código (fences triple-backtick).
 **Implementación correcta**: awk que alterna un flag `in_code` al ver `^```` y solo matchea fuera; `find` con `! -name pitfalls.md`. Verificado contra el propio catálogo antes de comitear.
 
+## PITF-037 — Enviar a un canal que otra goroutine puede cerrar
+**Síntoma**: `panic: send on closed channel` intermitente bajo carga. Un fan-out toma un snapshot de subscribers, suelta el lock y envía fuera de él, mientras un `cancel` cierra ese canal. Si el pánico ocurre en una goroutine sin `recover` (worker, scheduler, observer), cae el proceso entero.
+**Regla**: nunca cerrar un canal que puede tener varios emisores sin sincronización. O bien (a) el envío y el `close` son mutuamente exclusivos bajo el mismo `RWMutex` (envío bajo `RLock` con `select ... default` no bloqueante; `close` bajo `Lock`), o bien (b) no se cierra nunca el canal de datos y se señaliza el fin con un `done chan struct{}` cerrado una sola vez (`sync.Once`), que los emisores observan con `select { case ch <- v: case <-done: default: }`.
+**Ver**: broadcaster SSE, commit c441eb4.
+
+## PITF-038 — Leer estado compartido tras un `Handle` que no hace join
+**Síntoma**: un `Handle` lanza goroutines y retorna al primer error o a `ctx.Done()` sin esperar a que todas terminen; un llamador lee después un contador/veredicto que una goroutine superviviente sigue mutando. Data race (lo caza `go test -race`) y lectura sobre estado parcial.
+**Regla**: el estado compartido entre la goroutine de trabajo y el lector se protege con mutex/atómicos, o el `Handle` hace join (`WaitGroup` / drenar todas las entradas del canal de errores) antes de exponer el resultado. Un comentario que dice "leer solo tras terminar" no es sincronización.
+**Ver**: gatedproxy ENIP `obs`, commit c441eb4.
+
+## PITF-039 — Familia de función que "straddlea" read/write sin gate por subcódigo
+**Síntoma**: una matriz allow/deny clasifica una familia entera (Modbus FC8 Diagnostics, MEI, un servicio CIP contenedor) como una sola categoría y la reenvía o bloquea en bloque. Dentro hay subcódigos que mutan estado (Force Listen Only, Restart, Clear Counters), así que el write-ban por defecto deja pasar un DoS al equipo pese a prometer read-only.
+**Regla**: toda familia cuyos subcódigos crucen la frontera read/write se clasifica **por subcódigo**, no por familia. Por defecto (read-only) solo pasan los subcódigos de lectura pura; un frame corto/malformado se bloquea (fail-closed). En build ofensivo la subfamília peligrosa exige estar en el allowlist con su subcódigo.
+**Ver**: Modbus FC8, commit c6bdf38.
+
+## PITF-040 — Paginar por el recuento filtrado en vez del crudo
+**Síntoma**: un paginador para cuando una página devuelve menos elementos de los pedidos, pero el recuento se toma **después** de filtrar filas inválidas (IP/puerto no parseables, IPv6 no soportado). Una página con unas pocas filas descartadas parece "fin del dataset" y se truncan en silencio las páginas siguientes.
+**Regla**: la condición de terminación de la paginación se decide con el recuento **crudo** de la respuesta (`len(parsed.Matches)`), nunca con el recuento tras filtrar. Devolver ambos si hace falta.
+**Ver**: Shodan/FOFA `SearchPaged`, commit c6bdf38.
+
+## PITF-041 — `io.ReadAll` sin límite en la ruta no confiable
+**Síntoma**: un proxy/handler bufferiza un cuerpo con `io.ReadAll(req.Body)` para inspeccionarlo. Un POST gigante o un stream chunked que no termina agota la memoria del proceso (DoS), justo en el componente inline que se sitúa delante del equipo protegido.
+**Regla**: acotar toda lectura de datos no confiables con `io.LimitReader(r, max+1)` (o `http.MaxBytesReader`) y **rechazar** lo que exceda, no truncar y reenviar (un cuerpo truncado corrompe la request aguas arriba). El tope se comparte con el de los proxies hermanos (p. ej. 1 MiB).
+**Ver**: proxy CWMP, commit c6bdf38.
+
+## PITF-042 — Parser de detección ciego al formato dominante real
+**Síntoma**: un clasificador/scorer solo reconoce una codificación minoritaria de un campo (segmentos lógicos de clase) y rechaza la que usa el tráfico real más común (segmento simbólico ANSI `0x91` con nombre de tag en Logix). La regla anti-falso-positivo produce entonces el falso negativo que pretendía evitar: el veredicto queda "limpio/ciego" ante escrituras reales.
+**Regla**: un parser cuyo propósito es detección debe cubrir los formatos que el objetivo usa de verdad, no solo el del spec-book. Verificar contra el tráfico dominante del vendor. Para el gate (fail-closed) rechazar lo no clasificado está bien; para la detección/scoring, no reconocerlo es un fallo de cobertura.
+**Ver**: EPATH segmento simbólico `0x91`, commit c441eb4.
+
+## PITF-043 — Gate de rango que solo valida la dirección de inicio
+**Síntoma**: una allowlist por rango comprueba solo la dirección de arranque de una escritura múltiple e ignora la cantidad. Una escritura que empieza en el borde superior del rango autorizado se sale por arriba (`start ∈ [lo,hi]` pero `start+qty-1 > hi`).
+**Regla**: para operaciones de rango (write multiple, read-write) validar **ambos** extremos, `start` y `start+qty-1`, y rechazar un rango que desborde el espacio de direcciones (calcular en un entero más ancho para detectar el wrap).
+**Ver**: gate Modbus por rango, commit c6bdf38.
+
+## PITF-044 — Auth fail-open en bind de red
+**Síntoma**: un servidor exige TLS y un flag explícito para escuchar en una dirección no-loopback, pero **no** exige autenticación real; en modo DEV la identidad del operador se toma de una cabecera falsificable (`X-Operator`). La API queda expuesta a la red sin auth, solo con un aviso por stderr.
+**Regla**: exponer una API a la red (bind no-loopback) exige autenticación real habilitada (OIDC), además de TLS. Sin ella, rechazar el arranque. La identidad DEV por cabecera solo vale en loopback.
+**Ver**: `serve` `validateBindSecurity`, commit 64898cb.
+
+## PITF-045 — Constante de protocolo incorrecta y desalineación de parser
+**Síntoma**: un id/tipo de campo mal transcrito (CPF Connected Data Item como `0x00A2` cuando el estándar es `0x00B1`) hace que una rama sea código muerto y otra nunca se reconozca; además el item conectado prefija bytes (sequence count) que el parser no salta, dejándolo desalineado respecto a lo que el dispositivo ejecuta. Efecto colateral: differential de parser (el gate ve una ruta, el equipo otra) y allowlist que nunca admite el caso conectado.
+**Regla**: las constantes de protocolo se cotejan contra la fuente normativa (ODVA CIP Vol 2, etc.), no contra la memoria; los prefijos por-variante (sequence count, padding) se saltan explícitamente antes de parsear el cuerpo. Un test cubre la variante conectada además de la no conectada.
+**Ver**: CPF `0x00B1`, commit c441eb4.
+
+## PITF-046 — Extraer un archivo sin guard de path traversal
+**Síntoma**: al restaurar un backup/tar se hace `join(destDir, member.Name)` sin validar `member.Name`; un `../` escribe fuera del directorio destino. Que el archivo esté cifrado/autenticado mitiga (solo un insider con la clave lo explota) pero no exime.
+**Regla**: todo nombre de miembro de un archivo se valida antes de escribir: `filepath.Join` + comprobar que el resultado sigue bajo el directorio destino limpio (`dst == dir || strings.HasPrefix(dst, dir+sep)`); rechazar lo que se salga. Defensa en profundidad barata.
+**Ver**: restore de backup, commit 64898cb.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
