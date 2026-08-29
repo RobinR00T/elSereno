@@ -114,3 +114,44 @@ func TestServiceObservation_Observe(t *testing.T) {
 		t.Fatalf("mixed with writes: got %v, want active", v)
 	}
 }
+
+// A symbolic tag path (0x91 name) is how Logix addresses Read/Write
+// Tag; the classifier must treat it as the tag namespace.
+func TestClassifyCIPService_SymbolicTagPath(t *testing.T) {
+	sym := EPathTarget{Symbol: "Motor_Speed", HasSymbol: true}
+	if k, scoped := ClassifyCIPService(0x4D, sym); k != ServiceKindWrite || !scoped {
+		t.Fatalf("write tag @ symbol: got %v scoped=%v, want write/true", k, scoped)
+	}
+	if k, scoped := ClassifyCIPService(0x4C, sym); k != ServiceKindRead || !scoped {
+		t.Fatalf("read tag @ symbol: got %v scoped=%v, want read/true", k, scoped)
+	}
+}
+
+func TestParseMRPath_SymbolSegment(t *testing.T) {
+	// 0x91, len=3, "ABC", pad byte (odd length).
+	path := []byte{0x91, 0x03, 'A', 'B', 'C', 0x00}
+	got, err := ParseMRPath(path)
+	if err != nil {
+		t.Fatalf("ParseMRPath symbol: %v", err)
+	}
+	if !got.HasSymbol || got.Symbol != "ABC" {
+		t.Fatalf("got symbol %q hasSymbol=%v, want ABC/true", got.Symbol, got.HasSymbol)
+	}
+}
+
+// A Connected Data Item (0x00B1) carries a 2-byte sequence count
+// before the MR request; ExtractMRService must skip it.
+func TestExtractMRService_ConnectedDataItem(t *testing.T) {
+	// MR: Get Attribute Single (0x0E), path class8=1 instance8=1.
+	mr := []byte{0x0E, 0x02, 0x20, 0x01, 0x24, 0x01}
+	itemData := append([]byte{0x01, 0x00}, mr...) // seq count + MR
+	itemLen := byte(len(itemData))                //nolint:gosec // fixed small test payload
+	item := []byte{0xB1, 0x00, itemLen, 0x00}
+	item = append(item, itemData...)
+	cpf := append([]byte{0x01, 0x00}, item...)             // ItemCount=1 + item
+	body := append([]byte{0, 0, 0, 0, 0x0A, 0x00}, cpf...) // iface+timeout+cpf
+	svc, tgt, ok := ExtractMRService(body)
+	if !ok || svc != 0x0E || tgt.Class != 0x01 || tgt.Instance != 0x01 {
+		t.Fatalf("connected MR: ok=%v svc=0x%02x class=%d inst=%d", ok, svc, tgt.Class, tgt.Instance)
+	}
+}

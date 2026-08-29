@@ -91,8 +91,8 @@ func New(bufSize int) *Broadcaster {
 // delivers every Event published after Subscribe returns; the
 // returned cancel closes the channel + removes the subscriber.
 // The channel is buffered; if a client lags more than bufSize
-// events behind, the broadcaster marks it dropped and closes the
-// channel.
+// events behind, the broadcaster marks it dropped and stops
+// delivering (the channel is closed by cancel, not by the drop).
 func (b *Broadcaster) Subscribe() (<-chan Event, func()) {
 	sub := &subscriber{ch: make(chan Event, b.bufSize)}
 	b.mu.Lock()
@@ -104,8 +104,13 @@ func (b *Broadcaster) Subscribe() (<-chan Event, func()) {
 		once.Do(func() {
 			b.mu.Lock()
 			delete(b.subs, sub)
-			b.mu.Unlock()
+			// Close under the write lock so it is mutually exclusive
+			// with Publish's send, which holds the read lock. The
+			// RWMutex is what makes close-vs-send safe; closing after
+			// releasing the lock (the earlier code) raced Publish and
+			// panicked with "send on closed channel".
 			close(sub.ch)
+			b.mu.Unlock()
 		})
 	}
 	return sub.ch, cancel
@@ -120,24 +125,23 @@ func (b *Broadcaster) Publish(ev Event) int64 {
 	if ev.PublishedAt.IsZero() {
 		ev.PublishedAt = time.Now().UTC().Truncate(time.Microsecond)
 	}
-	// Snapshot subscribers under a read lock — minimises the
-	// time holding the map while a fan-out runs.
+	// Hold the read lock across the whole fan-out. The send is
+	// non-blocking (select default), so a slow client cannot stall
+	// the broadcaster even while the lock is held; and because cancel
+	// closes each channel under the write lock, the RWMutex guarantees
+	// a send never races a close.
 	b.mu.RLock()
-	victims := make([]*subscriber, 0, len(b.subs))
+	defer b.mu.RUnlock()
 	for s := range b.subs {
-		victims = append(victims, s)
-	}
-	b.mu.RUnlock()
-	for _, s := range victims {
 		if s.dropped.Load() {
 			continue
 		}
 		select {
 		case s.ch <- ev:
 		default:
-			// Buffer full → drop the subscriber so one slow
-			// client can't stall the broadcaster. The channel
-			// stays open until the handler's cancel fires.
+			// Buffer full → drop the subscriber so one slow client
+			// can't stall the broadcaster. The channel stays open
+			// until the handler's cancel fires.
 			s.dropped.Store(true)
 		}
 	}

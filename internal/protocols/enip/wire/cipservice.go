@@ -177,6 +177,17 @@ func classifyCommonCIPService(service byte, hasClass bool) (ServiceKind, bool, b
 // the Connection Manager and the tag namespace. Without a usable class
 // the ambiguous bytes stay Unknown.
 func classifyVendorCIPService(service byte, t EPathTarget) (ServiceKind, bool) {
+	if t.HasSymbol {
+		// A symbolic path (0x91 tag name) is the Logix tag namespace:
+		// tag services read or write named tags. This is the dominant
+		// Read Tag / Write Tag addressing, so treat it as class-scoped.
+		switch service {
+		case svcReadTag, svcReadTagFragmented:
+			return ServiceKindRead, true
+		case svcWriteTag, svcWriteTagFragmented, svcReadModifyWriteTag:
+			return ServiceKindWrite, true
+		}
+	}
 	if !t.HasClass {
 		return classifyVendorByteOnly(service)
 	}

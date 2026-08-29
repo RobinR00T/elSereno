@@ -138,3 +138,50 @@ func TestPublish_PublishedAtSet(t *testing.T) {
 		t.Fatalf("PublishedAt %v not between %v and %v", ev.PublishedAt, before, after)
 	}
 }
+
+// TestPublish_ConcurrentCancelNoPanic stresses the race that used to
+// panic with "send on closed channel": one goroutine publishes in a
+// tight loop while many subscribers churn (Subscribe then cancel).
+// The pre-fix cancel closed the data channel out from under Publish.
+// Run with -race to also catch data races.
+func TestPublish_ConcurrentCancelNoPanic(t *testing.T) {
+	b := New(1) // tiny buffer to also exercise the buffer-full drop path
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				b.Publish(Event{Kind: EventFinding, Payload: []byte(`{}`)})
+			}
+		}
+	}()
+
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 50 {
+				ch, cancel := b.Subscribe()
+				select {
+				case <-ch:
+				default:
+				}
+				cancel()
+			}
+		}()
+	}
+
+	time.Sleep(150 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	if got := b.Len(); got != 0 {
+		t.Fatalf("all subscribers cancelled, want Len 0, got %d", got)
+	}
+}

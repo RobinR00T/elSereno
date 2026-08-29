@@ -36,6 +36,15 @@ type EPathTarget struct {
 	HasClass    bool
 	HasInstance bool
 	HasAttr     bool
+	// Symbol / HasSymbol carry the ANSI extended symbol segment
+	// (0x91 + tag name) that Rockwell Logix uses to address tags by
+	// name. This is the dominant form for Read Tag / Write Tag, so
+	// the detection path must recognise it or it goes blind to the
+	// most common Logix traffic. The per-attribute gate stays scoped
+	// to the numeric (class, instance, attribute) triple and ignores
+	// symbolic targets, so admitting this here does not widen it.
+	Symbol    string
+	HasSymbol bool
 }
 
 // CIP logical-segment format byte values. Top 3 bits =
@@ -52,6 +61,10 @@ const (
 	logicalAttr8      byte = 0x30
 	logicalAttr16     byte = 0x31
 	logicalAttr32     byte = 0x32
+	// symbolicSegmentANSI is the ANSI extended symbol segment
+	// (CIP Vol 1): 0x91, one length byte (character count), the name
+	// bytes, then a pad byte when the count is odd (word alignment).
+	symbolicSegmentANSI byte = 0x91
 )
 
 // Sentinels for EPATH parsing failures.
@@ -112,6 +125,14 @@ func ParseMRPath(path []byte) (EPathTarget, error) {
 	cursor := 0
 	for cursor < len(path) {
 		seg := path[cursor]
+		if seg == symbolicSegmentANSI {
+			next, err := parseSymbolSegment(path, cursor, &t)
+			if err != nil {
+				return t, err
+			}
+			cursor = next
+			continue
+		}
 		// Mask the low 2 bits (size format) to get the
 		// segment+logical-type byte.
 		segType := seg &^ 0x03
@@ -134,6 +155,30 @@ func ParseMRPath(path []byte) (EPathTarget, error) {
 		cursor += stride
 	}
 	return t, nil
+}
+
+// parseSymbolSegment decodes an ANSI extended symbol segment
+// (0x91 <len> <name bytes> [pad]) at cursor, records the tag name in
+// t, and returns the cursor position just after the segment (past the
+// odd-length pad byte). This is how Rockwell Logix addresses tags by
+// name, so the detection path must accept it.
+func parseSymbolSegment(path []byte, cursor int, t *EPathTarget) (int, error) {
+	if cursor+2 > len(path) {
+		return 0, fmt.Errorf("%w: symbol length at %d", ErrEPathTooShort, cursor)
+	}
+	nameLen := int(path[cursor+1])
+	start := cursor + 2
+	end := start + nameLen
+	if end > len(path) {
+		return 0, fmt.Errorf("%w: symbol name at %d", ErrEPathTooShort, cursor)
+	}
+	t.Symbol = string(path[start:end])
+	t.HasSymbol = true
+	next := end
+	if nameLen%2 != 0 {
+		next++ // pad byte for word alignment
+	}
+	return next, nil
 }
 
 // ExtractMRTarget is a higher-level helper that finds the
@@ -193,10 +238,20 @@ func ExtractMRService(body []byte) (byte, EPathTarget, bool) {
 		if cursor+int(itemLen) > len(cpf) {
 			return 0, EPathTarget{}, false
 		}
-		if typeID == 0x00B2 || typeID == 0x00A2 {
-			// Unconnected (B2) or Connected (A2) data item.
-			// MR request: service + pathSize + path + data.
+		if typeID == 0x00B2 || typeID == 0x00B1 {
+			// Unconnected (0x00B2) or Connected (0x00B1) data item.
 			itemData := cpf[cursor : cursor+int(itemLen)]
+			// A Connected Data Item (0x00B1) prefixes a 2-byte
+			// connection sequence count before the MR request; skip it
+			// so the service/path parse aligns with what the device
+			// actually executes. Unconnected (0x00B2) has no prefix.
+			if typeID == 0x00B1 {
+				if len(itemData) < 2 {
+					return 0, EPathTarget{}, false
+				}
+				itemData = itemData[2:]
+			}
+			// MR request: service + pathSize + path + data.
 			if len(itemData) < 2 {
 				return 0, EPathTarget{}, false
 			}

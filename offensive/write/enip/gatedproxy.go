@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"sort"
+	"sync"
 
 	enipwire "local/elsereno/internal/protocols/enip/wire"
 	"local/elsereno/offensive/confirm"
@@ -190,19 +191,24 @@ type WriteGatedHandler struct {
 
 	authorised bool
 
-	// obs accumulates the CIP service kinds seen on the
-	// client->upstream path, for the false-zero exposure
-	// verdict. Written only by the single forward goroutine
-	// and read via ExposureVerdict after the session ends.
-	obs enipwire.ServiceObservation
+	// obs accumulates the CIP service kinds seen on the client->gate
+	// path (whether or not the gate forwards them), for the false-zero
+	// exposure verdict. Guarded by obsMu: the forward goroutine can
+	// still be writing when Handle has returned and a caller reads the
+	// verdict (Handle does not join the goroutine, see its doc).
+	obsMu sync.Mutex
+	obs   enipwire.ServiceObservation
 }
 
-// ExposureVerdict applies the false-zero rule to the services
-// observed during the session: blind (no traffic seen, NOT a
-// clean bill of health), clean (reads/connections seen and no
-// write/admin), or active (a write or a Reset/Stop/Start
-// crossed the gate). Meant to be read after Handle returns.
+// ExposureVerdict applies the false-zero rule to the CIP services
+// observed on the client->gate path (forwarded OR refused): blind
+// (no traffic seen, NOT a clean bill of health), clean (reads or
+// connections seen and no write/admin), or active (a write or a
+// Reset/Stop/Start was seen). Safe to call concurrently; it reflects
+// whatever has been observed so far.
 func (h *WriteGatedHandler) ExposureVerdict() enipwire.ExposureVerdict {
+	h.obsMu.Lock()
+	defer h.obsMu.Unlock()
 	return h.obs.Verdict()
 }
 
@@ -249,12 +255,15 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer, client
 			return err
 		}
 		// Passive observation for the exposure verdict: label the
-		// carried CIP service (if any) and count it. Does not affect
-		// the forward/refuse decision below.
+		// carried CIP service (if any) and count it. This measures what
+		// the client attempted on the path, forwarded or not, so it
+		// runs before the forward/refuse decision below.
 		if hdr.Command == enipwire.CmdSendRRData || hdr.Command == enipwire.CmdSendUnitData {
 			if svc, tgt, ok := enipwire.ExtractMRService(body); ok {
 				kind, _ := enipwire.ClassifyCIPService(svc, tgt)
+				h.obsMu.Lock()
 				h.obs.Observe(kind)
+				h.obsMu.Unlock()
 			}
 		}
 		if h.shouldForward(hdr, body) {
