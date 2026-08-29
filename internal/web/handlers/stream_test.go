@@ -18,18 +18,35 @@ import (
 // seen so far via t.Fatalf.
 func drainUntil(t *testing.T, r *bufio.Reader, deadline time.Time, matcher func(string) bool) {
 	t.Helper()
+	type readResult struct {
+		line string
+		err  error
+	}
 	var seen []string
 	for {
-		if time.Now().After(deadline) {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
 			t.Fatalf("drainUntil timeout; seen=%v", seen)
 		}
-		line, err := r.ReadString('\n')
-		if err != nil {
-			t.Fatalf("read SSE line: %v; seen=%v", err, seen)
-		}
-		seen = append(seen, line)
-		if matcher(line) {
-			return
+		// Read one line in a goroutine so a ReadString that blocks
+		// (the server never sends the awaited line, e.g. under runner
+		// load) is bounded by the deadline instead of hanging until the
+		// 10-minute test-framework timeout. One reader at a time: the
+		// select waits for the line before the next iteration, so there
+		// is no concurrent access to r on the success path.
+		ch := make(chan readResult, 1)
+		go func() { line, err := r.ReadString('\n'); ch <- readResult{line, err} }()
+		select {
+		case rr := <-ch:
+			if rr.err != nil {
+				t.Fatalf("read SSE line: %v; seen=%v", rr.err, seen)
+			}
+			seen = append(seen, rr.line)
+			if matcher(rr.line) {
+				return
+			}
+		case <-time.After(remaining):
+			t.Fatalf("drainUntil timeout (read blocked); seen=%v", seen)
 		}
 	}
 }
