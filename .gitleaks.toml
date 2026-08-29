@@ -10,6 +10,11 @@ paths = [
   # .env.example ships empty-value placeholders by design (PITF-010).
   '''\.env\.example''',
 ]
+# Documentation placeholders such as FOO=... are examples, not secrets
+# (e.g. docs/SECURITY.md shows ELSERENO_VAULT_PASSPHRASE=...).
+regexes = [
+  '''=\s*\.\.\.''',
+]
 
 [[rules]]
 id = "elsereno-shodan-key"

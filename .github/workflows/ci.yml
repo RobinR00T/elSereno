@@ -51,9 +51,9 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           # v2.x matches the config schema in .golangci.yml (v2).
-          # golangci-lint-action@v7+ dropped v1 support; pin to the
-          # latest v2 tag our local toolchain has been validated on.
-          version: v2.11.4
+          # 'latest' picks a build new enough to type-check the Go 1.26
+          # toolchain; the old v2.11.4 pin crashed on it (exit code 2).
+          version: latest
 
   build-default:
     name: build-default
@@ -65,7 +65,7 @@ jobs:
         go: ['stable']
         include:
           - os: ubuntu-latest
-            go: '1.22'
+            go: '1.25'
           - os: macos-latest
             go: 'stable'
     env:
