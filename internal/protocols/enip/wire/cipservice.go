@@ -141,45 +141,45 @@ const (
 // write/admin hit, and should never raise a "clean" verdict from the
 // absence of one.
 func ClassifyCIPService(service byte, t EPathTarget) (ServiceKind, bool) {
-	// Generic common services first: class-independent by definition,
-	// so a missing class does not make them ambiguous.
+	if kind, scoped, ok := classifyCommonCIPService(service, t.HasClass); ok {
+		return kind, scoped
+	}
+	return classifyVendorCIPService(service, t)
+}
+
+// classifyCommonCIPService labels the generic CIP common services (CIP
+// Vol 1 Appendix A), which carry a class-independent meaning. The third
+// return reports whether service was one of them; false means the
+// caller must fall through to the class-scoped vendor path.
+func classifyCommonCIPService(service byte, hasClass bool) (ServiceKind, bool, bool) {
 	switch service {
 	case svcGetAttributesAll, svcGetAttributeList, svcGetAttributeSingle, svcNOP:
-		return ServiceKindRead, true
+		return ServiceKindRead, true, true
 	case svcSetAttributesAll, svcSetAttributeList, svcSetAttributeSingle,
 		svcApplyAttributes, svcCreate, svcDelete:
-		return ServiceKindWrite, true
+		return ServiceKindWrite, true, true
 	case svcReset, svcStart, svcStop, svcRestore, svcSave:
 		// State-changing. On the Identity object (0x01) this is the
 		// device-wide reset/stop the audit cares about most; on any
 		// class it is admin-grade, so the kind is stable, but we flag
 		// the reading as class-scoped only when a class was present.
-		return ServiceKindAdmin, t.HasClass
+		return ServiceKindAdmin, hasClass, true
 	case svcMultipleServicePacket:
 		// Carries nested sub-requests; a single label would be a lie.
-		// Callers that want the real picture must recurse into the
-		// packet. Left Unknown so scoring stays conservative.
-		return ServiceKindUnknown, false
+		// Left Unknown so scoring stays conservative.
+		return ServiceKindUnknown, false, true
 	}
+	return ServiceKindUnknown, false, false
+}
 
-	// Vendor-specific range: genuinely class-scoped. The same byte
-	// flips meaning between the Connection Manager and the tag
-	// namespace, so refuse to guess without a class.
+// classifyVendorCIPService labels the vendor-specific service range,
+// which is genuinely class-scoped: the same byte flips meaning between
+// the Connection Manager and the tag namespace. Without a usable class
+// the ambiguous bytes stay Unknown.
+func classifyVendorCIPService(service byte, t EPathTarget) (ServiceKind, bool) {
 	if !t.HasClass {
-		switch service {
-		case svcReadTag:
-			return ServiceKindRead, false
-		case svcWriteTag, svcWriteTagFragmented:
-			return ServiceKindWrite, false
-		case svcForwardOpen, svcLargeForwardOpen:
-			return ServiceKindConnection, false
-		default:
-			// 0x4E and 0x52 are the textbook ambiguous bytes: without a
-			// class they cannot be safely labelled.
-			return ServiceKindUnknown, false
-		}
+		return classifyVendorByteOnly(service)
 	}
-
 	switch t.Class {
 	case ClassConnectionManager:
 		switch service {
@@ -198,20 +198,29 @@ func ClassifyCIPService(service byte, t EPathTarget) (ServiceKind, bool) {
 			return ServiceKindWrite, true
 		}
 	default:
-		// Some other object. Read/Write tag services are not defined
-		// here, so fall through to the byte-only best guess below with
-		// classScoped=false to say "we had a class but it did not
-		// pin the meaning".
-		switch service {
-		case svcReadTag:
-			return ServiceKindRead, false
-		case svcWriteTag, svcWriteTagFragmented:
-			return ServiceKindWrite, false
-		case svcForwardOpen, svcLargeForwardOpen:
-			return ServiceKindConnection, false
-		}
+		// Some other object: the tag services are not defined here, so
+		// fall back to the byte-only guess with classScoped=false.
+		return classifyVendorByteOnly(service)
 	}
 	return ServiceKindUnknown, false
+}
+
+// classifyVendorByteOnly is the best-effort labelling of a vendor
+// service byte with no usable class context. The ambiguous bytes 0x4E
+// and 0x52 cannot be safely labelled and stay Unknown; the scoped flag
+// is always false so scoring down-weights the guess.
+func classifyVendorByteOnly(service byte) (ServiceKind, bool) {
+	switch service {
+	case svcReadTag:
+		return ServiceKindRead, false
+	case svcWriteTag, svcWriteTagFragmented:
+		return ServiceKindWrite, false
+	case svcForwardOpen, svcLargeForwardOpen:
+		return ServiceKindConnection, false
+	default:
+		// 0x4E and 0x52 are the textbook ambiguous bytes.
+		return ServiceKindUnknown, false
+	}
 }
 
 // ServiceObservation counts the CIP service kinds seen against one

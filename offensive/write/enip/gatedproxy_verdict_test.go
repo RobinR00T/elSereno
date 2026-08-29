@@ -33,7 +33,9 @@ var symbolEPath = []byte{
 // package's own SendRRData wrapper so the wire layout matches what
 // the observer parses.
 func mrPacket(service byte) []byte {
-	mr := append([]byte{service, byte(len(symbolEPath) / 2)}, symbolEPath...)
+	// #nosec G115 -- symbolEPath is a fixed 10-byte literal, so len/2 fits a byte
+	pathWords := byte(len(symbolEPath) / 2)
+	mr := append([]byte{service, pathWords}, symbolEPath...)
 	return wrapSendRRData(Request{}, mr)
 }
 
