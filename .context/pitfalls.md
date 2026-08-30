@@ -262,5 +262,10 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Regla**: si un invariante exige serializar lecturas-luego-escrituras entre procesos, TODAS las rutas de persistencia necesitan el equivalente. Para Postgres con pool: una transacción con `pg_advisory_xact_lock(key)` y **re-leer el estado más reciente DENTRO del lock** en cada operación (no confiar en la caché sembrada una vez). Type-assert el conn a una interfaz `BeginTx` opcional para que producción (pool) tome el lock y los fakes de test caigan a la ruta sin lock.
 **Ver**: `internal/audit/dbwriter.go` (`appendLocked`), re-auditoría 30-8-2026.
 
+## PITF-050 — Acotar la entrada en un transporte y olvidarlo en el hermano
+**Síntoma**: un parser de red pone un tope de bytes en la ruta UDP (p. ej. `make([]byte, 4096)` + un `Read`) pero pasa el `net.Conn` crudo al parser en la ruta TCP. Sobre TCP, `bufio.ReadString`/`textproto.ReadMIMEHeader` crecen la asignación con lo que el peer envíe hasta un `\n`/línea en blanco, acotados solo por el deadline de I/O: un host que transmite una línea de estado o un bloque de cabeceras interminable amplifica memoria/GC, repetible en un barrido. El tope de UDP oculta que TCP no tiene ninguno.
+**Regla**: cuando el mismo parser sirve varios transportes, la cota de entrada va en TODOS. Para streams (TCP), envuelve la conexión con `io.LimitReader(conn, N)` antes de parsear, con N generoso pero finito (mayor que cualquier mensaje legítimo). No confíes solo en el deadline como límite de tamaño: acota bytes Y tiempo.
+**Ver**: `internal/protocols/sip/sip.go` (`maxTCPResponseBytes`), re-auditoría 30-8-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

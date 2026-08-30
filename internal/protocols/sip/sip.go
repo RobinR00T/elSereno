@@ -107,10 +107,19 @@ func (p *Plugin) sendAndRead(ctx context.Context, transport, addr string, req []
 		}
 		return wire.ParseResponse(bytes.NewReader(buf[:n]))
 	}
-	// TCP: use wire.ParseResponse directly — it reads with
-	// bufio + textproto which handles chunked header arrival.
-	return wire.ParseResponse(conn)
+	// TCP: bufio + textproto handles chunked header arrival, but on a
+	// raw stream ReadString/ReadMIMEHeader grow their buffer with
+	// whatever the peer sends until a newline / blank line, bounded
+	// only by the I/O deadline. Cap the bytes we ingest, mirroring the
+	// UDP 4 KiB cap, so a host that streams an endless status line or
+	// header block cannot amplify memory across a sweep. 64 KiB is far
+	// beyond any legitimate SIP response's status line + headers.
+	return wire.ParseResponse(io.LimitReader(conn, maxTCPResponseBytes))
 }
+
+// maxTCPResponseBytes caps how much of a TCP SIP response the recon
+// probe reads (status line + headers only; the body is never consumed).
+const maxTCPResponseBytes = 64 << 10
 
 // REPL stub (consistent with other plugins).
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
