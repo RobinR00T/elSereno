@@ -267,5 +267,15 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Regla**: cuando el mismo parser sirve varios transportes, la cota de entrada va en TODOS. Para streams (TCP), envuelve la conexión con `io.LimitReader(conn, N)` antes de parsear, con N generoso pero finito (mayor que cualquier mensaje legítimo). No confíes solo en el deadline como límite de tamaño: acota bytes Y tiempo.
 **Ver**: `internal/protocols/sip/sip.go` (`maxTCPResponseBytes`), re-auditoría 30-8-2026.
 
+## PITF-051 — Overflow de int32 en la comprobación de una longitud antes de convertir a int64
+**Síntoma**: un check de bounds del tipo `if int64(4+n) > int64(len(b))` con `n` un `int32` leído del input. La suma `4+n` se evalúa en `int32` ANTES de la conversión a int64, así que con `n` cerca de `math.MaxInt32` (p. ej. `0x7fffffff`) desborda a negativo; `int64(negativo)` no supera `len(b)`, el check PASA, y luego se devuelve `4 + int(n)` (ya en int64 = ~2 GiB) como longitud/consumed. El caller usa ese valor para slicear (`b[off:]`) y **panica** (`slice bounds out of range [2147483656:9]`). El fuzz smoke de 30s no lo caza; el fuzz-long de 30m sí.
+**Regla**: en un check de longitud, convierte a int64 (o el tipo ancho) CADA operando ANTES de sumar: `if 4+int64(n) > int64(len(b))`, nunca `int64(4+n)`. Y valida el signo (`n < 0`) por separado. Aplica a cualquier `const + valorDelInput` donde el input es int32/int16: haz la aritmética en el tipo ancho desde el principio.
+**Ver**: `internal/protocols/opcua/wire/writerequest.go` (`skipLengthPrefixedBytes`), nightly fuzz 30-8-2026.
+
+## PITF-052 — Aserción de test contra una lista/constante copiada a mano que se queda obsoleta
+**Síntoma**: un test valida la salida contra una lista de literales copiada del código (`[]string{"PACSystems", ...}`) porque "no se puede importar la lista sin exportar". La lista real crece (nuevas familias) pero la copia del test no; un fuzz encuentra una salida válida (`"PAC9000"`) que la copia obsoleta rechaza → falso fallo. El test comprobaba una copia, no la verdad.
+**Regla**: los tests validan contra la fuente real, no una copia. Para exponer un símbolo sin exportar a un `_test` externo, usa el idioma `export_test.go` (`package X` con `var Exported = internal`), accesible solo desde tests. Nunca dupliques a mano una lista/tabla que el código puede crecer.
+**Ver**: `internal/protocols/gesrtp/wire/export_test.go`, nightly fuzz 30-8-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
