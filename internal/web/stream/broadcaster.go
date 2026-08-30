@@ -60,7 +60,13 @@ type Event struct {
 // lets a slow client tolerate a burst; once the buffer fills the
 // broadcaster drops the subscriber rather than stall the rest.
 type subscriber struct {
-	ch      chan Event
+	ch chan Event
+	// done is closed exactly once, by Publish, when this subscriber is
+	// dropped for lagging. It is a close-only channel (never sent to),
+	// so closing it under the read lock races nothing; the SSE handler
+	// selects on it and ends the response so the client reconnects
+	// fresh instead of sitting on a stream that only gets heartbeats.
+	done    chan struct{}
 	dropped atomic.Bool
 }
 
@@ -87,14 +93,16 @@ func New(bufSize int) *Broadcaster {
 	}
 }
 
-// Subscribe registers a fresh subscriber. The returned channel
-// delivers every Event published after Subscribe returns; the
-// returned cancel closes the channel + removes the subscriber.
-// The channel is buffered; if a client lags more than bufSize
-// events behind, the broadcaster marks it dropped and stops
-// delivering (the channel is closed by cancel, not by the drop).
-func (b *Broadcaster) Subscribe() (<-chan Event, func()) {
-	sub := &subscriber{ch: make(chan Event, b.bufSize)}
+// Subscribe registers a fresh subscriber. It returns the event
+// channel, a `dropped` channel that closes if the broadcaster drops
+// this subscriber for lagging (so the caller can end its stream), and
+// a cancel that closes the event channel + removes the subscriber. The
+// event channel is buffered; if a client lags more than bufSize events
+// behind, the broadcaster marks it dropped, closes `dropped`, and
+// stops delivering. The event channel itself is closed by cancel, not
+// by the drop.
+func (b *Broadcaster) Subscribe() (<-chan Event, <-chan struct{}, func()) {
+	sub := &subscriber{ch: make(chan Event, b.bufSize), done: make(chan struct{})}
 	b.mu.Lock()
 	b.subs[sub] = struct{}{}
 	b.mu.Unlock()
@@ -113,7 +121,7 @@ func (b *Broadcaster) Subscribe() (<-chan Event, func()) {
 			b.mu.Unlock()
 		})
 	}
-	return sub.ch, cancel
+	return sub.ch, sub.done, cancel
 }
 
 // Publish dispatches ev to every subscriber. Slow subscribers
@@ -140,9 +148,14 @@ func (b *Broadcaster) Publish(ev Event) int64 {
 		case s.ch <- ev:
 		default:
 			// Buffer full → drop the subscriber so one slow client
-			// can't stall the broadcaster. The channel stays open
-			// until the handler's cancel fires.
-			s.dropped.Store(true)
+			// can't stall the broadcaster. Signal the handler to
+			// disconnect (so its client reconnects fresh) by closing
+			// `done`. CAS ensures exactly one Publish closes it; `done`
+			// is close-only, so closing it under the read lock races
+			// nothing. The event channel stays open until cancel fires.
+			if s.dropped.CompareAndSwap(false, true) {
+				close(s.done)
+			}
 		}
 	}
 	return ev.ID

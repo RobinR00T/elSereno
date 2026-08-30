@@ -8,8 +8,8 @@ import (
 
 func TestPublish_FanOut(t *testing.T) {
 	b := New(16)
-	ch1, c1 := b.Subscribe()
-	ch2, c2 := b.Subscribe()
+	ch1, _, c1 := b.Subscribe()
+	ch2, _, c2 := b.Subscribe()
 	defer c1()
 	defer c2()
 
@@ -33,8 +33,8 @@ func TestSubscribe_LenTracksUpDown(t *testing.T) {
 	if n := b.Len(); n != 0 {
 		t.Fatalf("initial Len = %d, want 0", n)
 	}
-	_, cancel1 := b.Subscribe()
-	_, cancel2 := b.Subscribe()
+	_, _, cancel1 := b.Subscribe()
+	_, _, cancel2 := b.Subscribe()
 	if n := b.Len(); n != 2 {
 		t.Fatalf("after 2 subscribes: %d", n)
 	}
@@ -50,7 +50,7 @@ func TestSubscribe_LenTracksUpDown(t *testing.T) {
 
 func TestPublish_SlowSubscriberDropped(t *testing.T) {
 	b := New(2) // tiny buffer
-	ch, cancel := b.Subscribe()
+	ch, _, cancel := b.Subscribe()
 	defer cancel()
 	// Don't read from ch; publish 5 events. The 3rd+ publish
 	// should see the buffer full and mark the subscriber dropped.
@@ -75,6 +75,41 @@ done:
 	}
 }
 
+// TestPublish_DroppedSubscriberSignalsDone: when a subscriber is
+// dropped for lagging, its done channel closes so the SSE handler can
+// disconnect it instead of leaving it as a heartbeat-only zombie.
+func TestPublish_DroppedSubscriberSignalsDone(t *testing.T) {
+	b := New(2)
+	_, done, cancel := b.Subscribe()
+	defer cancel()
+	// Overflow the buffer without reading, forcing the drop.
+	for i := 0; i < 5; i++ {
+		b.Publish(Event{Kind: EventFinding})
+	}
+	select {
+	case <-done:
+		// dropped → done closed, as expected.
+	case <-time.After(time.Second):
+		t.Fatal("dropped subscriber's done channel was not closed")
+	}
+}
+
+// TestSubscribe_HealthyDoneStaysOpen: a subscriber that keeps up is
+// never dropped, so its done channel stays open.
+func TestSubscribe_HealthyDoneStaysOpen(t *testing.T) {
+	b := New(8)
+	ch, done, cancel := b.Subscribe()
+	defer cancel()
+	b.Publish(Event{Kind: EventFinding})
+	<-ch // drain so the buffer never overflows
+	select {
+	case <-done:
+		t.Fatal("healthy subscriber's done channel should stay open")
+	case <-time.After(50 * time.Millisecond):
+		// still open, good.
+	}
+}
+
 func TestPublish_ConcurrentSafe(t *testing.T) {
 	b := New(64)
 
@@ -83,7 +118,7 @@ func TestPublish_ConcurrentSafe(t *testing.T) {
 	subs := make([]func(), nSubs)
 	var subWG sync.WaitGroup
 	for i := 0; i < nSubs; i++ {
-		ch, cancel := b.Subscribe()
+		ch, _, cancel := b.Subscribe()
 		subs[i] = cancel
 		subWG.Add(1)
 		go func(c <-chan Event) {
@@ -122,7 +157,7 @@ func TestPublish_ConcurrentSafe(t *testing.T) {
 
 func TestPublish_PublishedAtSet(t *testing.T) {
 	b := New(4)
-	ch, cancel := b.Subscribe()
+	ch, _, cancel := b.Subscribe()
 	defer cancel()
 	// PublishedAt is microsecond-truncated (matches the
 	// Postgres TIMESTAMPTZ resolution used elsewhere). Truncate
@@ -167,7 +202,7 @@ func TestPublish_ConcurrentCancelNoPanic(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for range 50 {
-				ch, cancel := b.Subscribe()
+				ch, _, cancel := b.Subscribe()
 				select {
 				case <-ch:
 				default:

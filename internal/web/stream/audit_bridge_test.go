@@ -20,7 +20,7 @@ func TestAuditObserver_PublishesPerAppend(t *testing.T) {
 	t.Cleanup(func() { _ = w.Close() })
 
 	b := stream.New(8)
-	ch, cancel := b.Subscribe()
+	ch, _, cancel := b.Subscribe()
 	defer cancel()
 
 	w.SetObserver(stream.AuditObserver(b))

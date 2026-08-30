@@ -65,7 +65,7 @@ func Stream(b *stream.Broadcaster) http.Handler {
 		}
 		flusher.Flush()
 
-		ch, cancel := b.Subscribe()
+		ch, dropped, cancel := b.Subscribe()
 		defer cancel()
 
 		heartbeat := time.NewTicker(sseHeartbeatInterval)
@@ -76,11 +76,17 @@ func Stream(b *stream.Broadcaster) http.Handler {
 			select {
 			case <-ctx.Done():
 				return
+			case <-dropped:
+				// The broadcaster dropped us for lagging behind the
+				// event buffer. End the response so the client
+				// reconnects fresh (via the retry hint) and resyncs,
+				// rather than sitting on a stream that now only gets
+				// heartbeats.
+				return
 			case ev, ok := <-ch:
 				if !ok {
-					// The broadcaster dropped us (slow subscriber)
-					// or the server is shutting down. Either way,
-					// end the response gracefully.
+					// cancel closed the channel, or the server is
+					// shutting down. Either way, end gracefully.
 					return
 				}
 				if err := writeSSEEvent(w, ev); err != nil {

@@ -27,7 +27,7 @@ func drainOne(t *testing.T, sub <-chan stream.Event) (stream.Event, bool) {
 // scan_state_change event with the right shape.
 func TestPublishScanState_EmitsCorrectKind(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	job := scanorch.Job{
 		ID:        "abc12345",
@@ -70,7 +70,7 @@ func TestPublishScanState_NilBroadcasterIsNoOp(_ *testing.T) {
 // them.
 func TestPublishScanState_OmitsZeroStartedFinishedAt(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	stream.PublishScanState(b, scanorch.Job{
 		ID:        "x",
@@ -94,7 +94,7 @@ func TestPublishScanState_OmitsZeroStartedFinishedAt(t *testing.T) {
 func TestBroadcastingStore_Submit(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	job, err := wrapped.Submit(context.Background(),
@@ -124,7 +124,7 @@ func TestBroadcastingStore_Submit(t *testing.T) {
 func TestBroadcastingStore_Transition(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	job, _ := wrapped.Submit(context.Background(),
@@ -151,7 +151,7 @@ func TestBroadcastingStore_Transition(t *testing.T) {
 func TestBroadcastingStore_FailedSubmitDoesNotPublish(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	_, err := wrapped.Submit(context.Background(),
@@ -171,7 +171,7 @@ func TestBroadcastingStore_FailedSubmitDoesNotPublish(t *testing.T) {
 func TestBroadcastingStore_FailedTransitionDoesNotPublish(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	// Transitioning a non-existent job → ErrJobNotFound.
@@ -190,7 +190,7 @@ func TestBroadcastingStore_FailedTransitionDoesNotPublish(t *testing.T) {
 func TestBroadcastingStore_GetListReadOnly(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	job, _ := wrapped.Submit(context.Background(),
@@ -213,7 +213,7 @@ func TestBroadcastingStore_GetListReadOnly(t *testing.T) {
 // TestPublishScanProgress emits the right kind + payload.
 func TestPublishScanProgress(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	stats := scanorch.Stats{TargetsSeen: 100, TargetsScanned: 33, FindingsCount: 2}
 	stream.PublishScanProgress(b, "abc", stats, nil)
@@ -245,7 +245,7 @@ func TestPublishScanProgress_NilBroadcasterIsNoOp(_ *testing.T) {
 // emits.
 func TestThrottle_FirstCallEmits(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 200*time.Millisecond)
 	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -258,7 +258,7 @@ func TestThrottle_FirstCallEmits(t *testing.T) {
 // different stats inside the throttle window does NOT emit.
 func TestThrottle_DropsWithinWindow(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
 	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -272,7 +272,7 @@ func TestThrottle_DropsWithinWindow(t *testing.T) {
 // TestThrottle_EmitsAfterWindow.
 func TestThrottle_EmitsAfterWindow(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
 	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -288,7 +288,7 @@ func TestThrottle_EmitsAfterWindow(t *testing.T) {
 // an identical snapshot is dropped.
 func TestThrottle_DropsIdenticalSnapshots(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 50*time.Millisecond)
 	stats := scanorch.Stats{TargetsScanned: 5}
@@ -305,7 +305,7 @@ func TestThrottle_DropsIdenticalSnapshots(t *testing.T) {
 // independently.
 func TestThrottle_PerJob(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
 	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -327,7 +327,7 @@ func TestThrottle_PerJob(t *testing.T) {
 // drops".
 func TestThrottle_ClampsBadInterval(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 0)
 	tr.Report("j", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -347,7 +347,7 @@ func TestThrottle_NilBroadcasterIsNoOp(_ *testing.T) {
 // TestThrottle_ForgetClearsState.
 func TestThrottle_ForgetClearsState(t *testing.T) {
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)
 	tr.Report("job1", scanorch.Stats{TargetsScanned: 1}, nil)
@@ -368,7 +368,7 @@ func TestThrottle_ForgetClearsState(t *testing.T) {
 func TestBroadcastingStore_AttachProgressThrottle_ForgetsOnTerminal(t *testing.T) {
 	inner := scanorch.NewMemoryStore()
 	b := stream.New(8)
-	sub, cancel := b.Subscribe()
+	sub, _, cancel := b.Subscribe()
 	defer cancel()
 	wrapped := stream.NewBroadcastingStore(inner, b)
 	tr := stream.NewScanProgressThrottle(b, 1*time.Second)

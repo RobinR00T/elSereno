@@ -32,7 +32,7 @@ func TestTailAudit_PublishesOnlyNewEntries(t *testing.T) {
 	_ = preWriter.Close()
 
 	b := stream.New(8)
-	ch, cancelSub := b.Subscribe()
+	ch, _, cancelSub := b.Subscribe()
 	defer cancelSub()
 
 	ctx, cancel := context.WithCancel(context.Background())

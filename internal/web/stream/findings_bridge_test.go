@@ -11,7 +11,7 @@ import (
 
 func TestPublishFinding_EncodesWireFields(t *testing.T) {
 	b := stream.New(4)
-	ch, cancel := b.Subscribe()
+	ch, _, cancel := b.Subscribe()
 	defer cancel()
 
 	f := core.Finding{
@@ -52,7 +52,7 @@ func TestPublishFinding_EncodesWireFields(t *testing.T) {
 
 func TestPublishRun_StartAndEnd(t *testing.T) {
 	b := stream.New(4)
-	ch, cancel := b.Subscribe()
+	ch, _, cancel := b.Subscribe()
 	defer cancel()
 
 	now := time.Now().UTC()
