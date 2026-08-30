@@ -51,7 +51,12 @@ jobs:
           go-version: 'stable'
           cache: true
       - name: fuzz ${{ matrix.target.target }} (30 m)
-        run: go test -run=^$ -fuzz="^${{ matrix.target.target }}$" -fuzztime=30m ${{ matrix.target.pkg }}
+        # -tags offensive so the offensive-only fuzz targets (SIP
+        # write-gate, CWMP, ...) build. discover-fuzz greps source and
+        # finds them regardless of tag; without the tag here their
+        # go test build fails. The tag is a superset, so it is safe for
+        # the non-offensive targets too (same fix as run-fuzz.sh).
+        run: go test -tags offensive -run=^$ -fuzz="^${{ matrix.target.target }}$" -fuzztime=30m ${{ matrix.target.pkg }}
       - name: upload crash corpus
         if: failure()
         uses: actions/upload-artifact@v7
