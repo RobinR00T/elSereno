@@ -2,7 +2,37 @@
 
 package sip
 
-import "testing"
+import (
+	"bytes"
+	"io"
+	"testing"
+)
+
+// FuzzForward drives the full request path: the framing loop reads
+// request lines + headers + body from target-controlled bytes, applies
+// the method + per-method gates, and forwards or refuses. It must never
+// panic. Outputs are discarded; the handler carries every gate slice so
+// the invite/AOR/from-domain paths are all reachable. No Auditor/Deriver
+// is needed (forward does not touch them). parseContentLength caps the
+// body at 1 MiB, so a hostile Content-Length cannot OOM the fuzzer.
+func FuzzForward(f *testing.F) {
+	f.Add([]byte("INVITE sip:bob@example.com SIP/2.0\r\nTo: <sip:bob@example.com>\r\nFrom: <sip:a@x.com>\r\nContent-Length: 0\r\n\r\n"))
+	f.Add([]byte("REGISTER sip:example.com SIP/2.0\r\nTo: <sip:bob@example.com>\r\nContent-Length: 3\r\n\r\nabc"))
+	f.Add([]byte("OPTIONS sip:x SIP/2.0\r\nContent-Length: 999999\r\n\r\n"))
+	f.Add([]byte("SIP/2.0 200 OK\r\n\r\n"))
+	f.Add([]byte("GARBAGE\r\n\r\n"))
+	f.Add([]byte(""))
+	f.Fuzz(func(_ *testing.T, b []byte) {
+		h := &WriteGatedHandler{
+			Target:               "sip:pbx.example.com",
+			Allowed:              []AllowedMethod{{Method: "INVITE"}, {Method: "REGISTER"}},
+			AllowedToURIPrefixes: []AllowedToURIPrefix{{Prefix: "sip:bob@"}},
+			AllowedAORs:          []AllowedAOR{{AOR: "sip:bob@example.com"}},
+			AllowedFromDomains:   []AllowedFromDomain{{Domain: "x.com"}},
+		}
+		_ = h.forward(bytes.NewReader(b), io.Discard, io.Discard)
+	})
+}
 
 // The write-gate proxy parses target-controlled SIP request lines and
 // headers. None of the parse/extract/canonicalise helpers may panic on

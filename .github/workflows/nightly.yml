@@ -1,13 +1,10 @@
 name: nightly
 
-# Disabled 2026-04-23 — no paid Actions billing. Original schedule
-# preserved below. workflow_dispatch stays so operators can run it
-# on demand.
-#
-# Original schedule:
-#   schedule:
-#     - cron: "0 3 * * *"
+# Re-enabled 2026-08-30 (see supply-chain.yml header). Nightly fuzz-long
+# on schedule; workflow_dispatch stays for on-demand runs.
 on:
+  schedule:
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:
