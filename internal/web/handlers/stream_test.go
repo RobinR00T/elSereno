@@ -56,7 +56,12 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 	srv := httptest.NewServer(handlers.Stream(b))
 	t.Cleanup(srv.Close)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// Generous deadlines: under -race on a loaded CI runner the httptest
+	// server + goroutine scheduling can lag several seconds, and this
+	// test only needs to observe ordering, not speed. Tight deadlines
+	// here flaked CI (a 3 s context timeout) without catching any real
+	// bug.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
 	if err != nil {
@@ -80,7 +85,7 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 
 	r := bufio.NewReader(resp.Body)
 	// Wait for the retry: hint so we know the handler has subscribed.
-	drainUntil(t, r, time.Now().Add(1*time.Second), func(s string) bool {
+	drainUntil(t, r, time.Now().Add(5*time.Second), func(s string) bool {
 		return strings.HasPrefix(s, "retry:")
 	})
 
@@ -96,7 +101,7 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 
 	// Read until we see the data: line — the framing is
 	// "event:", "id:", "data:" in order, then a blank line.
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(8 * time.Second)
 	var sawEvent, sawID, sawData bool
 	for !sawData {
 		line, err := r.ReadString('\n')
