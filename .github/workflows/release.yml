@@ -82,7 +82,11 @@ jobs:
           # --snapshot: builds every artifact but publishes nothing
           # (no GitHub release, no ghcr push, no attestation), so the
           # release pipeline can be validated on demand without a tag.
-          args: release --clean ${{ github.ref_type == 'tag' && '' || '--snapshot' }}
+          # Snapshot also skips docker + sign: a multi-arch manifest list
+          # cannot be exported to the local daemon (only pushed to a
+          # registry), and signing needs the pushed refs, so both are
+          # only exercisable in a real tag release.
+          args: release --clean ${{ github.ref_type == 'tag' && '' || '--snapshot --skip=docker,sign' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
