@@ -1,8 +1,10 @@
 name: release
 
-# Re-enabled 2026-08-30 (see supply-chain.yml header): fires on a
-# `v*` tag push. Public repos get free Actions, and RELEASING.md's
-# local goreleaser path still works for manual releases.
+# Re-enabled 2026-08-30 (see supply-chain.yml header). A `v*` tag push
+# runs a real release; workflow_dispatch runs goreleaser --snapshot
+# (builds everything, publishes nothing) so the pipeline can be
+# validated on demand. RELEASING.md's local goreleaser path still works
+# for manual releases.
 on:
   push:
     tags: ["v*"]
@@ -76,7 +78,11 @@ jobs:
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
-          args: release --clean
+          # Tag push -> a real release. workflow_dispatch (no tag) ->
+          # --snapshot: builds every artifact but publishes nothing
+          # (no GitHub release, no ghcr push, no attestation), so the
+          # release pipeline can be validated on demand without a tag.
+          args: release --clean ${{ github.ref_type == 'tag' && '' || '--snapshot' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -98,6 +104,10 @@ jobs:
       #       --certificate-identity-regexp '…' --certificate-oidc-issuer '…' \
       #       <artifact>
       - name: attest build provenance
+        # Only for a real tag release: attestation publishes to the
+        # GitHub Attestations API, so a --snapshot validation run skips
+        # it (and dist/ globs may be empty in snapshot anyway).
+        if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@v4
         with:
           # All goreleaser archives under dist/ get attestation.
