@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -62,31 +63,73 @@ func Canonicalise(e Entry) ([]byte, error) {
 	return jcs.Transform(raw)
 }
 
-// ComputeHash returns SHA-256 over the JCS canonical bytes. It is the
-// value persisted as audit_log.entry_hash.
-func ComputeHash(e Entry) ([]byte, error) {
+// computeHash returns the entry's chain hash over the JCS canonical
+// bytes. With a non-empty macKey it is HMAC-SHA256(macKey, JCS(e)),
+// which is tamper-proof: an attacker with write access to the log but
+// without the vault-derived key cannot forge it, so they cannot
+// recompute the chain forward after editing an entry. With an empty
+// key it is plain SHA-256(JCS(e)), tamper-evident only; used where the
+// vault is not unlocked (e.g. read-only harvest).
+//
+// A single audit log may interleave keyed and unkeyed entries (harvest
+// runs without the vault, offensive-write runs with it). The prev_hash
+// linkage still protects the unkeyed ones: every keyed entry's HMAC
+// covers its prev_hash, i.e. the previous entry's entry_hash, so
+// tampering with ANY earlier entry (keyed or not) changes its hash,
+// which breaks the next keyed entry's prev_hash, which the attacker
+// cannot recompute. The chain is thus tamper-proof up to the last
+// keyed entry.
+func computeHash(macKey []byte, e Entry) ([]byte, error) {
 	c, err := Canonicalise(e)
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(c)
-	return sum[:], nil
+	if len(macKey) == 0 {
+		sum := sha256.Sum256(c)
+		return sum[:], nil
+	}
+	mac := hmac.New(sha256.New, macKey)
+	_, _ = mac.Write(c) // hash.Hash.Write never errors
+	return mac.Sum(nil), nil
 }
 
-// Verify returns nil when e's stored EntryHash matches the computed
-// hash over the canonical form. Returns ErrChainBroken otherwise.
+// ComputeHash returns the unkeyed SHA-256 hash over the JCS canonical
+// bytes. Retained for callers and tests that do not carry a MAC key;
+// keyed writers use the internal computeHash with their key.
+func ComputeHash(e Entry) ([]byte, error) {
+	return computeHash(nil, e)
+}
+
+// Verify returns nil when e's stored EntryHash matches the unkeyed
+// (SHA-256) hash. Returns ErrChainBroken otherwise. Keyed entries are
+// verified via verifyEntry with the vault key.
 func Verify(e Entry) error {
-	got, err := ComputeHash(e)
+	return verifyEntry(nil, e)
+}
+
+// verifyEntry checks e.EntryHash against the recomputed hash. With a
+// key it accepts an entry that matches EITHER the HMAC (a keyed entry)
+// OR plain SHA-256 (a legacy / no-vault entry sharing the same chain);
+// the caller's prev_hash linkage check is what makes a downgraded keyed
+// entry detectable at the next keyed entry. With an empty key only the
+// SHA-256 form is accepted, so keyed entries need the vault to verify.
+// Comparisons are constant-time.
+func verifyEntry(macKey []byte, e Entry) error {
+	if len(macKey) > 0 {
+		want, err := computeHash(macKey, e)
+		if err != nil {
+			return err
+		}
+		if hmac.Equal(e.EntryHash, want) {
+			return nil
+		}
+	}
+	sha, err := computeHash(nil, e)
 	if err != nil {
 		return err
 	}
-	if len(e.EntryHash) != len(got) {
-		return fmt.Errorf("%w: entry %d", ErrChainBroken, e.ID)
+	if hmac.Equal(e.EntryHash, sha) {
+		return nil
 	}
-	for i := range got {
-		if got[i] != e.EntryHash[i] {
-			return fmt.Errorf("%w: entry %d", ErrChainBroken, e.ID)
-		}
-	}
-	return nil
+	return fmt.Errorf("%w: entry %d", ErrChainBroken, e.ID)
 }

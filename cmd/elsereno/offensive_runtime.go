@@ -45,7 +45,15 @@ func newOffensiveRuntime(cmd *cobra.Command, passphraseFile string) (*offensiveR
 		_ = v.Lock
 		return nil, fail(core.ExitOSErr, err)
 	}
-	w, err := audit.OpenFileWriter(auditPath)
+	// Key the audit chain with a vault-derived secret so entries from
+	// offensive write operations are tamper-proof (HMAC), not merely
+	// tamper-evident. Harvest (newAuditOnlyRuntime) has no vault and
+	// stays SHA-256; the chain tolerates the mix (see audit.computeHash).
+	macKey := make([]byte, 32)
+	if err := v.Derive(auditMACKeyInfo, macKey); err != nil {
+		return nil, fail(core.ExitSoftware, fmt.Errorf("derive audit key: %w", err))
+	}
+	w, err := audit.OpenFileWriterKeyed(auditPath, macKey)
 	if err != nil {
 		return nil, fail(core.ExitIOErr, err)
 	}

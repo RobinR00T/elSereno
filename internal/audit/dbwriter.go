@@ -42,15 +42,24 @@ type DBWriter struct {
 	prevHash []byte
 	resumed  bool // lazy: we chain-resume on first Append, not in the constructor
 	observer Observer
+	// macKey mirrors FileWriter.macKey: non-empty makes entry_hash an
+	// HMAC keyed by a vault-derived secret. See computeHash.
+	macKey []byte
 }
 
-// OpenDBWriter returns a DBWriter backed by conn. The chain is
-// not resumed here; the first call to Append reads the most
-// recent row and seeds prevHash. Lazy resume matters because
-// callers often construct multiple writers up-front but only
-// exercise one per request.
+// OpenDBWriter returns a DBWriter backed by conn with no MAC key
+// (SHA-256 entries). Use OpenDBWriterKeyed when a vault is available.
 func OpenDBWriter(conn DBConn) *DBWriter {
-	return &DBWriter{conn: conn}
+	return OpenDBWriterKeyed(conn, nil)
+}
+
+// OpenDBWriterKeyed returns a DBWriter that keys entry hashes with
+// macKey. The chain is not resumed here; the first call to Append reads
+// the most recent row and seeds prevHash. Lazy resume matters because
+// callers often construct multiple writers up-front but only exercise
+// one per request.
+func OpenDBWriterKeyed(conn DBConn, macKey []byte) *DBWriter {
+	return &DBWriter{conn: conn, macKey: macKey}
 }
 
 // SetObserver installs the post-append hook. Mirrors
@@ -150,7 +159,7 @@ func (w *DBWriter) appendLocked(ctx context.Context, beginner txBeginner, e Entr
 		return Entry{}, fmt.Errorf("audit: reserve id: %w", err)
 	}
 	e.ID = nextID
-	hash, err := ComputeHash(e)
+	hash, err := computeHash(w.macKey, e)
 	if err != nil {
 		return Entry{}, fmt.Errorf("audit: compute: %w", err)
 	}
@@ -186,7 +195,7 @@ func (w *DBWriter) appendUnlocked(ctx context.Context, e Entry) (Entry, error) {
 	}
 	e.ID = nextID
 	e.PrevHash = append([]byte(nil), w.prevHash...)
-	hash, err := ComputeHash(e)
+	hash, err := computeHash(w.macKey, e)
 	if err != nil {
 		return Entry{}, fmt.Errorf("audit: compute: %w", err)
 	}

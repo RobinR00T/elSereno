@@ -44,6 +44,12 @@ type FileWriter struct {
 	nextID   int64
 	prevHash []byte
 
+	// macKey, when non-empty, makes entry_hash an HMAC-SHA256 keyed by
+	// a vault-derived secret (tamper-proof) instead of a bare SHA-256
+	// (tamper-evident). Empty for writers opened without a vault, e.g.
+	// read-only harvest. See computeHash.
+	macKey []byte
+
 	// observer, if set, is invoked after every successful Append
 	// with the final persisted Entry. Used to fan-out into the SSE
 	// broadcaster; see `internal/web/stream`.
@@ -59,17 +65,26 @@ func (w *FileWriter) SetObserver(o Observer) {
 	w.observer = o
 }
 
-// OpenFileWriter opens path for append. If the file is empty, the
-// next Append call will produce the genesis entry (PrevHash = 32
-// zero bytes, ID = 1). If the file already has entries, the
-// writer reads the last line and resumes the chain.
+// OpenFileWriter opens path for append with no MAC key (entries are
+// SHA-256, tamper-evident). Use OpenFileWriterKeyed when a vault is
+// available to make entries HMAC-keyed (tamper-proof).
 func OpenFileWriter(path string) (*FileWriter, error) {
+	return OpenFileWriterKeyed(path, nil)
+}
+
+// OpenFileWriterKeyed opens path for append, keying entry hashes with
+// macKey (typically 32 bytes from Vault.Derive). A nil/empty macKey is
+// equivalent to OpenFileWriter. If the file is empty, the next Append
+// produces the genesis entry (PrevHash = 32 zero bytes, ID = 1); if it
+// already has entries, the writer reads the last line and resumes the
+// chain (which may mix keyed and unkeyed entries; see computeHash).
+func OpenFileWriterKeyed(path string, macKey []byte) (*FileWriter, error) {
 	// #nosec G304 -- operator-supplied audit-log path
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("audit: open %s: %w", path, err)
 	}
-	w := &FileWriter{path: path, f: f, prevHash: GenesisPrevHash}
+	w := &FileWriter{path: path, f: f, prevHash: GenesisPrevHash, macKey: macKey}
 	if err := w.resume(); err != nil {
 		_ = f.Close()
 		return nil, err
@@ -191,7 +206,7 @@ func (w *FileWriter) Append(_ context.Context, e Entry) (Entry, error) {
 	}
 	e.ID = w.nextID
 	e.PrevHash = append([]byte(nil), w.prevHash...)
-	hash, err := ComputeHash(e)
+	hash, err := computeHash(w.macKey, e)
 	if err != nil {
 		return Entry{}, fmt.Errorf("audit: compute: %w", err)
 	}
@@ -265,10 +280,19 @@ func isKnownEventType(t EventType) bool {
 	return false
 }
 
-// VerifyFile walks the JSONL file and returns nil when the chain is
-// intact end-to-end. Returns a typed error indexing the first
-// broken entry otherwise.
+// VerifyFile walks the JSONL file with no MAC key: keyed (HMAC) entries
+// will NOT verify. Use VerifyFileKeyed with the vault-derived key to
+// verify a chain that contains keyed entries.
 func VerifyFile(path string) error {
+	return VerifyFileKeyed(path, nil)
+}
+
+// VerifyFileKeyed walks the JSONL file and returns nil when the chain is
+// intact end-to-end. Returns a typed error indexing the first broken
+// entry otherwise. macKey (when non-empty) lets keyed entries verify;
+// unkeyed entries in the same chain still verify by SHA-256, and the
+// prev_hash linkage means a keyed entry anchors every entry before it.
+func VerifyFileKeyed(path string, macKey []byte) error {
 	// #nosec G304 -- operator-supplied path
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -299,11 +323,7 @@ func VerifyFile(path string) error {
 		if !bytesEqual(e.PrevHash, prev) {
 			return fmt.Errorf("%w: id=%d prev_hash mismatch", ErrChainBroken, e.ID)
 		}
-		want, err := ComputeHash(e)
-		if err != nil {
-			return fmt.Errorf("audit: line %d hash: %w", e.ID, err)
-		}
-		if !bytesEqual(e.EntryHash, want) {
+		if err := verifyEntry(macKey, e); err != nil {
 			return fmt.Errorf("%w: id=%d entry_hash mismatch", ErrChainBroken, e.ID)
 		}
 		prev = e.EntryHash
