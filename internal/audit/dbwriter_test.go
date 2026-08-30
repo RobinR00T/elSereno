@@ -245,6 +245,99 @@ func TestDBWriter_ObserverFiresAfterInsert(t *testing.T) {
 	}
 }
 
+// --- locked (advisory-lock) path ---------------------------------
+//
+// fakeTxConn is a fakeConn that also satisfies the txBeginner surface,
+// so DBWriter takes its transactional advisory-lock path. fakeTx
+// embeds pgx.Tx (nil) and overrides only the four methods DBWriter
+// uses; the advisory-lock SELECT is counted and swallowed, everything
+// else delegates to the shared fakeConn store.
+
+type fakeTxConn struct {
+	*fakeConn
+	lockCalls int
+}
+
+func (f *fakeTxConn) BeginTx(_ context.Context, _ pgx.TxOptions) (pgx.Tx, error) {
+	return &fakeTx{conn: f}, nil
+}
+
+type fakeTx struct {
+	pgx.Tx // embedded nil: unused methods would panic, but DBWriter never calls them
+	conn   *fakeTxConn
+}
+
+func (t *fakeTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	if strings.Contains(sql, "pg_advisory_xact_lock") {
+		t.conn.lockCalls++
+		return pgconn.CommandTag{}, nil
+	}
+	return t.conn.Exec(ctx, sql, args...)
+}
+
+func (t *fakeTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return t.conn.QueryRow(ctx, sql, args...)
+}
+
+func (t *fakeTx) Commit(_ context.Context) error   { return nil }
+func (t *fakeTx) Rollback(_ context.Context) error { return nil }
+
+// TestDBWriter_LockedPath_TakesLockAndChains: with a tx-capable conn
+// the writer runs the advisory-lock path (one lock per append) and
+// still chains correctly.
+func TestDBWriter_LockedPath_TakesLockAndChains(t *testing.T) {
+	conn := &fakeTxConn{fakeConn: newFakeConn()}
+	w := audit.OpenDBWriter(conn)
+
+	e1, err := w.Append(context.Background(), audit.Entry{EventType: audit.EventGenesis})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e2, err := w.Append(context.Background(), audit.Entry{EventType: audit.EventVaultInit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if conn.lockCalls != 2 {
+		t.Fatalf("advisory lock taken %d times, want 2 (one per append)", conn.lockCalls)
+	}
+	if !bytesEq(e2.PrevHash, e1.EntryHash) {
+		t.Fatal("locked path broke the chain")
+	}
+}
+
+// TestDBWriter_LockedPath_ReReadsLatestInsideLock proves the fix for
+// the inter-process fork: after another process commits a row, the
+// next Append must chain from THAT row's hash (re-read inside the
+// lock), not from the writer's stale cached prevHash.
+func TestDBWriter_LockedPath_ReReadsLatestInsideLock(t *testing.T) {
+	conn := &fakeTxConn{fakeConn: newFakeConn()}
+	w := audit.OpenDBWriter(conn)
+
+	if _, err := w.Append(context.Background(), audit.Entry{EventType: audit.EventGenesis}); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a concurrent process committing a row directly to the
+	// shared table after our cached prevHash was set.
+	injected := audit.Entry{
+		ID:        99,
+		EventType: audit.EventVaultInit,
+		Actor:     "other-process",
+		Payload:   json.RawMessage(`{}`),
+		EntryHash: []byte("other-process-hash-32-bytes-----"),
+	}
+	conn.mu.Lock()
+	conn.rows = append(conn.rows, injected)
+	conn.mu.Unlock()
+
+	e, err := w.Append(context.Background(), audit.Entry{EventType: audit.EventVaultUnlock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytesEq(e.PrevHash, injected.EntryHash) {
+		t.Fatalf("PrevHash = %x, want %x (must re-read the other process's row inside the lock, not the stale cache)", e.PrevHash, injected.EntryHash)
+	}
+}
+
 // TestDBWriter_InsertFailurePreservesChain checks that when the
 // INSERT errors we do NOT advance `prevHash`. Otherwise a
 // subsequent Append would be chained to a hash never persisted.
