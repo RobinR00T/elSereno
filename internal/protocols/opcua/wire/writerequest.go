@@ -557,7 +557,11 @@ func skipLengthPrefixedBytes(b []byte) (int, bool) {
 	if n < 0 {
 		return 4, true
 	}
-	if int64(4+n) > int64(len(b)) {
+	// Convert to int64 BEFORE adding: `4+n` in int32 overflows for
+	// n near math.MaxInt32 (e.g. 0x7fffffff), wrapping negative so the
+	// bounds check passes and the caller then slices with a ~2 GiB
+	// offset. Do the arithmetic in int64.
+	if 4+int64(n) > int64(len(b)) {
 		return 0, false
 	}
 	return 4 + int(n), true

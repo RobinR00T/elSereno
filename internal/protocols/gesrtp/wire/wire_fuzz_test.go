@@ -50,11 +50,11 @@ func FuzzExtractModelHint(f *testing.F) {
 		if len(hint) < 5 {
 			t.Fatalf("hint too short: %q", hint)
 		}
-		// Validate the hint starts with a canonical prefix by
-		// trying every one. (We can't import the unexported
-		// list; just check the well-known literals.)
+		// Validate the hint starts with a canonical prefix, checking
+		// against the REAL list (exposed via export_test.go) so this
+		// assertion never goes stale as gePLCFamilyPrefixes grows.
 		matched := false
-		for _, pfx := range []string{"PACSystems", "IC693", "IC695", "IC697", "IC200", "RX3i", "RX7i"} {
+		for _, pfx := range wire.GEPLCFamilyPrefixes {
 			if strings.HasPrefix(hint, pfx) {
 				matched = true
 				break
