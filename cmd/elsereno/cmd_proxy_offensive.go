@@ -626,15 +626,17 @@ type gatedProxyHandler interface {
 }
 
 // proxyNetwork returns the proxy transport for a plugin: "udp" for
-// the datagram protocols, "tcp" otherwise. finsudp is UDP/9600; the
-// other wired plugins are TCP. (iax2 is also UDP but its handler has
-// not been exercised over the UDP transport yet, so it stays on the
-// tcp default until verified.)
+// the datagram protocols (finsudp UDP/9600, iax2 UDP/4569), "tcp" for
+// the rest. Both UDP handlers are datagram-oriented (one frame per
+// Read); the framework's UDP transport drives them per client source
+// address.
 func proxyNetwork(plugin string) string {
-	if strings.EqualFold(plugin, pluginNameFINS) {
+	switch strings.ToLower(plugin) {
+	case pluginNameFINS, pluginNameIAX2:
 		return "udp"
+	default:
+		return "tcp"
 	}
-	return "tcp"
 }
 
 // buildGatedHandler dispatches on --plugin (case-folded) to the

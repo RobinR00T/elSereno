@@ -227,12 +227,16 @@ remains an option since v1.8.
   banner, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp,
   hartip, iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp,
   redlion, s7, sip, slmp, xot.
-- 19 offensive write-gated proxies (default + `-tags offensive`
-  builds): atg, bacnet, cwmp, dlms, dnp3, enip, fox, hartip, iax2,
-  iec104, knxip, mbustcp, mms, modbus, opcua, pbxhttp, pcworx, s7, sip.
-  All ship per-object / per-path scoping. Still fingerprint-only
-  (offensive write path pending): codesys, finsudp, gesrtp, redlion,
-  slmp.
+- 21 offensive write-gated proxies (default + `-tags offensive`
+  builds): atg, bacnet, cwmp, dlms, dnp3, enip, finsudp, fox, hartip,
+  iax2, iec104, knxip, mbustcp, mms, modbus, opcua, pbxhttp, pcworx,
+  s7, sip, slmp. finsudp (UDP/9600) + slmp (TCP/5007) added 2026-08-31
+  with `write <p> proxy-dry-run` token minting and end-to-end demos
+  (scripts/demo-{fins,slmp}-proxy.sh); the proxy framework gained a UDP
+  transport (Options.Network) so finsudp runs end-to-end. Still
+  fingerprint-only (offensive write path pending): codesys, gesrtp,
+  redlion. GE-SRTP is blocked on a validated SRTP service-request wire
+  layout (see internal/protocols/gesrtp/wire HONEST SCOPE NOTE).
 - 6 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, internetdb.
 - 16 / 25 plugins publish a non-zero `cve_exposure` score
