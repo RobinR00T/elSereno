@@ -50,10 +50,26 @@ type AllowedCommand struct {
 
 func (a AllowedCommand) command() wire.Command { return wire.MakeCommand(a.MRC, a.SRC) }
 
+// AllowedArea scopes an allowed Memory Area Write (MRC=0x01 SRC=0x02)
+// to a specific FINS memory area code (W421 §5.2): e.g. 0x82 = DM
+// word, 0xB0 = CIO word, 0xB2 = HR word. When the operator supplies
+// any AllowedArea, a Memory Area Write is admitted only if its area
+// byte matches one; other allowlisted commands are unaffected. An
+// empty list keeps the command-level gate (a Memory Area Write allow
+// then admits every area).
+type AllowedArea struct {
+	Area byte
+}
+
+// allowlistSeparatorArea guards the area section of the hash so it
+// can't collide with a command's (MRC, SRC) bytes; 0xE1 is above every
+// FINS MRC.
+const allowlistSeparatorArea byte = 0xE1
+
 // AllowlistHash returns the deterministic SHA-256 over target + the
-// sorted allowlist, so the operator's dry-run token is stable
-// regardless of the order the commands were supplied on the CLI.
-func AllowlistHash(target string, allowed []AllowedCommand) [32]byte {
+// sorted command allowlist + the sorted area allowlist, so the
+// operator's dry-run token is stable regardless of input order.
+func AllowlistHash(target string, allowed []AllowedCommand, areas []AllowedArea) [32]byte {
 	sorted := append([]AllowedCommand(nil), allowed...)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].MRC != sorted[j].MRC {
@@ -61,11 +77,20 @@ func AllowlistHash(target string, allowed []AllowedCommand) [32]byte {
 		}
 		return sorted[i].SRC < sorted[j].SRC
 	})
+	sortedAreas := append([]AllowedArea(nil), areas...)
+	sort.Slice(sortedAreas, func(i, j int) bool { return sortedAreas[i].Area < sortedAreas[j].Area })
+
 	h := sha256.New()
 	_, _ = h.Write([]byte(target))
 	_, _ = h.Write([]byte{0x00})
 	for _, a := range sorted {
 		_, _ = h.Write([]byte{a.MRC, a.SRC})
+	}
+	if len(sortedAreas) > 0 {
+		_, _ = h.Write([]byte{allowlistSeparatorArea})
+		for _, a := range sortedAreas {
+			_, _ = h.Write([]byte{a.Area})
+		}
 	}
 	var out [32]byte
 	copy(out[:], h.Sum(nil))
@@ -73,14 +98,14 @@ func AllowlistHash(target string, allowed []AllowedCommand) [32]byte {
 }
 
 // SessionMutation builds the session-level confirm.Mutation for the
-// FINS proxy allowlist.
-func SessionMutation(target string, allowed []AllowedCommand) confirm.Mutation {
+// FINS proxy allowlist (commands + optional per-area scoping).
+func SessionMutation(target string, allowed []AllowedCommand, areas []AllowedArea) confirm.Mutation {
 	return confirm.Mutation{
 		Category:    confirm.CategoryWrite,
 		Protocol:    "finsudp",
 		Operation:   "proxy_session",
 		Target:      target,
-		PayloadHash: AllowlistHash(target, allowed),
+		PayloadHash: AllowlistHash(target, allowed, areas),
 	}
 }
 
@@ -89,6 +114,7 @@ func SessionMutation(target string, allowed []AllowedCommand) confirm.Mutation {
 type WriteGatedHandler struct {
 	Target         string
 	Allowed        []AllowedCommand
+	AllowedAreas   []AllowedArea
 	Deriver        confirm.KeyDeriver
 	Auditor        confirm.Auditor
 	SessionConfirm confirm.Confirm
@@ -106,7 +132,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutation(h.Target, h.Allowed, h.AllowedAreas)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -200,10 +226,36 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, clientOut, upstream io.Writ
 		return werr
 	}
 	if h.commandAllowed(cmd) {
+		// Per-area scoping (opt-in): a command-allowlisted Memory Area
+		// Write is additionally narrowed to the operator's allowed
+		// memory areas. Other allowlisted commands are unaffected.
+		if cmd == wire.CmdMemoryAreaWrite && len(h.AllowedAreas) > 0 && !h.areaAllowed(frame) {
+			return h.refuse(frame, clientOut)
+		}
 		_, werr := upstream.Write(frame)
 		return werr
 	}
 	return h.refuse(frame, clientOut)
+}
+
+// memoryAreaOffset is the byte offset of the memory-area code in a
+// FINS Memory Area Write body: the 10-byte header + MRC + SRC.
+const memoryAreaOffset = wire.HeaderLen + 2
+
+// areaAllowed reports whether a Memory Area Write frame targets one of
+// the operator-allowed memory areas. A frame too short to carry the
+// area byte is refused: the gate never admits what it cannot parse.
+func (h *WriteGatedHandler) areaAllowed(frame []byte) bool {
+	if len(frame) <= memoryAreaOffset {
+		return false
+	}
+	area := frame[memoryAreaOffset]
+	for _, a := range h.AllowedAreas {
+		if a.Area == area {
+			return true
+		}
+	}
+	return false
 }
 
 // refuse writes a native FINS refusal back to the client and does not

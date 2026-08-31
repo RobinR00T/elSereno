@@ -37,9 +37,9 @@ func (f *fakeAuditor) Record(_ context.Context, ev confirm.AuditEvent) error {
 
 const testDeriverKey = "test-key-32-byte-long--------"
 
-func mintToken(t *testing.T, target string, allowed []finswrite.AllowedCommand) string {
+func mintToken(t *testing.T, target string, allowed []finswrite.AllowedCommand, areas []finswrite.AllowedArea) string {
 	t.Helper()
-	mut := finswrite.SessionMutation(target, allowed)
+	mut := finswrite.SessionMutation(target, allowed, areas)
 	tok, err := confirm.ExpectedToken(mut, &fakeDeriver{key: []byte(testDeriverKey)})
 	if err != nil {
 		t.Fatal(err)
@@ -47,17 +47,18 @@ func mintToken(t *testing.T, target string, allowed []finswrite.AllowedCommand) 
 	return tok
 }
 
-func newHandler(t *testing.T, target string, allowed []finswrite.AllowedCommand) *finswrite.WriteGatedHandler {
+func newHandler(t *testing.T, target string, allowed []finswrite.AllowedCommand, areas []finswrite.AllowedArea) *finswrite.WriteGatedHandler {
 	t.Helper()
 	h := &finswrite.WriteGatedHandler{
-		Target:  target,
-		Allowed: allowed,
-		Deriver: &fakeDeriver{key: []byte(testDeriverKey)},
-		Auditor: &fakeAuditor{},
+		Target:       target,
+		Allowed:      allowed,
+		AllowedAreas: areas,
+		Deriver:      &fakeDeriver{key: []byte(testDeriverKey)},
+		Auditor:      &fakeAuditor{},
 		SessionConfirm: confirm.Confirm{
 			AcceptsWrites: true,
 			ConfirmTarget: target,
-			ConfirmToken:  mintToken(t, target, allowed),
+			ConfirmToken:  mintToken(t, target, allowed, areas),
 		},
 	}
 	if err := h.Authorise(context.Background()); err != nil {
@@ -99,9 +100,9 @@ func (r *datagramRecorder) snapshot() [][]byte {
 
 const testTarget = "fins.test:9600"
 
-func driveSession(t *testing.T, allowed []finswrite.AllowedCommand) (net.Conn, *datagramRecorder) {
+func driveSession(t *testing.T, allowed []finswrite.AllowedCommand, areas []finswrite.AllowedArea) (net.Conn, *datagramRecorder) {
 	t.Helper()
-	h := newHandler(t, testTarget, allowed)
+	h := newHandler(t, testTarget, allowed, areas)
 	clientIn, handlerClientSide := net.Pipe()
 	handlerUpstreamSide, upstreamSide := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -164,11 +165,11 @@ func waitForOneFrame(t *testing.T, r *datagramRecorder) [][]byte {
 func TestAllowlistHash_OrderInsensitive(t *testing.T) {
 	a := []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}, {MRC: 0x04, SRC: 0x01}}
 	b := []finswrite.AllowedCommand{{MRC: 0x04, SRC: 0x01}, {MRC: 0x01, SRC: 0x02}}
-	if finswrite.AllowlistHash(testTarget, a) != finswrite.AllowlistHash(testTarget, b) {
+	if finswrite.AllowlistHash(testTarget, a, nil) != finswrite.AllowlistHash(testTarget, b, nil) {
 		t.Fatal("AllowlistHash is order-sensitive")
 	}
 	// A different target must produce a different hash.
-	if finswrite.AllowlistHash(testTarget, a) == finswrite.AllowlistHash("other:9600", a) {
+	if finswrite.AllowlistHash(testTarget, a, nil) == finswrite.AllowlistHash("other:9600", a, nil) {
 		t.Fatal("AllowlistHash ignores the target")
 	}
 }
@@ -191,7 +192,7 @@ func TestAuthorise_DeniedBadToken(t *testing.T) {
 
 func TestReadCommandPassesUpstream(t *testing.T) {
 	// Empty allowlist: a read must still pass (reads can't mutate).
-	client, rec := driveSession(t, nil)
+	client, rec := driveSession(t, nil, nil)
 	req := buildFINS(0x01, 0x01) // Memory Area Read
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -204,7 +205,7 @@ func TestReadCommandPassesUpstream(t *testing.T) {
 
 func TestAllowedWritePassesUpstream(t *testing.T) {
 	allow := []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}} // Memory Area Write
-	client, rec := driveSession(t, allow)
+	client, rec := driveSession(t, allow, nil)
 	req := buildFINS(0x01, 0x02, 0xB0, 0x00, 0x64, 0x00, 0x00, 0x01, 0x12, 0x34)
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -216,9 +217,60 @@ func TestAllowedWritePassesUpstream(t *testing.T) {
 	}
 }
 
+// areaOffset is where the memory-area code sits in a Memory Area Write
+// body (10-byte header + MRC + SRC).
+const areaOffset = wire.HeaderLen + 2
+
+func TestAreaScoping_AllowedAreaPasses(t *testing.T) {
+	allow := []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}}
+	areas := []finswrite.AllowedArea{{Area: 0x82}} // DM word
+	client, rec := driveSession(t, allow, areas)
+	req := buildFINS(0x01, 0x02, 0x82, 0x00, 0x64, 0x00, 0x00, 0x01, 0x12, 0x34)
+	if _, err := client.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	got := waitForOneFrame(t, rec)
+	if got[0][areaOffset] != 0x82 {
+		t.Fatalf("forwarded area = 0x%02x, want 0x82", got[0][areaOffset])
+	}
+}
+
+func TestAreaScoping_DisallowedAreaRefused(t *testing.T) {
+	allow := []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}}
+	areas := []finswrite.AllowedArea{{Area: 0x82}} // only DM word is allowed
+	client, rec := driveSession(t, allow, areas)
+	// Memory Area Write to CIO (0xB0): command allowlisted, area not.
+	req := buildFINS(0x01, 0x02, 0xB0, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0xFF)
+	if _, err := client.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	ref := readOne(t, client)
+	if ref[wire.HeaderLen+2] != 0x21 || ref[wire.HeaderLen+3] != 0x01 {
+		t.Errorf("area-refusal end code = 0x%02x%02x, want 0x2101",
+			ref[wire.HeaderLen+2], ref[wire.HeaderLen+3])
+	}
+	time.Sleep(shortPause)
+	if snap := rec.snapshot(); len(snap) != 0 {
+		t.Fatalf("a disallowed-area write leaked %d frame(s) upstream", len(snap))
+	}
+}
+
+func TestAllowlistHash_AreasChangeToken(t *testing.T) {
+	cmds := []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}}
+	if finswrite.AllowlistHash(testTarget, cmds, nil) ==
+		finswrite.AllowlistHash(testTarget, cmds, []finswrite.AllowedArea{{Area: 0x82}}) {
+		t.Fatal("adding an area did not change the hash")
+	}
+	a1 := finswrite.AllowlistHash(testTarget, cmds, []finswrite.AllowedArea{{Area: 0x82}, {Area: 0xB0}})
+	a2 := finswrite.AllowlistHash(testTarget, cmds, []finswrite.AllowedArea{{Area: 0xB0}, {Area: 0x82}})
+	if a1 != a2 {
+		t.Fatal("area hash is order-sensitive")
+	}
+}
+
 func TestNonAllowedWriteRefused(t *testing.T) {
 	// Empty allowlist: Memory Area Write must be refused, not forwarded.
-	client, rec := driveSession(t, nil)
+	client, rec := driveSession(t, nil, nil)
 	req := buildFINS(0x01, 0x02, 0xB0, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0xFF)
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -246,7 +298,7 @@ func TestNonAllowedWriteRefused(t *testing.T) {
 }
 
 func TestUnknownCommandRefused(t *testing.T) {
-	client, rec := driveSession(t, []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}})
+	client, rec := driveSession(t, []finswrite.AllowedCommand{{MRC: 0x01, SRC: 0x02}}, nil)
 	// 0x99/0x99 is not in any table -> CategoryUnknown -> refuse,
 	// even though an unrelated write command is allowlisted.
 	req := buildFINS(0x99, 0x99)
@@ -264,7 +316,7 @@ func TestUnknownCommandRefused(t *testing.T) {
 }
 
 func TestShortFrameRefused(t *testing.T) {
-	client, rec := driveSession(t, nil)
+	client, rec := driveSession(t, nil, nil)
 	// 6 bytes: too short to carry MRC/SRC -> refuse.
 	if _, err := client.Write([]byte{0x80, 0x00, 0x02, 0x00, 0x00, 0x00}); err != nil {
 		t.Fatal(err)

@@ -27,6 +27,7 @@ import (
 type finsProxyFlags struct {
 	target, ppFile string
 	commands       []string
+	areas          []string
 }
 
 func newWriteFINSCmd() *cobra.Command {
@@ -58,6 +59,10 @@ are admitted. Example: 0x01:0x02 (Memory Area Write), 0x04:0x01 (RUN).`,
 	cmd.Flags().StringSliceVar(&f.commands, "fins-command", nil,
 		"FINS command(s) to allow as MRC:SRC byte pairs (decimal or 0x..; "+
 			"e.g. 0x01:0x02 Memory Area Write). Repeatable.")
+	cmd.Flags().StringSliceVar(&f.areas, "fins-area", nil,
+		"optionally narrow an allowed Memory Area Write to specific memory "+
+			"area codes (byte, decimal or 0x..; e.g. 0x82 DM, 0xB0 CIO). "+
+			"Repeatable. Must match the `proxy listen --fins-area` set.")
 	addPassphraseFileFlag(cmd, &f.ppFile)
 	return cmd
 }
@@ -77,11 +82,18 @@ func runWriteFINSProxyDryRun(cmd *cobra.Command, f finsProxyFlags) error {
 		}
 		allowed = append(allowed, c)
 	}
-	mut := finswrite.SessionMutation(f.target, allowed)
+	areas, err := parseFINSAreas(f.areas)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	mut := finswrite.SessionMutation(f.target, allowed, areas)
 	cmd.Printf("Protocol:     finsudp\n")
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", f.target)
 	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
+	if len(f.areas) > 0 {
+		cmd.Printf("Areas:        %s\n", strings.Join(f.areas, " "))
+	}
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 	return maybeMintToken(cmd, mut, f.ppFile)
 }

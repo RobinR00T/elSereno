@@ -129,6 +129,10 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"(decimal or 0x..; e.g. 0x01:0x02 Memory Area Write, "+
 			"0x04:0x01 RUN). Reads always pass; a mutating command is "+
 			"admitted only when listed. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.finsAreas, "fins-area", nil,
+		"finsudp: optionally narrow an allowed Memory Area Write to "+
+			"specific memory area codes (byte, decimal or 0x..; e.g. "+
+			"0x82 DM, 0xB0 CIO). Empty = any area. Repeatable.")
 	cmd.Flags().StringSliceVar(&opts.slmpCommands, "slmp-command", nil,
 		"slmp: SLMP command codes to allow (uint16, decimal or 0x..; "+
 			"e.g. 0x1401 Device Write Batch, 0x1002 Remote Stop). Reads "+
@@ -395,6 +399,10 @@ type proxyListenOpts struct {
 	// 0x01:0x02 Memory Area Write). Reads always pass; a mutating
 	// command is admitted only when its (MRC,SRC) is listed.
 	finsCommands []string
+	// finsAreas optionally narrows an allowlisted Memory Area Write
+	// to specific FINS memory area codes (byte, decimal or 0x-hex;
+	// e.g. 0x82 DM, 0xB0 CIO). Empty = command-level only.
+	finsAreas []string
 	// slmpCommands holds the slmp allowlist of SLMP command codes
 	// (uint16 as decimal or 0x-hex; e.g. 0x1401 Device Write
 	// Batch). Reads always pass; a mutating command is admitted
@@ -744,13 +752,36 @@ func buildFINSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		}
 		allowed = append(allowed, cmd)
 	}
+	areas, err := parseFINSAreas(opts.finsAreas)
+	if err != nil {
+		return nil, err
+	}
 	return &finswrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
+		AllowedAreas:   areas,
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
 	}, nil
+}
+
+// parseFINSAreas parses --fins-area values (byte, decimal or 0x-hex)
+// into the AllowedArea list for Memory Area Write scoping.
+func parseFINSAreas(raw []string) ([]finswrite.AllowedArea, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	areas := make([]finswrite.AllowedArea, 0, len(raw))
+	for _, s := range raw {
+		v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 8)
+		if err != nil {
+			return nil, fmt.Errorf("--fins-area %q: %w", s, err)
+		}
+		// #nosec G115 -- ParseUint bitSize=8 bounds v to a byte.
+		areas = append(areas, finswrite.AllowedArea{Area: byte(v)})
+	}
+	return areas, nil
 }
 
 // buildSLMPHandler constructs the slmp write-gated proxy. Wire-aware:
