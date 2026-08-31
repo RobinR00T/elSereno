@@ -2282,6 +2282,11 @@ func names(s []scanorch.ScanSchedule) []string {
 // TestClone_IdempotencyKey_Replays (v2.25+): same key + same
 // body → replay; only one clone created.
 func TestClone_IdempotencyKey_Replays(t *testing.T) {
+	// Isolate the process-global idempotency cache so this test's fixed
+	// Idempotency-Key can't leak across `go test -count=N` iterations
+	// (a key stored on one run would make the next run's first request
+	// look like a replay).
+	t.Cleanup(handlers.ResetIdempotencyCacheForTest())
 	store := scanorch.NewMemoryScheduleStore()
 	source, _ := store.Create(context.Background(), scanorch.CreateScheduleRequest{
 		Name:            "src",
@@ -2370,6 +2375,11 @@ func TestImport_Atomic_UnknownMode(t *testing.T) {
 // TestImport_IdempotencyKey_Replays (v2.18+): same key +
 // same body → replay; no second write.
 func TestImport_IdempotencyKey_Replays(t *testing.T) {
+	// Isolate the process-global idempotency cache so this test's fixed
+	// Idempotency-Key can't leak across `go test -count=N` iterations
+	// (a key stored on one run would make the next run's first request
+	// look like a replay).
+	t.Cleanup(handlers.ResetIdempotencyCacheForTest())
 	store := scanorch.NewMemoryScheduleStore()
 	router := newSchedRouter(store)
 	doImport := func() *httptest.ResponseRecorder {
@@ -2409,6 +2419,11 @@ func TestImport_IdempotencyKey_Replays(t *testing.T) {
 // TestImport_IdempotencyKey_BodyMismatchConflict (v2.18+):
 // same key + different body → 409.
 func TestImport_IdempotencyKey_BodyMismatchConflict(t *testing.T) {
+	// Isolate the process-global idempotency cache so this test's fixed
+	// Idempotency-Key can't leak across `go test -count=N` iterations
+	// (a key stored on one run would make the next run's first request
+	// look like a replay).
+	t.Cleanup(handlers.ResetIdempotencyCacheForTest())
 	store := scanorch.NewMemoryScheduleStore()
 	router := newSchedRouter(store)
 	doImport := func(name string) *httptest.ResponseRecorder {
