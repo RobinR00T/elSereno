@@ -79,7 +79,12 @@ else
     fail "Working tree dirty (uncommitted/untracked files)"
 fi
 
-if git fetch origin --quiet 2>&1 | tail -1 | grep -q error; then
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    # In CI, HEAD is intentionally a PR/branch ref ahead of origin/main,
+    # so the divergence check is a guaranteed false positive. This sync
+    # check is a local reminder to push/pull; only run it off-CI.
+    skip "Sync check (CI: HEAD is a PR branch, not local main)"
+elif git fetch origin --quiet 2>&1 | tail -1 | grep -q error; then
     skip "Sync check (fetch failed — maybe offline)"
 else
     if [ -z "$(git log --oneline origin/main..HEAD 2>/dev/null)" ] && \
