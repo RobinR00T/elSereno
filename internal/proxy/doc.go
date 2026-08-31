@@ -1,7 +1,7 @@
-// Package proxy is the generic TCP interception framework. Protocol
-// plugins implement core.ProxyHandler; the framework wires their
-// handlers onto a listener with per-connection pre/post hooks that
-// can log, measure, or mutate traffic.
+// Package proxy is the generic interception framework (TCP and UDP).
+// Protocol plugins implement core.ProxyHandler; the framework wires
+// their handlers onto a listener with per-connection pre/post hooks
+// that can log, measure, or mutate traffic.
 //
 // Design choices:
 //
@@ -15,8 +15,10 @@
 //     Hooks that log MUST run content through
 //     internal/render.SafeBytes.
 //
-// F3 ships the TCP variant; UDP plugs in via a thin wrapper around
-// net.ListenPacket that invokes the same hook chain per datagram
-// (arrives with a protocol that actually needs it; Modbus is
-// TCP-only).
+// Transport: Options.Network selects "tcp" (default, the F3 accept
+// loop) or "udp". The UDP path (udp.go) binds one net.PacketConn and,
+// per distinct client source address, dials a fresh upstream UDP
+// socket and drives the same Handler.Handle(ctx, client, upstream)
+// contract, one datagram per Read; idle sessions are reaped after
+// IdleTimeout. finsudp (UDP/9600) uses it; Modbus and SLMP are TCP.
 package proxy

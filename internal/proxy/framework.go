@@ -76,13 +76,22 @@ type Options struct {
 
 	// Hook runs before/after each io.Copy byte-chunk. Optional.
 	Hook Hook
+
+	// Network is the transport: "tcp" (default) or "udp". UDP plugins
+	// (finsudp and other datagram protocols) set "udp"; the datagram
+	// loop dials a fresh upstream UDP socket per distinct client
+	// source address and drives the same Handler.Handle contract, one
+	// datagram per Read.
+	Network string
 }
 
-// Server wraps a net.Listener and runs the accept/dial/hook loop.
+// Server wraps a net.Listener (TCP) or net.PacketConn (UDP) and runs
+// the accept/dial/hook loop.
 type Server struct {
 	opts    Options
 	lnMu    sync.RWMutex
 	ln      net.Listener
+	pc      net.PacketConn
 	wg      sync.WaitGroup
 	active  atomic.Int64
 	stopped atomic.Bool
@@ -108,11 +117,20 @@ func New(opts Options) (*Server, error) {
 	if opts.Hook == nil {
 		opts.Hook = NoopHook{}
 	}
+	if opts.Network == "" {
+		opts.Network = "tcp"
+	}
+	if opts.Network != "tcp" && opts.Network != "udp" {
+		return nil, fmt.Errorf("proxy: unsupported network %q (want tcp or udp)", opts.Network)
+	}
 	return &Server{opts: opts}, nil
 }
 
 // Run binds the listener and blocks until ctx is cancelled.
 func (s *Server) Run(ctx context.Context) error {
+	if s.opts.Network == "udp" {
+		return s.runUDP(ctx)
+	}
 	lc := &net.ListenConfig{}
 	ln, err := lc.Listen(ctx, "tcp", s.opts.Listen)
 	if err != nil {
@@ -152,6 +170,9 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Addr() net.Addr {
 	s.lnMu.RLock()
 	defer s.lnMu.RUnlock()
+	if s.pc != nil {
+		return s.pc.LocalAddr()
+	}
 	if s.ln == nil {
 		return nil
 	}

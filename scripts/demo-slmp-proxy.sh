@@ -13,10 +13,7 @@
 #
 # Everything is torn down on exit. Requires: go, nc, xxd.
 #
-# NOTE: FINS (finsudp) is UDP; the proxy framework (internal/proxy)
-# is TCP-only today, so a finsudp end-to-end demo waits on the UDP
-# transport wrapper (see internal/proxy/doc.go). SLMP is TCP and runs
-# end-to-end now.
+# The FINS (UDP) counterpart is scripts/demo-fins-proxy.sh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -474,6 +474,7 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 		DialTimeout: opts.dialTimeout,
 		IdleTimeout: opts.idleTimeout,
 		MaxConns:    opts.maxConns,
+		Network:     proxyNetwork(opts.plugin),
 	})
 	if err != nil {
 		return fail(core.ExitError, err)
@@ -622,6 +623,18 @@ func validateProxyListenOpts(opts proxyListenOpts) error {
 type gatedProxyHandler interface {
 	core.ProxyHandler
 	Authorise(ctx context.Context) error
+}
+
+// proxyNetwork returns the proxy transport for a plugin: "udp" for
+// the datagram protocols, "tcp" otherwise. finsudp is UDP/9600; the
+// other wired plugins are TCP. (iax2 is also UDP but its handler has
+// not been exercised over the UDP transport yet, so it stays on the
+// tcp default until verified.)
+func proxyNetwork(plugin string) string {
+	if strings.EqualFold(plugin, pluginNameFINS) {
+		return "udp"
+	}
+	return "tcp"
 }
 
 // buildGatedHandler dispatches on --plugin (case-folded) to the
