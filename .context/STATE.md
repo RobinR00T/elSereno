@@ -1,11 +1,26 @@
 ---
-phase: v2.63-closed
-status: v1.16-v2.34 published; v2.35-v2.63 tags pending push
-last-updated: 2026-06-10
+phase: v2.63-closed; CI/CD reactivated + reliability pass (2026-08-31)
+status: tags published through v2.62; CI green on main
+last-updated: 2026-08-31
 token-budget: 320
 ---
 
 # Current state
+
+**2026-08-31 maintenance session** (no version bump; `main` CI-green):
+- **CI/CD reactivated.** ci / release / supply-chain / nightly /
+  benchmarks are no longer `workflow_dispatch`-only. The 2026-04 disable
+  was the org `allowed_actions=local_only` policy (fixed 2026-08-29), not
+  Actions billing. All workflows green on `main`.
+- **v2.38 → v2.62 tags pushed** (25 signed tags; remote was stuck at
+  v2.37). Binary releases still follow the local-goreleaser flow.
+- **3 Dependabot major bumps merged**: actions/checkout 4→7,
+  actions/setup-go 5→7, gitleaks-action 2→3.
+- **Reliability fixes (signed):** `audit.sh` skips its local-sync check
+  in CI (it red-marked every PR); `TestStream_ClientCancelReleases-
+  Subscription` de-flaked (retry-hint race that hung `srv.Close` to the
+  10-min timeout); idempotency tests isolate the process-global cache
+  (`-count`-safe). See `.context/pitfalls.md`.
 
 **Phase**: **v2.63 cycle closed on `main`** (1 chunk +
 close). `elsereno sandbox diff PROFILE_A PROFILE_B`
@@ -198,20 +213,26 @@ CVE-exposure factor across 7 plugins). See snapshots for
 chunk-level detail. v1.15 was the last manually-counted asset
 release (9 assets); v1.16+ ship via goreleaser.
 
-GitHub Actions: `audit.yml` (push/PR + weekly Mondays 06:00
-UTC) is the canonical live gate since v1.88. `ci.yml` +
-`release.yml` + others gated to `workflow_dispatch` (billing
-post-flip; reactivate via the `on:` stanza). Local
-goreleaser + syft + `gh release upload` remains the release
-path since v1.8.
+GitHub Actions: all workflows live since 2026-08-31 (ci, audit,
+codeql, supply-chain, nightly, benchmarks, release,
+auto-approve-dependabot). The 2026-04 `workflow_dispatch`-only
+gating was the org `allowed_actions=local_only` policy (fixed
+2026-08-29), not billing. `release.yml` runs a real goreleaser
+release on tag push and a `--snapshot` on dispatch; nightly runs
+30-min deep fuzz. Local goreleaser + syft + `gh release upload`
+remains an option since v1.8.
 
 **Counts now**:
 - **25 protocol plugins** (default build): atg, atmodem, bacnet,
   banner, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp,
   hartip, iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp,
   redlion, s7, sip, slmp, xot.
-- 7 offensive write-gated proxies: modbus, opcua, sip, iax2,
-  pbxhttp, bacnet, cwmp. All ship per-object / per-path scoping.
+- 19 offensive write-gated proxies (default + `-tags offensive`
+  builds): atg, bacnet, cwmp, dlms, dnp3, enip, fox, hartip, iax2,
+  iec104, knxip, mbustcp, mms, modbus, opcua, pbxhttp, pcworx, s7, sip.
+  All ship per-object / per-path scoping. Still fingerprint-only
+  (offensive write path pending): codesys, finsudp, gesrtp, redlion,
+  slmp.
 - 6 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, internetdb.
 - 16 / 25 plugins publish a non-zero `cve_exposure` score
@@ -229,9 +250,10 @@ path since v1.8.
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
 **Operator-pending**:
-- Push v1.89.0 tag + goreleaser release (post-session).
-- Set Workflow permissions → write in repo Settings (release
-  flow needs token write scope; audit detected).
+- Tags pushed through v2.62 (2026-08-31); cut/publish binary
+  releases (goreleaser) for the unreleased tags if desired.
+- Confirm Workflow permissions → write in repo Settings for the
+  tag-triggered release flow (token write scope).
 
 **Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
 127.0.0.1:5433 via `scripts/dev-db.sh`.

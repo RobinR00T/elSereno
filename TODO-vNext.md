@@ -1,5 +1,13 @@
 # ElSereno — Forward-looking TODO (vNext)
 
+> **⚠️ DESFASADO (última refresh real 2026-05-03; aviso 2026-08-31).**
+> Casi todo el "forward" de este fichero ya se entregó en v2.x (OIDC +
+> roles, wardialing, record/replay, TUI, Windows, PROFINET DCP, y la
+> mayoría de protocolos e inputs). **Fuente de verdad: `.context/STATE.md`.**
+> Sigue abierto de verdad: caminos ofensivos finsudp / slmp / gesrtp /
+> codesys / redlion; PROFINET GOOSE/SV L2 passive; OPC UA HTTPS completo;
+> input BinaryEdge.
+
 Complementa a `TODO.md` (la checklist original del brief — closed
 tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
 ideas de features futuras, superficies de ataque a añadir y

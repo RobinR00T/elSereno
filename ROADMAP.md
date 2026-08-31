@@ -1,5 +1,15 @@
 # ElSereno — Roadmap
 
+> **⚠️ STALE (last real refresh 2026-04-29; banner added 2026-08-31).**
+> Most "vNext proposals" and the "priority matrix" below have SHIPPED in
+> v2.x: OIDC + roles (v2.38-v2.40), wardialing batch (v2.37),
+> record/replay (v1.41-v1.48), STIX 2.1 export, TUI, Windows
+> cross-compile (v2.34), PROFINET DCP (v2.39/v2.41), and nearly all
+> "additional protocols/inputs". **Source of truth: `.context/STATE.md`.**
+> Still genuinely open: offensive write paths for finsudp / slmp / gesrtp
+> / codesys / redlion; PROFINET GOOSE/SV L2 passive (gopacket +
+> CAP_NET_RAW); full OPC UA HTTPS transport; BinaryEdge input.
+
 State as of **2026-04-29**. **v1.15.0 is the latest published
 release** (5-chunk loose-end closure cycle on GitHub Releases).
 v1.16 → v1.17 → v1.18 → v1.19 → v1.20 → v1.21 → v1.22 → v1.23

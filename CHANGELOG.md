@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI:** `scripts/audit.sh` now skips its local `main = origin/main`
+  sync check under `$GITHUB_ACTIONS`. On a pull request HEAD is
+  intentionally ahead of `origin/main`, so the check failed on every PR
+  with a false positive.
+- **Test flake:** de-flaked `TestStream_ClientCancelReleasesSubscription`.
+  It raced the SSE `retry:` hint to assert subscription state and, on an
+  early assertion failure, left the connection open so
+  `httptest.Server.Close` blocked to the 10-minute test timeout. It now
+  polls the broadcaster subscriber count and releases the request via
+  `t.Cleanup`.
+- **Test isolation:** the idempotency handler tests swap a fresh
+  process-global cache per test, so the `handlers` package is safe under
+  `go test -count>1` (a hard-coded `Idempotency-Key` no longer leaks
+  across runs).
+
+### Changed
+
+- **Dependencies (major):** `actions/checkout` 4 to 7, `actions/setup-go`
+  5 to 7, `gitleaks/gitleaks-action` 2 to 3.
+- **CI/CD reactivated:** the ci / release / supply-chain / nightly /
+  benchmarks workflows are live again (they were `workflow_dispatch`-only
+  during the 2026-04 org `allowed_actions` restriction, fixed 2026-08-29).
+
+## [1.89.0 to 2.62.0] - 2026-05 (consolidated)
+
+Tags v1.89 through v2.62 were cut on `main` during 2026-05 and pushed to
+the remote on 2026-08-31. Per-cycle detail lives in
+`.context/snapshots/v*.md` and `.context/STATE.md`; this entry is a
+summary so the changelog is not misleadingly frozen at 1.88.
+
+Highlights by theme:
+
+- **Auth:** OIDC + roles package, per-route OIDC binding, `cmd_serve`
+  Verifier wiring (v2.38-v2.40, v2.59).
+- **Protocols:** OPC UA HTTPS fingerprint (v2.35), MMS vendor hint + LD
+  enumeration (v2.36, v1.51), PROFINET DCP wire codec + CLI decode/encode
+  (v2.39, v2.41), legacy-ICS offensive write paths for KNX / M-Bus /
+  DLMS-COSEM and the TwinCAT ADS fingerprint (v1.51-v1.57).
+- **Scanning / scheduling:** schedule domain build-out (cron to audit
+  retention, optimistic locking, clone chains, tags + GIN index, cursor
+  pagination) and dashboard scan-orchestration with SSE state/progress
+  events (v1.58-v2.34).
+- **Offensive / forensics:** wardialing batch orchestrator (v2.37),
+  record/replay capture with `proxy replay` verbs (v1.41-v1.48).
+- **Observability / packaging:** `/metrics` + pool collector (v2.55,
+  v2.60), Linux deb/rpm/apk packaging (v1.49), Windows cross-compile
+  target (v2.34).
+- **Sandbox:** macOS `sandbox_init(3)` cgo build, profile introspection,
+  and the `elsereno sandbox` list / introspect / diff verbs (v1.50,
+  v2.61-v2.63).
+
 ## [1.88.0] — 2026-05-11
 
 ### Added
