@@ -118,6 +118,8 @@ operator can inspect the exact bytes that would hit the wire.`,
 	cmd.AddCommand(newWriteOPCUACmd())
 	cmd.AddCommand(newWriteBACnetCmd())
 	cmd.AddCommand(newWriteCWMPCmd())
+	cmd.AddCommand(newWriteFINSCmd())
+	cmd.AddCommand(newWriteSLMPCmd())
 	return cmd
 }
 
