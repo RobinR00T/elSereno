@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs/binaryedge"
 	"local/elsereno/internal/inputs/censys"
 	"local/elsereno/internal/inputs/fofa"
 	"local/elsereno/internal/inputs/internetdb"
@@ -54,6 +55,9 @@ type apiCreds struct {
 	Onyphe struct {
 		Key string `yaml:"key"`
 	} `yaml:"onyphe"`
+	BinaryEdge struct {
+		Key string `yaml:"key"`
+	} `yaml:"binaryedge"`
 }
 
 // loadAPICreds reads + parses the creds file. Enforces 0600
@@ -123,8 +127,10 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 		return readZoomEyeTargets(ctx, creds, query)
 	case "onyphe":
 		return readOnypheTargets(ctx, creds, query)
+	case "binaryedge":
+		return readBinaryEdgeTargets(ctx, creds, query)
 	}
-	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe | internetdb)", provider)
+	return nil, fmt.Errorf("--input %s: unknown provider (known: shodan | censys | fofa | zoomeye | onyphe | binaryedge | internetdb)", provider)
 }
 
 // readInternetDBTargets dispatches the no-key Shodan InternetDB
@@ -298,6 +304,17 @@ func readOnypheTargets(ctx context.Context, creds apiCreds, query string) ([]cor
 		return nil, fmt.Errorf("onyphe: missing `onyphe.key` in --api-creds-file")
 	}
 	c, err := onyphe.New(creds.Onyphe.Key, 1)
+	if err != nil {
+		return nil, err
+	}
+	return c.SearchPaged(ctx, query, providerTotalLimit)
+}
+
+func readBinaryEdgeTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {
+	if creds.BinaryEdge.Key == "" {
+		return nil, fmt.Errorf("binaryedge: missing `binaryedge.key` in --api-creds-file")
+	}
+	c, err := binaryedge.New(creds.BinaryEdge.Key, 1)
 	if err != nil {
 		return nil, err
 	}

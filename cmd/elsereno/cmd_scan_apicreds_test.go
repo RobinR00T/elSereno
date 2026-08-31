@@ -110,7 +110,7 @@ func TestReadTargetsFromProvider_EmptyQuery(t *testing.T) {
 
 func TestReadTargetsFromProvider_UnknownProvider(t *testing.T) {
 	p := writeCredsTempYAML(t, `shodan: {key: x}`, 0o600)
-	_, err := readTargetsFromProvider(context.Background(), "binaryedge", "cat:ics", p)
+	_, err := readTargetsFromProvider(context.Background(), "notaprovider", "cat:ics", p)
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}

@@ -33,6 +33,7 @@ type inputParseOpts struct {
 	//   fofa:<query>         fofa API search
 	//   zoomeye:<query>      zoomeye API search
 	//   onyphe:<query>       onyphe API search
+	//   binaryedge:<query>   binaryedge API search
 	//   internetdb:<ip>      shodan internetdb (no key)
 	InputKind string
 
@@ -42,8 +43,8 @@ type inputParseOpts struct {
 	DefaultPort int
 
 	// APICredsFile is a YAML 0600 file with provider credentials.
-	// Required for shodan / censys / fofa / zoomeye / onyphe.
-	// Ignored for stdin / list / nmap / internetdb.
+	// Required for shodan / censys / fofa / zoomeye / onyphe /
+	// binaryedge. Ignored for stdin / list / nmap / internetdb.
 	APICredsFile string
 
 	// Stdin is the io.Reader used when InputKind == "stdin".
@@ -77,7 +78,7 @@ func parseInput(ctx context.Context, opts inputParseOpts) ([]core.Target, error)
 		}
 	}
 	return nil, fmt.Errorf(
-		"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>",
+		"unknown input kind %q; use list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | binaryedge:<q> | internetdb:<ip>",
 		opts.InputKind)
 }
 
@@ -86,7 +87,7 @@ func parseInput(ctx context.Context, opts inputParseOpts) ([]core.Target, error)
 // Order matches the help-text listing for consistency in error
 // messages + docs.
 var providerPrefixes = []string{
-	"shodan", "censys", "fofa", "zoomeye", "onyphe", "internetdb",
+	"shodan", "censys", "fofa", "zoomeye", "onyphe", "binaryedge", "internetdb",
 }
 
 func parseStdinInput(ctx context.Context, opts inputParseOpts) ([]core.Target, error) {
