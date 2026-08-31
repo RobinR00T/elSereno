@@ -56,6 +56,8 @@ protocol-aware gate. Supported plugins (--plugin):
   modbus   function-code list   (--function 6 [--function 16 ...])
   opcua    service-TypeID list  (--service 673 [--service 704 ...])
   bacnet   service-choice list  (--service-choice 15 [--service-choice 20 ...])
+  finsudp  FINS command list    (--fins-command 0x01:0x02 [...])   UDP/9600
+  slmp     SLMP command list    (--slmp-command 0x1401 [...])      TCP/5007
 
 Triple-confirm fences are required (the handler's Authorise()
 rejects otherwise):
@@ -84,7 +86,7 @@ config.`,
 // Extracted from newProxyListenCmd so the parent function stays
 // under funlen as we keep adding per-service dimensions.
 func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
-	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|bacnet|cwmp|pcworx|mms|enip|s7")
+	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|bacnet|cwmp|pcworx|mms|enip|s7|finsudp|slmp")
 	cmd.Flags().StringVar(&opts.target, "target", "", "upstream host:port")
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
 	registerProxyListenSIPFlags(cmd, opts)
