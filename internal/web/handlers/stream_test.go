@@ -56,12 +56,12 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 	srv := httptest.NewServer(handlers.Stream(b))
 	t.Cleanup(srv.Close)
 
-	// Generous deadlines: under -race on a loaded CI runner the httptest
-	// server + goroutine scheduling can lag several seconds, and this
-	// test only needs to observe ordering, not speed. Tight deadlines
-	// here flaked CI (a 3 s context timeout) without catching any real
-	// bug.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	// This test observes SSE frame ORDERING, not speed. Under -race on a
+	// loaded CI runner the httptest server + goroutine scheduling can lag
+	// many seconds, so the budget is deliberately generous; normally it
+	// finishes in milliseconds. The determinism below (not the timeout)
+	// is what fixes the flakiness.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
 	if err != nil {
@@ -84,13 +84,19 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 	}
 
 	r := bufio.NewReader(resp.Body)
-	// Wait for the retry: hint so we know the handler has subscribed.
-	drainUntil(t, r, time.Now().Add(5*time.Second), func(s string) bool {
-		return strings.HasPrefix(s, "retry:")
-	})
+	// Publish only AFTER the handler has registered its subscription,
+	// confirmed deterministically via the broadcaster's subscriber count
+	// rather than by racing on the wall-clock arrival of the retry: hint.
+	// This removes the publish-before-subscribe race that made the test
+	// flaky (a lost event that then times out the read).
+	subDeadline := time.Now().Add(30 * time.Second)
+	for b.Len() == 0 {
+		if time.Now().After(subDeadline) {
+			t.Fatal("handler did not register its subscription in time")
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 
-	// Publish after Subscribe has committed (i.e. after the retry
-	// hint reaches us); otherwise the event may race the subscribe.
 	id := b.Publish(stream.Event{
 		Kind:    stream.EventFinding,
 		Payload: []byte(`{"severity":"high"}`),
@@ -100,8 +106,9 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 	}
 
 	// Read until we see the data: line — the framing is
-	// "event:", "id:", "data:" in order, then a blank line.
-	deadline := time.Now().Add(8 * time.Second)
+	// "event:", "id:", "data:" in order (the retry: hint precedes them
+	// and is ignored). Deadline sits inside the request context.
+	deadline := time.Now().Add(45 * time.Second)
 	var sawEvent, sawID, sawData bool
 	for !sawData {
 		line, err := r.ReadString('\n')
