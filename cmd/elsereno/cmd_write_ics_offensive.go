@@ -103,6 +103,7 @@ func runWriteFINSProxyDryRun(cmd *cobra.Command, f finsProxyFlags) error {
 type slmpProxyFlags struct {
 	target, ppFile string
 	commands       []string
+	devices        []string
 }
 
 func newWriteSLMPCmd() *cobra.Command {
@@ -134,6 +135,11 @@ are admitted. Example: 0x1401 (Device Write Batch), 0x1002 (Remote Stop).`,
 	cmd.Flags().StringSliceVar(&f.commands, "slmp-command", nil,
 		"SLMP command code(s) to allow (uint16, decimal or 0x..; "+
 			"e.g. 0x1401 Device Write Batch). Repeatable.")
+	cmd.Flags().StringSliceVar(&f.devices, "slmp-device", nil,
+		"optionally narrow an allowed Device Write Batch (subcommand "+
+			"0x0000) to specific device codes (byte, decimal or 0x..; e.g. "+
+			"0xA8 D, 0x90 M). Repeatable. Must match `proxy listen "+
+			"--slmp-device`.")
 	addPassphraseFileFlag(cmd, &f.ppFile)
 	return cmd
 }
@@ -164,11 +170,18 @@ func runWriteSLMPProxyDryRun(cmd *cobra.Command, f slmpProxyFlags) error {
 		}
 		allowed = append(allowed, c)
 	}
-	mut := slmpwrite.SessionMutation(f.target, allowed)
+	devices, err := parseSLMPDevices(f.devices)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	mut := slmpwrite.SessionMutation(f.target, allowed, devices)
 	cmd.Printf("Protocol:     slmp\n")
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", f.target)
 	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
+	if len(f.devices) > 0 {
+		cmd.Printf("Devices:      %s\n", strings.Join(f.devices, " "))
+	}
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 	return maybeMintToken(cmd, mut, f.ppFile)
 }

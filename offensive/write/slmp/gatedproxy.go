@@ -50,12 +50,31 @@ type AllowedCommand struct {
 	Command uint16
 }
 
+// AllowedDevice scopes an allowed Device Write Batch (0x1401,
+// subcommand 0x0000) to a specific SLMP device code (e.g. 0xA8 = D
+// data register, 0x90 = M relay, W word, etc.). When the operator
+// supplies any AllowedDevice, a Device Write Batch is admitted only if
+// its device code matches one AND it uses the parseable word-unit
+// subcommand; anything else (other subcommand, short frame) is
+// refused. An empty list keeps the command-level gate.
+type AllowedDevice struct {
+	Code byte
+}
+
+// allowlistSeparatorDevice guards the device section of the hash so it
+// can't collide with a command's little-endian bytes; 0xE1 is above
+// every SLMP command byte pair used here.
+const allowlistSeparatorDevice byte = 0xE1
+
 // AllowlistHash returns the deterministic SHA-256 over target + the
-// sorted allowlist so the operator's dry-run token is stable
-// regardless of the order the commands were supplied.
-func AllowlistHash(target string, allowed []AllowedCommand) [32]byte {
+// sorted command allowlist + the sorted device allowlist so the
+// operator's dry-run token is stable regardless of input order.
+func AllowlistHash(target string, allowed []AllowedCommand, devices []AllowedDevice) [32]byte {
 	sorted := append([]AllowedCommand(nil), allowed...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Command < sorted[j].Command })
+	sortedDevs := append([]AllowedDevice(nil), devices...)
+	sort.Slice(sortedDevs, func(i, j int) bool { return sortedDevs[i].Code < sortedDevs[j].Code })
+
 	h := sha256.New()
 	_, _ = h.Write([]byte(target))
 	_, _ = h.Write([]byte{0x00})
@@ -64,20 +83,26 @@ func AllowlistHash(target string, allowed []AllowedCommand) [32]byte {
 		binary.LittleEndian.PutUint16(b[:], a.Command)
 		_, _ = h.Write(b[:])
 	}
+	if len(sortedDevs) > 0 {
+		_, _ = h.Write([]byte{allowlistSeparatorDevice})
+		for _, d := range sortedDevs {
+			_, _ = h.Write([]byte{d.Code})
+		}
+	}
 	var out [32]byte
 	copy(out[:], h.Sum(nil))
 	return out
 }
 
 // SessionMutation builds the session-level confirm.Mutation for the
-// SLMP proxy allowlist.
-func SessionMutation(target string, allowed []AllowedCommand) confirm.Mutation {
+// SLMP proxy allowlist (commands + optional per-device scoping).
+func SessionMutation(target string, allowed []AllowedCommand, devices []AllowedDevice) confirm.Mutation {
 	return confirm.Mutation{
 		Category:    confirm.CategoryWrite,
 		Protocol:    "slmp",
 		Operation:   "proxy_session",
 		Target:      target,
-		PayloadHash: AllowlistHash(target, allowed),
+		PayloadHash: AllowlistHash(target, allowed, devices),
 	}
 }
 
@@ -86,6 +111,7 @@ func SessionMutation(target string, allowed []AllowedCommand) confirm.Mutation {
 type WriteGatedHandler struct {
 	Target         string
 	Allowed        []AllowedCommand
+	AllowedDevices []AllowedDevice
 	Deriver        confirm.KeyDeriver
 	Auditor        confirm.Auditor
 	SessionConfirm confirm.Confirm
@@ -102,7 +128,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutation(h.Target, h.Allowed)
+	m := SessionMutation(h.Target, h.Allowed, h.AllowedDevices)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -182,6 +208,14 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, clientOut, upstream io.Writ
 		return werr
 	}
 	if ok && h.commandAllowed(cmd) {
+		// Per-device scoping (opt-in): a command-allowlisted Device
+		// Write Batch is additionally narrowed to the operator's
+		// allowed device codes. Fail-closed: a frame whose device code
+		// can't be parsed (other subcommand, short) is refused.
+		if cmd == wire.CmdDeviceWriteBatch && len(h.AllowedDevices) > 0 && !h.deviceAllowed(frame) {
+			_, werr := clientOut.Write(wire.BuildRefusal(frame))
+			return werr
+		}
 		_, werr := upstream.Write(frame)
 		return werr
 	}
@@ -194,6 +228,23 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, clientOut, upstream io.Writ
 func (h *WriteGatedHandler) commandAllowed(cmd wire.Command) bool {
 	for _, a := range h.Allowed {
 		if wire.Command(a.Command) == cmd {
+			return true
+		}
+	}
+	return false
+}
+
+// deviceAllowed reports whether a Device Write Batch frame targets one
+// of the operator-allowed device codes. An unparseable device code
+// (non-word subcommand, short frame) returns false: the gate never
+// admits what it cannot verify.
+func (h *WriteGatedHandler) deviceAllowed(frame []byte) bool {
+	code, ok := wire.WriteBatchDeviceCode(frame)
+	if !ok {
+		return false
+	}
+	for _, d := range h.AllowedDevices {
+		if d.Code == code {
 			return true
 		}
 	}

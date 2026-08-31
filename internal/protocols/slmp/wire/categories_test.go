@@ -80,6 +80,30 @@ func TestExtractCommand(t *testing.T) {
 	}
 }
 
+func TestWriteBatchDeviceCode(t *testing.T) {
+	// Device Write Batch (0x1401), subcommand 0x0000, head device (3
+	// bytes) then device code 0xA8 (D) at offset 18.
+	ok := buildReq(uint16(wire.CmdDeviceWriteBatch), 0x00, 0x00, 0x00, 0xA8, 0x01, 0x00, 0x34, 0x12)
+	if code, got := wire.WriteBatchDeviceCode(ok); !got || code != 0xA8 {
+		t.Fatalf("WriteBatchDeviceCode = (0x%02x, %v), want (0xA8, true)", code, got)
+	}
+
+	// A read command is not a Device Write Batch -> false.
+	if _, got := wire.WriteBatchDeviceCode(buildReq(uint16(wire.CmdDeviceReadBatch), 0, 0, 0, 0xA8)); got {
+		t.Error("WriteBatchDeviceCode accepted a read command")
+	}
+	// Too short to carry the device code -> false.
+	if _, got := wire.WriteBatchDeviceCode(buildReq(uint16(wire.CmdDeviceWriteBatch), 0x00, 0x00)); got {
+		t.Error("WriteBatchDeviceCode accepted a short frame")
+	}
+	// Non-zero subcommand (different body layout) -> false (fail-closed).
+	nonZeroSub := buildReq(uint16(wire.CmdDeviceWriteBatch), 0x00, 0x00, 0x00, 0xA8, 0x01, 0x00, 0x34, 0x12)
+	binary.LittleEndian.PutUint16(nonZeroSub[13:15], 0x0002)
+	if _, got := wire.WriteBatchDeviceCode(nonZeroSub); got {
+		t.Error("WriteBatchDeviceCode parsed a non-zero subcommand frame")
+	}
+}
+
 func TestReadFrame(t *testing.T) {
 	a := buildReq(uint16(wire.CmdDeviceReadBatch), 0x01, 0x02, 0x03)
 	b := buildReq(uint16(wire.CmdDeviceWriteBatch), 0xAA)

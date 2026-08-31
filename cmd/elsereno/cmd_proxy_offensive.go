@@ -138,6 +138,10 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"e.g. 0x1401 Device Write Batch, 0x1002 Remote Stop). Reads "+
 			"always pass; a mutating command is admitted only when "+
 			"listed. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.slmpDevices, "slmp-device", nil,
+		"slmp: optionally narrow an allowed Device Write Batch "+
+			"(subcommand 0x0000) to specific device codes (byte, decimal "+
+			"or 0x..; e.g. 0xA8 D, 0x90 M). Empty = any device. Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -408,6 +412,10 @@ type proxyListenOpts struct {
 	// Batch). Reads always pass; a mutating command is admitted
 	// only when its command code is listed.
 	slmpCommands []string
+	// slmpDevices optionally narrows an allowlisted Device Write
+	// Batch (subcommand 0x0000) to specific device codes (byte,
+	// decimal or 0x-hex; e.g. 0xA8 D, 0x90 M). Empty = any device.
+	slmpDevices []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -797,13 +805,36 @@ func buildSLMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		// #nosec G115 -- ParseUint bitSize=16 bounds v to a uint16.
 		allowed = append(allowed, slmpwrite.AllowedCommand{Command: uint16(v)})
 	}
+	devices, err := parseSLMPDevices(opts.slmpDevices)
+	if err != nil {
+		return nil, err
+	}
 	return &slmpwrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
+		AllowedDevices: devices,
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
 	}, nil
+}
+
+// parseSLMPDevices parses --slmp-device values (byte, decimal or
+// 0x-hex) into the AllowedDevice list for Device Write Batch scoping.
+func parseSLMPDevices(raw []string) ([]slmpwrite.AllowedDevice, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	devs := make([]slmpwrite.AllowedDevice, 0, len(raw))
+	for _, s := range raw {
+		v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 8)
+		if err != nil {
+			return nil, fmt.Errorf("--slmp-device %q: %w", s, err)
+		}
+		// #nosec G115 -- ParseUint bitSize=8 bounds v to a byte.
+		devs = append(devs, slmpwrite.AllowedDevice{Code: byte(v)})
+	}
+	return devs, nil
 }
 
 // parseU32 parses a decimal or 0x-hex number into uint32.

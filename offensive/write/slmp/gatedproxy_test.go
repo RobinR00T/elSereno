@@ -41,9 +41,9 @@ const (
 	testTarget     = "slmp.test:5007"
 )
 
-func mintToken(t *testing.T, target string, allowed []slmpwrite.AllowedCommand) string {
+func mintToken(t *testing.T, target string, allowed []slmpwrite.AllowedCommand, devices []slmpwrite.AllowedDevice) string {
 	t.Helper()
-	mut := slmpwrite.SessionMutation(target, allowed)
+	mut := slmpwrite.SessionMutation(target, allowed, devices)
 	tok, err := confirm.ExpectedToken(mut, &fakeDeriver{key: []byte(testDeriverKey)})
 	if err != nil {
 		t.Fatal(err)
@@ -51,17 +51,18 @@ func mintToken(t *testing.T, target string, allowed []slmpwrite.AllowedCommand) 
 	return tok
 }
 
-func newHandler(t *testing.T, allowed []slmpwrite.AllowedCommand) *slmpwrite.WriteGatedHandler {
+func newHandler(t *testing.T, allowed []slmpwrite.AllowedCommand, devices []slmpwrite.AllowedDevice) *slmpwrite.WriteGatedHandler {
 	t.Helper()
 	h := &slmpwrite.WriteGatedHandler{
-		Target:  testTarget,
-		Allowed: allowed,
-		Deriver: &fakeDeriver{key: []byte(testDeriverKey)},
-		Auditor: &fakeAuditor{},
+		Target:         testTarget,
+		Allowed:        allowed,
+		AllowedDevices: devices,
+		Deriver:        &fakeDeriver{key: []byte(testDeriverKey)},
+		Auditor:        &fakeAuditor{},
 		SessionConfirm: confirm.Confirm{
 			AcceptsWrites: true,
 			ConfirmTarget: testTarget,
-			ConfirmToken:  mintToken(t, testTarget, allowed),
+			ConfirmToken:  mintToken(t, testTarget, allowed, devices),
 		},
 	}
 	if err := h.Authorise(context.Background()); err != nil {
@@ -97,9 +98,9 @@ func (r *frameRecorder) snapshot() [][]byte {
 	return out
 }
 
-func driveSession(t *testing.T, allowed []slmpwrite.AllowedCommand) (net.Conn, *frameRecorder) {
+func driveSession(t *testing.T, allowed []slmpwrite.AllowedCommand, devices []slmpwrite.AllowedDevice) (net.Conn, *frameRecorder) {
 	t.Helper()
-	h := newHandler(t, allowed)
+	h := newHandler(t, allowed, devices)
 	clientIn, handlerClientSide := net.Pipe()
 	handlerUpstreamSide, upstreamSide := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -160,10 +161,10 @@ func waitForOneFrame(t *testing.T, r *frameRecorder) [][]byte {
 func TestAllowlistHash_OrderInsensitive(t *testing.T) {
 	a := []slmpwrite.AllowedCommand{{Command: 0x1401}, {Command: 0x1002}}
 	b := []slmpwrite.AllowedCommand{{Command: 0x1002}, {Command: 0x1401}}
-	if slmpwrite.AllowlistHash(testTarget, a) != slmpwrite.AllowlistHash(testTarget, b) {
+	if slmpwrite.AllowlistHash(testTarget, a, nil) != slmpwrite.AllowlistHash(testTarget, b, nil) {
 		t.Fatal("AllowlistHash is order-sensitive")
 	}
-	if slmpwrite.AllowlistHash(testTarget, a) == slmpwrite.AllowlistHash("other:5007", a) {
+	if slmpwrite.AllowlistHash(testTarget, a, nil) == slmpwrite.AllowlistHash("other:5007", a, nil) {
 		t.Fatal("AllowlistHash ignores the target")
 	}
 }
@@ -185,7 +186,7 @@ func TestAuthorise_DeniedBadToken(t *testing.T) {
 }
 
 func TestReadPassesUpstream(t *testing.T) {
-	client, rec := driveSession(t, nil)
+	client, rec := driveSession(t, nil, nil)
 	req := buildSLMP(uint16(wire.CmdDeviceReadBatch), 0x00, 0x00) // Device Read
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -198,7 +199,7 @@ func TestReadPassesUpstream(t *testing.T) {
 
 func TestAllowedWritePassesUpstream(t *testing.T) {
 	allow := []slmpwrite.AllowedCommand{{Command: uint16(wire.CmdDeviceWriteBatch)}}
-	client, rec := driveSession(t, allow)
+	client, rec := driveSession(t, allow, nil)
 	req := buildSLMP(uint16(wire.CmdDeviceWriteBatch), 0xA8, 0x00, 0x00, 0x00, 0x90, 0x01, 0x00, 0x34, 0x12)
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -209,8 +210,54 @@ func TestAllowedWritePassesUpstream(t *testing.T) {
 	}
 }
 
+// deviceCodeOffset is where the device code sits in a subcommand-0x0000
+// Device Write Batch (header+monitoring+command+subcommand+head(3)).
+const deviceCodeOffset = 18
+
+func TestDeviceScoping_AllowedDevicePasses(t *testing.T) {
+	allow := []slmpwrite.AllowedCommand{{Command: uint16(wire.CmdDeviceWriteBatch)}}
+	devices := []slmpwrite.AllowedDevice{{Code: 0xA8}} // D data register
+	client, rec := driveSession(t, allow, devices)
+	// head device (3) = 0, device code 0xA8 at offset 18, points, data.
+	req := buildSLMP(uint16(wire.CmdDeviceWriteBatch), 0x00, 0x00, 0x00, 0xA8, 0x01, 0x00, 0x34, 0x12)
+	if _, err := client.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	if got := waitForOneFrame(t, rec); got[0][deviceCodeOffset] != 0xA8 {
+		t.Fatalf("forwarded device = 0x%02x, want 0xA8", got[0][deviceCodeOffset])
+	}
+}
+
+func TestDeviceScoping_DisallowedDeviceRefused(t *testing.T) {
+	allow := []slmpwrite.AllowedCommand{{Command: uint16(wire.CmdDeviceWriteBatch)}}
+	devices := []slmpwrite.AllowedDevice{{Code: 0xA8}} // only D is allowed
+	client, rec := driveSession(t, allow, devices)
+	// Device Write Batch to M relay (0x90): command allowlisted, device not.
+	req := buildSLMP(uint16(wire.CmdDeviceWriteBatch), 0x00, 0x00, 0x00, 0x90, 0x01, 0x00, 0xFF, 0xFF)
+	if _, err := client.Write(req); err != nil {
+		t.Fatal(err)
+	}
+	ref := readOne(t, client)
+	if binary.LittleEndian.Uint16(ref[9:11]) != wire.EndCodeRefused {
+		t.Errorf("device-refusal end code = 0x%04x, want 0x%04x",
+			binary.LittleEndian.Uint16(ref[9:11]), wire.EndCodeRefused)
+	}
+	time.Sleep(shortPause)
+	if snap := rec.snapshot(); len(snap) != 0 {
+		t.Fatalf("a disallowed-device write leaked %d frame(s) upstream", len(snap))
+	}
+}
+
+func TestAllowlistHash_DevicesChangeToken(t *testing.T) {
+	cmds := []slmpwrite.AllowedCommand{{Command: 0x1401}}
+	if slmpwrite.AllowlistHash(testTarget, cmds, nil) ==
+		slmpwrite.AllowlistHash(testTarget, cmds, []slmpwrite.AllowedDevice{{Code: 0xA8}}) {
+		t.Fatal("adding a device did not change the hash")
+	}
+}
+
 func TestNonAllowedWriteRefused(t *testing.T) {
-	client, rec := driveSession(t, nil) // empty allowlist
+	client, rec := driveSession(t, nil, nil) // empty allowlist
 	req := buildSLMP(uint16(wire.CmdDeviceWriteBatch), 0xA8, 0x00, 0x00, 0x00, 0x90, 0x01, 0x00, 0xFF, 0xFF)
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)
@@ -229,7 +276,7 @@ func TestNonAllowedWriteRefused(t *testing.T) {
 }
 
 func TestUnknownCommandRefused(t *testing.T) {
-	client, rec := driveSession(t, []slmpwrite.AllowedCommand{{Command: uint16(wire.CmdDeviceWriteBatch)}})
+	client, rec := driveSession(t, []slmpwrite.AllowedCommand{{Command: uint16(wire.CmdDeviceWriteBatch)}}, nil)
 	req := buildSLMP(0x9999) // not in any table
 	if _, err := client.Write(req); err != nil {
 		t.Fatal(err)

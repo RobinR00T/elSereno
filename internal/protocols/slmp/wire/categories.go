@@ -103,6 +103,32 @@ func ExtractCommand(buf []byte) (Command, bool) {
 	return Command(binary.LittleEndian.Uint16(buf[commandOffset : commandOffset+2])), true
 }
 
+// WriteBatchDeviceCode returns the device code of a Device Write Batch
+// (0x1401) request whose subcommand is 0x0000 (word units: a 3-byte
+// head device number followed by a 1-byte device code, SLMP Reference
+// Manual §3.3). It returns (code, true) only for that exact shape with
+// enough length; (0, false) for any other command, a non-zero
+// subcommand, or a short frame. The proxy treats false as
+// "unverifiable, refuse" (fail-closed): other subcommands (e.g. the
+// iQ-R 4-byte device format, subcommand 0x0002) place the device code
+// at a different offset and are intentionally not parsed here.
+func WriteBatchDeviceCode(frame []byte) (byte, bool) {
+	const (
+		subcommandOff = commandOffset + 2     // 13: 2-byte subcommand
+		deviceCodeOff = commandOffset + 4 + 3 // 18: after command+subcommand+head-device(3)
+	)
+	if len(frame) <= deviceCodeOff {
+		return 0, false
+	}
+	if cmd, ok := ExtractCommand(frame); !ok || cmd != CmdDeviceWriteBatch {
+		return 0, false
+	}
+	if binary.LittleEndian.Uint16(frame[subcommandOff:subcommandOff+2]) != 0x0000 {
+		return 0, false
+	}
+	return frame[deviceCodeOff], true
+}
+
 // ReadFrame reads exactly one 3E-binary frame (request or response)
 // from r. Both directions carry their byte count in the 2-byte
 // data-length field at offset 7..8, and the total frame is
