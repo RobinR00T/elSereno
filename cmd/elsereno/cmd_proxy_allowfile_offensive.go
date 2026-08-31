@@ -30,6 +30,8 @@ const (
 	// S7 function code).
 	pluginNameENIP = "enip"
 	pluginNameS7   = "s7"
+	// Wire-aware allowlist of FINS (MRC,SRC) command codes.
+	pluginNameFINS = "finsudp"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every

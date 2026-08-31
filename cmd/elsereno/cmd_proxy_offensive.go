@@ -25,6 +25,7 @@ import (
 	bacwrite "local/elsereno/offensive/write/bacnet"
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	enipwrite "local/elsereno/offensive/write/enip"
+	finswrite "local/elsereno/offensive/write/finsudp"
 	iaxwrite "local/elsereno/offensive/write/iax2"
 	mmswrite "local/elsereno/offensive/write/mms"
 	modwrite "local/elsereno/offensive/write/modbus"
@@ -120,6 +121,11 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 	cmd.Flags().UintSliceVar(&opts.s7Functions, "s7-fc", nil,
 		"s7: S7 function codes to allow (uint8; e.g. 0x05 WriteVar). "+
 			"Wire-aware allowlist parsed from TPKT/COTP. v1.35+.")
+	cmd.Flags().StringSliceVar(&opts.finsCommands, "fins-command", nil,
+		"finsudp: FINS commands to allow as MRC:SRC byte pairs "+
+			"(decimal or 0x..; e.g. 0x01:0x02 Memory Area Write, "+
+			"0x04:0x01 RUN). Reads always pass; a mutating command is "+
+			"admitted only when listed. Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -376,6 +382,11 @@ type proxyListenOpts struct {
 	// (uint8). Wire-aware; the gate parses each TPKT envelope
 	// and admits only frames whose inner-PDU FC is listed.
 	s7Functions []uint
+	// finsCommands holds the finsudp allowlist of FINS command
+	// codes in "MRC:SRC" form (bytes, decimal or 0x-hex; e.g.
+	// 0x01:0x02 Memory Area Write). Reads always pass; a mutating
+	// command is admitted only when its (MRC,SRC) is listed.
+	finsCommands []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -632,8 +643,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildENIPHandler(opts, rt, c)
 	case pluginNameS7:
 		return buildS7Handler(opts, rt, c)
+	case pluginNameFINS:
+		return buildFINSHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -666,6 +679,48 @@ func buildMMSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confi
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
 	}
+}
+
+// parseFINSCommand parses one --fins-command value "MRC:SRC" into an
+// AllowedCommand. Each half is a byte (decimal or 0x-hex).
+func parseFINSCommand(s string) (finswrite.AllowedCommand, error) {
+	var a finswrite.AllowedCommand
+	kv := strings.SplitN(strings.TrimSpace(s), ":", 2)
+	if len(kv) != 2 {
+		return a, fmt.Errorf("--fins-command %q: want MRC:SRC", s)
+	}
+	mrc, err := strconv.ParseUint(strings.TrimSpace(kv[0]), 0, 8)
+	if err != nil {
+		return a, fmt.Errorf("--fins-command %q: bad MRC %q: %w", s, kv[0], err)
+	}
+	src, err := strconv.ParseUint(strings.TrimSpace(kv[1]), 0, 8)
+	if err != nil {
+		return a, fmt.Errorf("--fins-command %q: bad SRC %q: %w", s, kv[1], err)
+	}
+	// #nosec G115 -- ParseUint bitSize=8 bounds both halves to a byte.
+	return finswrite.AllowedCommand{MRC: byte(mrc), SRC: byte(src)}, nil
+}
+
+// buildFINSHandler constructs the finsudp write-gated proxy. Wire-
+// aware: reads always pass, and a mutating FINS command is admitted
+// only when the operator allowlisted its (MRC,SRC) via
+// --fins-command.
+func buildFINSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*finswrite.WriteGatedHandler, error) {
+	allowed := make([]finswrite.AllowedCommand, 0, len(opts.finsCommands))
+	for _, raw := range opts.finsCommands {
+		cmd, err := parseFINSCommand(raw)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, cmd)
+	}
+	return &finswrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
 }
 
 // parseU32 parses a decimal or 0x-hex number into uint32.
