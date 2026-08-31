@@ -32,6 +32,8 @@ const (
 	pluginNameS7   = "s7"
 	// Wire-aware allowlist of FINS (MRC,SRC) command codes.
 	pluginNameFINS = "finsudp"
+	// Wire-aware allowlist of SLMP command codes.
+	pluginNameSLMP = "slmp"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every

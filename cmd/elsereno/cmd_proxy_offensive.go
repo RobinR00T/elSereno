@@ -34,6 +34,7 @@ import (
 	pcworxwrite "local/elsereno/offensive/write/pcworx"
 	s7write "local/elsereno/offensive/write/s7"
 	sipwrite "local/elsereno/offensive/write/sip"
+	slmpwrite "local/elsereno/offensive/write/slmp"
 )
 
 // newProxyListenCmd runs a gated proxy against a supported
@@ -126,6 +127,11 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"(decimal or 0x..; e.g. 0x01:0x02 Memory Area Write, "+
 			"0x04:0x01 RUN). Reads always pass; a mutating command is "+
 			"admitted only when listed. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.slmpCommands, "slmp-command", nil,
+		"slmp: SLMP command codes to allow (uint16, decimal or 0x..; "+
+			"e.g. 0x1401 Device Write Batch, 0x1002 Remote Stop). Reads "+
+			"always pass; a mutating command is admitted only when "+
+			"listed. Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -387,6 +393,11 @@ type proxyListenOpts struct {
 	// 0x01:0x02 Memory Area Write). Reads always pass; a mutating
 	// command is admitted only when its (MRC,SRC) is listed.
 	finsCommands []string
+	// slmpCommands holds the slmp allowlist of SLMP command codes
+	// (uint16 as decimal or 0x-hex; e.g. 0x1401 Device Write
+	// Batch). Reads always pass; a mutating command is admitted
+	// only when its command code is listed.
+	slmpCommands []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -645,8 +656,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildS7Handler(opts, rt, c)
 	case pluginNameFINS:
 		return buildFINSHandler(opts, rt, c)
+	case pluginNameSLMP:
+		return buildSLMPHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -715,6 +728,28 @@ func buildFINSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		allowed = append(allowed, cmd)
 	}
 	return &finswrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// buildSLMPHandler constructs the slmp write-gated proxy. Wire-aware:
+// reads always pass, and a mutating SLMP command is admitted only
+// when the operator allowlisted its command code via --slmp-command.
+func buildSLMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*slmpwrite.WriteGatedHandler, error) {
+	allowed := make([]slmpwrite.AllowedCommand, 0, len(opts.slmpCommands))
+	for _, raw := range opts.slmpCommands {
+		v, err := strconv.ParseUint(strings.TrimSpace(raw), 0, 16)
+		if err != nil {
+			return nil, fmt.Errorf("--slmp-command %q: %w", raw, err)
+		}
+		// #nosec G115 -- ParseUint bitSize=16 bounds v to a uint16.
+		allowed = append(allowed, slmpwrite.AllowedCommand{Command: uint16(v)})
+	}
+	return &slmpwrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
 		Deriver:        rt.Vault,
