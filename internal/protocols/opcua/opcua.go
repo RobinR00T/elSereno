@@ -37,7 +37,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "OPC UA fingerprint on 4840 — UA-TCP Hello (ACK/ERR); falls back to the HTTPS GetEndpoints binding (Part 6 §7.4) when TCP is not UA",
+		Description: "OPC UA TCP (Part 6) fingerprint on 4840 — sends Hello, classifies ACK/ERR response",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -63,15 +63,10 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	h, body, rawErr := readFrame(conn)
 	if rawErr != nil {
-		// The UA-TCP HEL did not yield an ACK/ERR. The same port may
-		// speak OPC UA over the HTTPS binding instead (Part 6 §7.4), so
-		// try a session-less GetEndpoints POST before giving up. Only
-		// runs on the non-UA path, so it never slows an opc.tcp hit.
-		if f := p.tryHTTPS(ctx, target); f != nil {
-			return f, nil
-		}
 		// rawErr carries the already-rendered SafeBytes snippet
-		// for the non-UA or short-read paths.
+		// for the non-UA or short-read paths. (OPC UA over the HTTPS
+		// binding is fingerprinted by the separate `opcuahttps` plugin
+		// on 4843, which parses the GetEndpoints response.)
 		return buildFinding(target, rawErr.note, false, "", rawErr.snippet), nil
 	}
 	return classifyFrame(target, h, body), nil

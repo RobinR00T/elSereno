@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -478,5 +479,34 @@ func TestDriveProbeAgainstBytes_DefaultTimeout(t *testing.T) {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		// Other errors are surfaced for debug but don't fail.
 		t.Logf("driveProbeAgainstBytes returned: %v (ok)", err)
+	}
+}
+
+func TestParseProbeTarget_IPPort(t *testing.T) {
+	tgt, err := parseProbeTarget(context.Background(), "127.0.0.1:4843")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tgt.Address.String() != "127.0.0.1" || tgt.Port != 4843 {
+		t.Fatalf("got %s:%d, want 127.0.0.1:4843", tgt.Address, tgt.Port)
+	}
+}
+
+func TestParseProbeTarget_Bad(t *testing.T) {
+	for _, s := range []string{"nohostport", "127.0.0.1:99999", "127.0.0.1:abc"} {
+		if _, err := parseProbeTarget(context.Background(), s); err == nil {
+			t.Errorf("parseProbeTarget(%q) = nil err, want error", s)
+		}
+	}
+}
+
+func TestFingerprintProbe_MissingArgs(t *testing.T) {
+	if err := runFingerprintProbe(context.Background(),
+		fingerprintProbeOpts{Target: "127.0.0.1:1", Out: io.Discard}); err == nil {
+		t.Error("missing --plugin accepted")
+	}
+	if err := runFingerprintProbe(context.Background(),
+		fingerprintProbeOpts{Plugin: "opcuahttps", Out: io.Discard}); err == nil {
+		t.Error("missing --target accepted")
 	}
 }

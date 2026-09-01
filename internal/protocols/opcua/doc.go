@@ -6,16 +6,15 @@
 //   - ERR → OPC UA server that refused (wrong endpoint, version
 //     mismatch, policy reject); still a positive identification
 //     because only UA-TCP speakers emit ERR
-//   - anything else → the UA-TCP HEL got no ACK/ERR. Before
-//     giving up, Probe falls back to the OPC UA HTTPS binding
-//     (Part 6 §7.4): a session-less GetEndpoints POST on the same
-//     host:port. A server that answers with its EndpointDescription
-//     list is a positive UA identification and reveals its security
-//     posture (a SecurityMode=None endpoint scores as higher
-//     exposure). See httpsprobe.go / wire/getendpoints.go.
+//   - anything else → not UA-TCP. OPC UA over the HTTPS binding
+//     (Part 6 §7.4) is fingerprinted by the separate `opcuahttps`
+//     plugin on 4843, which POSTs a real GetEndpointsRequest and
+//     parses the EndpointDescription list (security posture
+//     included). The GetEndpoints codec lives in wire/getendpoints.go.
 //
-// Write gating is out of scope for v1.1 — OPC UA SecureChannel +
-// Session + Write service is a large surface that v1.2 opens via
-// a dedicated `offensive/write/opcua` package following the
-// ADR-040 WriteGatedHandler pattern.
+// Write gating lives in the `offensive/write/opcua` package (built,
+// behind -tags offensive): its WriteGatedHandler classifies each MSG
+// chunk by service TypeId and refuses a non-allowlisted Write/Call with
+// a native ServiceFault, per the ADR-040 pattern. The default build
+// here stays probe-only + deny-all proxy.
 package opcua

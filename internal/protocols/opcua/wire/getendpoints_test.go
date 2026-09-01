@@ -150,6 +150,36 @@ func TestDecodeGetEndpointsResponse_TwoEndpoints(t *testing.T) {
 	}
 }
 
+// EncodeGetEndpointsResponse must round-trip through the decoder.
+func TestGetEndpointsResponse_RoundTrip(t *testing.T) {
+	in := []wire.EndpointDescription{
+		{
+			EndpointURL: "opc.https://h:443/UA", ApplicationURI: "urn:h:UA",
+			ProductURI: "urn:h:p", ApplicationName: "Srv",
+			SecurityMode: wire.SecurityModeSignAndEncrypt, SecurityPolicyURI: "policy#Basic256",
+			TransportProfileURI: "profile", SecurityLevel: 3,
+		},
+		{
+			EndpointURL: "opc.https://h:443/None", SecurityMode: wire.SecurityModeNone,
+			SecurityPolicyURI: "policy#None", SecurityLevel: 0,
+		},
+	}
+	out, err := wire.DecodeGetEndpointsResponse(wire.EncodeGetEndpointsResponse(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("endpoints=%d, want 2", len(out))
+	}
+	if out[0].EndpointURL != in[0].EndpointURL || out[0].SecurityMode != in[0].SecurityMode ||
+		out[0].SecurityLevel != 3 || out[0].ApplicationName != "Srv" {
+		t.Errorf("ep0 round-trip mismatch: %+v", out[0])
+	}
+	if out[1].SecurityMode != wire.SecurityModeNone {
+		t.Errorf("ep1 mode=%d, want None", out[1].SecurityMode)
+	}
+}
+
 func TestDecodeGetEndpointsResponse_Empty(t *testing.T) {
 	eps, err := wire.DecodeGetEndpointsResponse(buildResponse(0))
 	if err != nil {

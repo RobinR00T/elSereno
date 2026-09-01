@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/protocols/opcua/wire"
 	"local/elsereno/internal/protocols/opcuahttps"
 )
 
@@ -119,6 +120,39 @@ func TestProbe_UABinaryContentType(t *testing.T) {
 	}
 	if f.Factors["capability"] != 75 {
 		t.Errorf("capability = %d, want 75 (strong UA binding)", f.Factors["capability"])
+	}
+}
+
+// TestProbe_GetEndpointsDeep: the server answers the GetEndpoints POST
+// with a real EndpointDescription list (one SecurityMode=None), so the
+// deep path fires and the finding carries the exposure/auth_state bump.
+func TestProbe_GetEndpointsDeep(t *testing.T) {
+	body := wire.EncodeGetEndpointsResponse([]wire.EndpointDescription{
+		{
+			EndpointURL: "opc.https://h:4843/UA", SecurityMode: wire.SecurityModeSignAndEncrypt,
+			SecurityPolicyURI: "Basic256Sha256", SecurityLevel: 3,
+		},
+		{EndpointURL: "opc.https://h:4843/None", SecurityMode: wire.SecurityModeNone, SecurityPolicyURI: "None"},
+	})
+	host, port := startTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(body)
+	})
+	f, err := opcuahttps.Default().Probe(context.Background(), core.Target{
+		Address: mustParseAddr(t, host), Port: port,
+	})
+	if err != nil {
+		t.Fatalf("probe err: %v", err)
+	}
+	if f == nil {
+		t.Fatal("nil finding; expected a deep GetEndpoints hit")
+	}
+	if f.Factors["capability"] != 80 {
+		t.Errorf("capability = %d, want 80 (endpoint enumeration)", f.Factors["capability"])
+	}
+	if f.Factors["exposure"] != 90 || f.Factors["auth_state"] != 90 {
+		t.Errorf("exposure=%d auth_state=%d, want 90/90 (None endpoint)",
+			f.Factors["exposure"], f.Factors["auth_state"])
 	}
 }
 

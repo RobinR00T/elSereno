@@ -77,6 +77,13 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 // to classify the strength of the UA fingerprint.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
+	// Deep path first: a real GetEndpoints POST (Part 6 §7.4). If the
+	// server answers with a decodable EndpointDescription list, that is
+	// a definitive UA identification and yields the security posture.
+	// On any failure we fall through to the header-only classifier below.
+	if eps, err := probeGetEndpoints(ctx, "https://"+addr+"/", "opc.https://"+addr+"/", p.IOTimeout); err == nil && len(eps) > 0 {
+		return buildEndpointsFinding(target, eps), nil
+	}
 	// We do NOT verify the cert — see SkipVerify rationale on
 	// the Plugin struct. The fingerprint cares about the
 	// service identity (headers), not PKI trust.

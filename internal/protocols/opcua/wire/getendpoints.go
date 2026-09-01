@@ -133,6 +133,68 @@ func EncodeGetEndpointsRequest(endpointURL string) []byte {
 	return b
 }
 
+// putI32 appends a signed Int32 (LE) — used for array counts.
+func putI32(b []byte, v int32) []byte { return putU32(b, uint32(v)) } // #nosec G115 -- Int32 is the u32 bit pattern.
+
+// putLocalizedText appends a LocalizedText carrying only text (mask
+// 0x02), Part 6 §5.2.2.14.
+func putLocalizedText(b []byte, text string) []byte {
+	b = append(b, 0x02)
+	return putString(b, text)
+}
+
+// putApplicationDescription appends a minimal ApplicationDescription
+// (Part 4 §7.1): the identity fields plus null gateway/discovery.
+func putApplicationDescription(b []byte, appURI, prodURI, name string) []byte {
+	b = putString(b, appURI)
+	b = putString(b, prodURI)
+	b = putLocalizedText(b, name)
+	b = putU32(b, 0)     // applicationType = Server
+	b = putNullString(b) // gatewayServerUri
+	b = putNullString(b) // discoveryProfileUri
+	b = putNullArray(b)  // discoveryUrls
+	return b
+}
+
+// putEndpoint appends one EndpointDescription (Part 4 §7.10). The
+// server certificate is emitted as a null ByteString; userIdentityTokens
+// as a null array (a fingerprint response carries neither).
+func putEndpoint(b []byte, e EndpointDescription) []byte {
+	b = putString(b, e.EndpointURL)
+	b = putApplicationDescription(b, e.ApplicationURI, e.ProductURI, e.ApplicationName)
+	b = putNullString(b) // serverCertificate (null ByteString)
+	b = putU32(b, e.SecurityMode)
+	b = putString(b, e.SecurityPolicyURI)
+	b = putNullArray(b) // userIdentityTokens
+	b = putString(b, e.TransportProfileURI)
+	b = append(b, e.SecurityLevel)
+	return b
+}
+
+// EncodeGetEndpointsResponse builds the UA Binary message body for a
+// GetEndpointsResponse advertising eps. This is the mirror of
+// DecodeGetEndpointsResponse (round-trips through it) and is what the
+// HTTPS fingerprint simulator serves. The ResponseHeader is minimal:
+// zero timestamp, handle 1, Good serviceResult, empty diagnostics.
+func EncodeGetEndpointsResponse(eps []EndpointDescription) []byte {
+	b := make([]byte, 0, 128)
+	b = putFourByteNodeID(b, TypeIDGetEndpointsResponse)
+	// ResponseHeader (Part 4 §7.29).
+	b = putU32(b, 0)                // timestamp low ...
+	b = putU32(b, 0)                // ... DateTime (8 bytes)
+	b = putU32(b, 1)                // requestHandle
+	b = putU32(b, 0)                // serviceResult (Good)
+	b = append(b, 0x00)             // serviceDiagnostics: empty DiagnosticInfo
+	b = putNullArray(b)             // stringTable
+	b = append(b, 0x00, 0x00, 0x00) // additionalHeader: null ExtensionObject
+	// endpoints array.
+	b = putI32(b, int32(len(eps))) // #nosec G115 -- endpoint count is small.
+	for _, e := range eps {
+		b = putEndpoint(b, e)
+	}
+	return b
+}
+
 // ---- decoding ------------------------------------------------------
 
 var (

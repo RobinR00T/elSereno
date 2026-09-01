@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,7 +44,89 @@ func newFingerprintCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newFingerprintValidateCmd())
 	cmd.AddCommand(newFingerprintCaptureCmd())
+	cmd.AddCommand(newFingerprintProbeCmd())
 	return cmd
+}
+
+// newFingerprintProbeCmd returns `elsereno fingerprint probe`: a live
+// single-target fingerprint with one named plugin. Unlike `validate`
+// (offline, from captured bytes), it opens a real connection and runs
+// the plugin's Probe against host:port. Useful for a targeted check
+// without the banner-only `scan` or the dashboard orchestrator.
+func newFingerprintProbeCmd() *cobra.Command {
+	var o fingerprintProbeOpts
+	cmd := &cobra.Command{
+		Use:   "probe",
+		Short: "Live fingerprint of one host:port with a named plugin",
+		Long: `probe runs a named plugin's live Probe against a single host:port
+and prints the Finding. Opens a real connection (contrast with
+` + "`validate`" + `, which classifies captured bytes offline).
+
+  elsereno fingerprint probe --plugin opcuahttps --target 10.0.0.5:4843`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			o.Out = cmd.OutOrStdout()
+			return runFingerprintProbe(cmd.Context(), o)
+		},
+	}
+	cmd.Flags().StringVar(&o.Plugin, "plugin", "", "plugin name (required; see `elsereno plugins list`)")
+	cmd.Flags().StringVar(&o.Target, "target", "", "host:port to probe (required)")
+	cmd.Flags().DurationVar(&o.Timeout, "timeout", 8*time.Second, "upper bound on the probe")
+	cmd.Flags().BoolVar(&o.JSON, "json", false, "emit Finding as JSON")
+	return cmd
+}
+
+type fingerprintProbeOpts struct {
+	Plugin  string
+	Target  string
+	Timeout time.Duration
+	JSON    bool
+	Out     io.Writer
+}
+
+func runFingerprintProbe(ctx context.Context, o fingerprintProbeOpts) error {
+	if o.Plugin == "" {
+		return fail(core.ExitUsage, errors.New("--plugin is required (see `elsereno plugins list`)"))
+	}
+	if o.Target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required (host:port)"))
+	}
+	target, err := parseProbeTarget(ctx, o.Target)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	plugin, err := lookupPlugin(o.Plugin)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	cctx, cancel := context.WithTimeout(ctx, o.Timeout)
+	defer cancel()
+	finding, err := plugin.Factory().Probe(cctx, target)
+	if err != nil {
+		return fail(core.ExitError, fmt.Errorf("probe: %w", err))
+	}
+	return emitFingerprintFinding(o.Out, finding, o.JSON)
+}
+
+// parseProbeTarget resolves a host:port string into a core.Target. An
+// IP literal is used directly; a hostname is resolved to its first IP.
+func parseProbeTarget(ctx context.Context, s string) (core.Target, error) {
+	if ap, err := netip.ParseAddrPort(s); err == nil {
+		return core.Target{Address: ap.Addr().Unmap(), Port: core.Port(ap.Port())}, nil
+	}
+	host, portStr, err := net.SplitHostPort(s)
+	if err != nil {
+		return core.Target{}, fmt.Errorf("--target %q: want host:port", s)
+	}
+	p, err := strconv.Atoi(portStr)
+	if err != nil || p < 0 || p > 65535 {
+		return core.Target{}, fmt.Errorf("--target %q: bad port %q", s, portStr)
+	}
+	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+	if err != nil || len(addrs) == 0 {
+		return core.Target{}, fmt.Errorf("--target %q: resolve %q: %w", s, host, err)
+	}
+	// #nosec G115 -- p is bounds-checked to [0,65535] above.
+	return core.Target{Address: addrs[0].Unmap(), Port: core.Port(p)}, nil
 }
 
 // newFingerprintCaptureCmd returns the `elsereno fingerprint
