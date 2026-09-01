@@ -16,7 +16,7 @@ const maxUDPDatagram = 65535
 
 // runUDP is the datagram counterpart to the TCP accept loop. It binds
 // one UDP socket and, for each distinct client source address, spins
-// up a session: a freshly dialed upstream UDP socket plus a
+// up a session: a freshly dialled upstream UDP socket plus a
 // per-source client adapter, both handed to the same
 // Handler.Handle(ctx, client, upstream) contract. Each client Read
 // yields exactly one datagram; each client Write sends one datagram
@@ -80,7 +80,8 @@ func (s *Server) runUDP(ctx context.Context) error {
 // newUDPSession dials the upstream and starts the handler for a new
 // client source address. Returns nil if the upstream dial fails.
 func (s *Server) newUDPSession(ctx context.Context, pc net.PacketConn, addr net.Addr, onClose func()) *udpSession {
-	upstream, err := net.DialTimeout("udp", s.opts.Upstream, s.opts.DialTimeout)
+	dialer := net.Dialer{Timeout: s.opts.DialTimeout}
+	upstream, err := dialer.DialContext(ctx, "udp", s.opts.Upstream)
 	if err != nil {
 		return nil
 	}

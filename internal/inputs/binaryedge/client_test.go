@@ -2,6 +2,7 @@ package binaryedge_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestNew_NoKey(t *testing.T) {
-	if _, err := binaryedge.New("", 0); err != binaryedge.ErrNoAPIKey {
+	if _, err := binaryedge.New("", 0); !errors.Is(err, binaryedge.ErrNoAPIKey) {
 		t.Fatalf("New(\"\") = %v, want ErrNoAPIKey", err)
 	}
 }

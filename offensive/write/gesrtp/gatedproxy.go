@@ -117,8 +117,8 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 	if !h.authorised {
 		return ErrSessionNotAuthorised
 	}
-	var cw io.ReadWriter = client
-	var uw io.ReadWriter = upstream
+	cw := client
+	uw := upstream
 	if h.Recorder != nil {
 		cw = h.Recorder.WrapClient(cw)
 		uw = h.Recorder.WrapUpstream(uw)

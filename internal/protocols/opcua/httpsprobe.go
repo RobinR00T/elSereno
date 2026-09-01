@@ -75,7 +75,7 @@ func ProbeHTTPS(ctx context.Context, postURL, endpointURL string, timeout time.D
 	}
 	eps, err := wire.DecodeGetEndpointsResponse(raw)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrHTTPSNotUA, err)
+		return nil, fmt.Errorf("%w: %w", ErrHTTPSNotUA, err)
 	}
 	return eps, nil
 }

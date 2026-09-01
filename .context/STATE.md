@@ -146,15 +146,9 @@ paths only; v1.68 / v1.69 introduce no new
 vulnerable callsites. Operator upgrades Go
 toolchain in CI/build.
 
-**v1.66 cycle (closed, snapshot available)**:
-Per-plugin findings breakdown. 1 chunk + close:
-`f0255b5`, `5fe8388`. Snapshot:
-`.context/snapshots/v1.66.0-findings-by-plugin.md`.
-
-**v1.65 cycle (closed, snapshot available)**:
-scan_stats_progress SSE event with per-job throttle.
-1 chunk + close: `b7f8158`, `4fa625d`. Snapshot:
-`.context/snapshots/v1.65.0-scan-stats-progress.md`.
+**v1.65 + v1.66 cycles (closed, snapshots available)**:
+scan_stats_progress SSE (v1.65) + per-plugin findings
+breakdown (v1.66). Snapshots in `.context/snapshots/`.
 
 **v1.58 → v1.65 cycles** (closed; per-cycle snapshots
 in `.context/snapshots/`):
@@ -163,20 +157,13 @@ v1.58 shell + v1.59 worker + v1.60 DB store +
 v1.61 runner + v1.62 panel + v1.63 state-SSE +
 v1.64 multi-plugin + v1.65 progress-SSE.
 
-**v1.50 → v1.58 cycles** (closed; per-cycle snapshots
-in `.context/snapshots/`): macOS sandbox_init(3) cgo-
-gated (v1.50), MMS ACSE A-ASSOCIATE-REQUEST for IEC
-61850-8-1 IED ID (v1.51), s7 per-(area, db, byte-
-address) gating (v1.52), enip per-(class, instance,
-attribute) gating (v1.53), TwinCAT ADS fingerprint
-plugin (v1.54), KNX offensive write-gated proxy
-(v1.55), M-Bus over TCP offensive write-gated proxy
-(v1.56), DLMS/COSEM offensive write-gated proxy
-(v1.57), dashboard scan-orchestration shell (v1.58 —
-closes v1.50 F). v1.50 substantial-items batch
-(A=v1.52, B=v1.53, C=v1.54, D1=v1.55, D2=v1.56,
-D3=v1.57, E=v1.51, F=v1.58) fully done; v1.59+ is
-forward progress on dashboard orchestration.
+**v1.50 → v1.58 cycles** (closed; per-cycle snapshots in
+`.context/snapshots/`): macOS sandbox_init(3) (v1.50),
+MMS/IEC 61850 IED ID (v1.51), s7 + enip per-object gating
+(v1.52/v1.53), TwinCAT ADS fingerprint (v1.54), KNX + M-Bus
++ DLMS write-gated proxies (v1.55-v1.57), dashboard scan-
+orchestration shell (v1.58). v1.59+ is forward progress on
+dashboard orchestration.
 
 **v1.41 → v1.49 cycles (closed; per-cycle snapshots in
 `.context/snapshots/`):**
@@ -227,16 +214,14 @@ remains an option since v1.8.
   banner, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp,
   hartip, iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp,
   redlion, s7, sip, slmp, xot.
-- 21 offensive write-gated proxies (default + `-tags offensive`
-  builds): atg, bacnet, cwmp, dlms, dnp3, enip, finsudp, fox, hartip,
-  iax2, iec104, knxip, mbustcp, mms, modbus, opcua, pbxhttp, pcworx,
-  s7, sip, slmp. finsudp (UDP/9600) + slmp (TCP/5007) added 2026-08-31
-  with `write <p> proxy-dry-run` token minting and end-to-end demos
-  (scripts/demo-{fins,slmp}-proxy.sh); the proxy framework gained a UDP
-  transport (Options.Network) so finsudp runs end-to-end. Still
-  fingerprint-only (offensive write path pending): codesys, gesrtp,
-  redlion. GE-SRTP is blocked on a validated SRTP service-request wire
-  layout (see internal/protocols/gesrtp/wire HONEST SCOPE NOTE).
+- 24 offensive write-gated proxies (default + `-tags offensive`
+  builds): atg, bacnet, codesys, cwmp, dlms, dnp3, enip, finsudp, fox,
+  gesrtp, hartip, iax2, iec104, knxip, mbustcp, mms, modbus, opcua,
+  pbxhttp, pcworx, redlion, s7, sip, slmp. GE-SRTP, CoDeSys and Red Lion
+  landed 2026-09-01 on validated public dissectors; finsudp (UDP/9600),
+  slmp (TCP/5007) and a UDP transport (Options.Network) landed
+  2026-08-31. Each ships `write <p> proxy-dry-run` token minting and an
+  end-to-end simulator demo (scripts/demo-*-proxy.sh).
 - 6 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, internetdb.
 - 16 / 25 plugins publish a non-zero `cve_exposure` score
@@ -250,7 +235,8 @@ remains an option since v1.8.
 - Offensive plugins for the v1.20 / v1.21 fingerprint trios.
 - GE-SRTP service-0x21 follow-up.
 - macOS sandbox via `sandbox_init(3)`.
-- IEC 61850 MMS, OPC UA HTTPS, PROFINET (L2 with gopacket).
+- IEC 61850 MMS, PROFINET (L2 with gopacket). (OPC UA HTTPS
+  GetEndpoints fingerprint landed 2026-09-01.)
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
 **Operator-pending**:

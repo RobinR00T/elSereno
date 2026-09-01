@@ -721,6 +721,18 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 			return nil, err
 		}
 		return h, nil
+	}
+	// Legacy-ICS plugins live in their own dispatcher so neither switch
+	// trips gocyclo as the plugin roster keeps growing.
+	return buildICSGatedHandler(opts, rt, c)
+}
+
+// buildICSGatedHandler dispatches the legacy-ICS write-gate plugins
+// (pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys /
+// redlion). Split out of buildGatedHandler to keep both switches under
+// the cyclomatic-complexity budget.
+func buildICSGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (gatedProxyHandler, error) {
+	switch strings.ToLower(opts.plugin) {
 	case pluginNamePcworx:
 		return buildPcworxHandler(opts, rt, c), nil
 	case pluginNameMMS:

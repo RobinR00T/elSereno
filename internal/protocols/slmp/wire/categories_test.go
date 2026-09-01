@@ -3,6 +3,7 @@ package wire_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"testing"
 
@@ -17,7 +18,7 @@ func buildReq(command uint16, payload ...byte) []byte {
 	binary.LittleEndian.PutUint16(frame[0:2], wire.SubheaderRequestLE)
 	frame[3] = 0xFF
 	binary.LittleEndian.PutUint16(frame[4:6], 0x03FF)
-	binary.LittleEndian.PutUint16(frame[7:9], uint16(dataLen))
+	binary.LittleEndian.PutUint16(frame[7:9], uint16(dataLen)) // #nosec G115 -- test frame length fits uint16.
 	binary.LittleEndian.PutUint16(frame[11:13], command)
 	copy(frame[15:], payload)
 	return frame
@@ -62,6 +63,8 @@ func TestClassify_ReadWriteDisjoint(t *testing.T) {
 			case wire.CmdDeviceWriteBatch, wire.CmdDeviceWriteRandom,
 				wire.CmdDeviceWriteBlock, wire.CmdRemoteRun, wire.CmdRemoteStop:
 				t.Fatalf("command 0x%04x classified as both Read and a known write", i)
+			default:
+				// Other read-classified commands are fine.
 			}
 		}
 	}
@@ -123,7 +126,7 @@ func TestReadFrame(t *testing.T) {
 	if !bytes.Equal(got2, b) {
 		t.Fatalf("ReadFrame #2 = %x, want %x", got2, b)
 	}
-	if _, err := wire.ReadFrame(stream); err != io.EOF {
+	if _, err := wire.ReadFrame(stream); !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadFrame at EOF = %v, want io.EOF", err)
 	}
 

@@ -85,7 +85,7 @@ func TestKeyed_TamperDetected(t *testing.T) {
 	}
 	lines[1] = tampered
 	joined := append(bytes.Join(lines, []byte("\n")), '\n')
-	if err := os.WriteFile(path, joined, 0o600); err != nil { //nolint:gosec // test temp path
+	if err := os.WriteFile(path, joined, 0o600); err != nil { // #nosec G703 -- test temp path
 		t.Fatal(err)
 	}
 

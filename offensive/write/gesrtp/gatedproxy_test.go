@@ -145,6 +145,16 @@ func TestReadServicePasses(t *testing.T) {
 	waitForOne(t, rec)
 }
 
+func TestExtendedReadServicePasses(t *testing.T) {
+	// The EXTENDED mailbox form carries the service code at offset 50
+	// (vs 42 for SHORT); a read must classify + pass identically.
+	client, rec, _ := driveSession(t, nil)
+	if _, err := client.Write(buildMailbox(byte(wire.SvcReadSysMem), true)); err != nil {
+		t.Fatal(err)
+	}
+	waitForOne(t, rec)
+}
+
 func TestAllowedWritePasses(t *testing.T) {
 	allow := []gewrite.AllowedService{{Code: byte(wire.SvcWriteSysMem)}}
 	client, rec, _ := driveSession(t, allow)

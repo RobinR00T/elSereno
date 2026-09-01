@@ -18,23 +18,22 @@ func (e *enc) u32(v uint32) {
 	binary.LittleEndian.PutUint32(t[:], v)
 	e.b = append(e.b, t[:]...)
 }
-func (e *enc) i32(v int32) { e.u32(uint32(v)) }
+func (e *enc) i32(v int32) { e.u32(uint32(v)) } // #nosec G115 -- test encoder; Int32/uint32 reinterpret.
 func (e *enc) str(s string) {
 	if s == "" {
 		e.i32(-1) // null
 		return
 	}
-	e.u32(uint32(len(s)))
+	e.u32(uint32(len(s))) // #nosec G115 -- test string length fits uint32.
 	e.b = append(e.b, s...)
 }
-func (e *enc) emptyStr()  { e.u32(0) }
 func (e *enc) nullArray() { e.i32(-1) }
 func (e *enc) byteStr(b []byte) {
 	if b == nil {
 		e.i32(-1)
 		return
 	}
-	e.u32(uint32(len(b)))
+	e.u32(uint32(len(b))) // #nosec G115 -- test bytestring length fits uint32.
 	e.b = append(e.b, b...)
 }
 func (e *enc) fourByteNodeID(id uint16) {
@@ -87,7 +86,7 @@ func buildResponse(endpoints int) []byte {
 	e := &enc{}
 	e.fourByteNodeID(wire.TypeIDGetEndpointsResponse)
 	e.responseHeader()
-	e.i32(int32(endpoints))
+	e.i32(int32(endpoints)) // #nosec G115 -- test endpoint count is tiny.
 	if endpoints >= 1 {
 		e.endpoint("opc.https://plc.local:443/UA", wire.SecurityModeSignAndEncrypt,
 			"http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256", 3)
@@ -192,7 +191,7 @@ func TestDecodeGetEndpointsResponse_HostileCount(t *testing.T) {
 func FuzzDecodeGetEndpointsResponse(f *testing.F) {
 	f.Add(buildResponse(2))
 	f.Add([]byte{0x01, 0x00, 0xAF, 0x01})
-	f.Fuzz(func(t *testing.T, buf []byte) {
+	f.Fuzz(func(_ *testing.T, buf []byte) {
 		// Must never panic; error or endpoints, nothing else.
 		_, _ = wire.DecodeGetEndpointsResponse(buf)
 	})

@@ -34,12 +34,14 @@ func TestScanL7_SingleRead(t *testing.T) {
 }
 
 func TestScanL7_WriteLocated(t *testing.T) {
-	buf := l7(wire.SvcCmpApp, 0x05, magicB) // Download
+	// A different service (CmpIecVarAccess/WriteVars) than the rest of
+	// the file, so the classifier's per-service path is exercised too.
+	buf := l7(wire.SvcCmpIecVarAccess, 0x06, magicB) // WriteVars
 	cmds, _ := wire.ScanL7(buf)
 	if len(cmds) != 1 || cmds[0].Cat != wire.CategoryWrite {
 		t.Fatalf("want one Write, got %+v", cmds)
 	}
-	if cmds[0].Cmd != wire.MakeCommand(wire.SvcCmpApp, 0x05) {
+	if cmds[0].Cmd != wire.MakeCommand(wire.SvcCmpIecVarAccess, 0x06) {
 		t.Errorf("cmd=%04x", cmds[0].Cmd)
 	}
 }
@@ -47,9 +49,9 @@ func TestScanL7_WriteLocated(t *testing.T) {
 // A decoy read header injected before a real write must NOT hide the
 // write: ScanL7 locates both.
 func TestScanL7_DecoyCannotHideWrite(t *testing.T) {
-	decoy := l7(wire.SvcCmpApp, 0x14, magicA)      // ReadStatus (decoy)
+	decoy := l7(wire.SvcCmpApp, 0x14, magicA)       // ReadStatus (decoy)
 	realw := l7(wire.SvcCmpApp, 0x11, magicA, 1, 2) // Stop (write)
-	buf := append(decoy, realw...)
+	buf := append(append([]byte(nil), decoy...), realw...)
 	cmds, _ := wire.ScanL7(buf)
 	sawWrite := false
 	for _, c := range cmds {
@@ -66,7 +68,7 @@ func TestScanL7_DecoyCannotHideWrite(t *testing.T) {
 // magic and is not classified yet.
 func TestScanL7_PartialHeaderHeld(t *testing.T) {
 	full := l7(wire.SvcCmpApp, 0x14, magicA)
-	buf := append(full, magicA[0], magicA[1], 0x00) // partial second header
+	buf := append(append([]byte(nil), full...), magicA[0], magicA[1], 0x00) // partial second header
 	cmds, safeLen := wire.ScanL7(buf)
 	if len(cmds) != 1 {
 		t.Fatalf("cmds=%d, want 1 (partial not decoded)", len(cmds))

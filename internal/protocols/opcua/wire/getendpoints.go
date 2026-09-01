@@ -187,7 +187,7 @@ func (c *cur) u32() uint32 {
 	return v
 }
 
-func (c *cur) i32() int32 { return int32(c.u32()) }
+func (c *cur) i32() int32 { return int32(c.u32()) } // #nosec G115 -- UA Binary Int32 is the u32 bit pattern (reinterpret, not a bounded conversion).
 
 func (c *cur) skip(n int) {
 	if n < 0 {

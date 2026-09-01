@@ -120,7 +120,7 @@ var magicA = [2]byte{0x55, 0xcd}
 func l7(service, cmd byte, payload ...byte) []byte {
 	prefix := []byte{0x00, 0x01, 0x17, 0xe8, 0x40, 0x00, 0x00, 0x00} // L2 magic + junk
 	hdr := []byte{magicA[0], magicA[1], 0x00, 0x00, service, 0x00, cmd, 0x00}
-	out := append(prefix, hdr...)
+	out := append(append([]byte(nil), prefix...), hdr...)
 	return append(out, payload...)
 }
 

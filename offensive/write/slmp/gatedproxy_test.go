@@ -5,6 +5,7 @@ package slmp_test
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"net"
 	"sync"
 	"testing"
@@ -125,7 +126,7 @@ func buildSLMP(command uint16, payload ...byte) []byte {
 	binary.LittleEndian.PutUint16(frame[0:2], wire.SubheaderRequestLE)
 	frame[3] = 0xFF
 	binary.LittleEndian.PutUint16(frame[4:6], 0x03FF)
-	binary.LittleEndian.PutUint16(frame[7:9], uint16(dataLen))
+	binary.LittleEndian.PutUint16(frame[7:9], uint16(dataLen)) // #nosec G115 -- test frame length fits uint16.
 	binary.LittleEndian.PutUint16(frame[11:13], command)
 	copy(frame[15:], payload)
 	return frame
@@ -296,7 +297,7 @@ func TestHandle_RequiresAuthorise(t *testing.T) {
 	c1, c2 := net.Pipe()
 	u1, u2 := net.Pipe()
 	t.Cleanup(func() { _ = c1.Close(); _ = c2.Close(); _ = u1.Close(); _ = u2.Close() })
-	if err := h.Handle(context.Background(), c2, u1); err != slmpwrite.ErrSessionNotAuthorised {
+	if err := h.Handle(context.Background(), c2, u1); !errors.Is(err, slmpwrite.ErrSessionNotAuthorised) {
 		t.Fatalf("Handle without Authorise returned %v, want ErrSessionNotAuthorised", err)
 	}
 }

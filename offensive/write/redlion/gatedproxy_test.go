@@ -117,7 +117,7 @@ func cr3(reg uint16, t wire.PacketType, payload ...byte) []byte {
 	binary.BigEndian.PutUint16(body[2:4], uint16(t))
 	copy(body[4:], payload)
 	frame := make([]byte, 2+len(body))
-	binary.BigEndian.PutUint16(frame[0:2], uint16(len(body)))
+	binary.BigEndian.PutUint16(frame[0:2], uint16(len(body))) // #nosec G115 -- test frame length fits uint16.
 	copy(frame[2:], body)
 	return frame
 }

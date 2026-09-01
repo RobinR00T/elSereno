@@ -4,6 +4,7 @@ package finsudp_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"testing"
@@ -337,7 +338,7 @@ func TestHandle_RequiresAuthorise(t *testing.T) {
 	u1, u2 := net.Pipe()
 	t.Cleanup(func() { _ = c1.Close(); _ = c2.Close(); _ = u1.Close(); _ = u2.Close() })
 	err := h.Handle(context.Background(), c2, u1)
-	if err != finswrite.ErrSessionNotAuthorised {
+	if !errors.Is(err, finswrite.ErrSessionNotAuthorised) {
 		t.Fatalf("Handle without Authorise returned %v, want ErrSessionNotAuthorised", err)
 	}
 }

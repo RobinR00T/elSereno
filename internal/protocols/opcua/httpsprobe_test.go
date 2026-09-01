@@ -20,7 +20,7 @@ import (
 func encodeTestResponse() []byte {
 	var b []byte
 	put32 := func(v uint32) { var t [4]byte; binary.LittleEndian.PutUint32(t[:], v); b = append(b, t[:]...) }
-	str := func(s string) { put32(uint32(len(s))); b = append(b, s...) }
+	str := func(s string) { put32(uint32(len(s))); b = append(b, s...) } // #nosec G115 -- test string length fits uint32.
 	nullStr := func() { put32(0xFFFFFFFF) }
 	nullArr := func() { put32(0xFFFFFFFF) }
 	// message TypeId: FourByte NodeId of GetEndpointsResponse.

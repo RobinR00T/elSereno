@@ -69,7 +69,7 @@ func TestServerUDPEndToEnd(t *testing.T) {
 		t.Fatalf("Addr().Network() = %q, want udp", got)
 	}
 
-	c, err := net.Dial("udp", srv.Addr().String())
+	c, err := (&net.Dialer{}).DialContext(context.Background(), "udp", srv.Addr().String())
 	if err != nil {
 		t.Fatalf("dial proxy: %v", err)
 	}

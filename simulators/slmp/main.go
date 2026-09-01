@@ -92,6 +92,8 @@ func respond(req []byte) []byte {
 		binary.LittleEndian.PutUint16(payload[16:18], 0x4612)
 	case wire.CmdDeviceReadBatch, wire.CmdDeviceReadRandom:
 		payload = []byte{0x34, 0x12, 0x78, 0x56}
+	default:
+		// Other commands: success with no payload.
 	}
 	return buildSuccess(req, payload)
 }

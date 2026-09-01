@@ -12,12 +12,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/offensive/confirm"
 	cswrite "local/elsereno/offensive/write/codesys"
 	finswrite "local/elsereno/offensive/write/finsudp"
 	gewrite "local/elsereno/offensive/write/gesrtp"
 	rlwrite "local/elsereno/offensive/write/redlion"
 	slmpwrite "local/elsereno/offensive/write/slmp"
 )
+
+// printProxyDryRun prints the canonical proxy-session dry-run block
+// (Protocol / Operation / Target / the protocol-specific rows /
+// PayloadHash) and mints the confirm-token. Shared by the ICS dry-run
+// commands so each stays free of duplicated cobra boilerplate. `rows`
+// are the label/value lines shown between Target and PayloadHash.
+func printProxyDryRun(cmd *cobra.Command, protocol, target string, rows [][2]string, mut confirm.Mutation, ppFile string) error {
+	cmd.Printf("Protocol:     %s\n", protocol)
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", target)
+	for _, r := range rows {
+		cmd.Printf("%-14s%s\n", r[0]+":", r[1])
+	}
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+	return maybeMintToken(cmd, mut, ppFile)
+}
 
 // This file adds the proxy-session dry-run subcommands that mint the
 // confirm-token for the two legacy-ICS write-gated proxies wired in
@@ -90,15 +107,11 @@ func runWriteFINSProxyDryRun(cmd *cobra.Command, f finsProxyFlags) error {
 		return fail(core.ExitUsage, err)
 	}
 	mut := finswrite.SessionMutation(f.target, allowed, areas)
-	cmd.Printf("Protocol:     finsudp\n")
-	cmd.Printf("Operation:    proxy_session\n")
-	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
+	rows := [][2]string{{"Commands", strings.Join(f.commands, " ")}}
 	if len(f.areas) > 0 {
-		cmd.Printf("Areas:        %s\n", strings.Join(f.areas, " "))
+		rows = append(rows, [2]string{"Areas", strings.Join(f.areas, " ")})
 	}
-	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-	return maybeMintToken(cmd, mut, f.ppFile)
+	return printProxyDryRun(cmd, "finsudp", f.target, rows, mut, f.ppFile)
 }
 
 // ---- slmp ----------------------------------------------------------
@@ -178,15 +191,11 @@ func runWriteSLMPProxyDryRun(cmd *cobra.Command, f slmpProxyFlags) error {
 		return fail(core.ExitUsage, err)
 	}
 	mut := slmpwrite.SessionMutation(f.target, allowed, devices)
-	cmd.Printf("Protocol:     slmp\n")
-	cmd.Printf("Operation:    proxy_session\n")
-	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
+	rows := [][2]string{{"Commands", strings.Join(f.commands, " ")}}
 	if len(f.devices) > 0 {
-		cmd.Printf("Devices:      %s\n", strings.Join(f.devices, " "))
+		rows = append(rows, [2]string{"Devices", strings.Join(f.devices, " ")})
 	}
-	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-	return maybeMintToken(cmd, mut, f.ppFile)
+	return printProxyDryRun(cmd, "slmp", f.target, rows, mut, f.ppFile)
 }
 
 // ---- gesrtp -------------------------------------------------------
@@ -245,12 +254,8 @@ func runWriteGESRTPProxyDryRun(cmd *cobra.Command, f gesrtpProxyFlags) error {
 		allowed = append(allowed, gewrite.AllowedService{Code: byte(v)})
 	}
 	mut := gewrite.SessionMutation(f.target, allowed)
-	cmd.Printf("Protocol:     gesrtp\n")
-	cmd.Printf("Operation:    proxy_session\n")
-	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Services:     %s\n", strings.Join(f.services, " "))
-	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-	return maybeMintToken(cmd, mut, f.ppFile)
+	rows := [][2]string{{"Services", strings.Join(f.services, " ")}}
+	return printProxyDryRun(cmd, "gesrtp", f.target, rows, mut, f.ppFile)
 }
 
 // ---- codesys ------------------------------------------------------
@@ -310,12 +315,8 @@ func runWriteCoDeSysProxyDryRun(cmd *cobra.Command, f codesysProxyFlags) error {
 		allowed = append(allowed, c)
 	}
 	mut := cswrite.SessionMutation(f.target, allowed)
-	cmd.Printf("Protocol:     codesys\n")
-	cmd.Printf("Operation:    proxy_session\n")
-	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
-	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-	return maybeMintToken(cmd, mut, f.ppFile)
+	rows := [][2]string{{"Commands", strings.Join(f.commands, " ")}}
+	return printProxyDryRun(cmd, "codesys", f.target, rows, mut, f.ppFile)
 }
 
 // ---- redlion ------------------------------------------------------
@@ -375,10 +376,6 @@ func runWriteRedLionProxyDryRun(cmd *cobra.Command, f redlionProxyFlags) error {
 		allowed = append(allowed, a)
 	}
 	mut := rlwrite.SessionMutation(f.target, allowed)
-	cmd.Printf("Protocol:     redlion\n")
-	cmd.Printf("Operation:    proxy_session\n")
-	cmd.Printf("Target:       %s\n", f.target)
-	cmd.Printf("Types:        %s\n", strings.Join(f.types, " "))
-	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
-	return maybeMintToken(cmd, mut, f.ppFile)
+	rows := [][2]string{{"Types", strings.Join(f.types, " ")}}
+	return printProxyDryRun(cmd, "redlion", f.target, rows, mut, f.ppFile)
 }

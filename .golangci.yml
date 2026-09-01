@@ -87,6 +87,14 @@ linters:
       - path: doc\.go
         linters:
           - dupl
+      # The per-protocol proxy dry-run commands are intentionally
+      # parallel cobra scaffolding (validate flags -> build allowlist ->
+      # mint token); the genuinely shared tail is already factored into
+      # printProxyDryRun. dupl on the residual protocol-specific
+      # validation (FINS areas vs SLMP devices) is a false-positive.
+      - path: cmd/elsereno/cmd_write_ics_offensive\.go
+        linters:
+          - dupl
       # HTML templates use CSS property names (color, center, …) that
       # are invariant across locales; misspell's UK dictionary fights
       # them. Exempt the HTML output package and the web handlers

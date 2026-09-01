@@ -62,6 +62,8 @@ func TestClassify_NoWriteMasqueradesAsRead(t *testing.T) {
 				wire.CmdMemoryAreaTransfer, wire.CmdRun, wire.CmdStop,
 				wire.CmdForcedSetReset:
 				t.Fatalf("command 0x%04x classified as both Read and a known mutation", i)
+			default:
+				// Other read-classified commands are fine.
 			}
 		}
 	}

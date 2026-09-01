@@ -82,6 +82,8 @@ func respond(req []byte) []byte {
 		copy(data[20:], "V1.04 ELSERENO-SIM")
 	case wire.CmdMemoryAreaRead, wire.CmdMemoryAreaMultipleRead:
 		data = []byte{0x12, 0x34}
+	default:
+		// Other commands: success with no payload.
 	}
 	return buildSuccess(req, data)
 }

@@ -145,7 +145,7 @@ func TestExtractMRService_ConnectedDataItem(t *testing.T) {
 	// MR: Get Attribute Single (0x0E), path class8=1 instance8=1.
 	mr := []byte{0x0E, 0x02, 0x20, 0x01, 0x24, 0x01}
 	itemData := append([]byte{0x01, 0x00}, mr...) // seq count + MR
-	itemLen := byte(len(itemData))                //nolint:gosec // fixed small test payload
+	itemLen := byte(len(itemData))                // #nosec G115 -- fixed small test payload
 	item := []byte{0xB1, 0x00, itemLen, 0x00}
 	item = append(item, itemData...)
 	cpf := append([]byte{0x01, 0x00}, item...)             // ItemCount=1 + item
