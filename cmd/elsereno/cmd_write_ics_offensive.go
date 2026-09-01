@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
+	cswrite "local/elsereno/offensive/write/codesys"
 	finswrite "local/elsereno/offensive/write/finsudp"
 	gewrite "local/elsereno/offensive/write/gesrtp"
 	slmpwrite "local/elsereno/offensive/write/slmp"
@@ -247,6 +248,71 @@ func runWriteGESRTPProxyDryRun(cmd *cobra.Command, f gesrtpProxyFlags) error {
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", f.target)
 	cmd.Printf("Services:     %s\n", strings.Join(f.services, " "))
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+	return maybeMintToken(cmd, mut, f.ppFile)
+}
+
+// ---- codesys ------------------------------------------------------
+
+type codesysProxyFlags struct {
+	target, ppFile string
+	commands       []string
+}
+
+func newWriteCoDeSysCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "codesys",
+		Short: "CODESYS v3 write-gated proxy (proxy-dry-run derives the session confirm-token)",
+	}
+	cmd.AddCommand(newWriteCoDeSysProxyDryRunCmd())
+	return cmd
+}
+
+func newWriteCoDeSysProxyDryRunCmd() *cobra.Command {
+	var f codesysProxyFlags
+	cmd := &cobra.Command{
+		Use:   "proxy-dry-run",
+		Short: "Proxy-session dry-run: derive the confirm-token for `proxy listen --plugin codesys`",
+		Long: `Takes a CODESYS L7 command allowlist (SERVICE:CMD byte pairs) and
+prints the canonical SessionMutation + PayloadHash, and (with
+--vault-passphrase-file) the expected confirm-token.
+
+Reads (handshake, status, variable reads) always pass; only the
+mutating commands listed here are admitted. Example: 0x02:0x10
+CmpApp/Start, 0x02:0x11 CmpApp/Stop, 0x09:0x06 CmpIecVarAccess/WriteVars.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runWriteCoDeSysProxyDryRun(cmd, f)
+		},
+	}
+	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the CODESYS device we'll proxy to)")
+	cmd.Flags().StringSliceVar(&f.commands, "codesys-command", nil,
+		"CODESYS L7 command(s) to allow as SERVICE:CMD byte pairs (decimal "+
+			"or 0x..; e.g. 0x02:0x10 CmpApp/Start). Repeatable. Must match "+
+			"the `proxy listen --codesys-command` set.")
+	addPassphraseFileFlag(cmd, &f.ppFile)
+	return cmd
+}
+
+func runWriteCoDeSysProxyDryRun(cmd *cobra.Command, f codesysProxyFlags) error {
+	if f.target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required"))
+	}
+	if len(f.commands) == 0 {
+		return fail(core.ExitUsage, errors.New("--codesys-command is required (repeatable; SERVICE:CMD)"))
+	}
+	allowed := make([]cswrite.AllowedCommand, 0, len(f.commands))
+	for _, raw := range f.commands {
+		c, err := parseCoDeSysCommand(raw)
+		if err != nil {
+			return fail(core.ExitUsage, err)
+		}
+		allowed = append(allowed, c)
+	}
+	mut := cswrite.SessionMutation(f.target, allowed)
+	cmd.Printf("Protocol:     codesys\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", f.target)
+	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 	return maybeMintToken(cmd, mut, f.ppFile)
 }

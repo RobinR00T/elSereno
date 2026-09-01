@@ -36,6 +36,8 @@ const (
 	pluginNameSLMP = "slmp"
 	// Wire-aware allowlist of GE-SRTP service-request codes.
 	pluginNameGESRTP = "gesrtp"
+	// Wire-aware allowlist of CODESYS v3 L7 (service, cmd) pairs.
+	pluginNameCoDeSys = "codesys"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every

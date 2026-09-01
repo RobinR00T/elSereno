@@ -136,3 +136,110 @@ func ClassifyCommand(c Command) Category {
 	}
 	return CategoryUnknown
 }
+
+// ---- L7 stream location (write-gate framing) -----------------------
+//
+// CODESYS v3 has NO deterministic transport-layer length delimiters we
+// can trust to locate the L7 service header: the reference dissector
+// itself finds L3 by scanning for its 0xc5 magic, L4 by scanning a
+// byte set, and L7 by scanning for the L7 protocol_id magic. A
+// write-gate must therefore NOT try to parse L3/L4 (a length it
+// misreads is a classifier bypass). Instead it scans the reassembled
+// client->server byte stream for EVERY L7 service header and refuses
+// the stream unless every located command is a read or an allowlisted
+// write. Injecting a decoy read header cannot hide a real write: the
+// real write header still carries the magic and is still located.
+//
+// Wire layout at an L7 header offset p (from processL7 in the
+// dissector): protocol_id/magic buf(p,2) ; header_size buf(p+2,2) ;
+// service_id buf(p+4,2) LE ; cmd_id buf(p+6,2) LE.
+
+// l7Magics are the two known L7 protocol_id magics, in wire byte order
+// (the dissector matches buf(i,2):uint() == 0x55cd or 0x7557).
+var l7Magics = [][2]byte{{0x55, 0xcd}, {0x75, 0x57}}
+
+// l7HeaderMin is the bytes needed past a magic to read service_id and
+// cmd_id: magic(2)+header_size(2)+service_id(2)+cmd_id(2).
+const l7HeaderMin = 8
+
+// L7Command is one L7 service header located in a byte stream, already
+// classified. Offset is its start (the magic position).
+type L7Command struct {
+	Offset int
+	Cmd    Command
+	Cat    Category
+}
+
+// matchMagic reports whether buf[i:] starts with an L7 magic.
+func matchMagic(buf []byte, i int) bool {
+	if i+2 > len(buf) {
+		return false
+	}
+	for _, m := range l7Magics {
+		if buf[i] == m[0] && buf[i+1] == m[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// decodeL7 extracts the (service_id, cmd_id) at a magic offset p and
+// classifies it. service_id / cmd_id are 16-bit LE on the wire but the
+// mapped request services and commands all fit in a byte; a value with
+// its high byte set is a response or malformed request, which we treat
+// as CategoryUnknown (fail-closed) rather than truncating.
+func decodeL7(buf []byte, p int) (Command, Category) {
+	svc := uint16(buf[p+4]) | uint16(buf[p+5])<<8
+	cmd := uint16(buf[p+6]) | uint16(buf[p+7])<<8
+	if svc > 0xFF || cmd > 0xFF {
+		return 0, CategoryUnknown
+	}
+	// #nosec G115 -- guarded above: svc,cmd <= 0xFF.
+	c := MakeCommand(byte(svc), byte(cmd))
+	return c, ClassifyCommand(c)
+}
+
+// ScanL7 locates every fully-present L7 service header in buf and
+// returns them classified, plus safeLen: the length of the leading
+// run of buf that contains no PARTIAL L7 header. The proxy may forward
+// buf[:safeLen] once it has confirmed every returned command is
+// permitted; bytes at/after safeLen may still be the start of an
+// as-yet-incomplete header and must be held until more data arrives.
+//
+// Scanning advances one byte at a time on purpose: an incidental magic
+// inside a payload only adds an extra command to classify (more
+// conservative), it can never hide a real one. On the first magic
+// whose 8-byte header runs past the buffer, ScanL7 stops and pins
+// safeLen there.
+func ScanL7(buf []byte) (cmds []L7Command, safeLen int) {
+	safeLen = len(buf)
+	for i := 0; i+2 <= len(buf); i++ {
+		if !matchMagic(buf, i) {
+			continue
+		}
+		if i+l7HeaderMin > len(buf) {
+			// Partial header: cannot classify yet. Hold from here.
+			safeLen = i
+			return cmds, safeLen
+		}
+		c, cat := decodeL7(buf, i)
+		cmds = append(cmds, L7Command{Offset: i, Cmd: c, Cat: cat})
+	}
+	return cmds, safeLen
+}
+
+// HasPartialL7Magic reports whether buf, from offset from onward, ends
+// with the start of an L7 header that is not fully present (a truncated
+// command at stream end). The proxy treats this as a refusal on EOF
+// rather than forwarding a truncated command.
+func HasPartialL7Magic(buf []byte, from int) bool {
+	if from < 0 {
+		from = 0
+	}
+	for i := from; i+2 <= len(buf); i++ {
+		if matchMagic(buf, i) && i+l7HeaderMin > len(buf) {
+			return true
+		}
+	}
+	return false
+}

@@ -23,6 +23,7 @@ import (
 	"local/elsereno/offensive/confirm"
 	"local/elsereno/offensive/replay"
 	bacwrite "local/elsereno/offensive/write/bacnet"
+	cswrite "local/elsereno/offensive/write/codesys"
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	enipwrite "local/elsereno/offensive/write/enip"
 	finswrite "local/elsereno/offensive/write/finsudp"
@@ -148,6 +149,14 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"0x..; e.g. 0x07 WRITE_SYS_MEM, 0x23 SET_PLC_RUN, 0x40 "+
 			"PROG_LOAD). Reads always pass; a mutating service is admitted "+
 			"only when listed. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.codesysCommands, "codesys-command", nil,
+		"codesys: L7 commands to allow as SERVICE:CMD byte pairs (decimal "+
+			"or 0x..; e.g. 0x02:0x10 CmpApp/Start, 0x02:0x11 CmpApp/Stop). "+
+			"Reads (handshake, status, variable reads) always pass; a "+
+			"mutating command is admitted only when its (service, cmd) is "+
+			"listed. The gate scans the reassembled stream for every L7 "+
+			"service header (magic 0x55cd/0x7557) and refuses the session "+
+			"on any unlisted write/unknown. Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -427,6 +436,12 @@ type proxyListenOpts struct {
 	// 0x23 SET_PLC_RUN). Reads always pass; a mutating service is
 	// admitted only when listed.
 	gesrtpServices []string
+	// codesysCommands holds the codesys allowlist of L7 commands in
+	// "SERVICE:CMD" byte-pair form (decimal or 0x-hex; e.g. 0x02:0x10
+	// CmpApp/Start). Reads always pass; a mutating command is admitted
+	// only when its (service, cmd) is listed. The gate scans the
+	// reassembled client->server stream for every L7 service header.
+	codesysCommands []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -704,8 +719,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildSLMPHandler(opts, rt, c)
 	case pluginNameGESRTP:
 		return buildGESRTPHandler(opts, rt, c)
+	case pluginNameCoDeSys:
+		return buildCoDeSysHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -857,6 +874,50 @@ func buildGESRTPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 		return nil, err
 	}
 	return &gewrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// parseCoDeSysCommand parses one --codesys-command value "SERVICE:CMD"
+// into an AllowedCommand. Each half is a byte (decimal or 0x-hex).
+func parseCoDeSysCommand(s string) (cswrite.AllowedCommand, error) {
+	var a cswrite.AllowedCommand
+	kv := strings.SplitN(strings.TrimSpace(s), ":", 2)
+	if len(kv) != 2 {
+		return a, fmt.Errorf("--codesys-command %q: want SERVICE:CMD", s)
+	}
+	svc, err := strconv.ParseUint(strings.TrimSpace(kv[0]), 0, 8)
+	if err != nil {
+		return a, fmt.Errorf("--codesys-command %q: bad SERVICE %q: %w", s, kv[0], err)
+	}
+	cmd, err := strconv.ParseUint(strings.TrimSpace(kv[1]), 0, 8)
+	if err != nil {
+		return a, fmt.Errorf("--codesys-command %q: bad CMD %q: %w", s, kv[1], err)
+	}
+	// #nosec G115 -- ParseUint bitSize=8 bounds both halves to a byte.
+	return cswrite.AllowedCommand{Service: byte(svc), Cmd: byte(cmd)}, nil
+}
+
+// buildCoDeSysHandler constructs the codesys write-gated proxy. The
+// gate does not parse the CODESYS L3/L4 transport (the reference
+// dissector itself locates layers by byte-magic scan, so a length we
+// misread would be a bypass); it scans the reassembled client->server
+// stream for every L7 service header and forwards only while every
+// located command is a read or an allowlisted write.
+func buildCoDeSysHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*cswrite.WriteGatedHandler, error) {
+	allowed := make([]cswrite.AllowedCommand, 0, len(opts.codesysCommands))
+	for _, raw := range opts.codesysCommands {
+		cmd, err := parseCoDeSysCommand(raw)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, cmd)
+	}
+	return &cswrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
 		Deriver:        rt.Vault,
