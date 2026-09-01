@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -120,6 +122,37 @@ func TestProbeHTTPS_HTTPError(t *testing.T) {
 	_, err := opcua.ProbeHTTPS(context.Background(), srv.URL, "opc.https://host/UA", 5*time.Second)
 	if !errors.Is(err, opcua.ErrHTTPSNotUA) {
 		t.Fatalf("err = %v, want ErrHTTPSNotUA", err)
+	}
+}
+
+// TestProbe_HTTPSFallback drives the whole plugin: the UA-TCP HEL to a
+// TLS endpoint fails to parse, so Probe falls back to the HTTPS
+// GetEndpoints binding and emits a ua-https finding — with the
+// exposure/auth bump because one advertised endpoint is SecurityMode
+// None.
+func TestProbe_HTTPSFallback(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(encodeTestResponse()) // 2 endpoints, one None
+	}))
+	defer srv.Close()
+
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := probeAt(port)
+	if f == nil {
+		t.Fatal("Probe returned no finding for a UA HTTPS server")
+	}
+	if f.Factors["exposure"] != 90 || f.Factors["auth_state"] != 90 {
+		t.Errorf("ua-https finding factors = exposure %d auth_state %d, want 90/90 (None endpoint)",
+			f.Factors["exposure"], f.Factors["auth_state"])
 	}
 }
 

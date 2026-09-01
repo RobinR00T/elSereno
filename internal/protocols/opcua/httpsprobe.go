@@ -18,9 +18,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
+	"local/elsereno/internal/core"
 	"local/elsereno/internal/protocols/opcua/wire"
 )
 
@@ -78,4 +80,49 @@ func ProbeHTTPS(ctx context.Context, postURL, endpointURL string, timeout time.D
 		return nil, fmt.Errorf("%w: %w", ErrHTTPSNotUA, err)
 	}
 	return eps, nil
+}
+
+// tryHTTPS attempts the OPC UA HTTPS binding on the target's host:port
+// and, on success, returns a UA-HTTPS finding. Called only from the
+// non-UA-TCP path in Probe; returns nil when the endpoint is not an OPC
+// UA HTTPS server (so the caller falls back to its non-UA finding).
+func (p *Plugin) tryHTTPS(ctx context.Context, target core.Target) *core.Finding {
+	hostport := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
+	postURL := "https://" + hostport + "/"
+	endpointURL := "opc.https://" + hostport + "/"
+	eps, err := ProbeHTTPS(ctx, postURL, endpointURL, p.IOTimeout)
+	if err != nil || len(eps) == 0 {
+		return nil
+	}
+	return buildHTTPSFinding(target, eps)
+}
+
+// buildHTTPSFinding renders a finding for an OPC UA server reached over
+// the HTTPS binding. A server that advertises a SecurityMode=None
+// endpoint accepts anonymous, unencrypted sessions, so it scores as a
+// higher exposure / weaker auth posture than the default UA baseline.
+func buildHTTPSFinding(target core.Target, eps []wire.EndpointDescription) *core.Finding {
+	hasNone := false
+	for _, e := range eps {
+		if e.SecurityMode == wire.SecurityModeNone {
+			hasNone = true
+			break
+		}
+	}
+	factors := map[string]int{
+		"protocol_risk": 85,
+		"exposure":      75,
+		"auth_state":    60,
+		"capability":    60, // positively identified as a live UA server
+		"impact_class":  85,
+		"cve_exposure":  8,
+	}
+	if hasNone {
+		// A None-security endpoint is anonymous + unencrypted access to
+		// the UA address space over the Internet.
+		factors["auth_state"] = 90
+		factors["exposure"] = 90
+	}
+	note := fmt.Sprintf("ua-https endpoints=%d none=%t", len(eps), hasNone)
+	return newFinding(target, note, factors)
 }

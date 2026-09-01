@@ -6,10 +6,13 @@
 //   - ERR → OPC UA server that refused (wrong endpoint, version
 //     mismatch, policy reject); still a positive identification
 //     because only UA-TCP speakers emit ERR
-//   - anything else → not UA, probably a different service on
-//     4840 (which also hosts HTTPS UA variants in production
-//     deployments, but the secure channel is upper-layer and
-//     outside this plugin's scope)
+//   - anything else → the UA-TCP HEL got no ACK/ERR. Before
+//     giving up, Probe falls back to the OPC UA HTTPS binding
+//     (Part 6 §7.4): a session-less GetEndpoints POST on the same
+//     host:port. A server that answers with its EndpointDescription
+//     list is a positive UA identification and reveals its security
+//     posture (a SecurityMode=None endpoint scores as higher
+//     exposure). See httpsprobe.go / wire/getendpoints.go.
 //
 // Write gating is out of scope for v1.1 — OPC UA SecureChannel +
 // Session + Write service is a large surface that v1.2 opens via
