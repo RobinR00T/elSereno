@@ -53,13 +53,14 @@ Snapshot:
 v1.16-v1.22 cycles also closed (tags pending). v1.15.0 still
 the latest published release.
 
-**Counts**: **25 protocol plugins** in the default build; **7
-offensive write-gated proxies** (modbus, opcua, sip, iax2,
-pbxhttp, bacnet, cwmp); **6 attack-surface input clients**
-(shodan, censys, fofa, zoomeye, onyphe, internetdb — last is
-no-key + single-IP/bulk-lookup since v1.13 chunk 1). Every
-TCP-based plugin enforces a wire-layer write-ban in default
-mode. **All 7 gates carry per-object / per-path scoping** as of
+**Counts** (authoritative: `elsereno plugins list`): **30
+protocol plugins** in the default build; **24 offensive write-gated
+proxies** (incl. the legacy-ICS set finsudp/slmp/gesrtp/codesys/
+redlion, landed 2026-08/09); **7 attack-surface input clients**
+(shodan, censys, fofa, zoomeye, onyphe, binaryedge, internetdb;
+the last is no-key + single-IP/bulk-lookup). Every TCP-based
+plugin enforces a wire-layer write-ban in default mode. The core
+gates carry per-object / per-path scoping as of
 v1.12 + v1.13: Modbus structured writes, OPC UA per-NodeId
 (numeric + String/GUID/ByteString) + per-CallMethod, BACnet
 per-WriteProperty + per-WPM + per-DeleteObject, SIP

@@ -1,12 +1,24 @@
 ---
 phase: any
 status: living
-last-updated: 2026-05-10
+last-updated: 2026-09-01
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-09-01: **Legacy-ICS write-gates + OPC UA HTTPS deep
+  fingerprint + `fingerprint probe` verb.** Offensive write-gated
+  proxies for finsudp / slmp / gesrtp / codesys / redlion (validated
+  public dissectors, per-command allowlists, simulator demos under
+  `scripts/demo-*-proxy.sh`); UDP proxy transport (`Options.Network`);
+  the `opcuahttps` plugin now POSTs a real GetEndpointsRequest and
+  enumerates endpoints + security posture; new `elsereno fingerprint
+  probe` verb; BinaryEdge input. Two fuzz-found fixes: OPC UA
+  GetEndpoints unbounded DiagnosticInfo recursion (DoS) and a CoDeSys
+  split-magic write-gate bypass. CI lint/sec/context back to green.
+  See PITF-053/054, STATE.md, and the root CHANGELOG.
 
 - 2026-05-19 — v2.62 (chunk 1) — **`elsereno sandbox`
   CLI verb tree (list + introspect).** Surfaces the

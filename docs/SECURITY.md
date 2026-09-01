@@ -383,7 +383,14 @@ Cada protocol gate scopea writes:
 - **BACnet**: per-object + per-WriteProperty per-instance.
 - **CWMP**: per-parameter-path + per-firmware-URL.
 - **SIP / IAX2 / PBX HTTP**: per-From-domain + per-RPC.
-- **CoDeSys / S7 / DLMS / etc**: TBD por protocolo.
+- **FINS**: per-(MRC, SRC) command + optional per-memory-area.
+- **SLMP**: per-command-code + optional per-device-code.
+- **GE-SRTP**: per-service-request code (56-byte mailbox).
+- **CoDeSys**: per-(L7 service, cmd), fail-closed magic scan.
+- **Red Lion CR3**: per-Type opcode (length-prefixed frames).
+- Rechazo: FINS/SLMP responden con error nativo del protocolo;
+  GE-SRTP/CoDeSys/Red Lion cierran la conexión (fail-closed);
+  OPC UA devuelve un ServiceFault nativo.
 
 ### Audit obligatorio
 
