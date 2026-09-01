@@ -92,6 +92,39 @@ func TestScanL7_HighByteIsUnknown(t *testing.T) {
 	}
 }
 
+// A lone trailing first-magic-byte (0x55 with the 0xcd still in flight)
+// must be HELD, not forwarded — otherwise a magic split across two
+// reads slips through unclassified (a write-gate bypass).
+func TestScanL7_LoneMagicFirstByteHeld(t *testing.T) {
+	full := l7(wire.SvcCmpApp, 0x14, magicA)
+	buf := append(append([]byte(nil), full...), magicA[0]) // + lone 0x55
+	cmds, safeLen := wire.ScanL7(buf)
+	if len(cmds) != 1 {
+		t.Fatalf("cmds=%d, want 1 (the completed first header)", len(cmds))
+	}
+	if safeLen != len(full) {
+		t.Fatalf("safeLen=%d, want %d (hold the lone 0x55)", safeLen, len(full))
+	}
+}
+
+// The other magic's first byte (0x75) must be held too.
+func TestScanL7_LoneMagicBFirstByteHeld(t *testing.T) {
+	buf := []byte{0x00, 0x00, magicB[0]} // trailing lone 0x75
+	_, safeLen := wire.ScanL7(buf)
+	if safeLen != 2 {
+		t.Fatalf("safeLen=%d, want 2 (hold the lone 0x75)", safeLen)
+	}
+}
+
+// A trailing byte that is NOT a magic prefix is safe to forward.
+func TestScanL7_NonMagicTailForwards(t *testing.T) {
+	buf := []byte{0x00, 0x11, 0x22, 0x55, 0x99} // 0x55 followed by 0x99 (not 0xcd)
+	_, safeLen := wire.ScanL7(buf)
+	if safeLen != len(buf) {
+		t.Fatalf("safeLen=%d, want %d (0x55 0x99 is not a magic)", safeLen, len(buf))
+	}
+}
+
 func TestScanL7_NoMagicNoCommands(t *testing.T) {
 	buf := bytes.Repeat([]byte{0x00, 0x11, 0x22}, 20)
 	cmds, safeLen := wire.ScanL7(buf)

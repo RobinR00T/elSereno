@@ -13,6 +13,8 @@ package wire
 // with L4 reassembly) — that framing lands with the WriteGatedHandler;
 // this file is the validated category map it consumes.
 
+import "bytes"
+
 // Command packs the L7 service id (high byte) and command id (low
 // byte) into the classifier key.
 type Command uint16
@@ -199,31 +201,57 @@ func decodeL7(buf []byte, p int) (Command, Category) {
 	return c, ClassifyCommand(c)
 }
 
+// magicPrefixAt reports whether buf[p:] is a (possibly partial) prefix
+// of an L7 magic — i.e. once more of the stream arrives it could extend
+// into a real header. This is what makes a lone trailing first-magic-
+// byte (e.g. 0x55 with the 0xcd still in flight) unsafe to forward: a
+// plain two-byte matchMagic would miss it and let a magic split across
+// two reads slip through unclassified.
+func magicPrefixAt(buf []byte, p int) bool {
+	rem := len(buf) - p
+	for _, m := range l7Magics {
+		k := rem
+		if k > len(m) {
+			k = len(m)
+		}
+		if bytes.Equal(buf[p:p+k], m[:k]) {
+			return true
+		}
+	}
+	return false
+}
+
 // ScanL7 locates every fully-present L7 service header in buf and
-// returns them classified, plus safeLen: the length of the leading
-// run of buf that contains no PARTIAL L7 header. The proxy may forward
-// buf[:safeLen] once it has confirmed every returned command is
-// permitted; bytes at/after safeLen may still be the start of an
+// returns them classified, plus safeLen: the length of the leading run
+// of buf the proxy may forward once every returned command is
+// permitted. Bytes at/after safeLen may still be the start of an
 // as-yet-incomplete header and must be held until more data arrives.
 //
-// Scanning advances one byte at a time on purpose: an incidental magic
-// inside a payload only adds an extra command to classify (more
-// conservative), it can never hide a real one. On the first magic
-// whose 8-byte header runs past the buffer, ScanL7 stops and pins
-// safeLen there.
+// safeLen holds back the last up-to-7 bytes whenever their suffix is a
+// magic prefix — INCLUDING a single trailing 0x55/0x75 whose second
+// magic byte has not arrived. Any magic starting in the final 7 bytes
+// has an incomplete 8-byte header, so this covers every partial header;
+// a magic that spans two reads can never be forwarded before it is
+// classified. An incidental magic inside a payload only adds an extra
+// command to classify (more conservative), it can never hide a real one.
 func ScanL7(buf []byte) (cmds []L7Command, safeLen int) {
-	safeLen = len(buf)
-	for i := 0; i+2 <= len(buf); i++ {
+	for i := 0; i+l7HeaderMin <= len(buf); i++ {
 		if !matchMagic(buf, i) {
 			continue
 		}
-		if i+l7HeaderMin > len(buf) {
-			// Partial header: cannot classify yet. Hold from here.
-			safeLen = i
-			return cmds, safeLen
-		}
 		c, cat := decodeL7(buf, i)
 		cmds = append(cmds, L7Command{Offset: i, Cmd: c, Cat: cat})
+	}
+	safeLen = len(buf)
+	start := len(buf) - (l7HeaderMin - 1)
+	if start < 0 {
+		start = 0
+	}
+	for p := start; p < len(buf); p++ {
+		if magicPrefixAt(buf, p) {
+			safeLen = p
+			break
+		}
 	}
 	return cmds, safeLen
 }

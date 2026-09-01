@@ -166,34 +166,45 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer) error {
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 4096)
-	forwarded := 0
 	for {
 		n, rerr := client.Read(tmp)
 		if n > 0 {
 			buf = append(buf, tmp[:n]...)
-			if len(buf) > maxBuffer {
-				return ErrRefused
-			}
 			cmds, safeLen := wire.ScanL7(buf)
 			if !h.streamPermitted(cmds) {
 				return ErrRefused
 			}
-			if safeLen > forwarded {
-				if _, werr := upstream.Write(buf[forwarded:safeLen]); werr != nil {
+			if safeLen > 0 {
+				if _, werr := upstream.Write(buf[:safeLen]); werr != nil {
 					return werr
 				}
-				forwarded = safeLen
+				// Drop the forwarded+scanned prefix and keep only the
+				// held tail (an in-flight partial L7 header plus <8
+				// trailing bytes). This keeps every ScanL7 O(tail), not
+				// O(whole session) — otherwise a client dribbling bytes
+				// would drive a quadratic re-scan (DoS) — and lets a
+				// legitimate long session exceed maxBuffer of *forwarded*
+				// data without being refused. safeLen never splits a
+				// magic, so no located header is lost.
+				rest := copy(buf, buf[safeLen:])
+				buf = buf[:rest]
+			}
+			// The retained tail is only an as-yet-incomplete header; if
+			// it grows past maxBuffer the stream is malformed (a magic
+			// whose header never completes).
+			if len(buf) > maxBuffer {
+				return ErrRefused
 			}
 		}
 		if rerr != nil {
 			if errors.Is(rerr, io.EOF) {
 				// A magic that never completed before EOF is a
 				// truncated command: refuse rather than forward it.
-				if wire.HasPartialL7Magic(buf, forwarded) {
+				if wire.HasPartialL7Magic(buf, 0) {
 					return ErrRefused
 				}
-				if len(buf) > forwarded {
-					if _, werr := upstream.Write(buf[forwarded:]); werr != nil {
+				if len(buf) > 0 {
+					if _, werr := upstream.Write(buf); werr != nil {
 						return werr
 					}
 				}

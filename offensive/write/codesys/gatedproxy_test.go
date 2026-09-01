@@ -202,6 +202,40 @@ func TestDecoyReadDoesNotHideWrite(t *testing.T) {
 	}
 }
 
+// A non-allowlisted write delivered one byte at a time (its L7 magic
+// split across reads) must still be refused. No L2 prefix here, so a
+// leak of even one byte would fail the rec assertion.
+func TestByteAtATimeWriteRefused(t *testing.T) {
+	client, rec, done := driveSession(t, nil)
+	frame := []byte{magicA[0], magicA[1], 0, 0, wire.SvcCmpApp, 0, 0x05, 0} // Download
+	go func() {
+		for _, b := range frame {
+			if _, err := client.Write([]byte{b}); err != nil {
+				return
+			}
+		}
+	}()
+	expectRefused(t, done)
+	if rec.len() != 0 {
+		t.Fatalf("split write leaked %d bytes upstream", rec.len())
+	}
+}
+
+// A read command delivered one byte at a time must still forward whole
+// (the tail-drop + hold-back logic must not stall a legitimate stream).
+func TestByteAtATimeReadForwards(t *testing.T) {
+	client, rec, _ := driveSession(t, nil)
+	frame := l7(wire.SvcCmpApp, 0x14) // ReadStatus, with L2 prefix
+	go func() {
+		for _, b := range frame {
+			if _, err := client.Write([]byte{b}); err != nil {
+				return
+			}
+		}
+	}()
+	waitForBytes(t, rec, len(frame))
+}
+
 func TestHandle_RequiresAuthorise(t *testing.T) {
 	h := &cswrite.WriteGatedHandler{Target: testTarget}
 	c1, c2 := net.Pipe()
