@@ -4,9 +4,13 @@
 > Casi todo el "forward" de este fichero ya se entregó en v2.x (OIDC +
 > roles, wardialing, record/replay, TUI, Windows, PROFINET DCP, y la
 > mayoría de protocolos e inputs). **Fuente de verdad: `.context/STATE.md`.**
-> Sigue abierto de verdad: caminos ofensivos finsudp / slmp / gesrtp /
-> codesys / redlion; PROFINET GOOSE/SV L2 passive; OPC UA HTTPS completo;
-> input BinaryEdge.
+> **Entregado 2026-08/09:** write-gates ofensivos finsudp / slmp /
+> gesrtp / codesys / redlion (cada uno con demo de simulador); fingerprint
+> profundo OPC UA HTTPS por GetEndpoints (el plugin `opcuahttps` enumera
+> endpoints + postura de seguridad); input BinaryEdge; el verbo
+> `fingerprint probe`. Sigue abierto de verdad: PROFINET GOOSE/SV L2
+> passive (gopacket + CAP_NET_RAW); el camino de ESCRITURA de OPC UA
+> HTTPS (solo se entregó el fingerprint read-only).
 
 Complementa a `TODO.md` (la checklist original del brief — closed
 tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan

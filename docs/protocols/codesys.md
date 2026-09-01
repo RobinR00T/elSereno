@@ -48,18 +48,53 @@ valid CoDeSys frames — defence-in-depth fail-closed pattern.
 
 ## Writes (`-tags offensive`)
 
-Deferred. CoDeSys V3 supports:
-- `Cmp`-prefixed service requests (CmpAppBP write app, CmpFile
-  write filesystem, CmpUserMgr add user) — full RCE on the PLC
-  runtime.
-- Plain-text password authentication on un-hardened gateways
-  (ICSA-12-242-01); newer versions support OAuth-style auth
-  but many deployments don't enforce.
-- Project download / upload with optional encryption.
+Shipped. The write-gated TCP proxy lives in
+`offensive/write/codesys` (ports 1217 and 11740). Reads (handshake,
+status, variable reads) always pass; a mutating L7 command is
+admitted only when its `(service, cmd)` pair is allowlisted.
 
-A future offensive plugin would gate per-(Cmp service, target
-component) and emit `audit-chain` events per service request.
-Triple-confirm + audit-chain emission per ADR-009.
+```sh
+# 1) Mint the session confirm-token (ADR-039 triple-confirm):
+elsereno-offensive write codesys proxy-dry-run \
+  --target plc.internal:1217 \
+  --codesys-command 0x02:0x10 \    # CmpApp/Start
+  --codesys-command 0x02:0x11 \    # CmpApp/Stop
+  --codesys-command 0x09:0x06 \    # CmpIecVarAccess/WriteVars
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# 2) Run the gated proxy (TCP/1217) with the triple-confirm fence:
+elsereno-offensive proxy listen --plugin codesys \
+  --listen 127.0.0.1:1217 --target plc.internal:1217 \
+  --codesys-command 0x02:0x10 --codesys-command 0x02:0x11 \
+  --codesys-command 0x09:0x06 \
+  --accept-writes --confirm-target plc.internal:1217 \
+  --confirm-token <token-from-dry-run> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+Flag: `--codesys-command SERVICE:CMD` (byte pair, decimal or `0x..`,
+repeatable; e.g. `0x02:0x10` CmpApp/Start, `0x02:0x11` CmpApp/Stop,
+`0x09:0x06` CmpIecVarAccess/WriteVars).
+
+**Classifier design (and why it differs from FINS/SLMP/GE-SRTP)**:
+CoDeSys v3 has no transport-layer length delimiter a gate can trust
+(the reference dissector locates layers by byte-magic scan, not by
+reading lengths), so the handler does **not** parse the L3/L4
+transport (a length we misread would be a bypass). It buffers the
+reassembled client to server stream and, via `wire.ScanL7`, locates
+**every** L7 service header (protocol_id magic `0x55cd` / `0x7557`)
+and classifies each `(service_id, cmd_id)`.
+
+**Refusal semantics**: **fail-closed**. The stream is forwarded only
+while every located command is a read or an allowlisted write; any
+unknown command, non-allowlisted write, or truncated L7 header at
+EOF **closes the connection**. This is deliberately conservative (it
+can refuse an exotic-but-benign frame) but cannot be desynchronised
+into forwarding a hidden write: a real write header must carry the
+magic to be parsed by the PLC, so it is always located and
+classified. The scanner comes from `internal/protocols/codesys/wire`
+(reference Wireshark dissector fridgebuyer/codesys3-dissector).
+Triple-confirm + audit-chain emission per ADR-039.
 
 ## Scope
 

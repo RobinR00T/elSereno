@@ -7,8 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Legacy-ICS write-gated proxies (`-tags offensive`):** FINS
+  (`finsudp`, Omron, UDP/9600), SLMP (MELSEC, TCP/5007), GE-SRTP
+  (GE/Emerson PACSystems, TCP/18245), CoDeSys v3 (TCP/1217+11740), and
+  Red Lion Crimson v3 (TCP/789). Each classifies traffic at wire level
+  and admits a mutating command only via an operator allowlist, behind
+  the ADR-039 triple-confirm fence, on validated public dissectors (no
+  fabricated wire). Refusal is protocol-native where one exists (FINS
+  end code `0x2101`, SLMP `0xC059`) and fail-closed connection-drop
+  otherwise (GE-SRTP, CoDeSys, Red Lion).
+- **Allowlist scoping flags:** `--fins-command MRC:SRC` (+ `--fins-area`),
+  `--slmp-command` (+ `--slmp-device`), `--gesrtp-service`,
+  `--codesys-command SERVICE:CMD`, `--redlion-type`; each with a
+  matching `write <plugin> proxy-dry-run` token-mint verb.
+- **UDP proxy transport (`proxy.Options.Network`):** the proxy framework
+  now drives datagram protocols (finsudp UDP/9600, iax2 UDP/4569) with
+  per-source-address sessions and an idle watchdog.
+- **OPC UA HTTPS deep fingerprint:** the `opcuahttps` plugin (TCP/4843)
+  now POSTs a real GetEndpointsRequest and parses the
+  EndpointDescription list (Part 6 §7.4 binding). A `SecurityMode=None`
+  endpoint (anonymous, unencrypted UA access) raises the exposure /
+  auth_state factors. Codec in `internal/protocols/opcua/wire`.
+- **`elsereno fingerprint probe --plugin <name> --target host:port`:** a
+  live single-target fingerprint with one named plugin (closes the gap
+  that `scan` is a banner sweep and `fingerprint validate` is offline).
+- **BinaryEdge attack-surface input:** `--input binaryedge:<query>`
+  (API key via `--api-creds-file`, like Shodan/Censys).
+- **End-to-end demos + simulators:** `scripts/demo-{fins,slmp,gesrtp,codesys,redlion,opcua}-proxy.sh`
+  (write-gates) and `scripts/demo-opcua-https-fingerprint.sh`, each
+  against a bundled simulator under `simulators/`.
+
+### Security
+
+- **OPC UA GetEndpoints decoder (DoS):** bounded the `DiagnosticInfo`
+  recursion. A hostile response chaining the innerDiagnosticInfo bit on
+  every byte could drive unbounded recursion and exhaust the stack when
+  fingerprinting an untrusted host. Now capped (fail-closed) with a
+  regression test; found by fuzzing.
+- **CoDeSys write-gate bypass:** the stream gate could forward a lone
+  trailing first-magic byte (`0x55`/`0x75`), so an L7 magic split across
+  two TCP segments slipped through unclassified. The gate now holds back
+  any suffix that is a magic prefix. Also fixed an O(N²) re-scan of the
+  reassembly buffer. Found by fuzzing.
+
 ### Fixed
 
+- **CI:** `lint`, `sec` and `context` jobs are green again across the
+  legacy-ICS tranche (staticcheck/errorlint/exhaustive/gocyclo/dupl
+  cleanups; standalone `gosec` honours `#nosec` not `//nolint:gosec`;
+  `STATE.md` trimmed under the 250-line context gate).
 - **CI:** `scripts/audit.sh` now skips its local `main = origin/main`
   sync check under `$GITHUB_ACTIONS`. On a pull request HEAD is
   intentionally ahead of `origin/main`, so the check failed on every PR

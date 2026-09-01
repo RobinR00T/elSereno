@@ -69,7 +69,7 @@ tar xzf "elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
 
 # Two binaries bundled: elsereno (read-only) + elsereno-offensive
 ./elsereno_${VERSION}_${OS}_${ARCH}/elsereno version
-./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 17
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 30
 ```
 
 **Verify the GPG-signed tag** (canonical provenance for v1.8+):
@@ -144,12 +144,15 @@ transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 
-As of **v1.12.0** (2026-04-25) the default build registers **17
-plugins**. Writes, exploits, credential harvest, dial, and the
-**write-gated proxies** (7 protocols: modbus, opcua, sip, iax2,
-pbxhttp, bacnet, cwmp) ship behind `-tags offensive` with the
+The default build registers **30 fingerprint plugins** (run
+`elsereno plugins list` for the authoritative list on your binary).
+Writes, exploits, credential harvest, dial, and the **write-gated
+proxies** (24 protocols) ship behind `-tags offensive` with the
 ADR-039 triple-confirm wrapper. Each gate scopes traffic at
-multiple granularities — see the per-protocol details below.
+multiple granularities: see the per-protocol details below. The
+legacy-ICS write-gates (finsudp, slmp, gesrtp, codesys, redlion)
+landed 2026-08/09 on validated public dissectors, each with an
+end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
@@ -169,18 +172,31 @@ multiple granularities — see the per-protocol details below.
 | **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy per-subclass (v1.4) |
 | **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy per-(method, path) (v1.4) |
 | **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
+| **FINS**        | 9600/udp           | probe · gated UDP proxy per-(MRC, SRC) command + optional per-memory-area (Omron) |
+| **SLMP**        | 5007               | probe · gated proxy per-command-code + optional per-device-code (MELSEC) |
+| **GE-SRTP**     | 18245              | probe · gated proxy per-service-request code (GE/Emerson PACSystems) |
+| **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan |
+| **Red Lion CR3** | 789               | probe · gated proxy per-Type opcode (Crimson v3 HMIs) |
+| **OPC UA HTTPS** | 4843              | GetEndpoints POST · enumerates EndpointDescription list + security posture (a SecurityMode=None endpoint scores as higher exposure) |
 | banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
-The seven rows in **bold** carry write-gate proxies. The PBX
+The rows in **bold** carry write-gate proxies (this table is a
+representative selection; 24 protocols have write-gates in total,
+and more probe-only plugins ship than are listed here). The PBX
 trio (SIP/IAX2/pbxhttp) landed in v1.3, CWMP in v1.4 (probe) +
-v1.11 (gate). Per-object / per-path scoping (the second clause
-on every gated row except IAX2 / pbxhttp) landed in v1.12. Run
-`elsereno plugins list` for the authoritative list on your
-binary.
+v1.11 (gate); the legacy-ICS gates (FINS/SLMP/GE-SRTP/CoDeSys/Red
+Lion) landed 2026-08/09. Run `elsereno plugins list` for the
+authoritative list on your binary.
 
-**Attack-surface inputs** (6 providers, paginated since v1.12):
-Shodan, Censys, FOFA, ZoomEye, ONYPHE need API keys; Shodan
-InternetDB is **no-key** for low-volume IP lookups. Usage:
+**Single-target live fingerprint**: `elsereno fingerprint probe
+--plugin <name> --target host:port [--json]` runs one plugin's
+live probe against one host:port (contrast `scan`, a banner sweep,
+and `fingerprint validate`, which classifies captured bytes
+offline).
+
+**Attack-surface inputs** (7 providers, paginated since v1.12):
+Shodan, Censys, FOFA, ZoomEye, ONYPHE, BinaryEdge need API keys;
+Shodan InternetDB is **no-key** for low-volume IP lookups. Usage:
 
 ```sh
 elsereno scan --input fofa:'protocol="iax2"' \
@@ -193,7 +209,8 @@ elsereno scan --input internetdb:8.8.8.8
 Credentials live in a single YAML (0600 enforced at load) with
 a per-provider block. Other accepted `--input` prefixes:
 `shodan:<q>`, `censys:<q>`, `zoomeye:<q>`, `onyphe:<q>`,
-`internetdb:<ip>` + the file-based `list:`, `nmap:`, `stdin`.
+`binaryedge:<q>`, `internetdb:<ip>` + the file-based `list:`,
+`nmap:`, `stdin`.
 
 See `.context/protocols/` for per-protocol notes and
 `.context/STATE.md` for the authoritative live state.

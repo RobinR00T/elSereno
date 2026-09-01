@@ -65,20 +65,43 @@ EtherNet/IP proxy idioms.
 
 ## Writes (`-tags offensive`)
 
-Deferred. SRTP supports the following write-class service request
-codes (from public reverse engineering):
-- `0x07` Write system memory
-- `0x09` Write PLC memory
-- `0x0F` Write program block
-- `0x10` Write memory by symbolic name
-- `0x18` RUN command
-- `0x19` STOP command
-- `0x1A` Reset command
+Shipped. The write-gated TCP proxy lives in `offensive/write/gesrtp`
+(ADR-040 template, mirrors the slmp handler). SRTP is mailbox-framed
+(a fixed 56-byte PDU); the gate classifies each mailbox by its
+service-request code. Read services (READ_SYS_MEM, GET_INFO, ...)
+always pass; a mutating service is admitted only when its code is
+allowlisted.
 
-A future offensive plugin would gate per-service-code +
-per-memory-area allowlist (analogous to the Modbus per-FC +
-per-address-range pattern in v1.12). Triple-confirm + audit-chain
-emission per ADR-009.
+```sh
+# 1) Mint the session confirm-token (ADR-039 triple-confirm):
+elsereno-offensive write gesrtp proxy-dry-run \
+  --target plc.internal:18245 \
+  --gesrtp-service 0x07 \          # WRITE_SYS_MEM
+  --gesrtp-service 0x23 \          # SET_PLC_RUN
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# 2) Run the gated proxy (TCP/18245) with the triple-confirm fence:
+elsereno-offensive proxy listen --plugin gesrtp \
+  --listen 127.0.0.1:18245 --target plc.internal:18245 \
+  --gesrtp-service 0x07 --gesrtp-service 0x23 \
+  --accept-writes --confirm-target plc.internal:18245 \
+  --confirm-token <token-from-dry-run> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+Flag: `--gesrtp-service <byte>` (service-request code, decimal or
+`0x..`, repeatable; e.g. `0x07` WRITE_SYS_MEM, `0x23` SET_PLC_RUN,
+`0x40` PROG_LOAD).
+
+**Refusal semantics**: SRTP has no clean per-request "permission
+denied" mailbox, so a refusal **CLOSES the connection**
+(fail-closed) rather than fabricating an error mailbox; the client
+reconnects and resyncs. An unrecognised continuation mailbox on a
+multi-packet write simply refuses (closing the session), never
+forwards. The 56-byte framing + service codes come from
+`internal/protocols/gesrtp/wire` (derived from the Palatis /
+Rapid7 `gesrtp-info` dissector). Triple-confirm + audit-chain
+emission per ADR-039.
 
 ## Scope
 

@@ -6,9 +6,13 @@
 > record/replay (v1.41-v1.48), STIX 2.1 export, TUI, Windows
 > cross-compile (v2.34), PROFINET DCP (v2.39/v2.41), and nearly all
 > "additional protocols/inputs". **Source of truth: `.context/STATE.md`.**
-> Still genuinely open: offensive write paths for finsudp / slmp / gesrtp
-> / codesys / redlion; PROFINET GOOSE/SV L2 passive (gopacket +
-> CAP_NET_RAW); full OPC UA HTTPS transport; BinaryEdge input.
+> **Shipped 2026-08/09:** offensive write-gates for finsudp / slmp /
+> gesrtp / codesys / redlion (each with a simulator demo); OPC UA HTTPS
+> deep GetEndpoints fingerprint (the `opcuahttps` plugin now enumerates
+> endpoints + security posture); BinaryEdge input; the `fingerprint
+> probe` verb. Still genuinely open: PROFINET GOOSE/SV L2 passive
+> (gopacket + CAP_NET_RAW); OPC UA HTTPS *write* path (only the
+> read-only fingerprint shipped).
 
 State as of **2026-04-29**. **v1.15.0 is the latest published
 release** (5-chunk loose-end closure cycle on GitHub Releases).

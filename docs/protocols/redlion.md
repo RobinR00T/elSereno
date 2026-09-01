@@ -32,18 +32,59 @@ and does not parse RLN TLV frames.
 
 ## Proxy policy (default build)
 
-Fail-closed. RLN's deeper TLV layers are not implemented in
-chunk 3; the default-build proxy refuses sessions immediately
-rather than relay bytes that may or may not be valid RLN
-frames. A relay arrives with the future offensive plugin.
+Fail-closed. In the default build the proxy refuses sessions
+immediately rather than relay bytes that may or may not be valid
+RLN frames. The write-gated relay lives in the offensive build (see
+below), where the CR3 length-prefixed framing is parsed
+frame-by-frame.
 
 ## Writes (`-tags offensive`)
 
-Deferred. Crimson 3 supports tag manipulation, project
-download, password reset, and remote firmware upgrade through
-RLN — all of which qualify as kinetic-effect writes on the HMI.
-A future offensive plugin would gate per-(RLN command, target
-tag/object) and emit `audit-chain` events.
+Shipped. The write-gated TCP proxy lives in
+`offensive/write/redlion` (TCP/789). CR3 is length-prefixed
+(2-byte big-endian body length at offset 0), so the handler reads
+discrete frames via `wire.ReadFrame` and gates each by its Type
+opcode (at offset 4). Read opcodes (`0x1b00` mem-read, `0x1700`
+poll) always pass; a mutating opcode is admitted only when its
+Type is allowlisted.
+
+```sh
+# 1) Mint the session confirm-token (ADR-039 triple-confirm):
+elsereno-offensive write redlion proxy-dry-run \
+  --target hmi.internal:789 \
+  --redlion-type 0x1500 \          # config/firmware chunk upload
+  --redlion-type 0x1300 \          # value write
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# 2) Run the gated proxy (TCP/789) with the triple-confirm fence:
+elsereno-offensive proxy listen --plugin redlion \
+  --listen 127.0.0.1:789 --target hmi.internal:789 \
+  --redlion-type 0x1500 --redlion-type 0x1300 \
+  --accept-writes --confirm-target hmi.internal:789 \
+  --confirm-token <token-from-dry-run> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+Flag: `--redlion-type <u16>` (Crimson v3 Type opcode, decimal or
+`0x..`, repeatable; e.g. `0x1500` config/firmware chunk, `0x1300`
+value write, `0x0300` register push).
+
+**Conservative classifier (and why)**: the public dissector
+(internetofallthethings/cr3-wireshark) is "a minimal dissector, a
+starting point": it establishes the framing and enumerates the
+Type opcodes but does NOT authoritatively label every opcode
+read-vs-write. So the auto-pass set is deliberately narrow (only
+opcodes carrying an explicit read-request field structure); the
+chunk/value/register-push opcodes are the known writes; every
+other opcode (handshake / no-payload included) is refused unless
+the operator allowlists it after establishing its semantics in
+their own environment. No fabricated semantics.
+
+**Refusal semantics**: CR3 has no documented per-request NAK, so
+a refusal **CLOSES the connection** (fail-closed), mirroring the
+GE-SRTP handler; the client reconnects and resyncs. The framing +
+opcodes come from `internal/protocols/redlion/wire`. Triple-confirm
++ audit-chain emission per ADR-039.
 
 ## Scope
 

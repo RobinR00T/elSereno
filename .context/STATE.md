@@ -1,7 +1,7 @@
 ---
 phase: v2.63-closed; CI/CD reactivated + reliability pass (2026-08-31)
 status: tags published through v2.62; CI green on main
-last-updated: 2026-08-31
+last-updated: 2026-09-01
 token-budget: 320
 ---
 
@@ -209,34 +209,35 @@ release on tag push and a `--snapshot` on dispatch; nightly runs
 30-min deep fuzz. Local goreleaser + syft + `gh release upload`
 remains an option since v1.8.
 
-**Counts now**:
-- **25 protocol plugins** (default build): atg, atmodem, bacnet,
-  banner, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp,
-  hartip, iax2, iec104, knxip, mbustcp, modbus, opcua, pbxhttp,
-  redlion, s7, sip, slmp, xot.
-- 24 offensive write-gated proxies (default + `-tags offensive`
-  builds): atg, bacnet, codesys, cwmp, dlms, dnp3, enip, finsudp, fox,
-  gesrtp, hartip, iax2, iec104, knxip, mbustcp, mms, modbus, opcua,
-  pbxhttp, pcworx, redlion, s7, sip, slmp. GE-SRTP, CoDeSys and Red Lion
-  landed 2026-09-01 on validated public dissectors; finsudp (UDP/9600),
-  slmp (TCP/5007) and a UDP transport (Options.Network) landed
-  2026-08-31. Each ships `write <p> proxy-dry-run` token minting and an
-  end-to-end simulator demo (scripts/demo-*-proxy.sh).
-- 6 attack-surface input providers: shodan, censys, fofa,
-  zoomeye, onyphe, internetdb.
-- 16 / 25 plugins publish a non-zero `cve_exposure` score
-  (post v1.24 chunk 1).
-- 25 / 25 plugins have engineering notes in
-  `.context/protocols/` (post v1.24 chunk 2).
-
+**Counts now** (authoritative: `elsereno plugins list`):
+- **30 protocol plugins** (default build); adds opcuahttps, proconos,
+  twincat, atg/atmodem/dlms/dnp3/hartip/iec104/knxip/mbustcp/mms over
+  the old 25-list. (profinet is CLI decode-only, not a probe plugin.)
+- 24 offensive write-gated proxies (`-tags offensive`). GE-SRTP,
+  CoDeSys and Red Lion landed 2026-09-01 on validated public
+  dissectors; finsudp (UDP/9600), slmp (TCP/5007) + a UDP transport
+  (Options.Network) landed 2026-08-31. Refusal: FINS/SLMP native error;
+  GE-SRTP/CoDeSys/Red Lion close-on-refuse; OPC UA ServiceFault. Each
+  ships `write <p> [proxy-]dry-run` token minting + a simulator demo
+  (scripts/demo-*-proxy.sh, 6 of them). CoDeSys is a fail-closed L7
+  magic-scan (no trustworthy L3/L4 length).
+- **OPC UA HTTPS deep fingerprint**: the `opcuahttps` plugin (4843) now
+  POSTs a real GetEndpointsRequest and enumerates the EndpointDescription
+  list; a SecurityMode=None endpoint raises exposure/auth_state. Codec in
+  opcua/wire/getendpoints.go. New verb `fingerprint probe --plugin P
+  --target host:port` runs one plugin live against one target.
+- 7 attack-surface input providers: shodan, censys, fofa,
+  zoomeye, onyphe, binaryedge, internetdb.
+- **Security fixes (fuzz-found in own code):** OPC UA GetEndpoints
+  DiagnosticInfo unbounded recursion (DoS, capped); CoDeSys split-magic
+  write-gate bypass + O(N^2) re-scan. See pitfalls.md.
 **Deferred to v1.25+**:
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
-- Offensive plugins for the v1.20 / v1.21 fingerprint trios.
 - GE-SRTP service-0x21 follow-up.
 - macOS sandbox via `sandbox_init(3)`.
-- IEC 61850 MMS, PROFINET (L2 with gopacket). (OPC UA HTTPS
-  GetEndpoints fingerprint landed 2026-09-01.)
+- IEC 61850 MMS, PROFINET (L2 with gopacket), OPC UA HTTPS *write*
+  path (only the read-only GetEndpoints fingerprint shipped).
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
 **Operator-pending**:

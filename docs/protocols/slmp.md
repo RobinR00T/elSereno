@@ -62,23 +62,48 @@ Refusal idiom: subheader 0xD000 + routing echo + declared length
 
 ## Writes (`-tags offensive`)
 
-Deferred. SLMP write services include:
-- `0x1401` Batch Write (devices)
-- `0x1402` Random Write
-- `0x1411` Multiple Block Batch Write
-- `0x1620` Remote RUN
-- `0x1621` Remote STOP
-- `0x1622` Remote PAUSE
-- `0x1624` Remote LATCH CLEAR
-- `0x1625` Remote RESET
-- `0x1619` Clear Error
-- `0x1818` Password Lock
-- `0x1819` Password Unlock
+Shipped. The write-gated TCP proxy lives in `offensive/write/slmp`
+(ADR-040 template, mirrors the s7 length-prefixed handler).
+Per-frame classification via `wire.ReadFrame` (one 3E-binary frame
+at a time): reads (Device Read, Read CPU Model Name, ...) always
+pass; a mutating command is admitted only when its command code is
+allowlisted.
 
-A future offensive plugin would gate per-(command, subcommand)
-plus per-device-range for Batch/Random writes (analogous to the
-Modbus per-FC + per-address-range pattern in v1.12). Triple-confirm
-+ audit-chain emission per ADR-009.
+```sh
+# 1) Mint the session confirm-token (ADR-039 triple-confirm):
+elsereno-offensive write slmp proxy-dry-run \
+  --target plc.internal:5007 \
+  --slmp-command 0x1401 \          # Device Write Batch
+  --slmp-command 0x1002 \          # Remote Stop
+  --slmp-device 0xA8 \             # optional: narrow the batch write to D (0xA8), M (0x90), ...
+  --vault-passphrase-file ~/.elsereno/dev.pp
+
+# 2) Run the gated proxy (TCP/5007) with the triple-confirm fence:
+elsereno-offensive proxy listen --plugin slmp \
+  --listen 127.0.0.1:5007 --target plc.internal:5007 \
+  --slmp-command 0x1401 --slmp-command 0x1002 --slmp-device 0xA8 \
+  --accept-writes --confirm-target plc.internal:5007 \
+  --confirm-token <token-from-dry-run> \
+  --vault-passphrase-file ~/.elsereno/dev.pp
+```
+
+Flags: `--slmp-command <u16>` (command code, decimal or `0x..`,
+repeatable; e.g. `0x1401` Device Write Batch, `0x1002` Remote Stop)
+and `--slmp-device <byte>` (optionally narrows an allowed Device
+Write Batch, subcommand `0x0000`, to specific device codes; empty =
+any device).
+
+**Refusal semantics**: a refused frame gets a **native SLMP
+response** (end code `0xC059`, "command cannot be executed") written
+back to the client and never forwarded upstream (ADR-040); the two
+client-writing goroutines share a locked writer so refusal and
+response frames never interleave. The wire parser + device codes
+come from `internal/protocols/slmp/wire` (Mitsubishi SLMP Reference
+SH(NA)-080956ENG). Triple-confirm + audit-chain emission per
+ADR-039.
+
+Out of scope for this cycle: per-device-address narrowing within an
+allowed Device Write (the SLMP analogue of the s7 per-item gate).
 
 ## Scope
 
