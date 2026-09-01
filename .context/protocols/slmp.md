@@ -67,13 +67,16 @@ non-SLMP noise.
   reads the body, parses with ParseReadCPUModelName.
 
 ## Write / dial operations (offensive build tag)
-Deferred. SLMP supports Batch Write (0x1401), Random Write
-(0x1402), Multiple Block Batch Write (0x1411), Remote RUN
-(0x1620), Remote STOP (0x1621), Remote PAUSE (0x1622), Remote
-LATCH CLEAR (0x1624), Remote RESET (0x1625), Clear Error (0x1619),
-Password Lock/Unlock (0x1818/0x1819). Each needs per-(command,
-subcommand) + per-device-range allowlist gating. Triple-confirm +
-audit-chain emission per ADR-009.
+Shipped (`offensive/write/slmp`, TCP/5007). Per-frame
+classification via `wire.ReadFrame` (one 3E-binary frame at a
+time): reads pass; a mutating command is admitted only when its
+command code is allowlisted via `--slmp-command <u16>` (e.g.
+`0x1401` Device Write Batch, `0x1002` Remote Stop), optionally
+narrowed to device codes with `--slmp-device`. A refused frame
+gets a native SLMP response (end code `0xC059`) and is never
+forwarded. See `docs/protocols/slmp.md` +
+`scripts/demo-slmp-proxy.sh`. Triple-confirm + audit-chain
+emission per ADR-039.
 
 ## REPL commands (planned)
 - See the generic REPL framework. Expose CPUInfo fields (Model,

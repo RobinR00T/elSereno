@@ -44,21 +44,26 @@ MRC/SRC, or generic non-FINS noise.
   ParseControllerDataRead.
 
 ## Write / dial operations (offensive build tag)
-Deferred. FINS write services include: memory-area write
-(MRC=0x01 SRC=0x02), forced-set / forced-set-cancel (0x22..0x24),
-bit-set/reset, mode transitions RUN/STOP/RESET (MRC=0x04), program
-file transfer (MRC=0x22). Each needs per-area-code + per-mode
-allowlist gating analogous to Modbus per-FC and BACnet per-svc.
+Shipped (`offensive/write/finsudp`, UDP/9600). Per-datagram
+classification: reads pass; a mutating FINS command is admitted
+only when its `(MRC, SRC)` is allowlisted via `--fins-command
+MRC:SRC` (e.g. `0x01:0x02` Memory Area Write, `0x04:0x01` RUN),
+optionally narrowed to memory-area codes with `--fins-area`. A
+refused datagram gets a native FINS response (end code `0x2101`)
+and is never forwarded. The proxy framework drives it over the new
+UDP transport (`Options.Network`). See `docs/protocols/finsudp.md`
++ `scripts/demo-fins-proxy.sh`. ADR-039.
 
 ## REPL commands (planned)
 - See the generic REPL framework. Expose ControllerData fields
   (Model, InternalCode, SystemVersion) read-only.
 
 ## Proxy hooks
-Fail-closed: TCP proxy framework cannot legitimately relay UDP
-FINS frames. `ProxyHandler.Handle()` returns immediately with an
-error citing the missing UDP relay. A dedicated UDP relay arrives
-with a future offensive write plugin (analogous to BACnet's pattern).
+Default build: `ProxyHandler.Handle()` returns immediately with an
+error (the default TCP framework does not relay UDP FINS). The
+write-gated UDP relay lives in the offensive build and runs over
+the proxy framework's UDP transport (`Options.Network`, shared with
+iax2).
 
 ## Scoring contribution
 factors{protocol_risk:80, exposure:80, auth_state:95, capability:30

@@ -43,10 +43,18 @@ greeting before the binary handshake (banner substring match).
   banner substring).
 
 ## Write / dial operations (offensive build tag)
-Deferred. CoDeSys V3 supports Cmp* service requests (CmpAppBP
-write app, CmpFile write filesystem, CmpUserMgr add user) —
-full RCE on the PLC runtime — plus project download/upload with
-optional encryption.
+Shipped (`offensive/write/codesys`, TCP/1217+11740). CoDeSys v3
+has no transport-layer length a gate can trust, so the handler
+does NOT parse L3/L4: it buffers the reassembled stream and, via
+`wire.ScanL7`, locates every L7 service header (magic `0x55cd`/
+`0x7557`) and classifies each `(service, cmd)`. Reads pass; a
+mutating command is admitted only when allowlisted via
+`--codesys-command SERVICE:CMD`; anything else closes the
+connection (fail-closed). A real write header must carry the magic
+to be parsed by the PLC, so it is always located: a decoy read
+cannot hide a write. Wire from the fridgebuyer/codesys3-dissector.
+See `docs/protocols/codesys.md` + `scripts/demo-codesys-proxy.sh`.
+Triple-confirm + audit-chain emission per ADR-039.
 
 ## REPL commands (planned)
 - See the generic REPL framework. A future REPL would issue

@@ -673,7 +673,8 @@ ellos.
 | Sub-comando | Uso                                                                |
 |-------------|--------------------------------------------------------------------|
 | `capture`   | Escucha en `--listen` y guarda los bytes del cliente en `--output`. |
-| `validate`  | Corre `Probe()` de un plugin contra bytes capturados; muestra match score. |
+| `validate`  | Corre `Probe()` de un plugin contra bytes capturados (offline); muestra match score. |
+| `probe`     | Fingerprint EN VIVO de un solo target con un plugin: abre una conexión real a `--target host:port` y muestra el Finding. |
 
 **Ejemplos:**
 
@@ -682,9 +683,13 @@ ellos.
 elsereno fingerprint capture --listen 127.0.0.1:5020 --output /tmp/modbus.bin
 # (en otra terminal: nmap o cliente real → 127.0.0.1:5020)
 
-# Validar contra un plugin:
+# Validar (offline) contra un plugin:
 elsereno fingerprint validate --plugin modbus --bytes /tmp/modbus.bin
 # Salida: capability score + reasoning
+
+# Probe en vivo de un solo target con un plugin concreto:
+elsereno fingerprint probe --plugin opcuahttps --target 10.0.0.5:4843 --json
+# (contrasta con `scan`, que es un barrido banner, y con `validate`, offline)
 ```
 
 ### 7.12 `triage`

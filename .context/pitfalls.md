@@ -277,5 +277,15 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Regla**: los tests validan contra la fuente real, no una copia. Para exponer un símbolo sin exportar a un `_test` externo, usa el idioma `export_test.go` (`package X` con `var Exported = internal`), accesible solo desde tests. Nunca dupliques a mano una lista/tabla que el código puede crecer.
 **Ver**: `internal/protocols/gesrtp/wire/export_test.go`, nightly fuzz 30-8-2026.
 
+## PITF-053: Recursión sin cota en un parser de input de red no confiable
+**Síntoma**: un decoder de respuesta (OPC UA `GetEndpointsResponse`) parsea un `DiagnosticInfo`, cuyo bitmask puede pedir un `innerDiagnosticInfo` anidado (bit `0x40`); el parser recursa sin límite de profundidad. Una respuesta hostil que encadena el bit en cada byte fuerza tantos niveles de recursión como bytes tenga, agotando la pila. Como esto parsea la respuesta de un host que se está fingerprinteando (input NO confiable por definición), es un DoS remoto. Ni el build ni los tests unitarios lo ven; lo caza el fuzz al correrlo sobre el propio parser nuevo.
+**Regla**: todo parser de input de red no confiable con un campo auto-referente (diagnostics anidados, ExtensionObject, TLV recursivo, etc.) lleva una cota de profundidad explícita y falla cerrado al superarla. Y: fuzz-ea SIEMPRE cada parser nuevo de input no confiable, no solo confíes en tests de casos felices. Cota generosa pero finita (aquí `maxDiagDepth=16`; el anidamiento real es de 1-2 niveles).
+**Ver**: `internal/protocols/opcua/wire/getendpoints.go` (`diagnosticInfo(depth)`, `maxDiagDepth`), 1-9-2026.
+
+## PITF-054: Bypass de un write-gate por marcador partido entre lecturas de stream
+**Síntoma**: un gate que escanea un stream buscando un marcador de 2 bytes (el magic L7 `0x55cd`/`0x7557` de CoDeSys, cuyo framing L3/L4 no es de longitud fiable) daba por reenviable un byte suelto `0x55`/`0x75` al final del buffer, porque el `matchMagic` necesita los 2 bytes para reconocer el marcador. Si el magic llegaba partido en dos segmentos TCP (`0x55` en un `Read`, `0xcd` en el siguiente), el gate reenviaba cada byte por separado, nunca reconstruía el magic, nunca clasificaba el comando: **la escritura pasaba sin filtrar**. Además, acumular todo el stream y reescanearlo entero en cada `Read` es O(N²) (DoS enviando byte a byte) y rechazaba sesiones legítimas largas al topar el buffer máximo.
+**Regla**: en un gate por escaneo de stream, nunca reenvíes un byte que pueda ser el COMIENZO de un marcador aún incompleto: retén cualquier sufijo que sea prefijo (parcial) del marcador, no solo cuando el marcador entero está presente. Y descarta lo ya escaneado-y-reenviado para que cada escaneo sea O(cola), no O(sesión). A fin de stream (EOF) un byte-prefijo suelto ya no puede completar un marcador, así que ahí sí es seguro reenviarlo; solo un marcador emparejado-pero-incompleto es un comando truncado.
+**Ver**: `internal/protocols/codesys/wire/categories.go` (`ScanL7`/`magicPrefixAt`), `offensive/write/codesys/gatedproxy.go` (`forward`), 1-9-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

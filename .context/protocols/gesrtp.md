@@ -60,20 +60,16 @@ folds into the finding hash and lifts capability from 70 to 75.
   ClassifyResponse.
 
 ## Write / dial operations (offensive build tag)
-Deferred. SRTP supports the following write-class service request
-codes (from public reverse engineering):
-- `0x07` Write system memory
-- `0x09` Write PLC memory
-- `0x0F` Write program block
-- `0x10` Write memory by symbolic name
-- `0x18` RUN command
-- `0x19` STOP command
-- `0x1A` Reset command
-
-A future offensive plugin would gate per-(service-code,
-memory-area) (analogous to Modbus per-FC + per-address-range) and
-emit `audit-chain` events per service-request mailbox. Triple-
-confirm + audit-chain emission per ADR-009.
+Shipped (`offensive/write/gesrtp`, TCP/18245). The gate classifies
+each fixed 56-byte SRTP mailbox by its service-request code: read
+services (READ_SYS_MEM, GET_INFO, ...) pass; a mutating service
+(e.g. `0x07` WRITE_SYS_MEM, `0x23` SET_PLC_RUN, `0x40` PROG_LOAD)
+is admitted only when allowlisted via `--gesrtp-service <byte>`.
+SRTP has no per-request NAK, so a refusal CLOSES the connection
+(fail-closed). Wire from `internal/protocols/gesrtp/wire` (Palatis
+dissector). See `docs/protocols/gesrtp.md` for the full CLI +
+`scripts/demo-gesrtp-proxy.sh` for an end-to-end demo. Triple-
+confirm + audit-chain emission per ADR-039.
 
 ## REPL commands (planned)
 - See the generic REPL framework. A future REPL would expose the

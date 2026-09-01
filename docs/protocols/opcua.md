@@ -84,6 +84,24 @@ YAML keys: `services:`, `node_ids:` (`{namespace, identifier}`
 or `{canonical: "ns=…;…=…"}`), `call_methods:`
 (`{object, method}`).
 
+## OPC UA over HTTPS
+
+The HTTPS transport binding (Part 6 §7.4) is a **separate plugin**,
+`opcuahttps` (TCP/4843). It POSTs a real GetEndpointsRequest over
+TLS and parses the returned EndpointDescription list, so the finding
+carries the server's security posture: a `SecurityMode=None`
+endpoint (anonymous, unencrypted UA access) raises exposure and
+auth_state. If the deep POST fails it falls back to an HTTP
+header classifier. Drive it directly with:
+
+```sh
+elsereno fingerprint probe --plugin opcuahttps --target host:4843 --json
+```
+
+`scripts/demo-opcua-https-fingerprint.sh` runs it end-to-end against
+a bundled TLS simulator. The GetEndpoints codec lives in
+`internal/protocols/opcua/wire/getendpoints.go`.
+
 ## See also
 
 - `.context/protocols/opcua.md` for engineering wire notes.

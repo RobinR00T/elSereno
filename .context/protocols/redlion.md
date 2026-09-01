@@ -38,8 +38,18 @@ informative.
 - `probe`: dial → read → fallback 3-byte hello → classify.
 
 ## Write / dial operations (offensive build tag)
-Deferred. Crimson 3 supports tag manipulation, project
-download, password reset, remote firmware upgrade.
+Shipped (`offensive/write/redlion`, TCP/789). CR3 is length-
+prefixed (2-byte big-endian body length), so the handler reads
+discrete frames and gates each by its Type opcode (offset 4).
+Reads (`0x1b00` mem-read, `0x1700` poll) pass; a mutating opcode
+is admitted only via `--redlion-type <u16>` (e.g. `0x1500`
+config/firmware chunk, `0x1300` value write). The public dissector
+(cr3-wireshark) does not authoritatively label every opcode
+read-vs-write, so the auto-pass set is deliberately narrow and
+everything else (handshake included) is refused unless allowlisted;
+no fabricated semantics. Refusal closes the connection (fail-
+closed). See `docs/protocols/redlion.md` +
+`scripts/demo-redlion-proxy.sh`. ADR-039.
 
 ## Proxy hooks
 Fail-closed. RLN TLV stack not implemented in chunk 3.

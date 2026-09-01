@@ -85,7 +85,14 @@ Unified Automation OPC UA C++ DoS)}.
 - Non-UA-TCP response: capability stays 30.
 - Silent: no usable reply.
 
-## Forward work
-- OPC UA over HTTPS (port 443 with `opc.https://` scheme) —
-  requires a TLS handshake first then UA-TCP framing on top.
-  Deferred to v1.24+ (no test vectors yet).
+## OPC UA over HTTPS
+Shipped as a separate plugin, `opcuahttps` (TCP/4843, Part 6 §7.4
+binding). It POSTs a real GetEndpointsRequest and parses the
+EndpointDescription list (codec in `internal/protocols/opcua/wire/
+getendpoints.go`, `Encode`/`DecodeGetEndpointsResponse`). A
+`SecurityMode=None` endpoint (anonymous, unencrypted UA access)
+raises the exposure/auth_state factors; if the deep POST fails it
+falls back to the header classifier. `scripts/demo-opcua-https-
+fingerprint.sh` drives it via `elsereno fingerprint probe --plugin
+opcuahttps`. The HTTPS *write* path (UA services over the HTTPS
+binding) is still forward work.
