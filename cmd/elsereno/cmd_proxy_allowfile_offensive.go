@@ -38,6 +38,8 @@ const (
 	pluginNameGESRTP = "gesrtp"
 	// Wire-aware allowlist of CODESYS v3 L7 (service, cmd) pairs.
 	pluginNameCoDeSys = "codesys"
+	// Wire-aware allowlist of Red Lion Crimson v3 Type opcodes.
+	pluginNameRedLion = "redlion"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every

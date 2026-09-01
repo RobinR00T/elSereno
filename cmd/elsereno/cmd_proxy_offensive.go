@@ -34,6 +34,7 @@ import (
 	opwrite "local/elsereno/offensive/write/opcua"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
 	pcworxwrite "local/elsereno/offensive/write/pcworx"
+	rlwrite "local/elsereno/offensive/write/redlion"
 	s7write "local/elsereno/offensive/write/s7"
 	sipwrite "local/elsereno/offensive/write/sip"
 	slmpwrite "local/elsereno/offensive/write/slmp"
@@ -157,6 +158,14 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"listed. The gate scans the reassembled stream for every L7 "+
 			"service header (magic 0x55cd/0x7557) and refuses the session "+
 			"on any unlisted write/unknown. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.redlionTypes, "redlion-type", nil,
+		"redlion: Crimson v3 Type opcodes to allow (uint16, decimal or "+
+			"0x..; e.g. 0x1500 config/firmware chunk, 0x1300 value write, "+
+			"0x0300 register push). Read opcodes (0x1b00 mem-read, 0x1700 "+
+			"poll) always pass; every other opcode - including handshake / "+
+			"no-payload opcodes whose read/write semantics the public "+
+			"dissector does not establish - is refused unless listed here. "+
+			"Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -442,6 +451,13 @@ type proxyListenOpts struct {
 	// only when its (service, cmd) is listed. The gate scans the
 	// reassembled client->server stream for every L7 service header.
 	codesysCommands []string
+	// redlionTypes holds the redlion allowlist of Crimson v3 Type
+	// opcodes (uint16, decimal or 0x-hex; e.g. 0x1500 chunk upload).
+	// Read opcodes always pass; every other opcode is admitted only
+	// when its Type is listed (the public dissector does not establish
+	// read/write semantics for the handshake opcodes, so they too must
+	// be allowlisted).
+	redlionTypes []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -721,8 +737,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildGESRTPHandler(opts, rt, c)
 	case pluginNameCoDeSys:
 		return buildCoDeSysHandler(opts, rt, c)
+	case pluginNameRedLion:
+		return buildRedLionHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -918,6 +936,39 @@ func buildCoDeSysHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.C
 		allowed = append(allowed, cmd)
 	}
 	return &cswrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// parseRedLionType parses one --redlion-type value (uint16, decimal or
+// 0x-hex) into an AllowedType.
+func parseRedLionType(s string) (rlwrite.AllowedType, error) {
+	v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 16)
+	if err != nil {
+		return rlwrite.AllowedType{}, fmt.Errorf("--redlion-type %q: %w", s, err)
+	}
+	// #nosec G115 -- ParseUint bitSize=16 bounds v to a uint16.
+	return rlwrite.AllowedType{Type: uint16(v)}, nil
+}
+
+// buildRedLionHandler constructs the redlion (Crimson v3) write-gated
+// proxy. Read opcodes always pass; a mutating (or dissector-
+// unclassified) opcode is admitted only when the operator allowlisted
+// its Type via --redlion-type.
+func buildRedLionHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*rlwrite.WriteGatedHandler, error) {
+	allowed := make([]rlwrite.AllowedType, 0, len(opts.redlionTypes))
+	for _, raw := range opts.redlionTypes {
+		a, err := parseRedLionType(raw)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, a)
+	}
+	return &rlwrite.WriteGatedHandler{
 		Target:         opts.target,
 		Allowed:        allowed,
 		Deriver:        rt.Vault,

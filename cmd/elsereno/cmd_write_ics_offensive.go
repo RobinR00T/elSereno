@@ -15,6 +15,7 @@ import (
 	cswrite "local/elsereno/offensive/write/codesys"
 	finswrite "local/elsereno/offensive/write/finsudp"
 	gewrite "local/elsereno/offensive/write/gesrtp"
+	rlwrite "local/elsereno/offensive/write/redlion"
 	slmpwrite "local/elsereno/offensive/write/slmp"
 )
 
@@ -313,6 +314,71 @@ func runWriteCoDeSysProxyDryRun(cmd *cobra.Command, f codesysProxyFlags) error {
 	cmd.Printf("Operation:    proxy_session\n")
 	cmd.Printf("Target:       %s\n", f.target)
 	cmd.Printf("Commands:     %s\n", strings.Join(f.commands, " "))
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+	return maybeMintToken(cmd, mut, f.ppFile)
+}
+
+// ---- redlion ------------------------------------------------------
+
+type redlionProxyFlags struct {
+	target, ppFile string
+	types          []string
+}
+
+func newWriteRedLionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "redlion",
+		Short: "Red Lion Crimson v3 write-gated proxy (proxy-dry-run derives the session confirm-token)",
+	}
+	cmd.AddCommand(newWriteRedLionProxyDryRunCmd())
+	return cmd
+}
+
+func newWriteRedLionProxyDryRunCmd() *cobra.Command {
+	var f redlionProxyFlags
+	cmd := &cobra.Command{
+		Use:   "proxy-dry-run",
+		Short: "Proxy-session dry-run: derive the confirm-token for `proxy listen --plugin redlion`",
+		Long: `Takes a Crimson v3 Type-opcode allowlist and prints the canonical
+SessionMutation + PayloadHash, and (with --vault-passphrase-file) the
+expected confirm-token.
+
+Read opcodes (0x1b00 mem-read, 0x1700 poll) always pass; only the
+opcodes listed here are admitted. Example: 0x1500 config/firmware
+chunk upload, 0x1300 value write, 0x0300 register push.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runWriteRedLionProxyDryRun(cmd, f)
+		},
+	}
+	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the Crimson v3 device we'll proxy to)")
+	cmd.Flags().StringSliceVar(&f.types, "redlion-type", nil,
+		"Crimson v3 Type opcode(s) to allow (uint16, decimal or 0x..; "+
+			"e.g. 0x1500 chunk upload). Repeatable. Must match the "+
+			"`proxy listen --redlion-type` set.")
+	addPassphraseFileFlag(cmd, &f.ppFile)
+	return cmd
+}
+
+func runWriteRedLionProxyDryRun(cmd *cobra.Command, f redlionProxyFlags) error {
+	if f.target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required"))
+	}
+	if len(f.types) == 0 {
+		return fail(core.ExitUsage, errors.New("--redlion-type is required (repeatable)"))
+	}
+	allowed := make([]rlwrite.AllowedType, 0, len(f.types))
+	for _, raw := range f.types {
+		a, err := parseRedLionType(raw)
+		if err != nil {
+			return fail(core.ExitUsage, err)
+		}
+		allowed = append(allowed, a)
+	}
+	mut := rlwrite.SessionMutation(f.target, allowed)
+	cmd.Printf("Protocol:     redlion\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", f.target)
+	cmd.Printf("Types:        %s\n", strings.Join(f.types, " "))
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 	return maybeMintToken(cmd, mut, f.ppFile)
 }
