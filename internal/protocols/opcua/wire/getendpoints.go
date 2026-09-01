@@ -265,8 +265,20 @@ func (c *cur) extensionObject() {
 	}
 }
 
-// diagnosticInfo skips a DiagnosticInfo (Part 6 §5.2.2.12).
-func (c *cur) diagnosticInfo() {
+// maxDiagDepth bounds DiagnosticInfo nesting. Real diagnostics nest a
+// level or two; a hostile response that chains the innerDiagnosticInfo
+// bit (0x40) on every byte would otherwise drive unbounded recursion
+// and exhaust the stack (a DoS, since this parses untrusted network
+// responses). Past the cap we stop descending and fail closed.
+const maxDiagDepth = 16
+
+// diagnosticInfo skips a DiagnosticInfo (Part 6 §5.2.2.12). depth
+// guards the innerDiagnosticInfo recursion.
+func (c *cur) diagnosticInfo(depth int) {
+	if depth > maxDiagDepth {
+		c.err = ErrShortResponse
+		return
+	}
 	mask := c.u8()
 	if c.fail() {
 		return
@@ -290,7 +302,7 @@ func (c *cur) diagnosticInfo() {
 		c.skip(4) // innerStatusCode
 	}
 	if mask&0x40 != 0 {
-		c.diagnosticInfo() // innerDiagnosticInfo (recursive)
+		c.diagnosticInfo(depth + 1) // innerDiagnosticInfo (recursive)
 	}
 }
 
@@ -313,11 +325,11 @@ func (c *cur) localizedText() string {
 
 // responseHeader skips a ResponseHeader (Part 4 §7.29).
 func (c *cur) responseHeader() {
-	c.skip(8)          // timestamp DateTime
-	c.skip(4)          // requestHandle
-	c.skip(4)          // serviceResult StatusCode
-	c.diagnosticInfo() // serviceDiagnostics
-	n := c.arrayLen()  // stringTable []String
+	c.skip(8)           // timestamp DateTime
+	c.skip(4)           // requestHandle
+	c.skip(4)           // serviceResult StatusCode
+	c.diagnosticInfo(0) // serviceDiagnostics
+	n := c.arrayLen()   // stringTable []String
 	for i := int32(0); i < n && !c.fail(); i++ {
 		_ = c.str()
 	}

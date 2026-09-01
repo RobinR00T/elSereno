@@ -177,6 +177,32 @@ func TestDecodeGetEndpointsResponse_Truncated(t *testing.T) {
 	}
 }
 
+// A response whose serviceDiagnostics chains innerDiagnosticInfo (bit
+// 0x40) on every byte must not drive unbounded recursion / stack
+// exhaustion; the decoder caps the depth and fails closed.
+func TestDecodeGetEndpointsResponse_DeepDiagnostics(t *testing.T) {
+	e := &enc{}
+	e.fourByteNodeID(wire.TypeIDGetEndpointsResponse)
+	e.u32(0)
+	e.u32(0) // timestamp
+	e.u32(1) // requestHandle
+	e.u32(0) // serviceResult
+	// serviceDiagnostics: 100_000 nested DiagnosticInfo, each with only
+	// the innerDiagnosticInfo bit set.
+	for i := 0; i < 100_000; i++ {
+		e.u8(0x40)
+	}
+	e.u8(0x00) // terminating DiagnosticInfo (no bits)
+	// (never reached, but keeps the frame well-formed after the cap)
+	e.nullArray()
+	e.nullExtensionObject()
+	e.u32(0)
+	// Must return an error, not panic or hang.
+	if _, err := wire.DecodeGetEndpointsResponse(e.b); err == nil {
+		t.Fatal("deeply-nested DiagnosticInfo decoded without error")
+	}
+}
+
 func TestDecodeGetEndpointsResponse_HostileCount(t *testing.T) {
 	e := &enc{}
 	e.fourByteNodeID(wire.TypeIDGetEndpointsResponse)
