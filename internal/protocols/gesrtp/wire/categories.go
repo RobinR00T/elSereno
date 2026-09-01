@@ -1,5 +1,7 @@
 package wire
 
+import "io"
+
 // GE-SRTP service-request classification for the proxy write-gating
 // matrix (ADR-040).
 //
@@ -131,4 +133,18 @@ func ExtractServiceCode(mailbox []byte) (ServiceCode, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// ReadMailbox reads exactly one 56-byte SRTP mailbox from r. Per the
+// Palatis dissector each SRTP PDU is a fixed 56-byte mailbox
+// (parse() consumes exactly 56 bytes); a small write's data is inline
+// in the mailbox (offsets 48..53). Large multi-packet writes split
+// across additional 56-byte mailboxes, which the gate classifies
+// per-frame. Returns io.ErrUnexpectedEOF for a truncated mailbox.
+func ReadMailbox(r io.Reader) ([]byte, error) {
+	buf := make([]byte, MailboxLen)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }

@@ -13,6 +13,7 @@ import (
 
 	"local/elsereno/internal/core"
 	finswrite "local/elsereno/offensive/write/finsudp"
+	gewrite "local/elsereno/offensive/write/gesrtp"
 	slmpwrite "local/elsereno/offensive/write/slmp"
 )
 
@@ -182,6 +183,70 @@ func runWriteSLMPProxyDryRun(cmd *cobra.Command, f slmpProxyFlags) error {
 	if len(f.devices) > 0 {
 		cmd.Printf("Devices:      %s\n", strings.Join(f.devices, " "))
 	}
+	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
+	return maybeMintToken(cmd, mut, f.ppFile)
+}
+
+// ---- gesrtp -------------------------------------------------------
+
+type gesrtpProxyFlags struct {
+	target, ppFile string
+	services       []string
+}
+
+func newWriteGESRTPCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "gesrtp",
+		Short: "GE-SRTP write-gated proxy (proxy-dry-run derives the session confirm-token)",
+	}
+	cmd.AddCommand(newWriteGESRTPProxyDryRunCmd())
+	return cmd
+}
+
+func newWriteGESRTPProxyDryRunCmd() *cobra.Command {
+	var f gesrtpProxyFlags
+	cmd := &cobra.Command{
+		Use:   "proxy-dry-run",
+		Short: "Proxy-session dry-run: derive the confirm-token for `proxy listen --plugin gesrtp`",
+		Long: `Takes an SRTP service-code allowlist and prints the canonical
+SessionMutation + PayloadHash, and (with --vault-passphrase-file) the
+expected confirm-token.
+
+Read services always pass the gate; only the mutating services listed
+here are admitted. Example: 0x07 WRITE_SYS_MEM, 0x23 SET_PLC_RUN.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runWriteGESRTPProxyDryRun(cmd, f)
+		},
+	}
+	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the SRTP device we'll proxy to)")
+	cmd.Flags().StringSliceVar(&f.services, "gesrtp-service", nil,
+		"SRTP service-request code(s) to allow (byte, decimal or 0x..; "+
+			"e.g. 0x07 WRITE_SYS_MEM). Repeatable.")
+	addPassphraseFileFlag(cmd, &f.ppFile)
+	return cmd
+}
+
+func runWriteGESRTPProxyDryRun(cmd *cobra.Command, f gesrtpProxyFlags) error {
+	if f.target == "" {
+		return fail(core.ExitUsage, errors.New("--target is required"))
+	}
+	if len(f.services) == 0 {
+		return fail(core.ExitUsage, errors.New("--gesrtp-service is required (repeatable)"))
+	}
+	allowed := make([]gewrite.AllowedService, 0, len(f.services))
+	for _, raw := range f.services {
+		v, err := strconv.ParseUint(strings.TrimSpace(raw), 0, 8)
+		if err != nil {
+			return fail(core.ExitUsage, fmt.Errorf("--gesrtp-service %q: %w", raw, err))
+		}
+		// #nosec G115 -- ParseUint bitSize=8 bounds v to a byte.
+		allowed = append(allowed, gewrite.AllowedService{Code: byte(v)})
+	}
+	mut := gewrite.SessionMutation(f.target, allowed)
+	cmd.Printf("Protocol:     gesrtp\n")
+	cmd.Printf("Operation:    proxy_session\n")
+	cmd.Printf("Target:       %s\n", f.target)
+	cmd.Printf("Services:     %s\n", strings.Join(f.services, " "))
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 	return maybeMintToken(cmd, mut, f.ppFile)
 }

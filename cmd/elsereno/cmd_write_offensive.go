@@ -120,6 +120,7 @@ operator can inspect the exact bytes that would hit the wire.`,
 	cmd.AddCommand(newWriteCWMPCmd())
 	cmd.AddCommand(newWriteFINSCmd())
 	cmd.AddCommand(newWriteSLMPCmd())
+	cmd.AddCommand(newWriteGESRTPCmd())
 	return cmd
 }
 

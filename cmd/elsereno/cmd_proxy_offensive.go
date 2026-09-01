@@ -26,6 +26,7 @@ import (
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
 	enipwrite "local/elsereno/offensive/write/enip"
 	finswrite "local/elsereno/offensive/write/finsudp"
+	gewrite "local/elsereno/offensive/write/gesrtp"
 	iaxwrite "local/elsereno/offensive/write/iax2"
 	mmswrite "local/elsereno/offensive/write/mms"
 	modwrite "local/elsereno/offensive/write/modbus"
@@ -142,6 +143,11 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 		"slmp: optionally narrow an allowed Device Write Batch "+
 			"(subcommand 0x0000) to specific device codes (byte, decimal "+
 			"or 0x..; e.g. 0xA8 D, 0x90 M). Empty = any device. Repeatable.")
+	cmd.Flags().StringSliceVar(&opts.gesrtpServices, "gesrtp-service", nil,
+		"gesrtp: SRTP service-request codes to allow (byte, decimal or "+
+			"0x..; e.g. 0x07 WRITE_SYS_MEM, 0x23 SET_PLC_RUN, 0x40 "+
+			"PROG_LOAD). Reads always pass; a mutating service is admitted "+
+			"only when listed. Repeatable.")
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -416,6 +422,11 @@ type proxyListenOpts struct {
 	// Batch (subcommand 0x0000) to specific device codes (byte,
 	// decimal or 0x-hex; e.g. 0xA8 D, 0x90 M). Empty = any device.
 	slmpDevices []string
+	// gesrtpServices holds the gesrtp allowlist of SRTP service-
+	// request codes (byte, decimal or 0x-hex; e.g. 0x07 WRITE_SYS_MEM,
+	// 0x23 SET_PLC_RUN). Reads always pass; a mutating service is
+	// admitted only when listed.
+	gesrtpServices []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -691,8 +702,10 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildFINSHandler(opts, rt, c)
 	case pluginNameSLMP:
 		return buildSLMPHandler(opts, rt, c)
+	case pluginNameGESRTP:
+		return buildGESRTPHandler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -813,6 +826,39 @@ func buildSLMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		Target:         opts.target,
 		Allowed:        allowed,
 		AllowedDevices: devices,
+		Deriver:        rt.Vault,
+		Auditor:        rt.Auditor,
+		SessionConfirm: c,
+	}, nil
+}
+
+// parseGESRTPServices parses --gesrtp-service values (byte, decimal or
+// 0x-hex) into the AllowedService list.
+func parseGESRTPServices(raw []string) ([]gewrite.AllowedService, error) {
+	svcs := make([]gewrite.AllowedService, 0, len(raw))
+	for _, s := range raw {
+		v, err := strconv.ParseUint(strings.TrimSpace(s), 0, 8)
+		if err != nil {
+			return nil, fmt.Errorf("--gesrtp-service %q: %w", s, err)
+		}
+		// #nosec G115 -- ParseUint bitSize=8 bounds v to a byte.
+		svcs = append(svcs, gewrite.AllowedService{Code: byte(v)})
+	}
+	return svcs, nil
+}
+
+// buildGESRTPHandler constructs the gesrtp write-gated proxy. Wire-
+// aware: read services always pass, and a mutating SRTP service is
+// admitted only when the operator allowlisted its code via
+// --gesrtp-service.
+func buildGESRTPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*gewrite.WriteGatedHandler, error) {
+	allowed, err := parseGESRTPServices(opts.gesrtpServices)
+	if err != nil {
+		return nil, err
+	}
+	return &gewrite.WriteGatedHandler{
+		Target:         opts.target,
+		Allowed:        allowed,
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,

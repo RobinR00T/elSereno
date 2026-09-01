@@ -34,6 +34,8 @@ const (
 	pluginNameFINS = "finsudp"
 	// Wire-aware allowlist of SLMP command codes.
 	pluginNameSLMP = "slmp"
+	// Wire-aware allowlist of GE-SRTP service-request codes.
+	pluginNameGESRTP = "gesrtp"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every
