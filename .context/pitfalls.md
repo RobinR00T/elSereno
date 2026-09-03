@@ -287,5 +287,20 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 **Regla**: en un gate por escaneo de stream, nunca reenvíes un byte que pueda ser el COMIENZO de un marcador aún incompleto: retén cualquier sufijo que sea prefijo (parcial) del marcador, no solo cuando el marcador entero está presente. Y descarta lo ya escaneado-y-reenviado para que cada escaneo sea O(cola), no O(sesión). A fin de stream (EOF) un byte-prefijo suelto ya no puede completar un marcador, así que ahí sí es seguro reenviarlo; solo un marcador emparejado-pero-incompleto es un comando truncado.
 **Ver**: `internal/protocols/codesys/wire/categories.go` (`ScanL7`/`magicPrefixAt`), `offensive/write/codesys/gatedproxy.go` (`forward`), 1-9-2026.
 
+## PITF-055: Firma GPG con `git rebase --exec` deja la rama en un rebase interrumpido que PARECE pérdida de commits
+**Síntoma**: firmar una tanda con `git rebase --exec 'git commit --amend --no-edit -S' <base>` puede colgarse en el `pinentry` de GPG DENTRO del rebase (el TTY del exec no siempre puede pedir la passphrase). El rebase se queda a medias: `HEAD` se sienta en el PRIMER commit re-pickeado y los demás (fix, docs...) desaparecen del historial visible; `git log` engaña y da la sensación de que se perdió el trabajo. Queda un `.git/rebase-merge` (o `rebase-apply`).
+**Regla**: NO entres en pánico ni hagas `reset --hard` a ciegas. (1) Comprueba `ls .git/rebase-merge .git/rebase-apply` y `git reflog`; los commits "perdidos" siguen ahí (p. ej. el tip de la rama en `HEAD@{1}`). (2) **`git rebase --abort`** restaura la rama completa intacta. (3) Para firmar de verdad, **calienta el gpg-agent en primer plano ANTES** del rebase: `echo warm | gpg --local-user <KEY> --clearsign >/dev/null`, y solo entonces `git rebase --exec ... <base>`; o firma commit a commit. El build loop NUNCA corre GPG; firma el conductor.
+**Ver**: recuperación de la rama `feat/deepteam-...` de Il Dottore, 2-9-2026 (mismo patrón de pinentry que ya vimos aquí con el warmup).
+
+## PITF-056: Detectar em/en dashes con `grep $'—'` en zsh da falsos "0 rayas"
+**Síntoma**: para verificar que no queda ninguna raya larga (regla de Daniel: nunca `—`/`–` en texto producido), un `grep -l $'—\|–'` en zsh **no casa nada silenciosamente** (el `$'…'` con el glifo no se expande como se espera) y reporta "0 rayas" en falso. Se dieron por buenas varias verificaciones equivocadas.
+**Regla**: detecta rayas con **Python** (`sum(1 for l in ... if "—" in l or "–" in l)`), no con `grep $'…'` en zsh. Escanea las líneas AÑADIDAS del diff (no ficheros enteros: las rayas preexistentes del repo no son tuyas). Relacionado: zsh tampoco hace word-splitting de variables/`$(...)` sin comillas → usa `xargs` o arrays para comandos git multi-fichero.
+**Ver**: Il Dottore docs/rama, 2-9-2026.
+
+## PITF-057: La cwd de la sesión NO es el repo (se pierde de vista dónde aterriza el trabajo)
+**Síntoma**: una sesión puede arrancar en una carpeta ajena (p. ej. `~/Downloads/<hash>/...`), NO en el repo. Como el estado del shell no persiste entre llamadas de herramienta (la cwd se resetea tras cada comando), es fácil dar por hecho que "estamos en el repo" cuando no. El trabajo se hace bien si cada comando entra al repo, pero al reportar estado ("hecho", ramas, hashes) sin nombrar la ruta, Daniel duda de si los commits cayeron donde debían (pasó el 3-9-2026: "pero no estamos en ildottore?").
+**Regla**: (1) los repos de Daniel viven en `~/AI projects/` (`elSereno` Go, `ildottore` Python; la ruta lleva un espacio, entre comillas). (2) `cd "$HOME/AI projects/<repo>"` en CADA cadena de comandos, no una sola vez. (3) Al informar de estado, escribe la **ruta absoluta del repo** de forma explícita, no solo el nombre. (4) Ante la mínima duda, `pwd` + `git rev-parse --show-toplevel` antes de afirmar nada.
+**Ver**: Il Dottore, 3-9-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
