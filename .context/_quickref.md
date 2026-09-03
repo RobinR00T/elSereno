@@ -61,7 +61,8 @@ redlion, landed 2026-08/09); **7 attack-surface input clients**
 the last is no-key + single-IP/bulk-lookup). Every TCP-based
 plugin enforces a wire-layer write-ban in default mode. The core
 gates carry per-object / per-path scoping as of
-v1.12 + v1.13: Modbus structured writes, OPC UA per-NodeId
+v1.12 + v1.13: Modbus structured writes + FC 8 diag
+sub-function gate, OPC UA per-NodeId
 (numeric + String/GUID/ByteString) + per-CallMethod, BACnet
 per-WriteProperty + per-WPM + per-DeleteObject, SIP
 per-method/prefix/AOR/from-domain, CWMP per-RPC + per-param-

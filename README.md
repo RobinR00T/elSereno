@@ -156,7 +156,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
-| **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) — structured `writes:` YAML round-trip (v1.2/v1.12) |
+| **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) plus per-FC 8-sub-function diagnostics gate (Force Listen Only / Clear Counters default-deny); structured `writes:` / `diag_subfunctions:` YAML round-trip (v1.2/v1.12) |
 | S7comm          | 102                | probe + pass-through proxy |
 | EtherNet/IP     | 44818              | probe + pass-through proxy |
 | **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |

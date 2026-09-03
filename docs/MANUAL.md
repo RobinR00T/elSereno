@@ -1433,22 +1433,43 @@ Todas las operaciones de escritura/explote requieren:
 ### Ejemplo: write Modbus
 
 ```bash
-# 1) Build offensive (o instala el paquete -offensive):
-make build-offensive
-./bin/elsereno-offensive ...   # binary aparte
+# 1) Build offensive (binary aparte, con el build-tag):
+go build -tags offensive -o elsereno-offensive ./cmd/elsereno
 
-# 2) Habilita el offensive proxy con allowlist:
-./bin/elsereno-offensive proxy modbus \
+# 2) Mint del confirm-token para la sesión (dry-run):
+#    allowlist = FC 6 sobre unit 1, registros 100..200.
+elsereno-offensive write modbus proxy-dry-run \
+    --target 10.0.0.5:502 \
+    --write "unit=1;fc=6;start=100;end=200" \
+    --vault-passphrase-file ~/.elsereno/dev.pp
+#    -> imprime PayloadHash y, con el passphrase, el Confirm-token.
+
+# 3) Arranca el proxy write-gated con ese token:
+elsereno-offensive proxy listen --plugin modbus \
     --listen 127.0.0.1:5020 \
-    --upstream 10.0.0.5:502 \
-    --allow 'fc=6,addr=40001,value=*'   # FC 6 (write single reg), reg 40001
+    --target 10.0.0.5:502 \
+    --write "unit=1;fc=6;start=100;end=200" \
+    --accept-writes \
+    --confirm-target 10.0.0.5:502 \
+    --confirm-token "<TOKEN-del-paso-2>" \
+    --vault-passphrase-file ~/.elsereno/dev.pp
 ```
 
 El proxy:
 - Acepta el handshake del cliente Modbus.
 - Forwardea reads (FC 1-4) sin filtrar.
-- Para writes (FC 5/6/15/16/22/23): aplica el allowlist.
-  Match → forward. Miss → SOAP-like reject + audit entry.
+- Para writes (FC 5/6/15/16/22/23): aplica el allowlist por
+  `(unit, FC, rango-de-direcciones)`. Match → forward. Miss →
+  excepción IllegalFunction (0x01) + audit entry; upstream no lo ve.
+- Para FC 8 (Diagnostics) gatea por sub-función: lecturas/contadores
+  pasan; las mutantes (Force Listen Only 0x04 = DoS, Clear Counters
+  0x0A, Restart 0x01, ...) se deniegan por defecto. Para autorizar una
+  concreta añade `--diag-subfunction 0x04` (repetible) **tanto al
+  dry-run como al proxy**: queda atada al confirm-token.
+
+El allowlist round-trip a YAML con `--emit-allow-file` (claves
+`writes:` y `diag_subfunctions:`); luego `proxy listen --allow-file
+<path>`. Demo end-to-end con simulador: `scripts/demo-modbus-proxy.sh`.
 
 ### Dial / SMS
 

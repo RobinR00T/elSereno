@@ -1,12 +1,24 @@
 ---
 phase: any
 status: living
-last-updated: 2026-09-01
+last-updated: 2026-09-03
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-09-03: **Modbus FC 8 Diagnostics per-sub-function gate.**
+  The offensive write-gate previously forwarded every FC 8
+  sub-function, so Force Listen Only (0x04, DoS), Clear Counters
+  (0x0A, anti-forensic) and Restart (0x01) bypassed the allowlist.
+  Now read/counter sub-functions forward; mutating + reserved ones
+  are default-deny unless opened with `--diag-subfunction` (bound
+  into the token via `AllowlistHashWithDiag`, backwards-compatible).
+  Wire classifier `DiagIsReadOnly` + `Frame.DiagSubFunction`;
+  allow-file `diag_subfunctions:` round-trip; simulator FC 8 read
+  support; `scripts/demo-modbus-proxy.sh`; attack playbook in
+  `docs/protocols/modbus.md`. See PITF-058, ADR-030 update.
 
 - 2026-09-01: **Legacy-ICS write-gates + OPC UA HTTPS deep
   fingerprint + `fingerprint probe` verb.** Offensive write-gated

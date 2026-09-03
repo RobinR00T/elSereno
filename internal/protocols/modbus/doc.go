@@ -9,9 +9,12 @@
 // any PDU whose FunctionCode classifies as CategoryWrite is replaced
 // with an IllegalFunction exception (FC | 0x80, exception code 0x01)
 // before reaching the upstream device. FC 43 sub-codes other than 14
-// are likewise rejected. Diagnostic (FC 8) is treated as
-// CategoryUnknown today and passes through until F5 adds per-sub-code
-// gating.
+// are likewise rejected. Diagnostics (FC 8) classifies as
+// CategoryDiagnostic and is gated per sub-function in the offensive
+// write-gated proxy: the read/echo/counter sub-functions forward and
+// the mutating ones (Force Listen Only, Clear Counters, Restart, ...)
+// plus any reserved value are default-denied. See DiagIsReadOnly in
+// the wire package and offensive/write/modbus.
 //
 // Port: 502/tcp.
 package modbus

@@ -50,8 +50,10 @@ make the next mis-edited scope.yaml a safety event.
   `-tags offensive` + triple confirm, referencing the same constants.
 
 ### Negative / trade-offs
-- Diagnostics (FC 8) is permissive for now. Documented in the
-  protocol doc and in the ADR so it's not a hidden surprise.
+- Diagnostics (FC 8) was permissive at first (documented in the
+  protocol doc and here so it was not a hidden surprise). Closed
+  2026-09-03: FC 8 is now gated per sub-function (see the Update note
+  above and `.context/protocols/modbus.md`).
 - The proxy emits IllegalFunction for blocked writes; a real PLC
   would return a transport-layer error for unknown FC. Using
   IllegalFunction is correct per the spec — the client sees a
