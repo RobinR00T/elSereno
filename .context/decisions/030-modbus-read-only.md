@@ -29,6 +29,13 @@ make the next mis-edited scope.yaml a safety event.
 - FC 8 (Diagnostics) is treated as CategoryUnknown in F3; passes
   through unmodified. F5 will tighten this with per-sub-code rules
   because some diagnostics modes can force remote restart.
+  - **Update (2026-09-03):** the per-sub-function gate landed. FC 8 is
+    now CategoryDiagnostic: the read/echo/counter sub-functions forward
+    and the mutating ones (0x01 Restart, 0x03 Change ASCII Delimiter,
+    0x04 Force Listen Only, 0x0A Clear Counters, 0x14 Clear Overrun)
+    plus any reserved value are default-denied. The offensive proxy
+    opens a specific mutating sub-function via `--diag-subfunction`
+    (bound into the confirm-token). See `.context/protocols/modbus.md`.
 - The Probe is read-only by construction: FC 1 (Read Coils, 1 coil
   at address 0) as the minimal legal read, plus an opportunistic
   FC 43/14 for device-identification strings.

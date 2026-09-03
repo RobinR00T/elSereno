@@ -20,6 +20,45 @@ import (
 	modwrite "local/elsereno/offensive/write/modbus"
 )
 
+// parseDiagSubFlag parses one --diag-subfunction value (hex "0x04" or
+// decimal "4") into a DiagSubFunction. Values are 16-bit. A read/echo/
+// counter sub-function is rejected here with a hint, since listing one
+// is a no-op (those forward unconditionally) and almost always signals
+// operator confusion.
+func parseDiagSubFlag(s string) (mbwire.DiagSubFunction, error) {
+	raw := strings.TrimSpace(s)
+	if raw == "" {
+		return 0, fmt.Errorf("--diag-subfunction %q: empty", s)
+	}
+	n, err := strconv.ParseUint(raw, 0, 16)
+	if err != nil {
+		return 0, fmt.Errorf("--diag-subfunction %q: not a 16-bit number: %w", s, err)
+	}
+	sub := mbwire.DiagSubFunction(n)
+	if mbwire.DiagIsReadOnly(sub) {
+		return 0, fmt.Errorf("--diag-subfunction %q: 0x%02x is a read/counter sub-function that always forwards; only mutating sub-functions (0x01/0x03/0x04/0x0A/0x14) need allowlisting", s, uint16(sub))
+	}
+	return sub, nil
+}
+
+// parseDiagSubFlags parses every --diag-subfunction value into the flat
+// list bound into the session token. An empty input yields a nil slice
+// (no diagnostic writes authorised).
+func parseDiagSubFlags(raw []string) ([]mbwire.DiagSubFunction, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	out := make([]mbwire.DiagSubFunction, 0, len(raw))
+	for _, s := range raw {
+		d, err := parseDiagSubFlag(s)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
 // parseModbusWriteFlag parses a --write value in the form
 // `unit=N;fc=M;start=A;end=B` into an AllowedWrite. `fc` is
 // required; `unit` / `start` / `end` default to 0 (any).
@@ -159,6 +198,7 @@ type modbusProxyFlags struct {
 	unit                     uint8
 	addrFrom, addrTo         uint16
 	writes                   []string // v1.12+: structured "unit=N;fc=M;start=A;end=B"
+	diagSubs                 []string // FC 8 mutating sub-function allowlist (hex/dec)
 	tokenGeneration          uint32   // v1.17+: token-generation cookie
 }
 
@@ -194,6 +234,7 @@ Function codes: 5 (WriteSingleCoil), 6 (WriteSingleRegister),
 	cmd.Flags().Uint16Var(&f.addrFrom, "address-from", 0, "optional: inclusive start of address range")
 	cmd.Flags().Uint16Var(&f.addrTo, "address-to", 0, "optional: inclusive end of address range")
 	cmd.Flags().StringSliceVar(&f.writes, "write", nil, "v1.12+: structured per-entry allowlist unit=N;fc=M;start=A;end=B (repeatable). fc= is required; unit/start/end default to 0 (any). Round-trips through --emit-allow-file.")
+	cmd.Flags().StringSliceVar(&f.diagSubs, "diag-subfunction", nil, "authorise one mutating FC 8 Diagnostics sub-function (repeatable; hex 0x04 or decimal). Read/counter sub-functions never need this. Mutating: 0x01 Restart, 0x03 Change Delimiter, 0x04 Force Listen Only, 0x0A Clear Counters, 0x14 Clear Overrun. Binds into the token; round-trips through --emit-allow-file.")
 	cmd.Flags().Uint32Var(&f.tokenGeneration, "token-generation", 0,
 		"optional: token-generation cookie (v1.17+). 0 (default) preserves the v1.2 hash for backwards-compat. Mirrors bacnet/cwmp/sip.")
 	addPassphraseFileFlag(cmd, &f.ppFile)
@@ -205,14 +246,18 @@ func runWriteModbusProxyDryRun(cmd *cobra.Command, f modbusProxyFlags) error {
 	if f.target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required"))
 	}
-	if len(f.functions) == 0 && len(f.writes) == 0 {
-		return fail(core.ExitUsage, errors.New("--function or --write is required (repeatable). See `--help` for FC list"))
+	if len(f.functions) == 0 && len(f.writes) == 0 && len(f.diagSubs) == 0 {
+		return fail(core.ExitUsage, errors.New("--function, --write, or --diag-subfunction is required (repeatable). See `--help` for the FC list"))
 	}
 	allowed, err := buildModbusProxyAllowlist(f)
 	if err != nil {
 		return err
 	}
-	mut := modwrite.SessionMutationWithGeneration(f.target, allowed, f.tokenGeneration)
+	diag, err := parseDiagSubFlags(f.diagSubs)
+	if err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	mut := modwrite.SessionMutationWithDiag(f.target, allowed, f.tokenGeneration, diag)
 	printModbusProxySummary(cmd, f, mut)
 	if err := maybeMintToken(cmd, mut, f.ppFile); err != nil {
 		return err
@@ -264,6 +309,12 @@ func printModbusProxySummary(cmd *cobra.Command, f modbusProxyFlags, mut confirm
 		cmd.Printf("Writes:       %d structured entries\n", len(f.writes))
 		for _, raw := range f.writes {
 			cmd.Printf("  - %s\n", raw)
+		}
+	}
+	if diag, err := parseDiagSubFlags(f.diagSubs); err == nil && len(diag) > 0 {
+		cmd.Printf("DiagWrites:   %d mutating FC 8 sub-function(s)\n", len(diag))
+		for _, d := range diag {
+			cmd.Printf("  - 0x%02x\n", uint16(d))
 		}
 	}
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
@@ -327,6 +378,16 @@ func buildAllowFileModbus(f modbusProxyFlags) proxyAllowFile {
 	// Sort `writes:` for determinism (by unit, fc, start, end).
 	if len(af.Writes) > 0 {
 		sortProxyModbusWrites(af.Writes)
+	}
+	// FC 8 diag sub-function allowlist round-trips as a sorted
+	// []uint16 so the emitted file reloads to the identical token.
+	if diag, err := parseDiagSubFlags(f.diagSubs); err == nil && len(diag) > 0 {
+		subs := make([]uint16, 0, len(diag))
+		for _, d := range diag {
+			subs = append(subs, uint16(d))
+		}
+		sort.Slice(subs, func(i, j int) bool { return subs[i] < subs[j] })
+		af.DiagSubfunctions = subs
 	}
 	if f.tokenGeneration > 0 {
 		af.TokenGeneration = f.tokenGeneration

@@ -35,11 +35,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that `scan` is a banner sweep and `fingerprint validate` is offline).
 - **BinaryEdge attack-surface input:** `--input binaryedge:<query>`
   (API key via `--api-creds-file`, like Shodan/Censys).
-- **End-to-end demos + simulators:** `scripts/demo-{fins,slmp,gesrtp,codesys,redlion,opcua}-proxy.sh`
+- **End-to-end demos + simulators:** `scripts/demo-{fins,slmp,gesrtp,codesys,redlion,opcua,modbus}-proxy.sh`
   (write-gates) and `scripts/demo-opcua-https-fingerprint.sh`, each
   against a bundled simulator under `simulators/`.
+- **Modbus FC 8 Diagnostics sub-function gate (`-tags offensive`):** the
+  write-gated proxy now classifies the 16-bit FC 8 sub-function.
+  Read/echo/counter sub-functions forward; the mutating ones (0x01
+  Restart, 0x03 Change ASCII Delimiter, 0x04 Force Listen Only, 0x0A
+  Clear Counters, 0x14 Clear Overrun) and any reserved value are
+  default-denied. `--diag-subfunction` (and the allow-file
+  `diag_subfunctions:`) opens a specific one, bound into the
+  confirm-token. `docs/protocols/modbus.md` gains an attack-technique
+  playbook mapping each Modbus abuse to the gate's response.
 
 ### Security
+
+- **Modbus FC 8 Diagnostics no longer permissive:** the offensive
+  write-gate previously forwarded every FC 8 sub-function, so Force
+  Listen Only (0x04, silences the slave), Clear Counters (0x0A,
+  anti-forensic) and Restart (0x01) bypassed the allowlist. FC 8 is now
+  default-deny for mutating/reserved sub-functions; the read/counter set
+  still forwards. Operators who relied on an unlisted FC 8 write must add
+  `--diag-subfunction`. Backwards-compatible: tokens without a diag
+  allowlist keep their existing hash.
 
 - **OPC UA GetEndpoints decoder (DoS):** bounded the `DiagnosticInfo`
   recursion. A hostile response chaining the innerDiagnosticInfo bit on

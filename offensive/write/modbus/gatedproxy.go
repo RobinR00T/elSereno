@@ -219,6 +219,90 @@ func SessionMutationWithGeneration(target string, allowed []AllowedWrite, genera
 	}
 }
 
+// AllowlistHashWithDiag is the top of the Modbus allowlist hash ladder.
+// It binds the FC 8 Diagnostics sub-function allowlist (the mutating
+// sub-functions the operator explicitly authorised) into the session
+// token, so an operator cannot mint a token for a narrow write
+// allowlist and then widen the proxy with --diag-subfunction without
+// re-authorising.
+//
+// Backwards-compat: an empty diag allowlist produces a digest
+// byte-identical to AllowlistHashWithGeneration(target, allowed,
+// generation). Every pre-existing confirm-token therefore stays valid;
+// only operators who add a --diag-subfunction entry need a fresh token.
+//
+// Hash layout (only the trailers that apply are written):
+//
+//	target || 0x00 || sorted write entries
+//	        [ || 0xFC || u32 generation   when generation != 0 ]
+//	        [ || 0xD8 || sorted u16 diag  when len(diag) != 0   ]
+func AllowlistHashWithDiag(target string, allowed []AllowedWrite, generation uint32, diag []mbwire.DiagSubFunction) [32]byte {
+	if len(diag) == 0 {
+		return AllowlistHashWithGeneration(target, allowed, generation)
+	}
+	sorted := append([]AllowedWrite(nil), allowed...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Unit != sorted[j].Unit {
+			return sorted[i].Unit < sorted[j].Unit
+		}
+		if sorted[i].FC != sorted[j].FC {
+			return sorted[i].FC < sorted[j].FC
+		}
+		if sorted[i].StartAddr != sorted[j].StartAddr {
+			return sorted[i].StartAddr < sorted[j].StartAddr
+		}
+		return sorted[i].EndAddr < sorted[j].EndAddr
+	})
+	h := sha256.New()
+	_, _ = h.Write([]byte(target))
+	_, _ = h.Write([]byte{0x00})
+	var buf [6]byte
+	for _, a := range sorted {
+		buf[0] = a.Unit
+		buf[1] = byte(a.FC)
+		binary.BigEndian.PutUint16(buf[2:4], a.StartAddr)
+		binary.BigEndian.PutUint16(buf[4:6], a.EndAddr)
+		_, _ = h.Write(buf[:])
+	}
+	if generation != 0 {
+		var u32 [4]byte
+		binary.BigEndian.PutUint32(u32[:], generation)
+		_, _ = h.Write([]byte{0xFC})
+		_, _ = h.Write(u32[:])
+	}
+	// Diag trailer: sort + de-duplicate so token stability does not
+	// depend on flag order or accidental repeats.
+	ds := append([]mbwire.DiagSubFunction(nil), diag...)
+	sort.Slice(ds, func(i, j int) bool { return ds[i] < ds[j] })
+	_, _ = h.Write([]byte{0xD8})
+	var u16 [2]byte
+	var prev mbwire.DiagSubFunction
+	for i, d := range ds {
+		if i > 0 && d == prev {
+			continue
+		}
+		binary.BigEndian.PutUint16(u16[:], uint16(d))
+		_, _ = h.Write(u16[:])
+		prev = d
+	}
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
+// SessionMutationWithDiag is the Mutation at the top of the ladder,
+// binding both the token generation and the FC 8 diag allowlist.
+// An empty diag allowlist degrades to SessionMutationWithGeneration.
+func SessionMutationWithDiag(target string, allowed []AllowedWrite, generation uint32, diag []mbwire.DiagSubFunction) confirm.Mutation {
+	return confirm.Mutation{
+		Category:    confirm.CategoryWrite,
+		Protocol:    "modbus",
+		Operation:   "proxy_session",
+		Target:      target,
+		PayloadHash: AllowlistHashWithDiag(target, allowed, generation, diag),
+	}
+}
+
 // WriteGatedHandler is the offensive replacement for the default
 // write-ban proxy. Construction requires triple-confirm authorised
 // session context (Deriver, Auditor, and the session-level Confirm
@@ -233,6 +317,13 @@ type WriteGatedHandler struct {
 	// operator authorised at session open. Empty list forbids all
 	// writes (equivalent to the default write-ban handler).
 	Allowed []AllowedWrite
+	// AllowedDiag lists the FC 8 (Diagnostics) mutating sub-functions
+	// the operator authorised. Read/echo/counter sub-functions always
+	// forward; a mutating sub-function (Restart 0x01, Change Delimiter
+	// 0x03, Force Listen Only 0x04, Clear Counters 0x0A, Clear Overrun
+	// 0x14) or any reserved value forwards ONLY when listed here. Empty
+	// list refuses every mutating/unknown diagnostic (default-deny).
+	AllowedDiag []mbwire.DiagSubFunction
 	// TokenGeneration is the v1.17 chunk-3 token-generation
 	// cookie. Operators bump this when editing the allow-file
 	// to invalidate pre-existing confirm-tokens. Default 0
@@ -270,7 +361,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	m := SessionMutationWithGeneration(h.Target, h.Allowed, h.TokenGeneration)
+	m := SessionMutationWithDiag(h.Target, h.Allowed, h.TokenGeneration, h.AllowedDiag)
 	if err := confirm.Authorize(ctx, m, h.SessionConfirm, h.Deriver, h.Auditor); err != nil {
 		return err
 	}
@@ -348,10 +439,24 @@ func (h *WriteGatedHandler) shouldForward(f mbwire.Frame) bool {
 		// Only sub-code 14 (Read Device Identification) survives.
 		return len(f.PDU) >= 2 && f.PDU[1] == 0x0E
 	case mbwire.CategoryDiagnostic:
-		// Diagnostics is permissive in the default build; the
-		// offensive proxy keeps the same posture — per-sub-code
-		// gating tracked for F-future.
-		return true
+		// FC 8 straddles read/write. Read/echo/counter sub-functions
+		// forward freely; mutating (Restart, Force Listen Only, Clear
+		// Counters, ...) and any reserved/unknown sub-function forward
+		// only when explicitly allowlisted. Default-deny.
+		sub, ok := f.DiagSubFunction()
+		if !ok {
+			// Malformed FC 8 (no sub-function): refuse.
+			return false
+		}
+		if mbwire.DiagIsReadOnly(sub) {
+			return true
+		}
+		for _, d := range h.AllowedDiag {
+			if d == sub {
+				return true
+			}
+		}
+		return false
 	case mbwire.CategoryUnknown:
 		// Same conservative posture as the default write-ban
 		// handler: unknown FCs refuse.

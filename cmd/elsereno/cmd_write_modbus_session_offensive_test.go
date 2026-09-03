@@ -192,6 +192,97 @@ func TestWriteModbusProxyDryRun_StructuredWriteRoundTrip(t *testing.T) {
 	}
 }
 
+// TestWriteModbusProxyDryRun_DiagOutputShape — the FC 8 diag
+// allowlist renders in the dry-run summary.
+func TestWriteModbusProxyDryRun_DiagOutputShape(t *testing.T) {
+	cmd := newWriteModbusProxyDryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "plc:502",
+		"--diag-subfunction", "0x04",
+		"--diag-subfunction", "0x0A",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (diag-only session): %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"DiagWrites:   2 mutating FC 8 sub-function(s)",
+		"0x04",
+		"0x0a",
+		"PayloadHash:  ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+}
+
+// TestWriteModbusProxyDryRun_DiagRejectsReadOnly — listing a
+// read/counter sub-function is a no-op and is rejected with a hint.
+func TestWriteModbusProxyDryRun_DiagRejectsReadOnly(t *testing.T) {
+	cmd := newWriteModbusProxyDryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	// 0x02 (Return Diagnostic Register) is read-only.
+	cmd.SetArgs([]string{"--target", "plc:502", "--diag-subfunction", "0x02"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected rejection of a read-only diag sub-function")
+	}
+}
+
+// TestWriteModbusProxyDryRun_DiagRoundTripHashStable — a diag
+// allowlist round-trips through --emit-allow-file: reloading the
+// YAML reproduces the exact PayloadHash the dry-run printed, so the
+// minted confirm-token still authorises the proxy-listen session.
+func TestWriteModbusProxyDryRun_DiagRoundTripHashStable(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/allow.yaml"
+	cmd := newWriteModbusProxyDryRunCmd()
+	cmd.SilenceUsage = true
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{
+		"--target", "plc:502",
+		"--write", "unit=1;fc=6;start=100;end=200",
+		"--diag-subfunction", "0x0A",
+		"--diag-subfunction", "0x04",
+		"--emit-allow-file", path,
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	printed := extractPayloadHash(t, buf.String())
+
+	// Reload the emitted YAML and recompute the session hash.
+	var opts proxyListenOpts
+	if err := loadAllowFile(path, &opts); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	allowed, err := buildModbusAllowlist(opts)
+	if err != nil {
+		t.Fatalf("buildModbusAllowlist: %v", err)
+	}
+	diag, err := buildModbusDiagAllowlist(opts)
+	if err != nil {
+		t.Fatalf("buildModbusDiagAllowlist: %v", err)
+	}
+	if len(diag) != 2 {
+		t.Fatalf("expected 2 diag sub-functions after reload, got %d", len(diag))
+	}
+	mut := modwrite.SessionMutationWithDiag("plc:502", allowed, 0, diag)
+	reloaded := hex.EncodeToString(mut.PayloadHash[:])
+	if reloaded != printed {
+		t.Fatalf("round-trip hash mismatch:\n dry-run:  %s\n reloaded: %s", printed, reloaded)
+	}
+}
+
 // TestParseModbusWriteFlag_Valid — canonical inputs parse.
 func TestParseModbusWriteFlag_Valid(t *testing.T) {
 	cases := []struct {

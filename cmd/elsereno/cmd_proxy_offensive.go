@@ -186,6 +186,7 @@ func registerProxyListenIAX2PBXFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 func registerProxyListenModbusFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form — any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
 	cmd.Flags().StringSliceVar(&opts.modbusWritesCLI, "write", nil, "modbus: structured allowlist entry unit=N;fc=M;start=A;end=B (repeatable). unit/start/end are optional (0 = any). Example: unit=1;fc=6;start=100;end=200. v1.12+.")
+	cmd.Flags().StringSliceVar(&opts.modbusDiagCLI, "diag-subfunction", nil, "modbus: authorise one mutating FC 8 Diagnostics sub-function (repeatable; hex 0x04 or decimal). Read/counter sub-functions never need this. Mutating: 0x01 Restart, 0x03 Change Delimiter, 0x04 Force Listen Only, 0x0A Clear Counters, 0x14 Clear Overrun. Default-deny without it.")
 }
 
 // registerProxyListenOPCUAFlags adds the opcua flags.
@@ -386,7 +387,15 @@ type proxyListenOpts struct {
 	// allow-file's `writes:` field. Kept separate from CLI so the
 	// loader can overwrite without losing the legacy functions
 	// list (which may also be present in the same YAML).
-	modbusWritesYAML                                      []proxyModbusWrite
+	modbusWritesYAML []proxyModbusWrite
+	// modbusDiagCLI holds --diag-subfunction flag values in their raw
+	// CLI form (hex "0x04" or decimal). Each authorises one mutating
+	// FC 8 Diagnostics sub-function. Read/counter sub-functions never
+	// need listing. Parsed in buildModbusHandler.
+	modbusDiagCLI []string
+	// modbusDiagYAML holds diag sub-functions loaded from the allow-
+	// file's `diag_subfunctions:` field. Merged with modbusDiagCLI.
+	modbusDiagYAML                                        []mbwire.DiagSubFunction
 	allowFile                                             string
 	acceptWrites                                          bool
 	confirmTarget, confirmToken, confirmTokenFile, ppFile string
@@ -1184,14 +1193,37 @@ func buildModbusHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	if err != nil {
 		return nil, err
 	}
+	diag, err := buildModbusDiagAllowlist(opts)
+	if err != nil {
+		return nil, err
+	}
 	return &modwrite.WriteGatedHandler{
 		Target:          opts.target,
 		Allowed:         allowed,
+		AllowedDiag:     diag,
 		TokenGeneration: opts.tokenGeneration,
 		Deriver:         rt.Vault,
 		Auditor:         rt.Auditor,
 		SessionConfirm:  c,
 	}, nil
+}
+
+// buildModbusDiagAllowlist merges the --diag-subfunction CLI flags with
+// the allow-file's diag_subfunctions entries into the flat list the
+// gate binds into the session token. Read/counter sub-functions never
+// belong here; only mutating (or reserved) sub-functions the operator
+// deliberately authorised.
+func buildModbusDiagAllowlist(opts proxyListenOpts) ([]mbwire.DiagSubFunction, error) {
+	diag := make([]mbwire.DiagSubFunction, 0, len(opts.modbusDiagCLI)+len(opts.modbusDiagYAML))
+	for _, raw := range opts.modbusDiagCLI {
+		d, err := parseDiagSubFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		diag = append(diag, d)
+	}
+	diag = append(diag, opts.modbusDiagYAML...)
+	return diag, nil
 }
 
 // buildModbusAllowlist merges the three input sources a proxy-

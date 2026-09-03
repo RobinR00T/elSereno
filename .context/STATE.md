@@ -1,7 +1,7 @@
 ---
 phase: v2.63-closed; CI/CD reactivated + reliability pass (2026-08-31)
 status: tags published through v2.62; CI green on main
-last-updated: 2026-09-01
+last-updated: 2026-09-03
 token-budget: 320
 ---
 
@@ -14,8 +14,6 @@ token-budget: 320
   Actions billing. All workflows green on `main`.
 - **v2.38 → v2.62 tags pushed** (25 signed tags; remote was stuck at
   v2.37). Binary releases still follow the local-goreleaser flow.
-- **3 Dependabot major bumps merged**: actions/checkout 4→7,
-  actions/setup-go 5→7, gitleaks-action 2→3.
 - **Reliability fixes (signed):** `audit.sh` skips its local-sync check
   in CI (it red-marked every PR); `TestStream_ClientCancelReleases-
   Subscription` de-flaked (retry-hint race that hung `srv.Close` to the
@@ -219,8 +217,12 @@ remains an option since v1.8.
   (Options.Network) landed 2026-08-31. Refusal: FINS/SLMP native error;
   GE-SRTP/CoDeSys/Red Lion close-on-refuse; OPC UA ServiceFault. Each
   ships `write <p> [proxy-]dry-run` token minting + a simulator demo
-  (scripts/demo-*-proxy.sh, 6 of them). CoDeSys is a fail-closed L7
+  (scripts/demo-*-proxy.sh, 7 of them). CoDeSys is a fail-closed L7
   magic-scan (no trustworthy L3/L4 length).
+- **Modbus FC 8 Diagnostics sub-function gate (2026-09-03):** reads
+  forward; mutating (Force Listen Only 0x04 DoS, Clear Counters 0x0A,
+  ...) default-deny unless `--diag-subfunction` (token-bound, compat-
+  preserving). Closes the "permissive FC 8" gap. PITF-058.
 - **OPC UA HTTPS deep fingerprint**: the `opcuahttps` plugin (4843) now
   POSTs a real GetEndpointsRequest and enumerates the EndpointDescription
   list; a SecurityMode=None endpoint raises exposure/auth_state. Codec in
@@ -234,7 +236,6 @@ remains an option since v1.8.
 **Deferred to v1.25+**:
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
-- GE-SRTP service-0x21 follow-up.
 - macOS sandbox via `sandbox_init(3)`.
 - IEC 61850 MMS, PROFINET (L2 with gopacket), OPC UA HTTPS *write*
   path (only the read-only GetEndpoints fingerprint shipped).
@@ -243,8 +244,6 @@ remains an option since v1.8.
 **Operator-pending**:
 - Tags pushed through v2.62 (2026-08-31); cut/publish binary
   releases (goreleaser) for the unreleased tags if desired.
-- Confirm Workflow permissions → write in repo Settings for the
-  tag-triggered release flow (token write scope).
 
 **Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
 127.0.0.1:5433 via `scripts/dev-db.sh`.

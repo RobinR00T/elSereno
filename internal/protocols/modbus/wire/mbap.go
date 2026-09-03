@@ -131,6 +131,16 @@ func (f Frame) FunctionCode() FunctionCode {
 	return FunctionCode(f.PDU[0] & 0x7f)
 }
 
+// DiagSubFunction extracts the 16-bit Diagnostics sub-function from an
+// FC 8 request (PDU[1:3], big-endian). Returns (0, false) when the
+// frame is not FC 8 or the PDU is too short to hold a sub-function.
+func (f Frame) DiagSubFunction() (DiagSubFunction, bool) {
+	if f.FunctionCode() != FCDiagnostics || len(f.PDU) < 3 {
+		return 0, false
+	}
+	return DiagSubFunction(uint16(f.PDU[1])<<8 | uint16(f.PDU[2])), true
+}
+
 // IsExceptionFrame reports whether the frame encodes a Modbus
 // exception (FC bit 7 set, one byte of exception code following).
 func (f Frame) IsExceptionFrame() bool {

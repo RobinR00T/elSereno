@@ -377,8 +377,11 @@ binario default. **Cada acción requiere triple-confirm**:
 
 Cada protocol gate scopea writes:
 
-- **Modbus**: per-(area, db, byte-address) → only matching
-  FCs/regs son forwardeados, resto rechazados con audit.
+- **Modbus**: per-(unit, FC, address-range) → solo los writes que
+  casan son forwardeados, resto rechazados. FC 8 (Diagnostics) por
+  sub-función: lecturas/contadores pasan; mutantes (Force Listen Only
+  0x04, Clear Counters 0x0A, Restart 0x01, ...) default-deny salvo
+  `--diag-subfunction` explícito atado al token.
 - **OPC UA**: per-NodeId + per-CallMethod argument types.
 - **BACnet**: per-object + per-WriteProperty per-instance.
 - **CWMP**: per-parameter-path + per-firmware-URL.

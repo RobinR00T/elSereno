@@ -90,6 +90,11 @@ func serve(ctx context.Context, conn net.Conn, s *state) {
 		if err != nil {
 			return
 		}
+		if sub, ok := frame.DiagSubFunction(); ok {
+			log.Printf("received fc=0x%02x diag_sub=0x%04x", byte(frame.FunctionCode()), uint16(sub))
+		} else {
+			log.Printf("received fc=0x%02x", byte(frame.FunctionCode()))
+		}
 		resp := respond(frame, s)
 		if err := wire.WriteFrame(conn, resp); err != nil {
 			return
@@ -103,8 +108,36 @@ func respond(req wire.Frame, s *state) wire.Frame {
 		return replyCoils(req, s)
 	case wire.FCReadHoldingRegisters, wire.FCReadInputRegisters:
 		return replyRegisters(req, s)
+	case wire.FCDiagnostics:
+		return replyDiag(req)
 	case wire.FCEncapsulatedInterface:
 		return replyDeviceID(req)
+	default:
+		return exceptionResp(req, wire.ExIllegalFunction)
+	}
+}
+
+// replyDiag serves the read-only side of FC 8 (Diagnostics): Return
+// Query Data echoes the request (loopback), and the counter reads
+// return a canned zero. The mutating sub-functions (Restart, Force
+// Listen Only, Clear Counters, ...) are refused so that, even run
+// bare without the gate, this simulator cannot be silenced or wiped.
+func replyDiag(req wire.Frame) wire.Frame {
+	sub, ok := req.DiagSubFunction()
+	if !ok {
+		return exceptionResp(req, wire.ExIllegalDataValue)
+	}
+	switch sub {
+	case wire.DiagReturnQueryData:
+		return wire.Frame{MBAP: req.MBAP, PDU: append([]byte(nil), req.PDU...)}
+	case wire.DiagReturnDiagRegister, wire.DiagReturnBusMsgCount,
+		wire.DiagReturnBusCommErrCount, wire.DiagReturnBusExcErrCount,
+		wire.DiagReturnSlaveMsgCount, wire.DiagReturnSlaveNoRespCnt,
+		wire.DiagReturnSlaveNAKCount, wire.DiagReturnSlaveBusyCount,
+		wire.DiagReturnBusOverrunCount:
+		return wire.Frame{MBAP: req.MBAP, PDU: []byte{
+			byte(wire.FCDiagnostics), req.PDU[1], req.PDU[2], 0x00, 0x00,
+		}}
 	default:
 		return exceptionResp(req, wire.ExIllegalFunction)
 	}

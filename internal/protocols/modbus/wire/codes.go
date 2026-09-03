@@ -4,10 +4,12 @@ package wire
 // set in the response byte, signals an exception).
 type FunctionCode uint8
 
-// Canonical Modbus function codes covered by ElSereno. Omitted from
-// this list are the Diagnostics family (FC 8 sub-codes) because they
-// straddle read/write; the proxy treats them as Category(Unknown)
-// until F5 adds per-sub-code gating.
+// Canonical Modbus function codes covered by ElSereno. FC 8
+// (Diagnostics) is a single code whose 16-bit sub-function straddles
+// read/write; the offensive proxy gates it per sub-function via
+// DiagIsReadOnly + a --diag-subfunction allowlist (see DiagSubFunction
+// below), so it is classified CategoryDiagnostic rather than expanded
+// here.
 const (
 	FCReadCoils                  FunctionCode = 0x01
 	FCReadDiscreteInputs         FunctionCode = 0x02
@@ -70,6 +72,52 @@ func Classify(fc FunctionCode) Category {
 		return CategoryMEI
 	default:
 		return CategoryUnknown
+	}
+}
+
+// DiagSubFunction is the 16-bit sub-function carried in the first data
+// field of an FC 8 (Diagnostics) request, at PDU[1:3] big-endian. The
+// Diagnostics family straddles read and write: some sub-functions only
+// echo or return counters, others restart the device, silence it, or
+// wipe forensic counters. The offensive proxy gates the mutating ones.
+type DiagSubFunction uint16
+
+// Diagnostics sub-functions (MODBUS Application Protocol Specification
+// §6.8). The read/echo/counter set is benign; the rest change device
+// state and must be explicitly allowlisted.
+const (
+	DiagReturnQueryData       DiagSubFunction = 0x0000 // loopback echo (read)
+	DiagRestartComms          DiagSubFunction = 0x0001 // MUTATING: restart, can clear event log
+	DiagReturnDiagRegister    DiagSubFunction = 0x0002 // read
+	DiagChangeASCIIDelimiter  DiagSubFunction = 0x0003 // MUTATING: config change
+	DiagForceListenOnly       DiagSubFunction = 0x0004 // MUTATING: DoS (slave stops answering)
+	DiagClearCountersAndDiag  DiagSubFunction = 0x000A // MUTATING: wipes counters (anti-forensic)
+	DiagReturnBusMsgCount     DiagSubFunction = 0x000B // read
+	DiagReturnBusCommErrCount DiagSubFunction = 0x000C // read
+	DiagReturnBusExcErrCount  DiagSubFunction = 0x000D // read
+	DiagReturnSlaveMsgCount   DiagSubFunction = 0x000E // read
+	DiagReturnSlaveNoRespCnt  DiagSubFunction = 0x000F // read
+	DiagReturnSlaveNAKCount   DiagSubFunction = 0x0010 // read
+	DiagReturnSlaveBusyCount  DiagSubFunction = 0x0011 // read
+	DiagReturnBusOverrunCount DiagSubFunction = 0x0012 // read
+	DiagClearOverrunCounter   DiagSubFunction = 0x0014 // MUTATING: clears overrun counter/flag
+)
+
+// DiagIsReadOnly reports whether a Diagnostics sub-function only echoes
+// data or returns a counter (safe to forward without an allowlist).
+// Everything outside this set: the known mutating sub-functions AND any
+// reserved/vendor value, is treated as needing an explicit allowlist
+// entry. Default-deny: an unrecognised sub-function is NOT read-only.
+func DiagIsReadOnly(sub DiagSubFunction) bool {
+	switch sub {
+	case DiagReturnQueryData, DiagReturnDiagRegister,
+		DiagReturnBusMsgCount, DiagReturnBusCommErrCount,
+		DiagReturnBusExcErrCount, DiagReturnSlaveMsgCount,
+		DiagReturnSlaveNoRespCnt, DiagReturnSlaveNAKCount,
+		DiagReturnSlaveBusyCount, DiagReturnBusOverrunCount:
+		return true
+	default:
+		return false
 	}
 }
 

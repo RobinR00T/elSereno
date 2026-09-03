@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	mbwire "local/elsereno/internal/protocols/modbus/wire"
 )
 
 // Plugin name constants shared across the allow-file loader +
@@ -310,6 +312,7 @@ type proxyAllowFile struct {
 	Allow                 []string                          `yaml:"allow,omitempty"`                   // pbxhttp
 	Functions             []uint                            `yaml:"functions,omitempty"`               // modbus (legacy: FC-only, any unit/addr)
 	Writes                []proxyModbusWrite                `yaml:"writes,omitempty"`                  // modbus (v1.12+: structured unit+fc+start+end)
+	DiagSubfunctions      []uint16                          `yaml:"diag_subfunctions,omitempty"`       // modbus — mutating FC 8 Diagnostics sub-functions the operator authorised (read/counter sub-functions never listed)
 	Services              []uint                            `yaml:"services,omitempty"`                // opcua
 	NodeIDs               []proxyNodeID                     `yaml:"node_ids,omitempty"`                // opcua (v1.9+)
 	CallMethods           []proxyCallMethod                 `yaml:"call_methods,omitempty"`            // opcua (v1.12+) — per-CallMethod (object,method) pairs
@@ -453,6 +456,12 @@ func applyCWMPAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 // the handler does not distinguish between them.
 func applyModbusAllowFile(af *proxyAllowFile, opts *proxyListenOpts) {
 	opts.functions = af.Functions
+	if len(af.DiagSubfunctions) > 0 {
+		opts.modbusDiagYAML = make([]mbwire.DiagSubFunction, 0, len(af.DiagSubfunctions))
+		for _, s := range af.DiagSubfunctions {
+			opts.modbusDiagYAML = append(opts.modbusDiagYAML, mbwire.DiagSubFunction(s))
+		}
+	}
 	if len(af.Writes) == 0 {
 		return
 	}
