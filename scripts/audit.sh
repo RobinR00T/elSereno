@@ -181,7 +181,7 @@ else
 fi
 
 # ====================================================================
-hdr "5. Go toolchain + go.mod"
+hdr "5. Go toolchain + go.mod + version sync"
 # ====================================================================
 if command -v go >/dev/null 2>&1; then
     ok "Go available: $(go version | awk '{print $3}')"
@@ -192,6 +192,14 @@ if command -v go >/dev/null 2>&1; then
     fi
 else
     fail "Go not installed"
+fi
+
+# Version drift across go.mod / Dockerfile / ci.yml matrix (the class
+# that broke CI on the 2026-09 pgx 5.11 / Go 1.26 bump).
+if bash scripts/check-version-sync.sh >/tmp/.audit-vsync.$$ 2>&1; then
+    ok "Go version sync: $(tail -1 /tmp/.audit-vsync.$$)"
+else
+    fail "Go version drift: $(tail -1 /tmp/.audit-vsync.$$)"
 fi
 
 if [ "$MODE" = "quick" ]; then
