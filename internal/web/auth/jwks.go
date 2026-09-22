@@ -188,9 +188,22 @@ func parseECJWK(crv, xB64, yB64 string) (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("y decode: %w", err)
 	}
-	return &ecdsa.PublicKey{
-		Curve: curve,
-		X:     new(big.Int).SetBytes(xBytes),
-		Y:     new(big.Int).SetBytes(yBytes),
-	}, nil
+	// Go 1.26 deprecated setting PublicKey.X/Y directly (raw coordinates
+	// can build an off-curve, invalid key). Encode the JWK coordinates
+	// as an uncompressed point (0x04 || x || y, each padded to the field
+	// size) and parse it: ParseUncompressedPublicKey validates the point
+	// is on the curve, rejecting a malformed or malicious JWK.
+	byteLen := (curve.Params().BitSize + 7) / 8
+	if len(xBytes) > byteLen || len(yBytes) > byteLen {
+		return nil, errors.New("EC coordinate exceeds curve field size")
+	}
+	uncompressed := make([]byte, 1+2*byteLen)
+	uncompressed[0] = 0x04
+	copy(uncompressed[1+byteLen-len(xBytes):1+byteLen], xBytes)
+	copy(uncompressed[1+2*byteLen-len(yBytes):], yBytes)
+	pub, err := ecdsa.ParseUncompressedPublicKey(curve, uncompressed)
+	if err != nil {
+		return nil, fmt.Errorf("invalid EC public key: %w", err)
+	}
+	return pub, nil
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"local/elsereno/internal/web/handlers"
 )
@@ -42,6 +43,7 @@ func (r *auditRows) Err() error                                   { return nil }
 func (r *auditRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *auditRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *auditRows) Conn() *pgx.Conn                              { return nil }
+func (r *auditRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (r *auditRows) RawValues() [][]byte                          { return nil }
 func (r *auditRows) Values() ([]any, error)                       { return nil, nil }
 func (r *auditRows) Next() bool                                   { r.i++; return r.i <= len(r.rows) }

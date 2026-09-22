@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"local/elsereno/internal/repo"
 )
@@ -79,6 +80,7 @@ func (r *fakeRows) Err() error                                   { return r.err 
 func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
+func (r *fakeRows) TypeMap() *pgtype.Map                         { return pgtype.NewMap() }
 func (r *fakeRows) RawValues() [][]byte                          { return nil }
 func (r *fakeRows) Values() ([]any, error)                       { return nil, nil }
 func (r *fakeRows) Next() bool {
