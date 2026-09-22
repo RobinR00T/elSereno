@@ -77,8 +77,8 @@ TOK="$(el write dnp3 proxy-dry-run \
 	--vault-passphrase-file "$PP" | awk -F': ' '/Confirm-token:/{print $2}')"
 [ -n "$TOK" ] || { echo "failed to mint token" >&2; exit 1; }
 
-echo "==> starting dnp3-sim outstation (127.0.0.1:$SIMP)"
-"$SIM" -listen "127.0.0.1:$SIMP" >"$SIMLOG" 2>&1 &
+echo "==> starting dnp3-sim outstation (127.0.0.1:$SIMP; reports a Device Restart in its IIN)"
+"$SIM" -listen "127.0.0.1:$SIMP" -iin restart >"$SIMLOG" 2>&1 &
 SIMPID=$!
 
 echo "==> starting write-gated proxy (127.0.0.1:$PXP -> 127.0.0.1:$SIMP)"
@@ -99,10 +99,17 @@ send "Direct Operate broadcast    (deny):" bcast-latch
 send "Cold Restart                (deny):" coldrestart
 
 echo
+echo "==> IIN monitor (response path): the poster's 'free IDS' that rides in the"
+echo "    reply nobody reads. The outstation reports a Device Restart; the proxy"
+echo "    surfaces it from the responses that passed:"
+grep -i "IIN alert" "$TMP/proxy.log" | sed 's/^/  /' | head -2 || echo "  (no IIN alert logged)"
+
+echo
 echo "==> what the outstation actually received (proves the denies never arrived):"
 sed 's/^/  /' "$SIMLOG"
 
 echo
-echo "Expected: Read + LATCH pt5 reach the outstation (IIN2=0x00 in the reply);"
-echo "TRIP, broadcast and Cold Restart each return an IIN2 FUNC_NOT_SUPP (byte 0x04"
-echo "at offset 14) from the GATE and never appear in the outstation log."
+echo "Expected: Read + LATCH pt5 reach the outstation and reply with IIN1=0x80"
+echo "(Device Restart), which the proxy surfaces as a state_change alert. TRIP,"
+echo "broadcast and Cold Restart each return an IIN2 FUNC_NOT_SUPP (byte 0x04 at"
+echo "offset 14) from the GATE and never appear in the outstation log."

@@ -29,16 +29,39 @@ import (
 
 func main() { os.Exit(run()) }
 
+// respIIN1 / respIIN2 are the Internal Indications the outstation
+// returns on every response, set from -iin so the demo can exercise the
+// proxy's response-path IIN monitor.
+var respIIN1, respIIN2 uint8
+
 func run() int {
 	listen := flag.String("listen", "127.0.0.1:20000", "outstation bind address")
 	send := flag.String("send", "", "client mode: send one frame then exit (read|latch5|trip5|bcast-latch|coldrestart)")
 	addr := flag.String("addr", "127.0.0.1:20000", "client mode: target host:port")
+	iin := flag.String("iin", "", "outstation IIN to return on every response: restart|trouble|config-corrupt|func-not-supp")
 	flag.Parse()
 
+	respIIN1, respIIN2 = parseIINFlag(*iin)
 	if *send != "" {
 		return sendOne(*send, *addr)
 	}
 	return serve(*listen)
+}
+
+// parseIINFlag maps a -iin name to the (IIN1, IIN2) octets.
+func parseIINFlag(name string) (uint8, uint8) {
+	switch name {
+	case "restart":
+		return wire.IIN1DeviceRestart, 0
+	case "trouble":
+		return wire.IIN1DeviceTrouble, 0
+	case "config-corrupt":
+		return 0, wire.IIN2ConfigCorrupt
+	case "func-not-supp":
+		return 0, wire.IIN2FuncNotSupp
+	default:
+		return 0, 0
+	}
 }
 
 // --- outstation ---------------------------------------------------
@@ -117,7 +140,7 @@ func logRequest(lh wire.Header, apdu []byte) {
 // buildResponse returns a minimal IIN=0 response addressed back to the
 // requesting master, with correct CRCs.
 func buildResponse(req wire.Header) []byte {
-	userData := []byte{0xC0, 0xC0, 0x81, 0x00, 0x00} // transport, AC, FC=response, IIN1, IIN2
+	userData := []byte{0xC0, 0xC0, 0x81, respIIN1, respIIN2} // transport, AC, FC=response, IIN1, IIN2
 	body := wire.AppendBlockCRCs(userData)
 	frame := make([]byte, wire.HeaderLen+len(body))
 	frame[0], frame[1] = wire.StartBytes[0], wire.StartBytes[1]

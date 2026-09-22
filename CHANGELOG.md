@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   well-formed `IIN2 FUNC_NOT_SUPP` with correct DNP3 CRCs (poly 0x3D65).
   New `simulators/dnp3` + `scripts/demo-dnp3-proxy.sh`;
   `docs/protocols/dnp3.md` gains an attack-technique playbook.
+- **DNP3 response-path IIN monitor (`-tags offensive`):** the proxy now
+  reads the outstation->master reply, not just the request. It raises a
+  `state_change` alert on the Device Restart / Device Trouble / Config
+  Corrupt IIN bits, and one `error_burst` alert when Function-not-
+  supported / Object-unknown / Parameter-error responses cross a
+  threshold (enumeration / fuzzing). Observation is verbatim-forward-
+  first and fails open on a framing desync, so the master's stream is
+  never delayed. Alerts go to an `OnIIN` callback or the proxy log.
 - **Legacy-ICS write-gated proxies (`-tags offensive`):** FINS
   (`finsudp`, Omron, UDP/9600), SLMP (MELSEC, TCP/5007), GE-SRTP
   (GE/Emerson PACSystems, TCP/18245), CoDeSys v3 (TCP/1217+11740), and

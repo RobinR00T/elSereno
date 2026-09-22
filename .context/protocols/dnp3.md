@@ -55,8 +55,16 @@ CRC-16/DNP (poly 0x3D65, reflected, xorout 0xFFFF; check "123456789" =
 
 ## Proxy hooks
 Default build: deny-all (link-layer classify + FC 15 refusal, correct
-CRC). Offensive build: the four-layer write-gate above. Demo:
-`scripts/demo-dnp3-proxy.sh` against `simulators/dnp3`.
+CRC). Offensive build: the four-layer write-gate above, plus a
+response-path IIN monitor (`offensive/write/dnp3/iinmonitor.go`,
+`wire.ParseIIN`/`IINStateChange`/`IINError`/`IINBits`): the return
+path is parsed (verbatim-forward-first, fail-open on desync) and raises
+a `state_change` alert on Device Restart/Trouble/Config-Corrupt and one
+`error_burst` on a run of FUNC_NOT_SUPP/Object-unknown/Parameter-error
+(default threshold 3). Alerts via `WriteGatedHandler.OnIIN` or stderr.
+Not wired to the audit chain (that needs a new event_type migration).
+Demo: `scripts/demo-dnp3-proxy.sh` (`-iin restart`) against
+`simulators/dnp3`.
 
 ## Scoring contribution
 See `internal/protocols/dnp3/dnp3.go` for the factor defaults.

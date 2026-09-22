@@ -223,10 +223,10 @@ remains an option since v1.8.
   forward; mutating (Force Listen Only 0x04 DoS, Clear Counters 0x0A,
   ...) default-deny unless `--diag-subfunction` (token-bound, compat-
   preserving). Closes the "permissive FC 8" gap. PITF-058.
-- **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable now;
-  gates app-FC + CROB (index, TRIP/CLOSE control-code) + broadcast deny
-  + master↔outstation link pin, token-bound. Fixed block-CRC mis-framing
-  + token binding only link FCs. Ackerman DNP3 poster. PITF-059.
+- **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable;
+  gates app-FC + CROB (index, TRIP/CLOSE) + broadcast deny + link pin,
+  token-bound; + response-path IIN monitor (state_change/error_burst).
+  Fixed block-CRC mis-framing + partial token binding. Ackerman. PITF-059.
 - **OPC UA HTTPS deep fingerprint**: `opcuahttps` (4843) POSTs a real
   GetEndpointsRequest + enumerates endpoints (SecurityMode=None raises
   exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.

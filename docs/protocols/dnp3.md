@@ -81,14 +81,38 @@ empty dimension folds out, so a token stays backwards-compatible). A
 minimal end-to-end demonstration with a simulator lives at
 `scripts/demo-dnp3-proxy.sh`.
 
+## Response-path IIN monitor
+
+The gate also reads the reply, not just the request. Every DNP3
+response (FC 129 / 130) carries two Internal Indications octets that
+almost nobody reads, and they are a free intrusion signal:
+
+- **Device Restart** (IIN1 0x80), **Device Trouble** (IIN1 0x40) and
+  **Configuration Corrupt** (IIN2 0x20) confirm that something changed
+  the outstation's state. The monitor raises a `state_change` alert on
+  each, even for a change whose request you missed.
+- a run of **Function-not-supported** (IIN2 0x01), **Object-unknown**
+  (IIN2 0x02) and **Parameter-error** (IIN2 0x04) responses is the
+  signature of somebody enumerating or fuzzing the outstation. The
+  monitor raises one `error_burst` alert when the count crosses a
+  threshold (default 3, `IINErrorBurstThreshold`).
+
+Monitoring is observation only: every response is forwarded to the
+master verbatim before it is inspected, and a framing desync falls back
+to a raw copy, so the master's stream is never delayed or corrupted.
+Alerts go to the operator's `OnIIN` callback, or to the proxy log when
+none is set. The demo runs the outstation with `-iin restart` to show
+the monitor surfacing a Device Restart from the passing responses.
+
 ## Attack playbook (mapping to elSereno)
 
 The techniques follow the public DNP3 attack literature (Pascal
 Ackerman's "DNP3 Attack & Defend" poster, the ICS-CERT Project Robus
-disclosures, and the ATT&CK for ICS matrix). elSereno is a parsing
-write-gate, not an IDS: it forwards only what the operator allowlisted,
+disclosures, and the ATT&CK for ICS matrix). elSereno is primarily a
+parsing write-gate: it forwards only what the operator allowlisted,
 refuses the rest at parse time, and (with `--record`) captures every
-frame that crossed the gate.
+frame that crossed the gate. It also reads the reply path for the IIN
+signals below, but it is not a full IDS.
 
 | Technique (ATT&CK for ICS) | DNP3 mechanism | elSereno response |
 |-----------------------------|----------------|-------------------|
@@ -100,8 +124,9 @@ frame that crossed the gate.
 | Broadcast control | any control aimed at link address `0xFFFD-0xFFFF` lands on every outstation at once | Always refused for mutating frames, even if the FC and CROB are otherwise allowlisted |
 | Spoofed master | a control FC from a non-master IP or link address | `--dnp3-link` pins the master->outstation pair; an unpinned mutating frame is refused |
 | Denial of View (T0815) | FC 21 Disable Unsolicited: the outstation stops reporting events and the master keeps a stale picture | Default-deny (not in the app-FC allowlist unless the operator lists 0x15) |
-| Device Restart / Shutdown (T0816) | FC 13 Cold Restart, FC 14 Warm Restart, FC 18 Stop Application | Default-deny |
-| Anti-forensics | FC 9/10 Freeze-and-Clear wipes accumulators; the IIN "Device Restart / Config Corrupt" bits are the evidence | Freeze/Clear default-deny; the request itself is recorded |
+| Device Restart / Shutdown (T0816) | FC 13 Cold Restart, FC 14 Warm Restart, FC 18 Stop Application | Default-deny; and if a restart happens by any path, the response-path monitor raises a `state_change` alert from the reply's IIN |
+| Anti-forensics | FC 9/10 Freeze-and-Clear wipes accumulators; the IIN "Device Restart / Config Corrupt" bits are the evidence | Freeze/Clear default-deny; the request is recorded, and the response-path monitor alerts on the Config-Corrupt / Restart IIN bits |
+| Enumeration / fuzzing | probing FCs, objects and qualifiers to map the outstation | A run of Function-not-supported / Object-unknown / Parameter-error responses trips one `error_burst` alert from the IIN |
 | Program Upload (T0845) | FC 25-30 file operations move config / firmware off or onto the device | Default-deny |
 | Malformed-frame abuse | a truncated frame, a bad block CRC, or a CROB with an unsupported qualifier | The gate verifies every block CRC and fails closed; a malformed control is refused, not forwarded |
 

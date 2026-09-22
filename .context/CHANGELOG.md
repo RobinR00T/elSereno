@@ -8,6 +8,16 @@ last-updated: 2026-09-22
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-09-22 (2): **DNP3 response-path IIN monitor.** The proxy reads
+  the outstation->master reply and raises a `state_change` alert on the
+  Device Restart / Device Trouble / Config Corrupt IIN bits and one
+  `error_burst` alert on a run of FUNC_NOT_SUPP / Object-unknown /
+  Parameter-error responses (enumeration/fuzzing). Observation is
+  verbatim-forward-first + fail-open. The poster's "the IIN is a free
+  IDS that rides in the reply and nobody reads it." `wire.ParseIIN` +
+  `offensive/write/dnp3/iinmonitor.go`; alerts via `OnIIN` or stderr
+  (audit-chain wiring deferred: needs a new event_type migration).
+
 - 2026-09-22: **DNP3 write-gate wired + deepened.** The DNP3 handler
   is now CLI-reachable (`write dnp3 proxy-dry-run` + `proxy listen
   --plugin dnp3`) and gates on four dimensions bound into the token:

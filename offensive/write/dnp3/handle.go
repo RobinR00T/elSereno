@@ -62,6 +62,16 @@ type WriteGatedHandler struct {
 	// --accept-writes / --confirm-target / --confirm-token.
 	SessionConfirm confirm.Confirm
 
+	// OnIIN, when set, receives every notable Internal Indications
+	// observation on the outstation->master path (device restart /
+	// trouble / config-corrupt, and error-response bursts). Nil logs
+	// to stderr. Observation never gates or alters the response.
+	OnIIN func(IINEvent)
+	// IINErrorBurstThreshold is the number of error-bearing responses
+	// in a session that trips an enumeration/fuzzing alert. 0 uses the
+	// default (defaultIINErrorBurst).
+	IINErrorBurstThreshold int
+
 	// authorised flips true after a successful Authorise.
 	authorised bool
 }
@@ -129,7 +139,7 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- h.forward(client, upstream, client) }()
-	go func() { _, err := io.Copy(client, upstream); errs <- err }()
+	go func() { errs <- h.forwardResponses(upstream, client) }()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
