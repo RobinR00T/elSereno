@@ -99,10 +99,14 @@ almost nobody reads, and they are a free intrusion signal:
 
 Monitoring is observation only: every response is forwarded to the
 master verbatim before it is inspected, and a framing desync falls back
-to a raw copy, so the master's stream is never delayed or corrupted.
-Alerts go to the operator's `OnIIN` callback, or to the proxy log when
-none is set. The demo runs the outstation with `-iin restart` to show
-the monitor surfacing a Device Restart from the passing responses.
+to a raw copy, so the master's stream is never delayed or corrupted. A
+run of identical state-change responses (a stuck bit) collapses to one
+alert. Each alert is logged and recorded in the tamper-evident audit
+chain as a `dnp3_iin_alert` row (so it survives the session and reaches
+the dashboard / SSE feed); an `OnIIN` callback can override the sink.
+The demo runs the outstation with `-iin restart` to show the monitor
+surfacing a Device Restart from the passing responses and the matching
+audit row, then verifies the hash chain is intact.
 
 ## Attack playbook (mapping to elSereno)
 

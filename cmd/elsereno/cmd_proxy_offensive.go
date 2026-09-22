@@ -1028,6 +1028,7 @@ func buildDNP3Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,
+		OnIIN:                dnp3IINObserver(opts.target, rt),
 	}, nil
 }
 

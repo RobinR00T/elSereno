@@ -74,6 +74,11 @@ func (h *WriteGatedHandler) forwardResponses(upstream io.Reader, client io.Write
 	hdr := make([]byte, wire.HeaderLen)
 	errRun := 0
 	burstReported := false
+	// prevStateKey de-duplicates a run of identical state-change
+	// responses (a stuck Device-Restart bit) into one alert. 0 means
+	// the previous response was not a state change; a real state
+	// change always has at least one bit set, so 0 is a safe sentinel.
+	var prevStateKey uint16
 	for {
 		if _, err := io.ReadFull(upstream, hdr); err != nil {
 			return err
@@ -100,14 +105,14 @@ func (h *WriteGatedHandler) forwardResponses(upstream io.Reader, client io.Write
 		if _, err := client.Write(frame); err != nil {
 			return err
 		}
-		h.inspectResponse(lh, body, &errRun, threshold, &burstReported)
+		h.inspectResponse(lh, body, &errRun, threshold, &burstReported, &prevStateKey)
 	}
 }
 
 // inspectResponse extracts the IIN from one response frame's body and
 // emits alerts. A frame that cannot be de-blocked or is not a response
 // is silently skipped (observation is best-effort).
-func (h *WriteGatedHandler) inspectResponse(lh wire.Header, body []byte, errRun *int, threshold int, burstReported *bool) {
+func (h *WriteGatedHandler) inspectResponse(lh wire.Header, body []byte, errRun *int, threshold int, burstReported *bool, prevStateKey *uint16) {
 	apdu, ok := wire.StripBlockCRCs(body, int(lh.Length)-5)
 	if !ok {
 		return
@@ -117,10 +122,16 @@ func (h *WriteGatedHandler) inspectResponse(lh wire.Header, body []byte, errRun 
 		return
 	}
 	if wire.IINStateChange(iin1, iin2) {
-		h.reportIIN(IINEvent{
-			Kind: IINStateChangeKind, Src: lh.Src, Dest: lh.Dest,
-			IIN1: iin1, IIN2: iin2, Bits: wire.IINBits(iin1, iin2),
-		})
+		key := uint16(iin1)<<8 | uint16(iin2)
+		if key != *prevStateKey {
+			*prevStateKey = key
+			h.reportIIN(IINEvent{
+				Kind: IINStateChangeKind, Src: lh.Src, Dest: lh.Dest,
+				IIN1: iin1, IIN2: iin2, Bits: wire.IINBits(iin1, iin2),
+			})
+		}
+	} else {
+		*prevStateKey = 0
 	}
 	if wire.IINError(iin2) {
 		*errRun++

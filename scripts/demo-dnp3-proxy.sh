@@ -105,6 +105,11 @@ echo "    surfaces it from the responses that passed:"
 grep -i "IIN alert" "$TMP/proxy.log" | sed 's/^/  /' | head -2 || echo "  (no IIN alert logged)"
 
 echo
+echo "==> the same alert lands in the tamper-evident audit chain (dnp3_iin_alert):"
+grep -o 'dnp3_iin_alert' "$TMP/.elsereno/audit.jsonl" 2>/dev/null | head -1 | sed 's/^/  found audit event_type: /' || echo "  (no audit row)"
+HOME="$TMP" "$BIN" audit verify-file --vault-passphrase-file "$PP" >/dev/null 2>&1 && echo "  audit chain verify-file: OK (hash chain intact)" || echo "  audit chain verify-file: (n/a)"
+
+echo
 echo "==> what the outstation actually received (proves the denies never arrived):"
 sed 's/^/  /' "$SIMLOG"
 

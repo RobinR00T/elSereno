@@ -59,12 +59,15 @@ CRC). Offensive build: the four-layer write-gate above, plus a
 response-path IIN monitor (`offensive/write/dnp3/iinmonitor.go`,
 `wire.ParseIIN`/`IINStateChange`/`IINError`/`IINBits`): the return
 path is parsed (verbatim-forward-first, fail-open on desync) and raises
-a `state_change` alert on Device Restart/Trouble/Config-Corrupt and one
-`error_burst` on a run of FUNC_NOT_SUPP/Object-unknown/Parameter-error
-(default threshold 3). Alerts via `WriteGatedHandler.OnIIN` or stderr.
-Not wired to the audit chain (that needs a new event_type migration).
-Demo: `scripts/demo-dnp3-proxy.sh` (`-iin restart`) against
-`simulators/dnp3`.
+a `state_change` alert on Device Restart/Trouble/Config-Corrupt (a run
+of identical ones de-dups to one) and one `error_burst` on a run of
+FUNC_NOT_SUPP/Object-unknown/Parameter-error (default threshold 3).
+Alerts log to stderr AND land in the tamper-evident audit chain as a
+`dnp3_iin_alert` row (event_type added in migration 00005, enum
+`EventDNP3IINAlert`, emitted from `cmd/elsereno/dnp3_iin_audit_offensive.go`
+via `rt.Writer`, best-effort); `WriteGatedHandler.OnIIN` overrides.
+Demo: `scripts/demo-dnp3-proxy.sh` (`-iin restart`) shows the log line,
+the audit row and `audit verify-file` OK.
 
 ## Scoring contribution
 See `internal/protocols/dnp3/dnp3.go` for the factor defaults.

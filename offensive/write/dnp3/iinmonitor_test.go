@@ -12,8 +12,10 @@ import (
 )
 
 // respFrame builds an outstation response frame (control 0x44, FC 0x81)
-// from dest to src carrying the given IIN, with correct CRCs.
-func respFrame(dest, src uint16, iin1, iin2 uint8) []byte {
+// from the outstation (link 1) to the master (link 2) carrying the
+// given IIN, with correct CRCs.
+func respFrame(iin1, iin2 uint8) []byte {
+	const dest, src uint16 = 2, 1
 	userData := []byte{0xC0, 0xC0, 0x81, iin1, iin2}
 	body := wire.AppendBlockCRCs(userData)
 	f := make([]byte, wire.HeaderLen+len(body))
@@ -51,7 +53,7 @@ func runResponses(t *testing.T, threshold int, in []byte) ([]IINEvent, []byte) {
 // unchanged and a clean IIN raises no alert.
 func TestForwardResponses_Verbatim(t *testing.T) {
 	t.Parallel()
-	in := respFrame(2, 1, 0, 0) // outstation 1 -> master 2, IIN clean
+	in := respFrame(0, 0) // outstation 1 -> master 2, IIN clean
 	events, out := runResponses(t, 0, in)
 	if !bytes.Equal(out, in) {
 		t.Fatal("response bytes were not forwarded verbatim")
@@ -65,7 +67,7 @@ func TestForwardResponses_Verbatim(t *testing.T) {
 // state-change alert while still forwarding the frame.
 func TestForwardResponses_StateChange(t *testing.T) {
 	t.Parallel()
-	in := respFrame(2, 1, wire.IIN1DeviceRestart, 0)
+	in := respFrame(wire.IIN1DeviceRestart, 0)
 	events, out := runResponses(t, 0, in)
 	if !bytes.Equal(out, in) {
 		t.Fatal("frame not forwarded verbatim")
@@ -87,13 +89,38 @@ func TestForwardResponses_StateChange(t *testing.T) {
 	}
 }
 
+// TestForwardResponses_StateChangeDedup proves a run of identical
+// state-change responses collapses to one alert, but the same
+// condition re-alerts after an intervening clean response.
+func TestForwardResponses_StateChangeDedup(t *testing.T) {
+	t.Parallel()
+	var in []byte
+	// Three identical Device-Restart responses in a row.
+	for i := 0; i < 3; i++ {
+		in = append(in, respFrame(wire.IIN1DeviceRestart, 0)...)
+	}
+	// A clean response, then Device Restart again.
+	in = append(in, respFrame(0, 0)...)
+	in = append(in, respFrame(wire.IIN1DeviceRestart, 0)...)
+	events, _ := runResponses(t, 0, in)
+	state := 0
+	for _, e := range events {
+		if e.Kind == IINStateChangeKind {
+			state++
+		}
+	}
+	if state != 2 {
+		t.Fatalf("state_change alerts = %d, want 2 (run collapsed, then re-alert)", state)
+	}
+}
+
 // TestForwardResponses_ErrorBurst proves a run of error responses trips
 // exactly one enumeration/fuzzing alert at the threshold.
 func TestForwardResponses_ErrorBurst(t *testing.T) {
 	t.Parallel()
 	var in []byte
 	for i := 0; i < 5; i++ {
-		in = append(in, respFrame(2, 1, 0, wire.IIN2FuncNotSupp)...)
+		in = append(in, respFrame(0, wire.IIN2FuncNotSupp)...)
 	}
 	events, _ := runResponses(t, 3, in)
 	burst := 0

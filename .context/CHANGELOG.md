@@ -15,8 +15,11 @@ One-liner per significant change to `.context/` or the codebase.
   Parameter-error responses (enumeration/fuzzing). Observation is
   verbatim-forward-first + fail-open. The poster's "the IIN is a free
   IDS that rides in the reply and nobody reads it." `wire.ParseIIN` +
-  `offensive/write/dnp3/iinmonitor.go`; alerts via `OnIIN` or stderr
-  (audit-chain wiring deferred: needs a new event_type migration).
+  `offensive/write/dnp3/iinmonitor.go`; alerts log to stderr AND land in
+  the tamper-evident audit chain as a `dnp3_iin_alert` row (event_type
+  added in migration 00005 / `EventDNP3IINAlert`, emitted via
+  `rt.Writer`; identical state-changes de-dup). Follows the
+  `cwmp_firmware_verify` proxy-observer precedent.
 
 - 2026-09-22: **DNP3 write-gate wired + deepened.** The DNP3 handler
   is now CLI-reachable (`write dnp3 proxy-dry-run` + `proxy listen

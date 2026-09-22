@@ -64,6 +64,15 @@ const (
 	// `unreachable` row, not a missed audit. Requires
 	// migration 00004.
 	EventCWMPFirmwareVerify EventType = "cwmp_firmware_verify"
+	// EventDNP3IINAlert captures a notable Internal Indications signal
+	// the DNP3 write-gated proxy observes on the outstation->master
+	// reply path: a device state change (restart / trouble / config-
+	// corrupt) or an error-response burst (enumeration / fuzzing).
+	// Emitted best-effort from the response monitor, one row per
+	// alert. Payload: kind (state_change|error_burst), protocol,
+	// target, src, dest, iin1, iin2, bits, and error_run for a burst.
+	// Requires migration 00005.
+	EventDNP3IINAlert EventType = "dnp3_iin_alert"
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -82,6 +91,7 @@ var AllEventTypes = []EventType{
 	EventAdmin,
 	EventProxyAllowlistReload,
 	EventCWMPFirmwareVerify,
+	EventDNP3IINAlert,
 }
 
 // IsProtectedMetadata reports whether a row with the given event type

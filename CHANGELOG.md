@@ -30,7 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   supported / Object-unknown / Parameter-error responses cross a
   threshold (enumeration / fuzzing). Observation is verbatim-forward-
   first and fails open on a framing desync, so the master's stream is
-  never delayed. Alerts go to an `OnIIN` callback or the proxy log.
+  never delayed; a run of identical state-changes de-dups to one alert.
+  Each alert is logged and recorded in the tamper-evident audit chain
+  as a `dnp3_iin_alert` row (new audit event_type, migration 00005), so
+  it reaches the dashboard / SSE feed; an `OnIIN` callback can override.
 - **Legacy-ICS write-gated proxies (`-tags offensive`):** FINS
   (`finsudp`, Omron, UDP/9600), SLMP (MELSEC, TCP/5007), GE-SRTP
   (GE/Emerson PACSystems, TCP/18245), CoDeSys v3 (TCP/1217+11740), and
