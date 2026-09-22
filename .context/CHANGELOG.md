@@ -1,12 +1,25 @@
 ---
 phase: any
 status: living
-last-updated: 2026-09-03
+last-updated: 2026-09-22
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-09-22: **DNP3 write-gate wired + deepened.** The DNP3 handler
+  is now CLI-reachable (`write dnp3 proxy-dry-run` + `proxy listen
+  --plugin dnp3`) and gates on four dimensions bound into the token:
+  app-FC, CROB `(point-index, control-code)` (TRIP/CLOSE default-deny),
+  broadcast-control (0xFFFD-0xFFFF) deny, master↔outstation link pin.
+  Fixed two latent issues: the forwarder ignored the per-block CRCs in
+  the DNP3 frame (mis-framed real user-data), and the token bound only
+  the link-layer FCs, not the app-FC allowlist. New `wire.CRC16` (poly
+  0x3D65), `wire.ExtractCROBs`, `simulators/dnp3`,
+  `scripts/demo-dnp3-proxy.sh`, DNP3 attack playbook in
+  `docs/protocols/dnp3.md`. From Ackerman's "DNP3 Attack & Defend"
+  poster (nº 03). See PITF-059, ADR-034 update.
 
 - 2026-09-03: **Modbus FC 8 Diagnostics per-sub-function gate.**
   The offensive write-gate previously forwarded every FC 8

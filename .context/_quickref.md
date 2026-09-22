@@ -67,7 +67,8 @@ sub-function gate, OPC UA per-NodeId
 per-WriteProperty + per-WPM + per-DeleteObject, SIP
 per-method/prefix/AOR/from-domain, CWMP per-RPC + per-param-
 prefix + per-firmware-URL, IAX2 per-subclass, pbxhttp per-
-(method, path).
+(method, path), DNP3 per app-FC + per-CROB (index, control-
+code) + broadcast-deny + link-address pin.
 
 **Outputs**: 5 sinks (NDJSON / CSV / HTML / CEF / Syslog) + 3
 ticketing/webhook sinks (JIRA / GitHub Issues / generic HMAC

@@ -25,6 +25,7 @@ import (
 	bacwrite "local/elsereno/offensive/write/bacnet"
 	cswrite "local/elsereno/offensive/write/codesys"
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
+	dnpwrite "local/elsereno/offensive/write/dnp3"
 	enipwrite "local/elsereno/offensive/write/enip"
 	finswrite "local/elsereno/offensive/write/finsudp"
 	gewrite "local/elsereno/offensive/write/gesrtp"
@@ -166,6 +167,7 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"no-payload opcodes whose read/write semantics the public "+
 			"dissector does not establish - is refused unless listed here. "+
 			"Repeatable.")
+	addDNP3AllowlistFlags(cmd.Flags(), &opts.dnp3AppFCs, &opts.dnp3Links, &opts.dnp3Controls, &opts.dnp3Primaries)
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -467,6 +469,15 @@ type proxyListenOpts struct {
 	// read/write semantics for the handshake opcodes, so they too must
 	// be allowlisted).
 	redlionTypes []string
+	// dnp3* hold the DNP3 allowlist in raw CLI-string form: application
+	// function codes, CROB (index-range, control-code) scopes,
+	// master->outstation link pins, and optional link-layer primary
+	// function codes. Parsed by buildDNP3Allowlist, shared with the
+	// dry-run so the confirm-token matches.
+	dnp3AppFCs    []string
+	dnp3Controls  []string
+	dnp3Links     []string
+	dnp3Primaries []string
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
@@ -760,8 +771,10 @@ func buildICSGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.
 		return buildCoDeSysHandler(opts, rt, c)
 	case pluginNameRedLion:
 		return buildRedLionHandler(opts, rt, c)
+	case pluginNameDNP3:
+		return buildDNP3Handler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion / dnp3", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -995,6 +1008,26 @@ func buildRedLionHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.C
 		Deriver:        rt.Vault,
 		Auditor:        rt.Auditor,
 		SessionConfirm: c,
+	}, nil
+}
+
+// buildDNP3Handler wires the DNP3 write-gated proxy from the same four
+// allowlist flags the dry-run mints against (app-FCs, CROB scopes,
+// link pins, link-layer primaries), so the confirm-token matches.
+func buildDNP3Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*dnpwrite.WriteGatedHandler, error) {
+	al, err := buildDNP3Allowlist(opts.dnp3AppFCs, opts.dnp3Links, opts.dnp3Controls, opts.dnp3Primaries)
+	if err != nil {
+		return nil, err
+	}
+	return &dnpwrite.WriteGatedHandler{
+		Target:               opts.target,
+		Allowed:              al.Control,
+		AllowedAppFC:         al.AppFC,
+		AllowedLink:          al.Links,
+		AllowedControlOutput: al.ControlOutput,
+		Deriver:              rt.Vault,
+		Auditor:              rt.Auditor,
+		SessionConfirm:       c,
 	}, nil
 }
 

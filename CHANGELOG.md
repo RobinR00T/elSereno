@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **DNP3 write-gated proxy wired + deepened (`-tags offensive`):** the
+  DNP3 handler is now operator-usable (`write dnp3 proxy-dry-run` +
+  `proxy listen --plugin dnp3`), and gates on four dimensions: the
+  application function code (`--dnp3-app-fc`), the Control Relay Output
+  Block by `(point-index range, control-code)` (`--dnp3-control`, so a
+  LATCH on points 5-8 can pass while TRIP `0x81` / CLOSE `0x41` are
+  refused), the destination link address (broadcast `0xFFFD-0xFFFF`
+  controls always refused), and the master↔outstation link-address pin
+  (`--dnp3-link`). Reads always pass. All four bind into the
+  confirm-token. Built on the validated public dissector surface
+  (IEEE 1815-2012, Wireshark `packet-dnp3.c`, ICSNPP-DNP3), refusal is a
+  well-formed `IIN2 FUNC_NOT_SUPP` with correct DNP3 CRCs (poly 0x3D65).
+  New `simulators/dnp3` + `scripts/demo-dnp3-proxy.sh`;
+  `docs/protocols/dnp3.md` gains an attack-technique playbook.
 - **Legacy-ICS write-gated proxies (`-tags offensive`):** FINS
   (`finsudp`, Omron, UDP/9600), SLMP (MELSEC, TCP/5007), GE-SRTP
   (GE/Emerson PACSystems, TCP/18245), CoDeSys v3 (TCP/1217+11740), and
@@ -50,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **DNP3 gate: confirm-token now binds the full allowlist + correct
+  framing.** The DNP3 session hash previously bound only the link-layer
+  primary function codes, so the application-FC allowlist (the thing
+  that actually opens a Write / Operate) was not covered by the token;
+  it now binds the app-FC, CROB, link-pin and primary dimensions
+  (empty ones fold out for backwards-compatible tokens). The forwarder
+  also read `Length-5` user-data octets without accounting for the
+  per-16-octet block CRCs on the wire, mis-framing any real user-data
+  frame; it now reads the full block-CRC-framed body, verifies every
+  block CRC, and fails closed on a mismatch.
 - **Modbus FC 8 Diagnostics no longer permissive:** the offensive
   write-gate previously forwarded every FC 8 sub-function, so Force
   Listen Only (0x04, silences the slave), Clear Counters (0x0A,

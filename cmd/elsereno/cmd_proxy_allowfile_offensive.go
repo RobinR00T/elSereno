@@ -42,6 +42,8 @@ const (
 	pluginNameCoDeSys = "codesys"
 	// Wire-aware allowlist of Red Lion Crimson v3 Type opcodes.
 	pluginNameRedLion = "redlion"
+	// Wire-aware allowlist of DNP3 app-FCs + CROB scope + link pins.
+	pluginNameDNP3 = "dnp3"
 )
 
 // proxyAllowFile is the YAML schema for --allow-file. Every

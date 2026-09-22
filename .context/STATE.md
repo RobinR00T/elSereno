@@ -1,7 +1,7 @@
 ---
 phase: v2.63-closed; CI/CD reactivated + reliability pass (2026-08-31)
 status: tags published through v2.62; CI green on main
-last-updated: 2026-09-03
+last-updated: 2026-09-22
 token-budget: 320
 ---
 
@@ -217,17 +217,19 @@ remains an option since v1.8.
   (Options.Network) landed 2026-08-31. Refusal: FINS/SLMP native error;
   GE-SRTP/CoDeSys/Red Lion close-on-refuse; OPC UA ServiceFault. Each
   ships `write <p> [proxy-]dry-run` token minting + a simulator demo
-  (scripts/demo-*-proxy.sh, 7 of them). CoDeSys is a fail-closed L7
+  (scripts/demo-*-proxy.sh, 8 of them). CoDeSys is a fail-closed L7
   magic-scan (no trustworthy L3/L4 length).
 - **Modbus FC 8 Diagnostics sub-function gate (2026-09-03):** reads
   forward; mutating (Force Listen Only 0x04 DoS, Clear Counters 0x0A,
   ...) default-deny unless `--diag-subfunction` (token-bound, compat-
   preserving). Closes the "permissive FC 8" gap. PITF-058.
-- **OPC UA HTTPS deep fingerprint**: the `opcuahttps` plugin (4843) now
-  POSTs a real GetEndpointsRequest and enumerates the EndpointDescription
-  list; a SecurityMode=None endpoint raises exposure/auth_state. Codec in
-  opcua/wire/getendpoints.go. New verb `fingerprint probe --plugin P
-  --target host:port` runs one plugin live against one target.
+- **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable now;
+  gates app-FC + CROB (index, TRIP/CLOSE control-code) + broadcast deny
+  + master↔outstation link pin, token-bound. Fixed block-CRC mis-framing
+  + token binding only link FCs. Ackerman DNP3 poster. PITF-059.
+- **OPC UA HTTPS deep fingerprint**: `opcuahttps` (4843) POSTs a real
+  GetEndpointsRequest + enumerates endpoints (SecurityMode=None raises
+  exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.
 - 7 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, binaryedge, internetdb.
 - **Security fixes (fuzz-found in own code):** OPC UA GetEndpoints
@@ -236,9 +238,8 @@ remains an option since v1.8.
 **Deferred to v1.25+**:
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
-- macOS sandbox via `sandbox_init(3)`.
-- IEC 61850 MMS, PROFINET (L2 with gopacket), OPC UA HTTPS *write*
-  path (only the read-only GetEndpoints fingerprint shipped).
+- macOS sandbox (`sandbox_init`); IEC 61850 MMS; PROFINET (L2); OPC UA
+  HTTPS *write*; DNP3 SAv5 gating + g41 analog-output (AOB) scope.
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
 **Operator-pending**:

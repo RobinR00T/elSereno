@@ -56,9 +56,9 @@ func ClassifyControl(ctrl uint8) Category {
 
 // BuildRefusal returns a DNP3 link-layer secondary "Not Supported"
 // frame (FC 15, PRM=0) echoing the request's source and destination
-// swapped. CRC is zeroed: proxy refusal frames do not need to pass
-// an outstation's CRC check — a legitimate master that sees CRC
-// failure simply retries, which the proxy will refuse again.
+// swapped, with a correct header CRC. A zeroed CRC would itself read
+// as a wire fault on port 20000 (the very signal a defender watches
+// for), so the refusal is a well-formed frame the master parses.
 func BuildRefusal(req Header) []byte {
 	out := make([]byte, HeaderLen)
 	out[0], out[1] = StartBytes[0], StartBytes[1]
@@ -68,5 +68,8 @@ func BuildRefusal(req Header) []byte {
 	out[5] = byte(req.Src >> 8)
 	out[6] = byte(req.Dest & 0xFF)
 	out[7] = byte(req.Dest >> 8)
+	crc := CRC16(out[0:8])
+	out[8] = byte(crc & 0xFF)
+	out[9] = byte(crc >> 8)
 	return out
 }

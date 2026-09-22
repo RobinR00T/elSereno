@@ -27,30 +27,34 @@ func (f *fakeAuditor) Record(_ context.Context, ev confirm.AuditEvent) error {
 	return nil
 }
 
-// buildUserDataFrame crafts a DNP3 link-layer user-data frame
-// with the given app-layer FC. Link control = 0xC4 (DIR=1,PRM=1,
-// unconfirmed user data = FC 4).
+// buildUserDataFrame crafts a DNP3 user-data frame (dest 1, src 2)
+// with the given app-layer FC and a single placeholder object byte.
 func buildUserDataFrame(appFC uint8) []byte {
-	userData := []byte{
-		0xC0,  // transport header
-		0xC0,  // AC
-		appFC, // FC
-		0x00,  // placeholder object
-	}
-	frame := make([]byte, wire.HeaderLen+len(userData))
+	return buildFrame(0x0001, 0x0002, appFC, []byte{0x00})
+}
+
+// buildFrame crafts a correct DNP3 unconfirmed-user-data frame
+// (control 0xC4) with proper header + per-block CRCs. dest/src are the
+// link addresses; objects are the app-layer object bytes after the FC.
+func buildFrame(dest, src uint16, appFC uint8, objects []byte) []byte {
+	userData := append([]byte{0xC0, 0xC0, appFC}, objects...)
+	body := wire.AppendBlockCRCs(userData)
+	frame := make([]byte, wire.HeaderLen+len(body))
 	frame[0] = wire.StartBytes[0]
 	frame[1] = wire.StartBytes[1]
 	frame[2] = uint8(5 + len(userData)) // #nosec G115 -- test body fixed-size
 	frame[3] = 0xC4
-	binary.LittleEndian.PutUint16(frame[4:6], 0x0001)
-	binary.LittleEndian.PutUint16(frame[6:8], 0x0002)
-	copy(frame[wire.HeaderLen:], userData)
+	binary.LittleEndian.PutUint16(frame[4:6], dest)
+	binary.LittleEndian.PutUint16(frame[6:8], src)
+	crc := wire.CRC16(frame[0:8])
+	binary.LittleEndian.PutUint16(frame[8:10], crc)
+	copy(frame[wire.HeaderLen:], body)
 	return frame
 }
 
-func mintToken(t *testing.T, target string, allowed []dnpwrite.AllowedControl) string {
+func mintToken(t *testing.T, target string, a dnpwrite.Allowlist) string {
 	t.Helper()
-	mut := dnpwrite.SessionMutation(target, allowed)
+	mut := dnpwrite.SessionMutation(target, a)
 	tok, err := confirm.ExpectedToken(mut, &fakeDeriver{key: []byte("test-key-32-byte-long--------")})
 	if err != nil {
 		t.Fatal(err)
@@ -61,21 +65,19 @@ func mintToken(t *testing.T, target string, allowed []dnpwrite.AllowedControl) s
 func driveSession(t *testing.T, allowedApp []dnpwrite.AllowedAppFunction) net.Conn {
 	t.Helper()
 	target := "127.0.0.1:20000"
-	// The link-layer allowlist stays nil across the test matrix
-	// — the gate's default policy accepts Confirmed + Unconfirmed
-	// User Data, and the app-layer allowlist is what every test
-	// needs to vary.
-	var allowedLink []dnpwrite.AllowedControl
+	// The link-layer allowlist stays nil across the test matrix: the
+	// gate's default policy accepts Confirmed + Unconfirmed User Data,
+	// and the app-layer allowlist is what every test needs to vary.
+	al := dnpwrite.Allowlist{AppFC: allowedApp}
 	h := &dnpwrite.WriteGatedHandler{
 		Target:       target,
-		Allowed:      allowedLink,
 		AllowedAppFC: allowedApp,
 		Deriver:      &fakeDeriver{key: []byte("test-key-32-byte-long--------")},
 		Auditor:      &fakeAuditor{},
 		SessionConfirm: confirm.Confirm{
 			AcceptsWrites: true,
 			ConfirmTarget: target,
-			ConfirmToken:  mintToken(t, target, allowedLink),
+			ConfirmToken:  mintToken(t, target, al),
 		},
 	}
 	if err := h.Authorise(context.Background()); err != nil {

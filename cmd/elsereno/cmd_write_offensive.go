@@ -162,6 +162,7 @@ operator can inspect the exact bytes that would hit the wire.`,
 	cmd.AddCommand(newWriteGESRTPCmd())
 	cmd.AddCommand(newWriteCoDeSysCmd())
 	cmd.AddCommand(newWriteRedLionCmd())
+	cmd.AddCommand(newWriteDNP3Cmd())
 	return cmd
 }
 

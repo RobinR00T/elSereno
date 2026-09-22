@@ -22,6 +22,12 @@ any stateful session the caller has to tear down.
   baked in via the plugin's `buildFinding`.
 - Write operations (where the protocol exposes them) are F5 with
   triple-confirm semantics.
+  - **Update (2026-09-22):** the DNP3 write-gate is wired to the CLI
+    and deepened well past a per-FC matrix: it scopes the CROB by
+    `(point-index, control-code)` (TRIP/CLOSE default-deny), refuses
+    broadcast controls (0xFFFD-0xFFFF), and pins the master↔outstation
+    link address, all bound into the confirm-token. See
+    `.context/protocols/dnp3.md` and `docs/protocols/dnp3.md`.
 
 ## Consequences
 ### Positive

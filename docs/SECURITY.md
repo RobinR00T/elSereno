@@ -391,9 +391,13 @@ Cada protocol gate scopea writes:
 - **GE-SRTP**: per-service-request code (56-byte mailbox).
 - **CoDeSys**: per-(L7 service, cmd), fail-closed magic scan.
 - **Red Lion CR3**: per-Type opcode (length-prefixed frames).
+- **DNP3**: per app-FC + per-CROB `(point-index, control-code)`
+  (TRIP/CLOSE default-deny), broadcast-control (0xFFFD-0xFFFF) deny,
+  master↔outstation link-address pinning. Reads siempre pasan.
 - Rechazo: FINS/SLMP responden con error nativo del protocolo;
   GE-SRTP/CoDeSys/Red Lion cierran la conexión (fail-closed);
-  OPC UA devuelve un ServiceFault nativo.
+  OPC UA devuelve un ServiceFault nativo; DNP3 devuelve un IIN2
+  FUNC_NOT_SUPP (byte2 0x04) bien formado con CRCs correctos.
 
 ### Audit obligatorio
 
