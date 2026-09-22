@@ -64,8 +64,12 @@ jobs:
         os: [ubuntu-latest]
         go: ['stable']
         include:
+          # Minimum supported Go: must track the `go` directive in
+          # go.mod (bumped to 1.26.0 with the pgx 5.11 / toolchain
+          # update). GOTOOLCHAIN=local means an older Go here cannot
+          # auto-upgrade, so a stale minimum fails `go build`.
           - os: ubuntu-latest
-            go: '1.25'
+            go: '1.26.0'
           - os: macos-latest
             go: 'stable'
     env:

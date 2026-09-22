@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1.7
-# Stay in sync with go.mod's `go` directive. When bumping, also
-# update `internal/doctor` and the CI matrix. 1.25.4 on Alpine 3.22
-# is the newest tag the library/golang image publishes that carries
-# both the required Go version AND a patched Alpine userland.
-ARG GO_VERSION=1.25.4
-ARG ALPINE_VERSION=3.22
+# Stay in sync with go.mod (bumped to go 1.26.0 / toolchain go1.26.6
+# with the pgx 5.11 update) and the CI matrix. 1.26.6 on Alpine 3.24
+# is the library/golang tag that carries both the toolchain Go version
+# AND a patched Alpine userland (the 1.26 patches moved off Alpine
+# 3.22, whose newest 1.26 tag is only 1.26.0).
+ARG GO_VERSION=1.26.6
+ARG ALPINE_VERSION=3.24
 FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
 
 WORKDIR /src
