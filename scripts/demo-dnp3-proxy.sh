@@ -110,6 +110,10 @@ grep -o 'dnp3_iin_alert' "$TMP/.elsereno/audit.jsonl" 2>/dev/null | head -1 | se
 HOME="$TMP" "$BIN" audit verify-file --vault-passphrase-file "$PP" >/dev/null 2>&1 && echo "  audit chain verify-file: OK (hash chain intact)" || echo "  audit chain verify-file: (n/a)"
 
 echo
+echo "==> ...and exports to a SIEM (CEF), pipe to \`logger\` for syslog transport:"
+HOME="$TMP" "$BIN" audit export --event-type dnp3_iin_alert --format cef 2>/dev/null | head -1 | sed 's/^/  /' || echo "  (no rows)"
+
+echo
 echo "==> what the outstation actually received (proves the denies never arrived):"
 sed 's/^/  /' "$SIMLOG"
 

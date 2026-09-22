@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`elsereno audit export` (SIEM):** reads the file-backed audit chain
+  and emits each entry as ArcSight CEF (`--format cef`), RFC 5424
+  syslog (`--format syslog`), or the raw JSON record (`ndjson`), with
+  `--event-type` and `--since` filters. Closes the loop for the DNP3
+  `dnp3_iin_alert` detection (and every other audit event): pipe
+  `audit export --event-type dnp3_iin_alert --format cef` to a
+  collector to land the response-path IIN alerts in a SOC. Read-only,
+  no vault needed; it reformats, it does not verify (use `verify-file`).
 - **DNP3 write-gated proxy wired + deepened (`-tags offensive`):** the
   DNP3 handler is now operator-usable (`write dnp3 proxy-dry-run` +
   `proxy listen --plugin dnp3`), and gates on four dimensions: the

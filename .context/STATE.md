@@ -226,7 +226,7 @@ remains an option since v1.8.
 - **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable;
   gates app-FC + CROB (index, TRIP/CLOSE) + broadcast deny + link pin,
   token-bound; + response-path IIN monitor (state_change/error_burst)
-  -> audit chain (dnp3_iin_alert, migr 00005). Ackerman. PITF-059.
+  -> audit (dnp3_iin_alert, 00005) -> `audit export` CEF/syslog. PITF-059.
 - **OPC UA HTTPS deep fingerprint**: `opcuahttps` (4843) POSTs a real
   GetEndpointsRequest + enumerates endpoints (SecurityMode=None raises
   exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.

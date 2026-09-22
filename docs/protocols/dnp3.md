@@ -108,6 +108,12 @@ The demo runs the outstation with `-iin restart` to show the monitor
 surfacing a Device Restart from the passing responses and the matching
 audit row, then verifies the hash chain is intact.
 
+To ship these detections to a SOC, `elsereno audit export --event-type
+dnp3_iin_alert --format cef` emits one ArcSight CEF line per alert (or
+`--format syslog` for RFC 5424); pipe it to `logger` or a collector.
+The dashboard audit view already lists them (filter `event_type=
+dnp3_iin_alert`).
+
 ## Attack playbook (mapping to elSereno)
 
 The techniques follow the public DNP3 attack literature (Pascal

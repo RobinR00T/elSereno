@@ -8,6 +8,15 @@ last-updated: 2026-09-22
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-09-22 (3): **`elsereno audit export` (audit -> SIEM).** New
+  `audit` subcommand (default build, no vault) that reads the JSONL
+  audit chain and emits ArcSight CEF / RFC 5424 syslog / raw NDJSON,
+  filterable by `--event-type` + `--since`. Closes the SIEM path for
+  `dnp3_iin_alert` (and all audit events); the dashboard audit view
+  already surfaces them via the generic `event_type` filter. Formatters
+  in `cmd/elsereno/cmd_audit_export.go` mirror `internal/outputs/{cef,
+  syslog}` (which are Finding-coupled). Reformats only, does not verify.
+
 - 2026-09-22 (2): **DNP3 response-path IIN monitor.** The proxy reads
   the outstation->master reply and raises a `state_change` alert on the
   Device Restart / Device Trouble / Config Corrupt IIN bits and one
