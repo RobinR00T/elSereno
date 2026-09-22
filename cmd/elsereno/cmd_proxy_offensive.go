@@ -167,7 +167,7 @@ func registerProxyListenLegacyICSFlags(cmd *cobra.Command, opts *proxyListenOpts
 			"no-payload opcodes whose read/write semantics the public "+
 			"dissector does not establish - is refused unless listed here. "+
 			"Repeatable.")
-	addDNP3AllowlistFlags(cmd.Flags(), &opts.dnp3AppFCs, &opts.dnp3Links, &opts.dnp3Controls, &opts.dnp3Primaries)
+	addDNP3AllowlistFlags(cmd.Flags(), &opts.dnp3AppFCs, &opts.dnp3Links, &opts.dnp3Controls, &opts.dnp3Analogs, &opts.dnp3Primaries)
 }
 
 // registerProxyListenSIPFlags adds the sip-specific flags.
@@ -476,6 +476,7 @@ type proxyListenOpts struct {
 	// dry-run so the confirm-token matches.
 	dnp3AppFCs    []string
 	dnp3Controls  []string
+	dnp3Analogs   []string
 	dnp3Links     []string
 	dnp3Primaries []string
 }
@@ -1015,7 +1016,7 @@ func buildRedLionHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.C
 // allowlist flags the dry-run mints against (app-FCs, CROB scopes,
 // link pins, link-layer primaries), so the confirm-token matches.
 func buildDNP3Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*dnpwrite.WriteGatedHandler, error) {
-	al, err := buildDNP3Allowlist(opts.dnp3AppFCs, opts.dnp3Links, opts.dnp3Controls, opts.dnp3Primaries)
+	al, err := buildDNP3Allowlist(opts.dnp3AppFCs, opts.dnp3Links, opts.dnp3Controls, opts.dnp3Analogs, opts.dnp3Primaries)
 	if err != nil {
 		return nil, err
 	}
@@ -1025,6 +1026,7 @@ func buildDNP3Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 		AllowedAppFC:         al.AppFC,
 		AllowedLink:          al.Links,
 		AllowedControlOutput: al.ControlOutput,
+		AllowedAnalogOutput:  al.AnalogOutput,
 		Deriver:              rt.Vault,
 		Auditor:              rt.Auditor,
 		SessionConfirm:       c,

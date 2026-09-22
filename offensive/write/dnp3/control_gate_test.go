@@ -3,6 +3,7 @@
 package dnp3
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"local/elsereno/internal/protocols/dnp3/wire"
@@ -27,6 +28,79 @@ func crobObjects(index, code uint8) []byte {
 	crob := make([]byte, 11)
 	crob[0] = code
 	return append(obj, crob...)
+}
+
+// aobObjects builds a single-point g41v1 Analog Output Block (int32,
+// qualifier 0x17) at the given index with the given setpoint value.
+func aobObjects(index uint8, v int32) []byte {
+	obj := []byte{41, 1, 0x17, 0x01, index}
+	var b [4]byte
+	// #nosec G115 -- int32->uint32 bit reinterpretation for LE encoding (test)
+	binary.LittleEndian.PutUint32(b[:], uint32(v))
+	obj = append(obj, b[:]...)
+	return append(obj, 0x00) // control status
+}
+
+// TestGate_AnalogScoping proves the (index-range, value-window) scope:
+// an in-range in-bounds setpoint passes, out-of-bounds and out-of-range
+// are refused, and a CROB is refused when only analog scope is set.
+func TestGate_AnalogScoping(t *testing.T) {
+	t.Parallel()
+	h := &WriteGatedHandler{
+		AllowedAppFC: []AllowedAppFunction{{FC: AppFCDirectOperate}},
+		AllowedAnalogOutput: []AllowedAnalogControl{
+			{IndexStart: 10, IndexEnd: 12, Bounded: true, Min: 0, Max: 5000},
+		},
+	}
+	// In range, in bounds: allowed.
+	if !h.shouldForward(hdr(1, 2), apdu(AppFCDirectOperate, aobObjects(10, 3000))) {
+		t.Fatal("in-bounds setpoint on point 10 should pass")
+	}
+	// Value above the window: refused.
+	if h.shouldForward(hdr(1, 2), apdu(AppFCDirectOperate, aobObjects(10, 9000))) {
+		t.Fatal("setpoint 9000 above Max=5000 must be refused")
+	}
+	// Out-of-range index: refused.
+	if h.shouldForward(hdr(1, 2), apdu(AppFCDirectOperate, aobObjects(99, 100))) {
+		t.Fatal("setpoint on out-of-range point 99 must be refused")
+	}
+	// A CROB when only analog scope is configured: refused (CROBs not
+	// authorised in this session).
+	if h.shouldForward(hdr(1, 2), apdu(AppFCDirectOperate, crobObjects(10, wire.OpLatchOn))) {
+		t.Fatal("CROB must be refused when only analog scope is set")
+	}
+}
+
+// TestGate_AnalogUnboundedAnyValue proves an unbounded entry accepts
+// any value on its index range.
+func TestGate_AnalogUnboundedAnyValue(t *testing.T) {
+	t.Parallel()
+	h := &WriteGatedHandler{
+		AllowedAppFC:        []AllowedAppFunction{{FC: AppFCDirectOperate}},
+		AllowedAnalogOutput: []AllowedAnalogControl{{IndexStart: 10, IndexEnd: 12}},
+	}
+	if !h.shouldForward(hdr(1, 2), apdu(AppFCDirectOperate, aobObjects(11, 999999))) {
+		t.Fatal("unbounded analog scope should accept any value in range")
+	}
+}
+
+// TestAllowlistHash_AnalogBindsToToken proves the analog scope folds
+// into the token hash (adding it changes the hash; empty does not).
+func TestAllowlistHash_AnalogBindsToToken(t *testing.T) {
+	t.Parallel()
+	target := "10.0.0.1:20000"
+	base := Allowlist{Control: []AllowedControl{{PrimaryFC: 4}}}
+	withAnalog := base
+	withAnalog.AnalogOutput = []AllowedAnalogControl{{IndexStart: 10, IndexEnd: 12, Bounded: true, Min: 0, Max: 5000}}
+	if AllowlistHash(target, base) == AllowlistHash(target, withAnalog) {
+		t.Fatal("adding an analog scope must change the token hash")
+	}
+	// The bounds are bound: a different Max yields a different token.
+	other := base
+	other.AnalogOutput = []AllowedAnalogControl{{IndexStart: 10, IndexEnd: 12, Bounded: true, Min: 0, Max: 4000}}
+	if AllowlistHash(target, withAnalog) == AllowlistHash(target, other) {
+		t.Fatal("a different value bound must change the token hash")
+	}
 }
 
 // TestGate_BroadcastControlRefused proves a control to a broadcast

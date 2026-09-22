@@ -46,7 +46,9 @@ SIMPID=""
 PXPID=""
 
 # Session allowlist, passed identically to the dry-run and the proxy.
-ALLOW=(--dnp3-app-fc 0x05 --dnp3-control "index=5-8;code=0x03,0x04" --dnp3-link "src=2;dest=1")
+# LATCH on points 5-8, analog setpoints on points 10-12 clamped to
+# [0,50], from master link 2 to outstation link 1. No TRIP/CLOSE.
+ALLOW=(--dnp3-app-fc 0x05 --dnp3-control "index=5-8;code=0x03,0x04" --dnp3-analog "index=10-12;min=0;max=50" --dnp3-link "src=2;dest=1")
 
 cleanup() {
 	[ -n "$PXPID" ] && kill "$PXPID" 2>/dev/null || true
@@ -95,6 +97,8 @@ echo "==> sending frames through the gate (response bytes, hex):"
 send "Read Class 0                (pass):" read
 send "Direct Operate LATCH pt5    (pass):" latch5
 send "Direct Operate TRIP  pt5    (deny):" trip5
+send "Analog setpoint 30 pt10     (pass):" analog-ok
+send "Analog setpoint 90 pt10     (deny):" analog-hi
 send "Direct Operate broadcast    (deny):" bcast-latch
 send "Cold Restart                (deny):" coldrestart
 
@@ -118,7 +122,8 @@ echo "==> what the outstation actually received (proves the denies never arrived
 sed 's/^/  /' "$SIMLOG"
 
 echo
-echo "Expected: Read + LATCH pt5 reach the outstation and reply with IIN1=0x80"
-echo "(Device Restart), which the proxy surfaces as a state_change alert. TRIP,"
-echo "broadcast and Cold Restart each return an IIN2 FUNC_NOT_SUPP (byte 0x04 at"
-echo "offset 14) from the GATE and never appear in the outstation log."
+echo "Expected: Read + LATCH pt5 + analog 30@pt10 reach the outstation and reply"
+echo "with IIN1=0x80 (Device Restart), surfaced as a state_change alert. TRIP,"
+echo "analog 90@pt10 (above the max=50 clamp), broadcast and Cold Restart each"
+echo "return an IIN2 FUNC_NOT_SUPP (byte 0x04 at offset 14) from the GATE and"
+echo "never appear in the outstation log."

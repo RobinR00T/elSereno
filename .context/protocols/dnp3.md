@@ -41,6 +41,13 @@ confirm-token via `AllowlistHash(target, Allowlist{...})`:
    `(index, control-code)` in an Operate / Direct Operate must match;
    `wire.ExtractCROBs` parses qualifiers 0x17/0x28/0x00/0x01 and fails
    closed on truncation or an unsupported qualifier.
+5. Analog Output g41 scope (`--dnp3-analog index=A-B;min=X;max=Y`):
+   every setpoint must match a `(index-range, value-window)`;
+   `wire.ExtractAnalogOutputs` parses g41 var 1-4 (int16/int32/float32/
+   float64), widens the value to float64, and fails closed on
+   truncation / unsupported variation. `allowsControlObjects` routes a
+   control's objects to the CROB or analog scope by group; any other
+   object type under scoping is refused.
 `--dnp3-link src=N;dest=M` pins the master->outstation pair. Refusal is
 a well-formed `IIN2 FUNC_NOT_SUPP` (byte2 0x04) with correct CRCs.
 

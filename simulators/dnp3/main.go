@@ -36,7 +36,7 @@ var respIIN1, respIIN2 uint8
 
 func run() int {
 	listen := flag.String("listen", "127.0.0.1:20000", "outstation bind address")
-	send := flag.String("send", "", "client mode: send one frame then exit (read|latch5|trip5|bcast-latch|coldrestart)")
+	send := flag.String("send", "", "client mode: send one frame then exit (read|latch5|trip5|bcast-latch|coldrestart|analog-ok|analog-hi)")
 	addr := flag.String("addr", "127.0.0.1:20000", "client mode: target host:port")
 	iin := flag.String("iin", "", "outstation IIN to return on every response: restart|trouble|config-corrupt|func-not-supp")
 	flag.Parse()
@@ -197,9 +197,24 @@ func craft(kind string) ([]byte, bool) {
 		return frame(0xFFFF, wire.AppDirectOperateCode, crob(5, wire.OpLatchOn)), true
 	case "coldrestart": // FC 0x0D Cold Restart
 		return frame(outstation, 0x0D, nil), true
+	case "analog-ok": // FC 5 Direct Operate, g41 setpoint 30 on point 10
+		return frame(outstation, wire.AppDirectOperateCode, aob(10, 30)), true
+	case "analog-hi": // FC 5 Direct Operate, g41 setpoint 90 on point 10
+		return frame(outstation, wire.AppDirectOperateCode, aob(10, 90)), true
 	default:
 		return nil, false
 	}
+}
+
+// aob builds a single-point g41v1 Analog Output Block (int32 setpoint,
+// qualifier 0x17) at index with value v.
+func aob(index uint8, v int32) []byte {
+	obj := []byte{41, 1, 0x17, 0x01, index}
+	var b [4]byte
+	// #nosec G115 -- int32 masked into 4 LE octets (sim)
+	b[0], b[1], b[2], b[3] = byte(v), byte(v>>8), byte(v>>16), byte(v>>24)
+	obj = append(obj, b[:]...)
+	return append(obj, 0x00) // control status
 }
 
 // crob builds a single-point g12v1 object (qualifier 0x17).

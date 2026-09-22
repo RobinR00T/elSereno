@@ -22,6 +22,7 @@ type dnp3ProxyFlags struct {
 	appFCs         []string // --dnp3-app-fc (hex/dec)
 	links          []string // --dnp3-link src=N;dest=M
 	controls       []string // --dnp3-control index=A-B;code=0x03,0x04
+	analogs        []string // --dnp3-analog index=A-B;min=X;max=Y
 	primaries      []string // --dnp3-primary (link-layer FC)
 }
 
@@ -63,7 +64,7 @@ latch on points 5-8 but never a trip or close:
 		},
 	}
 	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the DNP3 outstation we'll proxy to)")
-	addDNP3AllowlistFlags(cmd.Flags(), &f.appFCs, &f.links, &f.controls, &f.primaries)
+	addDNP3AllowlistFlags(cmd.Flags(), &f.appFCs, &f.links, &f.controls, &f.analogs, &f.primaries)
 	addPassphraseFileFlag(cmd, &f.ppFile)
 	return cmd
 }
@@ -76,17 +77,21 @@ type dnp3FlagSet interface {
 	StringArrayVar(p *[]string, name string, value []string, usage string)
 }
 
-// addDNP3AllowlistFlags registers the four allowlist flags shared by
-// the dry-run and `proxy listen --plugin dnp3`. Each is repeatable;
-// none splits on commas.
-func addDNP3AllowlistFlags(fs dnp3FlagSet, appFCs, links, controls, primaries *[]string) {
+// addDNP3AllowlistFlags registers the allowlist flags shared by the
+// dry-run and `proxy listen --plugin dnp3`. Each is repeatable; none
+// splits on commas.
+func addDNP3AllowlistFlags(fs dnp3FlagSet, appFCs, links, controls, analogs, primaries *[]string) {
 	fs.StringArrayVar(appFCs, "dnp3-app-fc", nil,
 		"DNP3 application function code to allow (hex 0x05 or decimal; repeatable). "+
 			"Read (0x01) is always allowed. e.g. 0x05 Direct Operate, 0x02 Write.")
 	fs.StringArrayVar(controls, "dnp3-control", nil,
-		"scope a Control Relay Output Block: index=A-B;code=0x03,0x04 (repeatable). "+
-			"index is one point or a range; code is an optional control-code allowlist "+
-			"(omit = any code on that range). e.g. index=5-8;code=0x03,0x04.")
+		"scope a Control Relay Output Block (g12v1, breakers): index=A-B;code=0x03,0x04 "+
+			"(repeatable). index is one point or a range; code is an optional control-code "+
+			"allowlist (omit = any code on that range). e.g. index=5-8;code=0x03,0x04.")
+	fs.StringArrayVar(analogs, "dnp3-analog", nil,
+		"scope a g41 Analog Output Block (setpoints): index=A-B;min=X;max=Y (repeatable). "+
+			"index is one point or a range; min+max (given together) clamp the setpoint value, "+
+			"omitting both accepts any value. e.g. index=10-12;min=0;max=50.")
 	fs.StringArrayVar(links, "dnp3-link", nil,
 		"pin a master->outstation link-address pair: src=N;dest=M (repeatable). "+
 			"A zero/omitted field is a wildcard. Mutating frames from an unpinned pair are refused.")
@@ -99,35 +104,34 @@ func runWriteDNP3ProxyDryRun(cmd *cobra.Command, f dnp3ProxyFlags) error {
 	if f.target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required"))
 	}
-	if len(f.appFCs) == 0 && len(f.controls) == 0 && len(f.links) == 0 && len(f.primaries) == 0 {
+	if len(f.appFCs) == 0 && len(f.controls) == 0 && len(f.analogs) == 0 && len(f.links) == 0 && len(f.primaries) == 0 {
 		return fail(core.ExitUsage, errors.New(
-			"at least one of --dnp3-app-fc / --dnp3-control / --dnp3-link / --dnp3-primary is required"))
+			"at least one of --dnp3-app-fc / --dnp3-control / --dnp3-analog / --dnp3-link / --dnp3-primary is required"))
 	}
-	al, err := buildDNP3Allowlist(f.appFCs, f.links, f.controls, f.primaries)
+	al, err := buildDNP3Allowlist(f.appFCs, f.links, f.controls, f.analogs, f.primaries)
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
 	mut := dnpwrite.SessionMutation(f.target, al)
 	rows := [][2]string{}
-	if len(f.appFCs) > 0 {
-		rows = append(rows, [2]string{"AppFCs", strings.Join(f.appFCs, " ")})
-	}
-	if len(f.controls) > 0 {
-		rows = append(rows, [2]string{"Controls", strings.Join(f.controls, " ")})
-	}
-	if len(f.links) > 0 {
-		rows = append(rows, [2]string{"Links", strings.Join(f.links, " ")})
-	}
-	if len(f.primaries) > 0 {
-		rows = append(rows, [2]string{"Primaries", strings.Join(f.primaries, " ")})
+	for _, r := range [][2]string{
+		{"AppFCs", strings.Join(f.appFCs, " ")},
+		{"Controls", strings.Join(f.controls, " ")},
+		{"Analogs", strings.Join(f.analogs, " ")},
+		{"Links", strings.Join(f.links, " ")},
+		{"Primaries", strings.Join(f.primaries, " ")},
+	} {
+		if r[1] != "" {
+			rows = append(rows, r)
+		}
 	}
 	return printProxyDryRun(cmd, "dnp3", f.target, rows, mut, f.ppFile)
 }
 
-// buildDNP3Allowlist parses the four raw flag slices into the library
+// buildDNP3Allowlist parses the raw flag slices into the library
 // allowlist. Shared by the dry-run mint and buildDNP3Handler so the
 // token always matches the running session.
-func buildDNP3Allowlist(appFCs, links, controls, primaries []string) (dnpwrite.Allowlist, error) {
+func buildDNP3Allowlist(appFCs, links, controls, analogs, primaries []string) (dnpwrite.Allowlist, error) {
 	var al dnpwrite.Allowlist
 	for _, raw := range appFCs {
 		v, err := strconv.ParseUint(strings.TrimSpace(raw), 0, 8)
@@ -157,7 +161,70 @@ func buildDNP3Allowlist(appFCs, links, controls, primaries []string) (dnpwrite.A
 		}
 		al.ControlOutput = append(al.ControlOutput, c)
 	}
+	for _, raw := range analogs {
+		a, err := parseDNP3Analog(raw)
+		if err != nil {
+			return al, err
+		}
+		al.AnalogOutput = append(al.AnalogOutput, a)
+	}
 	return al, nil
+}
+
+// parseDNP3Analog parses "index=A-B;min=X;max=Y" into an
+// AllowedAnalogControl. `index` is required; `min`+`max` (given
+// together) clamp the setpoint value, and omitting both accepts any
+// value on the index range.
+func parseDNP3Analog(s string) (dnpwrite.AllowedAnalogControl, error) {
+	var c dnpwrite.AllowedAnalogControl
+	var indexSeen, minSeen, maxSeen bool
+	for _, part := range strings.Split(s, ";") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			return c, fmt.Errorf("--dnp3-analog %q: expected index=A-B;min=X;max=Y", s)
+		}
+		key := strings.ToLower(strings.TrimSpace(kv[0]))
+		val := strings.TrimSpace(kv[1])
+		switch key {
+		case "index", "idx":
+			start, end, err := parseIndexRange(val)
+			if err != nil {
+				return c, fmt.Errorf("--dnp3-analog %q: %w", s, err)
+			}
+			c.IndexStart, c.IndexEnd, indexSeen = start, end, true
+		case "min":
+			f, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				return c, fmt.Errorf("--dnp3-analog %q: min %q: %w", s, val, err)
+			}
+			c.Min, minSeen = f, true
+		case "max":
+			f, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				return c, fmt.Errorf("--dnp3-analog %q: max %q: %w", s, val, err)
+			}
+			c.Max, maxSeen = f, true
+		default:
+			return c, fmt.Errorf("--dnp3-analog %q: unknown key %q", s, kv[0])
+		}
+	}
+	if !indexSeen {
+		return c, fmt.Errorf("--dnp3-analog %q: index= is required", s)
+	}
+	if minSeen != maxSeen {
+		return c, fmt.Errorf("--dnp3-analog %q: min and max must be given together", s)
+	}
+	if minSeen && maxSeen {
+		if c.Min > c.Max {
+			return c, fmt.Errorf("--dnp3-analog %q: min > max", s)
+		}
+		c.Bounded = true
+	}
+	return c, nil
 }
 
 // parseDNP3Link parses "src=N;dest=M" into a LinkPair. Each field is a

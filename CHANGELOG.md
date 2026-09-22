@@ -23,10 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   application function code (`--dnp3-app-fc`), the Control Relay Output
   Block by `(point-index range, control-code)` (`--dnp3-control`, so a
   LATCH on points 5-8 can pass while TRIP `0x81` / CLOSE `0x41` are
-  refused), the destination link address (broadcast `0xFFFD-0xFFFF`
-  controls always refused), and the master↔outstation link-address pin
-  (`--dnp3-link`). Reads always pass. All four bind into the
-  confirm-token. Built on the validated public dissector surface
+  refused), the g41 Analog Output Block by `(point-index range, value
+  window)` (`--dnp3-analog index=10-12;min=0;max=50` clamps a setpoint,
+  refusing a value that would drive the actuator past the window), the
+  destination link address (broadcast `0xFFFD-0xFFFF` controls always
+  refused), and the master↔outstation link-address pin (`--dnp3-link`).
+  Reads always pass. Every dimension binds into the confirm-token. Built on the validated public dissector surface
   (IEEE 1815-2012, Wireshark `packet-dnp3.c`, ICSNPP-DNP3), refusal is a
   well-formed `IIN2 FUNC_NOT_SUPP` with correct DNP3 CRCs (poly 0x3D65).
   New `simulators/dnp3` + `scripts/demo-dnp3-proxy.sh`;

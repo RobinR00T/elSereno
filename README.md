@@ -160,7 +160,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | S7comm          | 102                | probe + pass-through proxy |
 | EtherNet/IP     | 44818              | probe + pass-through proxy |
 | **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |
-| **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
+| **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` + g41 analog-setpoint `(index, value-clamp)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
 | IEC 60870-5-104 | 2404               | TESTFR probe |
 | HART-IP         | 5094               | session-initiate probe |
 | Niagara Fox     | 1911, 4911         | banner probe |

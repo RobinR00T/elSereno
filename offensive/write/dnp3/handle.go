@@ -55,6 +55,12 @@ type WriteGatedHandler struct {
 	// Empty disables the check (Operate is gated by FC alone). When
 	// set, every CROB in an Operate / Direct Operate must match.
 	AllowedControlOutput []AllowedCROBControl
+	// AllowedAnalogOutput scopes g41 setpoints by (index-range, value-
+	// window). Empty disables the analog check. When either this or
+	// AllowedControlOutput is set, a control's objects must match the
+	// scope for their object type, and any other control object is
+	// refused (fail-closed).
+	AllowedAnalogOutput []AllowedAnalogControl
 	// Deriver + Auditor drive the session-open Authorize call.
 	Deriver confirm.KeyDeriver
 	Auditor confirm.Auditor
@@ -112,6 +118,7 @@ func (h *WriteGatedHandler) allowlist() Allowlist {
 		AppFC:         h.AllowedAppFC,
 		Links:         h.AllowedLink,
 		ControlOutput: h.AllowedControlOutput,
+		AnalogOutput:  h.AllowedAnalogOutput,
 	}
 }
 
@@ -228,9 +235,10 @@ func (h *WriteGatedHandler) shouldForward(lh wire.Header, apdu []byte) bool {
 	if !h.allowsApp(appFC) {
 		return false
 	}
-	// CROB scoping refines Operate / Direct Operate / Select.
-	if len(h.AllowedControlOutput) > 0 && wire.AppIsControl(appFC) {
-		return h.allowsCROB(apdu)
+	// Control-object scoping refines Operate / Direct Operate / Select
+	// when the operator scopes either CROBs or analog setpoints.
+	if wire.AppIsControl(appFC) && (len(h.AllowedControlOutput) > 0 || len(h.AllowedAnalogOutput) > 0) {
+		return h.allowsControlObjects(apdu)
 	}
 	return true
 }
@@ -273,20 +281,59 @@ func (h *WriteGatedHandler) allowsApp(fc uint8) bool {
 	return false
 }
 
-// allowsCROB enforces the (index-range, control-code) scope on every
-// CROB carried by a control request. A control that carries no
-// parseable CROB fails closed once CROB scoping is enabled.
-func (h *WriteGatedHandler) allowsCROB(apdu []byte) bool {
-	points, ok := wire.ExtractCROBs(objectRegion(apdu))
-	if !ok || len(points) == 0 {
-		return false
+// allowsControlObjects enforces the configured scope on a control's
+// objects. A g12v1 CROB is checked against AllowedControlOutput, a g41
+// Analog Output Block against AllowedAnalogOutput. A malformed control
+// object, or one whose object type the operator did not scope, fails
+// closed.
+func (h *WriteGatedHandler) allowsControlObjects(apdu []byte) bool {
+	objs := objectRegion(apdu)
+	crobs, ok := wire.ExtractCROBs(objs)
+	if !ok {
+		return false // malformed g12v1
 	}
-	for _, p := range points {
-		if !h.crobPermitted(p) {
-			return false
+	if len(crobs) > 0 {
+		if len(h.AllowedControlOutput) == 0 {
+			return false // CROBs not authorised in this session
+		}
+		for _, p := range crobs {
+			if !h.crobPermitted(p) {
+				return false
+			}
+		}
+		return true
+	}
+	analogs, ok := wire.ExtractAnalogOutputs(objs)
+	if !ok {
+		return false // malformed g41
+	}
+	if len(analogs) > 0 {
+		if len(h.AllowedAnalogOutput) == 0 {
+			return false // analog setpoints not authorised in this session
+		}
+		for _, p := range analogs {
+			if !h.analogPermitted(p) {
+				return false
+			}
+		}
+		return true
+	}
+	// A control carrying neither a CROB nor an analog output we scope.
+	return false
+}
+
+// analogPermitted reports whether a single (index, value) setpoint
+// matches any AllowedAnalogOutput entry.
+func (h *WriteGatedHandler) analogPermitted(p wire.AnalogPoint) bool {
+	for _, a := range h.AllowedAnalogOutput {
+		if p.Index < a.IndexStart || p.Index > a.IndexEnd {
+			continue
+		}
+		if !a.Bounded || (p.Value >= a.Min && p.Value <= a.Max) {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // crobPermitted reports whether a single (index, control-code) matches

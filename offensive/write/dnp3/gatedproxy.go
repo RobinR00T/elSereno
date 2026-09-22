@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"hash"
+	"math"
 	"sort"
 
 	"local/elsereno/offensive/confirm"
@@ -52,6 +53,23 @@ type AllowedCROBControl struct {
 	Codes      []uint8
 }
 
+// AllowedAnalogControl scopes a g41 Analog Output Block (a setpoint) to
+// a range of point indices and, optionally, a value window. When a
+// session carries at least one entry, every setpoint in an Operate /
+// Direct Operate must match one: its index in [IndexStart, IndexEnd]
+// and, when Bounded, its value in [Min, Max]. An unbounded entry
+// accepts any value on that index range.
+//
+// This is the analog analogue of AllowedCROBControl: an operator can
+// let a valve be driven between 0 and 50 percent while refusing a
+// setpoint that would slam it fully open.
+type AllowedAnalogControl struct {
+	IndexStart uint16
+	IndexEnd   uint16
+	Bounded    bool
+	Min, Max   float64
+}
+
 // Allowlist is the full set of dimensions a DNP3 proxy session binds
 // into its confirm-token.
 type Allowlist struct {
@@ -64,6 +82,8 @@ type Allowlist struct {
 	Links []LinkPair
 	// ControlOutput scopes CROBs by (index-range, control-code).
 	ControlOutput []AllowedCROBControl
+	// AnalogOutput scopes g41 setpoints by (index-range, value-window).
+	AnalogOutput []AllowedAnalogControl
 }
 
 // AllowlistHash returns the deterministic SHA-256 that binds a session
@@ -86,6 +106,7 @@ func AllowlistHash(target string, a Allowlist) [32]byte {
 	hashAppFC(h, a.AppFC)
 	hashLinks(h, a.Links)
 	hashControlOutput(h, a.ControlOutput)
+	hashAnalogOutput(h, a.AnalogOutput)
 
 	var out [32]byte
 	copy(out[:], h.Sum(nil))
@@ -157,6 +178,45 @@ func hashControlOutput(h hash.Hash, out []AllowedCROBControl) {
 		// #nosec G115 -- Codes is an operator-listed control-code set, never near 256
 		_, _ = h.Write([]byte{byte(len(cr.Codes))})
 		_, _ = h.Write(cr.Codes)
+	}
+}
+
+// hashAnalogOutput folds the sorted g41 setpoint scopes behind tag 0xA0.
+func hashAnalogOutput(h hash.Hash, out []AllowedAnalogControl) {
+	if len(out) == 0 {
+		return
+	}
+	_, _ = h.Write([]byte{0xA0})
+	aos := append([]AllowedAnalogControl(nil), out...)
+	sort.Slice(aos, func(i, j int) bool {
+		if aos[i].IndexStart != aos[j].IndexStart {
+			return aos[i].IndexStart < aos[j].IndexStart
+		}
+		if aos[i].IndexEnd != aos[j].IndexEnd {
+			return aos[i].IndexEnd < aos[j].IndexEnd
+		}
+		if aos[i].Bounded != aos[j].Bounded {
+			return !aos[i].Bounded
+		}
+		if aos[i].Min != aos[j].Min {
+			return aos[i].Min < aos[j].Min
+		}
+		return aos[i].Max < aos[j].Max
+	})
+	var b [8]byte
+	for _, a := range aos {
+		binary.BigEndian.PutUint16(b[0:2], a.IndexStart)
+		binary.BigEndian.PutUint16(b[2:4], a.IndexEnd)
+		_, _ = h.Write(b[0:4])
+		flag := byte(0)
+		if a.Bounded {
+			flag = 1
+		}
+		_, _ = h.Write([]byte{flag})
+		binary.BigEndian.PutUint64(b[:8], math.Float64bits(a.Min))
+		_, _ = h.Write(b[:8])
+		binary.BigEndian.PutUint64(b[:8], math.Float64bits(a.Max))
+		_, _ = h.Write(b[:8])
 	}
 }
 

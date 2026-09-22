@@ -224,8 +224,8 @@ remains an option since v1.8.
   ...) default-deny unless `--diag-subfunction` (token-bound, compat-
   preserving). Closes the "permissive FC 8" gap. PITF-058.
 - **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable;
-  gates app-FC + CROB (index, TRIP/CLOSE) + broadcast deny + link pin,
-  token-bound; + response-path IIN monitor (state_change/error_burst)
+  gates app-FC + CROB (TRIP/CLOSE) + g41 analog (value-clamp) +
+  broadcast deny + link pin, token-bound; + IIN monitor
   -> audit (dnp3_iin_alert, 00005) -> `audit export` CEF/syslog. PITF-059.
 - **OPC UA HTTPS deep fingerprint**: `opcuahttps` (4843) POSTs a real
   GetEndpointsRequest + enumerates endpoints (SecurityMode=None raises
@@ -239,7 +239,7 @@ remains an option since v1.8.
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
 - macOS sandbox (`sandbox_init`); IEC 61850 MMS; PROFINET (L2); OPC UA
-  HTTPS *write*; DNP3 SAv5 gating + g41 analog-output (AOB) scope.
+  HTTPS *write*; DNP3 SAv5-aware gating.
 - Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
 
 **Operator-pending**:

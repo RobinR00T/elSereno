@@ -50,6 +50,14 @@ everything else is default-deny.
    attack literature turns on: an operator can allow a LATCH on points
    5-8 and still refuse a TRIP (`0x81`) or CLOSE (`0x41`) on any
    breaker.
+5. **Analog Output Block** (`--dnp3-analog`). The analog analogue of
+   the CROB scope: every g41 setpoint (variations 1-4: int16 / int32 /
+   float32 / float64) in an Operate / Direct Operate must match a
+   `(point-index range, value window)` entry. `index=10-12;min=0;max=50`
+   drives points 10-12 only between 0 and 50 and refuses a setpoint that
+   would slam the actuator past the clamp; omit `min`/`max` to allow any
+   value on the range. When either the CROB or the analog scope is set,
+   a control carrying any other object type is refused (fail-closed).
 
 Refusal is a well-formed DNP3 response carrying `IIN2` bit 2
 "FUNC_NOT_SUPP" (byte2 `0x04`) with correct header and block CRCs, so
@@ -130,7 +138,7 @@ signals below, but it is not a full IDS.
 | Point-map fingerprinting | FC 1 Read of Group 60 Var 1 (Class 0 integrity poll): the full static point map, no session, byte-identical to the master's own poll | Forwarded (read-only) and, with `--record`, timestamped for audit |
 | Manipulation of Control (T0831) | FC 4 Operate / FC 5-6 Direct Operate with a CROB: `0x81` trips a breaker, `0x41` closes it | Refused unless the CROB's `(index, control-code)` is allowlisted; `--dnp3-control` lets trips/closes be denied while a latch passes |
 | SBO enumeration | FC 3 Select with no Operate: proves a control point is armable, moves nothing, invisible to anything watching only for Operate | Select (0x03) is default-deny; it passes only when explicitly allowlisted |
-| Modify Parameter (T0836) | FC 2 Write to analog outputs or the clock | Write (0x02) is default-deny |
+| Modify Parameter (T0836) | FC 2 Write to the clock; or an Operate / Direct Operate with a g41 Analog Output Block that drives a setpoint to a dangerous value | Write (0x02) is default-deny; a g41 setpoint is refused unless its `(index, value)` matches an `--dnp3-analog` window, so an out-of-range setpoint is clamped out |
 | Broadcast control | any control aimed at link address `0xFFFD-0xFFFF` lands on every outstation at once | Always refused for mutating frames, even if the FC and CROB are otherwise allowlisted |
 | Spoofed master | a control FC from a non-master IP or link address | `--dnp3-link` pins the master->outstation pair; an unpinned mutating frame is refused |
 | Denial of View (T0815) | FC 21 Disable Unsolicited: the outstation stops reporting events and the master keeps a stale picture | Default-deny (not in the app-FC allowlist unless the operator lists 0x15) |

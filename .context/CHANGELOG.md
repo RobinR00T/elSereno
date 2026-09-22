@@ -8,6 +8,16 @@ last-updated: 2026-09-22
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-09-22 (4): **DNP3 g41 Analog Output Block scoping.** The control
+  scope now covers analog setpoints, not just breakers: `--dnp3-analog
+  index=A-B;min=X;max=Y` clamps g41 setpoints to a value window (refuses
+  a value that would drive an actuator past the clamp); omit min/max for
+  index-only. `wire.ExtractAnalogOutputs` (g41 var 1-4, widened to
+  float64); `allowsControlObjects` dispatches CROB vs analog by group;
+  bound into the token (`hashAnalogOutput`). Fail-closed on any other
+  control object under scoping. Value byte-order per IEEE 1815 §A.13 /
+  packet-dnp3.c (value then status octet).
+
 - 2026-09-22 (3): **`elsereno audit export` (audit -> SIEM).** New
   `audit` subcommand (default build, no vault) that reads the JSONL
   audit chain and emits ArcSight CEF / RFC 5424 syslog / raw NDJSON,
