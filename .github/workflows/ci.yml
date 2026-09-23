@@ -232,3 +232,53 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v5
+
+  # Single aggregator gate. Branch protection requires only this
+  # check for the ci workflow (plus `audit` from audit.yml, which
+  # lives in a different workflow and cannot be a `needs:` here).
+  # Collapsing the individual jobs into one required check means a
+  # renamed job can no longer silently drop out of branch
+  # protection: if a name in `needs` stops existing, this job fails
+  # loudly instead. dep-review is intentionally excluded (it is
+  # PR-and-public-only; on push to main it is skipped, and gating on
+  # a skipped job would wedge main).
+  ci-passed:
+    name: ci-passed
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - lint
+      - build-default
+      - build-offensive
+      - unit
+      - offensive-test
+      - fuzz
+      - integration
+      - sec
+      - secrets
+      - context
+    steps:
+      - name: assert every required job succeeded
+        env:
+          # join() renders the results of all `needs` jobs as a
+          # comma-separated list, e.g. "success,success,failure".
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: |
+          set -euo pipefail
+          echo "dependency results: ${RESULTS}"
+          fail=0
+          IFS=','
+          for r in ${RESULTS}; do
+            # Every job in `needs` is unconditional, so anything other
+            # than success (failure, cancelled, or skipped) is a gate
+            # failure.
+            if [ "${r}" != "success" ]; then
+              echo "::error::a required ci job concluded '${r}'"
+              fail=1
+            fi
+          done
+          if [ "${fail}" -ne 0 ]; then
+            echo "ci-passed: one or more required jobs did not succeed"
+            exit 1
+          fi
+          echo "ci-passed: all required jobs succeeded"
