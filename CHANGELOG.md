@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **IEC 61850 GOOSE/SV passive spoofing monitor (default build):** an
+  offline L2 dissector (`goose decode`) + anomaly monitor
+  (`goose monitor`) for the substation bus. GOOSE (EtherType 0x88B8)
+  and Sampled Values (0x88BA) are parsed from captured Ethernet frames
+  (802.1Q handled); the monitor keys per publisher (goID / gocbRef /
+  svID) and flags the GOOSE-spoofing tells: stNum jump (the canonical
+  high-stNum override that forges a breaker trip), stNum regression
+  (replay), the simulation/test bit, ndsCom, confRev change, sqNum
+  stall, and SV smpCnt regression. Like `profinet`, it is offline
+  (tcpdump/tshark in, no socket); live L2 capture stays vNext. `--json`
+  emits NDJSON for a SIEM. See `docs/protocols/goose.md` and
+  `scripts/demo-goose-monitor.sh`.
 - **OPC UA HTTPS write-gated proxy (`-tags offensive`):** extends the
   write-gate to the OPC UA HTTPS binary binding (Part 6 §7.4), where a
   UA service request rides as a bare UA-Binary HTTP POST body (TypeId

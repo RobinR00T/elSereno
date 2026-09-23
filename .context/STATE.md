@@ -1,11 +1,23 @@
 ---
-phase: v2.63-closed; CI/CD reactivated + reliability pass (2026-08-31)
+phase: v2.63-closed; vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
 status: tags published through v2.62; CI green on main
-last-updated: 2026-09-22
+last-updated: 2026-09-23
 token-budget: 320
 ---
 
 # Current state
+
+**2026-09-23 session** (3 vNext items; commits pending Daniel's sign):
+- **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
+  required check (branch protection -> `[ci-passed, audit]`, robust to
+  job renames).
+- **OPC UA HTTPS write-gate** (`-tags offensive`): the §7.4 binary
+  binding (bare UA-Binary POST body). Reuses the opc.tcp parsers via a
+  16-byte splice (`wire.ServiceTypeIDHTTPS`). `write opcuahttps` +
+  `proxy --plugin opcuahttps`; transport-scoped token. PITF-060.
+- **IEC 61850 GOOSE/SV passive monitor** (default build): offline
+  `goose decode` / `goose monitor` flags stNum jump/regression, test
+  bit, ndsCom, confRev, SV smpCnt. `internal/protocols/goose`.
 
 **2026-08-31 maintenance session** (no version bump; `main` CI-green):
 - **CI/CD reactivated.** ci / release / supply-chain / nightly /
@@ -29,18 +41,14 @@ snapshot). Text-unified (`+`/`-` prefixes) or `--json`
 Needs darwin+cgo schemes; other offensive builds error
 with "schemes unavailable". +4 tests on both build paths.
 INSTALL.md matrix row updated.
-
-Snapshot:
-`.context/snapshots/v2.63.0-sandbox-diff-verb.md`.
+Snapshot: `.context/snapshots/v2.63.0-sandbox-diff-verb.md`.
 
 **v2.62 cycle (closed)**: `elsereno sandbox` CLI verb (list
 + introspect) surfaces the v2.61 `SchemeFor()` accessor.
 Platform split: darwin+cgo emits real .sb Schemes; other
 offensive builds emit sentinel `{"scheme": ""}` rows for
 stable JSON shape. +7 tests on both build paths.
-
-Snapshot:
-`.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
+Snapshot: `.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
 
 **v2.61 cycle (closed)**: sandbox profile introspection +
 ProfileScan test-gap closure. New `Profiles()`
@@ -54,14 +62,9 @@ handlers↔telemetry shim, then returns
 telemetry.Global().Handler()). +2 tests. New
 Server.Handler() accessor for tests.
 
-**v2.59 cycle (closed)**: cmd_serve OIDC Verifier wiring.
-**v2.58 cycle (closed)**: cmd_serve PoolStat adapter.
-**v2.57 cycle (closed)**: OpenAPI top-level examples.
-
-**v2.41 cycle (closed)**: PROFINET CLI decode/encode.
-**v2.40 cycle (closed)**: per-route OIDC binding.
-**v2.39 cycle (closed)**: PROFINET DCP wire codec.
-**v2.38 cycle (closed)**: OIDC + roles auth package.
+**v2.57-v2.38 cycles (closed)**: OIDC Verifier + PoolStat wiring,
+OpenAPI examples, PROFINET DCP codec + CLI, per-route OIDC, OIDC +
+roles auth package.
 
 **v2.37 cycle (closed)**: Wardialing batch orchestrator
 (range + workers + rate-limit + checkpoint).
@@ -232,15 +235,11 @@ remains an option since v1.8.
   exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.
 - 7 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, binaryedge, internetdb.
-- **Security fixes (fuzz-found in own code):** OPC UA GetEndpoints
-  DiagnosticInfo unbounded recursion (DoS, capped); CoDeSys split-magic
-  write-gate bypass + O(N^2) re-scan. See pitfalls.md.
 **Deferred to v1.25+**:
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
-- macOS sandbox (`sandbox_init`); IEC 61850 MMS; PROFINET (L2); OPC UA
-  HTTPS *write*; DNP3 SAv5-aware gating.
-- Big-picture: TUI, Windows, OIDC + roles, record-&-replay.
+- IEC 61850 MMS; PROFINET-RT (L2) live capture; DNP3 SAv5 gating;
+  GOOSE/SV + PROFINET live L2 capture (raw sockets + CAP_NET_RAW).
 
 **Operator-pending**:
 - Tags pushed through v2.62 (2026-08-31); cut/publish binary

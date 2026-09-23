@@ -178,6 +178,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan |
 | **Red Lion CR3** | 789               | probe · gated proxy per-Type opcode (Crimson v3 HMIs) |
 | **OPC UA HTTPS** | 4843              | GetEndpoints POST · enumerates EndpointDescription list + security posture (a SecurityMode=None endpoint scores as higher exposure) · gated-write over the §7.4 binary binding (same service-TypeID + per-NodeId + per-CallMethod allowlist as OPC UA TCP; transport-scoped token) |
+| IEC 61850 GOOSE/SV | L2 (EtherType 0x88B8/0x88BA) | offline dissect + passive spoofing monitor: stNum jump/regression (the high-stNum override), simulation/test bit, ndsCom, confRev change, sqNum stall, SV smpCnt regression (`goose decode` / `goose monitor`) |
 | banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
 The rows in **bold** carry write-gate proxies (this table is a
