@@ -9,7 +9,7 @@ token-budget: 950
 
 **What**: ICS/OT legacy exposure scanner + fingerprinter + proxy + REPL + dashboard + interactive TUI. Defensive default; `-tags offensive` for writes/exploits/harvest/dial. Three build variants since v1.29: default / offensive / mini (mini excludes dashboard + TUI for device deployments).
 
-**Stack**: Go 1.25+, Postgres 16, HTMX+Alpine+Tailwind, single static binary (pure Go, no CGO). Linux + macOS only.
+**Stack**: Go 1.26+ (go.mod `go 1.26.0`; keep Dockerfile GO_VERSION + ci.yml matrix minimum in sync, enforced by `scripts/check-version-sync.sh` in the audit job: see PITF-061), Postgres 16, HTMX+Alpine+Tailwind, single static binary (pure Go, no CGO). Linux + macOS only.
 
 **Key invariants**:
 - Default build read-only. Writes require `-tags offensive` + triple-confirm.
