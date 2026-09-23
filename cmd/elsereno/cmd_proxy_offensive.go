@@ -33,6 +33,7 @@ import (
 	mmswrite "local/elsereno/offensive/write/mms"
 	modwrite "local/elsereno/offensive/write/modbus"
 	opwrite "local/elsereno/offensive/write/opcua"
+	uahttpswrite "local/elsereno/offensive/write/opcuahttps"
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
 	pcworxwrite "local/elsereno/offensive/write/pcworx"
 	rlwrite "local/elsereno/offensive/write/redlion"
@@ -90,7 +91,7 @@ config.`,
 // Extracted from newProxyListenCmd so the parent function stays
 // under funlen as we keep adding per-service dimensions.
 func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
-	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|bacnet|cwmp|pcworx|mms|enip|s7|finsudp|slmp")
+	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|opcuahttps|bacnet|cwmp|pcworx|mms|enip|s7|finsudp|slmp")
 	cmd.Flags().StringVar(&opts.target, "target", "", "upstream host:port")
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
 	registerProxyListenSIPFlags(cmd, opts)
@@ -528,7 +529,7 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 		}
 		defer func() { _ = rec.Close() }()
 		if !attachRecorder(handler, rec) {
-			return fail(core.ExitUsage, fmt.Errorf("--record: plugin %q does not support recording (supported: sip, iax2, pbxhttp, modbus, opcua, bacnet, cwmp)", opts.plugin))
+			return fail(core.ExitUsage, fmt.Errorf("--record: plugin %q does not support recording (supported: sip, iax2, pbxhttp, modbus, opcua, opcuahttps, bacnet, cwmp)", opts.plugin))
 		}
 		cmd.Printf("proxy: recording to %s (NDJSON, schema=elsereno-replay/v1)\n", opts.recordPath)
 	}
@@ -734,6 +735,8 @@ func buildGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 		return buildModbusHandler(opts, rt, c)
 	case pluginNameOPCUA:
 		return buildOPCUAHandler(opts, rt, c)
+	case pluginNameOPCUAHTTPS:
+		return buildOPCUAHTTPSHandler(opts, rt, c)
 	case pluginNameBACnet:
 		return buildBACnetHandler(opts, rt, c)
 	case pluginNameCWMP:
@@ -775,7 +778,7 @@ func buildICSGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.
 	case pluginNameDNP3:
 		return buildDNP3Handler(opts, rt, c)
 	}
-	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion / dnp3", opts.plugin)
+	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / opcuahttps / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion / dnp3", opts.plugin)
 }
 
 // buildPcworxHandler — v1.35+. Session-level allowlist of
@@ -1324,6 +1327,40 @@ func buildOPCUAHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Con
 	}, nil
 }
 
+// buildOPCUAHTTPSHandler wires the OPC UA HTTPS (Part 6 §7.4) write-gated
+// proxy from the same allowlist flags as the opcua TCP gate. The gate
+// classifies the bare UA-Binary POST body; the token is scoped to
+// protocol "opcuahttps" so an opcua-TCP token does not authorise it.
+func buildOPCUAHTTPSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*uahttpswrite.WriteGatedHandler, error) {
+	allowed := make([]opwrite.AllowedService, 0, len(opts.services))
+	for _, s := range opts.services {
+		tid, err := parseUint16Flag("--service", s)
+		if err != nil {
+			return nil, err
+		}
+		allowed = append(allowed, opwrite.AllowedService{TypeID: tid})
+	}
+	nodeIDs, canonNodeIDs, err := parseNodeIDFlags(opts.nodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	calls, err := parseCallMethodFlags(opts.callMethods)
+	if err != nil {
+		return nil, err
+	}
+	return &uahttpswrite.WriteGatedHandler{
+		Target:                  opts.target,
+		Allowed:                 allowed,
+		AllowedNodeIDs:          nodeIDs,
+		AllowedCanonicalNodeIDs: canonNodeIDs,
+		AllowedCallMethods:      calls,
+		TokenGeneration:         opts.tokenGeneration,
+		Deriver:                 rt.Vault,
+		Auditor:                 rt.Auditor,
+		SessionConfirm:          c,
+	}, nil
+}
+
 func buildBACnetHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*bacwrite.WriteGatedHandler, error) {
 	allowed, err := buildBACnetServiceList(opts.serviceChoices)
 	if err != nil {
@@ -1563,6 +1600,8 @@ func attachRecorder(h gatedProxyHandler, rec *replay.Recorder) bool {
 	case *modwrite.WriteGatedHandler:
 		t.Recorder = rec
 	case *opwrite.WriteGatedHandler:
+		t.Recorder = rec
+	case *uahttpswrite.WriteGatedHandler:
 		t.Recorder = rec
 	case *bacwrite.WriteGatedHandler:
 		t.Recorder = rec

@@ -22,8 +22,11 @@ const (
 	pluginNamePBXHTTP = "pbxhttp"
 	pluginNameModbus  = "modbus"
 	pluginNameOPCUA   = "opcua"
-	pluginNameBACnet  = "bacnet"
-	pluginNameCWMP    = "cwmp"
+	// OPC UA HTTPS binary binding (Part 6 §7.4): same service/NodeId/
+	// CallMethod allowlist as opcua, transport-scoped token.
+	pluginNameOPCUAHTTPS = "opcuahttps"
+	pluginNameBACnet     = "bacnet"
+	pluginNameCWMP       = "cwmp"
 	// v1.35+: session-level (no wire-allowlist; just an
 	// operator-supplied intent description for audit).
 	pluginNamePcworx = "pcworx"

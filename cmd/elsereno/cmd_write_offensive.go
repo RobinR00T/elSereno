@@ -155,6 +155,7 @@ operator can inspect the exact bytes that would hit the wire.`,
 	cmd.AddCommand(newWriteIAX2Cmd())
 	cmd.AddCommand(newWritePBXHTTPCmd())
 	cmd.AddCommand(newWriteOPCUACmd())
+	cmd.AddCommand(newWriteOPCUAHTTPSCmd())
 	cmd.AddCommand(newWriteBACnetCmd())
 	cmd.AddCommand(newWriteCWMPCmd())
 	cmd.AddCommand(newWriteFINSCmd())

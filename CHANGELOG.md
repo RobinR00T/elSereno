@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OPC UA HTTPS write-gated proxy (`-tags offensive`):** extends the
+  write-gate to the OPC UA HTTPS binary binding (Part 6 §7.4), where a
+  UA service request rides as a bare UA-Binary HTTP POST body (TypeId
+  at offset 0, no `opc.tcp` SecureChannel framing). Operator-usable via
+  `write opcuahttps proxy-dry-run` + `proxy listen --plugin opcuahttps`,
+  with the same service-TypeID + per-NodeId (numeric + String/GUID/
+  ByteString) + per-CallMethod allowlist as the OPC UA TCP gate. Reads
+  pass; `WriteRequest 673` / `CallRequest 704` are default-deny;
+  refusals are a UA `ServiceFault` (`BadUserAccessDenied`) in an HTTP
+  200 body. The token is transport-scoped (protocol `opcuahttps`), so
+  an `opcua` TCP token does not authorise HTTPS writes. TLS is a
+  deployment concern (terminate in front / plaintext upstream), same as
+  the `pbxhttp` gate. New `wire.ServiceTypeIDHTTPS` /
+  `WriteRequestAllNodesRichHTTPS` / `CallRequestAllMethodsHTTPS` splice
+  a 16-byte prefix so the validated `opc.tcp` parsers are reused
+  unchanged. Recording (`--record`) supported. See
+  `docs/protocols/opcuahttps.md`.
 - **`elsereno audit export` (SIEM):** reads the file-backed audit chain
   and emits each entry as ArcSight CEF (`--format cef`), RFC 5424
   syslog (`--format syslog`), or the raw JSON record (`ndjson`), with
