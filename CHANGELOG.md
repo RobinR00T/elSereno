@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Modbus/TCP passive monitor (`modbus monitor --file`, default build):**
+  the read-only counterpart to the write-gate. It consumes a capture (one
+  hex MBAP+PDU per line) and flags the mutations that crossed the link:
+  `write_observed` (any state-changing FC, address/value decoded for
+  single/multiple writes), `dangerous_diagnostic` (FC 8 restart /
+  force-listen-only / clear-counters), and `exception_observed`. Modbus
+  authenticates nothing, so every write is a reportable exposure event.
+  Mirrors the GOOSE/SV monitor's "watch the line, flag the mutations"
+  shape. `--json` for NDJSON. See `docs/protocols/modbus.md`.
 - **GOOSE/SV live L2 capture (`goose monitor --iface`, Linux):** the
   passive spoofing monitor now sniffs a live interface, not just an
   offline `--file`. It opens a receive-only `AF_PACKET` raw socket

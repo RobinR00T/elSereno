@@ -7,6 +7,12 @@ token-budget: 320
 
 # Current state
 
+**2026-09-28 LinkedIn-inspired exposure probes** (from the OT researcher
+chrisdinozzi/opcua-recon; all read-only/passive, defensive): batch of 4.
+Done: Modbus passive monitor (`modbus monitor`). Pending in batch:
+MQTT/Sparkplug exposure probe, S7 misconfig detection, OPC UA
+anonymous-writeable-tag exposure (None-security session, read-only).
+
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
   required check (branch protection -> `[ci-passed, audit]`, robust to
@@ -51,17 +57,11 @@ offensive builds emit sentinel `{"scheme": ""}` rows for
 stable JSON shape. +7 tests on both build paths.
 Snapshot: `.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
 
-**v2.61 cycle (closed)**: sandbox profile introspection +
-ProfileScan test-gap closure. New `Profiles()`
-enumeration helper. New `SchemeFor()` darwin+cgo
-accessor. Hardened sandbox_init errbuf-empty path.
+**v2.61 cycle (closed)**: sandbox profile introspection; `Profiles()` +
+`SchemeFor()` (darwin+cgo) accessors; hardened sandbox_init errbuf path.
 
-**v2.60 cycle (closed)**: /metrics endpoint + pool
-collector wiring. cmd_serve constructs MetricsHandler via
-buildMetricsHandler (registers v2.55 PoolCollector via
-handlers↔telemetry shim, then returns
-telemetry.Global().Handler()). +2 tests. New
-Server.Handler() accessor for tests.
+**v2.60 cycle (closed)**: /metrics endpoint + pool collector wiring
+(buildMetricsHandler registers the v2.55 PoolCollector). +2 tests.
 
 **v2.57-v2.38 cycles (closed)**: OIDC Verifier + PoolStat wiring,
 OpenAPI examples, PROFINET DCP codec + CLI, per-route OIDC, OIDC +

@@ -132,6 +132,26 @@ are default-denied. An operator running a sanctioned test opens the
 exact write or sub-function needed and nothing else, and the record
 file is the evidence trail.
 
+## Passive monitor (default build)
+
+`elsereno modbus monitor --file frames.txt` is the read-only counterpart
+to the write-gate: instead of sitting inline, it consumes a capture (one
+hex-encoded MBAP+PDU per line) and reports the mutations that crossed the
+link. Modbus authenticates nothing, so every write is a reportable
+exposure event. It flags:
+
+- `write_observed` (medium): any state-changing function code, with the
+  target address/value decoded for single/multiple writes.
+- `dangerous_diagnostic` (high): FC 8 with a mutating sub-function
+  (restart, force-listen-only DoS, clear counters).
+- `exception_observed` (low): a Modbus exception response (scan /
+  misconfiguration tell).
+
+Reads are silent. Produce the input with e.g.
+`tshark -r plant.pcap -Y mbtcp -T fields -e tcp.payload`. This mirrors
+the GOOSE/SV monitor (`internal/protocols/goose`): watch the line, flag
+the mutations. See `internal/protocols/modbus/monitor.go`.
+
 ## Scope
 
 - PLC memory region; read yields process-critical values (tank
