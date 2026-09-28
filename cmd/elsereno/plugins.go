@@ -21,6 +21,7 @@ import (
 	"local/elsereno/internal/protocols/mbustcp"
 	"local/elsereno/internal/protocols/mms"
 	"local/elsereno/internal/protocols/modbus"
+	"local/elsereno/internal/protocols/mqtt"
 	"local/elsereno/internal/protocols/opcua"
 	"local/elsereno/internal/protocols/opcuahttps"
 	"local/elsereno/internal/protocols/pbxhttp"
@@ -47,6 +48,7 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: bacnet.Default().Metadata(), Factory: func() core.Protocol { return bacnet.Default() }})
 	core.Register(core.Plugin{PluginMetadata: dnp3.Default().Metadata(), Factory: func() core.Protocol { return dnp3.Default() }})
 	core.Register(core.Plugin{PluginMetadata: iec104.Default().Metadata(), Factory: func() core.Protocol { return iec104.Default() }})
+	core.Register(core.Plugin{PluginMetadata: mqtt.Default().Metadata(), Factory: func() core.Protocol { return mqtt.Default() }})
 	core.Register(core.Plugin{PluginMetadata: hartip.Default().Metadata(), Factory: func() core.Protocol { return hartip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: fox.Default().Metadata(), Factory: func() core.Protocol { return fox.Default() }})
 	core.Register(core.Plugin{PluginMetadata: atg.Default().Metadata(), Factory: func() core.Protocol { return atg.Default() }})

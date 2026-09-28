@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MQTT broker exposure probe (`mqtt` plugin, default build):** a
+  read-only fingerprint on 1883 (8883 over TLS) for the dominant OT-to-IT
+  / Unified-Namespace bus. It sends an anonymous MQTT 3.1.1 CONNECT and,
+  only if that is accepted, one wildcard `#` SUBSCRIBE, then briefly reads
+  PUBLISH traffic to detect the Sparkplug B namespace (`spBv1.0/...`). It
+  never PUBLISHes. Anonymous access, read-everything wildcard, and live
+  Sparkplug data each raise the score. CONNECT/CONNACK/SUBSCRIBE/SUBACK
+  parsed from scratch in `internal/protocols/mqtt/wire/`. See
+  `docs/protocols/mqtt.md`.
 - **Modbus/TCP passive monitor (`modbus monitor --file`, default build):**
   the read-only counterpart to the write-gate. It consumes a capture (one
   hex MBAP+PDU per line) and flags the mutations that crossed the link:

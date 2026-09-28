@@ -9,9 +9,9 @@ token-budget: 320
 
 **2026-09-28 LinkedIn-inspired exposure probes** (from the OT researcher
 chrisdinozzi/opcua-recon; all read-only/passive, defensive): batch of 4.
-Done: Modbus passive monitor (`modbus monitor`). Pending in batch:
-MQTT/Sparkplug exposure probe, S7 misconfig detection, OPC UA
-anonymous-writeable-tag exposure (None-security session, read-only).
+Done: Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B
+exposure probe (`mqtt` plugin, 1883/8883). Pending: S7 misconfig
+detection, OPC UA anonymous-writeable-tag exposure (None session, RO).
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
