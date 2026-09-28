@@ -7,17 +7,18 @@ token-budget: 320
 
 # Current state
 
-**2026-09-23 session** (3 vNext items; commits pending Daniel's sign):
+**2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
   required check (branch protection -> `[ci-passed, audit]`, robust to
-  job renames).
+  job renames). PITF-061/062/063 capture the audit lessons.
 - **OPC UA HTTPS write-gate** (`-tags offensive`): the §7.4 binary
   binding (bare UA-Binary POST body). Reuses the opc.tcp parsers via a
   16-byte splice (`wire.ServiceTypeIDHTTPS`). `write opcuahttps` +
   `proxy --plugin opcuahttps`; transport-scoped token. PITF-060.
-- **IEC 61850 GOOSE/SV passive monitor** (default build): offline
-  `goose decode` / `goose monitor` flags stNum jump/regression, test
-  bit, ndsCom, confRev, SV smpCnt. `internal/protocols/goose`.
+- **IEC 61850 GOOSE/SV passive monitor** (default build): `goose decode`
+  + `goose monitor` (offline `--file` AND live `--iface`, Linux
+  AF_PACKET) flags stNum jump/regression, test bit, ndsCom, confRev, SV
+  smpCnt. `internal/protocols/goose`.
 
 **2026-08-31 maintenance session** (no version bump; `main` CI-green):
 - **CI/CD reactivated.** ci / release / supply-chain / nightly /
@@ -239,7 +240,7 @@ remains an option since v1.8.
 - cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
   dlms once their CVE histories harden.
 - IEC 61850 MMS; PROFINET-RT (L2) live capture; DNP3 SAv5 gating;
-  GOOSE/SV + PROFINET live L2 capture (raw sockets + CAP_NET_RAW).
+  PROFINET-RT live L2 capture (GOOSE/SV live capture done 28-9).
 
 **Operator-pending**:
 - Tags pushed through v2.62 (2026-08-31); cut/publish binary

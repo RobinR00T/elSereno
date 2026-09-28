@@ -69,54 +69,107 @@ Examples:
 }
 
 func newGooseMonitorCmd() *cobra.Command {
-	var file string
+	var file, iface string
 	var jsonOut bool
 	var jumpThreshold uint32
+	var count uint
 	cmd := &cobra.Command{
 		Use:   "monitor",
-		Short: "Run the GOOSE/SV anomaly monitor over a sequence of frames",
-		Long: `Reads a frame stream (one hex-encoded Ethernet frame per line;
-blank lines and lines starting with '#' are ignored) and runs the
-passive monitor over it in order. It flags the GOOSE-spoofing tells:
-stNum jumps / regressions (the classic high-stNum override), the
-simulation/test bit, ndsCom, confRev changes, sqNum stalls, and SV
-smpCnt regressions.
+		Short: "Run the GOOSE/SV anomaly monitor over captured frames (--file) or a live interface (--iface, Linux)",
+		Long: `Runs the passive GOOSE/SV anomaly monitor over either an
+offline capture (--file) or a live interface (--iface, Linux only). It
+flags the GOOSE-spoofing tells: stNum jumps / regressions (the classic
+high-stNum override), the simulation/test bit, ndsCom, confRev changes,
+sqNum stalls, and SV smpCnt regressions.
 
-Produce the input with, e.g.:
+--file reads one hex-encoded Ethernet frame per line (blank lines and
+'#' comments ignored). Produce it with, e.g.:
 
   tshark -r substation.pcap -Y 'goose || sv' -T fields -e frame.raw > frames.txt
 
-Example:
+--iface opens a receive-only AF_PACKET socket (needs CAP_NET_RAW) and
+sniffs live. It never transmits. Off Linux it errors with a clear
+message pointing back to --file.
 
-  elsereno goose monitor --file frames.txt
-  elsereno goose monitor --file frames.txt --json`,
+Examples:
+
+  elsereno goose monitor --file frames.txt --json
+  sudo elsereno goose monitor --iface eth0
+  sudo elsereno goose monitor --iface eth0 --count 500 --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if file == "" {
-				return errors.New("--file is required (one hex frame per line)")
+			if (file == "") == (iface == "") {
+				return errors.New("exactly one of --file or --iface is required")
 			}
-			return runGooseMonitor(cmd, file, jumpThreshold, jsonOut)
+			st := newGooseMonitorState(cmd, jumpThreshold, jsonOut)
+			if iface != "" {
+				return runGooseLive(cmd, st, iface, count)
+			}
+			return runGooseFile(cmd, st, file)
 		},
 	}
-	cmd.Flags().StringVar(&file, "file", "", "frame stream: one hex-encoded Ethernet frame per line")
+	cmd.Flags().StringVar(&file, "file", "", "offline frame stream: one hex-encoded Ethernet frame per line")
+	cmd.Flags().StringVar(&iface, "iface", "", "live capture: network interface to sniff (Linux only; needs CAP_NET_RAW)")
+	cmd.Flags().UintVar(&count, "count", 0, "with --iface: stop after N GOOSE/SV frames (0 = run until Ctrl-C)")
 	cmd.Flags().Uint32Var(&jumpThreshold, "stnum-jump-threshold", 1, "largest stNum increment treated as normal (above it raises stnum_jump)")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit each anomaly event as a JSON line (NDJSON)")
 	return cmd
 }
 
-func runGooseMonitor(cmd *cobra.Command, file string, jumpThreshold uint32, jsonOut bool) error {
+// gooseMonitorState bundles the monitor + encoder + counters shared by
+// the offline (--file) and live (--iface) paths so both classify,
+// count, and print anomalies identically.
+type gooseMonitorState struct {
+	m         *goose.Monitor
+	enc       *json.Encoder
+	jsonOut   bool
+	frames    int
+	anomalies int
+}
+
+func newGooseMonitorState(cmd *cobra.Command, jumpThreshold uint32, jsonOut bool) *gooseMonitorState {
+	m := goose.NewMonitor()
+	m.StNumJumpThreshold = jumpThreshold
+	return &gooseMonitorState{m: m, enc: json.NewEncoder(cmd.OutOrStdout()), jsonOut: jsonOut}
+}
+
+// handle dissects one raw Ethernet frame and prints any anomaly events.
+// Non-GOOSE/SV or malformed frames are skipped (a real segment is mixed
+// traffic), so only a print/encode failure returns an error.
+func (s *gooseMonitorState) handle(cmd *cobra.Command, raw []byte) error {
+	f, err := goose.Dissect(raw)
+	if err != nil {
+		return nil //nolint:nilerr // non-GOOSE/SV + malformed frames are skipped: a live segment is mixed traffic
+	}
+	s.frames++
+	for _, ev := range s.m.Observe(f) {
+		s.anomalies++
+		if s.jsonOut {
+			if err := s.enc.Encode(ev); err != nil {
+				return err
+			}
+		} else {
+			cmd.Printf("frame %d: %s\n", s.frames, ev.String())
+		}
+	}
+	return nil
+}
+
+func (s *gooseMonitorState) summary(cmd *cobra.Command) {
+	if !s.jsonOut {
+		cmd.Printf("processed %d GOOSE/SV frames, %d anomaly events\n", s.frames, s.anomalies)
+	}
+}
+
+func runGooseFile(cmd *cobra.Command, s *gooseMonitorState, file string) error {
 	fh, err := os.Open(file) // #nosec G304 -- operator-supplied path by design
 	if err != nil {
 		return fmt.Errorf("open %s: %w", file, err)
 	}
 	defer func() { _ = fh.Close() }()
 
-	m := goose.NewMonitor()
-	m.StNumJumpThreshold = jumpThreshold
-	enc := json.NewEncoder(cmd.OutOrStdout())
-
 	sc := bufio.NewScanner(fh)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	var lineNo, frames, anomalies int
+	lineNo := 0
 	for sc.Scan() {
 		lineNo++
 		line := strings.TrimSpace(sc.Text())
@@ -127,29 +180,45 @@ func runGooseMonitor(cmd *cobra.Command, file string, jumpThreshold uint32, json
 		if err != nil {
 			return fmt.Errorf("line %d: %w", lineNo, err)
 		}
-		f, err := goose.Dissect(raw)
-		if err != nil {
-			// Non-substation / malformed frames are skipped, not fatal:
-			// a real capture is mixed traffic.
-			continue
-		}
-		frames++
-		for _, ev := range m.Observe(f) {
-			anomalies++
-			if jsonOut {
-				if err := enc.Encode(ev); err != nil {
-					return err
-				}
-			} else {
-				cmd.Printf("frame %d: %s\n", frames, ev.String())
-			}
+		if err := s.handle(cmd, raw); err != nil {
+			return err
 		}
 	}
 	if err := sc.Err(); err != nil {
 		return fmt.Errorf("read %s: %w", file, err)
 	}
-	if !jsonOut {
-		cmd.Printf("processed %d GOOSE/SV frames, %d anomaly events\n", frames, anomalies)
+	s.summary(cmd)
+	return nil
+}
+
+// runGooseLive sniffs iface with a passive AF_PACKET socket and feeds
+// each frame through the monitor until the context is cancelled (Ctrl-C)
+// or count frames have been seen. Linux only.
+func runGooseLive(cmd *cobra.Command, s *gooseMonitorState, iface string, count uint) error {
+	cap, err := goose.OpenLiveCapture(iface)
+	if err != nil {
+		return fmt.Errorf("live capture: %w", err)
 	}
+	defer func() { _ = cap.Close() }()
+	if !s.jsonOut {
+		cmd.Printf("listening on %s for GOOSE/SV (Ctrl-C to stop)\n", iface)
+	}
+	ctx := cmd.Context()
+	for ctx.Err() == nil {
+		if count > 0 && uint(s.frames) >= count {
+			break
+		}
+		raw, err := cap.Read()
+		if err != nil {
+			return fmt.Errorf("read: %w", err)
+		}
+		if raw == nil {
+			continue // idle poll tick; loop re-checks ctx + count
+		}
+		if err := s.handle(cmd, raw); err != nil {
+			return err
+		}
+	}
+	s.summary(cmd)
 	return nil
 }

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GOOSE/SV live L2 capture (`goose monitor --iface`, Linux):** the
+  passive spoofing monitor now sniffs a live interface, not just an
+  offline `--file`. It opens a receive-only `AF_PACKET` raw socket
+  (`ETH_P_ALL`, filtered to GOOSE/SV by the dissector; needs
+  `CAP_NET_RAW`) and feeds each frame through the same anomaly detector.
+  It never transmits. `--count N` bounds the run; otherwise it runs
+  until Ctrl-C (context-cancelled). The socket layer is `//go:build
+  linux` with a stub elsewhere that errors cleanly pointing back to
+  `--file`, mirroring the sandbox platform split. No new dependency
+  (uses `golang.org/x/sys/unix`, already vendored). See
+  `docs/protocols/goose.md`.
 - **IEC 61850 GOOSE/SV passive spoofing monitor (default build):** an
   offline L2 dissector (`goose decode`) + anomaly monitor
   (`goose monitor`) for the substation bus. GOOSE (EtherType 0x88B8)

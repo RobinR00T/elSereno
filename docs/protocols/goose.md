@@ -8,22 +8,34 @@ write-gate).
 
 ## Scope
 
-Like the `profinet` verb, this is an **offline** workflow: feed it
-frames captured with `tcpdump -xx` / `tshark`. It never opens a socket.
-Live L2 capture (raw sockets + `CAP_NET_RAW`) stays vNext.
+Two ways in: an **offline** file of captured frames (any platform), and
+**live** L2 capture on Linux.
 
 ```
 elsereno goose decode  --hex 0x...        # dissect one frame
-elsereno goose monitor --file frames.txt  # run the anomaly monitor
+elsereno goose monitor --file frames.txt  # offline: run the monitor
+sudo elsereno goose monitor --iface eth0  # live: sniff an interface (Linux)
 ```
 
-`monitor` reads one hex-encoded Ethernet frame per line (blank lines and
-`#` comments ignored); non-GOOSE/SV frames are skipped, so a mixed
-capture is fine. Produce the input with e.g.:
+`monitor --file` reads one hex-encoded Ethernet frame per line (blank
+lines and `#` comments ignored); non-GOOSE/SV frames are skipped, so a
+mixed capture is fine. Produce the input with e.g.:
 
 ```
 tshark -r substation.pcap -Y 'goose || sv' -T fields -e frame.raw > frames.txt
 ```
+
+### Live capture (Linux only)
+
+`monitor --iface <if>` opens a **receive-only** `AF_PACKET` raw socket
+(`ETH_P_ALL`, filtered to GOOSE/SV by the dissector) and feeds each
+frame through the same monitor. It needs `CAP_NET_RAW` (run with `sudo`
+or grant the capability) and it never transmits: this is passive
+observation. `--count N` stops after N GOOSE/SV frames; otherwise it
+runs until Ctrl-C. Off Linux the command errors with a clear message
+pointing back to `--file` (the socket layer is `//go:build linux`, with
+a stub elsewhere, mirroring the sandbox platform split). See
+`internal/protocols/goose/capture_linux.go`.
 
 ## Why GOOSE spoofing matters
 
