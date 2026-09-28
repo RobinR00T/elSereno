@@ -205,7 +205,7 @@ func runGooseLive(cmd *cobra.Command, s *gooseMonitorState, iface string, count 
 	}
 	ctx := cmd.Context()
 	for ctx.Err() == nil {
-		if count > 0 && uint(s.frames) >= count {
+		if count > 0 && uint(s.frames) >= count { // #nosec G115 -- s.frames is a monotonic non-negative frame counter
 			break
 		}
 		raw, err := cap.Read()

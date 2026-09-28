@@ -338,7 +338,8 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 - **gocyclo>15 / funlen>40**: extraer helpers (patrón `applyXField`, `xStatefulChecks`).
 - **misspell**: ortografía británica (`synchronise`, no `synchronize`).
 Y recuerda: el job `context` exige `.context/STATE.md` <= 250 líneas (recorta entradas de ciclos cerrados viejos al añadir); PITF-056 para detectar em/en dashes de forma fiable; el repo tiene `commit.gpgsign=true`, así que un commit normal intenta firmar (usa `--no-gpg-sign` cuando quien firma es Daniel, no Claude).
-**Ver**: `.golangci.yml`, `scripts/context-check.sh`, `.context/_quickref.md`, 23-9-2026.
+**Versión de golangci (crítico, PITF-031):** el job `audit` fija **v2.11.4** (`audit.yml`) mientras `ci` usa `latest`. Divergen, y v2.11.4 es más estricto: el 28-9-2026 marcó `G115 int->uint` en `uint(s.frames)` que `latest` (v2.13.2) y mi local NO marcaban, y `main` quedó con el `audit` en rojo tras un push ya firmado. **Lint local con la MISMA versión que el audit (v2.11.4)** antes de commitear código que vaya a `main`: `curl -sSfL .../golangci-lint/master/install.sh | sh -s -- -b /tmp/glci v2.11.4 && /tmp/glci/golangci-lint run ./...`. `ci` (latest) pasando NO garantiza que `audit` (v2.11.4) pase.
+**Ver**: `.golangci.yml`, `.github/workflows/audit.yml` (pin v2.11.4), `scripts/context-check.sh`, `.context/_quickref.md`, 23-9 y 28-9-2026.
 
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
