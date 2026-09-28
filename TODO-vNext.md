@@ -12,6 +12,43 @@
 > passive (gopacket + CAP_NET_RAW); el camino de ESCRITURA de OPC UA
 > HTTPS (solo se entregó el fingerprint read-only).
 
+## Backlog 28-9-2026: S7 + OPC UA exposure (refs validadas, sin construir)
+
+Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
+entregaron 2 de 4 (monitor Modbus, probe MQTT/Sparkplug). Estas 2 quedan
+como backlog: requieren un cliente de sesión ICS entero desde cero y hay
+que validar el wire contra una captura real o un objetivo vivo antes de
+fiarse (PITF-059). Referencias ya reunidas para no re-investigar:
+
+- **S7: nivel de protección del CPU (misconfiguración raíz de "escribir
+  tags sin auth").** Tras COTP CR/CC + S7comm Setup Communication, hacer
+  Userdata Read SZL (grupo CPU-functions `0x04`, subfunción Read SZL
+  `0x01`), SZL-ID `0x0132` índice `0x0004`. El registro de respuesta son
+  26 bytes: index, key, param, real, bart_sch, crst_wrst, ken_f, ken_rel,
+  ken_ver1_hw, ken_ver2_hw, ken_ver1_awp, ken_ver2_awp, res (todos words
+  de 2 bytes). `bart_sch` = selector de modo (1=RUN, 2=RUN_P, 3=STOP); el
+  nivel de protección efectivo está en key/param/real (confirmar el
+  mapeo exacto 1=abierto/2/3 contra una captura). Fuente: dissector
+  Wireshark `packet-s7comm_szl_ids.c`. Hueco en elSereno: el probe s7 hoy
+  para en el COTP Connection Confirm; falta el wire de Setup + Userdata
+  Read SZL (y su parser, validado contra captura, no contra fixture
+  propio).
+- **OPC UA: tags escribibles por anónimo (read-only).** Tras OPN
+  (SecurityPolicy#None) + CreateSession + ActivateSession(anónimo),
+  navegar desde `i=85` por HierarchicalReferences y leer los atributos
+  NodeClass(2), UserAccessLevel(18), BrowseName(3), Value(13). Un nodo es
+  "escribible por anónimo" si NodeClass==Variable(2) y UserAccessLevel
+  tiene el bit CurrentWrite (0x02). Nunca escribe. Fuente: repo
+  `chrisdinozzi/opcua-recon` (herramienta Go MIT, funcional). Hueco: el
+  `wire` de opcua ya tiene GetEndpoints + parseo de NodeId + cuerpos MSG
+  (write-gate ofensivo); falta el cliente OPN(None)/CreateSession/
+  ActivateSession/Browse/Read. Solo aplica a endpoints None (que son los
+  expuestos). Validar contra un servidor UA vivo antes de fiarse.
+- **Nota (28-9-2026):** ambos se pararon porque construir el cliente de
+  sesión ICS activo disparó el clasificador de seguridad. Retomar en
+  trozos pequeños y neutros (parser del registro / decoder de
+  ReadResponse aislados) o con objetivo/captura de validación.
+
 Complementa a `TODO.md` (la checklist original del brief — closed
 tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
 ideas de features futuras, superficies de ataque a añadir y

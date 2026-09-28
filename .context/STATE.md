@@ -8,10 +8,12 @@ token-budget: 320
 # Current state
 
 **2026-09-28 LinkedIn-inspired exposure probes** (from the OT researcher
-chrisdinozzi/opcua-recon; all read-only/passive, defensive): batch of 4.
-Done: Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B
-exposure probe (`mqtt` plugin, 1883/8883). Pending: S7 misconfig
-detection, OPC UA anonymous-writeable-tag exposure (None session, RO).
+chrisdinozzi/opcua-recon; read-only/passive, defensive): 2 of 4 shipped.
+Done: Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B probe
+(`mqtt`, 1883/8883). Deferred (need a from-scratch ICS session client +
+live/capture validation): S7 SZL protection level, OPC UA anon-writeable
+tag. Validated refs saved in TODO-vNext.md (28-9 backlog). PITF-031 note:
+audit pins golangci v2.11.4, ci uses latest; lint local with v2.11.4.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
@@ -69,12 +71,6 @@ roles auth package.
 
 **v2.37 cycle (closed)**: Wardialing batch orchestrator
 (range + workers + rate-limit + checkpoint).
-
-**v2.36 cycle (closed)**: MMS vendor hint + LD
-enumeration.
-
-**v2.35 cycle (closed)**: OPC UA HTTPS fingerprint
-plugin.
 
 **v2.35 + v2.36 cycles (closed)**: v2.35 OPC UA HTTPS
 fingerprint plugin. v2.36 MMS vendor hint + LD
