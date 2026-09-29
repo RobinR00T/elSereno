@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,13 @@ import (
 
 	"local/elsereno/internal/protocols/opcua"
 )
+
+// emitOPCUAJSON writes v as indented JSON to the command's stdout.
+func emitOPCUAJSON(cmd *cobra.Command, v any) error {
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
 
 // newOPCUACmd is the verb tree for OPC UA active recon (read-only).
 //
@@ -28,6 +36,7 @@ func newOPCUACmd() *cobra.Command {
 func newOPCUAProbeAnonCmd() *cobra.Command {
 	var target, endpoint string
 	var timeout time.Duration
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "probe-anon",
 		Short: "Confirm whether an anonymous OPC UA session actually opens (read-only)",
@@ -53,12 +62,13 @@ Examples:
 			if endpoint == "" {
 				endpoint = "opc.tcp://" + target
 			}
-			return runOPCUAProbeAnon(cmd, target, endpoint, timeout)
+			return runOPCUAProbeAnon(cmd, target, endpoint, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the OPC UA server (e.g. plc:4840)")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "endpoint URL (default opc.tcp://<target>)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 10*time.Second, "overall probe timeout")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
 	return cmd
 }
 
@@ -66,6 +76,7 @@ func newOPCUAProbeWriteCmd() *cobra.Command {
 	var target, endpoint string
 	var timeout time.Duration
 	var maxNodes int
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "probe-write",
 		Short: "Walk the address space as the anonymous user and flag writeable tags (read-only)",
@@ -93,17 +104,18 @@ Examples:
 			if endpoint == "" {
 				endpoint = "opc.tcp://" + target
 			}
-			return runOPCUAProbeWrite(cmd, target, endpoint, timeout, maxNodes)
+			return runOPCUAProbeWrite(cmd, target, endpoint, timeout, maxNodes, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the OPC UA server (e.g. plc:4840)")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "endpoint URL (default opc.tcp://<target>)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "overall probe timeout")
 	cmd.Flags().IntVar(&maxNodes, "max-nodes", 500, "cap on nodes tracked / folders browsed (bounds the walk)")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
 	return cmd
 }
 
-func runOPCUAProbeWrite(cmd *cobra.Command, target, endpoint string, timeout time.Duration, maxNodes int) error {
+func runOPCUAProbeWrite(cmd *cobra.Command, target, endpoint string, timeout time.Duration, maxNodes int, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
@@ -118,6 +130,9 @@ func runOPCUAProbeWrite(cmd *cobra.Command, target, endpoint string, timeout tim
 	res, err := opcua.ProbeWriteableNodes(ctx, conn, endpoint, maxNodes)
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return emitOPCUAJSON(cmd, res)
 	}
 	cmd.Printf("OPC UA server:            %t\n", res.IsOPCUA)
 	cmd.Printf("Anonymous session opened: %t\n", res.SessionOpened)
@@ -141,7 +156,7 @@ func runOPCUAProbeWrite(cmd *cobra.Command, target, endpoint string, timeout tim
 	return nil
 }
 
-func runOPCUAProbeAnon(cmd *cobra.Command, target, endpoint string, timeout time.Duration) error {
+func runOPCUAProbeAnon(cmd *cobra.Command, target, endpoint string, timeout time.Duration, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
@@ -156,6 +171,9 @@ func runOPCUAProbeAnon(cmd *cobra.Command, target, endpoint string, timeout time
 	res, err := opcua.ProbeAnonymousAccess(ctx, conn, endpoint)
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return emitOPCUAJSON(cmd, res)
 	}
 	cmd.Printf("OPC UA server:            %t\n", res.IsOPCUA)
 	cmd.Printf("Anonymous advertised:     %t (policyId %q)\n", res.AdvertisesAnonymous, res.AnonymousPolicyID)

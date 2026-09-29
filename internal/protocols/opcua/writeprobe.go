@@ -18,9 +18,9 @@ const defaultWalkBudget = 500
 
 // WriteableNode is one address-space node the anonymous user can write.
 type WriteableNode struct {
-	NodeID          string // canonical NodeId text ("ns=2;s=Setpoint", ...)
-	BrowseName      string
-	UserAccessLevel byte
+	NodeID          string `json:"node_id"` // canonical NodeId text ("ns=2;s=Setpoint", ...)
+	BrowseName      string `json:"browse_name"`
+	UserAccessLevel byte   `json:"user_access_level"`
 }
 
 // WriteableWalkResult is the outcome of the writeable-tag walk. It embeds
@@ -29,12 +29,12 @@ type WriteableNode struct {
 // change.
 type WriteableWalkResult struct {
 	AnonymousAccessResult
-	FoldersBrowsed int
-	VariablesRead  int
-	Writeable      []WriteableNode
+	FoldersBrowsed int             `json:"folders_browsed"`
+	VariablesRead  int             `json:"variables_read"`
+	Writeable      []WriteableNode `json:"writeable"`
 	// Truncated is true when the node budget was reached before the address
 	// space was fully walked, so Writeable may be incomplete.
-	Truncated bool
+	Truncated bool `json:"truncated"`
 }
 
 // ProbeWriteableNodes opens an anonymous session (exactly like

@@ -15,15 +15,15 @@ import (
 type AnonymousAccessResult struct {
 	// IsOPCUA is true once the server answered the UA-TCP Hello with an
 	// Acknowledge.
-	IsOPCUA bool
+	IsOPCUA bool `json:"is_opcua"`
 	// AdvertisesAnonymous is true when GetEndpoints returned an endpoint
 	// with an Anonymous UserTokenPolicy; AnonymousPolicyID is its PolicyId.
-	AdvertisesAnonymous bool
-	AnonymousPolicyID   string
+	AdvertisesAnonymous bool   `json:"advertises_anonymous"`
+	AnonymousPolicyID   string `json:"anonymous_policy_id"`
 	// SessionOpened is the headline finding: an anonymous
 	// CreateSession + ActivateSession both returned Good, so anonymous
 	// access actually works (not merely that None is advertised).
-	SessionOpened bool
+	SessionOpened bool `json:"session_opened"`
 }
 
 // readMessage reads one UA-TCP message from r and returns its type + the
