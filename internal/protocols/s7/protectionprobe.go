@@ -47,50 +47,22 @@ func ProbeProtection(ctx context.Context, conn io.ReadWriter) (ProtectionResult,
 		return res, err
 	}
 
-	// 1. COTP Connection Request / Confirm.
-	if err := wire.WriteTPKT(conn, wire.BuildCOTPConnectionRequest()); err != nil {
-		return res, fmt.Errorf("s7: write COTP CR: %w", err)
+	isS7, setupOK, err := s7Handshake(conn)
+	res.IsS7 = isS7
+	res.SetupOK = setupOK
+	if err != nil || !setupOK {
+		return res, err
 	}
-	cc, err := wire.ReadTPKT(conn)
-	if err != nil {
-		return res, fmt.Errorf("s7: read COTP CC: %w", err)
-	}
-	if !wire.IsCOTPConfirm(cc.Payload) {
-		return res, nil // not S7/COTP on this port
-	}
-	res.IsS7 = true
 
-	// 2. Setup Communication.
-	if err := wire.WriteTPKT(conn, wire.BuildSetupCommunication(setupPDURef)); err != nil {
-		return res, fmt.Errorf("s7: write Setup Communication: %w", err)
-	}
-	sr, err := wire.ReadTPKT(conn)
+	// UserData Read SZL 0x0132 index 4 (CPU protection).
+	pdu, ok, err := readSZL(conn, szlPDURef, wire.SZLIDProtection, wire.SZLIndexProtection)
 	if err != nil {
-		return res, fmt.Errorf("s7: read Setup response: %w", err)
+		return res, err
 	}
-	spdu, ok := wire.S7PDU(sr.Payload)
 	if !ok {
 		return res, nil
 	}
-	if _, ok := wire.ParseSetupResponse(spdu); !ok {
-		return res, nil
-	}
-	res.SetupOK = true
-
-	// 3. UserData Read SZL 0x0132 index 4 (CPU protection).
-	req := wire.BuildReadSZLRequest(szlPDURef, wire.SZLIDProtection, wire.SZLIndexProtection)
-	if err := wire.WriteTPKT(conn, req); err != nil {
-		return res, fmt.Errorf("s7: write Read SZL: %w", err)
-	}
-	zr, err := wire.ReadTPKT(conn)
-	if err != nil {
-		return res, fmt.Errorf("s7: read SZL response: %w", err)
-	}
-	zpdu, ok := wire.S7PDU(zr.Payload)
-	if !ok {
-		return res, nil
-	}
-	rec, ok := wire.ParseProtectionSZL(zpdu)
+	rec, ok := wire.ParseProtectionSZL(pdu)
 	if !ok {
 		return res, nil // CPU refused/empty SZL read (SetupOK stays a useful signal)
 	}

@@ -21,6 +21,7 @@ func newS7Cmd() *cobra.Command {
 		Short: "S7comm active recon (read-only): read the CPU protection level",
 	}
 	cmd.AddCommand(newS7ProbeProtectionCmd())
+	cmd.AddCommand(newS7ProbeIdentityCmd())
 	return cmd
 }
 
@@ -60,6 +61,81 @@ Examples:
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
 	return cmd
+}
+
+func newS7ProbeIdentityCmd() *cobra.Command {
+	var target string
+	var timeout time.Duration
+	cmd := &cobra.Command{
+		Use:   "probe-identity",
+		Short: "Read a Siemens S7 CPU's exact model + firmware (read-only)",
+		Long: `Reads a Siemens S7 CPU's identity so it can be matched against
+CVEs and vendor advisories. It drives the S7 handshake and reads two
+diagnostic lists:
+
+  COTP Connection Request -> Setup Communication
+    -> Read SZL 0x0011 (module identification: order number + firmware)
+    -> Read SZL 0x001C (component identification: type, serial, station)
+
+It reports the order number (MLFB, e.g. 6ES7 151-8AB01-0AB0), the firmware
+version (e.g. V3.2.6), the module type name, the serial number, the station
+name and the plant designation, exactly what a CVE lookup for that PLC
+needs.
+
+It is strictly read-only: it reads identity SZLs, it never writes,
+controls or stops the PLC. The wire is validated byte for byte against a
+real captured S7-300 session.
+
+Examples:
+
+  elsereno s7 probe-identity --target plc.example:102`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if target == "" {
+				return errors.New("--target host:port is required")
+			}
+			return runS7ProbeIdentity(cmd, target, timeout)
+		},
+	}
+	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
+	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
+	return cmd
+}
+
+func runS7ProbeIdentity(cmd *cobra.Command, target string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+	defer cancel()
+
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", target)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", target, err)
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	res, err := s7.ProbeIdentity(ctx, conn)
+	if err != nil {
+		return err
+	}
+	cmd.Printf("S7/COTP server:           %t\n", res.IsS7)
+	cmd.Printf("Setup Communication:      %t\n", res.SetupOK)
+	if !res.SetupOK {
+		return nil
+	}
+	printIdentField(cmd, "Order number (MLFB)", res.OrderNumber)
+	printIdentField(cmd, "Firmware version", res.Firmware)
+	printIdentField(cmd, "Module type", res.ModuleType)
+	printIdentField(cmd, "Serial number", res.SerialNumber)
+	printIdentField(cmd, "Station name", res.StationName)
+	printIdentField(cmd, "Plant designation", res.PlantDesignation)
+	return nil
+}
+
+func printIdentField(cmd *cobra.Command, label, value string) {
+	if value == "" {
+		value = "(not reported)"
+	}
+	cmd.Printf("%-26s%s\n", label+":", value)
 }
 
 func runS7ProbeProtection(cmd *cobra.Command, target string, timeout time.Duration) error {

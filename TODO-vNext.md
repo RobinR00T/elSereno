@@ -18,7 +18,11 @@ Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
 entregaron **5 de 5, backlog vacío**: monitor Modbus, probe MQTT/Sparkplug,
 OPC UA anonymous-access (`opcua probe-anon`, 29-9), OPC UA writeable-tag
 walk (`opcua probe-write`, 29-9) y **S7 nivel de protección del CPU
-(`s7 probe-protection`, 29-9)**.
+(`s7 probe-protection`, 29-9)**. **Extra 29-9 (fuera del batch): S7
+identidad/firmware (`s7 probe-identity`): lee SZL 0x0011 (order number MLFB
++ firmware, marca 'V') y SZL 0x001C (module type, serial, station, plant)
+para el match de CVE. Validado byte a byte vs `s7comm_reading_plc_status`.
+Wire: `internal/protocols/s7/wire/ident.go`; cliente `identityprobe.go`.**
 
 - **S7: nivel de protección del CPU. [HECHO 29-9-2026, `s7 probe-protection`;
   commits locales sin firmar 93aa331/dae10c5].** COTP CR/CC + Setup

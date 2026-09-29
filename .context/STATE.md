@@ -8,16 +8,15 @@ token-budget: 320
 # Current state
 
 **2026-09-28/29 OT-exposure probes** (from chrisdinozzi/opcua-recon;
-read-only, defensive): batch + S7 protection probe DONE, backlog empty.
-Signed on main: Modbus passive monitor (`modbus monitor`), MQTT/Sparkplug B
-(`mqtt`), OPC UA anonymous-access (`opcua probe-anon`, session wire vs real
-None pcap), OPC UA writeable-tag walk (`opcua probe-write`: Browse i=85 +
-Read UserAccessLevel; codec spec-grounded, no real Browse/Read pcap). Local
-unsigned: S7 CPU protection probe (`s7 probe-protection`, 29-9: COTP ->
-Setup -> Read SZL 0x0132/4, flags effective level 0/1 = writable w/o
-password; validated BYTE FOR BYTE vs real pcap s7comm_reading_plc_status).
-PITF-031/063: audit pins golangci v2.11.4, ci uses latest (v2.14.0); they
-diverge BOTH ways, lint with both before a main push.
+read-only). Signed on main: Modbus monitor (`modbus monitor`), MQTT/Sparkplug
+(`mqtt`), OPC UA anon-access (`opcua probe-anon`, vs real None pcap), OPC UA
+writeable-tag walk (`opcua probe-write`: Browse i=85 + Read UserAccessLevel;
+spec-grounded), S7 protection (`s7 probe-protection`: COTP->Setup->SZL
+0x0132/4, level 0/1 = writable w/o password). Local unsigned: S7
+identity/firmware (`s7 probe-identity`, 29-9: SZL 0x0011 order number +
+firmware, 0x001C serial/module type, for CVE match). All S7 validated BYTE
+FOR BYTE vs real pcap s7comm_reading_plc_status. PITF-031/063: audit pins
+golangci v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
