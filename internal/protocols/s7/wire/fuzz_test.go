@@ -25,3 +25,25 @@ func FuzzParseTPKT(f *testing.F) {
 		}
 	})
 }
+
+// The SZL / Setup parsers read target-controlled S7 response bytes (the
+// protection probe walks them from a live PLC) and must never panic or
+// blow memory on malformed input.
+
+func FuzzS7PDU(f *testing.F) {
+	f.Add([]byte{0x02, 0xF0, 0x80, 0x32, 0x03})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.S7PDU(b) })
+}
+
+func FuzzParseSetupResponse(f *testing.F) {
+	f.Add([]byte{0x32, 0x03, 0x00, 0x00, 0x02, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.ParseSetupResponse(b) })
+}
+
+func FuzzParseProtectionSZL(f *testing.F) {
+	f.Add([]byte{0x32, 0x07, 0x00, 0x00, 0x03, 0x00, 0x00, 0x08, 0x00, 0x02})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.ParseProtectionSZL(b) })
+}
