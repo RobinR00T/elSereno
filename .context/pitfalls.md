@@ -338,7 +338,12 @@ grep -nE '(versión anterior|del v[0-9]+|mantener del v[0-9]+)' elsereno-prompt.
 - **gocyclo>15 / funlen>40**: extraer helpers (patrón `applyXField`, `xStatefulChecks`).
 - **misspell**: ortografía británica (`synchronise`, no `synchronize`).
 Y recuerda: el job `context` exige `.context/STATE.md` <= 250 líneas (recorta entradas de ciclos cerrados viejos al añadir); PITF-056 para detectar em/en dashes de forma fiable; el repo tiene `commit.gpgsign=true`, así que un commit normal intenta firmar (usa `--no-gpg-sign` cuando quien firma es Daniel, no Claude).
-**Versión de golangci (crítico, PITF-031):** el job `audit` fija **v2.11.4** (`audit.yml`) mientras `ci` usa `latest`. Divergen, y v2.11.4 es más estricto: el 28-9-2026 marcó `G115 int->uint` en `uint(s.frames)` que `latest` (v2.13.2) y mi local NO marcaban, y `main` quedó con el `audit` en rojo tras un push ya firmado. **Lint local con la MISMA versión que el audit (v2.11.4)** antes de commitear código que vaya a `main`: `curl -sSfL .../golangci-lint/master/install.sh | sh -s -- -b /tmp/glci v2.11.4 && /tmp/glci/golangci-lint run ./...`. `ci` (latest) pasando NO garantiza que `audit` (v2.11.4) pase.
+**Versión de golangci (crítico, PITF-031): la divergencia va en LOS DOS SENTIDOS.** El job `audit` fija **v2.11.4** (`audit.yml`) mientras `ci` usa **`latest`**. No hay un "más estricto" fijo: cada versión caza cosas que la otra no.
+- **v2.11.4 > latest (28-9-2026):** v2.11.4 marcó `G115 int->uint` en `uint(s.frames)` que `latest` (v2.13.2) y mi local NO marcaban; `main` quedó con `audit` en rojo tras un push ya firmado.
+- **latest > v2.11.4 (29-9-2026):** al revés. Linté local con v2.11.4 (0 issues) y `audit` pasó, pero `ci` (`latest` = **v2.14.0**, publicado ese día) falló en el job `lint` con `unparam: putSymmetricHeader - b always receives nil` (`internal/protocols/opcua/wire/session.go`): un parámetro que TODOS los callers pasaban `nil`, que el `unparam` de v2.14.0 detecta y el de v2.11.4 no. Fix: quitar el parámetro inútil. `main` quedó con `ci` en rojo tras el push firmado.
+
+**Regla: antes de un push a `main`, lint con las DOS versiones.** Instalar ambas y correr las dos sobre `./...`:
+`curl -sSfL .../golangci-lint/master/install.sh | sh -s -- -b /tmp/glci2114 v2.11.4` (audit) y para `latest`, si el install.sh da checksum mismatch (pasó el 29-9 con v2.14.0), usar `GOBIN=/tmp/glciLatest go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`. Que una pase NO garantiza la otra, en ninguna dirección. Y `latest` se mueve: v2.13.2 el 28-9, v2.14.0 el 29-9.
 **Ver**: `.golangci.yml`, `.github/workflows/audit.yml` (pin v2.11.4), `scripts/context-check.sh`, `.context/_quickref.md`, 23-9 y 28-9-2026.
 
 ## Template para nueva entrada

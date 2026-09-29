@@ -84,8 +84,8 @@ func putByteString(b, data []byte) []byte {
 // putSymmetricHeader appends the MSG symmetric security header +
 // sequence header: SecureChannelId + TokenId + SequenceNumber +
 // RequestId (the 16-byte prefix every MSG body carries).
-func putSymmetricHeader(b []byte, channelID, tokenID, seqNum, reqID uint32) []byte {
-	b = putU32(b, channelID)
+func putSymmetricHeader(channelID, tokenID, seqNum, reqID uint32) []byte {
+	b := putU32(nil, channelID)
 	b = putU32(b, tokenID)
 	b = putU32(b, seqNum)
 	return putU32(b, reqID)
@@ -116,8 +116,7 @@ func putClientDescription(b []byte) []byte {
 // secure channel. clientNonce should be 32 random bytes (crypto/rand);
 // clientCertificate is null (SecurityPolicy#None).
 func EncodeCreateSessionRequest(channelID, tokenID, seqNum, reqID uint32, endpointURL, sessionName string, clientNonce []byte) []byte {
-	var b []byte
-	b = putSymmetricHeader(b, channelID, tokenID, seqNum, reqID)
+	b := putSymmetricHeader(channelID, tokenID, seqNum, reqID)
 	b = putFourByteNodeID(b, TypeIDCreateSessionRequest)
 	b = putRequestHeader(b, nullAuthToken)
 	// CreateSessionRequest body (Part 4 §5.6.2):
@@ -143,8 +142,7 @@ const anonymousIdentityTokenBinaryID uint16 = 321
 // (servers differ: "0", "anonymous", ...), so it must come from
 // GetEndpoints. All signatures are null (SecurityPolicy#None).
 func EncodeActivateSessionRequestAnonymous(channelID, tokenID, seqNum, reqID uint32, authToken []byte, policyID string) []byte {
-	var b []byte
-	b = putSymmetricHeader(b, channelID, tokenID, seqNum, reqID)
+	b := putSymmetricHeader(channelID, tokenID, seqNum, reqID)
 	b = putFourByteNodeID(b, TypeIDActivateSessionRequest)
 	b = putRequestHeader(b, authToken)
 	// ActivateSessionRequest body (Part 4 §5.6.3):
@@ -170,7 +168,7 @@ func EncodeActivateSessionRequestAnonymous(channelID, tokenID, seqNum, reqID uin
 // opc.tcp. (EncodeGetEndpointsRequest alone is the bare body for the HTTPS
 // binding.)
 func EncodeGetEndpointsRequestTCP(channelID, tokenID, seqNum, reqID uint32, endpointURL string) []byte {
-	b := putSymmetricHeader(nil, channelID, tokenID, seqNum, reqID)
+	b := putSymmetricHeader(channelID, tokenID, seqNum, reqID)
 	b = append(b, EncodeGetEndpointsRequest(endpointURL)...)
 	return wrap(MessageMessage, b)
 }

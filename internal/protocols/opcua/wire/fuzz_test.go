@@ -41,3 +41,24 @@ func FuzzCallRequestAllMethods(f *testing.F) {
 	f.Add([]byte{})
 	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = CallRequestAllMethods(b) })
 }
+
+// The Read/Browse walkers and the NodeId formatter also take
+// target-controlled bytes (the writeable-tag walk reads them from the
+// live server) and must never panic, hang or blow memory on malformed
+// input. The array-length caps + bounds-checked cursor are the guard.
+
+func FuzzParseReadResponse(f *testing.F) {
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = ParseReadResponse(b) })
+}
+
+func FuzzParseBrowseResponse(f *testing.F) {
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = ParseBrowseResponse(b) })
+}
+
+func FuzzNodeIDText(f *testing.F) {
+	f.Add([]byte{0x00, 0x55})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _ = NodeIDText(b) })
+}

@@ -49,7 +49,7 @@ type BrowseRef struct {
 // nodeToBrowse is the raw NodeId bytes (e.g. FourByteNodeID(85)); maxRefs
 // caps references per node (0 = server default).
 func EncodeBrowseRequestTCP(channelID, tokenID, seqNum, reqID uint32, authToken, nodeToBrowse []byte, maxRefs uint32) []byte {
-	b := putSymmetricHeader(nil, channelID, tokenID, seqNum, reqID)
+	b := putSymmetricHeader(channelID, tokenID, seqNum, reqID)
 	b = putFourByteNodeID(b, TypeIDBrowseRequest)
 	b = putRequestHeader(b, authToken)
 	// BrowseRequest body (Part 4 §5.8.2).

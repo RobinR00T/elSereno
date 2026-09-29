@@ -109,7 +109,7 @@ func putNullQualifiedName(b []byte) []byte {
 // secure channel. authToken is the AuthenticationToken from
 // CreateSessionResponse. Each target reads one attribute of one NodeId.
 func EncodeReadRequestTCP(channelID, tokenID, seqNum, reqID uint32, authToken []byte, targets []ReadTarget) []byte {
-	b := putSymmetricHeader(nil, channelID, tokenID, seqNum, reqID)
+	b := putSymmetricHeader(channelID, tokenID, seqNum, reqID)
 	b = putFourByteNodeID(b, TypeIDReadRequest)
 	b = putRequestHeader(b, authToken)
 	// ReadRequest body (Part 4 §5.10.2).
