@@ -47,3 +47,15 @@ func FuzzParseProtectionSZL(f *testing.F) {
 	f.Add([]byte{})
 	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.ParseProtectionSZL(b) })
 }
+
+func FuzzParseModuleIdent(f *testing.F) {
+	f.Add([]byte{0x32, 0x07, 0x00, 0x00, 0x11, 0x00, 0x00, 0x08, 0x00, 0x02})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.ParseModuleIdent(b) })
+}
+
+func FuzzParseComponentIdent(f *testing.F) {
+	f.Add([]byte{0x32, 0x07, 0x00, 0x00, 0x14, 0x00, 0x00, 0x08, 0x00, 0x02})
+	f.Add([]byte{})
+	f.Fuzz(func(_ *testing.T, b []byte) { _, _ = wire.ParseComponentIdent(b) })
+}
