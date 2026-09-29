@@ -38,9 +38,40 @@ ActivateSession encode + decode, all validated against a real captured
 `io.ReadWriter`). Idea from the `-probe-anon` check in the OT researcher
 Christopher D.'s `chrisdinozzi/opcua-recon`.
 
-Not yet built (backlog, `TODO-vNext.md`): the writeable-tag walk (Browse
-from `i=85` + Read `UserAccessLevel`) that flags nodes writeable by the
-anonymous user.
+## Writeable-tag walk (active recon, read-only)
+
+`elsereno opcua probe-write --target host:port` goes one step past
+`probe-anon`: it opens the anonymous session and then walks the address
+space to find what that stranger could actually change. Starting from
+ObjectsFolder (`i=85`) it browses forward HierarchicalReferences
+breadth-first, descending into Objects/Views, and for every Variable it
+meets it reads the `UserAccessLevel` attribute (id 18) and flags the ones
+carrying the `CurrentWrite` bit: process tags an anonymous client could
+write (a setpoint, a mode selector, an output).
+
+```
+probe-anon confirms:  a stranger can open a session.
+probe-write answers:  ...and here are the tags that stranger can write.
+```
+
+It is strictly read-only: it reads the `NodeClass` (id 2, from Browse) and
+`UserAccessLevel` (id 18) attributes, it never issues a Write. The walk is
+bounded by `--max-nodes` (default 500: nodes tracked + folders browsed) so a
+large or hostile address space cannot run away; when the cap is hit the
+result is marked truncated.
+
+The Browse + Read wire (`browse.go`, `read.go`, `nodeid.go`) and the walk
+client (`writeprobe.go`, `session_client.go`, which reuses the session
+established by `anonprobe.go`) live in `internal/protocols/opcua/`. Idea
+from the `-probe-write` check in the OT researcher Christopher D.'s
+`chrisdinozzi/opcua-recon`.
+
+**Validation caveat.** Unlike the session-establishment wire (validated byte
+for byte against a real captured `SecurityPolicy#None` session), the real
+captures available for this project carry no Browse or Read service. So the
+Browse/Read codec is grounded in OPC-UA Part 4 (services) + Part 6 (binary
+encoding) and validated by round-trip + spec-crafted response fixtures, not
+by real bytes. This is documented in each file and in the commit history.
 
 ## Default-build refusal posture
 
