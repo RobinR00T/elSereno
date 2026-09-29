@@ -163,3 +163,14 @@ func EncodeActivateSessionRequestAnonymous(channelID, tokenID, seqNum, reqID uin
 	b = putByteString(b, nil) // userTokenSignature.signature
 	return wrap(MessageMessage, b)
 }
+
+// EncodeGetEndpointsRequestTCP wraps the bare GetEndpointsRequest in a MSG
+// on an open secure channel (symmetric security + sequence header), so the
+// endpoint list, and the anonymous PolicyId inside it, can be read over
+// opc.tcp. (EncodeGetEndpointsRequest alone is the bare body for the HTTPS
+// binding.)
+func EncodeGetEndpointsRequestTCP(channelID, tokenID, seqNum, reqID uint32, endpointURL string) []byte {
+	b := putSymmetricHeader(nil, channelID, tokenID, seqNum, reqID)
+	b = append(b, EncodeGetEndpointsRequest(endpointURL)...)
+	return wrap(MessageMessage, b)
+}

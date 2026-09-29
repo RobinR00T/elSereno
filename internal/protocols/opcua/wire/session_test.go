@@ -78,6 +78,21 @@ func TestEncodeActivateSessionRequestAnonymous(t *testing.T) {
 	}
 }
 
+func TestEncodeGetEndpointsRequestTCP(t *testing.T) {
+	enc := wire.EncodeGetEndpointsRequestTCP(0x195f, 1, 2, 2, "opc.tcp://plc.test:4840")
+	h, err := wire.ParseHeader(enc[:wire.HeaderSize])
+	if err != nil || h.Type != wire.MessageMessage || int(h.Length) != len(enc) {
+		t.Fatalf("header: type=%q err=%v hlen=%d actual=%d", h.Type, err, h.Length, len(enc))
+	}
+	body := enc[wire.HeaderSize:]
+	if id, ok := wire.ServiceTypeID(body); !ok || id != wire.TypeIDGetEndpointsRequest {
+		t.Fatalf("TypeId = (%d,%t), want %d (GetEndpointsRequest)", id, ok, wire.TypeIDGetEndpointsRequest)
+	}
+	if !bytes.Contains(enc, []byte("opc.tcp://plc.test:4840")) {
+		t.Error("endpointURL not in encoded request")
+	}
+}
+
 func mustHexS(t *testing.T, s string) []byte {
 	t.Helper()
 	b, err := hex.DecodeString(s)
