@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OPC UA anonymous-access probe (`opcua probe-anon`, default build):**
+  active read-only recon that confirms whether an anonymous OPC UA
+  session actually opens, not just that a `SecurityMode=None` endpoint is
+  advertised. It drives the full handshake (HELLO -> OpenSecureChannel
+  None -> GetEndpoints for the anonymous PolicyId -> CreateSession ->
+  ActivateSession Anonymous) and reports `SessionOpened` when the final
+  ServiceResult is Good. Never reads or writes the address space. The
+  session-establishment wire (OPN/CreateSession/ActivateSession encode +
+  decode, anonymous PolicyId extraction) was built from scratch and
+  validated piece by piece against a real captured `SecurityPolicy#None`
+  session (parsers, and the end-to-end client, tested against real
+  captured responses). Idea from the `-probe-anon` check in
+  chrisdinozzi/opcua-recon. The writeable-tag walk (Browse + Read
+  UserAccessLevel) remains a backlog follow-up. See
+  `docs/protocols/opcua.md`.
 - **MQTT broker exposure probe (`mqtt` plugin, default build):** a
   read-only fingerprint on 1883 (8883 over TLS) for the dominant OT-to-IT
   / Unified-Namespace bus. It sends an anonymous MQTT 3.1.1 CONNECT and,

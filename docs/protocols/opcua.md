@@ -13,6 +13,35 @@ URL. Classifies the response as `ACK` (full server), `ERR`
 8-byte UA-TCP header parser is in
 `internal/protocols/opcua/wire/`.
 
+## Anonymous-access probe (active recon, read-only)
+
+`elsereno opcua probe-anon --target host:port` goes past the fingerprint:
+a `SecurityMode=None` endpoint only ADVERTISES anonymous access, so this
+actively confirms it by driving the full session handshake:
+
+```
+HELLO -> OpenSecureChannel(None) -> GetEndpoints -> CreateSession -> ActivateSession(Anonymous)
+```
+
+If the final `ServiceResult` is `Good`, a stranger can open a session on
+the server (`SessionOpened`). It reports whether the server is OPC UA,
+whether it advertises an Anonymous `UserTokenPolicy` (and its `PolicyId`,
+which varies per server: "0", "anonymous", ...), and whether the
+anonymous session actually opened. It is read-only: it never reads or
+writes the address space, only proves the session opens.
+
+The session-establishment wire (OPN(None) / CreateSession /
+ActivateSession encode + decode, all validated against a real captured
+`SecurityPolicy#None` session) is in `internal/protocols/opcua/wire/`
+(`session.go`, `response.go`); the client is
+`internal/protocols/opcua/anonprobe.go` (`ProbeAnonymousAccess`, over an
+`io.ReadWriter`). Idea from the `-probe-anon` check in the OT researcher
+Christopher D.'s `chrisdinozzi/opcua-recon`.
+
+Not yet built (backlog, `TODO-vNext.md`): the writeable-tag walk (Browse
+from `i=85` + Read `UserAccessLevel`) that flags nodes writeable by the
+anonymous user.
+
 ## Default-build refusal posture
 
 The default proxy parses each MSG chunk's service TypeID; any

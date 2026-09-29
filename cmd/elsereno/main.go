@@ -159,6 +159,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newProfinetCmd())
 	root.AddCommand(newGooseCmd())
 	root.AddCommand(newModbusCmd())
+	root.AddCommand(newOPCUACmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

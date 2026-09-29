@@ -8,12 +8,13 @@ token-budget: 320
 # Current state
 
 **2026-09-28 LinkedIn-inspired exposure probes** (from the OT researcher
-chrisdinozzi/opcua-recon; read-only/passive, defensive): 2 of 4 shipped.
-Done: Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B probe
-(`mqtt`, 1883/8883). Deferred (need a from-scratch ICS session client +
-live/capture validation): S7 SZL protection level, OPC UA anon-writeable
-tag. Validated refs saved in TODO-vNext.md (28-9 backlog). PITF-031 note:
-audit pins golangci v2.11.4, ci uses latest; lint local with v2.11.4.
+chrisdinozzi/opcua-recon; read-only, defensive): 3 of 4 shipped. Done:
+Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B probe
+(`mqtt`); OPC UA anonymous-access probe (`opcua probe-anon`, session wire
+built from scratch 29-9 + validated vs a real None pcap). Deferred: S7
+SZL protection level; OPC UA writeable-tag walk (Browse+Read
+UserAccessLevel). Refs + pcaps in TODO-vNext.md. PITF-031 note: audit
+pins golangci v2.11.4, ci uses latest; lint local with v2.11.4.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
