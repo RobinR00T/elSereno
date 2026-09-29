@@ -36,6 +36,48 @@ func TestEncodeOpenSecureChannelRequestNone(t *testing.T) {
 	}
 }
 
+func TestEncodeCreateSessionRequest(t *testing.T) {
+	enc := wire.EncodeCreateSessionRequest(0x195f, 1, 3, 3, "opc.tcp://plc.test:4840", "elsereno", make([]byte, 32))
+
+	h, err := wire.ParseHeader(enc[:wire.HeaderSize])
+	if err != nil || h.Type != wire.MessageMessage || int(h.Length) != len(enc) {
+		t.Fatalf("header: type=%q err=%v hlen=%d actual=%d", h.Type, err, h.Length, len(enc))
+	}
+	body := enc[wire.HeaderSize:]
+	if id, ok := wire.ServiceTypeID(body); !ok || id != wire.TypeIDCreateSessionRequest {
+		t.Fatalf("TypeId = (%d,%t), want %d (CreateSessionRequest)", id, ok, wire.TypeIDCreateSessionRequest)
+	}
+	if !bytes.Contains(enc, []byte("opc.tcp://plc.test:4840")) {
+		t.Error("endpointURL not in encoded request")
+	}
+	if !bytes.Contains(enc, []byte("elsereno")) {
+		t.Error("sessionName not in encoded request")
+	}
+}
+
+func TestEncodeActivateSessionRequestAnonymous(t *testing.T) {
+	authToken := []byte{0x01, 0x00, 0x7f, 0x19} // FourByte NodeId ns=0 id=0x197f
+	enc := wire.EncodeActivateSessionRequestAnonymous(0x195f, 1, 4, 4, authToken, "0")
+
+	h, err := wire.ParseHeader(enc[:wire.HeaderSize])
+	if err != nil || h.Type != wire.MessageMessage || int(h.Length) != len(enc) {
+		t.Fatalf("header: type=%q err=%v hlen=%d actual=%d", h.Type, err, h.Length, len(enc))
+	}
+	body := enc[wire.HeaderSize:]
+	if id, ok := wire.ServiceTypeID(body); !ok || id != wire.TypeIDActivateSessionRequest {
+		t.Fatalf("TypeId = (%d,%t), want %d (ActivateSessionRequest)", id, ok, wire.TypeIDActivateSessionRequest)
+	}
+	// authToken must be echoed in the RequestHeader (right after the TypeId).
+	if !bytes.Contains(body[20:28], authToken) {
+		t.Errorf("authToken not echoed in RequestHeader: % x", body[20:28])
+	}
+	// AnonymousIdentityToken ExtensionObject TypeId: FourByte ns=0 id=321
+	// = 01 00 41 01, followed by encoding 0x01.
+	if !bytes.Contains(enc, []byte{0x01, 0x00, 0x41, 0x01, 0x01}) {
+		t.Error("AnonymousIdentityToken (id 321) ExtensionObject not encoded")
+	}
+}
+
 func mustHexS(t *testing.T, s string) []byte {
 	t.Helper()
 	b, err := hex.DecodeString(s)
