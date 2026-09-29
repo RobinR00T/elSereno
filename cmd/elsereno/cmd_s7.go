@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,13 @@ import (
 
 	"local/elsereno/internal/protocols/s7"
 )
+
+// emitS7JSON writes v as indented JSON to the command's stdout.
+func emitS7JSON(cmd *cobra.Command, v any) error {
+	enc := json.NewEncoder(cmd.OutOrStdout())
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
 
 // newS7Cmd is the verb tree for S7comm active recon (read-only).
 //
@@ -29,6 +37,7 @@ func newS7Cmd() *cobra.Command {
 func newS7ProbeCmd() *cobra.Command {
 	var target string
 	var timeout time.Duration
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Full S7 CPU posture in one shot: identity + firmware + protection (read-only)",
@@ -49,15 +58,16 @@ Examples:
 			if target == "" {
 				return errors.New("--target host:port is required")
 			}
-			return runS7Probe(cmd, target, timeout)
+			return runS7Probe(cmd, target, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Second, "overall probe timeout")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
 	return cmd
 }
 
-func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration) error {
+func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
@@ -72,6 +82,9 @@ func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration) error 
 	res, err := s7.ProbePosture(ctx, conn)
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return emitS7JSON(cmd, res)
 	}
 	cmd.Printf("S7/COTP server:           %t\n", res.IsS7)
 	cmd.Printf("Setup Communication:      %t\n", res.SetupOK)
@@ -102,6 +115,7 @@ func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration) error 
 func newS7ProbeProtectionCmd() *cobra.Command {
 	var target string
 	var timeout time.Duration
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "probe-protection",
 		Short: "Read a Siemens S7 CPU's protection level (read-only)",
@@ -129,17 +143,19 @@ Examples:
 			if target == "" {
 				return errors.New("--target host:port is required")
 			}
-			return runS7ProbeProtection(cmd, target, timeout)
+			return runS7ProbeProtection(cmd, target, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
 	return cmd
 }
 
 func newS7ProbeIdentityCmd() *cobra.Command {
 	var target string
 	var timeout time.Duration
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "probe-identity",
 		Short: "Read a Siemens S7 CPU's exact model + firmware (read-only)",
@@ -167,15 +183,16 @@ Examples:
 			if target == "" {
 				return errors.New("--target host:port is required")
 			}
-			return runS7ProbeIdentity(cmd, target, timeout)
+			return runS7ProbeIdentity(cmd, target, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
 	return cmd
 }
 
-func runS7ProbeIdentity(cmd *cobra.Command, target string, timeout time.Duration) error {
+func runS7ProbeIdentity(cmd *cobra.Command, target string, timeout time.Duration, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
@@ -190,6 +207,9 @@ func runS7ProbeIdentity(cmd *cobra.Command, target string, timeout time.Duration
 	res, err := s7.ProbeIdentity(ctx, conn)
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return emitS7JSON(cmd, res)
 	}
 	cmd.Printf("S7/COTP server:           %t\n", res.IsS7)
 	cmd.Printf("Setup Communication:      %t\n", res.SetupOK)
@@ -212,7 +232,7 @@ func printIdentField(cmd *cobra.Command, label, value string) {
 	cmd.Printf("%-26s%s\n", label+":", value)
 }
 
-func runS7ProbeProtection(cmd *cobra.Command, target string, timeout time.Duration) error {
+func runS7ProbeProtection(cmd *cobra.Command, target string, timeout time.Duration, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
@@ -227,6 +247,9 @@ func runS7ProbeProtection(cmd *cobra.Command, target string, timeout time.Durati
 	res, err := s7.ProbeProtection(ctx, conn)
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return emitS7JSON(cmd, res)
 	}
 	cmd.Printf("S7/COTP server:           %t\n", res.IsS7)
 	cmd.Printf("Setup Communication:      %t\n", res.SetupOK)

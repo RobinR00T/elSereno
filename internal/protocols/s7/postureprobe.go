@@ -12,21 +12,21 @@ import (
 // without a password (protection). It is the one-shot report an auditor
 // runs first. Read-only recon.
 type PostureResult struct {
-	IsS7    bool
-	SetupOK bool
+	IsS7    bool `json:"is_s7"`
+	SetupOK bool `json:"setup_ok"`
 
 	// Identity (SZL 0x0011 + 0x001C).
-	OrderNumber      string
-	Firmware         string
-	ModuleType       string
-	SerialNumber     string
-	StationName      string
-	PlantDesignation string
+	OrderNumber      string `json:"order_number"`
+	Firmware         string `json:"firmware"`
+	ModuleType       string `json:"module_type"`
+	SerialNumber     string `json:"serial_number"`
+	StationName      string `json:"station_name"`
+	PlantDesignation string `json:"plant_designation"`
 
 	// Protection (SZL 0x0132 index 4).
-	ProtectionRead bool
-	Protection     wire.ProtectionRecord
-	Exposed        bool
+	ProtectionRead bool                  `json:"protection_read"`
+	Protection     wire.ProtectionRecord `json:"protection"`
+	Exposed        bool                  `json:"exposed"`
 }
 
 // ProbePosture drives one S7 handshake and reads identity + protection in a

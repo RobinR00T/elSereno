@@ -61,16 +61,16 @@ func BuildReadSZLRequest(pduRef, szlID, szlIndex uint16) []byte {
 type ProtectionRecord struct {
 	// KeySwitchLevel is the protection level set with the mode-selector
 	// key switch (0=undefined, 1/2/3).
-	KeySwitchLevel uint16
+	KeySwitchLevel uint16 `json:"key_switch_level"`
 	// ParamLevel is the parameter-assigned protection level from the
 	// hardware configuration (0=none/undefined, 1/2/3).
-	ParamLevel uint16
+	ParamLevel uint16 `json:"param_level"`
 	// RealLevel is the CPU's effective protection level (1/2/3): the one
 	// that actually governs access. The headline field.
-	RealLevel uint16
+	RealLevel uint16 `json:"real_level"`
 	// ModeSelector is the key-switch position (bart_sch): 1=RUN, 2=RUN_P,
 	// 3=STOP, 4=MRES; 0=undefined / no physical switch.
-	ModeSelector uint16
+	ModeSelector uint16 `json:"mode_selector"`
 }
 
 // szlBlockHeaderLen is SZL-ID(2)+index(2)+partial-list-length(2)+count(2).

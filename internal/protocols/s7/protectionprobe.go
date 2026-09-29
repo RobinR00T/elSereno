@@ -21,19 +21,19 @@ const (
 type ProtectionResult struct {
 	// IsS7 is true once the PLC answered the COTP Connection Request with
 	// a Connection Confirm (this port speaks TPKT/COTP, almost always S7).
-	IsS7 bool
+	IsS7 bool `json:"is_s7"`
 	// SetupOK is true once S7 Setup Communication succeeded.
-	SetupOK bool
+	SetupOK bool `json:"setup_ok"`
 	// ProtectionRead is true when the Read SZL 0x0132/4 returned a
 	// protection record. A CPU can succeed at Setup yet refuse the SZL
 	// read (itself a sign of a locked-down CPU), leaving this false.
-	ProtectionRead bool
+	ProtectionRead bool `json:"protection_read"`
 	// Record is the decoded protection record (valid when ProtectionRead).
-	Record wire.ProtectionRecord
+	Record wire.ProtectionRecord `json:"record"`
 	// Exposed is the headline: the CPU's effective protection level is 0
 	// or 1, i.e. no read/write password is enforced, so a stranger can
 	// write or control it (subject to the key-switch position).
-	Exposed bool
+	Exposed bool `json:"exposed"`
 }
 
 // ProbeProtection drives the S7 handshake over conn and reads the CPU

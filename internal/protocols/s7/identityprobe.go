@@ -15,18 +15,18 @@ const (
 // are empty when the CPU did not return them. It is read-only recon.
 type IdentityResult struct {
 	// IsS7 / SetupOK mirror the handshake (see ProtectionResult).
-	IsS7    bool
-	SetupOK bool
+	IsS7    bool `json:"is_s7"`
+	SetupOK bool `json:"setup_ok"`
 
 	// From SZL 0x0011 (Module Identification):
-	OrderNumber string // MLFB, e.g. "6ES7 151-8AB01-0AB0"
-	Firmware    string // e.g. "V3.2.6"
+	OrderNumber string `json:"order_number"` // MLFB, e.g. "6ES7 151-8AB01-0AB0"
+	Firmware    string `json:"firmware"`     // e.g. "V3.2.6"
 
 	// From SZL 0x001C (Component Identification):
-	ModuleType       string
-	SerialNumber     string
-	StationName      string
-	PlantDesignation string
+	ModuleType       string `json:"module_type"`
+	SerialNumber     string `json:"serial_number"`
+	StationName      string `json:"station_name"`
+	PlantDesignation string `json:"plant_designation"`
 }
 
 // ProbeIdentity drives the S7 handshake and reads the two identity SZL
