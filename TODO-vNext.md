@@ -15,10 +15,10 @@
 ## Backlog 28-9-2026: S7 + OPC UA exposure (refs validadas, sin construir)
 
 Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
-entregaron 2 de 4 (monitor Modbus, probe MQTT/Sparkplug). Estas 2 quedan
-como backlog: requieren un cliente de sesión ICS entero desde cero y hay
-que validar el wire contra una captura real o un objetivo vivo antes de
-fiarse (PITF-059). Referencias ya reunidas para no re-investigar:
+entregaron **4 de 4**: monitor Modbus, probe MQTT/Sparkplug, OPC UA
+anonymous-access (`opcua probe-anon`, 29-9) y OPC UA writeable-tag walk
+(`opcua probe-write`, 29-9). **Queda solo el S7 SZL de abajo.** Referencias
+ya reunidas para no re-investigar:
 
 - **S7: nivel de protección del CPU (misconfiguración raíz de "escribir
   tags sin auth").** Tras COTP CR/CC + S7comm Setup Communication, hacer
@@ -33,17 +33,18 @@ fiarse (PITF-059). Referencias ya reunidas para no re-investigar:
   para en el COTP Connection Confirm; falta el wire de Setup + Userdata
   Read SZL (y su parser, validado contra captura, no contra fixture
   propio).
-- **OPC UA: tags escribibles por anónimo (read-only).** Tras OPN
-  (SecurityPolicy#None) + CreateSession + ActivateSession(anónimo),
-  navegar desde `i=85` por HierarchicalReferences y leer los atributos
-  NodeClass(2), UserAccessLevel(18), BrowseName(3), Value(13). Un nodo es
-  "escribible por anónimo" si NodeClass==Variable(2) y UserAccessLevel
-  tiene el bit CurrentWrite (0x02). Nunca escribe. Fuente: repo
-  `chrisdinozzi/opcua-recon` (herramienta Go MIT, funcional). Hueco: el
-  `wire` de opcua ya tiene GetEndpoints + parseo de NodeId + cuerpos MSG
-  (write-gate ofensivo); falta el cliente OPN(None)/CreateSession/
-  ActivateSession/Browse/Read. Solo aplica a endpoints None (que son los
-  expuestos). Validar contra un servidor UA vivo antes de fiarse.
+- **OPC UA: tags escribibles por anónimo (read-only). [HECHO 29-9-2026,
+  `opcua probe-write`; commits locales sin firmar].** Tras OPN
+  (SecurityPolicy#None) + CreateSession + ActivateSession(anónimo), navega
+  desde `i=85` por HierarchicalReferences (BFS acotado por `--max-nodes`) y
+  lee NodeClass(2, vía Browse) + UserAccessLevel(18). Marca "escribible por
+  anónimo" si NodeClass==Variable(2) y UserAccessLevel tiene CurrentWrite
+  (0x02). Nunca escribe. Cliente: `writeprobe.go` + `session_client.go`
+  (reusa el handshake de `anonprobe.go`); wire: `browse.go`/`read.go`/
+  `nodeid.go`. Caveat de validación: no hay pcap real con Browse/Read (el
+  None de ITI solo trae sesión + Call), así que ese codec va fundamentado
+  en Part 4+6 y validado por round-trip/fixture/net.Pipe, no contra bytes
+  reales (documentado en `docs/protocols/opcua.md` y cada fichero).
 - **Nota (28-9-2026):** ambos se pararon porque construir el cliente de
   sesión ICS activo disparó el clasificador de seguridad. Retomar en
   trozos pequeños y neutros (parser del registro / decoder de

@@ -73,7 +73,7 @@ func newOPCUAProbeWriteCmd() *cobra.Command {
 opens, walks the address space from ObjectsFolder (i=85) over forward
 hierarchical references. For every Variable it meets it reads the
 UserAccessLevel attribute and flags the ones the anonymous user can WRITE
-(the AccessLevel CurrentWrite bit) — the process tags a stranger could
+(the AccessLevel CurrentWrite bit): the process tags a stranger could
 change (a setpoint, a mode selector, an output).
 
 It is strictly read-only: it reads the NodeClass + UserAccessLevel
