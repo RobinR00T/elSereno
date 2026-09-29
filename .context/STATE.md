@@ -7,17 +7,17 @@ token-budget: 320
 
 # Current state
 
-**2026-09-28/29 LinkedIn-inspired exposure probes** (from the OT researcher
-chrisdinozzi/opcua-recon; read-only, defensive): 4 of 4 shipped. Done:
-Modbus passive monitor (`modbus monitor`); MQTT/Sparkplug B probe
-(`mqtt`); OPC UA anonymous-access probe (`opcua probe-anon`, session wire
-built from scratch 29-9 + validated vs a real None pcap); OPC UA
-writeable-tag walk (`opcua probe-write`, 29-9: Browse from i=85 + Read
-UserAccessLevel, flags CurrentWrite tags; Browse/Read codec spec-grounded
-+ round-trip/fixture/net.Pipe-validated, no real Browse/Read pcap exists).
-Local unsigned, pending Daniel sign (4 commits: Read/Browse/walk+CLI/docs). Backlog:
-S7 SZL protection level (TODO-vNext.md). PITF-031/063: audit pins golangci
-v2.11.4, ci uses latest; lint local with v2.11.4.
+**2026-09-28/29 OT-exposure probes** (from chrisdinozzi/opcua-recon;
+read-only, defensive): batch + S7 protection probe DONE, backlog empty.
+Signed on main: Modbus passive monitor (`modbus monitor`), MQTT/Sparkplug B
+(`mqtt`), OPC UA anonymous-access (`opcua probe-anon`, session wire vs real
+None pcap), OPC UA writeable-tag walk (`opcua probe-write`: Browse i=85 +
+Read UserAccessLevel; codec spec-grounded, no real Browse/Read pcap). Local
+unsigned: S7 CPU protection probe (`s7 probe-protection`, 29-9: COTP ->
+Setup -> Read SZL 0x0132/4, flags effective level 0/1 = writable w/o
+password; validated BYTE FOR BYTE vs real pcap s7comm_reading_plc_status).
+PITF-031/063: audit pins golangci v2.11.4, ci uses latest (v2.14.0); they
+diverge BOTH ways, lint with both before a main push.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one

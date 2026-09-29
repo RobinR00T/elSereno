@@ -15,24 +15,24 @@
 ## Backlog 28-9-2026: S7 + OPC UA exposure (refs validadas, sin construir)
 
 Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
-entregaron **4 de 4**: monitor Modbus, probe MQTT/Sparkplug, OPC UA
-anonymous-access (`opcua probe-anon`, 29-9) y OPC UA writeable-tag walk
-(`opcua probe-write`, 29-9). **Queda solo el S7 SZL de abajo.** Referencias
-ya reunidas para no re-investigar:
+entregaron **5 de 5, backlog vacío**: monitor Modbus, probe MQTT/Sparkplug,
+OPC UA anonymous-access (`opcua probe-anon`, 29-9), OPC UA writeable-tag
+walk (`opcua probe-write`, 29-9) y **S7 nivel de protección del CPU
+(`s7 probe-protection`, 29-9)**.
 
-- **S7: nivel de protección del CPU (misconfiguración raíz de "escribir
-  tags sin auth").** Tras COTP CR/CC + S7comm Setup Communication, hacer
-  Userdata Read SZL (grupo CPU-functions `0x04`, subfunción Read SZL
-  `0x01`), SZL-ID `0x0132` índice `0x0004`. El registro de respuesta son
-  26 bytes: index, key, param, real, bart_sch, crst_wrst, ken_f, ken_rel,
-  ken_ver1_hw, ken_ver2_hw, ken_ver1_awp, ken_ver2_awp, res (todos words
-  de 2 bytes). `bart_sch` = selector de modo (1=RUN, 2=RUN_P, 3=STOP); el
-  nivel de protección efectivo está en key/param/real (confirmar el
-  mapeo exacto 1=abierto/2/3 contra una captura). Fuente: dissector
-  Wireshark `packet-s7comm_szl_ids.c`. Hueco en elSereno: el probe s7 hoy
-  para en el COTP Connection Confirm; falta el wire de Setup + Userdata
-  Read SZL (y su parser, validado contra captura, no contra fixture
-  propio).
+- **S7: nivel de protección del CPU. [HECHO 29-9-2026, `s7 probe-protection`;
+  commits locales sin firmar 93aa331/dae10c5].** COTP CR/CC + Setup
+  Communication + Userdata Read SZL (grupo CPU-functions `0x04`, subfunción
+  `0x01`), SZL-ID `0x0132` índice `0x0004`. Registro: words index, key,
+  param, real, bart_sch, ... El probe reporta el nivel efectivo (`real`:
+  1=sin password, 2=write-protected, 3=read+write protected) + el selector
+  de modo (`bart_sch`: 1=RUN, 2=RUN-P, 3=STOP, 4=MRES). Marca **expuesto**
+  si real es 0/1. **Validado BYTE A BYTE contra captura real**
+  (`s7comm_reading_plc_status.pcap`, ITI): Setup + Read SZL request +
+  respuesta de protección (key=1,param=0,real=1,bart_sch=RUN-P) casan con
+  los bytes reales, cruzado con el dissector `packet-s7comm_szl_ids.c`.
+  Wire: `internal/protocols/s7/wire/{setup,szl}.go`; cliente:
+  `internal/protocols/s7/protectionprobe.go`.
 - **OPC UA: tags escribibles por anónimo (read-only). [HECHO 29-9-2026,
   `opcua probe-write`; commits locales sin firmar].** Tras OPN
   (SecurityPolicy#None) + CreateSession + ActivateSession(anónimo), navega
