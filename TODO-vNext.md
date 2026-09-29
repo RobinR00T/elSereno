@@ -80,6 +80,36 @@ fiarse (PITF-059). Referencias ya reunidas para no re-investigar:
   serviceResult final es Good. Luego, como incremento aparte, Browse desde
   i=85 + Read de UserAccessLevel para el walk de tags escribibles.
 
+### Estado 29-9-2026: WIRE DE SESIÓN COMPLETO Y VALIDADO
+
+Todo el codec de wire de sesión está en `main` (commits `a9c451a`,
+`ba169c5`, `5bb895b`, `d146c7b`, `4e9cc09`), cada pieza validada contra la
+captura None real (no fixtures propios): `internal/protocols/opcua/wire/`
+- Encoders: `EncodeOpenSecureChannelRequestNone`, `EncodeCreateSessionRequest`,
+  `EncodeActivateSessionRequestAnonymous`, `EncodeGetEndpointsRequest` (bare)
+  + `EncodeHello` (ya existía). Helpers `putRequestHeader`/`putSymmetricHeader`/
+  `putDouble`/`putByteString`/`putClientDescription`.
+- Decoders: `ParseOpenSecureChannelResponse` (ChannelId+TokenId),
+  `ParseCreateSessionAuthToken`, `ResponseServiceResult`, y GetEndpoints ahora
+  expone `EndpointDescription.AllowsAnonymous`+`AnonymousPolicyID`.
+- Fixtures reales como testdata (`testdata/getendpoints_resp_none.bin`) y hex
+  inline en los tests.
+
+**Solo queda ensamblar (mecánico, no wire nuevo):**
+1. `EncodeGetEndpointsRequestTCP` (wrap del bare GetEndpoints con symmetric
+   header, para pedir endpoints sobre el canal y sacar el policyId anónimo).
+2. Cliente activo `ProbeAnonymousAccess(ctx, conn io.ReadWriter, endpointURL)`
+   en `internal/protocols/opcua/`: HELLO/ACK -> OPN(None) ->
+   ParseOpenSecureChannelResponse -> GetEndpoints (policyId anón) ->
+   CreateSession -> ParseCreateSessionAuthToken -> ActivateSession(anón) ->
+   `ResponseServiceResult`==Good => acceso anónimo confirmado. Toma un
+   io.ReadWriter para testearlo con un servidor falso que reproduzca las
+   respuestas REALES capturadas (msg_ACK/OPN_8/431/464/470.bin del scratchpad,
+   URLs en este backlog).
+3. Cablear en el plugin opcua (o un verbo) + finding + docs.
+Luego el incremento aparte: Browse i=85 + Read UserAccessLevel (tags
+escribibles).
+
 Complementa a `TODO.md` (la checklist original del brief — closed
 tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
 ideas de features futuras, superficies de ataque a añadir y
