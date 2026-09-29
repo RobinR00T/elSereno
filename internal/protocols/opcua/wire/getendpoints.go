@@ -72,6 +72,12 @@ type EndpointDescription struct {
 	SecurityPolicyURI   string
 	TransportProfileURI string
 	SecurityLevel       byte
+	// AllowsAnonymous is true when the endpoint advertises an Anonymous
+	// UserTokenPolicy; AnonymousPolicyID is that policy's PolicyId (needed
+	// to ActivateSession as the anonymous user, since it varies per
+	// server: "0", "anonymous", ...).
+	AllowsAnonymous   bool
+	AnonymousPolicyID string
 }
 
 // ---- encoding ------------------------------------------------------
@@ -414,13 +420,18 @@ func (c *cur) applicationDescription() (appURI, prodURI, appName string) {
 	return appURI, prodURI, appName
 }
 
-// userTokenPolicy skips one UserTokenPolicy (Part 4 §7.42).
-func (c *cur) userTokenPolicy() {
-	_ = c.str() // policyId
-	c.skip(4)   // tokenType enum
+// userTokenTypeAnonymous is UserTokenType Anonymous (Part 4 §7.36).
+const userTokenTypeAnonymous uint32 = 0
+
+// userTokenPolicy reads one UserTokenPolicy (Part 4 §7.42) and returns
+// its PolicyId + TokenType.
+func (c *cur) userTokenPolicy() (policyID string, tokenType uint32) {
+	policyID = c.str() // policyId
+	tokenType = c.u32()
 	_ = c.str() // issuedTokenType
 	_ = c.str() // issuerEndpointUrl
 	_ = c.str() // securityPolicyUri
+	return policyID, tokenType
 }
 
 // endpointDescription reads one EndpointDescription (Part 4 §7.10).
@@ -433,7 +444,11 @@ func (c *cur) endpointDescription() EndpointDescription {
 	e.SecurityPolicyURI = c.str()
 	n := c.arrayLen() // userIdentityTokens []UserTokenPolicy
 	for i := int32(0); i < n && !c.fail(); i++ {
-		c.userTokenPolicy()
+		policyID, tokenType := c.userTokenPolicy()
+		if tokenType == userTokenTypeAnonymous && !e.AllowsAnonymous {
+			e.AllowsAnonymous = true
+			e.AnonymousPolicyID = policyID
+		}
 	}
 	e.TransportProfileURI = c.str()
 	e.SecurityLevel = c.u8()
