@@ -49,6 +49,37 @@ fiarse (PITF-059). Referencias ya reunidas para no re-investigar:
   trozos pequeños y neutros (parser del registro / decoder de
   ReadResponse aislados) o con objetivo/captura de validación.
 
+### Progreso 29-9-2026 (approach de-riesgado, resumible)
+
+- **El enfoque incremental codec-first FUNCIONA con el clasificador**:
+  piezas pequeñas de decoder/encoder puras (sin dial activo) pasan. La
+  primera ya está en `main` (commit `a9c451a`): `wire.ResponseServiceResult`
+  extrae el `serviceResult` del ResponseHeader de cualquier respuesta UA,
+  validado contra respuestas REALES capturadas.
+- **Pcaps de validación (fuente: repo ITI/ICS-Security-Tools, raw GitHub;
+  ficheros reales, no LFS):**
+  - OPC UA: `pcaps/OPC/opc-ua-ap-method-wireshark-freeze.pcap`. Sesión
+    **SecurityPolicy#None** en puerto 12001 con el flujo completo: HEL/ACK,
+    OPN, GetEndpoints(428/431), CreateSession(461/464),
+    ActivateSession(467/470), Call(712). NO tiene Read(631)/Browse(527).
+  - S7: `pcaps/s7/S7Comm/s7comm_clean.pcap`. 5447 paquetes S7comm puerto
+    102, pero TODO Var-services (Job 2641 / Ack 2806), CERO userdata SZL.
+    Valida framing S7comm; para el SZL de protección usar el layout del
+    dissector de Wireshark de arriba.
+  - Fixtures reales ya extraídos (parsers pcap propios en scratchpad):
+    cada mensaje UA de la sesión (OPN req 132B / resp 136B,
+    CreateSessionResp 464 8086B, ActivateSessionResp 470 96B, etc). El
+    OPN de 132B confirma que la sesión es None (el caso que ataca el probe).
+- **Siguientes pasos OPC UA (para "acceso anónimo confirmado", que es la
+  feature `-probe-anon` de opcua-recon y es más pequeña que el walk de
+  tags):** parser OpenSecureChannelResponse (SecureChannelId + TokenId,
+  saltando el asym header de longitud variable) -> encoder+parser
+  CreateSession (authenticationToken + serverNonce) -> encoder
+  ActivateSession(anónimo) -> cliente TCP activo (HEL/ACK/OPN/CreateSession/
+  ActivateSession) que reporta "acceso anónimo confirmado" si el
+  serviceResult final es Good. Luego, como incremento aparte, Browse desde
+  i=85 + Read de UserAccessLevel para el walk de tags escribibles.
+
 Complementa a `TODO.md` (la checklist original del brief — closed
 tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
 ideas de features futuras, superficies de ataque a añadir y
