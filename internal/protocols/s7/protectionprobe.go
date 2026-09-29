@@ -55,14 +55,10 @@ func ProbeProtection(ctx context.Context, conn io.ReadWriter) (ProtectionResult,
 	}
 
 	// UserData Read SZL 0x0132 index 4 (CPU protection).
-	pdu, ok, err := readSZL(conn, szlPDURef, wire.SZLIDProtection, wire.SZLIndexProtection)
+	rec, ok, err := readProtectionRecord(conn)
 	if err != nil {
 		return res, err
 	}
-	if !ok {
-		return res, nil
-	}
-	rec, ok := wire.ParseProtectionSZL(pdu)
 	if !ok {
 		return res, nil // CPU refused/empty SZL read (SetupOK stays a useful signal)
 	}

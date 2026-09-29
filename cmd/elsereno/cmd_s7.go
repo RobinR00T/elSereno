@@ -20,9 +20,83 @@ func newS7Cmd() *cobra.Command {
 		Use:   "s7",
 		Short: "S7comm active recon (read-only): read the CPU protection level",
 	}
+	cmd.AddCommand(newS7ProbeCmd())
 	cmd.AddCommand(newS7ProbeProtectionCmd())
 	cmd.AddCommand(newS7ProbeIdentityCmd())
 	return cmd
+}
+
+func newS7ProbeCmd() *cobra.Command {
+	var target string
+	var timeout time.Duration
+	cmd := &cobra.Command{
+		Use:   "probe",
+		Short: "Full S7 CPU posture in one shot: identity + firmware + protection (read-only)",
+		Long: `Reads a Siemens S7 CPU's full exposure posture in a single
+connection: what it is (order number, firmware, module type, serial) and
+whether it accepts writes/control without a password (protection level).
+Combines probe-identity and probe-protection over one handshake:
+
+  COTP CR -> Setup -> Read SZL 0x0011 -> 0x001C -> 0x0132/4
+
+Strictly read-only. The wire is validated byte for byte against a real
+captured S7-300 session.
+
+Examples:
+
+  elsereno s7 probe --target plc.example:102`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if target == "" {
+				return errors.New("--target host:port is required")
+			}
+			return runS7Probe(cmd, target, timeout)
+		},
+	}
+	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
+	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Second, "overall probe timeout")
+	return cmd
+}
+
+func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
+	defer cancel()
+
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", target)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", target, err)
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	res, err := s7.ProbePosture(ctx, conn)
+	if err != nil {
+		return err
+	}
+	cmd.Printf("S7/COTP server:           %t\n", res.IsS7)
+	cmd.Printf("Setup Communication:      %t\n", res.SetupOK)
+	if !res.SetupOK {
+		return nil
+	}
+	cmd.Println("Identity:")
+	printIdentField(cmd, "  Order number (MLFB)", res.OrderNumber)
+	printIdentField(cmd, "  Firmware version", res.Firmware)
+	printIdentField(cmd, "  Module type", res.ModuleType)
+	printIdentField(cmd, "  Serial number", res.SerialNumber)
+	printIdentField(cmd, "  Station name", res.StationName)
+	printIdentField(cmd, "  Plant designation", res.PlantDesignation)
+	cmd.Println("Protection:")
+	if !res.ProtectionRead {
+		cmd.Println("  Protection SZL:         not readable (CPU refused or does not expose it)")
+		return nil
+	}
+	cmd.Printf("  Effective level:        %s\n", s7.ProtectionLevelText(res.Protection.RealLevel))
+	cmd.Printf("  Mode selector:          %s\n", s7.ModeSelectorText(res.Protection.ModeSelector))
+	if res.Exposed {
+		cmd.Println("[!] EXPOSURE: the CPU enforces no read/write password (effective level 0/1). " +
+			"A stranger can write tags or control the PLC, subject to the key switch.")
+	}
+	return nil
 }
 
 func newS7ProbeProtectionCmd() *cobra.Command {

@@ -3,8 +3,6 @@ package s7
 import (
 	"context"
 	"io"
-
-	"local/elsereno/internal/protocols/s7/wire"
 )
 
 // pduRefs for the two identity SZL reads (opaque, echoed by the PLC).
@@ -48,70 +46,21 @@ func ProbeIdentity(ctx context.Context, conn io.ReadWriter) (IdentityResult, err
 	if err != nil || !setupOK {
 		return res, err
 	}
-	if err := res.applyModuleIdent(conn); err != nil {
+
+	mi, err := readModuleIdentInfo(conn)
+	if err != nil {
 		return res, err
 	}
-	if err := res.applyComponentIdent(conn); err != nil {
+	res.OrderNumber = mi.orderNumber
+	res.Firmware = mi.firmware
+
+	ci, err := readComponentIdentInfo(conn)
+	if err != nil {
 		return res, err
 	}
+	res.ModuleType = ci.moduleType
+	res.SerialNumber = ci.serialNumber
+	res.StationName = ci.stationName
+	res.PlantDesignation = ci.plantDesignation
 	return res, nil
-}
-
-// applyModuleIdent reads SZL 0x0011 and fills the order number + firmware.
-// A read/parse miss is not an error (the field stays empty); only a
-// transport error propagates.
-func (res *IdentityResult) applyModuleIdent(conn io.ReadWriter) error {
-	pdu, ok, err := readSZL(conn, identPDURefModule, wire.SZLIDModuleIdent, 0)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return nil
-	}
-	recs, ok := wire.ParseModuleIdent(pdu)
-	if !ok {
-		return nil
-	}
-	for _, r := range recs {
-		switch r.Index {
-		case wire.ModuleIndexOrderNumber:
-			if res.OrderNumber == "" {
-				res.OrderNumber = r.MLFB
-			}
-		case wire.ModuleIndexFirmware:
-			if r.Version != "" {
-				res.Firmware = r.Version
-			}
-		}
-	}
-	return nil
-}
-
-// applyComponentIdent reads SZL 0x001C and fills the module type, serial,
-// station name and plant designation.
-func (res *IdentityResult) applyComponentIdent(conn io.ReadWriter) error {
-	pdu, ok, err := readSZL(conn, identPDURefComp, wire.SZLIDComponentIdent, 0)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return nil
-	}
-	recs, ok := wire.ParseComponentIdent(pdu)
-	if !ok {
-		return nil
-	}
-	for _, r := range recs {
-		switch r.Index {
-		case wire.ComponentIndexModuleType:
-			res.ModuleType = r.Text
-		case wire.ComponentIndexSerial:
-			res.SerialNumber = r.Text
-		case wire.ComponentIndexStationName:
-			res.StationName = r.Text
-		case wire.ComponentIndexPlantDesig:
-			res.PlantDesignation = r.Text
-		}
-	}
-	return nil
 }
