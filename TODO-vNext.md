@@ -12,6 +12,30 @@
 > passive (gopacket + CAP_NET_RAW); el camino de ESCRITURA de OPC UA
 > HTTPS (solo se entregó el fingerprint read-only).
 
+## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
+
+Del draft NIST SP 800-82 r4 (Initial Public Draft, sept-2026), mapeado en
+`docs/standards/nist-sp800-82r4.md`. elSereno ya cubre la vulnerabilidad de
+red #1 ("OT protocols have no authentication", Table 16) con los probes de
+exposición S7/OPC UA/Modbus. Detecciones que el draft pide y elSereno puede
+añadir:
+
+- **[HECHO 30-9] Finding de protocolo en claro** (Table 16: "protocols used
+  in plaintext: telnet, FTP, HTTP, NFS"): marcar servicios OT en texto claro.
+- **Chequeo de credenciales por defecto** (Table 13: "vendor default
+  passwords are used"): opt-in, tras el tag `offensive`, uso autorizado, con
+  el mismo gating dual-use que los write-gates. Curar una lista pequeña por
+  vendor/servicio; nunca por defecto.
+- **Trazabilidad de estándar en findings:** etiquetar cada finding de
+  exposición con la vulnerabilidad SP 800-82 r4 que evidencia, para que una
+  ejecución sea auditable contra el estándar.
+
+Nota de captura (30-9): endurecer `ParseListIdentity` (ENIP) y
+`DeviceIDObjects` (Modbus FC43/14) con bytes reales quedó bloqueado: el
+intercambio concreto (ListIdentity 0x63, FC43/14) no está en los repos de
+pcaps ICS accesibles (ITI, automayt va por Git LFS). Las capturas EIP reales
+(quickdraw CL5000EIP) usan mensajería CIP de sesión (0x6f/0x70), no 0x63.
+
 ## Backlog 28-9-2026: S7 + OPC UA exposure (refs validadas, sin construir)
 
 Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
