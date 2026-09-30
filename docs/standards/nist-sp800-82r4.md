@@ -21,6 +21,8 @@ development), and 16 (Communication and network configuration).
 | `opcua probe-write` (address-space tags writeable by the anonymous user) | "Without authentication, there is the potential to replay, modify, or spoof data or devices" (Table 16) |
 | Modbus reachability + no native auth (`modbus monitor`, fingerprint) | "Use of unsecure OT protocols"; "OT protocols often have few or no security capabilities" (Table 16) |
 | `discover` / `fingerprint` surfacing reachable OT ports across zones | "Poor configurations ... unnecessary ports and protocols open" (Table 13); "Firewalls are nonexistent or improperly configured" (Table 16) |
+| `plaintext-check` (service reachable but does not negotiate TLS) | "Standard, well-documented communication protocols are used in plaintext" (Table 16) |
+| `creds-check http` (published default credentials accepted; offensive build, authorized use only) | "Vendor default passwords are used ... easy to discover within vendor product manuals" (Table 13) |
 | `s7 probe-identity`, ENIP ListIdentity, Modbus device identification (exact model + firmware) | "Hardware, firmware, and software that are not under asset/configuration management"; the patch-window vulnerabilities (Table 13) |
 
 The draft names, as its first communication-and-network vulnerability, that
@@ -41,16 +43,14 @@ inventory to cover them.
 
 ## Roadmap from the draft
 
-Detections the draft calls for that elSereno could add (tracked in
-`TODO-vNext.md`):
+Done (30 September 2026):
 
-- **Plaintext-protocol exposure finding.** Table 16: "Standard,
-  well-documented communication protocols are used in plaintext" (telnet,
-  FTP, HTTP, NFS). Flag cleartext services on OT hosts explicitly.
-- **Default-credential check (opt-in, `offensive` build tag, authorized use
-  only).** Table 13: "Vendor default passwords are used ... easy to discover
-  within vendor product manuals." Gated behind the same dual-use controls as
-  the write-gates.
+- **Plaintext-protocol exposure check** (`plaintext-check`). Table 16.
+- **Default-credential check** (`creds-check http`, `offensive` build,
+  authorized use only). Table 13.
+
+Still open (tracked in `TODO-vNext.md`):
+
 - **Standards traceability in findings.** Tag each exposure finding with the
   SP 800-82 r4 vulnerability it evidences, so a run is auditable against the
   standard.

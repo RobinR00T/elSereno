@@ -22,10 +22,10 @@ añadir:
 
 - **[HECHO 30-9] Finding de protocolo en claro** (Table 16: "protocols used
   in plaintext: telnet, FTP, HTTP, NFS"): marcar servicios OT en texto claro.
-- **Chequeo de credenciales por defecto** (Table 13: "vendor default
-  passwords are used"): opt-in, tras el tag `offensive`, uso autorizado, con
-  el mismo gating dual-use que los write-gates. Curar una lista pequeña por
-  vendor/servicio; nunca por defecto.
+- **[HECHO 30-9] Chequeo de credenciales por defecto** (Table 13: "vendor
+  default passwords are used"): `creds-check http`, tras el tag `offensive`,
+  exige `--confirm-authorized`, verifica solo defaults PUBLICADOS por vendor
+  (no fuerza bruta), read-only (GET con baseline). `offensive/creds/`.
 - **Trazabilidad de estándar en findings:** etiquetar cada finding de
   exposición con la vulnerabilidad SP 800-82 r4 que evidencia, para que una
   ejecución sea auditable contra el estándar.

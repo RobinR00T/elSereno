@@ -16,6 +16,9 @@ func registerOffensiveCmds(root *cobra.Command) {
 	root.AddCommand(newExploitCmd())
 	root.AddCommand(newHarvestCmd())
 	root.AddCommand(newDialCmd())
+	// creds-check: opt-in default-credential verification (NIST SP 800-82
+	// r4 Table 13). AUTHORIZED USE ONLY; refuses without --confirm-authorized.
+	root.AddCommand(newCredsCheckCmd())
 	// v2.62+: read-only sandbox introspection (list +
 	// introspect). No write surface; safe on every offensive
 	// build (the darwin+cgo build emits real .sb Schemes,
