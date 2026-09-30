@@ -44,6 +44,9 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: atmodem.Default().Metadata(), Factory: func() core.Protocol { return atmodem.Default() }})
 	core.Register(core.Plugin{PluginMetadata: modbus.Default().Metadata(), Factory: func() core.Protocol { return modbus.Default() }})
 	core.Register(core.Plugin{PluginMetadata: s7.Default().Metadata(), Factory: func() core.Protocol { return s7.Default() }})
+	// s7-exposure: opt-in deep exposure probe (DefaultPort 0 keeps it out
+	// of the default scan/discover sweep; runs only via --plugin s7-exposure).
+	core.Register(core.Plugin{PluginMetadata: s7.DefaultExposure().Metadata(), Factory: func() core.Protocol { return s7.DefaultExposure() }})
 	core.Register(core.Plugin{PluginMetadata: enip.Default().Metadata(), Factory: func() core.Protocol { return enip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: bacnet.Default().Metadata(), Factory: func() core.Protocol { return bacnet.Default() }})
 	core.Register(core.Plugin{PluginMetadata: dnp3.Default().Metadata(), Factory: func() core.Protocol { return dnp3.Default() }})
