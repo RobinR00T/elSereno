@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for GitHub-issues output.
@@ -128,6 +129,13 @@ func (s *Sink) buildBody(f core.Finding, addr string) string {
 			fmt.Fprintf(&b, "| %s | %d |\n", k, f.Factors[k])
 		}
 	}
+	if refs := standards.ForProtocol(f.Protocol); len(refs) > 0 {
+		b.WriteString("\n**Standards traceability**\n\n")
+		b.WriteString("This finding evidences:\n\n")
+		for _, r := range refs {
+			fmt.Fprintf(&b, "- %s · %s: %s\n", r.Standard, r.Table, r.Vuln)
+		}
+	}
 	return b.String()
 }
 
@@ -139,6 +147,11 @@ func (s *Sink) buildLabels(f core.Finding) []string {
 	}
 	if f.RunID != "" {
 		labels = append(labels, "run/"+string(f.RunID))
+	}
+	// One filterable label when the protocol maps to a standard, so a
+	// triager can list every issue that evidences a standard clause.
+	if len(standards.ForProtocol(f.Protocol)) > 0 {
+		labels = append(labels, "standard/nist-sp800-82r4")
 	}
 	labels = append(labels, s.cfg.LabelsExtra...)
 	return labels

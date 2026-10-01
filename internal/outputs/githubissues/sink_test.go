@@ -68,6 +68,13 @@ func TestSink_SendHappyPath(t *testing.T) {
 	if !strings.Contains(body, "protocol_risk") || !strings.Contains(body, "| 85 |") {
 		t.Fatalf("body factor table missing: %s", body)
 	}
+	// modbus maps to a Table 16 unsecure-OT vulnerability; the body
+	// cites it so the remediation team sees the standard clause.
+	if !strings.Contains(body, "Standards traceability") ||
+		!strings.Contains(body, "NIST SP 800-82 r4") ||
+		!strings.Contains(body, "Use of unsecure OT protocols") {
+		t.Fatalf("body standards section missing: %s", body)
+	}
 	labels, _ := parsed["labels"].([]any)
 	seen := map[string]bool{}
 	for _, l := range labels {
@@ -75,9 +82,41 @@ func TestSink_SendHappyPath(t *testing.T) {
 			seen[s] = true
 		}
 	}
-	for _, want := range []string{"elsereno", "severity/high", "protocol/modbus", "run/r-9"} {
+	for _, want := range []string{"elsereno", "severity/high", "protocol/modbus", "run/r-9", "standard/nist-sp800-82r4"} {
 		if !seen[want] {
 			t.Errorf("missing label %q in %+v", want, labels)
+		}
+	}
+}
+
+// TestSink_UnmappedProtocolNoStandards: a protocol with no standards
+// mapping must not grow a standards section nor the standard label.
+func TestSink_UnmappedProtocolNoStandards(t *testing.T) {
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"number":1}`))
+	}))
+	t.Cleanup(srv.Close)
+	s := githubissues.New(githubissues.Config{
+		BaseURL: srv.URL, Owner: "o", Repo: "r", Token: []byte("t"),
+	})
+	f := sampleFinding()
+	f.Protocol = "ftp" // no standards mapping
+	if _, err := s.Send(context.Background(), f, "10.0.0.1:21"); err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	_ = json.Unmarshal(gotBody, &parsed)
+	body, _ := parsed["body"].(string)
+	if strings.Contains(body, "Standards traceability") {
+		t.Fatalf("unmapped protocol grew a standards section: %s", body)
+	}
+	labels, _ := parsed["labels"].([]any)
+	for _, l := range labels {
+		if s, ok := l.(string); ok && s == "standard/nist-sp800-82r4" {
+			t.Fatalf("unmapped protocol got the standard label")
 		}
 	}
 }

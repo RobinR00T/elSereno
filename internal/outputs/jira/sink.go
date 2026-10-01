@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for JIRA-issue output.
@@ -128,6 +129,17 @@ func (s *Sink) buildPayload(f core.Finding, addr string) map[string]any {
 	}
 	if f.RunID != "" {
 		labels = append(labels, "run:"+string(f.RunID))
+	}
+	// Trace the finding to the standard vulnerabilities it evidences, so
+	// the remediation owner sees the clause and can filter by the label.
+	if refs := standards.ForProtocol(f.Protocol); len(refs) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\nStandards traceability:")
+		for _, r := range refs {
+			fmt.Fprintf(&sb, "\n- %s · %s: %s", r.Standard, r.Table, r.Vuln)
+		}
+		desc += sb.String()
+		labels = append(labels, "standard:nist-sp800-82r4")
 	}
 	labels = append(labels, s.cfg.LabelsExtra...)
 	return map[string]any{

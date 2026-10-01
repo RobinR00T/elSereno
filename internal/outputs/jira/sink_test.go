@@ -79,10 +79,38 @@ func TestSink_SendHappyPath(t *testing.T) {
 			seen[s] = true
 		}
 	}
-	for _, want := range []string{"elsereno", "severity:high", "protocol:modbus", "run:r-9"} {
+	for _, want := range []string{"elsereno", "severity:high", "protocol:modbus", "run:r-9", "standard:nist-sp800-82r4"} {
 		if !seen[want] {
 			t.Errorf("missing label %q in %+v", want, labels)
 		}
+	}
+	// modbus maps to a Table 16 unsecure-OT vulnerability; the ADF
+	// description cites it for the remediation owner.
+	if !strings.Contains(string(gotBody), "Standards traceability") ||
+		!strings.Contains(string(gotBody), "Use of unsecure OT protocols") {
+		t.Fatalf("description standards section missing: %s", gotBody)
+	}
+}
+
+// TestSink_UnmappedProtocolNoStandards: a protocol with no standards
+// mapping must not grow a standards section nor the standard label.
+func TestSink_UnmappedProtocolNoStandards(t *testing.T) {
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"key":"X-1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	s := jira.New(jira.Config{BaseURL: srv.URL, ProjectKey: "X", Email: "a@b.c", APIToken: []byte("t")})
+	f := sampleFinding()
+	f.Protocol = "ftp" // no standards mapping
+	if _, err := s.Send(context.Background(), f, "10.0.0.1:21"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(gotBody), "Standards traceability") ||
+		strings.Contains(string(gotBody), "standard:nist-sp800-82r4") {
+		t.Fatalf("unmapped protocol grew standards traceability: %s", gotBody)
 	}
 }
 

@@ -18,9 +18,10 @@ s7-exposure`; DefaultPort 0 so NOT in default scan/discover; reuses
 ProbePosture). PITF-031/063: audit pins golangci v2.11.4, ci latest
 (v2.14.0); diverge BOTH ways, lint with both before a main push.
 
-**2026-10-01 standards traceability** (SP 800-82 r4 IPD): `standards` array
-in ndjson + `elsereno standards` catalog SIGNED (3b74a67); per-protocol block
-in the HTML report local-unsigned. Keyed by protocol (`internal/standards`).
+**2026-10-01 standards traceability** (SP 800-82 r4 IPD): reaches all four
+surfaces, keyed by protocol (`internal/standards`), core.Finding untouched.
+ndjson + `elsereno standards` catalog (3b74a67) + HTML report per-protocol
+block (72334aa) SIGNED; GitHub Issues + Jira ticket body/label local-unsigned.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one

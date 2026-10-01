@@ -59,6 +59,13 @@ Done:
   parsing ndjson) sees the mapping in the report an operator hands to a
   client. Same source of truth (`internal/standards`); a protocol with no
   mapping shows no block.
+- **Standards traceability in remediation tickets** (1-10). The GitHub
+  Issues and Jira sinks cite the SP 800-82 r4 vulnerabilities in the issue
+  body / ADF description and add a filterable `standard/nist-sp800-82r4`
+  (GitHub) / `standard:nist-sp800-82r4` (Jira) label, so the remediation
+  owner sees the clause the finding evidences and can list every issue that
+  maps to the standard. Traceability now reaches all four consumption
+  surfaces: ndjson (SIEM), HTML report (reader), GitHub, and Jira.
 
 ## Source
 
