@@ -53,6 +53,12 @@ Done:
   evidences, derived from its protocol; `elsereno standards` prints the full
   protocol-to-vulnerability catalog. The mapping lives in
   `internal/standards/sp80082r4.go`.
+- **Standards traceability in the HTML report** (1-10). Each per-protocol
+  section of the HTML report shows, inline, the SP 800-82 r4 vulnerabilities
+  that protocol's findings evidence, so a human reader (not just a machine
+  parsing ndjson) sees the mapping in the report an operator hands to a
+  client. Same source of truth (`internal/standards`); a protocol with no
+  mapping shows no block.
 
 ## Source
 

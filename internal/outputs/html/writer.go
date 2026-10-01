@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for the HTML v1 output.
@@ -42,6 +43,10 @@ type ProtocolBucket struct {
 	AvgScore int
 	MaxScore int
 	Findings []core.Finding
+	// Standards lists the external-standard vulnerabilities this
+	// protocol's findings evidence (derived from Protocol); nil when
+	// the protocol has no mapping, so the section omits the block.
+	Standards []standards.Ref
 }
 
 // FactorBar is one row of the aggregate-factor histogram.
@@ -101,6 +106,9 @@ func tallyByProtocol(findings []core.Finding) []ProtocolBucket {
 		// Sort findings within a protocol by descending score so the
 		// worst offenders surface at the top.
 		sort.Slice(b.Findings, func(i, j int) bool { return b.Findings[i].Score > b.Findings[j].Score })
+		// Trace the protocol to the standard vulnerabilities its findings
+		// evidence, so a human reading the report sees the mapping inline.
+		b.Standards = standards.ForProtocol(b.Protocol)
 		out = append(out, *b)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Protocol < out[j].Protocol })
@@ -258,6 +266,11 @@ const reportTemplate = `<!doctype html>
   .factor-row { display: grid; grid-template-columns: 140px 1fr 40px; gap: .75rem; align-items: center; margin-bottom: .4rem; }
   .factor-row .name { color: var(--muted); font-size: .85rem; }
   .factor-row .val  { text-align: right; font-variant-numeric: tabular-nums; }
+  .standards { margin: -.25rem 0 1rem 0; }
+  .standards-label { font-size: .7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: .35rem; }
+  .std-ref { font-size: .82rem; color: var(--ink); margin-bottom: .25rem; padding-left: 1rem; position: relative; }
+  .std-ref::before { content: "\25B8"; position: absolute; left: 0; color: var(--accent); }
+  .std-ref .tag { font-weight: 600; color: var(--muted); }
   footer { margin-top: 2rem; color: var(--muted); font-size: .8rem; text-align: center; }
 </style>
 </head>
@@ -294,6 +307,14 @@ const reportTemplate = `<!doctype html>
 {{range .ByProtocol}}
 <section class="panel">
   <h2>{{.Protocol}} · {{.Count}} findings · max {{.MaxScore}} · avg {{.AvgScore}}</h2>
+  {{if .Standards}}
+  <div class="standards">
+    <div class="standards-label">Standards traceability</div>
+    {{- range .Standards }}
+    <div class="std-ref"><span class="tag">{{.Standard}} · {{.Table}}</span> {{.Vuln}}</div>
+    {{- end }}
+  </div>
+  {{end}}
   <table>
     <thead>
       <tr><th>Score</th><th>Severity</th><th>Finding ID</th><th>Target</th></tr>

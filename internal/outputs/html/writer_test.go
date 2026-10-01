@@ -73,6 +73,32 @@ func TestTopFactorsHistogram(t *testing.T) {
 	}
 }
 
+func TestRenderIncludesStandardsTraceability(t *testing.T) {
+	t.Parallel()
+	findings := []core.Finding{
+		{ID: "a", Protocol: "modbus", Severity: core.SeverityHigh, Score: 70, TargetID: "t1"},
+		{ID: "b", Protocol: "ftp", Severity: core.SeverityLow, Score: 20, TargetID: "t2"}, // no standards mapping
+	}
+	var buf bytes.Buffer
+	if err := html.Render(&buf, html.Report{Title: "t", Findings: findings, Totals: html.Tally(findings)}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	body := buf.String()
+	// modbus maps to a Table 16 "unsecure OT protocols" vulnerability,
+	// surfaced inline under its protocol section.
+	if !strings.Contains(body, "NIST SP 800-82 r4 · Table 16") {
+		t.Fatalf("standard tag missing:\n%s", body)
+	}
+	if !strings.Contains(body, "Use of unsecure OT protocols") {
+		t.Fatalf("mapped vuln text missing:\n%s", body)
+	}
+	// Exactly one block: modbus has a mapping, ftp does not, so an
+	// unmapped protocol must not grow a (header-only) traceability block.
+	if n := strings.Count(body, "Standards traceability"); n != 1 {
+		t.Fatalf("expected exactly one standards block (modbus only), got %d:\n%s", n, body)
+	}
+}
+
 func TestRenderEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	if err := html.Render(&buf, html.Report{Findings: nil, Totals: html.Tally(nil)}); err != nil {

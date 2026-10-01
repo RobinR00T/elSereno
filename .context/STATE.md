@@ -1,7 +1,7 @@
 ---
 phase: v2.63-closed; vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
 status: tags published through v2.62; CI green on main
-last-updated: 2026-09-23
+last-updated: 2026-10-01
 token-budget: 320
 ---
 
@@ -17,6 +17,10 @@ BYTE FOR BYTE vs real pcap s7comm_reading_plc_status. Local unsigned: opt-in
 s7-exposure`; DefaultPort 0 so NOT in default scan/discover; reuses
 ProbePosture). PITF-031/063: audit pins golangci v2.11.4, ci latest
 (v2.14.0); diverge BOTH ways, lint with both before a main push.
+
+**2026-10-01 standards traceability** (SP 800-82 r4 IPD): `standards` array
+in ndjson + `elsereno standards` catalog SIGNED (3b74a67); per-protocol block
+in the HTML report local-unsigned. Keyed by protocol (`internal/standards`).
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one
@@ -38,11 +42,9 @@ ProbePosture). PITF-031/063: audit pins golangci v2.11.4, ci latest
   Actions billing. All workflows green on `main`.
 - **v2.38 → v2.62 tags pushed** (25 signed tags; remote was stuck at
   v2.37). Binary releases still follow the local-goreleaser flow.
-- **Reliability fixes (signed):** `audit.sh` skips its local-sync check
-  in CI (it red-marked every PR); `TestStream_ClientCancelReleases-
-  Subscription` de-flaked (retry-hint race that hung `srv.Close` to the
-  10-min timeout); idempotency tests isolate the process-global cache
-  (`-count`-safe). See `.context/pitfalls.md`.
+- **Reliability fixes (signed):** `audit.sh` skips its CI local-sync
+  check; `TestStream_ClientCancelReleasesSubscription` de-flaked;
+  idempotency tests isolate the process-global cache. See pitfalls.md.
 
 **Phase**: **v2.63 cycle closed on `main`** (1 chunk +
 close). `elsereno sandbox diff PROFILE_A PROFILE_B`
@@ -240,10 +242,6 @@ remains an option since v1.8.
   dlms once their CVE histories harden.
 - IEC 61850 MMS; PROFINET-RT (L2) live capture; DNP3 SAv5 gating;
   PROFINET-RT live L2 capture (GOOSE/SV live capture done 28-9).
-
-**Operator-pending**:
-- Tags pushed through v2.62 (2026-08-31); cut/publish binary
-  releases (goreleaser) for the unreleased tags if desired.
 
 **Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
 127.0.0.1:5433 via `scripts/dev-db.sh`.
