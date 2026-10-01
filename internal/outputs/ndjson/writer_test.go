@@ -42,3 +42,41 @@ func TestWriteFindingEmitsNDJSON(t *testing.T) {
 		t.Fatalf("unexpected record: %+v", r)
 	}
 }
+
+func TestWriteFindingIncludesStandards(t *testing.T) {
+	t.Parallel()
+	base := core.Finding{
+		ID:        core.UUID("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+		Severity:  core.SeverityHigh,
+		Score:     65,
+		CreatedAt: time.Date(2026, 4, 19, 10, 0, 0, 0, time.UTC),
+	}
+
+	// A mapped protocol carries standards references.
+	var buf bytes.Buffer
+	w := ndjson.NewWriter(&buf)
+	mb := base
+	mb.Protocol = "modbus"
+	if err := w.WriteFinding(mb, "10.0.0.1"); err != nil {
+		t.Fatalf("WriteFinding: %v", err)
+	}
+	var r ndjson.Record
+	if err := json.Unmarshal(buf.Bytes(), &r); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(r.Standards) == 0 {
+		t.Error("modbus finding should carry standards references")
+	}
+
+	// An unmapped protocol omits the field entirely.
+	buf.Reset()
+	w = ndjson.NewWriter(&buf)
+	un := base
+	un.Protocol = "banner"
+	if err := w.WriteFinding(un, "10.0.0.1"); err != nil {
+		t.Fatalf("WriteFinding: %v", err)
+	}
+	if bytes.Contains(buf.Bytes(), []byte("standards")) {
+		t.Errorf("unmapped protocol must omit standards:\n%s", buf.String())
+	}
+}

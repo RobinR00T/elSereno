@@ -43,17 +43,16 @@ inventory to cover them.
 
 ## Roadmap from the draft
 
-Done (30 September 2026):
+Done:
 
-- **Plaintext-protocol exposure check** (`plaintext-check`). Table 16.
+- **Plaintext-protocol exposure check** (`plaintext-check`, 30-9). Table 16.
 - **Default-credential check** (`creds-check http`, `offensive` build,
-  authorized use only). Table 13.
-
-Still open (tracked in `TODO-vNext.md`):
-
-- **Standards traceability in findings.** Tag each exposure finding with the
-  SP 800-82 r4 vulnerability it evidences, so a run is auditable against the
-  standard.
+  authorized use only, 30-9). Table 13.
+- **Standards traceability in findings** (1-10). Each finding in the ndjson
+  output carries a `standards` array with the SP 800-82 r4 vulnerabilities it
+  evidences, derived from its protocol; `elsereno standards` prints the full
+  protocol-to-vulnerability catalog. The mapping lives in
+  `internal/standards/sp80082r4.go`.
 
 ## Source
 

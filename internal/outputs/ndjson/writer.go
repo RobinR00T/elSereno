@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema_info contract identifier that ndjson v1
@@ -27,6 +28,9 @@ type Record struct {
 	Score     int            `json:"score"`
 	Factors   map[string]int `json:"factors"`
 	CreatedAt string         `json:"created_at"`
+	// Standards traces the finding to the external-standard vulnerabilities
+	// it evidences (derived from Protocol); omitted when none map.
+	Standards []standards.Ref `json:"standards,omitempty"`
 }
 
 // Writer streams findings to an io.Writer as newline-delimited JSON.
@@ -60,6 +64,7 @@ func (x *Writer) WriteFinding(f core.Finding, addr string) error {
 		Score:     f.Score,
 		Factors:   f.Factors,
 		CreatedAt: f.CreatedAt.UTC().Format(time.RFC3339Nano),
+		Standards: standards.ForProtocol(f.Protocol),
 	}
 	return x.enc.Encode(r)
 }

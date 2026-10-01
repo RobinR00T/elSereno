@@ -162,6 +162,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newOPCUACmd())
 	root.AddCommand(newS7Cmd())
 	root.AddCommand(newPlaintextCheckCmd())
+	root.AddCommand(newStandardsCmd())
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)
