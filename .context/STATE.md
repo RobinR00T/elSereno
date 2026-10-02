@@ -12,16 +12,16 @@ read-only). Signed on main: Modbus monitor, MQTT/Sparkplug, OPC UA
 anon-access (`opcua probe-anon`) + writeable walk (`opcua probe-write`,
 spec-grounded), S7 protection/identity/posture (`s7 probe`,
 `probe-protection`, `probe-identity`) + `--json` on all probes. S7 validated
-BYTE FOR BYTE vs real pcap s7comm_reading_plc_status. Local unsigned: opt-in
-`s7-exposure` plugin (scored Finding via `fingerprint probe --plugin
-s7-exposure`; DefaultPort 0 so NOT in default scan/discover; reuses
-ProbePosture). PITF-031/063: audit pins golangci v2.11.4, ci latest
-(v2.14.0); diverge BOTH ways, lint with both before a main push.
+BYTE FOR BYTE vs real pcap s7comm_reading_plc_status. Opt-in scored-Finding
+plugins (DefaultPort 0, NOT in default scan/discover): `s7-exposure` (reuses
+ProbePosture, signed) + `opcua-exposure` (anon session + writeable walk,
+read-only; local unsigned). PITF-031/063: audit pins golangci v2.11.4, ci
+latest (v2.14.0); diverge BOTH ways, lint with both before a main push.
 
 **2026-10-01 standards traceability** (SP 800-82 r4 IPD): reaches all four
 surfaces, keyed by protocol (`internal/standards`), core.Finding untouched.
 ndjson + `elsereno standards` catalog (3b74a67) + HTML report per-protocol
-block (72334aa) SIGNED; GitHub Issues + Jira ticket body/label local-unsigned.
+block (72334aa) + GitHub Issues + Jira ticket body/label (106c96d) SIGNED.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one

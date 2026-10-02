@@ -17,8 +17,8 @@ development), and 16 (Communication and network configuration).
 |---|---|
 | `s7 probe-protection` / `s7 probe` / `s7-exposure` plugin (effective protection level 0/1 = writable/controllable without a password) | "Authentication of users, data, or devices is substandard or nonexistent"; "Use of unsecure OT protocols" (Table 16) |
 | S7 protection level left unset by default | "Installed security capabilities are not enabled by default" (Table 15) |
-| `opcua probe-anon` (anonymous session opens on a SecurityMode=None endpoint) | "Authentication ... nonexistent" (Table 16) |
-| `opcua probe-write` (address-space tags writeable by the anonymous user) | "Without authentication, there is the potential to replay, modify, or spoof data or devices" (Table 16) |
+| `opcua probe-anon` / `opcua-exposure` plugin (anonymous session opens on a SecurityMode=None endpoint) | "Authentication ... nonexistent" (Table 16) |
+| `opcua probe-write` / `opcua-exposure` plugin (address-space tags writeable by the anonymous user) | "Without authentication, there is the potential to replay, modify, or spoof data or devices" (Table 16) |
 | Modbus reachability + no native auth (`modbus monitor`, fingerprint) | "Use of unsecure OT protocols"; "OT protocols often have few or no security capabilities" (Table 16) |
 | `discover` / `fingerprint` surfacing reachable OT ports across zones | "Poor configurations ... unnecessary ports and protocols open" (Table 13); "Firewalls are nonexistent or improperly configured" (Table 16) |
 | `plaintext-check` (service reachable but does not negotiate TLS) | "Standard, well-documented communication protocols are used in plaintext" (Table 16) |

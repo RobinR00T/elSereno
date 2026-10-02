@@ -33,8 +33,9 @@ var protocolRefs = map[string][]Ref{
 	"s7":          {refUnsecureOT, refNoAuth},
 	"s7-exposure": {refNoAuth, refSecurityOffByDefault},
 	// OPC UA: anonymous / SecurityMode=None exposes unauthenticated access.
-	"opcua":      {refNoAuth, refUnsecureOT},
-	"opcuahttps": {refNoAuth},
+	"opcua":          {refNoAuth, refUnsecureOT},
+	"opcua-exposure": {refNoAuth, refUnsecureOT},
+	"opcuahttps":     {refNoAuth},
 	// Unauthenticated OT protocols.
 	"modbus":   {refUnsecureOT},
 	"enip":     {refUnsecureOT},
