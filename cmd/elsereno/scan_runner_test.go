@@ -183,6 +183,43 @@ func TestDefaultScanRunner_EmptyPluginsRunsAll(t *testing.T) {
 	}
 }
 
+// TestDefaultScanRunner_EmptyPluginsSkipsOptIn is the end-to-end guard for
+// the opt-in fix: a run-everything job (empty Plugins) must dispatch only
+// the probe-anywhere plugins (DefaultPort 0 AND NOT OptIn), never the opt-in
+// exposure plugins. Probed against port 1, which no port-specific plugin
+// claims, so the probe attempts equal exactly the probe-anywhere set; if an
+// OptIn plugin leaked into the sweep, TargetsScanned would be higher.
+func TestDefaultScanRunner_EmptyPluginsSkipsOptIn(t *testing.T) {
+	probeAnywhere, optInZeroPort := 0, 0
+	for _, p := range core.RegisteredPlugins() {
+		if p.DefaultPort != 0 {
+			continue
+		}
+		if p.OptIn {
+			optInZeroPort++
+		} else {
+			probeAnywhere++
+		}
+	}
+	if optInZeroPort == 0 {
+		t.Skip("no opt-in DefaultPort-0 plugins registered; nothing to guard")
+	}
+	r := &defaultScanRunner{}
+	listFile := writeTargetFile(t, "127.0.0.1:1\n")
+	stats, _, err := r.Run(context.Background(), scanorch.Job{
+		Input:       "list:" + listFile,
+		Plugins:     nil,
+		DefaultPort: 80,
+	}, nil)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if stats.TargetsScanned != probeAnywhere {
+		t.Errorf("TargetsScanned = %d, want %d (probe-anywhere only); %d opt-in DefaultPort-0 plugin(s) must stay out of the sweep",
+			stats.TargetsScanned, probeAnywhere, optInZeroPort)
+	}
+}
+
 // TestDefaultScanRunner_ScopeDropsOutOfScope: a runner wired with a
 // scope guardrail must drop targets outside the declared ranges before
 // dialling, mirroring the CLI. Here 127.0.0.2 is out of a 127.0.0.1/32
