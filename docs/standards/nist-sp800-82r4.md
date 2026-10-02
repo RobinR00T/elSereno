@@ -64,8 +64,14 @@ Done:
   body / ADF description and add a filterable `standard/nist-sp800-82r4`
   (GitHub) / `standard:nist-sp800-82r4` (Jira) label, so the remediation
   owner sees the clause the finding evidences and can list every issue that
-  maps to the standard. Traceability now reaches all four consumption
-  surfaces: ndjson (SIEM), HTML report (reader), GitHub, and Jira.
+  maps to the standard.
+- **Standards traceability in CEF / syslog** (2-10). The CEF writer carries
+  the vulnerabilities in the `cs3` custom string (`cs3Label=standard`); the
+  RFC 5424 syslog writer carries them in a `standard` structured-data param.
+  Both are the formats an OT SOC's SIEM (ArcSight, QRadar) ingests, so a
+  correlation or compliance rule can key on the clause. The flat-string
+  join lives in `standards.Summarise`. Traceability now reaches ndjson, the
+  HTML report, GitHub, Jira, CEF, and syslog, plus the `standards` catalog.
 
 ## Source
 

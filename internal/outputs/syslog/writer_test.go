@@ -108,6 +108,24 @@ func TestWriter_FactorEmitted(t *testing.T) {
 	}
 }
 
+func TestWriter_StandardsTraceability(t *testing.T) {
+	var buf bytes.Buffer
+	w := syslog.NewWriter(&buf, "h", "a", "v")
+	// modbus maps to a Table 16 unsecure-OT vulnerability: it rides in the SD.
+	_ = w.WriteFinding(sampleFinding(), "x")
+	if !strings.Contains(buf.String(), `standard="NIST SP 800-82 r4 Table 16: Use of unsecure OT protocols"`) {
+		t.Fatalf("standards SD param missing: %q", buf.String())
+	}
+	// A protocol with no mapping must not grow a standard SD param.
+	buf.Reset()
+	f := sampleFinding()
+	f.Protocol = "ftp"
+	_ = w.WriteFinding(f, "x")
+	if strings.Contains(buf.String(), `standard="`) {
+		t.Fatalf("unmapped protocol grew a standard SD param: %q", buf.String())
+	}
+}
+
 func TestWriter_EscapesSDSpecials(t *testing.T) {
 	var buf bytes.Buffer
 	w := syslog.NewWriter(&buf, "h", "a", "v")

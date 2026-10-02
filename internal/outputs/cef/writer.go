@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for CEF v1 output.
@@ -104,6 +105,13 @@ func buildExtensions(f core.Finding, addr string) string {
 	}
 	for k, v := range f.Factors {
 		pairs["elseFactor_"+k] = fmt.Sprintf("%d", v)
+	}
+	// cs3 traces the finding to the external-standard vulnerabilities it
+	// evidences (derived from Protocol); omitted when none map, so a SIEM
+	// rule can key on its presence.
+	if s := standards.Summarise(standards.ForProtocol(f.Protocol)); s != "" {
+		pairs["cs3Label"] = "standard"
+		pairs["cs3"] = s
 	}
 	keys := make([]string, 0, len(pairs))
 	for k := range pairs {

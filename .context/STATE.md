@@ -18,10 +18,10 @@ ProbePosture, signed) + `opcua-exposure` (anon session + writeable walk,
 read-only; local unsigned). PITF-031/063: audit pins golangci v2.11.4, ci
 latest (v2.14.0); diverge BOTH ways, lint with both before a main push.
 
-**2026-10-01 standards traceability** (SP 800-82 r4 IPD): reaches all four
-surfaces, keyed by protocol (`internal/standards`), core.Finding untouched.
-ndjson + `elsereno standards` catalog (3b74a67) + HTML report per-protocol
-block (72334aa) + GitHub Issues + Jira ticket body/label (106c96d) SIGNED.
+**2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): six surfaces,
+keyed by protocol (`internal/standards`), core.Finding untouched. ndjson +
+`standards` catalog (3b74a67) + HTML (72334aa) + GitHub/Jira tickets
+(106c96d) SIGNED; CEF cs3 + syslog SD param (`standards.Summarise`) unsigned.
 
 **2026-09-23/28 vNext items** (landed on main, signed, CI green):
 - **CI:** `ci-passed` aggregator collapses the 10 ci.yml checks into one

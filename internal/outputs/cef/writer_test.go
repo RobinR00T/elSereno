@@ -96,6 +96,26 @@ func TestWriter_EscapesEqualsInExtension(t *testing.T) {
 	}
 }
 
+func TestWriter_StandardsTraceability(t *testing.T) {
+	var buf bytes.Buffer
+	w := cef.NewWriter(&buf, "1.2.3")
+	// modbus maps to a Table 16 unsecure-OT vulnerability: it rides in cs3.
+	_ = w.WriteFinding(sampleFinding(), "10.0.0.1:502")
+	line := buf.String()
+	if !strings.Contains(line, "cs3Label=standard") ||
+		!strings.Contains(line, "cs3=NIST SP 800-82 r4 Table 16: Use of unsecure OT protocols") {
+		t.Fatalf("standards cs3 missing: %s", line)
+	}
+	// A protocol with no mapping must not grow a cs3 standard field.
+	buf.Reset()
+	f := sampleFinding()
+	f.Protocol = "ftp"
+	_ = w.WriteFinding(f, "10.0.0.1:21")
+	if strings.Contains(buf.String(), "cs3Label=standard") {
+		t.Fatalf("unmapped protocol grew a cs3 standard field: %s", buf.String())
+	}
+}
+
 func TestWriter_EmptyIDRejected(t *testing.T) {
 	var buf bytes.Buffer
 	w := cef.NewWriter(&buf, "v")

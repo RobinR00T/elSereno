@@ -8,6 +8,8 @@
 // September 2026); see docs/standards/nist-sp800-82r4.md.
 package standards
 
+import "strings"
+
 // Ref is a single traceable reference into an external standard.
 type Ref struct {
 	Standard string `json:"standard"` // e.g. "NIST SP 800-82 r4"
@@ -78,6 +80,21 @@ func ForProtocol(protocol string) []Ref {
 	out := make([]Ref, len(refs))
 	copy(out, refs)
 	return out
+}
+
+// Summarise renders refs as a single "; "-joined string, for output formats
+// that carry one flat field (CEF cs3, a syslog SD param) rather than a JSON
+// array. Each ref reads "<standard> <table>: <vuln>". Empty when refs is
+// empty, so a caller can omit the field entirely.
+func Summarise(refs []Ref) string {
+	if len(refs) == 0 {
+		return ""
+	}
+	parts := make([]string, len(refs))
+	for i, r := range refs {
+		parts[i] = r.Standard + " " + r.Table + ": " + r.Vuln
+	}
+	return strings.Join(parts, "; ")
 }
 
 // Protocols returns the protocol names that have a standards mapping, so a

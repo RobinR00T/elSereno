@@ -1,6 +1,9 @@
 package standards
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestForProtocol(t *testing.T) {
 	refs := ForProtocol("s7-exposure")
@@ -36,6 +39,24 @@ func TestForProtocol_ReturnsCopy(t *testing.T) {
 	b := ForProtocol("modbus")
 	if b[0].Standard == "mutated" {
 		t.Fatal("ForProtocol returned a shared slice; mutation leaked into the map")
+	}
+}
+
+func TestSummarise(t *testing.T) {
+	if got := Summarise(nil); got != "" {
+		t.Errorf("Summarise(nil) = %q, want empty", got)
+	}
+	refs := ForProtocol("s7-exposure") // {refNoAuth, refSecurityOffByDefault}
+	got := Summarise(refs)
+	if got == "" {
+		t.Fatal("Summarise(s7-exposure) is empty")
+	}
+	// Two refs joined by "; ", each "<standard> <table>: <vuln>".
+	if !strings.Contains(got, "; ") {
+		t.Errorf("two refs should be joined by '; ': %q", got)
+	}
+	if !strings.Contains(got, "NIST SP 800-82 r4 Table 16: ") {
+		t.Errorf("ref format broken: %q", got)
 	}
 }
 

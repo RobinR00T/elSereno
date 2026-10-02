@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for syslog v1 output.
@@ -106,6 +107,11 @@ func buildSD(f core.Finding, addr, version string) string {
 	}
 	for k, v := range f.Factors {
 		params["factor_"+k] = fmt.Sprintf("%d", v)
+	}
+	// Trace the finding to the external-standard vulnerabilities it
+	// evidences (derived from protocol); omitted when none map.
+	if s := standards.Summarise(standards.ForProtocol(f.Protocol)); s != "" {
+		params["standard"] = s
 	}
 	keys := make([]string, 0, len(params))
 	for k := range params {
