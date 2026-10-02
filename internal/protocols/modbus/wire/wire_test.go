@@ -2,11 +2,69 @@ package wire_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"testing"
 
 	"local/elsereno/internal/protocols/modbus/wire"
 )
+
+// TestReadFrame_RealCapture validates MBAP + PDU parsing, function-code
+// masking, and exception detection against real Modbus/TCP frames, byte for
+// byte from CISA cisagov/icsnpp-modbus testing/traces/modbus_example.pcap.
+// Real wire, not a hand-built fixture (see PITF-064).
+func TestReadFrame_RealCapture(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		frame   string // full MBAP+PDU hex, as captured
+		txid    uint16
+		unit    uint8
+		fc      wire.FunctionCode
+		isExc   bool
+		excCode wire.ExceptionCode
+	}{
+		{"fc01_read_coils_req", "000100000006040100010001", 0x0001, 0x04, wire.FCReadCoils, false, 0},
+		{"fc01_read_coils_resp", "00010000000404010101", 0x0001, 0x04, wire.FCReadCoils, false, 0},
+		{"fc03_read_holding_req", "000500000006040300010001", 0x0005, 0x04, wire.FCReadHoldingRegisters, false, 0},
+		{"fc03_read_holding_resp", "00050000000504030200aa", 0x0005, 0x04, wire.FCReadHoldingRegisters, false, 0},
+		{"fc08_diagnostics_req", "000c00000006020800020000", 0x000c, 0x02, wire.FCDiagnostics, false, 0},
+		{"fc17_rw_multiple_req", "00140000000d061700010001000200010200ff", 0x0014, 0x06, wire.FCReadWriteMultipleRegisters, false, 0},
+		{"fc17_rw_multiple_resp", "00140000000506170200aa", 0x0014, 0x06, wire.FCReadWriteMultipleRegisters, false, 0},
+		{"fc03_exception_resp", "000100000003008302", 0x0001, 0x00, wire.FCReadHoldingRegisters, true, wire.ExIllegalDataAddress},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			raw, err := hex.DecodeString(tc.frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, err := wire.ReadFrame(bytes.NewReader(raw))
+			if err != nil {
+				t.Fatalf("ReadFrame: %v", err)
+			}
+			if f.MBAP.TxID != tc.txid {
+				t.Errorf("TxID=0x%04x, want 0x%04x", f.MBAP.TxID, tc.txid)
+			}
+			if f.MBAP.Unit != tc.unit {
+				t.Errorf("Unit=0x%02x, want 0x%02x", f.MBAP.Unit, tc.unit)
+			}
+			if f.FunctionCode() != tc.fc {
+				t.Errorf("FunctionCode=0x%02x, want 0x%02x", uint8(f.FunctionCode()), uint8(tc.fc))
+			}
+			if f.IsExceptionFrame() != tc.isExc {
+				t.Errorf("IsExceptionFrame=%v, want %v", f.IsExceptionFrame(), tc.isExc)
+			}
+			if tc.isExc {
+				ec, ok := f.ExceptionCode()
+				if !ok || ec != tc.excCode {
+					t.Errorf("ExceptionCode=0x%02x ok=%v, want 0x%02x", uint8(ec), ok, uint8(tc.excCode))
+				}
+			}
+		})
+	}
+}
 
 func TestMBAPRoundTrip(t *testing.T) {
 	t.Parallel()
