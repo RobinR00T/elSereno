@@ -344,6 +344,7 @@ of these are set (ADR-026, PITF-032).
 **Para usuarios y operadores:**
 
 - [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo end-to-end (CLI + dashboard + workflows + 22 secciones).
+- [`docs/exposure-auditing.md`](docs/exposure-auditing.md): guía de las probes de exposición read-only (S7, OPC UA, plaintext-check, creds-check) y su trazabilidad al NIST SP 800-82 r4.
 - [`docs/FAQ.md`](docs/FAQ.md) — preguntas frecuentes.
 - [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — recetas SIEM/observability.
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — runbooks operacionales (release, Dependabot, post-public-flip, troubleshooting CI, handoff).

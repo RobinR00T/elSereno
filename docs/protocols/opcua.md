@@ -73,6 +73,34 @@ Browse/Read codec is grounded in OPC-UA Part 4 (services) + Part 6 (binary
 encoding) and validated by round-trip + spec-crafted response fixtures, not
 by real bytes. This is documented in each file and in the commit history.
 
+## Exposure as a scored Finding (opt-in plugin)
+
+The same anonymous-access + writeable-walk read is also available as a
+scored `core.Finding` through the `opcua-exposure` plugin, so the exposure
+flows into the normal fingerprint/scan/scoring/triage pipeline:
+
+```sh
+elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
+```
+
+It is **opt-in**: its `DefaultPort` is 0, so the `discover`/`scan` default
+sweep skips it (`plugins ports` shows only `opcua` on 4840). It runs only
+when named with `--plugin opcua-exposure`, and does not change the default
+`opcua` fingerprint (which still does HEL/ACK only). It reuses
+`ProbeWriteableNodes` (which embeds `ProbeAnonymousAccess`), so it is the
+same strictly read-only path: it opens an anonymous session and reads node
+attributes, it never issues a Write. Scoring, by what the probe learned:
+
+| State | Severity |
+|-------|----------|
+| Anonymous session opens **and** exposes anonymous-writeable tags | Critical (`exposure`/`auth_state` 95) |
+| Anonymous session opens, no writeable tag found in the walked subtree | High |
+| OPC UA confirmed but the anonymous session is rejected (auth enforced) | Medium |
+| Not OPC UA | Medium (baseline) |
+
+Plugin: `internal/protocols/opcua/exposureplugin.go`. It is the OPC UA
+counterpart to the `s7-exposure` plugin (see [`s7.md`](s7.md)).
+
 ## Default-build refusal posture
 
 The default proxy parses each MSG chunk's service TypeID; any
