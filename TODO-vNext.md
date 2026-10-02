@@ -30,11 +30,16 @@ añadir:
   exposición con la vulnerabilidad SP 800-82 r4 que evidencia, para que una
   ejecución sea auditable contra el estándar.
 
-Nota de captura (30-9): endurecer `ParseListIdentity` (ENIP) y
-`DeviceIDObjects` (Modbus FC43/14) con bytes reales quedó bloqueado: el
-intercambio concreto (ListIdentity 0x63, FC43/14) no está en los repos de
-pcaps ICS accesibles (ITI, automayt va por Git LFS). Las capturas EIP reales
-(quickdraw CL5000EIP) usan mensajería CIP de sesión (0x6f/0x70), no 0x63.
+Nota de captura (actualizada 2-10): **Modbus FC43/14 DESBLOQUEADO y
+corregido.** Captura real `modbus_example.pcap` (CISA cisagov/icsnpp-modbus,
+pkt 94) dio una respuesta FC43/14 completa, y validarla contra `DeviceIDObjects`
+destapó un bug (cabecera de 6 bytes en vez de 7, se saltaba el "Read Device ID
+code"): devolvía 0 objetos para todo dispositivo real. Arreglado + test con los
+bytes reales (PITF-064). **ENIP ListIdentity 0x63 SIGUE BLOQUEADO:** el único
+pcapng ENIP accesible con tráfico (scy-phy/bro-cip-enip `enip_metasploit`) solo
+tiene RegisterSession 0x65 y SendRRData 0x6f (mensajería CIP de sesión), ningún
+0x63, igual que las capturas EIP de quickdraw. Falta una captura con una
+respuesta ListIdentity real.
 
 ## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
 

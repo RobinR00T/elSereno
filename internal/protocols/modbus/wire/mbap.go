@@ -185,17 +185,25 @@ func BuildReadDeviceIDRequest(txID uint16, unit uint8) Frame {
 //	0x00 VendorName          0x03 VendorUrl
 //	0x01 ProductCode         0x04 ProductName
 //	0x02 MajorMinorRevision  0x05 ModelName
+//
+// The 7-byte response header (spec V1.1b3 §6.21) carries a Read Device ID
+// code and a conformity level BEFORE the object list; an earlier version of
+// this parser omitted the Read Device ID code byte (a 6-byte header built
+// from a fabricated fixture), which read Number of Objects from the wrong
+// offset and returned zero objects for every real device. Validated byte
+// for byte against a real FC43/14 response (CISA cisagov/icsnpp-modbus
+// modbus_example.pcap). PITF-064.
 func DeviceIDObjects(pdu []byte) (map[byte]string, error) {
 	// PDU layout:
-	//  [0]=0x2B  [1]=0x0E  [2]=conformity  [3]=moreFollows
-	//  [4]=nextObjectID [5]=numberOfObjects
-	//  [6..]= (objID, objLen, objValue)*
+	//  [0]=0x2B  [1]=0x0E  [2]=readDeviceIDCode  [3]=conformityLevel
+	//  [4]=moreFollows  [5]=nextObjectID  [6]=numberOfObjects
+	//  [7..]= (objID, objLen, objValue)*
 	if len(pdu) < 7 || pdu[0] != byte(FCEncapsulatedInterface) || pdu[1] != 0x0E {
 		return nil, fmt.Errorf("modbus: not a FC43/14 response")
 	}
-	n := int(pdu[5])
+	n := int(pdu[6])
 	out := make(map[byte]string, n)
-	off := 6
+	off := 7
 	for i := 0; i < n; i++ {
 		if off+2 > len(pdu) {
 			return nil, fmt.Errorf("modbus: truncated FC43 response at object %d", i)

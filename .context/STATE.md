@@ -19,6 +19,11 @@ plugins, read-only + signed: `s7-exposure` (ProbePosture) + `opcua-exposure`
 scanorch run-everything job runs them. PITF-031/063: audit pins golangci
 v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both before push.
 
+**2026-10-02 Modbus FC43/14 fix** (real capture): validating `DeviceIDObjects`
+vs a real CISA pcap exposed a 6-vs-7-byte header bug (skipped Read Device ID
+code, returned 0 objects for real devices); fixed + test on real bytes.
+PITF-064. ENIP ListIdentity 0x63 still capture-blocked (only 0x65/0x6f found).
+
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol
 (`internal/standards`), core.Finding untouched. ndjson + `standards` catalog
@@ -199,12 +204,6 @@ parity with batch scan (v1.31).
 https://github.com/RobinR00T/elSereno/releases (`v1.88.0`
 shipped 2026-05-11 with 35 assets via goreleaser). v1.89 tag
 pending push.
-
-v1.12 → v1.27 closed loose ends (per-object scoping across
-all 7 write-gates; BACnet/CWMP completion; IPv6 cross-cutting;
-CVE-exposure factor across 7 plugins). See snapshots for
-chunk-level detail. v1.15 was the last manually-counted asset
-release (9 assets); v1.16+ ship via goreleaser.
 
 GitHub Actions: all workflows live since 2026-08-31 (ci, audit,
 codeql, supply-chain, nightly, benchmarks, release,

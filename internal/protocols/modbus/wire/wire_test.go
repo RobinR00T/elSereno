@@ -116,21 +116,38 @@ func TestClassifyWriteFCs(t *testing.T) {
 
 func TestDeviceIDObjectsParse(t *testing.T) {
 	t.Parallel()
-	// FC=0x2B, MEI=0x0E, conformity=0x01, moreFollows=0x00,
-	// nextObjectID=0x00, numberOfObjects=0x02,
-	// obj0 (VendorName)="ACME" len=4, obj1 (ProductCode)="PLC-1" len=5
-	pdu := []byte{0x2B, 0x0E, 0x01, 0x00, 0x00, 0x02,
-		0x00, 0x04, 'A', 'C', 'M', 'E',
-		0x01, 0x05, 'P', 'L', 'C', '-', '1',
+	// Real FC43/14 response PDU, byte for byte from a captured Modbus/TCP
+	// session (CISA cisagov/icsnpp-modbus testing/traces/modbus_example.pcap,
+	// packet 94). 7-byte header then three Basic objects:
+	//  2b 0e            FC=0x2B, MEI=0x0E
+	//  01               Read Device ID code = 01 (Basic)
+	//  83               Conformity level = 0x83
+	//  00               More Follows = 0x00
+	//  00               Next Object Id = 0x00
+	//  03               Number of Objects = 3
+	//  00 10 "Zeek Modbus Test"           obj0 VendorName (len 16)
+	//  01 18 "Protocol Parsing is fun!"   obj1 ProductCode (len 24)
+	//  02 07 "1.2.3.6"                    obj2 MajorMinorRevision (len 7)
+	pdu := []byte{
+		0x2B, 0x0E, 0x01, 0x83, 0x00, 0x00, 0x03,
+		0x00, 0x10, 'Z', 'e', 'e', 'k', ' ', 'M', 'o', 'd', 'b', 'u', 's', ' ', 'T', 'e', 's', 't',
+		0x01, 0x18, 'P', 'r', 'o', 't', 'o', 'c', 'o', 'l', ' ', 'P', 'a', 'r', 's', 'i', 'n', 'g', ' ', 'i', 's', ' ', 'f', 'u', 'n', '!',
+		0x02, 0x07, '1', '.', '2', '.', '3', '.', '6',
 	}
 	objs, err := wire.DeviceIDObjects(pdu)
 	if err != nil {
 		t.Fatalf("DeviceIDObjects: %v", err)
 	}
-	if objs[0x00] != "ACME" {
-		t.Fatalf("VendorName=%q, want ACME", objs[0x00])
+	if objs[0x00] != "Zeek Modbus Test" {
+		t.Errorf("VendorName=%q, want %q", objs[0x00], "Zeek Modbus Test")
 	}
-	if objs[0x01] != "PLC-1" {
-		t.Fatalf("ProductCode=%q, want PLC-1", objs[0x01])
+	if objs[0x01] != "Protocol Parsing is fun!" {
+		t.Errorf("ProductCode=%q, want %q", objs[0x01], "Protocol Parsing is fun!")
+	}
+	if objs[0x02] != "1.2.3.6" {
+		t.Errorf("MajorMinorRevision=%q, want %q", objs[0x02], "1.2.3.6")
+	}
+	if len(objs) != 3 {
+		t.Errorf("got %d objects, want 3", len(objs))
 	}
 }

@@ -60,8 +60,11 @@ func FuzzReadFrameRoundTrip(f *testing.F) {
 // FuzzDeviceIDObjects asserts that DeviceIDObjects never panics on
 // adversarial MEI responses.
 func FuzzDeviceIDObjects(f *testing.F) {
-	f.Add([]byte{0x2B, 0x0E, 0x01, 0x00, 0x00, 0x00})
-	f.Add([]byte{0x2B, 0x0E, 0x01, 0x00, 0x00, 0x01, 0x00, 0x02, 'A', 'B'})
+	// 7-byte header (FC, MEI, ReadDevID code, conformity, moreFollows,
+	// nextObjectID, numberOfObjects) then the object list.
+	f.Add([]byte{0x2B, 0x0E, 0x01, 0x83, 0x00, 0x00, 0x00})                       // header only, 0 objects
+	f.Add([]byte{0x2B, 0x0E, 0x01, 0x83, 0x00, 0x00, 0x01, 0x00, 0x02, 'A', 'B'}) // one object
+	f.Add([]byte{0x2B, 0x0E, 0x01, 0x83, 0x00, 0x00, 0x03, 0x00, 0x02, 'A', 'B'}) // numObjects > present
 	f.Fuzz(func(_ *testing.T, b []byte) {
 		_, _ = wire.DeviceIDObjects(b)
 	})
