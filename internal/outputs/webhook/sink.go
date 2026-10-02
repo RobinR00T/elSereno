@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema identifier for the generic webhook envelope.
@@ -36,6 +37,9 @@ type Envelope struct {
 	Factors     map[string]int `json:"factors,omitempty"`
 	FindingHash string         `json:"finding_hash,omitempty"`
 	CreatedAt   string         `json:"created_at"`
+	// Standards traces the finding to the external-standard vulnerabilities
+	// it evidences (derived from Protocol); omitted when none map.
+	Standards []standards.Ref `json:"standards,omitempty"`
 }
 
 // Config holds the URL + optional signing secret.
@@ -86,6 +90,7 @@ func (s *Sink) Send(ctx context.Context, f core.Finding, addr string) error {
 		Factors:     f.Factors,
 		FindingHash: hex.EncodeToString(f.FindingHash),
 		CreatedAt:   f.CreatedAt.UTC().Format("2006-01-02T15:04:05.000000Z"),
+		Standards:   standards.ForProtocol(f.Protocol),
 	}
 	body, err := json.Marshal(env)
 	if err != nil {

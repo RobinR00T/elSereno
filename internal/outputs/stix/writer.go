@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/standards"
 )
 
 // Contract is the schema_info contract identifier that STIX
@@ -141,7 +142,7 @@ func (x *Writer) buildObservedDataSDO(f core.Finding, netRef string) map[string]
 	id := "observed-data--" + uuid.NewSHA1(elserenoNamespace, []byte("obs:"+string(f.ID))).String()
 	created := f.CreatedAt.UTC().Format(time.RFC3339)
 	labels := []string{string(f.Severity), f.Protocol}
-	return map[string]any{
+	sdo := map[string]any{
 		"type":            "observed-data",
 		"spec_version":    SpecVersion,
 		"id":              id,
@@ -153,6 +154,20 @@ func (x *Writer) buildObservedDataSDO(f core.Finding, netRef string) map[string]
 		"object_refs":     []string{netRef},
 		"labels":          labels,
 	}
+	// external_references is the STIX-native place to cite the external
+	// standard vulnerabilities the finding evidences (derived from
+	// protocol); omitted when none map.
+	if refs := standards.ForProtocol(f.Protocol); len(refs) > 0 {
+		ext := make([]map[string]any, len(refs))
+		for i, r := range refs {
+			ext[i] = map[string]any{
+				"source_name": r.Standard,
+				"description": r.Table + ": " + r.Vuln,
+			}
+		}
+		sdo["external_references"] = ext
+	}
+	return sdo
 }
 
 // networkProtocolsFor returns the STIX `protocols` array for a

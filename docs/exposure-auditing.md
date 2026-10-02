@@ -119,11 +119,13 @@ evidences. Print the catalog:
 elsereno standards --protocol opcua-exposure
 ```
 
-The mapping rides through the ndjson output (a `standards` array per
-finding), the HTML report (a per-protocol block), the GitHub Issues / Jira
-sinks (issue body + a filterable `standard/...` label), and the CEF / syslog
-writers (CEF `cs3`, a syslog `standard` structured-data param) for SIEM
-ingest. See [`standards/nist-sp800-82r4.md`](standards/nist-sp800-82r4.md).
+The mapping rides through every output surface except CSV: the ndjson
+output (a `standards` array per finding), the HTML report (a per-protocol
+block), the GitHub Issues / Jira sinks (issue body + a filterable
+`standard/...` label), the CEF / syslog writers (CEF `cs3`, a syslog
+`standard` structured-data param) for SIEM ingest, the STIX 2.1 bundle
+(native `external_references`), and the webhook envelope (a `standards`
+array). See [`standards/nist-sp800-82r4.md`](standards/nist-sp800-82r4.md).
 
 ## Read-only guarantee, in one place
 

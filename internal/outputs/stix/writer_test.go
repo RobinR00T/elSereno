@@ -58,6 +58,54 @@ func TestWriteFinding_BundleEmitsThreeObjects(t *testing.T) {
 	}
 }
 
+// observedData returns the observed-data SDO from a one-finding bundle.
+func observedData(t *testing.T, f core.Finding, addr string, port int) map[string]any {
+	t.Helper()
+	var buf bytes.Buffer
+	w := stix.NewWriter(&buf)
+	if err := w.WriteFinding(f, addr, port); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var bundle map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &bundle); err != nil {
+		t.Fatal(err)
+	}
+	objects, _ := bundle["objects"].([]any)
+	for _, o := range objects {
+		if m, ok := o.(map[string]any); ok && m["type"] == "observed-data" {
+			return m
+		}
+	}
+	t.Fatalf("no observed-data SDO in bundle")
+	return nil
+}
+
+// TestWriteFinding_StandardsExternalRefs — a mapped protocol cites the
+// SP 800-82 r4 vulnerabilities in the STIX-native external_references.
+func TestWriteFinding_StandardsExternalRefs(t *testing.T) {
+	obs := observedData(t, fixtureFinding(), "192.168.1.5", 502) // modbus
+	ext, ok := obs["external_references"].([]any)
+	if !ok || len(ext) == 0 {
+		t.Fatalf("external_references missing: %+v", obs)
+	}
+	first, _ := ext[0].(map[string]any)
+	if first["source_name"] != "NIST SP 800-82 r4" {
+		t.Errorf("source_name = %v, want NIST SP 800-82 r4", first["source_name"])
+	}
+	if d, _ := first["description"].(string); !strings.Contains(d, "Table 16") {
+		t.Errorf("description = %q, want a Table 16 reference", d)
+	}
+	// A protocol with no mapping omits external_references entirely.
+	f := fixtureFinding()
+	f.Protocol = "ftp"
+	if _, present := observedData(t, f, "192.168.1.5", 21)["external_references"]; present {
+		t.Error("unmapped protocol grew external_references")
+	}
+}
+
 // TestWriteFinding_IPv4AddrSCO — IPv4 input produces an
 // ipv4-addr SCO with the correct value.
 func TestWriteFinding_IPv4AddrSCO(t *testing.T) {

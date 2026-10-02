@@ -70,8 +70,16 @@ Done:
   RFC 5424 syslog writer carries them in a `standard` structured-data param.
   Both are the formats an OT SOC's SIEM (ArcSight, QRadar) ingests, so a
   correlation or compliance rule can key on the clause. The flat-string
-  join lives in `standards.Summarise`. Traceability now reaches ndjson, the
-  HTML report, GitHub, Jira, CEF, and syslog, plus the `standards` catalog.
+  join lives in `standards.Summarise`.
+- **Standards traceability in STIX / webhook** (2-10). The STIX 2.1 bundle
+  cites the vulnerabilities in the observed-data SDO's native
+  `external_references` (`source_name` + `description`); the generic webhook
+  envelope carries them in a `standards` array, mirroring ndjson. With this,
+  every output surface carries the traceability **except CSV**, which is left
+  out on purpose: its `csv:v1` header is a stable contract and adding a
+  column would break it (it would need a `csv:v2`). The traceability reaches
+  ndjson, the HTML report, GitHub, Jira, CEF, syslog, STIX, and webhook,
+  plus the `standards` catalog.
 
 ## Source
 

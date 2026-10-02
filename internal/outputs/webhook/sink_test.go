@@ -61,6 +61,37 @@ func TestSend_HappyPath_JSONShape(t *testing.T) {
 	}
 }
 
+func TestSend_StandardsTraceability(t *testing.T) {
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	s := webhook.New(webhook.Config{URL: srv.URL})
+	// modbus maps to a Table 16 unsecure-OT vulnerability.
+	if err := s.Send(context.Background(), sampleFinding(), "10.0.0.1:502"); err != nil {
+		t.Fatal(err)
+	}
+	var env webhook.Envelope
+	if err := json.Unmarshal(gotBody, &env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.Standards) == 0 || env.Standards[0].Standard != "NIST SP 800-82 r4" {
+		t.Fatalf("standards missing on envelope: %+v", env.Standards)
+	}
+	// A protocol with no mapping omits the field (omitempty).
+	gotBody = nil
+	f := sampleFinding()
+	f.Protocol = "ftp"
+	if err := s.Send(context.Background(), f, "10.0.0.1:21"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(gotBody), "standards") {
+		t.Fatalf("unmapped protocol emitted a standards field: %s", gotBody)
+	}
+}
+
 func TestSend_HMACHeaderOnSecret(t *testing.T) {
 	var gotBody []byte
 	var gotSig string
