@@ -36,6 +36,41 @@ intercambio concreto (ListIdentity 0x63, FC43/14) no está en los repos de
 pcaps ICS accesibles (ITI, automayt va por Git LFS). Las capturas EIP reales
 (quickdraw CL5000EIP) usan mensajería CIP de sesión (0x6f/0x70), no 0x63.
 
+## Diseño por decidir (2-10-2026): plugins opt-in vs "Plugins vacío = todo"
+
+Los plugins de exposición `s7-exposure` y `opcua-exposure` usan `DefaultPort 0`
+para quedar fuera del barrido por defecto. Se cumple en el CLI (`scan` solo
+corre el probe de `banner`; `discover` y `plugins ports` saltan
+`DefaultPort==0`), pero NO en la ruta de orquestación de `elsereno serve`:
+
+- `cmd/elsereno/scan_runner.go`: `resolvePlugins(nil)` devuelve todos los
+  registrados ("Empty Plugins slice -> run every registered plugin").
+- `filterByPort(DefaultPort 0)` devuelve TODOS los targets (semántica
+  "probe-anywhere" pensada para `banner`).
+- `internal/web/handlers/scans.go`: el handler de submit valida `inputs` pero
+  no `plugins`; si el cliente omite `plugins`, el job queda con la lista vacía.
+
+Efecto: un job de scan enviado al API web sin `plugins` corre `s7-exposure` y
+`opcua-exposure` contra cada target (sesiones anónimas OPC UA + caminata de
+escribibles, lecturas SZL S7). Es read-only y acotado, pero más intrusivo que
+un fingerprint y contradice la garantía opt-in de los docs. Preexistente con
+`s7-exposure`; `opcua-exposure` lo duplica. `DefaultPort 0` está sobrecargado:
+"probe-anywhere" (banner, SÍ en el barrido) y "opt-in, no auto-ejecutar" (los
+`-exposure`, NO).
+
+Opciones (tocan comportamiento por defecto / contrato de plugins, por eso no se
+ha tocado sin tu OK):
+
+1. Flag explícito `OptIn bool` en `core.PluginMetadata`; `resolvePlugins(nil)`
+   salta los `OptIn`, independiente de `DefaultPort`. Limpio; cambia el
+   contrato de plugins.
+2. En `resolvePlugins(nil)`, saltar `DefaultPort==0` salvo `banner`. Más
+   pequeño, menos general.
+3. Validar en el handler web que `plugins` no venga vacío. Deja "todo" como
+   decisión explícita del operador.
+
+No es destructivo (todo read-only): por eso es backlog, no hotfix.
+
 ## Backlog 28-9-2026: S7 + OPC UA exposure (refs validadas, sin construir)
 
 Del batch de probes inspirado en chrisdinozzi/opcua-recon (28-9-2026) se
