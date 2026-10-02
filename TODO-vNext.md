@@ -36,7 +36,16 @@ intercambio concreto (ListIdentity 0x63, FC43/14) no está en los repos de
 pcaps ICS accesibles (ITI, automayt va por Git LFS). Las capturas EIP reales
 (quickdraw CL5000EIP) usan mensajería CIP de sesión (0x6f/0x70), no 0x63.
 
-## Diseño por decidir (2-10-2026): plugins opt-in vs "Plugins vacío = todo"
+## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
+
+**Resuelto (opción 1):** se añadió `OptIn bool` a `core.PluginMetadata`;
+`s7-exposure` y `opcua-exposure` marcan `OptIn: true`, y
+`resolvePlugins(nil)` (la rama "run everything") salta los `OptIn`. Nombrar
+un plugin explícitamente lo corre igual. Guardrail en
+`TestResolvePlugins_OptInExcludedButNamed` + aserción `OptIn` en los tests de
+metadata de ambos plugins. El texto de abajo es el análisis original.
+
+---
 
 Los plugins de exposición `s7-exposure` y `opcua-exposure` usan `DefaultPort 0`
 para quedar fuera del barrido por defecto. Se cumple en el CLI (`scan` solo

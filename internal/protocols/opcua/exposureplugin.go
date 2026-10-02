@@ -56,6 +56,7 @@ func (p *ExposurePlugin) Metadata() core.PluginMetadata {
 		DefaultPort: 0,
 		Build:       "default",
 		Version:     "v1",
+		OptIn:       true,
 	}
 }
 

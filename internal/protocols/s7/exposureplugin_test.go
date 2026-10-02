@@ -63,6 +63,10 @@ func TestExposurePlugin_Metadata_OptIn(t *testing.T) {
 	if m.DefaultPort != 0 {
 		t.Errorf("DefaultPort = %d, want 0 (opt-in only)", m.DefaultPort)
 	}
+	// OptIn keeps it out of a scanorch "run everything" job too.
+	if !m.OptIn {
+		t.Error("OptIn = false, want true (never swept by default)")
+	}
 	if m.Build != "default" {
 		t.Errorf("build = %q, want default", m.Build)
 	}

@@ -216,13 +216,64 @@ func TestDefaultScanRunner_ScopeDropsOutOfScope(t *testing.T) {
 }
 
 // TestResolvePlugins_AllOnEmpty.
+// TestResolvePlugins_AllOnEmpty: empty input returns every registered
+// plugin EXCEPT the OptIn ones (deep/intrusive probes are never swept by a
+// "run everything" job).
 func TestResolvePlugins_AllOnEmpty(t *testing.T) {
 	out, err := resolvePlugins(nil)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
-	if len(out) != len(core.RegisteredPlugins()) {
-		t.Errorf("got %d plugins, want %d", len(out), len(core.RegisteredPlugins()))
+	all := core.RegisteredPlugins()
+	optIn := 0
+	for _, p := range all {
+		if p.OptIn {
+			optIn++
+		}
+	}
+	if len(out) != len(all)-optIn {
+		t.Errorf("got %d plugins, want %d (registered %d minus %d opt-in)",
+			len(out), len(all)-optIn, len(all), optIn)
+	}
+	for _, p := range out {
+		if p.OptIn {
+			t.Errorf("opt-in plugin %q must not be in a run-everything sweep", p.Name)
+		}
+	}
+}
+
+// TestResolvePlugins_OptInExcludedButNamed: the exposure plugins are OptIn,
+// so a run-everything job skips them, but naming one explicitly runs it.
+func TestResolvePlugins_OptInExcludedButNamed(t *testing.T) {
+	// At least one OptIn plugin must be registered for this guard to mean
+	// anything; s7-exposure and opcua-exposure are.
+	var optInNames []string
+	for _, p := range core.RegisteredPlugins() {
+		if p.OptIn {
+			optInNames = append(optInNames, p.Name)
+		}
+	}
+	if len(optInNames) == 0 {
+		t.Skip("no OptIn plugins registered")
+	}
+	swept, err := resolvePlugins(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range swept {
+		for _, n := range optInNames {
+			if p.Name == n {
+				t.Errorf("OptIn plugin %q leaked into the default sweep", n)
+			}
+		}
+	}
+	// Naming an OptIn plugin explicitly runs it.
+	named, err := resolvePlugins([]string{optInNames[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(named) != 1 || named[0].Name != optInNames[0] {
+		t.Errorf("explicit --plugin %s did not resolve it: %+v", optInNames[0], named)
 	}
 }
 

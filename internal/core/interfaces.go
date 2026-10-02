@@ -50,6 +50,13 @@ type PluginMetadata struct {
 	DefaultPort Port
 	Build       string // "default" | "offensive"
 	Version     string
+	// OptIn marks a plugin that must never run unless the operator names
+	// it explicitly (e.g. via `fingerprint probe --plugin` or a scan job's
+	// Plugins list). A "run everything" scan (empty Plugins) skips OptIn
+	// plugins, so a deep/intrusive probe like s7-exposure or opcua-exposure
+	// is not swept across every target by default. Distinct from
+	// DefaultPort==0, which also means "probe-anywhere" for banner.
+	OptIn bool
 }
 
 // Plugin is the registration wrapper.

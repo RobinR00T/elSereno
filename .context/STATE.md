@@ -13,10 +13,11 @@ anon-access (`opcua probe-anon`) + writeable walk (`opcua probe-write`,
 spec-grounded), S7 protection/identity/posture (`s7 probe`,
 `probe-protection`, `probe-identity`) + `--json` on all probes. S7 validated
 BYTE FOR BYTE vs real pcap s7comm_reading_plc_status. Opt-in scored-Finding
-plugins (DefaultPort 0, NOT in default scan/discover): `s7-exposure` (reuses
-ProbePosture, signed) + `opcua-exposure` (anon session + writeable walk,
-read-only; local unsigned). PITF-031/063: audit pins golangci v2.11.4, ci
-latest (v2.14.0); diverge BOTH ways, lint with both before a main push.
+plugins, read-only + signed: `s7-exposure` (ProbePosture) + `opcua-exposure`
+(anon + writeable walk). Opt-in enforced by `core.PluginMetadata.OptIn`
+(resolvePlugins skips OptIn, plus DefaultPort 0): neither the CLI sweep nor a
+scanorch run-everything job runs them. PITF-031/063: audit pins golangci
+v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both before push.
 
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol

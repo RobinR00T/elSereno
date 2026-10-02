@@ -20,10 +20,11 @@ import (
 // **Multi-plugin contract (v1.64+)**: a Job names zero or more
 // plugins.
 //
-//   - Empty Plugins slice → run every registered plugin
-//     (default-build registry; offensive plugins gated by
-//     `-tags offensive`).
-//   - Non-empty Plugins → run only the named subset.
+//   - Empty Plugins slice → run every registered plugin EXCEPT OptIn
+//     ones (default-build registry; offensive plugins gated by
+//     `-tags offensive`; OptIn probes like s7-exposure / opcua-exposure
+//     must be named explicitly, never swept by default).
+//   - Non-empty Plugins → run only the named subset (OptIn or not).
 //
 // For each plugin × target, the runner dispatches the probe iff
 // the plugin's DefaultPort matches the target's Port (the same
@@ -183,11 +184,22 @@ func (s *runState) dispatchAll(ctx context.Context, plugins []core.Plugin, targe
 	return dispatched
 }
 
-// resolvePlugins turns the Job.Plugins names into a Plugin
-// slice. Empty input returns every registered plugin.
+// resolvePlugins turns the Job.Plugins names into a Plugin slice. Empty
+// input returns every registered plugin EXCEPT the OptIn ones: a deep or
+// intrusive probe (s7-exposure, opcua-exposure) must be named explicitly,
+// never swept across every target by a "run everything" job. Naming a
+// plugin explicitly always runs it, OptIn or not.
 func resolvePlugins(names []string) ([]core.Plugin, error) {
 	if len(names) == 0 {
-		return core.RegisteredPlugins(), nil
+		all := core.RegisteredPlugins()
+		out := make([]core.Plugin, 0, len(all))
+		for _, p := range all {
+			if p.OptIn {
+				continue
+			}
+			out = append(out, p)
+		}
+		return out, nil
 	}
 	out := make([]core.Plugin, 0, len(names))
 	for _, name := range names {
