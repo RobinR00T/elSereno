@@ -358,6 +358,7 @@ of these are set (ADR-026, PITF-032).
 
 - [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md) — clonar repo + bootstrap + dev workflow.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — diseño interno.
+- [`docs/parser-validation.md`](docs/parser-validation.md): estado de validación de cada parser de protocolo (real-capture byte a byte vs fixture); qué parsers están probados contra captura real y cuáles siguen asumidos.
 - [`docs/openapi.yaml`](docs/openapi.yaml) — spec de la HTTP API.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — cómo contribuir.
 - [`.github/SETTINGS.md`](.github/SETTINGS.md) — config esperada de GitHub repo (Code Scanning ON, approval policy, workflow permissions).
