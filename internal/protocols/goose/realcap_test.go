@@ -74,3 +74,59 @@ func TestDissect_RealGOOSE(t *testing.T) {
 		t.Errorf("NumDatSetEntries = %d, want 8", p.NumDatSetEntries)
 	}
 }
+
+// realSVFrame is packet 1 of mgadelha/Sampled_Values SV_Normal_Traffic.cap,
+// the complete Ethernet frame of a real IEC 61850-9-2 Sampled Values publish
+// (dst MAC 01:0c:cd:04:00:02, the SV multicast range; 802.1Q-tagged;
+// EtherType 0x88BA). It carries one ASDU (svID "4001", smpCnt 280, confRev 1,
+// smpSynch 2) with 8 current/voltage samples, taken verbatim from a real
+// merging-unit-style publisher.
+const realSVFrame = "010ccd040002cafec0ffee698100800188ba40010066000000" +
+	"00605c800101a2573055800434303031820201188304000000018501028740" +
+	"fffe59820000000000043ddc00000000fffd6f5c00000000000006ba000020" +
+	"00ff8df40000000000011dfbc200000000ff55600c0000000000014fce00002000"
+
+// TestDissect_RealSV validates the Sampled Values path of the dissector
+// against a real capture byte for byte: the 802.1Q + 0x88BA demux and the
+// savPdu BER-TLV nesting (savPdu -> seqOfASDU -> ASDU: svID / smpCnt /
+// confRev / smpSynch). This is the "real capture" leg for the SV parser,
+// which previously had only hand-built fixtures.
+func TestDissect_RealSV(t *testing.T) {
+	frame, err := hex.DecodeString(realSVFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := goose.Dissect(frame)
+	if err != nil {
+		t.Fatalf("Dissect rejected a real SV frame: %v", err)
+	}
+	if f.Kind != goose.KindSV {
+		t.Fatalf("Kind = %q, want %q", f.Kind, goose.KindSV)
+	}
+	if !f.VLAN {
+		t.Error("VLAN = false, but this SV frame is 802.1Q-tagged")
+	}
+	sv := f.SV
+	if sv == nil {
+		t.Fatal("SV PDU is nil")
+	}
+	if sv.APPID != 0x4001 {
+		t.Errorf("APPID = 0x%04x, want 0x4001", sv.APPID)
+	}
+	if sv.NoASDU != 1 {
+		t.Errorf("NoASDU = %d, want 1", sv.NoASDU)
+	}
+	if sv.SvID != "4001" {
+		t.Errorf("SvID = %q, want %q", sv.SvID, "4001")
+	}
+	if sv.SmpCnt != 280 {
+		t.Errorf("SmpCnt = %d, want 280", sv.SmpCnt)
+	}
+	if sv.ConfRev != 1 {
+		t.Errorf("ConfRev = %d, want 1", sv.ConfRev)
+	}
+	if sv.SmpSynch != 2 {
+		t.Errorf("SmpSynch = %d, want 2", sv.SmpSynch)
+	}
+}

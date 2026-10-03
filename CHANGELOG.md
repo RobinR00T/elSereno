@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **SV (Sampled Values) parser validated against a real capture:** the
+  IEC 61850-9-2 path of `goose.Dissect` is now cross-checked byte for byte
+  against a real SV publisher frame (mgadelha/Sampled_Values
+  `SV_Normal_Traffic.cap`): the 802.1Q + 0x88BA demux and the savPdu BER
+  nesting (savPdu -> seqOfASDU -> ASDU: svID "4001", smpCnt, confRev,
+  smpSynch) all decode correctly. No bug; it was previously fixture-only.
+  With this, both IEC 61850 substation-bus protocols (GOOSE + SV) are
+  real-capture validated. See `docs/parser-validation.md`.
 - **Niagara Fox banner classifier validated against a real capture:** the
   Fox probe now has a real-capture test (w3h/icsmaster `fox_info.pcap`): it
   classifies a real Tridium Niagara station's "fox a 0 -1 fox hello" +
