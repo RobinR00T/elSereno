@@ -1,6 +1,46 @@
 package cve
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
+
+func TestCuratedRecordsWellFormed(t *testing.T) {
+	cveID := regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
+	// Every family the For* functions can return, collected through the
+	// public API so the guard tracks what actually ships.
+	groups := [][]Record{
+		ForS7("6ES7 515-2AM01-0AB0"), // S7-1200 / S7-1500
+		ForS7("6ES7 315-2EH14-0AB0"), // S7-300 / S7-400
+		ForENIP(1, "1756-EN2T/D"),    // Rockwell ControlLogix Ethernet
+		ForPCWorx(true),              // Phoenix Contact ProConOS
+		ForFINS("NX102-9000"),        // Omron SYSMAC Nx
+		ForFINS("CJ2M-CPU33"),        // Omron CJ / CS
+		ForFINS("CP1L-EL20DR-D"),     // Omron CP
+	}
+	seen := 0
+	for _, recs := range groups {
+		if len(recs) == 0 {
+			t.Error("a curated family returned no records")
+			continue
+		}
+		for _, r := range recs {
+			seen++
+			if !cveID.MatchString(r.ID) {
+				t.Errorf("malformed CVE id %q", r.ID)
+			}
+			if r.CVSS <= 0 || r.CVSS > 10 {
+				t.Errorf("%s: CVSS %.1f out of (0,10]", r.ID, r.CVSS)
+			}
+			if r.Affects == "" {
+				t.Errorf("%s: empty Affects", r.ID)
+			}
+		}
+	}
+	if seen < 8 {
+		t.Errorf("expected at least 8 curated records exercised, got %d", seen)
+	}
+}
 
 func TestS7Family(t *testing.T) {
 	cases := map[string]string{
