@@ -68,6 +68,19 @@ sonda reverse-engineered) buscando el patrón PITF-067/068:
 - **TwinCAT ADS (48898)**: correcto. AMS/TCP 6B + AMS header 32B (commandId@22,
   stateFlags@24, dataLength@26) + respuesta ReadDeviceInfo, coincide con la spec
   Beckhoff AMS/ADS; stateFlags&0x0001 exige respuesta.
+- **IAX2 (Asterisk)**: correcto. Full-frame de 12B y el enum de subclases
+  (NEW=1 / PING=2 / PONG=3 / ... / REGREL=17) coinciden exacto con RFC 5456;
+  FrameType IAX=0x06. Protocolo con RFC, no reverse-engineering.
+- **XOT (X.25 over TCP)**: correcto. Header XOT de 4B + paquete X.25 segun
+  RFC 1613. Protocolo con RFC.
+- **CWMP (TR-069) y AT-modem**: HTTP y texto respectivamente (no sonda binaria
+  propietaria); fuera del patron PITF-067, riesgo bajo, no auditados a fondo.
+
+**Auditoria de probes propietarios/binarios: COMPLETA (3-10-2026).** 2 bugs
+corregidos (GE-SRTP PITF-067, ProConOS PITF-069), 1 documentado y aplazado
+(CoDeSys PITF-068), el resto verificado correcto contra spec o implementacion de
+referencia. Queda pendiente solo la captura byte-a-byte de SLMP (sin fuente) y el
+frame de sonda de CoDeSys (necesita captura del 1217).
 
 Los parsers de protocolos estándar y bien documentados (Modbus, S7, OPC UA, ENIP,
 BACnet, DNP3, HART-IP, FINS, MMS, IEC104, MQTT, SIP, DLMS) ya se validaron contra
