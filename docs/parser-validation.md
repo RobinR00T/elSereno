@@ -40,8 +40,10 @@ bug, and the first place to look when one is reported.
 |---|---|
 | SLMP / MELSEC Read CPU Model (`slmp/wire`) | no accessible pcap (ITI has none; only client libraries exist). Spec-reviewed 2026-10-03: the offsets (9-byte header, ResponseDataLength at [7:9], end code [9:11], 16-byte model [11:27], CPU type [27:29], declaredLen==20) match the MELSEC 3E READ CPU MODEL response: looks correct, still not capture-proven |
 | GE-SRTP model hint (`gesrtp/wire`) | ITI pcap is a 130-byte Git LFS pointer; no real bytes. `ExtractModelHint` is a heuristic printable-run scan (not offset-based), so lower FC43-style risk |
+| KNXnet/IP DescriptionResponse (`knxip/wire`) | no accessible pcap. Spec-reviewed 2026-10-03: header 6B + DIB at 6, friendly name [30:60], KNXMedium/Status/IndividualAddress offsets match the KNXnet/IP DESCRIPTION_RESPONSE DIB: looks correct, not capture-proven |
+| M-Bus/TCP RSP_UD (`mbustcp/wire`) | no accessible pcap. Spec-reviewed 2026-10-03: start/L/L/start framing, total = 6+L, checksum over C..user-data, and the fixed-data-header offsets (ID [7:11], manufacturer [11:13], version [13], medium [14]) match EN 13757-3: looks correct, not capture-proven |
 | MMS vendor-finding path (`mms/wire` `ExtractMMSVendorHint`) | the reachable MMS captures carry no curated vendor marker; only the no-marker path is exercised on real bytes |
-| KNXnet/IP, M-Bus/TCP, DLMS, CoDeSys, Red Lion, PCWorx, ProConOS, TwinCat, ATG, CWMP, SIP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
+| DLMS, CoDeSys, Red Lion, PCWorx, ProConOS, TwinCat, ATG, CWMP, SIP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
 
 ## Method
 
