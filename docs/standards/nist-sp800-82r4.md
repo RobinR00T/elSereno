@@ -22,6 +22,7 @@ development), and 16 (Communication and network configuration).
 | Modbus reachability + no native auth (`modbus monitor`, fingerprint) | "Use of unsecure OT protocols"; "OT protocols often have few or no security capabilities" (Table 16) |
 | `discover` / `fingerprint` surfacing reachable OT ports across zones | "Poor configurations ... unnecessary ports and protocols open" (Table 13); "Firewalls are nonexistent or improperly configured" (Table 16) |
 | `plaintext-check` (service reachable but does not negotiate TLS) | "Standard, well-documented communication protocols are used in plaintext" (Table 16) |
+| `plaintext-check` TLS posture (service negotiates TLS but still accepts deprecated TLS 1.0 / 1.1, or presents an expired certificate) | "Authentication of users, data, or devices is substandard or nonexistent"; substandard encryption (Table 16) |
 | `creds-check http` (published default credentials accepted; offensive build, authorized use only) | "Vendor default passwords are used ... easy to discover within vendor product manuals" (Table 13) |
 | `s7 probe-identity`, ENIP ListIdentity, Modbus device identification (exact model + firmware) | "Hardware, firmware, and software that are not under asset/configuration management"; the patch-window vulnerabilities (Table 13) |
 
@@ -48,6 +49,13 @@ Done:
 - **Plaintext-protocol exposure check** (`plaintext-check`, 30-9). Table 16.
 - **Default-credential check** (`creds-check http`, `offensive` build,
   authorized use only, 30-9). Table 13.
+- **Weak-TLS posture in `plaintext-check`** (3-10). When a service does
+  negotiate TLS, the check confirms whether it still accepts the
+  deprecated TLS 1.0 / 1.1 versions (each with a version-pinned handshake,
+  since a modern negotiated version does not imply an obsolete one is
+  refused) and whether its leaf certificate has expired, reported as
+  `weak_tls` / `deprecated_tls` / `cert_expired`. Read-only, at most three
+  short handshakes. Table 16. `internal/exposure/cleartext.go`.
 - **Standards traceability in findings** (1-10). Each finding in the ndjson
   output carries a `standards` array with the SP 800-82 r4 vulnerabilities it
   evidences, derived from its protocol; `elsereno standards` prints the full

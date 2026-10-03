@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Weak-TLS posture check in `plaintext-check` (NIST SP 800-82 r4 Table
+  16):** when a service negotiates TLS, the check now also confirms whether
+  it still accepts the deprecated TLS 1.0 / 1.1 versions (each with a
+  version-pinned handshake, because a modern negotiated version does not
+  mean an obsolete one is refused) and whether its certificate has expired.
+  Either is reported as `weak_tls` (with `deprecated_tls` / `cert_expired`
+  detail) and evidences the Table 16 "substandard" encryption condition.
+  Read-only: at most three short handshakes, no payload, peer never
+  trusted. `internal/exposure/cleartext.go`,
+  `docs/standards/nist-sp800-82r4.md`.
 - **IAX2 parser validated against a real capture:** the full-frame header
   parser (`iax2/wire`) and the `NEW` the probe sends are now cross-checked
   byte for byte against a real incoming NEW frame from the Wireshark

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -31,13 +32,20 @@ also names the protocol and, for IT protocols, the encrypted alternative
 (http -> https, telnet -> ssh, ...); OT protocols (Modbus, S7, ...) are
 cleartext by design and the mitigation is network segmentation.
 
-It is read-only: it opens a connection and attempts a TLS handshake,
+When the service does negotiate TLS, this also reports its TLS posture:
+whether it still accepts the deprecated TLS 1.0 / 1.1 versions (each
+confirmed with a version-pinned handshake) and whether its certificate
+has expired. A weak posture evidences the same Table 16 "substandard"
+authentication / encryption condition.
+
+It is read-only: it opens connections and attempts TLS handshakes,
 nothing more.
 
 Examples:
 
   elsereno plaintext-check --target plc.example:502
-  elsereno plaintext-check --target 10.0.0.5:80 --json`,
+  elsereno plaintext-check --target 10.0.0.5:80 --json
+  elsereno plaintext-check --target 10.0.0.5:443   # reports TLS posture`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if target == "" {
 				return errors.New("--target host:port is required")
@@ -73,6 +81,26 @@ func runPlaintextCheck(cmd *cobra.Command, target string, timeout time.Duration,
 	}
 	if res.TLS {
 		cmd.Printf("Transport:   TLS (%s)\n", res.TLSVersion)
+		if res.CertNotAfter != "" {
+			status := "valid"
+			if res.CertExpired {
+				status = "EXPIRED"
+			}
+			cmd.Printf("Certificate: %s (NotAfter %s)\n", status, res.CertNotAfter)
+		}
+		if len(res.DeprecatedTLS) > 0 {
+			cmd.Printf("Deprecated:  still accepts %s\n", strings.Join(res.DeprecatedTLS, ", "))
+		}
+		if res.WeakTLS {
+			var parts []string
+			if len(res.DeprecatedTLS) > 0 {
+				parts = append(parts, "accepts deprecated "+strings.Join(res.DeprecatedTLS, "/"))
+			}
+			if res.CertExpired {
+				parts = append(parts, "certificate expired")
+			}
+			cmd.Printf("[!] EXPOSURE: weak TLS posture (%s) (SP 800-82 r4 Table 16).\n", strings.Join(parts, "; "))
+		}
 		return nil
 	}
 	cmd.Println("Transport:   cleartext (no TLS)")

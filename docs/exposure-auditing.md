@@ -98,6 +98,15 @@ was negotiated and at what version, and the secure alternative where one
 exists. Read-only: it opens a connection and attempts a TLS handshake, it
 sends no application-layer payload.
 
+When the service does negotiate TLS, the check also reports its **TLS
+posture**: whether it still accepts the deprecated TLS 1.0 / 1.1 versions
+(each confirmed with a version-pinned handshake, because a modern
+negotiated version does not mean an obsolete one is refused) and whether
+its certificate has expired. Either condition is flagged `weak_tls` and
+evidences the same SP 800-82 r4 Table 16 "substandard" authentication /
+encryption condition. Still read-only: at most three short handshakes, no
+payload, and the peer is never trusted.
+
 ## Default credentials (offensive build, authorized use only)
 
 > **AUTHORIZED USE ONLY.** This check sends authentication attempts to a

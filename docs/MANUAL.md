@@ -829,8 +829,10 @@ elsereno s7 probe-identity   --target plc:102
 # OPC UA: ¿abre sesión anónima? ¿qué puede escribir el anónimo?
 elsereno opcua probe-anon  --target plc:4840 --json
 elsereno opcua probe-write --target plc:4840 --max-nodes 500
-# Transporte en claro: ¿el servicio negocia TLS?
+# Transporte en claro: ¿el servicio negocia TLS? Si lo negocia, también
+# reporta postura TLS (acepta TLS 1.0/1.1 obsoletos, cert caducado).
 elsereno plaintext-check --target plc:502 --json
+elsereno plaintext-check --target hmi:443 --json   # postura TLS
 # Findings puntuados opt-in (DefaultPort 0: NO en el scan/discover por defecto):
 elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
 elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json

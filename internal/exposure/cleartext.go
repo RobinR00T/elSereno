@@ -6,9 +6,18 @@
 // "Standard, well-documented communication protocols are used in
 // plaintext" and "Use of unsecure OT protocols": it actively determines
 // whether a reachable service negotiates TLS, and names the plaintext
-// protocol and its secure alternative when the port is well known. It is
-// read-only: it opens a connection and attempts a TLS handshake, nothing
-// more.
+// protocol and its secure alternative when the port is well known.
+//
+// When the service does negotiate TLS, the check goes one step further
+// and assesses TLS posture: whether the service still accepts the
+// deprecated TLS 1.0 / 1.1 versions (each confirmed with a version-pinned
+// handshake) and whether its certificate has expired. A service that
+// negotiates a modern version can still accept an obsolete one, which a
+// single ClientHello would hide; that weak posture evidences the Table 16
+// "substandard" authentication / encryption condition.
+//
+// It is read-only: it opens connections and attempts TLS handshakes,
+// nothing more.
 package exposure
 
 import (
@@ -26,8 +35,24 @@ type TransportResult struct {
 	Reachable bool `json:"reachable"`
 	// TLS is true when the service completed a TLS handshake.
 	TLS bool `json:"tls"`
-	// TLSVersion names the negotiated version when TLS is true.
+	// TLSVersion names the highest version negotiated when TLS is true.
 	TLSVersion string `json:"tls_version,omitempty"`
+	// DeprecatedTLS lists the deprecated TLS versions (TLS 1.0 / 1.1)
+	// the service still accepts, each confirmed with its own version-
+	// pinned handshake. Empty when the service refuses both.
+	DeprecatedTLS []string `json:"deprecated_tls,omitempty"`
+	// CertExpired is true when the leaf certificate's NotAfter is in the
+	// past (the handshake still completes; expiry is read from the cert,
+	// not enforced).
+	CertExpired bool `json:"cert_expired,omitempty"`
+	// CertNotAfter is the leaf certificate's expiry (RFC3339 UTC), when a
+	// certificate was presented.
+	CertNotAfter string `json:"cert_not_after,omitempty"`
+	// WeakTLS is the headline for the TLS-posture check: the service
+	// negotiates TLS but either still accepts a deprecated version or
+	// presents an expired certificate (SP 800-82 r4 Table 16,
+	// "substandard" authentication / encryption).
+	WeakTLS bool `json:"weak_tls,omitempty"`
 	// Cleartext is the headline: the service is reachable and does NOT
 	// negotiate TLS, so its transport is in plaintext (SP 800-82 r4
 	// Table 16).
@@ -100,6 +125,39 @@ func tlsVersionName(v uint16) string {
 	}
 }
 
+// deprecatedTLSProbes are the TLS versions elSereno flags as weak. TLS 1.0
+// (RFC 8996) and TLS 1.1 are deprecated; a service that still accepts them
+// evidences SP 800-82 r4 Table 16 substandard encryption.
+var deprecatedTLSProbes = []struct {
+	name string
+	ver  uint16
+}{
+	{"TLS 1.0", tls.VersionTLS10},
+	{"TLS 1.1", tls.VersionTLS11},
+}
+
+// acceptsTLSVersion reports whether target completes a TLS handshake when
+// the client offers exactly ver (MinVersion == MaxVersion == ver). It is
+// read-only and never trusts the peer. A dial or handshake failure means
+// "not accepted" and returns false, so the check is conservative: it only
+// flags a deprecated version it positively confirmed on the wire.
+func acceptsTLSVersion(ctx context.Context, target string, timeout time.Duration, ver uint16) bool {
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", target)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = conn.Close() }()
+	cfg := &tls.Config{InsecureSkipVerify: true, MinVersion: ver, MaxVersion: ver} // #nosec G402 -- detection-only: confirms a deprecated version is accepted, never trusts the peer
+	tconn := tls.Client(conn, cfg)
+	_ = tconn.SetDeadline(time.Now().Add(timeout))
+	if err := tconn.HandshakeContext(ctx); err != nil {
+		return false
+	}
+	_ = tconn.Close()
+	return true
+}
+
 // ProbeCleartext opens a TCP connection to target (host:port) and reports
 // whether the service negotiates TLS. A reachable service that does not
 // complete a TLS handshake is flagged Cleartext. It is read-only. A
@@ -127,8 +185,23 @@ func ProbeCleartext(ctx context.Context, target string, timeout time.Duration) (
 	_ = tconn.SetDeadline(time.Now().Add(timeout))
 	if herr := tconn.HandshakeContext(ctx); herr == nil {
 		res.TLS = true
-		res.TLSVersion = tlsVersionName(tconn.ConnectionState().Version)
+		cs := tconn.ConnectionState()
+		res.TLSVersion = tlsVersionName(cs.Version)
+		if len(cs.PeerCertificates) > 0 {
+			na := cs.PeerCertificates[0].NotAfter
+			res.CertNotAfter = na.UTC().Format(time.RFC3339)
+			res.CertExpired = time.Now().After(na)
+		}
 		_ = tconn.Close()
+		// Posture: a modern negotiated version does not mean the service
+		// refuses obsolete ones. Confirm each deprecated version with its
+		// own version-pinned handshake.
+		for _, p := range deprecatedTLSProbes {
+			if acceptsTLSVersion(ctx, target, timeout, p.ver) {
+				res.DeprecatedTLS = append(res.DeprecatedTLS, p.name)
+			}
+		}
+		res.WeakTLS = len(res.DeprecatedTLS) > 0 || res.CertExpired
 		return res, nil
 	}
 	_ = conn.Close()

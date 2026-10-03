@@ -125,7 +125,8 @@ elsereno s7 probe-identity   --target plc:102     # order number + firmware (CVE
 # OPC UA: does an anonymous session actually open / what is writeable
 elsereno opcua probe-anon  --target plc:4840 --json
 elsereno opcua probe-write --target plc:4840 --max-nodes 500
-# Cleartext transport: does the service negotiate TLS?
+# Cleartext transport: does the service negotiate TLS? (if so, also reports
+# TLS posture: deprecated TLS 1.0/1.1 accepted, expired cert)
 elsereno plaintext-check --target plc:502 --json
 # Opt-in scored Findings (DefaultPort 0: NOT in default scan/discover):
 elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
