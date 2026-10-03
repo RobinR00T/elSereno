@@ -7,23 +7,22 @@
 // Berghof, IPC2u, ABB / B&R / Lenze re-skins, and a long tail
 // of OEM rebrands.
 //
-// **HONEST SCOPE NOTE, best-effort, needs validation**: public
-// references to the ProConOS handshake conflict. The plugin
-// implements the variant that matches the Wireshark dissector
-// in master + the metasploit auxiliary scanner module
-// (`01 06 00 10` + `PROCONOS` + 4-byte zero pad). It also
-// accepts the alternate-prefix form (`CA FE 00 00 CE FA DE C0`)
-// found in older Berghof/Lenze captures, plus a permissive
-// banner classifier matching `PROCONOS` / `KW-Software` /
-// `MultiProg` / `KWS-LDR` markers.
+// The plugin sends the canonical 10-byte ProConOS enumeration
+// request and checks the 0xcc response signature. Both come from
+// two independent reference implementations that agree byte for
+// byte: DigitalBond Redpoint `proconos-info.nse` (request
+// `cc01000b4002000047ee`, response byte 0 = 0xcc) and the
+// Praetorian nerva `proconos` plugin (same request + 0xcc
+// signature). It also keeps a permissive banner classifier
+// matching `PROCONOS` / `KW-Software` / `MultiProg` / `KWS-LDR` and
+// the alternate-prefix form (`CA FE 00 00 CE FA DE C0`) for recall.
 //
-// Until at least one of {real-PLC pcap, lab confirmation, ICS
-// Wireshark capture} is available, operators should treat
-// positive identifications as **confidence ≈ 0.7** rather than
-// the ≈ 0.95 the v1.20-v1.25 fingerprint plugins produce. The
-// plugin's scoring reflects this, `protocol_risk` defaults to
-// 75 (vs 80 for codesys) and `capability` ceiling is 60 (vs
-// 75 for codesys / pcworx).
+// Earlier the plugin sent `01 06 00 10` + `PROCONOS` and expected
+// that prefix echoed back, which was wrong on both the send and the
+// recv side and would miss real PLCs (PITF-069). The scoring stays
+// best-effort (`protocol_risk` 75, `capability` ceiling 60) because
+// the response-field parsing (model at offset 45 etc.) is still not
+// exercised against a real-PLC pcap, only the signature is.
 //
 // CVE history (cve_exposure: 7), the KW-Software runtime
 // ecosystem inherits much of the Phoenix Contact ILC family's

@@ -52,7 +52,7 @@ func TestClassifyParseError(t *testing.T) {
 func TestBuildFindingFactors(t *testing.T) {
 	t.Parallel()
 	target := core.Target{Address: netip.MustParseAddr("203.0.113.7"), Port: 20547}
-	yes := buildFinding(target, "ProConOS prefix echo", true)
+	yes := buildFinding(target, "ProConOS signature (0xcc)", true)
 	no := buildFinding(target, "no usable reply", false)
 	if yes.Factors["capability"] <= no.Factors["capability"] {
 		t.Fatalf("capability should jump on ProConOS reply: yes=%d no=%d",
@@ -86,7 +86,7 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 			return
 		}
 		defer func() { _ = conn.Close() }()
-		buf := make([]byte, wire.HelloLen)
+		buf := make([]byte, wire.RequestLen)
 		_, _ = io.ReadFull(conn, buf)
 		if reply := respond(); reply != nil {
 			_, _ = conn.Write(reply)
@@ -113,10 +113,11 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 	return f
 }
 
-func TestProbePrefixEcho(t *testing.T) {
+func TestProbeSignature(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
-		return append(append([]byte{}, wire.ProConOSHelloPrefix...), 0x00, 0x00, 0x00, 0x10)
+		// A real ProConOS reply leads with the 0xcc signature.
+		return []byte{0xcc, 0x01, 0x00, 0x0b, 0x40, 0x02, 0x00, 0x00, 0x47, 0xee}
 	})
 	if f.Factors["capability"] != 60 {
 		t.Fatalf("capability = %d, want 60", f.Factors["capability"])

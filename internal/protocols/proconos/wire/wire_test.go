@@ -9,33 +9,29 @@ import (
 	"local/elsereno/internal/protocols/proconos/wire"
 )
 
-func TestBuildHello_LengthAndPrefix(t *testing.T) {
+func TestBuildHello_IsEnumerationRequest(t *testing.T) {
 	frame := wire.BuildHello()
-	if len(frame) != wire.HelloLen {
-		t.Fatalf("hello len = %d, want %d", len(frame), wire.HelloLen)
+	if len(frame) != wire.RequestLen {
+		t.Fatalf("request len = %d, want %d", len(frame), wire.RequestLen)
 	}
-	if !bytes.HasPrefix(frame, wire.ProConOSHelloPrefix) {
-		t.Errorf("hello does not start with ProConOS prefix: % x", frame[:4])
+	if !bytes.Equal(frame, wire.ProConOSRequest) {
+		t.Errorf("request = % x, want % x", frame, wire.ProConOSRequest)
 	}
-	if !bytes.Equal(frame[4:12], wire.ProConOSToken) {
-		t.Errorf("identify token mismatch: got %q want %q", string(frame[4:12]), string(wire.ProConOSToken))
-	}
-	for i := 12; i < len(frame); i++ {
-		if frame[i] != 0 {
-			t.Errorf("byte[%d] = %02x, want 0", i, frame[i])
-		}
+	// Both the request and the reply lead with 0xcc.
+	if frame[0] != wire.ResponseSignature {
+		t.Errorf("request byte 0 = 0x%02x, want 0xcc", frame[0])
 	}
 }
 
-func TestClassify_PrefixEcho(t *testing.T) {
-	resp := append([]byte{}, wire.ProConOSHelloPrefix...)
-	resp = append(resp, []byte{0x00, 0x01, 0x02, 0x03}...)
+func TestClassify_Signature(t *testing.T) {
+	// A real ProConOS reply leads with the 0xcc response signature.
+	resp := append([]byte{wire.ResponseSignature}, []byte{0x01, 0x00, 0x0b, 0x40}...)
 	note, err := wire.Classify(resp)
 	if err != nil {
 		t.Fatalf("Classify: %v", err)
 	}
-	if !strings.Contains(strings.ToLower(note), "prefix echo") {
-		t.Errorf("note = %q, want prefix-echo signal", note)
+	if !strings.Contains(strings.ToLower(note), "signature") {
+		t.Errorf("note = %q, want signature signal", note)
 	}
 }
 
@@ -73,11 +69,9 @@ func TestClassify_BannerMultiProg(t *testing.T) {
 }
 
 func TestClassify_AlternatePrefixCafeDeCade(t *testing.T) {
-	// The "01 06 00 10 + PROCONOS" form is the v1.28 canonical
-	// hello, but some Berghof + Lenze firmwares respond with the
-	// older "0xCA 0xFE 0x00 0x00 0xCE 0xFA 0xDE 0xC0" structure.
-	// The classifier accepts both as positive ID via the alt-
-	// prefix banner substring.
+	// Some Berghof + Lenze firmwares respond with the older
+	// "0xCA 0xFE 0x00 0x00 0xCE 0xFA 0xDE 0xC0" structure; the
+	// classifier accepts it via the alt-prefix banner substring.
 	resp := []byte{0xCA, 0xFE, 0x00, 0x00, 0xCE, 0xFA, 0xDE, 0xC0, 0x01, 0x02, 0x03, 0x04}
 	note, err := wire.Classify(resp)
 	if err != nil {
@@ -89,7 +83,7 @@ func TestClassify_AlternatePrefixCafeDeCade(t *testing.T) {
 }
 
 func TestClassify_ShortFrame(t *testing.T) {
-	_, err := wire.Classify([]byte{0x01, 0x06})
+	_, err := wire.Classify([]byte{})
 	if !errors.Is(err, wire.ErrShortFrame) {
 		t.Fatalf("err = %v, want ErrShortFrame", err)
 	}
@@ -104,13 +98,13 @@ func TestClassify_NotProConOS(t *testing.T) {
 }
 
 func TestIsProConOSFrame(t *testing.T) {
-	if !wire.IsProConOSFrame(append(wire.ProConOSHelloPrefix, 0xFF)) {
-		t.Error("prefix-matching frame returned false")
+	if !wire.IsProConOSFrame([]byte{0xcc, 0x01, 0x00, 0x0b}) {
+		t.Error("0xcc-signature frame returned false")
 	}
 	if wire.IsProConOSFrame([]byte{0xff, 0xff, 0xff, 0xff}) {
 		t.Error("non-matching frame returned true")
 	}
-	if wire.IsProConOSFrame([]byte{0x01}) {
-		t.Error("short frame returned true")
+	if wire.IsProConOSFrame([]byte{}) {
+		t.Error("empty frame returned true")
 	}
 }

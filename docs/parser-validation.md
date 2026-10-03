@@ -3,10 +3,11 @@
 elSereno parses responses from untrusted network devices. A parser is only
 as trustworthy as what it was tested against: a unit test whose fixture was
 hand-built to the parser's own (possibly wrong) understanding of the wire
-validates nothing: it agrees with itself. Three real bugs in this codebase
-(Modbus FC43/14, Omron FINS, GE-SRTP) were hidden exactly that way until a
-real capture or a tested reference implementation exposed them (PITF-064,
-PITF-065, PITF-067); a fourth (CoDeSys) is confirmed and deferred (PITF-068).
+validates nothing: it agrees with itself. Four real bugs in this codebase
+(Modbus FC43/14, Omron FINS, GE-SRTP, ProConOS) were hidden exactly that way
+until a real capture or a tested reference implementation exposed them
+(PITF-064, PITF-065, PITF-067, PITF-069); a fifth (CoDeSys) is confirmed and
+deferred (PITF-068).
 
 This table records, per response parser, whether it is validated **byte for
 byte against a real capture** or only against hand-built fixtures / the spec.
@@ -49,7 +50,7 @@ bug, and the first place to look when one is reported.
 | KNXnet/IP DescriptionResponse (`knxip/wire`) | no accessible pcap, but CROSS-CHECKED 2026-10-03 against the knx-go reference (vapourismo/knx-go `dib.go`): DIB_DEV_INFO field order Medium[8] / Status[9] / IndividualAddress[10:12] / Serial[6] / Multicast[4] / MAC[6] / FriendlyName[30:60] and DIB type 0x01 all match. Consistent with a reference impl, still not byte-capture-proven. (The earlier 0x0204 request bug was already fixed to 0x0203 in v1.55.) |
 | M-Bus/TCP RSP_UD (`mbustcp/wire`) | no accessible pcap, but CROSS-CHECKED 2026-10-03 against libmbus (rscada/libmbus `mbus_data_variable_header`): id_bcd[4] / manufacturer[2] / version / medium after C/A/CI place ID at [7:11], manufacturer [11:13], version [13], medium [14], matching the parser and EN 13757-3. Consistent with a reference impl, still not byte-capture-proven |
 | MMS vendor-finding path (`mms/wire` `ExtractMMSVendorHint`) | the reachable MMS captures carry no curated vendor marker; only the no-marker path is exercised on real bytes |
-| ProConOS runtime (`proconos/wire`, TCP/20547) | the one public "ProConOS" capture (reidmefirst/PC-PCAP) is actually PC Worx engineering traffic on 1962 (validated above as pcworx), not the 20547 runtime protocol. No runtime capture |
+| ProConOS runtime (`proconos/wire`, TCP/20547) | no runtime pcap, but FIXED + cross-checked 2026-10-03 (PITF-069): the probe was sending `01 06 00 10 PROCONOS` and expecting that echoed back, wrong on both send and recv. Corrected to the DigitalBond Redpoint `proconos-info.nse` request `cc01000b4002000047ee` and the 0xcc response signature, which the Praetorian nerva `proconos` plugin confirms byte for byte. Response-field parsing (model at offset 45) still not capture-proven |
 | ATG (Veeder-Root) | no real capture: only honeypots (GasPot, LowOctane) emulate the I20100 response, which is a fixture, not a real device |
 | CoDeSys BlockDriver magic (`codesys/wire`) | **SUSPECT (PITF-068, deferred): the 0xCDCDCDCD magic is unsourced and is the MSVC uninitialised-heap fill pattern; two sources (Tenable gateway PoC + Kaspersky ICS-CERT) put the real CODESYS block-driver magic at 0xE8170100 with an 8-byte header. Not fixed: the minimal probe frame that elicits a 1217 reply is unknown; the banner path still works** |
 | Red Lion, TwinCat, CWMP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |

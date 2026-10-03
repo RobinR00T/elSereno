@@ -62,6 +62,12 @@ sonda reverse-engineered) buscando el patrón PITF-067/068:
   fallback; no depende de un magic binario.
 - **ATG (Veeder-Root)**: correcto. Envía el comando documentado I20100 (igual que
   nmap atg-info).
+- **ProConOS (20547)**: BUG, corregido (PITF-069). Enviaba `01 06 00 10 PROCONOS` y
+  esperaba ese prefijo echo; el real es la query `cc01000b4002000047ee` con
+  respuesta signature 0xcc (Redpoint NSE + nerva, byte a byte).
+- **TwinCAT ADS (48898)**: correcto. AMS/TCP 6B + AMS header 32B (commandId@22,
+  stateFlags@24, dataLength@26) + respuesta ReadDeviceInfo, coincide con la spec
+  Beckhoff AMS/ADS; stateFlags&0x0001 exige respuesta.
 
 Los parsers de protocolos estándar y bien documentados (Modbus, S7, OPC UA, ENIP,
 BACnet, DNP3, HART-IP, FINS, MMS, IEC104, MQTT, SIP, DLMS) ya se validaron contra

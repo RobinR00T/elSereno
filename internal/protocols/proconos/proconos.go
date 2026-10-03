@@ -43,9 +43,10 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 	}
 }
 
-// Probe implements core.Protocol. Sends the canonical 16-byte
-// ProConOS hello and classifies the response by either:
-//   - first 4 bytes echoing the ProConOS hello prefix, or
+// Probe implements core.Protocol. Sends the canonical 10-byte
+// ProConOS enumeration request (Redpoint + nerva) and classifies
+// the response by either:
+//   - byte 0 = 0xcc, the ProConOS response signature, or
 //   - any of the ProConOS banner markers (PROCONOS / ProConOS /
 //     KW-Software / MultiProg / KWS-LDR / alt-prefix).
 //

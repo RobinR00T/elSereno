@@ -383,5 +383,13 @@ Y recuerda: el job `context` exige `.context/STATE.md` <= 250 líneas (recorta e
 **Regla**: un "magic" de 4 bytes igual a un patrón de relleno conocido (0xCDCDCDCD = MSVC uninit heap; también 0xDEADBEEF, 0xBAADF00D, 0xFEEEFEEE, repeticiones de un solo byte) es sospechoso por defecto: verificar contra una implementación o captura antes de confiar. Para arreglar el probe hace falta una captura del gateway 1217, o construir un PDU de sonda válido y confirmar que provoca respuesta.
 **Ver**: `internal/protocols/codesys/wire/wire.go`, Tenable `poc/codesys/...tra_2020_04.py`, Kaspersky ICS-CERT CODESYS Runtime paper, 3-10-2026.
 
+## PITF-069: el fingerprint de ProConOS enviaba y esperaba el mensaje equivocado (corregido)
+**Síntoma**: el fingerprint ProConOS (`internal/protocols/proconos`, TCP/20547) enviaba un hello de 16 bytes `01 06 00 10` + "PROCONOS" + ceros, y clasificaba la respuesta como ProConOS si los primeros 4 bytes echo-eaban ese prefijo (o contenía un banner). Contra un PLC ProConOS real es incorrecto en los dos lados.
+**Causa raíz**: mismo patrón que PITF-067 (GE-SRTP). El modelo venía de "un dissector + un módulo metasploit" que no coincide con cómo se fingerprintea ProConOS en 20547. El propio package doc admitía que las fuentes "conflict" y eligió la variante equivocada.
+**Valor correcto (dos fuentes independientes, byte a byte)**: (1) DigitalBond Redpoint `proconos-info.nse` (el escáner de facto de ProConOS): `req_info = bin.pack("H","cc01000b4002000047ee")`, valida que el primer byte de la respuesta es 0xcc, con campos en offsets 13/45/78 (Ladder Logic Runtime / PLC Type / Project Name). (2) Praetorian nerva `proconos`: `request := []byte{0xcc,0x01,0x00,0x0b,0x40,0x02,0x00,0x00,0x47,0xee}` y `ResponseSignature = 0xcc`, valida `response[0] != 0xcc`.
+**Fix**: `BuildHello` envía la query de 10 bytes `cc 01 00 0b 40 02 00 00 47 ee`; `Classify`/`IsProConOSFrame` aceptan byte 0 = 0xcc (constante `ResponseSignature`), con los banner substrings como fallback de recall. Se eliminaron `ProConOSHelloPrefix` / `ProConOSToken` / `HelloLen`. Tests actualizados.
+**Regla (extiende PITF-067)**: cuando un fingerprint propietario se apoya en "un dissector" o "un módulo metasploit" y el package doc admite que las fuentes están en conflicto, es bandera roja: buscar el escáner de facto del protocolo (Redpoint / nmap NSE) y una segunda implementación, y confirmar query + response signature antes de confiar. Un dissector de Wireshark describe el formato de las tramas, no necesariamente la sonda de fingerprint correcta.
+**Ver**: `internal/protocols/proconos/wire/wire.go`, Redpoint `proconos-info.nse`, Praetorian nerva `proconos`, 3-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
