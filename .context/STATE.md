@@ -23,7 +23,7 @@ v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both before push.
 bugs, all fixed: Modbus FC43/14 (PITF-064); Omron FINS SystemVersion (PITF-065);
 GE-SRTP init (sent 0x02/exp 0x03 = operation; real = 56 zeros -> 0x01, PITF-067);
 ProConOS (sent 01060010 PROCONOS; real query cc01000b... -> 0xcc sig, PITF-069).
-CoDeSys magic 0xCDCDCDCD wrong (real 0xE8170100, now capture-confirmed on TCP/11740 via cds3.pcapng); deferred, still no host-independent probe frame (PITF-068). IAX2 full-frame header + NEW validated vs a real capture (Wireshark IAX2_incoming_call), no bug.
+CoDeSys magic 0xCDCDCDCD wrong (real 0xE8170100, now capture-confirmed on TCP/11740 via cds3.pcapng); deferred, still no host-independent probe frame (PITF-068). IAX2 full-frame header + NEW validated vs a real capture (Wireshark IAX2_incoming_call), no bug. TwinCAT ADS ReadDeviceInfo + XOT/X.25 cross-checked vs spec (TwinCAT: fixed a stale doc comment, name is 16B not 24B); CWMP/AT-modem/Red Lion classified -> validation sweep COMPLETE. NIST Table 16: weak-TLS posture added to plaintext-check (confirms deprecated TLS 1.0/1.1 acceptance + expired cert; aae1560). Coverage raised: atg 2.6->79.5%, fox 4.8->97.6%, bacnet/twincat plugin 0->45/56% (100c7cf).
 
 **2026-10-03 CVE enrichment** (increments 1-4) + repo em-dash cleanup (4b09ca6,
 740 files, 0 dashes): `internal/cve` maps a family to curated REAL web-verified
