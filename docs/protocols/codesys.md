@@ -10,6 +10,18 @@ some installations also expose 11740 (newer) or 1200 (V2 legacy).
 
 ## Probe
 
+> **WARNING (PITF-068, unresolved 2026-10-03):** the `0xCD 0xCD 0xCD 0xCD`
+> magic below is almost certainly WRONG. No source confirms it, and it is the
+> MSVC debug "uninitialised heap" fill pattern, so it was likely read off an
+> uninitialised buffer during reverse-engineering. Two independent sources
+> (Tenable's CODESYS gateway PoC and the Kaspersky ICS-CERT CODESYS Runtime
+> paper) put the real CODESYS block-driver magic at `0xE8170100` (little-endian)
+> with an 8-byte header (magic[4] + size[4]). The fix is deferred, not applied:
+> a correct probe must send a valid multi-layer PDU that elicits a gateway
+> reply, and that minimal responding frame is not yet confirmed against a
+> capture. The banner path still works. Note the legitimate `0x55cd` below is
+> the services-layer protocol id, a different field, not this magic.
+
 - Send the 4-byte BlockDriver magic hello: `0xCD 0xCD 0xCD 0xCD`.
 - Classify the response by either:
   - **BlockDriver magic echo**: the server's first 4 bytes

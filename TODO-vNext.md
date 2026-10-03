@@ -30,6 +30,19 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
+## Hallazgo abierto (3-10-2026, alta prioridad): el magic de CoDeSys está mal
+
+`codesys` (TCP/1217) usa `BlockDriverMagic = 0xCDCDCDCD`, que no respalda ninguna
+fuente y es el patrón de memoria no inicializada de MSVC debug. Dos fuentes
+independientes (la PoC del gateway V3 de Tenable y el paper de Kaspersky ICS-CERT
+sobre el CODESYS Runtime) fijan el magic real del block driver de CODESYS en
+0xE8170100 (little-endian) con header de 8 bytes (magic[4] + size[4]). NO
+corregido a propósito: falta el frame de sonda mínimo que provoque respuesta del
+gateway 1217 (la PoC opera en 11743 con PDUs multicapa para actuar, no un hello
+de fingerprint), y cambiar el envío a otra conjetura repetiría el error. Ver
+PITF-068; marcado con WARNING en `codesys/wire/wire.go`. Para cerrarlo hace falta
+una captura del 1217 o construir un PDU de sonda válido y confirmar la respuesta.
+
 ## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
 
 Del draft NIST SP 800-82 r4 (Initial Public Draft, sept-2026), mapeado en

@@ -47,8 +47,23 @@ const (
 	BlockDriverMagicLen = 4
 )
 
-// BlockDriverMagic is the canonical 4-byte BlockDriver magic
-// prefix that opens every CoDeSys V3 BlockDriver frame.
+// BlockDriverMagic is the 4-byte prefix this fingerprint sends and
+// recognises.
+//
+// WARNING (PITF-068, unresolved 2026-10-03): 0xCD 0xCD 0xCD 0xCD is
+// almost certainly WRONG. No source confirms it, and 0xCDCDCDCD is the
+// MSVC debug "uninitialised heap" fill pattern, so it was likely read
+// off an uninitialised buffer during reverse-engineering. Two
+// independent sources put the real CODESYS block-driver magic at
+// 0xE8170100 (little-endian) with an 8-byte header (magic[4] +
+// size[4]): Tenable's gateway PoC (pack('<II', 0xe8170100, len), also
+// checked on recv) and the Kaspersky ICS-CERT CODESYS Runtime paper
+// (the PDU stack opens with the Block Driver layer; the runtime reads
+// 8 bytes and compares the first 4 with the magic constant). The fix
+// is deferred, not applied: a correct probe must send a valid PDU
+// (block driver + datagram + channel + services) that elicits a
+// gateway reply, and that minimal responding frame is not yet
+// confirmed against a capture. The banner path below still works.
 var BlockDriverMagic = []byte{0xCD, 0xCD, 0xCD, 0xCD}
 
 // CoDeSysBannerSubstrings are CoDeSys server greeting / banner
