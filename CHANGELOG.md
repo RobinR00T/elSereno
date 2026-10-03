@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **M-Bus/TCP parser validated against a real meter frame:** `ParseRSPUD`
+  is now cross-checked byte for byte against a real Itron/ACW CYBLE water
+  meter RSP_UD telegram (from the rscada/libmbus test corpus): the
+  0x68 LL 0x68 long-frame framing, the length + checksum checks, and the
+  variable-data header (ID 9011523, manufacturer "ACW", version 20, medium
+  Water) all decode correctly. No bug; M-Bus/TCP moves from reference-impl
+  cross-check to real-frame validated. See `docs/parser-validation.md`.
 - **SV (Sampled Values) parser validated against a real capture:** the
   IEC 61850-9-2 path of `goose.Dissect` is now cross-checked byte for byte
   against a real SV publisher frame (mgadelha/Sampled_Values
