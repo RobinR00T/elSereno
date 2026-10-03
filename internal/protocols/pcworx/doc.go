@@ -22,12 +22,18 @@
 // control) is not implemented in v1.25, so the proxy refuses
 // the session immediately rather than relay opaque bytes.
 //
-// CVE history (cve_exposure: 8), Phoenix Contact ILC family
-// has a recurring stream of advisories:
+// CVE history: the Phoenix Contact ILC / AXC / RFC family has a
+// recurring stream of advisories (PCWorx auth bypass, variable-write
+// escalation, hardcoded credentials). A positive fingerprint enriches
+// the finding with two web-verified ProConOS CVEs (internal/cve,
+// cve.ForPCWorx):
 //
-//   - ICSA-15-160-01 (PCWorx auth bypass + RCE).
-//   - ICSA-17-201-01 (PCWorx variable-write privilege escalation).
-//   - ICSA-21-082-01 (AXC F 2152 hardcoded credentials).
-//   - CVE-2018-13002 (ILC 1xx config-file read without auth).
-//   - CVE-2020-9436  (ILC 350/370/390 stack DoS).
+//   - CVE-2022-31800: unauthenticated logic upload to ProConOS / eCLR
+//     controllers, no code signing. CVSS 9.8.
+//   - CVE-2014-9195: ProConOS / MULTIPROG require no authentication.
+//     CVSS v2 10.0.
+//
+// Family-level, not firmware-confirmed: CVE-2022-31800 is fixed in
+// later firmware that signs downloads, so pair it with the Phoenix
+// Contact advisory for the device's firmware.
 package pcworx

@@ -152,3 +152,28 @@ func ForENIP(vendorID uint16, productName string) []Record {
 	}
 	return nil
 }
+
+// Curated Phoenix Contact CVEs for the ProConOS runtime that the PC WORX
+// family (ILC / AXC / RFC controllers) runs. The PC WORX fingerprint confirms
+// a Phoenix Contact controller speaking that runtime protocol; the runtime
+// verifies no authentication and does not sign downloaded logic.
+var pcworxProConOS = []Record{
+	// OT:ICEFALL: an unauthenticated remote attacker uploads malicious logic
+	// to ProConOS / ProConOS eCLR devices and gains full control.
+	{ID: "CVE-2022-31800", CVSS: 9.8, Affects: "Phoenix Contact ProConOS / eCLR controllers: unauthenticated logic download (no code signing)"},
+	// ProConOS and MULTIPROG require no authentication for control traffic.
+	{ID: "CVE-2014-9195", CVSS: 10.0, Affects: "Phoenix Contact ProConOS / MULTIPROG: protocol requires no authentication (CVSS v2 base)"},
+}
+
+// ForPCWorx returns curated ProConOS-family CVEs once a PC WORX fingerprint has
+// positively confirmed a Phoenix Contact controller (confirmed == true). This
+// is a FAMILY-level match keyed on the runtime protocol, not a firmware-exact
+// lookup: CVE-2022-31800 was fixed in later firmware that signs downloads, so
+// pair it with the Phoenix Contact advisory for the device's firmware. An
+// unconfirmed probe returns nil.
+func ForPCWorx(confirmed bool) []Record {
+	if !confirmed {
+		return nil
+	}
+	return pcworxProConOS
+}

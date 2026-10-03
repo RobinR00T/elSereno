@@ -61,11 +61,21 @@ func TestBuildFindingFactors(t *testing.T) {
 		t.Fatalf("capability should jump on PCWorx reply: yes=%d no=%d",
 			yes.Factors["capability"], no.Factors["capability"])
 	}
-	if yes.Factors["cve_exposure"] != 8 {
-		t.Fatalf("cve_exposure: got %d want 8 (ICSA-15-160-01 / 17-201-01 / 21-082-01 + ILC CVE family)", yes.Factors["cve_exposure"])
+	// A confirmed PCWorx device is a ProConOS-family controller: CVE enrichment
+	// raises cve_exposure from the baseline 8 to Score([CVE-2022-31800 9.8,
+	// CVE-2014-9195 10.0]) = 70. An unconfirmed probe keeps the baseline 8.
+	if yes.Factors["cve_exposure"] != 70 {
+		t.Fatalf("confirmed cve_exposure: got %d want 70 (ProConOS family CVEs)", yes.Factors["cve_exposure"])
+	}
+	if no.Factors["cve_exposure"] != 8 {
+		t.Fatalf("unconfirmed cve_exposure: got %d want baseline 8", no.Factors["cve_exposure"])
 	}
 	if yes.Factors["protocol_risk"] != 80 {
 		t.Fatalf("protocol_risk: got %d want 80", yes.Factors["protocol_risk"])
+	}
+	// The CVE ids in the note give the enriched finding a distinct id.
+	if yes.ID == no.ID {
+		t.Fatal("confirmed (CVE-enriched) finding should have a distinct id")
 	}
 }
 

@@ -65,6 +65,21 @@ func TestForENIP(t *testing.T) {
 	}
 }
 
+func TestForPCWorx(t *testing.T) {
+	// A confirmed PC WORX fingerprint maps to the ProConOS family CVEs.
+	recs := ForPCWorx(true)
+	if len(recs) != 2 {
+		t.Fatalf("confirmed PCWorx = %d records, want 2", len(recs))
+	}
+	if recs[0].ID != "CVE-2022-31800" {
+		t.Errorf("first PCWorx CVE = %q, want CVE-2022-31800", recs[0].ID)
+	}
+	// An unconfirmed probe must not claim any CVE.
+	if got := ForPCWorx(false); got != nil {
+		t.Errorf("unconfirmed PCWorx must map to no CVEs, got %+v", got)
+	}
+}
+
 func TestScore(t *testing.T) {
 	if Score(nil) != 0 {
 		t.Error("no records must score 0")

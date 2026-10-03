@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/protocols/pcworx/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -117,17 +119,27 @@ func buildFinding(target core.Target, note string, isPCWorx bool) *core.Finding 
 		"auth_state":    90, // PCWorx default install has no enforced auth
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLC blast radius
-		// cve_exposure: 8, Phoenix Contact ILC family has a
-		// recurring CVE history. Anchor advisories:
-		//   ICSA-15-160-01 (PCWorx auth bypass + RCE).
-		//   ICSA-17-201-01 (PCWorx variable-write privilege escalation).
-		//   ICSA-21-082-01 (AXC F 2152 hardcoded credentials).
-		//   CVE-2018-13002 (ILC 1xx config-file read without auth).
-		//   CVE-2020-9436  (ILC 350/370/390 stack DoS).
+		// cve_exposure 8: conservative baseline for the Phoenix Contact
+		// ILC / AXC / RFC family, which has a recurring advisory history
+		// (PCWorx auth bypass, variable-write escalation, hardcoded
+		// credentials). A positive PCWorx fingerprint raises it below via
+		// cve.ForPCWorx, anchored on two web-verified ProConOS CVEs
+		// (CVE-2022-31800 unauthenticated logic upload, CVSS 9.8; and
+		// CVE-2014-9195 ProConOS / MULTIPROG requires no auth, CVSS v2 10.0).
 		"cve_exposure": 8,
 	}
 	if isPCWorx {
 		factors["capability"] = 70
+		// CVE enrichment: a confirmed PC WORX device is a Phoenix Contact
+		// controller on the ProConOS runtime, so it carries the family CVEs
+		// (family-level, not firmware-confirmed). Record the ids in the note
+		// so the enriched finding keys to a distinct id.
+		if recs := cve.ForPCWorx(true); len(recs) > 0 {
+			if s := cve.Score(recs); s > factors["cve_exposure"] {
+				factors["cve_exposure"] = s
+			}
+			note += " cve=" + strings.Join(cve.IDs(recs), ",")
+		}
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
