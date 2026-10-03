@@ -40,6 +40,31 @@ func TestForS7(t *testing.T) {
 	}
 }
 
+func TestForENIP(t *testing.T) {
+	// Rockwell (vendor 1) ControlLogix Ethernet modules carry CVE-2025-7353.
+	// EN2T / EN2TR / EN2TP all contain "EN2T"; EN2F and EN3TR match explicitly.
+	for _, name := range []string{
+		"1756-EN2T/D", "1756-EN2TR/C", "1756-EN2TP/A", "1756-EN2F/C", "1756-EN3TR/B",
+	} {
+		recs := ForENIP(1, name)
+		if len(recs) != 1 || recs[0].ID != "CVE-2025-7353" {
+			t.Errorf("ForENIP(1, %q) = %+v, want CVE-2025-7353", name, recs)
+		}
+	}
+	// The older 1756-ENBT (the validated real-capture device) is NOT in the
+	// affected list: no over-claim, it must return nil.
+	if got := ForENIP(1, "1756-ENBT/A"); got != nil {
+		t.Errorf("1756-ENBT must not map to CVEs, got %+v", got)
+	}
+	// Same catalog token but a different vendor: not Rockwell, no match.
+	if got := ForENIP(42, "1756-EN2T/D"); got != nil {
+		t.Errorf("non-Rockwell vendor must not map to Rockwell CVEs, got %+v", got)
+	}
+	if got := ForENIP(1, ""); got != nil {
+		t.Errorf("empty product name must not map to CVEs, got %+v", got)
+	}
+}
+
 func TestScore(t *testing.T) {
 	if Score(nil) != 0 {
 		t.Error("no records must score 0")

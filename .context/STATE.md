@@ -1,7 +1,7 @@
 ---
 phase: v2.63-closed; vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
 status: tags published through v2.62; CI green on main
-last-updated: 2026-10-01
+last-updated: 2026-10-03
 token-budget: 320
 ---
 
@@ -25,10 +25,10 @@ PITF-064) + Omron FINS SystemVersion reading reserved bytes (PITF-065); both
 fixed. Re-grounded (correct): Modbus framing, OPC UA Browse/Read (caveat
 lifted), ENIP ListIdentity (was blocked), BACnet, DNP3, FINS. Fixtures hide bugs.
 
-**2026-10-03 CVE enrichment** (increment 1, S7): `internal/cve` maps an
-identified family to curated REAL CVEs (family-level, not firmware-exact,
-offline); `s7-exposure` raises cve_exposure + records CVE ids from the MLFB
-(S7-1500 -> CVE-2020-15782). ENIP/FINS/PC WORX/Omron wiring pending.
+**2026-10-03 CVE enrichment** (increments 1-2): `internal/cve` maps a family to
+curated REAL web-verified CVEs (family/catalog-level, offline). S7: MLFB ->
+CVE-2020-15782. ENIP: Rockwell 1756-EN2x modules -> CVE-2025-7353 (9.8); ENBT not
+matched; also fixed 3 wrong CVEs in enip.go baseline comment. FINS/PC WORX pending.
 
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol

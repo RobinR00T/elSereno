@@ -630,6 +630,10 @@ elsereno scan --protocol enip --input stdin <<< "10.0.0.7:44818"
 
 # ListIdentity saca VendorID, DeviceType, SerialNumber, ProductName.
 # Si el target es Rockwell / Omron / Allen-Bradley → `protocol_risk` alto.
+# Y si el ProductName es un módulo Ethernet ControlLogix (1756-EN2T /
+# -EN2TR / -EN2TP / -EN2F / -EN3TR), `cve_exposure` sube y el finding
+# anota CVE-2025-7353 (RCE 9.8, nivel-catálogo). El 1756-ENBT no entra
+# en la lista afectada, así que se queda en el baseline (sin CVE falsa).
 ```
 
 ### 3.4 BACnet/IP (UDP)

@@ -148,8 +148,10 @@ array). See [`standards/nist-sp800-82r4.md`](standards/nist-sp800-82r4.md).
 
 ## Not covered here
 
-ENIP (EtherNet/IP) and Modbus device-identification hardening against real
-captured bytes is **blocked** on capture availability (the specific
-exchanges, ListIdentity 0x63 and Modbus FC43/14, are not in the public ICS
-pcap sets accessible to this project). It is tracked in `TODO-vNext.md` and
-will not ship on fabricated fixtures.
+ENIP (EtherNet/IP) and Modbus device identification are now validated against
+real captured bytes: ListIdentity 0x63 against an Allen-Bradley 1756-ENBT/A
+reply (CISA `icsnpp-enip`) and Modbus FC43/14 against a real device (CISA
+`icsnpp-modbus`); the Modbus pass fixed a real offset bug (PITF-064). Both the
+fingerprint parsers and their CVE enrichment ride on those validated reads.
+See [`parser-validation.md`](parser-validation.md) for the full validated-vs-
+spec matrix and [`protocols/enip.md`](protocols/enip.md) for the ENIP CVE map.

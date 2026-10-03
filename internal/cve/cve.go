@@ -1,7 +1,9 @@
 // Package cve maps a device family that an identity probe has read off the
-// wire (Siemens MLFB order number, firmware, vendor/model string) to a
-// CURATED, NON-EXHAUSTIVE set of real, published CVEs, so a finding can turn
-// "this is a Siemens S7-1500" into "...and this family carries CVE-2020-15782".
+// wire (Siemens MLFB order number, EtherNet/IP vendor id + product name, or a
+// firmware / model string) to a CURATED, NON-EXHAUSTIVE set of real, published
+// CVEs, so a finding can turn "this is a Siemens S7-1500" into "...and this
+// family carries CVE-2020-15782", or "this is a Rockwell 1756-EN2TR" into
+// "...and that Ethernet module line carries CVE-2025-7353".
 //
 // Scope and honesty (important):
 //   - Every record is a real, published CVE. No fabricated or guessed ids.
@@ -113,4 +115,40 @@ func ForS7(orderNumber string) []Record {
 	default:
 		return nil
 	}
+}
+
+// Curated Rockwell Automation / Allen-Bradley CVEs, by product line. Rockwell
+// is EtherNet/IP vendor id 1; the ListIdentity product name carries the module
+// catalog number verbatim, so the match is catalog-exact rather than inferred.
+var (
+	// ControlLogix Ethernet communication modules (1756-EN2T, -EN2TR, -EN2TP,
+	// -EN2F, -EN3TR) ship a web-based debug (WDB) agent that allows an
+	// unauthenticated remote attacker to read/modify memory and control
+	// execution. Firmware v11.004 and prior.
+	enipControlLogixEthernet = []Record{
+		{ID: "CVE-2025-7353", CVSS: 9.8, Affects: "Rockwell ControlLogix 1756-EN2x / -EN3TR Ethernet modules (WDB agent RCE)"},
+	}
+)
+
+// ForENIP returns curated CVEs for a device identified by an EtherNet/IP
+// ListIdentity response. It fires only for Rockwell Automation / Allen-Bradley
+// (vendor id 1) and matches on the product-name catalog number, which carries
+// the exact module line. The match is catalog-level, not firmware-confirmed:
+// CVE-2025-7353 affects these modules at firmware v11.004 and prior, which the
+// identity response does not reliably reveal, so pair it with the advisory.
+// Product lines without a curated, catalog-exact CVE (the older 1756-ENBT, or
+// Logix controllers whose generation cannot be read unambiguously from the
+// product name) return nil rather than a guessed match.
+func ForENIP(vendorID uint16, productName string) []Record {
+	if vendorID != 1 {
+		return nil
+	}
+	name := strings.ToUpper(productName)
+	// 1756-EN2T, -EN2TR and -EN2TP all contain "EN2T"; -EN2F and -EN3TR are
+	// matched explicitly. The older 1756-ENBT contains none of these tokens,
+	// so it correctly receives no match.
+	if strings.Contains(name, "EN2T") || strings.Contains(name, "EN2F") || strings.Contains(name, "EN3TR") {
+		return enipControlLogixEthernet
+	}
+	return nil
 }

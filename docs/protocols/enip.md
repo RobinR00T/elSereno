@@ -22,6 +22,25 @@ the project the only reachable ENIP captures carried CIP session
 messaging (0x6f/0x70) with no ListIdentity reply, so this parser had
 been spec-grounded only.
 
+## CVE enrichment (identity-driven)
+
+When the ListIdentity product name identifies a Rockwell module line
+(vendor id 1) with a curated real CVE, the finding raises its
+`cve_exposure` factor and records the CVE ids in its note
+(`internal/cve`, `cve.ForENIP`). The Rockwell ControlLogix Ethernet
+modules **1756-EN2T / -EN2TR / -EN2TP / -EN2F / -EN3TR** carry
+CVE-2025-7353 (web-debug WDB agent, unauthenticated RCE, CVSS 9.8).
+
+The match is **catalog-level, not firmware-confirmed**: CVE-2025-7353
+affects those modules at firmware v11.004 and prior, which the identity
+reply does not reliably reveal, so pair it with the Rockwell advisory /
+NVD for the exact firmware range. The older **1756-ENBT** (the device
+in the validated capture) is deliberately **not** matched: it is not in
+the affected list, so it keeps the family baseline rather than a guessed
+CVE. Logix controllers are not yet enriched (the controller generation
+cannot be read unambiguously from the product name without a verified
+reference string).
+
 ## Proxy policy (default build)
 
 The encapsulation command is classified per wire table:

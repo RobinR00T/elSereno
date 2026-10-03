@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/protocols/enip/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -135,15 +137,27 @@ func buildFinding(target core.Target, note string, it *wire.IdentityItem) *core.
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  80,
-		// cve_exposure 11: CVE-2017-7898 (Rockwell open ports),
-		// CVE-2018-19009 (Rockwell stack), CVE-2020-12029
-		// (Rockwell ENIP DoS), CVE-2021-22681 (Rockwell
-		// hardcoded crypto key — Studio 5000 Logix Designer).
-		// Rockwell-dominant family.
+		// cve_exposure 11: a conservative baseline for the Rockwell-dominant
+		// EtherNet/IP family. It reflects the generic Rockwell CVE surface
+		// (CVE-2021-22681, Studio 5000 / RSLogix hardcoded crypto key, auth
+		// bypass to Logix controllers, CVSS 10.0, in CISA KEV; CVE-2017-7898,
+		// MicroLogix 1100/1400 RCE, CVSS 9.8; CVE-2020-6998, Logix 5000 DoS,
+		// CVSS 5.8). A device-specific, catalog-exact match raises it below
+		// via cve.ForENIP.
 		"cve_exposure": 11,
 	}
 	if it != nil {
 		factors["capability"] = 70
+		// CVE enrichment: when the ListIdentity product name identifies a
+		// Rockwell module line with a curated real CVE, raise cve_exposure
+		// (catalog-level, not firmware-confirmed) and record the ids in the
+		// note so the enriched finding keys to a distinct id.
+		if recs := cve.ForENIP(it.VendorID, it.ProductName); len(recs) > 0 {
+			if s := cve.Score(recs); s > factors["cve_exposure"] {
+				factors["cve_exposure"] = s
+			}
+			note += " cve=" + strings.Join(cve.IDs(recs), ",")
+		}
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
