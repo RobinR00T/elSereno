@@ -25,6 +25,11 @@ PITF-064) + Omron FINS SystemVersion reading reserved bytes (PITF-065); both
 fixed. Re-grounded (correct): Modbus framing, OPC UA Browse/Read (caveat
 lifted), ENIP ListIdentity (was blocked), BACnet, DNP3, FINS. Fixtures hide bugs.
 
+**2026-10-03 CVE enrichment** (increment 1, S7): `internal/cve` maps an
+identified family to curated REAL CVEs (family-level, not firmware-exact,
+offline); `s7-exposure` raises cve_exposure + records CVE ids from the MLFB
+(S7-1500 -> CVE-2020-15782). ENIP/FINS/PC WORX/Omron wiring pending.
+
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol
 (`internal/standards`), core.Finding untouched. ndjson + `standards` catalog
@@ -194,17 +199,11 @@ for 4 legacy-ICS protocols + recording (v1.35), dashboard
 validate/capture verbs (v1.37 + v1.38), discover --hosts
 (v1.39), plugins ports reverse-index (v1.40).
 
-**v1.28 → v1.31 cycles** (closed; per-cycle snapshots in
-`.context/snapshots/v1.<N>.0-*.md`):
-ProConOS fingerprint + record-replay POC (v1.28), TUI verb +
-mini build (v1.29), record-replay wire-up across 9 gates +
-proxy listen/replay + TUI scan launcher (v1.30), TUI --input
-parity with batch scan (v1.31).
+**v1.28 → v1.31** (closed; snapshots): ProConOS fingerprint, TUI verb +
+mini build, record-replay across 9 gates + proxy listen/replay, TUI --input.
 
-**v1.0 → v1.88 are published** on
-https://github.com/RobinR00T/elSereno/releases (`v1.88.0`
-shipped 2026-05-11 with 35 assets via goreleaser). v1.89 tag
-pending push.
+**v1.0 → v1.88 published** on github.com/RobinR00T/elSereno/releases
+(`v1.88.0`, 2026-05-11, 35 assets via goreleaser).
 
 GitHub Actions: all workflows live since 2026-08-31 (ci, audit,
 codeql, supply-chain, nightly, benchmarks, release,

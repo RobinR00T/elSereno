@@ -45,7 +45,14 @@ As a scored `core.Finding` (opt-in plugin):
 elsereno fingerprint probe --plugin s7-exposure --target plc:102 --json
 ```
 
-A CPU writable without a password scores Critical.
+A CPU writable without a password scores Critical. When the CPU's MLFB
+order number identifies a family with curated real CVEs (e.g. an S7-1500
+carries CVE-2020-15782), the `s7-exposure` finding raises its `cve_exposure`
+score and records the CVE ids in its note. This is a **family-level**,
+non-exhaustive match (`internal/cve`), not a firmware-exact lookup: pair it
+with NVD / the vendor advisory for the precise firmware. ET200 distributed
+CPUs are deliberately not classified (the MLFB is ambiguous), so they get
+no CVE boost rather than a wrong one.
 
 ## OPC UA (port 4840)
 

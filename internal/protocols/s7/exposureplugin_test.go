@@ -54,6 +54,30 @@ func TestBuildExposureFinding_Scoring(t *testing.T) {
 	}
 }
 
+func TestBuildExposureFinding_CVEEnrichment(t *testing.T) {
+	tg := exposureTarget()
+	// A clearly-classified S7-1500 CPU: its family has a curated real CVE.
+	withCVE := buildExposureFinding(tg, PostureResult{
+		IsS7: true, SetupOK: true, ProtectionRead: true, Exposed: true,
+		OrderNumber: "6ES7 515-2AM01-0AB0", Firmware: "V2.9.2",
+	})
+	// An ET200S (MLFB deliberately not classified): no CVE boost, baseline.
+	noCVE := buildExposureFinding(tg, PostureResult{
+		IsS7: true, SetupOK: true, ProtectionRead: true, Exposed: true,
+		OrderNumber: "6ES7 151-8AB01-0AB0", Firmware: "V3.2.6",
+	})
+	if noCVE.Factors["cve_exposure"] != 14 {
+		t.Errorf("unclassified MLFB cve_exposure = %d, want baseline 14", noCVE.Factors["cve_exposure"])
+	}
+	if withCVE.Factors["cve_exposure"] != 45 {
+		t.Errorf("S7-1500 cve_exposure = %d, want 45 (one curated CVE)", withCVE.Factors["cve_exposure"])
+	}
+	// The CVE ids go into the note, so the enriched finding has a distinct id.
+	if withCVE.ID == noCVE.ID {
+		t.Error("CVE-enriched finding should have a distinct id from the no-CVE one")
+	}
+}
+
 func TestExposurePlugin_Metadata_OptIn(t *testing.T) {
 	m := DefaultExposure().Metadata()
 	if m.Name != ExposureName {

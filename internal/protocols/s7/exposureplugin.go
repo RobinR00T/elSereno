@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/scoring"
 )
 
@@ -119,6 +121,15 @@ func buildExposureFinding(target core.Target, res PostureResult) *core.Finding {
 		factors["capability"] = 70
 		note = fmt.Sprintf("protected real=%d %s/%s",
 			res.Protection.RealLevel, res.OrderNumber, res.Firmware)
+	}
+	// CVE enrichment: if the identified CPU family has curated real CVEs,
+	// raise cve_exposure (family-level, not firmware-confirmed) and record
+	// the CVE ids in the note. No match leaves the static baseline.
+	if recs := cve.ForS7(res.OrderNumber); len(recs) > 0 {
+		if s := cve.Score(recs); s > factors["cve_exposure"] {
+			factors["cve_exposure"] = s
+		}
+		note += " cve=" + strings.Join(cve.IDs(recs), ",")
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
