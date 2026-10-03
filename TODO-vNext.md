@@ -8,9 +8,17 @@
 > gesrtp / codesys / redlion (cada uno con demo de simulador); fingerprint
 > profundo OPC UA HTTPS por GetEndpoints (el plugin `opcuahttps` enumera
 > endpoints + postura de seguridad); input BinaryEdge; el verbo
-> `fingerprint probe`. Sigue abierto de verdad: PROFINET GOOSE/SV L2
-> passive (gopacket + CAP_NET_RAW); el camino de ESCRITURA de OPC UA
-> HTTPS (solo se entregó el fingerprint read-only).
+> `fingerprint probe`.
+> **Entregado 2026-09/10 (fuente: STATE.md):** probes de exposición S7 y
+> OPC UA (opt-in, flag `OptIn` en `PluginMetadata`); GOOSE/SV passive
+> monitor (`goose decode` / `goose monitor`); el camino de ESCRITURA de
+> OPC UA HTTPS (write-gate `write opcuahttps` + `proxy --plugin
+> opcuahttps`); trazabilidad SP 800-82 r4 en todas las salidas menos CSV;
+> CVE enrichment por familia (S7, ENIP, PC WORX, FINS) en `internal/cve`;
+> limpieza de em-dash en todo el repo.
+> **Sigue abierto de verdad:** la cola de la campaña de validación contra
+> captura real (SLMP, GE-SRTP, IEC104, MMS), bloqueada por fuente de
+> captura pública (ver la nota de captura abajo).
 
 ## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
 
