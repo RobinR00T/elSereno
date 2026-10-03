@@ -35,6 +35,7 @@ of a real (or reference-stack) device.
 | Omron FINS controller data (`finsudp/wire`) | CISA `icsnpp-omron-fins` (Omron CP1L-EL20DR-D) | **BUG: phantom SystemVersion read reserved bytes (PITF-065)** |
 | MMS ACSE associate-response accept (`mms/wire`) | w3h/icsmaster `iec61850_read.pcap` | correct |
 | GE-SRTP connection-init (`gesrtp/wire`) | Shodan device signature (automayt `GE-SRTP/Notes.txt`) + Collin Matthews' tested GE_SRTP impl | **BUG: probe sent 0x02 / expected 0x03 (the operation message) instead of the all-zero init that replies 0x01 (PITF-067)** |
+| IAX2 full-frame header + NEW (`iax2/wire`) | Wireshark SampleCaptures `IAX2_incoming_call` (a real incoming NEW) | correct (F-bit, 15-bit call-number masks, BE timestamp, FrameType/Subclass offsets, and the sent-NEW shape all match the real frame; the single-packet capture carries no reply, so ACCEPT/AUTHREQ/REJECT subclass constants stay spec-grounded) |
 
 ## Still fixture-only or spec-grounded
 
@@ -53,7 +54,7 @@ bug, and the first place to look when one is reported.
 | ProConOS runtime (`proconos/wire`, TCP/20547) | no runtime pcap, but FIXED + cross-checked 2026-10-03 (PITF-069): the probe was sending `01 06 00 10 PROCONOS` and expecting that echoed back, wrong on both send and recv. Corrected to the DigitalBond Redpoint `proconos-info.nse` request `cc01000b4002000047ee` and the 0xcc response signature, which the Praetorian nerva `proconos` plugin confirms byte for byte. Response-field parsing (model at offset 45) still not capture-proven |
 | ATG (Veeder-Root) | no real capture: only honeypots (GasPot, LowOctane) emulate the I20100 response, which is a fixture, not a real device |
 | CoDeSys BlockDriver magic (`codesys/wire`) | **SUSPECT (PITF-068, deferred): the 0xCDCDCDCD magic is unsourced and is the MSVC uninitialised-heap fill pattern; THREE independent sources (Tenable gateway PoC + Kaspersky ICS-CERT + a real capture `cds3.pcapng`, re-parsed byte for byte on TCP/11740) put the real CODESYS block-driver magic at 0xE8170100 with an 8-byte magic[4]+size[4] header. Still not fixed: the capture's first client PDU does elicit a gateway reply but embeds endpoint addresses and session fields, so it is not a host-independent fingerprint hello, and a magic+size-only guess would repeat the PITF-067 mistake. The banner path still works** |
-| Red Lion, TwinCat, CWMP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
+| Red Lion, TwinCat, CWMP, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
 
 ## Method
 

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **IAX2 parser validated against a real capture:** the full-frame header
+  parser (`iax2/wire`) and the `NEW` the probe sends are now cross-checked
+  byte for byte against a real incoming NEW frame from the Wireshark
+  `IAX2_incoming_call` sample (F-bit, 15-bit call-number masks, big-endian
+  timestamp, FrameType/Subclass offsets). No bug found: the parser was
+  already correct. The single-packet capture carries no reply, so the
+  ACCEPT/AUTHREQ/REJECT subclass constants stay spec-grounded. See
+  `docs/parser-validation.md`.
 - **OPC UA anonymous-access probe (`opcua probe-anon`, default build):**
   active read-only recon that confirms whether an anonymous OPC UA
   session actually opens, not just that a `SecurityMode=None` endpoint is
