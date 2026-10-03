@@ -43,6 +43,30 @@ de fingerprint), y cambiar el envío a otra conjetura repetiría el error. Ver
 PITF-068; marcado con WARNING en `codesys/wire/wire.go`. Para cerrarlo hace falta
 una captura del 1217 o construir un PDU de sonda válido y confirmar la respuesta.
 
+### Cobertura de la auditoría de probes propietarios (3-10-2026)
+
+Tras el fix de GE-SRTP se auditó cada fingerprint propietario (el que envía una
+sonda reverse-engineered) buscando el patrón PITF-067/068:
+
+- **GE-SRTP**: BUG, corregido (PITF-067). Enviaba el mensaje de operación en vez
+  del handshake de init.
+- **CoDeSys**: BUG, documentado y aplazado (PITF-068). Magic 0xCDCDCDCD sin
+  fuente, patrón de memoria no inicializada; el real es 0xE8170100. Falta el
+  frame de sonda que provoque respuesta del 1217.
+- **SLMP**: correcto. Spec oficial (SH080956ENG) + pymcprotocol; stateless, sin
+  handshake oculto.
+- **Fox (Niagara)**: correcto. No envía sonda, lee el banner `fox a 0 ...` que el
+  servidor manda al conectar (igual que nmap fox-info).
+- **Red Lion**: correcto. Detección por substring de banner de producto
+  (Red Lion / Crimson 3 / FlexEdge / ...), con un poke genérico de 3 ceros como
+  fallback; no depende de un magic binario.
+- **ATG (Veeder-Root)**: correcto. Envía el comando documentado I20100 (igual que
+  nmap atg-info).
+
+Los parsers de protocolos estándar y bien documentados (Modbus, S7, OPC UA, ENIP,
+BACnet, DNP3, HART-IP, FINS, MMS, IEC104, MQTT, SIP, DLMS) ya se validaron contra
+captura real en la campaña y quedan fuera de esta auditoría de "sonda propietaria".
+
 ## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
 
 Del draft NIST SP 800-82 r4 (Initial Public Draft, sept-2026), mapeado en
