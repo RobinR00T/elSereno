@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PROFINET DCP parser validated against a real capture:** the DCP decoder
+  (`profinet.DecodeDCP` + `ParseIdentifyResponse`) is now cross-checked byte
+  for byte against a real DCP Identify response (w3h/icsmaster
+  `ChangeIPUsingDCP.pcap`, station "X208-BORD"): the DCP RT header, the TLV
+  block walk, and the flattened fields (NameOfStation, VendorID, DeviceID,
+  DeviceRole, IP / Subnet / Gateway) all decode correctly. No bug found;
+  the parser was previously exercised only by hand-built fixtures. See
+  `docs/parser-validation.md`.
 - **GOOSE parser validated against a real capture:** the IEC 61850-8-1
   GOOSE dissector (`goose.Dissect`) is now cross-checked byte for byte
   against a real GE F650 relay heartbeat frame (w3h/icsmaster
