@@ -23,8 +23,12 @@
 > implementación GE_SRTP de Collin Matthews). El "byte 0 = 0x01" de GE-SRTP NO
 > era una discrepancia a esperar: era un BUG del modelo (el probe enviaba 0x02
 > y esperaba 0x03, el mensaje de operación, en vez del handshake de init de 56
-> ceros que responde 0x01). Corregido el 3-10, PITF-067. SLMP sigue sin captura
-> pública utilizable al 3-10-2026 (no está en automayt/ICS-pcap).
+> ceros que responde 0x01). Corregido el 3-10, PITF-067. SLMP: modelo
+> verificado contra la spec oficial de Mitsubishi (SLMP Reference Manual
+> SH080956ENG, command 0x0101 subcommand 0x0000) y cross-checked contra
+> pymcprotocol (`read_cputype()` usa 0x0101); NO es un bug, solo le falta una
+> captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
+> automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
 ## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
 
@@ -59,8 +63,10 @@ real. La campaña cubre ya Modbus (FC43 + framing), OPC UA (Browse/Read), ENIP
 (ListIdentity), BACnet (BVLC/I-Am/WriteProperty), DNP3 (link header) y FINS
 (controller data): **2 bugs, ambos del patrón fixture-fabricado** (FC43 + FINS).
 IEC104, MMS y GE-SRTP cerrados (ver el header; GE-SRTP era un bug del modelo,
-no una discrepancia de captura, PITF-067). Pendiente solo SLMP: sin captura
-pública utilizable al 3-10-2026 (no está en automayt/ICS-pcap).
+no una discrepancia de captura, PITF-067). SLMP: modelo verificado contra la
+spec oficial (SH080956ENG) y pymcprotocol, correcto, solo le falta una captura
+byte-a-byte (sin fuente pública al 3-10-2026). La campaña de captura queda
+cerrada salvo esa captura de SLMP.
 
 ## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
 
