@@ -66,12 +66,15 @@ established by `anonprobe.go`) live in `internal/protocols/opcua/`. Idea
 from the `-probe-write` check in the OT researcher Christopher D.'s
 `chrisdinozzi/opcua-recon`.
 
-**Validation caveat.** Unlike the session-establishment wire (validated byte
-for byte against a real captured `SecurityPolicy#None` session), the real
-captures available for this project carry no Browse or Read service. So the
-Browse/Read codec is grounded in OPC-UA Part 4 (services) + Part 6 (binary
-encoding) and validated by round-trip + spec-crafted response fixtures, not
-by real bytes. This is documented in each file and in the commit history.
+**Validation.** The session-establishment wire is validated byte for byte
+against a real captured `SecurityPolicy#None` session. The Browse/Read codec
+is grounded in OPC-UA Part 4 (services) + Part 6 (binary encoding); as of
+2026-10-03 it is **also validated byte for byte against real captures**
+(CISA cisagov/icsnpp-opcua-binary, open62541 stack): `ParseBrowseResponse`
+against a real BrowseResponse (9 references parsed), and `ParseReadResponse`
+against a real Int32 attribute read, plus confirmation that it fail-closes
+(as designed) on a real non-integer (String/DiagnosticInfo) value. See
+`internal/protocols/opcua/wire/browse_read_realcap_test.go`.
 
 ## Exposure as a scored Finding (opt-in plugin)
 
