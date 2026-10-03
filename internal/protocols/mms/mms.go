@@ -211,13 +211,13 @@ func buildFinding(target core.Target, note string, isMMS bool) *core.Finding {
 		"auth_state":    85, // IEC 61850-8-1 supports ACSE auth but many deployments don't enforce
 		"capability":    30,
 		"impact_class":  85, // grid-scale blast radius (transmission + distribution)
-		// cve_exposure: 9, IEC 61850 MMS family has a recurring
-		// CVE record across vendors. Anchor CVEs:
-		//   CVE-2018-13802 (Siemens SIPROTEC 4 / DIGSI 4 OSI stack DoS).
-		//   CVE-2020-7517  (Schneider EcoStruxure Power Operation MMS).
-		//   CVE-2021-22779 (Schneider IEC 61850 auth bypass).
-		//   CVE-2022-3008  (libIEC61850 stack RCE multi-vendor).
-		//   CVE-2023-39435 (SEL-3530 RTAC MMS write-without-auth).
+		// cve_exposure 9: the IEC 61850 MMS family has a recurring CVE
+		// record across vendors (SIPROTEC, EcoStruxure, libIEC61850,
+		// SEL RTAC). Qualitative baseline: specific ids are not
+		// asserted here. The previous list was de-specified after it
+		// was found to contain a mis-attributed id (CVE-2021-22779 is
+		// the Modicon ModiPwn Modbus bug, not an IEC 61850 issue); see
+		// PITF-070.
 		"cve_exposure": 9,
 	}
 	if isMMS {

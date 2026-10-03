@@ -167,23 +167,14 @@ func buildFinding(target core.Target, note string, isDLMS bool) *core.Finding {
 		"auth_state":    85, // DLMS supports HLS authentication but unauth probes still respond
 		"capability":    30,
 		"impact_class":  65, // billing accuracy + privacy + remote disconnect of supply
-		// cve_exposure: 12 (v2.33+, bumped from 7), DLMS/COSEM
-		// has the deepest CVE catalogue of the legacy-ICS trio
-		// (smart-meter scale: billions of endpoints worldwide
-		// + remote-disconnect breaker capability raises impact).
-		// Anchors:
-		//   CVE-2017-14441 (Iskra / EMH smart meters spoofing).
-		//   CVE-2019-10961 (Siemens SICAM AK3 DLMS auth bypass).
-		//   CVE-2020-15782 (Siemens SIMATIC DLMS auth bypass).
-		//   CVE-2021-37195 (Schneider PowerLogic DLMS hardcoded).
-		//   CVE-2022-30315 (gurux multi-vendor RCE).
-		//   CVE-2022-43539 (Itron OW LP smart meter remote-disc).
-		//   CVE-2023-29501 (gurux.dlms parsing OOB read).
-		//   CVE-2023-3669  (Honeywell A1140 DLMS HLS-3 bypass).
-		//   CVE-2024-23119 (Iskra MT174 firmware downgrade).
-		//   CVE-2024-39213 (Landis+Gyr Gridstream DLMS replay).
-		//   CVE-2024-52221 (Sagemcom Siconia OBIS-code overflow).
-		//   CVE-2025-3047  (DLMS COSEM action-method side-channel).
+		// cve_exposure 12: DLMS/COSEM has the deepest CVE catalogue of
+		// the legacy-ICS trio (smart-meter scale, plus remote-
+		// disconnect breaker impact). Qualitative baseline: specific
+		// ids are not asserted here. The previous list was de-specified
+		// after it was found to contain a fabricated id (a 2025 id that
+		// actually belongs to an unrelated AWS tool, not DLMS) and a
+		// mis-attributed one (CVE-2020-15782 is the Siemens S7-1200 /
+		// S7-1500 memory bypass, not DLMS); see PITF-070.
 		"cve_exposure": 12,
 	}
 	if isDLMS {

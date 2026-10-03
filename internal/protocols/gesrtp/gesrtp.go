@@ -206,16 +206,12 @@ func buildFinding(target core.Target, note string, isSRTP bool, modelHint string
 		"auth_state":    95, // SRTP has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure: 8 (v2.33+, bumped from 5), GE-IP / Mark
-		// VIe / PACSystems CVE catalogue has matured. Anchors:
-		//   CVE-2018-19003 (Mark VIe firmware download fault).
-		//   CVE-2018-19010 (RX3i memory leak / DoS).
-		//   CVE-2022-23410 (CPL410 / RX3i auth bypass).
-		//   CVE-2022-29957 (RX3i hardcoded credentials).
-		//   CVE-2022-46732 (PACSystems PNS-001 stack overflow).
-		//   CVE-2023-31418 (PAC Machine Edition project tampering).
-		//   CVE-2024-3506 (RX3i CPE100/115 service-0x21 disclosure).
-		//   CVE-2025-0712 (Mark VIe DCS unauth firmware download).
+		// cve_exposure 8: the GE-IP / Mark VIe / PACSystems CVE
+		// catalogue has matured (firmware download faults, auth
+		// bypass, hardcoded credentials). Qualitative baseline:
+		// specific ids are not asserted here. The previous list was
+		// de-specified after the fabrication sweep found a non-existent
+		// 2025 id in it; see PITF-070.
 		"cve_exposure": 8,
 	}
 	switch {

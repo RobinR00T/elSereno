@@ -148,14 +148,10 @@ func buildFinding(target core.Target, note string, isMBus bool) *core.Finding {
 		"impact_class":  60, // billing accuracy + privacy of consumption data
 		// cve_exposure: 6 (v2.33+, bumped from 4), M-Bus CVE
 		// catalogue is thin but growing as more parsers ship.
-		// Anchors:
-		//   CVE-2018-9966 (Wired M-Bus master parser RCE).
-		//   CVE-2021-37155 (downstream M-Bus format parser issue).
-		//   CVE-2023-2001  (libmbus memory corruption, long-form
-		//                  data records).
-		//   CVE-2023-50447 (Itron Centron meter unauth read).
-		//   CVE-2024-31034 (Diehl Hydrus2 secondary-address spoof).
-		//   CVE-2025-7842 (libmbus-rs Rust port heap overflow).
+		// Qualitative baseline: specific CVE ids are not asserted
+		// here. The previous list was de-specified after the
+		// fabrication sweep found a non-existent 2025 id in it; see
+		// PITF-070.
 		"cve_exposure": 6,
 	}
 	if isMBus {
