@@ -198,6 +198,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **TwinCAT ADS doc comment corrected to match the spec:** the
+  `twincat/wire` package comment described the ReadDeviceInfo response
+  device name as 24 bytes (payload 32). Per the Beckhoff ADS spec and
+  pyads the name is 16 bytes (payload 24), which is what the parser and
+  its fixtures already use; only the comment was stale. Cross-check
+  recorded in `docs/parser-validation.md`.
 - **Fabricated / mis-attributed CVE references purged from the
   `cve_exposure` baseline comments (PITF-070):** every CVE id cited in the
   per-protocol scoring comments was verified id-by-id against the NVD REST

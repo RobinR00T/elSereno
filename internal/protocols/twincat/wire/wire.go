@@ -26,9 +26,10 @@
 // Total fixed header: 38 bytes. We send a "Read Device
 // Info" command (id=0x0001) targeted at AMS port 10000
 // (Router) which every TwinCAT runtime answers with the
-// runtime's name + 4-byte version triple. A successful
-// response has 8+24=32 bytes of payload: error(4) +
-// version(4) + name(24, NUL-padded ASCII).
+// runtime's name + 4-byte version triple. Per the Beckhoff
+// ADS spec a successful response has 8+16=24 bytes of payload:
+// error(4) + version(4, major/minor/build) + name(16,
+// NUL-padded ASCII).
 //
 // The probe is read-only by design; no write/exec service
 // is exposed.
