@@ -14,6 +14,14 @@ many others speak it.
 Capability score jumps when the target returns a well-formed
 identity item.
 
+`ParseListIdentity` is validated byte for byte against a real
+ListIdentity reply (an Allen-Bradley 1756-ENBT/A module) from CISA
+cisagov/icsnpp-enip `enip_cip_example.pcap`; see
+`internal/protocols/enip/wire/listidentity_realcap_test.go`. Earlier in
+the project the only reachable ENIP captures carried CIP session
+messaging (0x6f/0x70) with no ListIdentity reply, so this parser had
+been spec-grounded only.
+
 ## Proxy policy (default build)
 
 The encapsulation command is classified per wire table:

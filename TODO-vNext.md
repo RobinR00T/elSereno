@@ -35,11 +35,14 @@ corregido.** Captura real `modbus_example.pcap` (CISA cisagov/icsnpp-modbus,
 pkt 94) dio una respuesta FC43/14 completa, y validarla contra `DeviceIDObjects`
 destapó un bug (cabecera de 6 bytes en vez de 7, se saltaba el "Read Device ID
 code"): devolvía 0 objetos para todo dispositivo real. Arreglado + test con los
-bytes reales (PITF-064). **ENIP ListIdentity 0x63 SIGUE BLOQUEADO:** el único
-pcapng ENIP accesible con tráfico (scy-phy/bro-cip-enip `enip_metasploit`) solo
-tiene RegisterSession 0x65 y SendRRData 0x6f (mensajería CIP de sesión), ningún
-0x63, igual que las capturas EIP de quickdraw. Falta una captura con una
-respuesta ListIdentity real.
+bytes reales (PITF-064). **ENIP ListIdentity 0x63 DESBLOQUEADO (3-10):** la
+captura `enip_cip_example.pcap` (CISA cisagov/icsnpp-enip) sí tiene una reply
+0x63 real (módulo Allen-Bradley 1756-ENBT/A); `ParseListIdentity` la parsea
+correcta (sin bug), validado byte a byte. La campaña de validación-contra-
+captura cubre ya Modbus (FC43 + framing), OPC UA (Browse/Read), ENIP
+(ListIdentity), BACnet (BVLC/I-Am/WriteProperty) y DNP3 (link header); solo el
+FC43 escondía bug. Pendiente si se quiere seguir: IEC104, S7 (ya validado),
+y los de identidad raros (FINS/SLMP/GE-SRTP) si aparece captura.
 
 ## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
 
