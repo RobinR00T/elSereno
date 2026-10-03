@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **TwinCAT ADS parser validated against a real capture:** the ADS
+  ReadDeviceInfo parser (`twincat/wire.ParseDeviceInfo`) is now
+  cross-checked byte for byte against a real TwinCAT 2 runtime response
+  (w3h/icsmaster `beckoffiplinktc3.pcapng`, "PLC Server" v2.11.2103): the
+  AMS/TCP framing, the AMS routing header, and the payload (error code,
+  version triple, 16-byte device name) all decode correctly. No bug; this
+  also confirms on real bytes that the device name is 16 bytes (the stale
+  doc comment fixed earlier said 24). TwinCAT moves from spec cross-check
+  to real-capture validated. See `docs/parser-validation.md`.
 - **PROFINET DCP parser validated against a real capture:** the DCP decoder
   (`profinet.DecodeDCP` + `ParseIdentifyResponse`) is now cross-checked byte
   for byte against a real DCP Identify response (w3h/icsmaster
