@@ -23,7 +23,7 @@ v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both before push.
 bugs, all fixed: Modbus FC43/14 (PITF-064); Omron FINS SystemVersion (PITF-065);
 GE-SRTP init (sent 0x02/exp 0x03 = operation; real = 56 zeros -> 0x01, PITF-067);
 ProConOS (sent 01060010 PROCONOS; real query cc01000b... -> 0xcc sig, PITF-069).
-CoDeSys magic 0xCDCDCDCD wrong (real 0xE8170100), deferred, no probe frame (PITF-068).
+CoDeSys magic 0xCDCDCDCD wrong (real 0xE8170100, now capture-confirmed on TCP/11740 via cds3.pcapng); deferred, still no host-independent probe frame (PITF-068).
 
 **2026-10-03 CVE enrichment** (increments 1-4) + repo em-dash cleanup (4b09ca6,
 740 files, 0 dashes): `internal/cve` maps a family to curated REAL web-verified
