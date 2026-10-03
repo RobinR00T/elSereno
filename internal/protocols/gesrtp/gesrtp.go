@@ -47,13 +47,12 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 	}
 }
 
-// Probe implements core.Protocol. Sends a single CONNECTION INIT
-// 56-byte mailbox, reads up to 64 bytes, and classifies the
-// response. The CPU model identification request (service code
-// 0x21) is deferred to a future cycle that can carry test vectors
-// against real PLCs, public protocol documentation is sparse and
-// the connection-init classifier is the safest reliable
-// fingerprint.
+// Probe implements core.Protocol. Sends the all-zero CONNECTION
+// INIT mailbox (the real GE init handshake), reads the 56-byte
+// reply and classifies it (a real PLC answers with byte 0 = 0x01).
+// It then best-effort issues a Read Long Status (service 0x21) for
+// the CPU model + firmware. Public protocol documentation is
+// sparse; the init handshake is the reliable fingerprint.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
 	d := net.Dialer{Timeout: p.DialTimeout}
@@ -189,7 +188,7 @@ func classifyParseError(err error, n int) string {
 	case errors.Is(err, wire.ErrShortFrame):
 		return fmt.Sprintf("short SRTP frame (%d bytes)", n)
 	case errors.Is(err, wire.ErrNotResponse):
-		return "SRTP response type byte not 0x03"
+		return "SRTP init response type byte not 0x01"
 	default:
 		return "SRTP parse failure"
 	}

@@ -13,8 +13,9 @@
 // This package implements:
 //
 //   - the request builder + response classifier for the **CONNECTION
-//     INIT** mailbox, a 56-byte zero-filled frame with byte 0 = 0x02;
-//     the PLC replies with a 56-byte mailbox carrying byte 0 = 0x03;
+//     INIT** handshake: the client sends a 56-byte all-zero mailbox (the
+//     GE initialisation frame) and the PLC replies with a 56-byte mailbox
+//     carrying byte 0 = 0x01;
 //   - **model-hint extraction**: scans the connection-init response
 //     payload for printable-ASCII runs matching the canonical GE PLC
 //     family patterns (IC693/IC695/IC697/IC200/RX3i/RX7i/PACSystems).
@@ -38,7 +39,7 @@ import (
 // SRTP mailbox layout (56 bytes):
 //
 //	Offset  Field                  Size  Description
-//	0       Type                   1     0x02 = request, 0x03 = response
+//	0       Type                   1     operation msg: 0x02 request / 0x03 response (the init handshake differs: all-zero frame, PLC reply byte 0 = 0x01)
 //	1       Reserved               1
 //	2..3    Reserved               2
 //	4..7    Reserved               4
@@ -55,9 +56,22 @@ const (
 	// or response).
 	MailboxLen = 56
 
-	// TypeRequest marks a mailbox going from client to PLC.
+	// TypeInitResponse is byte 0 of the PLC's reply to the
+	// CONNECTION INIT handshake (an all-zero 56-byte mailbox): a
+	// real GE PLC answers with a 56-byte mailbox whose byte 0 is
+	// 0x01. Verified by two independent sources: Collin Matthews'
+	// GE_SRTP implementation, tested against real GE 90/30 and
+	// 90/70 CPUs ("send 56 bytes of all 0s ... It will respond
+	// with 01 00 ..."), and the Shodan GE-SRTP product signature
+	// (automayt/ICS-pcap GE-SRTP/Notes.txt).
+	TypeInitResponse byte = 0x01
+	// TypeRequest marks an OPERATION mailbox going from client to
+	// PLC (Transmit). It is NOT the init handshake: it is used by
+	// the Read Long Status service request after init.
 	TypeRequest byte = 0x02
-	// TypeResponse marks a mailbox going from PLC to client.
+	// TypeResponse marks an OPERATION mailbox reply from PLC to
+	// client (Return); it follows an operation request, not the
+	// connection-init handshake.
 	TypeResponse byte = 0x03
 )
 
@@ -68,35 +82,36 @@ var (
 	// ErrShortFrame means the response is shorter than the
 	// 56-byte mailbox length.
 	ErrShortFrame = errors.New("gesrtp: response shorter than 56-byte mailbox")
-	// ErrNotResponse means byte 0 of the response is not 0x03
-	// (the SRTP response indicator).
-	ErrNotResponse = errors.New("gesrtp: response type byte is not 0x03")
+	// ErrNotResponse means byte 0 of the connection-init reply is
+	// not 0x01 (the SRTP init-response indicator).
+	ErrNotResponse = errors.New("gesrtp: init response type byte is not 0x01")
 )
 
-// BuildConnectionInit returns the canonical 56-byte SRTP
-// CONNECTION INIT mailbox: byte 0 = 0x02 (request type), rest
-// zero. GE PLCs and compatible HMIs respond with a 56-byte
-// mailbox carrying byte 0 = 0x03; the response payload (packet
-// number, sequence number, version flags) is opaque to this
-// fingerprint.
+// BuildConnectionInit returns the GE-SRTP CONNECTION INIT frame:
+// a 56-byte ALL-ZERO mailbox. This is the real initialisation
+// step (a GE PLC expects it before any operation message) and it
+// is easy to miss: the exploit paper omits it, and the nmap / NSE
+// reverse-engineering models the OPERATION message (byte 0 = 0x02)
+// rather than the init. A real PLC replies to the all-zero init
+// with a 56-byte mailbox carrying byte 0 = 0x01 (see
+// ClassifyResponse). Source: Collin Matthews' GE_SRTP, tested
+// against real GE 90/30 and 90/70 CPUs.
 //
 // The frame is binary-stable: every Internet-exposed GE PLC
-// that's listening on 18245 will accept this initial mailbox.
+// listening on 18245 accepts this all-zero init mailbox.
 func BuildConnectionInit() []byte {
-	frame := make([]byte, MailboxLen)
-	frame[0] = TypeRequest
-	return frame
+	return make([]byte, MailboxLen)
 }
 
-// ClassifyResponse validates a candidate SRTP CONNECTION INIT
-// response. On success (the response is a 56-byte mailbox with
-// byte 0 = 0x03) it returns nil. On any structural failure the
-// appropriate sentinel is returned.
+// ClassifyResponse validates a candidate GE-SRTP CONNECTION INIT
+// reply. On success (a 56-byte mailbox with byte 0 = 0x01, the
+// PLC's answer to the all-zero init frame) it returns nil. On any
+// structural failure the appropriate sentinel is returned.
 func ClassifyResponse(buf []byte) error {
 	if len(buf) < MailboxLen {
 		return ErrShortFrame
 	}
-	if buf[0] != TypeResponse {
+	if buf[0] != TypeInitResponse {
 		return ErrNotResponse
 	}
 	return nil
@@ -104,10 +119,10 @@ func ClassifyResponse(buf []byte) error {
 
 // IsMailboxResponse is the sniff-only counterpart to
 // ClassifyResponse: it returns true iff the buffer looks like a
-// 56-byte mailbox response. Useful for the "responded but not the
-// SRTP shape we wanted" branch.
+// 56-byte GE-SRTP init reply (byte 0 = 0x01). Useful for the
+// "responded but not the SRTP shape we wanted" branch.
 func IsMailboxResponse(buf []byte) bool {
-	return len(buf) >= MailboxLen && buf[0] == TypeResponse
+	return len(buf) >= MailboxLen && buf[0] == TypeInitResponse
 }
 
 // ServiceLongStatus is the SRTP service code 0x21 (Read PLC Long

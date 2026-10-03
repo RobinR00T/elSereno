@@ -19,11 +19,11 @@ plugins, read-only + signed: `s7-exposure` (ProbePosture) + `opcua-exposure`
 scanorch run-everything job runs them. PITF-031/063: audit pins golangci
 v2.11.4, ci latest (v2.14.0); diverge BOTH ways, lint with both before push.
 
-**2026-10-02/03 real-capture validation** (CISA icsnpp pcaps): found TWO
-fabricated-fixture bugs: Modbus FC43/14 header (0 objects for real devices,
-PITF-064) + Omron FINS SystemVersion reading reserved bytes (PITF-065); both
-fixed. Re-grounded (correct): Modbus framing, OPC UA Browse/Read (caveat
-lifted), ENIP ListIdentity (was blocked), BACnet, DNP3, FINS. Fixtures hide bugs.
+**2026-10-02/03 real-capture validation**: found THREE model/fixture bugs:
+Modbus FC43/14 header (0 objects for real devices, PITF-064); Omron FINS
+SystemVersion read reserved bytes (PITF-065); GE-SRTP init (probe sent 0x02 /
+expected 0x03 = the OPERATION msg; real init = 56 zeros -> reply 0x01, PITF-067).
+All fixed. Re-grounded: Modbus, OPC UA Browse/Read, ENIP, BACnet, DNP3, FINS, GE-SRTP.
 
 **2026-10-03 CVE enrichment** (increments 1-4) + repo em-dash cleanup (4b09ca6,
 740 files, 0 dashes): `internal/cve` maps a family to curated REAL web-verified

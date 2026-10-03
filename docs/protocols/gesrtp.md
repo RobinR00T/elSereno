@@ -8,12 +8,16 @@ PACSystems also bind 18246 for a backup/extended frame.
 
 ## Probe
 
-- Send the canonical 56-byte CONNECTION INIT mailbox: byte 0 =
-  0x02, every other byte zero. SRTP is mailbox-framed (every
-  request and response is exactly 56 bytes for the basic
-  service-request set).
-- Expect a 56-byte response with byte 0 = 0x03 (response
-  indicator).
+- Send the CONNECTION INIT mailbox: a 56-byte ALL-ZERO frame. This
+  is the real GE initialisation step (a PLC expects it before any
+  operation message). SRTP is mailbox-framed (every request and
+  response is exactly 56 bytes for the basic service-request set).
+- Expect a 56-byte reply with byte 0 = 0x01 (the PLC's init
+  acknowledgement). NOTE: 0x02/0x03 are the OPERATION message types
+  (request/response), NOT the init handshake. An earlier version
+  modelled the operation message by mistake (sent 0x02, expected
+  0x03) and so rejected the genuine 0x01 reply from real PLCs: see
+  PITF-067.
 - **v1.21 chunk 4 refinement**: scan the response payload (bytes
   1..55) for printable-ASCII runs matching the canonical GE PLC
   family prefixes (PACSystems / IC693 / IC695 / IC697 / IC200 /
@@ -35,7 +39,7 @@ program blocks, no service-request payloads.
 
 ```
 Offset  Field                  Size  Description
-0       Type                   1     0x02 = request, 0x03 = response
+0       Type                   1     operation: 0x02 request / 0x03 response. Init handshake: all-zero frame, PLC reply byte 0 = 0x01
 1..7    Reserved / unused      7     Zero on init
 8..9    Packet number          2     Set on follow-up service requests
 10..11  Sequence number        2     Set on follow-up service requests
@@ -46,11 +50,14 @@ Offset  Field                  Size  Description
 50..55  End of mailbox         6     Zero on init
 ```
 
-The 56-byte zero-with-0x02-prefix on initialisation means the
-response carries the PLC's connection-acceptance flags and an
-internally-allocated mailbox ID that subsequent service-request
-mailboxes echo. The plugin doesn't parse those fields for v1.20
-chunk 3, the response shape alone is enough for fingerprinting.
+The all-zero init frame makes the PLC return a 56-byte mailbox
+whose byte 0 is 0x01, carrying the connection-acceptance flags and
+an internally-allocated mailbox ID that subsequent service-request
+mailboxes echo. The plugin doesn't parse those fields; the init
+reply shape alone is enough for fingerprinting. Source for the init
+handshake: Collin Matthews' GE_SRTP (tested against real GE 90/30
+and 90/70) plus the Shodan GE-SRTP signature. Validated in
+`gesrtp/wire/realcap_test.go`.
 
 ## Proxy policy (default build)
 

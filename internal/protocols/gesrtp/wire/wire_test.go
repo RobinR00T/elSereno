@@ -13,12 +13,11 @@ func TestBuildConnectionInitLayout(t *testing.T) {
 	if len(got) != 56 {
 		t.Fatalf("frame length: got %d want 56", len(got))
 	}
-	if got[0] != 0x02 {
-		t.Fatalf("type byte: got 0x%02x want 0x02", got[0])
-	}
-	for i := 1; i < len(got); i++ {
+	// The connection-init frame is ALL zeros (the real GE init step);
+	// a real PLC replies to it with a mailbox whose byte 0 is 0x01.
+	for i := 0; i < len(got); i++ {
 		if got[i] != 0x00 {
-			t.Fatalf("byte %d: got 0x%02x want 0x00", i, got[i])
+			t.Fatalf("byte %d: got 0x%02x want 0x00 (init frame is all zeros)", i, got[i])
 		}
 	}
 }
@@ -26,7 +25,7 @@ func TestBuildConnectionInitLayout(t *testing.T) {
 func TestClassifyResponseHappyPath(t *testing.T) {
 	t.Parallel()
 	resp := make([]byte, 56)
-	resp[0] = 0x03
+	resp[0] = 0x01 // PLC init reply indicator
 	if err := wire.ClassifyResponse(resp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +43,9 @@ func TestClassifyResponseShortFrame(t *testing.T) {
 
 func TestClassifyResponseWrongType(t *testing.T) {
 	t.Parallel()
-	for _, b := range []byte{0x00, 0x01, 0x02, 0x04, 0xFF} {
+	// 0x01 is now the VALID init reply; everything else (incl. the
+	// operation-response type 0x03) is wrong for the init handshake.
+	for _, b := range []byte{0x00, 0x02, 0x03, 0x04, 0xFF} {
 		resp := make([]byte, 56)
 		resp[0] = b
 		err := wire.ClassifyResponse(resp)
@@ -60,7 +61,7 @@ func TestClassifyResponseLongerThan56AcceptsPrefix(t *testing.T) {
 	// bytes from a follow-up frame. The classifier should accept
 	// a response prefix as long as the first 56 bytes are valid.
 	resp := make([]byte, 128)
-	resp[0] = 0x03
+	resp[0] = 0x01
 	if err := wire.ClassifyResponse(resp); err != nil {
 		t.Fatalf("unexpected error on prefixed response: %v", err)
 	}
@@ -186,22 +187,22 @@ func TestExtractModelHint_v230Prefixes(t *testing.T) {
 func TestIsMailboxResponseTrueOnly(t *testing.T) {
 	t.Parallel()
 	resp := make([]byte, 56)
-	resp[0] = 0x03
+	resp[0] = 0x01
 	if !wire.IsMailboxResponse(resp) {
-		t.Fatalf("expected true on a 56-byte 0x03 prefix")
+		t.Fatalf("expected true on a 56-byte 0x01 init reply")
 	}
-	req := wire.BuildConnectionInit()
+	req := wire.BuildConnectionInit() // all zeros
 	if wire.IsMailboxResponse(req) {
-		t.Fatalf("expected false on a request frame")
+		t.Fatalf("expected false on the all-zero init frame")
 	}
 	if wire.IsMailboxResponse(nil) {
 		t.Fatalf("nil should not be a mailbox response")
 	}
-	if wire.IsMailboxResponse([]byte{0x03}) {
+	if wire.IsMailboxResponse([]byte{0x01}) {
 		t.Fatalf("single byte too short to be a mailbox response")
 	}
 	short := make([]byte, 55)
-	short[0] = 0x03
+	short[0] = 0x01
 	if wire.IsMailboxResponse(short) {
 		t.Fatalf("55-byte buffer too short")
 	}

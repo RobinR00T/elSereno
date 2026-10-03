@@ -39,7 +39,7 @@ func TestClassifyParseError(t *testing.T) {
 		want string
 	}{
 		{wire.ErrShortFrame, 12, "short SRTP frame (12 bytes)"},
-		{wire.ErrNotResponse, 56, "SRTP response type byte not 0x03"},
+		{wire.ErrNotResponse, 56, "SRTP init response type byte not 0x01"},
 		{errors.New("anything else"), 0, "parse failure"},
 	}
 	for _, c := range cases {
@@ -82,10 +82,10 @@ func TestBuildFindingFactors(t *testing.T) {
 func TestProbeWithModelHintLiftsCapability(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
-		// 56-byte response with byte 0 = 0x03 + an embedded
+		// 56-byte init reply (byte 0 = 0x01) with an embedded
 		// "IC695CPE330" hint at offset 16.
 		resp := make([]byte, 56)
-		resp[0] = 0x03
+		resp[0] = 0x01
 		copy(resp[16:], []byte("IC695CPE330"))
 		return resp
 	})
@@ -145,7 +145,7 @@ func TestProbeAgainstHappyPath(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
 		resp := make([]byte, 56)
-		resp[0] = 0x03
+		resp[0] = 0x01 // valid init reply
 		return resp
 	})
 	if f.Factors["capability"] != 70 {
@@ -167,7 +167,8 @@ func TestProbeAgainstSilentResponder(t *testing.T) {
 func TestProbeAgainstWrongTypeByte(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
-		// 56 bytes but type byte is 0x02 (request, not response).
+		// 56 bytes but type byte is 0x02 (operation request, not the
+		// 0x01 init reply): must be rejected.
 		resp := make([]byte, 56)
 		resp[0] = 0x02
 		return resp
