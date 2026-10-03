@@ -190,6 +190,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Fabricated / mis-attributed CVE references purged from the
+  `cve_exposure` baseline comments (PITF-070):** every CVE id cited in the
+  per-protocol scoring comments was verified id-by-id against the NVD REST
+  API. Six fabricated ids that do not exist in NVD were removed
+  (knxip, slmp, dlms, gesrtp, mbustcp, plus pbxhttp `CVE-2020-25822`), and
+  comments citing real-but-mis-attributed ids were rewritten to name the
+  correct product or de-specified to a qualitative baseline (iec104,
+  bacnet, opcua, sip, fox, iax2, atg, hartip, twincat; s7, dnp3 and cwmp
+  were clean at source). No scan-output change: real CVE emission lives in
+  `internal/cve` and was already web-verified; these are credibility fixes
+  to justification comments. See `.context/pitfalls.md`.
+- **CoDeSys block-driver magic confirmed by a real capture (PITF-068):** a
+  third independent source (`cds3.pcapng`, re-parsed byte for byte on
+  TCP/11740) confirms the real magic `0xE8170100` and the 8-byte
+  `magic[4]+size[4]` header. The probe stays deferred: the capture's first
+  client PDU embeds endpoint addresses and session fields, so it is not a
+  host-independent fingerprint hello. See `docs/parser-validation.md`.
 - **CI:** `lint`, `sec` and `context` jobs are green again across the
   legacy-ICS tranche (staticcheck/errorlint/exhaustive/gocyclo/dupl
   cleanups; standalone `gosec` honours `#nosec` not `//nolint:gosec`;
