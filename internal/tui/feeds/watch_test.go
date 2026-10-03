@@ -116,7 +116,7 @@ func TestWatchRoutesEachEventKind(t *testing.T) {
 	}
 }
 
-// TestWatchUnknownEventSurfaced — a future schema bump that
+// TestWatchUnknownEventSurfaced a future schema bump that
 // emits a new event kind shouldn't be silently dropped; the
 // operator sees an explicit "unknown event" line.
 func TestWatchUnknownEventSurfaced(t *testing.T) {
@@ -140,7 +140,7 @@ func TestWatchUnknownEventSurfaced(t *testing.T) {
 	}
 }
 
-// TestWatchAuthorizationHeader — the bearer token must travel
+// TestWatchAuthorizationHeader the bearer token must travel
 // on the request as `Authorization: Bearer <token>`. Server-side
 // inspection confirms the wire format.
 func TestWatchAuthorizationHeader(t *testing.T) {
@@ -160,7 +160,7 @@ func TestWatchAuthorizationHeader(t *testing.T) {
 	}
 }
 
-// TestWatchAuthFailureTerminates — 401 short-circuits the retry
+// TestWatchAuthFailureTerminates 401 short-circuits the retry
 // loop. Looping on a bad token would just spam the server.
 func TestWatchAuthFailureTerminates(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -181,7 +181,7 @@ func TestWatchAuthFailureTerminates(t *testing.T) {
 	}
 }
 
-// TestWatchUnexpectedStatusRetries — a 500 from the server is
+// TestWatchUnexpectedStatusRetries a 500 from the server is
 // transient; the retry loop should re-dial on the next tick.
 // We use MaxRetries=1 to bound the test + check that we see one
 // disconnect AuditMsg before the loop gives up.
@@ -222,7 +222,7 @@ func TestWatchUnexpectedStatusRetries(t *testing.T) {
 	}
 }
 
-// TestWatchRejectsNonStreamContentType — a server returning
+// TestWatchRejectsNonStreamContentType a server returning
 // JSON or HTML instead of text/event-stream is misconfigured;
 // surface as an error rather than mis-decoding.
 func TestWatchRejectsNonStreamContentType(t *testing.T) {
@@ -238,7 +238,7 @@ func TestWatchRejectsNonStreamContentType(t *testing.T) {
 	}
 }
 
-// TestWatchEmptyURL — Run rejects up front.
+// TestWatchEmptyURL Run rejects up front.
 func TestWatchEmptyURL(t *testing.T) {
 	err := (Watch{}).Run(context.Background(), (&drain{}).emit())
 	if err == nil || !strings.Contains(err.Error(), "empty URL") {
@@ -246,7 +246,7 @@ func TestWatchEmptyURL(t *testing.T) {
 	}
 }
 
-// TestWatchIgnoresKeepaliveComments — the server emits
+// TestWatchIgnoresKeepaliveComments the server emits
 // `: keepalive` comments every ~15s; the parser must skip them
 // without producing AuditMsgs (would clutter the audit pane).
 func TestWatchIgnoresKeepaliveComments(t *testing.T) {
@@ -267,7 +267,7 @@ func TestWatchIgnoresKeepaliveComments(t *testing.T) {
 	}
 }
 
-// TestWatchContextCancel — pulling the context terminates Run
+// TestWatchContextCancel pulling the context terminates Run
 // without a retry attempt.
 func TestWatchContextCancel(t *testing.T) {
 	hold := make(chan struct{})
@@ -297,7 +297,7 @@ func TestWatchContextCancel(t *testing.T) {
 	}
 }
 
-// TestWatchMalformedJSONLogged — a finding with bad JSON
+// TestWatchMalformedJSONLogged a finding with bad JSON
 // becomes an AuditMsg + the stream continues. Mirrors replay /
 // stdin behaviour: never abort on one bad record.
 func TestWatchMalformedJSONLogged(t *testing.T) {
@@ -321,14 +321,14 @@ func TestWatchMalformedJSONLogged(t *testing.T) {
 	}
 }
 
-// TestWatchName — identifier includes the URL for error reports.
+// TestWatchName identifier includes the URL for error reports.
 func TestWatchName(t *testing.T) {
 	if got := (Watch{URL: "https://x"}).Name(); got != "watch https://x" {
 		t.Errorf("Name = %q", got)
 	}
 }
 
-// TestDecodeSSEMultiLineData — per the SSE spec, multiple
+// TestDecodeSSEMultiLineData per the SSE spec, multiple
 // `data:` lines for one event concat with newlines into a
 // single payload. We split a valid JSON payload across two
 // data: lines + confirm the dispatcher reassembles it into

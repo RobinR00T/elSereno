@@ -12,7 +12,7 @@ token-budget: 1200
 | Layer | Build constraint | Scope |
 |-------|------------------|-------|
 | Unit | (none) | Pure Go; no network; no Postgres. |
-| Fuzz | (none) — `go test -fuzz` | Binary parsers and canonicalisers. |
+| Fuzz | (none), `go test -fuzz` | Binary parsers and canonicalisers. |
 | Integration | `//go:build integration` | Postgres via `docker-compose`; Linux-only unless justified. |
 | E2E | `//go:build e2e` | Full CLI flows against simulators. |
 | Chaos | `//go:build chaos` | Fault injection helpers in `test/chaos/`. |

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// TestTriageCmd_ReportsAllFourBuckets — `elsereno triage` should
+// TestTriageCmd_ReportsAllFourBuckets `elsereno triage` should
 // emit per-bucket counts including the v1.13-chunk-6 utility row.
 // Drives via NDJSON input on disk so the parsing path runs end-
 // to-end.

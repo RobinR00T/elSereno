@@ -125,7 +125,7 @@ func newBackupRestoreCmd() *cobra.Command {
 				// wants the #nosec on the same line as the
 				// offending statement (standalone binary
 				// ignores the line-above form; golangci-lint's
-				// bundled gosec accepts both — PITF-030).
+				// bundled gosec accepts both, PITF-030).
 				mode := os.FileMode(uint32(bf.Mode) & 0o7777) // #nosec G115 -- bit-masked above
 				// #nosec G304 -- caller-controlled destination
 				if err := os.WriteFile(dst, bf.Body, mode); err != nil {

@@ -12,27 +12,27 @@ import (
 //
 // It runs in three layers:
 //
-//  1. `prctl(PR_SET_NO_NEW_PRIVS, 1)` — blocks privilege regain
+//  1. `prctl(PR_SET_NO_NEW_PRIVS, 1)`: blocks privilege regain
 //     via setuid binaries. Installed unconditionally.
-//  2. `PR_SET_SECCOMP` with a per-profile BPF denylist — blocks
+//  2. `PR_SET_SECCOMP` with a per-profile BPF denylist, blocks
 //     the escape paths ADR-042 calls out (namespace-escape,
 //     module-load, ptrace, bpf, reboot) plus per-profile extras
 //     (file-mutate for harvest, network-open for dial). See
 //     `bpf_linux.go` for the compiler and `syscalls_linux.go`
 //     for the per-arch numbers.
-//  3. `runtime.LockOSThread` — the filter is per-thread, so we
+//  3. `runtime.LockOSThread`: the filter is per-thread, so we
 //     pin the current goroutine to this OS thread before install
 //     so the caller knows the filter survives the call. Callers
 //     that want to lift the pin can call `runtime.UnlockOSThread`
 //     after Load returns, though the seccomp filter cannot be
-//     removed once installed — that is the security guarantee.
+//     removed once installed, that is the security guarantee.
 //
 // The caller is responsible for invoking Load in the CHILD
 // subprocess (typically the early init of an exec'd helper
 // binary). Calling Load in the parent would seccomp the whole
 // ElSereno process, which is fine for a `dial`/`harvest`/
 // `exploit` one-shot but fatal for `serve`. Runtime verifications
-// at Load time cannot catch this misuse — it's a caller contract.
+// at Load time cannot catch this misuse, it's a caller contract.
 //
 // On architectures with no compiled syscall table (anything
 // outside amd64 / arm64 as of v1.1), Load still installs

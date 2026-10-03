@@ -1,12 +1,12 @@
 ---
 id: 037
-title: Niagara Fox (Tridium) plugin — read-only probe + fingerprint
+title: Niagara Fox (Tridium) plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-037: Niagara Fox (Tridium) plugin — read-only probe + fingerprint
+# ADR-037: Niagara Fox (Tridium) plugin, read-only probe + fingerprint
 
 ## Context
 Niagara Fox (Tridium) is an ICS/OT protocol commonly exposed on port 1911,4911/tcp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

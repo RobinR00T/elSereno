@@ -1,5 +1,5 @@
 #!/bin/sh
-# preinstall — runs BEFORE files unpack on deb/rpm/apk.
+# preinstall, runs BEFORE files unpack on deb/rpm/apk.
 # Creates the elsereno system user + group if absent. The
 # user is what /etc/elsereno + /var/lib/elsereno +
 # /var/log/elsereno end up owned by; the systemd units

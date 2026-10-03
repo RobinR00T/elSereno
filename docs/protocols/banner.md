@@ -1,6 +1,6 @@
 # Banner / dictionary
 
-The `banner` plugin is the low-effort catch-all — read the first
+The `banner` plugin is the low-effort catch-all, read the first
 bytes of a TCP connection, look for vendor-specific ASCII markers,
 emit a finding with a vendor label. It complements the protocol-
 aware plugins for ports that do not carry one of the specialised

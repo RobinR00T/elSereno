@@ -30,13 +30,13 @@
 //     specialised tooling;
 //   - timestamps + direction tags + hex byte runs are explicit
 //     so a lab walk-through can annotate inline;
-//   - the recorder is robust against partial writes — a crash
+//   - the recorder is robust against partial writes, a crash
 //     mid-line truncates only the current event, not the whole
 //     file.
 //
 // Files are created with mode 0600. Recorded session files MAY
 // contain credentials, raw protocol payloads with secrets, or
-// PII embedded in protocol fields — operators should treat them
+// PII embedded in protocol fields, operators should treat them
 // as sensitive (same handling class as audit.jsonl).
 //
 // The recorder does NOT implement encryption-at-rest; files are
@@ -147,7 +147,7 @@ func Open(path, protocol, target string) (*Recorder, error) {
 	return r, nil
 }
 
-// Close finalises the recording. Idempotent — safe to call
+// Close finalises the recording. Idempotent, safe to call
 // from a defer + a signal handler simultaneously.
 func (r *Recorder) Close() error {
 	r.mu.Lock()
@@ -191,7 +191,7 @@ func (r *Recorder) emit(dir Direction, p []byte) error {
 // every successful Read records DirUpstreamToClient and every
 // successful Write records DirClientToUpstream.
 //
-// The conn argument is the OPERATOR'S SIDE of the proxy gate —
+// The conn argument is the OPERATOR'S SIDE of the proxy gate,
 // what the operator's client tool sends + receives. To record
 // both sides correctly, the proxy code must Wrap each
 // io.ReadWriter passed to its Handle() with the appropriate
@@ -232,7 +232,7 @@ func (c *recordingConn) Read(p []byte) (int, error) {
 	n, err := c.rw.Read(p)
 	if n > 0 {
 		// Record the actual returned bytes; ignore recorder
-		// errors — a write failure shouldn't tear down a live
+		// errors a write failure shouldn't tear down a live
 		// session, just disable further recording.
 		_ = c.r.emit(c.readDir, p[:n])
 	}
@@ -250,7 +250,7 @@ func (c *recordingConn) Write(p []byte) (int, error) {
 // ChunkEvent through cb in sequence. The header line is
 // returned via the first call as a synthetic ChunkEvent with
 // Dir=DirHeader (Hex left empty; metadata fields populated via
-// HeaderEvent.Target / Protocol / StartedAt — the caller can
+// HeaderEvent.Target / Protocol / StartedAt, the caller can
 // refer to those via SeekHeader before iterating).
 //
 // Pacing: the caller decides. cb is invoked in file order; if

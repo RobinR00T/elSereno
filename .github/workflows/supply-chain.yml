@@ -129,7 +129,7 @@ jobs:
         run: go-licenses check ./... --disallowed_types=forbidden,restricted
       - name: emit report artifact
         # go-licenses csv emits a three-column CSV (module,
-        # license type, license url) natively — avoids the
+        # license type, license url) natively, avoids the
         # template-literal "\n" YAML-escaping footgun that made
         # the previous `--template` variant fail silently.
         run: go-licenses csv ./... > licenses.csv

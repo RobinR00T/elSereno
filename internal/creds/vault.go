@@ -43,7 +43,7 @@ const (
 var ErrNotInitialised = errors.New("creds: vault not initialised (run `elsereno vault init`)")
 
 // ErrAlreadyInitialised is returned when Init is called against a vault
-// that already exists (PITF-021 — never auto-overwrite critical state).
+// that already exists (PITF-021, never auto-overwrite critical state).
 var ErrAlreadyInitialised = errors.New("creds: vault already initialised")
 
 // ErrLocked is returned when an operation requires the master key but
@@ -77,7 +77,7 @@ type Vault struct {
 type VaultState struct {
 	Salt     []byte    // Argon2id salt
 	Nonce    []byte    // GCM nonce for the sentinel plaintext
-	Sentinel []byte    // GCM(derived, Nonce, sentinel) — verifies passphrase
+	Sentinel []byte    // GCM(derived, Nonce, sentinel), verifies passphrase
 	Created  time.Time // RFC 3339 μs
 }
 

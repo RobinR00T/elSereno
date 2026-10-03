@@ -9,7 +9,7 @@ name: audit
 #   - Missing Go toolchain pin (CVE risk)
 #   - Build / lint / test / gosec / govulncheck regressions
 #
-# This workflow MUST NEVER be skipped on main — that's its whole job.
+# This workflow MUST NEVER be skipped on main, that's its whole job.
 
 on:
   push:
@@ -51,9 +51,9 @@ jobs:
           set -euo pipefail
           # govulncheck
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          # gosec — same source as ci.yml (securego/gosec@master)
+          # gosec, same source as ci.yml (securego/gosec@master)
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          # golangci-lint v2.11.4 — matches ci.yml exactly (PITF-031:
+          # golangci-lint v2.11.4, matches ci.yml exactly (PITF-031:
           # local + CI versions must agree to catch real regressions).
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.11.4
           # PATH already includes GOPATH/bin via setup-go

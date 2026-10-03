@@ -8,10 +8,10 @@ import (
 	"local/elsereno/internal/scanner"
 )
 
-// TestDedupe_IPv4MappedIPv6CollapsesWithBareV4 — the canonical
+// TestDedupe_IPv4MappedIPv6CollapsesWithBareV4 the canonical
 // chunk-4 invariant for the dedupe layer: an IPv4-mapped IPv6
 // address (`::ffff:1.2.3.4`) and the bare IPv4 form (`1.2.3.4`)
-// represent the same target — Dedupe must collapse them via
+// represent the same target, Dedupe must collapse them via
 // .Unmap() so the scanner doesn't probe twice.
 func TestDedupe_IPv4MappedIPv6CollapsesWithBareV4(t *testing.T) {
 	in := []core.Target{
@@ -29,7 +29,7 @@ func TestDedupe_IPv4MappedIPv6CollapsesWithBareV4(t *testing.T) {
 	}
 }
 
-// TestDedupe_IPv6FormsCollapse — netip.Addr stores IPv6 in its
+// TestDedupe_IPv6FormsCollapse netip.Addr stores IPv6 in its
 // canonical form internally, so longform / shortform inputs
 // dedup correctly without needing an explicit canonicaliser
 // call. Pin the contract.
@@ -47,7 +47,7 @@ func TestDedupe_IPv6FormsCollapse(t *testing.T) {
 	}
 }
 
-// TestDedupe_IPv6vsIPv4DistinctTargets — `::1:7547` and
+// TestDedupe_IPv6vsIPv4DistinctTargets `::1:7547` and
 // `127.0.0.1:7547` are SEPARATE targets (different families).
 // Dedupe must NOT collapse them.
 func TestDedupe_IPv6vsIPv4DistinctTargets(t *testing.T) {
@@ -61,7 +61,7 @@ func TestDedupe_IPv6vsIPv4DistinctTargets(t *testing.T) {
 	}
 }
 
-// TestDedupe_DifferentPortsKept — same IPv6 address on two
+// TestDedupe_DifferentPortsKept same IPv6 address on two
 // ports stays as two targets.
 func TestDedupe_DifferentPortsKept(t *testing.T) {
 	in := []core.Target{

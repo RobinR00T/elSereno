@@ -141,7 +141,7 @@ func TestProbeAgainstHappyPath(t *testing.T) {
 		// Build a response frame: response ICF + SID echo +
 		// MRC/SRC + zero end code + 60-byte controller data.
 		resp := []byte{
-			0xC0, 0x00, 0x02, // ICF / RSV / GCT — response bit set
+			0xC0, 0x00, 0x02, // ICF / RSV / GCT, response bit set
 			0x00, 0x01, 0x00,
 			0x00, 0x00, 0x00,
 			sid,

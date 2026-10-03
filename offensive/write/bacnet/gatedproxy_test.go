@@ -143,7 +143,7 @@ func buildBACnetFrame(apdu []byte) []byte {
 
 // buildConfirmedRequestAPDU builds a minimal confirmed-request
 // APDU with the given service choice + invoke id. Body is
-// empty — the gate only inspects header bytes.
+// empty the gate only inspects header bytes.
 func buildConfirmedRequestAPDU(svc wire.ConfirmedService, invokeID uint8) []byte {
 	return []byte{
 		byte(wire.APDUConfirmedRequest) << 4,
@@ -248,7 +248,7 @@ func TestWhoIsAlwaysPasses(t *testing.T) {
 
 func TestReadPropertyAlwaysPasses(t *testing.T) {
 	client, upstream := driveSession(t, nil)
-	// Confirmed ReadProperty (choice 12) — non-mutating.
+	// Confirmed ReadProperty (choice 12), non-mutating.
 	apdu := buildConfirmedRequestAPDU(wire.ConfirmedSvcReadProperty, 42)
 	_, _ = client.Write(buildBACnetFrame(apdu))
 	frames := waitForFramesOne(t, upstream)
@@ -260,7 +260,7 @@ func TestReadPropertyAlwaysPasses(t *testing.T) {
 func TestNonBACnetPassesThrough(t *testing.T) {
 	client, upstream := driveSession(t, nil)
 	// Garbage bytes (not starting with 0x81) pass through
-	// — the gate refuses to second-guess unknown upper layers.
+	// the gate refuses to second-guess unknown upper layers.
 	_, _ = client.Write([]byte{0xAA, 0xBB, 0xCC, 0xDD})
 	frames := waitForFramesOne(t, upstream)
 	if len(frames[0]) != 4 || frames[0][0] != 0xAA {
@@ -322,7 +322,7 @@ func TestWritePropertyBlockedReturnsAbort(t *testing.T) {
 }
 
 func TestReinitializeDeviceBlocked(t *testing.T) {
-	// Allow only WriteProperty — ReinitializeDevice is a
+	// Allow only WriteProperty, ReinitializeDevice is a
 	// different gated service and must be refused.
 	allowed := []bwrite.AllowedService{{ServiceChoice: uint8(wire.ConfirmedSvcWriteProperty)}}
 	client, upstream := driveSession(t, allowed)

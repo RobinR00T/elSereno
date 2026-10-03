@@ -6,7 +6,7 @@ token-budget: 1200
 surface: web
 ---
 
-# Threat model — web server + API + dashboard
+# Threat model, web server + API + dashboard
 
 Covers `internal/web/` (server, handlers, middleware, static,
 templates, openapi). The web surface is the one external component
@@ -23,7 +23,7 @@ loopback-only by default.
 | `/api/v1/*` JSON + OpenAPI serving | Bearer token rotation (ADR-014) |
 | CSRF + Cookie Secure policy | Browser-side XSS defence beyond CSP |
 
-## S — Spoofing
+## S, Spoofing
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -31,7 +31,7 @@ loopback-only by default.
 | CSRF from malicious page in the same browser | `gorilla/csrf` with HKDF-derived key from vault master; every mutating form includes a CSP-nonced hidden input | `internal/web/server.go` + `internal/web/handlers` |
 | Forged OpenAPI spec distributed as "authoritative" | Spec served from the same binary + in-code declaration (`internal/web/openapi.Spec`). Tag artefacts include `cosign`-signed `docs/openapi.yaml` snapshot | `internal/web/openapi/spec.go` |
 
-## T — Tampering
+## T, Tampering
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -39,14 +39,14 @@ loopback-only by default.
 | Mutating request flows through without CSRF | Middleware registers CSRF on every non-`/api/v1/*` POST; JSON API requires Bearer anyway | `internal/web/server.go` |
 | Request body exceeds server limits | `http.Server` full timeouts (ReadHeaderTimeout, ReadTimeout, WriteTimeout, IdleTimeout, MaxHeaderBytes) | `internal/web/server.go:51` |
 
-## R — Repudiation
+## R, Repudiation
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Operator claims they didn't view a given finding | Access logs via zerolog include request ID + route + status + latency; SafeField on string fields | `internal/telemetry/logger.go` |
 | Disputed token rotation | `token_rotate` event emitted to audit chain | `internal/audit/events.go` |
 
-## I — Information disclosure
+## I, Information disclosure
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -55,7 +55,7 @@ loopback-only by default.
 | XSS via target-controlled banner in HTML report | `internal/render.SafeBytes` + `html/template` auto-escape; the HTML report writer's template only ever embeds sanitised strings | `internal/outputs/html/writer.go` |
 | Cross-origin read of `/api/v1/openapi.yaml` | Endpoint is read-only; no CORS header set (default same-origin) | `internal/web/handlers/api.go` |
 
-## D — Denial of service
+## D, Denial of service
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -64,7 +64,7 @@ loopback-only by default.
 | Per-token flood | 300 req/min per Bearer token | `internal/web/middleware/rate.go` |
 | Session table growth | `web_state` is a singleton row; token generation bumps an integer, not a row count | migration 00001 |
 
-## E — Elevation of privilege
+## E, Elevation of privilege
 
 | Threat | Mitigation | Code |
 |--------|------------|------|

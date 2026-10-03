@@ -114,7 +114,7 @@ func TestBypass_RequiresAuditor(t *testing.T) {
 	}
 }
 
-// #nosec G101 -- false positive — test struct literal with no secrets
+// #nosec G101 -- false positive, test struct literal with no secrets
 func TestBypass_RecordsEvent(t *testing.T) {
 	cb := &captureBypass{}
 	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
@@ -171,7 +171,7 @@ func TestBypass_AuditFailureAborts(t *testing.T) {
 
 func TestBypass_NormalPathStillAllowlisted(t *testing.T) {
 	// Without AllowAnyPath, a binary outside allowed paths must fail
-	// with ErrDisallowedPath — bypass is strictly opt-in.
+	// with ErrDisallowedPath, bypass is strictly opt-in.
 	_, err := exec.SafeCommand(context.Background(), exec.CommandSpec{
 		Name:         "sh",
 		AllowedPaths: []string{"/does-not-exist"},

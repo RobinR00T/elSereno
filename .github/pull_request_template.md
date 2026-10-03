@@ -1,6 +1,6 @@
 # Summary
 
-<!-- 1–3 lines describing the change and its motivation. -->
+<!-- 1-3 lines describing the change and its motivation. -->
 
 ## Phase
 
@@ -21,5 +21,5 @@
 
 ## Notes
 
-<!-- Anything the reviewer should know — trade-offs, follow-ups, open
+<!-- Anything the reviewer should know, trade-offs, follow-ups, open
      questions. -->

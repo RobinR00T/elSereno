@@ -140,7 +140,7 @@ func TestProbeBannerILC(t *testing.T) {
 func TestProbeBannerProConOS(t *testing.T) {
 	t.Parallel()
 	// PCWorx + ProConOS share the KW-Software runtime in many
-	// ILC firmwares — the marker still positively identifies
+	// ILC firmwares, the marker still positively identifies
 	// PCWorx-speaking servers on the runtime port.
 	f := probeAgainstResponder(t, func() []byte {
 		return []byte("\xFF\xFE\xAB\xCDProConOS V5.0.0.40 GeneralFirmware")

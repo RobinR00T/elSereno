@@ -66,7 +66,7 @@ func TestBucketFindingsSorted(t *testing.T) {
 	}
 }
 
-// TestGroupUtility_BannerInfoFinding — generic banner-plugin
+// TestGroupUtility_BannerInfoFinding generic banner-plugin
 // finding at severity-info lands in utility (recon data, not a
 // vulnerability).
 func TestGroupUtility_BannerInfoFinding(t *testing.T) {
@@ -82,7 +82,7 @@ func TestGroupUtility_BannerInfoFinding(t *testing.T) {
 	}
 }
 
-// TestGroupUtility_ATModemBannerLands — atmodem banners are
+// TestGroupUtility_ATModemBannerLands atmodem banners are
 // inventory data (modem fingerprint), so they land in utility
 // at low severity.
 func TestGroupUtility_ATModemBannerLands(t *testing.T) {
@@ -98,7 +98,7 @@ func TestGroupUtility_ATModemBannerLands(t *testing.T) {
 	}
 }
 
-// TestGroupUtility_LowSeverityNoImpactLandsHere — a low-severity
+// TestGroupUtility_LowSeverityNoImpactLandsHere a low-severity
 // finding with no impact_class factor (information leak with
 // no direct exploit) lands in utility.
 func TestGroupUtility_LowSeverityNoImpactLandsHere(t *testing.T) {
@@ -114,7 +114,7 @@ func TestGroupUtility_LowSeverityNoImpactLandsHere(t *testing.T) {
 	}
 }
 
-// TestGroupUtility_MediumSeverityNeverUtility — medium and above
+// TestGroupUtility_MediumSeverityNeverUtility medium and above
 // never land in utility, even with no impact factor.
 func TestGroupUtility_MediumSeverityNeverUtility(t *testing.T) {
 	t.Parallel()
@@ -129,7 +129,7 @@ func TestGroupUtility_MediumSeverityNeverUtility(t *testing.T) {
 	}
 }
 
-// TestGroupUtility_LowWithImpactNotUtility — a low-severity
+// TestGroupUtility_LowWithImpactNotUtility a low-severity
 // finding with a non-trivial impact_class is operational, not
 // inventory; lands in routine.
 func TestGroupUtility_LowWithImpactNotUtility(t *testing.T) {
@@ -145,7 +145,7 @@ func TestGroupUtility_LowWithImpactNotUtility(t *testing.T) {
 	}
 }
 
-// TestBucketFindingsSeparatesUtility — full Summary check: the
+// TestBucketFindingsSeparatesUtility full Summary check: the
 // utility bucket carries banner-info findings while routine
 // carries everything else low-severity.
 func TestBucketFindingsSeparatesUtility(t *testing.T) {

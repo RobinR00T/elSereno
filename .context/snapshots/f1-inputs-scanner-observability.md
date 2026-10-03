@@ -4,7 +4,7 @@ date: 2026-04-19
 token-budget: 1000
 ---
 
-# Phase F1 snapshot — Inputs, scanner, scoring, triage, observability
+# Phase F1 snapshot, Inputs, scanner, scoring, triage, observability
 
 Delivered across two chunks on 2026-04-19. `make ci` green after each
 chunk on the operator's machine.
@@ -24,7 +24,7 @@ chunk on the operator's machine.
 ### Observability
 - Zerolog logger with RFC 3339 μs timestamps.
 - `Redact(key, value)` with specific-pattern match + Shannon entropy
-  heuristic (>4.5 bits/byte) with UUID v1–v5 exemption (PITF-004).
+  heuristic (>4.5 bits/byte) with UUID v1-v5 exemption (PITF-004).
 - Prometheus metrics: `elsereno_findings_total{protocol,severity,asn,
   country}`, `elsereno_scan_duration_seconds`, `elsereno_persistence_
   lag_seconds`, `elsereno_audit_entries_total`, `elsereno_outbox_
@@ -81,7 +81,7 @@ chunk on the operator's machine.
 - `internal/creds.Vault`: AES-GCM + Argon2id (`time=3, memory=64 MiB,
   threads=4`). Master key in `memguard.LockedBuffer`, zeroised on
   `Lock()` or process exit. `Derive(info, out)` implements
-  HKDF-SHA256 — the CSRF key (ADR-017) and future derivations hang off
+  HKDF-SHA256, the CSRF key (ADR-017) and future derivations hang off
   this. `Init` refuses silent re-initialisation (PITF-021). `Unlock`
   verifies a GCM-sealed sentinel so a bad passphrase fails clean.
   `Store/Retrieve/Rotate/Purge/Metadata/List` plus a
@@ -113,7 +113,7 @@ None beyond PITF-001..036. No new anti-patterns surfaced.
   end-to-end requires docker-compose up and sits under
   `//go:build integration`. That lands alongside the F1 chunk 3 chaos
   helpers.
-- **Censys HTTP client** not landed — Shodan demonstrates the pattern
+- **Censys HTTP client** not landed, Shodan demonstrates the pattern
   and Censys uses HTTP Basic, which is a smaller diff.
 - **Outbox with dead letter**, **retention keep-if-referenced**, and
   **progress bars with NO_COLOR** deferred to F1 chunk 3.

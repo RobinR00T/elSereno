@@ -86,7 +86,7 @@ VALUES ($1, $2, $3, $4, NOW())
 ON CONFLICT (key) DO NOTHING`, key, hash, status, response)
 	if err != nil {
 		// Best-effort: silent. Same justification as Lookup
-		// — idempotency degrades gracefully.
+		// idempotency degrades gracefully.
 		return
 	}
 }

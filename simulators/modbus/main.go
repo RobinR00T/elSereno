@@ -5,7 +5,7 @@
 // if the product code accidentally lets a write through.
 //
 // Operators who want a full-featured PLC simulator should use
-// pymodbus (installed via `pipx install pymodbus[repl]` — see the F3
+// pymodbus (installed via `pipx install pymodbus[repl]`: see the F3
 // protocol doc). This Go responder exists so every CI run, including
 // those without network access to PyPI, has a deterministic peer.
 package main
@@ -153,7 +153,7 @@ func exceptionResp(req wire.Frame, code wire.ExceptionCode) wire.Frame {
 
 func replyCoils(req wire.Frame, s *state) wire.Frame {
 	// PDU: [FC][start hi][start lo][count hi][count lo]. Coils and
-	// discrete inputs share the same in-memory bank — the simulator
+	// discrete inputs share the same in-memory bank, the simulator
 	// is deliberately minimal.
 	if len(req.PDU) < 5 {
 		return exceptionResp(req, wire.ExIllegalDataValue)

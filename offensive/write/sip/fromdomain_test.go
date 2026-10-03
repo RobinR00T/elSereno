@@ -64,7 +64,7 @@ func TestAllowlistHashWithFromDomains_OrderInsensitive(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithFromDomains_CaseInsensitiveCanonical —
+// TestAllowlistHashWithFromDomains_CaseInsensitiveCanonical
 // host names are case-insensitive per RFC 3261 §19.1.1, so
 // operator entries in mixed case must produce the same hash.
 func TestAllowlistHashWithFromDomains_CaseInsensitiveCanonical(t *testing.T) {
@@ -153,7 +153,7 @@ func sipInvite(from, to string) string {
 	}, "\r\n")
 }
 
-// TestGateFromDomain_AllowedPasses — From domain matches the
+// TestGateFromDomain_AllowedPasses From domain matches the
 // allowlist → INVITE forwards upstream.
 func TestGateFromDomain_AllowedPasses(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "INVITE"}}
@@ -175,7 +175,7 @@ func TestGateFromDomain_AllowedPasses(t *testing.T) {
 	}
 }
 
-// TestGateFromDomain_ForbiddenRefuses — From domain NOT in the
+// TestGateFromDomain_ForbiddenRefuses From domain NOT in the
 // allowlist → 403 Forbidden with X-Elsereno-Gate-Reason header.
 func TestGateFromDomain_ForbiddenRefuses(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "INVITE"}}
@@ -204,7 +204,7 @@ func TestGateFromDomain_ForbiddenRefuses(t *testing.T) {
 	}
 }
 
-// TestGateFromDomain_AlwaysSafeBypasses — OPTIONS (always-safe)
+// TestGateFromDomain_AlwaysSafeBypasses OPTIONS (always-safe)
 // should pass regardless of From domain.
 func TestGateFromDomain_AlwaysSafeBypasses(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "INVITE"}}
@@ -237,7 +237,7 @@ func TestGateFromDomain_AlwaysSafeBypasses(t *testing.T) {
 	}
 }
 
-// TestGateFromDomain_RegisterAlsoGated — the From-domain check
+// TestGateFromDomain_RegisterAlsoGated the From-domain check
 // applies to REGISTER too (and to any gated method). Combines
 // with AOR gate and both must pass.
 func TestGateFromDomain_RegisterAlsoGated(t *testing.T) {
@@ -275,7 +275,7 @@ func TestGateFromDomain_RegisterAlsoGated(t *testing.T) {
 
 // ---- canonicaliseFromDomain parser coverage via hash -------
 
-// TestFromDomainCanonicalisation_SchemeAndBrackets — entries
+// TestFromDomainCanonicalisation_SchemeAndBrackets entries
 // with bracketed sip: URI should canonicalise the same way as
 // bare `host` entries.
 func TestFromDomainCanonicalisation_SchemeAndBrackets(t *testing.T) {

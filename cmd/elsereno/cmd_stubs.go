@@ -18,7 +18,7 @@ func newStubCmds() []*cobra.Command {
 		name, short string
 	}{
 		{"init", "Interactive first-run wizard (planned)"},
-		{"token", "Web-token operations: rotate, show (planned — requires live DB)"},
+		{"token", "Web-token operations: rotate, show (planned, requires live DB)"},
 		{"repl", "Interactive protocol REPL (planned)"},
 		{"proxy", "Protocol-aware interception proxy (planned)"},
 		{"diff", "Compare two runs (planned)"},

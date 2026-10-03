@@ -56,7 +56,7 @@ func (m Model) View() string {
 		return styles.mute.Render("Terminal too small (min 50×10)\n")
 	}
 
-	header := styles.header.Render(fmt.Sprintf("ElSereno TUI — mode=%s", m.ModeName))
+	header := styles.header.Render(fmt.Sprintf("ElSereno TUI, mode=%s", m.ModeName))
 
 	// Scan progress bar (fixed height 3 lines).
 	scanPane := m.renderScanPane()
@@ -146,7 +146,7 @@ func (m Model) renderFindingsPane() string {
 	for i := start; i < len(m.Findings); i++ {
 		f := m.Findings[i]
 		// v2.31: severity column gets the colour-coded label
-		// instead of the bare truncated string — at-a-glance
+		// instead of the bare truncated string, at-a-glance
 		// triage scan.
 		sevLabel := lipgloss.NewStyle().
 			Foreground(severityColor(Severity(f.Severity))).

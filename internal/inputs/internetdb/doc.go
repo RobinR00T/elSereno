@@ -1,7 +1,7 @@
 // Package internetdb is the Shodan InternetDB
 // (internetdb.shodan.io) attack-surface input client. v1.12
-// chunk 9 — the 6th attack-surface provider after Shodan,
-// Censys, FOFA, ZoomEye, ONYPHE — and the only one that
+// chunk 9, the 6th attack-surface provider after Shodan,
+// Censys, FOFA, ZoomEye, ONYPHE, and the only one that
 // requires NO API key. Free for low-volume use; rate-limited
 // to ~10 rps by upstream.
 //

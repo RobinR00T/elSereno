@@ -22,7 +22,7 @@ func TestSearchPaged_StopsAtTotalLimit(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt64(&pageHits, 1)
 		var matches []shodan.SearchHit
-		// Always return 100 — server has infinite hits.
+		// Always return 100, server has infinite hits.
 		for i := 0; i < 100; i++ {
 			matches = append(matches, shodan.SearchHit{
 				IP:   fmt.Sprintf("10.0.0.%d", i+1),
@@ -90,7 +90,7 @@ func TestSearchPaged_StopsOnEmptyPage(t *testing.T) {
 	}
 }
 
-// TestSearchPaged_ZeroLimitDefaultsTo100 — totalLimit ≤ 0
+// TestSearchPaged_ZeroLimitDefaultsTo100 totalLimit ≤ 0
 // degrades to 100, matching Search's single-shot behaviour.
 func TestSearchPaged_ZeroLimitDefaultsTo100(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

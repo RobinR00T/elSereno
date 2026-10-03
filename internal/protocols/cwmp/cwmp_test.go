@@ -158,7 +158,7 @@ func TestProbe_401WithCWMPRealm(t *testing.T) {
 }
 
 func TestProbe_SOAPFault(t *testing.T) {
-	// SOAP fault body mentioning CWMP — ACS-likely.
+	// SOAP fault body mentioning CWMP, ACS-likely.
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		w.WriteHeader(http.StatusInternalServerError)

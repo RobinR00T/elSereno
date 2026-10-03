@@ -93,7 +93,7 @@ type Report struct {
 }
 
 // Enforce applies the policy. The function is idempotent under a fixed
-// `now` — it never re-removes already-removed rows.
+// `now`: it never re-removes already-removed rows.
 func Enforce(ctx context.Context, now time.Time, p Policy, pr Pruner) (Report, error) {
 	var r Report
 	if err := p.Validate(); err != nil {

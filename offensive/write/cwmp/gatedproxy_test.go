@@ -267,7 +267,7 @@ func postRequest(body string) string {
 		len(body), body)
 }
 
-// TestGateReadOnlyRPCAlwaysPasses — GetParameterValues is in
+// TestGateReadOnlyRPCAlwaysPasses GetParameterValues is in
 // alwaysSafeRPCs; passes without needing allowlist.
 func TestGateReadOnlyRPCAlwaysPasses(t *testing.T) {
 	client, acs := driveSession(t, nil)
@@ -294,7 +294,7 @@ func TestGateReadOnlyRPCAlwaysPasses(t *testing.T) {
 	}
 }
 
-// TestGateAllowedWriteRPCPasses — SetParameterValues is write-
+// TestGateAllowedWriteRPCPasses SetParameterValues is write-
 // capable but IS in the allowlist → passes.
 func TestGateAllowedWriteRPCPasses(t *testing.T) {
 	client, acs := driveSession(t, []cwmpwrite.AllowedRPC{{Name: "SetParameterValues"}})
@@ -316,7 +316,7 @@ func TestGateAllowedWriteRPCPasses(t *testing.T) {
 	}
 }
 
-// TestGateBlockedRPCReturnsSOAPFault — write-capable RPC NOT in
+// TestGateBlockedRPCReturnsSOAPFault write-capable RPC NOT in
 // allowlist → SOAP Fault with CWMP fault code 9001.
 func TestGateBlockedRPCReturnsSOAPFault(t *testing.T) {
 	client, acs := driveSession(t,
@@ -349,7 +349,7 @@ func TestGateBlockedRPCReturnsSOAPFault(t *testing.T) {
 	}
 }
 
-// TestGateEmptyAllowlistBlocksAllWrites — empty allowlist means
+// TestGateEmptyAllowlistBlocksAllWrites empty allowlist means
 // every write-capable RPC is refused (read-only RPCs still pass
 // via alwaysSafeRPCs).
 func TestGateEmptyAllowlistBlocksAllWrites(t *testing.T) {
@@ -369,7 +369,7 @@ func TestGateEmptyAllowlistBlocksAllWrites(t *testing.T) {
 	}
 }
 
-// TestGateGETBypassesSOAPParser — non-POST requests don't get
+// TestGateGETBypassesSOAPParser non-POST requests don't get
 // SOAP-parsed (TR-069 uses POST for RPCs; ACS status endpoints
 // commonly sit on GET /).
 func TestGateGETBypassesSOAPParser(t *testing.T) {
@@ -391,7 +391,7 @@ func TestGateGETBypassesSOAPParser(t *testing.T) {
 	}
 }
 
-// TestGateHandlesSoapenvPrefix — some stacks use `soapenv:`
+// TestGateHandlesSoapenvPrefix some stacks use `soapenv:`
 // instead of `soap-env:`; the gate should still find the RPC.
 func TestGateHandlesSoapenvPrefix(t *testing.T) {
 	client, _ := driveSession(t, nil)
@@ -406,13 +406,13 @@ func TestGateHandlesSoapenvPrefix(t *testing.T) {
 	_, _, respBody := readHTTPResponseSummary(t, client)
 	// Empty allowlist → Reboot is blocked. If the RPC name
 	// extraction missed the `soapenv:` variant, the gate would
-	// fail open and forward the request — this test catches that.
+	// fail open and forward the request, this test catches that.
 	if !strings.Contains(respBody, "9001") {
 		t.Errorf("soapenv: variant: gate should still extract RPC name and block:\n%s", respBody)
 	}
 }
 
-// TestGateEmptyBodyPassesThrough — some ACS deployments send
+// TestGateEmptyBodyPassesThrough some ACS deployments send
 // empty POSTs as keep-alives; they should pass without triggering
 // the gate (there's no RPC to check).
 func TestGateEmptyBodyPassesThrough(t *testing.T) {
@@ -434,7 +434,7 @@ func TestGateEmptyBodyPassesThrough(t *testing.T) {
 	}
 }
 
-// TestRPCNameExtraction_Unit — direct unit test of
+// TestRPCNameExtraction_Unit direct unit test of
 // extractRPCName via an end-to-end test cycle that exercises
 // both an un-prefixed and prefixed envelope. Because
 // extractRPCName is unexported, we can only exercise it through

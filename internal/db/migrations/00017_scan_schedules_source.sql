@@ -1,11 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v2.10 — fast clone-provenance via dedicated FK column.
+-- v2.10, fast clone-provenance via dedicated FK column.
 --
 -- v2.1 introduced the `cloned_from` audit event but the only
 -- way to answer "show me everything cloned FROM X" was to
--- grep payload_before.id off the audit log — slow + N rows
+-- grep payload_before.id off the audit log, slow + N rows
 -- to scan per operator query. v2.10 adds a direct
 -- source_schedule_id column on scan_schedules so the
 -- provenance query becomes:
@@ -18,7 +18,7 @@
 --           one".
 --
 -- ON DELETE SET NULL preserves the clone row when the
--- source is deleted (matches v1.88 + v1.92 patterns —
+-- source is deleted (matches v1.88 + v1.92 patterns, 
 -- history outlasts the source).
 --
 -- A partial index on the non-NULL set keeps the v2.5 list

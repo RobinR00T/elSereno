@@ -16,7 +16,7 @@ import (
 // target (typically a DBWriter) verbatim, preserving IDs and
 // hash chain. Useful for bootstrapping a fresh Postgres from
 // an operator's existing `~/.elsereno/audit.jsonl` produced by
-// the FileWriter — lets them keep continuity of the chain
+// the FileWriter, lets them keep continuity of the chain
 // when they promote the DB writer to primary.
 //
 // Behaviour:
@@ -25,7 +25,7 @@ import (
 //     ensures the chain is intact (PrevHash = previous
 //     EntryHash), then calls target.Mirror to persist.
 //   - Entries already present in target (same ID) are skipped
-//     silently — duplicate SyncFromFile invocations are safe.
+//     silently duplicate SyncFromFile invocations are safe.
 //   - Returns the number of entries imported + an error on
 //     any chain inconsistency.
 //
@@ -33,7 +33,7 @@ import (
 // entries (DBMirror, FileMirror). A regular Writer would
 // regenerate IDs + hashes and break chain continuity.
 func SyncFromFile(ctx context.Context, path string, target MirrorWriter, existingIDs ExistingIDFunc) (int, error) {
-	// #nosec G304 — operator-supplied audit path
+	// #nosec G304, operator-supplied audit path
 	f, err := os.Open(path)
 	if err != nil {
 		return 0, fmt.Errorf("audit sync: open %s: %w", path, err)

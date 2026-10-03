@@ -12,7 +12,7 @@ import (
 // `internal/audit.Entry`, but the JSON tags here are the ones
 // the dashboard's JS expects (snake_case) + we omit the
 // chain-integrity columns (prev_hash / entry_hash) that the
-// dashboard never displays — they live in the audit chain
+// dashboard never displays, they live in the audit chain
 // proper for offline `audit verify-file`.
 //
 // v1.19 chunk 1.

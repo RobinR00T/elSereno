@@ -67,7 +67,7 @@ func TestAllowlistHashWithFirmware_OrderInsensitive(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithFirmware_URLCaseInsensitive — scheme +
+// TestAllowlistHashWithFirmware_URLCaseInsensitive scheme +
 // host are lowercased; entries differing only in host case
 // should produce the same hash.
 func TestAllowlistHashWithFirmware_URLCaseInsensitive(t *testing.T) {
@@ -85,7 +85,7 @@ func TestAllowlistHashWithFirmware_URLCaseInsensitive(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithFirmware_DefaultPortStripped — :443 on
+// TestAllowlistHashWithFirmware_DefaultPortStripped :443 on
 // https + :80 on http should canonicalise away.
 func TestAllowlistHashWithFirmware_DefaultPortStripped(t *testing.T) {
 	rpcs := []cwmpwrite.AllowedRPC{{Name: "Download"}}
@@ -169,7 +169,7 @@ func buildDownloadRequest(url string) string {
 		len(body), body)
 }
 
-// TestGateCWMPFirmware_AllowedURLPasses — Download with URL in
+// TestGateCWMPFirmware_AllowedURLPasses Download with URL in
 // allowlist forwards upstream.
 func TestGateCWMPFirmware_AllowedURLPasses(t *testing.T) {
 	fws := []cwmpwrite.AllowedFirmware{
@@ -194,7 +194,7 @@ func TestGateCWMPFirmware_AllowedURLPasses(t *testing.T) {
 	}
 }
 
-// TestGateCWMPFirmware_ForbiddenURLRefuses — Download URL not in
+// TestGateCWMPFirmware_ForbiddenURLRefuses Download URL not in
 // allowlist gets a SOAP 9001 fault with X-Elsereno-Gate-Reason
 // header pointing at firmware.
 func TestGateCWMPFirmware_ForbiddenURLRefuses(t *testing.T) {
@@ -230,7 +230,7 @@ func TestGateCWMPFirmware_ForbiddenURLRefuses(t *testing.T) {
 	}
 }
 
-// TestGateCWMPFirmware_EmptyAllowlistBypasses — an empty
+// TestGateCWMPFirmware_EmptyAllowlistBypasses an empty
 // AllowedFirmware list disables the firmware gate; Download
 // passes RPC-only (v1.11/chunk-1 fallback).
 func TestGateCWMPFirmware_EmptyAllowlistBypasses(t *testing.T) {
@@ -249,7 +249,7 @@ func TestGateCWMPFirmware_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateCWMPFirmware_CanonicalisationMatches — operator
+// TestGateCWMPFirmware_CanonicalisationMatches operator
 // allowlist uses lowercase + no port; ACS sends mixed-case
 // host with default port. Canonicaliser should match.
 func TestGateCWMPFirmware_CanonicalisationMatches(t *testing.T) {

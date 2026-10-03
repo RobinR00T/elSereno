@@ -80,7 +80,7 @@ archives:
       - elsereno-default
       - elsereno-offensive
     # v2.34+: linux/macOS ship 2 binaries (default + offensive),
-    # Windows ships 1 (offensive is unix-only by design — SIGUSR1
+    # Windows ships 1 (offensive is unix-only by design, SIGUSR1
     # + libsandbox + posix-only paths). The escape hatch flag
     # silences goreleaser's "different binary count per platform"
     # error; it's the intentional, documented behaviour.
@@ -97,7 +97,7 @@ archives:
       - man/man7/*.7
       - completions/*
 
-  # v1.29 chunk 1: mini archive — separate tarball so device
+  # v1.29 chunk 1: mini archive, separate tarball so device
   # operators don't pull the full default + offensive binaries
   # they don't need. Smaller dependency surface = smaller
   # attack surface.
@@ -143,7 +143,7 @@ nfpms:
     homepage: https://github.com/RobinR00T/elSereno
     maintainer: ElSereno maintainers <noreply@elsereno.dev>
     description: |-
-      ICS/OT legacy exposure auditor — fingerprinter,
+      ICS/OT legacy exposure auditor, fingerprinter,
       scanner, dashboard, and HTTP API. Default
       (read-only) build. The offensive variant ships
       writes / exploits / harvest / dial behind triple-
@@ -205,7 +205,7 @@ nfpms:
     homepage: https://github.com/RobinR00T/elSereno
     maintainer: ElSereno maintainers <noreply@elsereno.dev>
     description: |-
-      ICS/OT legacy exposure auditor — offensive build
+      ICS/OT legacy exposure auditor, offensive build
       (writes / exploits / harvest / dial behind triple-
       confirm fences). Ships alongside the default
       package; binary lives at /usr/bin/elsereno-offensive
@@ -228,7 +228,7 @@ nfpms:
     homepage: https://github.com/RobinR00T/elSereno
     maintainer: ElSereno maintainers <noreply@elsereno.dev>
     description: |-
-      ICS/OT legacy exposure auditor — mini build for
+      ICS/OT legacy exposure auditor, mini build for
       device deployments. Excludes the dashboard +
       OpenAPI + TUI to keep the binary small. No systemd
       unit (serve is a stub in mini). Operators run
@@ -323,7 +323,7 @@ docker_signs:
 sboms:
   - artifacts: archive
     # `cyclonedx-gomod mod` expects a Go module directory, not the
-    # packaged archive — it errors "not a go module" when pointed
+    # packaged archive, it errors "not a go module" when pointed
     # at the .tar.gz. syft walks the archive contents and emits
     # CycloneDX directly. Both tools are installed by the release
     # workflow (`anchore/sbom-action/download-syft@v0`).

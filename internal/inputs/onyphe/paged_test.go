@@ -13,7 +13,7 @@ import (
 	"local/elsereno/internal/inputs/onyphe"
 )
 
-// TestSearchPaged_AccumulatesAcrossPages — server returns 50
+// TestSearchPaged_AccumulatesAcrossPages server returns 50
 // per page; loop iterates until totalLimit hit.
 func TestSearchPaged_AccumulatesAcrossPages(t *testing.T) {
 	var pages int64

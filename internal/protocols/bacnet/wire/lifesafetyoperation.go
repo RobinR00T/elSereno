@@ -13,11 +13,11 @@ package wire
 //     silencing is performed during a real incident. Operators
 //     should NEVER allow these on a production life-safety bus.
 //   - LSOOpReset/ResetAlarm/ResetFault (4/5/6): operationally
-//     significant. Resets clear alarm/fault state — useful after
+//     significant. Resets clear alarm/fault state, useful after
 //     manual verification, dangerous if performed on an active
 //     alarm before the cause is addressed.
 //   - LSOOpUnsilence/UnsilenceAudible/UnsilenceVisual (7/8/9):
-//     SAFE direction. Undoes a prior silence — allows alarm
+//     SAFE direction. Undoes a prior silence, allows alarm
 //     audible/visual indicators to resume. Typical recovery
 //     after an attacker silenced a panel.
 const (
@@ -49,7 +49,7 @@ const (
 // All four fields are context-tagged primitives. The first two
 // are skipped (the gate doesn't care about the operator's
 // process ID or display name); the third is read; the fourth
-// is ignored by this entry-point — see
+// is ignored by this entry-point, see
 // ParseLifeSafetyOperationWithTarget for the v1.16 chunk-3
 // variant that also extracts the optional [3] field.
 //
@@ -58,7 +58,7 @@ const (
 //	0x29 NN              [2] request, primitive, length 1, enum value NN
 //
 // Returns (op, true) on success, (0, false) on any parse error
-// or unknown enum value — the gate fails closed.
+// or unknown enum value, the gate fails closed.
 func ParseLifeSafetyOperation(apdu []byte) (uint8, bool) {
 	op, _, _, ok := ParseLifeSafetyOperationWithTarget(apdu)
 	return op, ok
@@ -82,20 +82,20 @@ func ParseLifeSafetyOperation(apdu []byte) (uint8, bool) {
 //   - ok:        false on any parse error.
 func ParseLifeSafetyOperationWithTarget(apdu []byte) (uint8, ObjectIdentifier, bool, bool) {
 	off := 0
-	// [0] requestingProcessIdentifier — Unsigned, length 1..4.
+	// [0] requestingProcessIdentifier, Unsigned, length 1..4.
 	next, ok := skipContextPrimitiveField(apdu, off, 0)
 	if !ok {
 		return 0, ObjectIdentifier{}, false, false
 	}
 	off = next
-	// [1] requestingSource — CharacterString, length 1..4 inline
+	// [1] requestingSource, CharacterString, length 1..4 inline
 	// or extended (length-byte form).
 	next, ok = skipContextPrimitiveField(apdu, off, 1)
 	if !ok {
 		return 0, ObjectIdentifier{}, false, false
 	}
 	off = next
-	// [2] request — ENUMERATED, length 1.
+	// [2] request, ENUMERATED, length 1.
 	if off+1 >= len(apdu) {
 		return 0, ObjectIdentifier{}, false, false
 	}
@@ -107,14 +107,14 @@ func ParseLifeSafetyOperationWithTarget(apdu []byte) (uint8, ObjectIdentifier, b
 		return 0, ObjectIdentifier{}, false, false
 	}
 	off += 2
-	// [3] objectIdentifier — OPTIONAL, primitive, length 4 packed.
+	// [3] objectIdentifier, OPTIONAL, primitive, length 4 packed.
 	// Wire shape: 0x3C  PP PP PP PP  (context 3, primitive, len 4).
 	// Absent (off >= len(apdu)) → hasTarget=false.
 	if off >= len(apdu) {
 		return op, ObjectIdentifier{}, false, true
 	}
 	if apdu[off] != 0x3C { // context 3, primitive, length 4
-		// Bytes remain but they're not [3] — ignore (forward-compat
+		// Bytes remain but they're not [3], ignore (forward-compat
 		// for vendor-extended fields). hasTarget stays false.
 		return op, ObjectIdentifier{}, false, true
 	}
@@ -136,8 +136,8 @@ func ParseLifeSafetyOperationWithTarget(apdu []byte) (uint8, ObjectIdentifier, b
 // extended-length form (low-bits == 5, length follows in the
 // next byte).
 //
-// Constructed forms (low-bits == 6/7 — opening/closing) are
-// rejected — those are SEQUENCE wrappers, not primitives.
+// Constructed forms (low-bits == 6/7, opening/closing) are
+// rejected those are SEQUENCE wrappers, not primitives.
 //
 // Returns (newOffset, true) on success; (off, false) on any
 // failure (truncated, wrong tag class/number, constructed
@@ -157,7 +157,7 @@ func skipContextPrimitiveField(b []byte, off int, expectedTagNum uint8) (int, bo
 	}
 	lnBits := tag & 0x07
 	if lnBits == 6 || lnBits == 7 {
-		// Constructed open/close — primitive expected.
+		// Constructed open/close, primitive expected.
 		return off, false
 	}
 	off++

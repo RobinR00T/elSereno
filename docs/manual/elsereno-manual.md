@@ -1,4 +1,4 @@
-# ElSereno — Manual de casos de uso
+# ElSereno, Manual de casos de uso
 
 *Para operadores de seguridad OT/ICS que hacen descubrimiento,
 fingerprint y test autorizado de protocolos industriales legacy.*
@@ -33,8 +33,8 @@ Loose-end closure cycle:
   ElSereno appendeando a `~/.elsereno/audit.jsonl` ya no
   rompen la chain. Linux + macOS via `unix.Flock(LOCK_EX)`.
 - **SIGHUP reload-style exit**: `proxy listen` distingue
-  SIGHUP (exit 75 / EX_TEMPFAIL — supervisor restart signal)
-  de SIGINT/SIGTERM (exit 0 — clean stop). Workflow:
+  SIGHUP (exit 75 / EX_TEMPFAIL, supervisor restart signal)
+  de SIGINT/SIGTERM (exit 0, clean stop). Workflow:
   edit allow-file, mint fresh confirm-token, `kill -HUP $pid`
   → systemd / runit / s6 reinicia con config nueva.
 
@@ -48,21 +48,21 @@ Snapshot completo:
 
 Cycle de 4 chunks operator-requested 2026-04-25.
 
-- **Chunk 1** — Nuevo paquete `internal/netutil` con
+- **Chunk 1**: Nuevo paquete `internal/netutil` con
   helpers IsLoopbackHostPort / CanonicalHostPort /
   ParseAddrPort. Reemplaza la fragile substring-based
   loopback check de `cmd_serve.go` (no detectaba `[0:0:0:0:
   0:0:0:1]`, `[::1%lo0]`, ni 127.0.0.5/8).
-- **Chunk 2** — Canonicalización de target / listen /
+- **Chunk 2**: Canonicalización de target / listen /
   confirm-target. Operador que escribe
   `[0:0:0:0:0:0:0:1]:7547` en dry-run y `[::1]:7547` en
   proxy listen ahora ve ambas formas convergir al mismo
   string canónico (RFC 5952). Hash matches → confirm-token
   works.
-- **Chunk 3** — `scan --input internetdb:` dispatcher fix
+- **Chunk 3**: `scan --input internetdb:` dispatcher fix
   (regression de v1.13 chunk 1) + bracket-stripping para
   IPv6 literals (`[2001:db8::1]` ahora funciona).
-- **Chunk 4** — IPv6 coverage tests para scope + dedupe
+- **Chunk 4**: IPv6 coverage tests para scope + dedupe
   paths. Audit-only: la infraestructura `netip.Addr` +
   `Unmap()` ya estaba correcta; los tests pinnan el
   contrato.
@@ -80,7 +80,7 @@ Snapshot completo:
 ## Novedades v1.13.0
 
 Trece chunks han aterrizado. **Cierre completo de la dimensión
-BACnet** — los 9 servicios destructivos (svc 7/8/9/10/11/15/16/
+BACnet**: los 9 servicios destructivos (svc 7/8/9/10/11/15/16/
 17/20/27) tienen ahora wire-level per-target-or-state allowlists.
 
 ### Servicios BACnet completados
@@ -123,7 +123,7 @@ Snapshot completo:
 
 ## Novedades v1.11 / v1.12
 
-**v1.11.0** (2026-04-24) — CWMP/TR-069 offensive proxy.
+**v1.11.0** (2026-04-24), CWMP/TR-069 offensive proxy.
 Allowlist por SOAP RPC para tráfico ACS-CPE. RPCs read-only +
 protocol-flow (GetParameter*, Inform, TransferComplete, …)
 pasan siempre; los write-capable (SetParameterValues, Reboot,
@@ -131,7 +131,7 @@ Download, FactoryReset, …) requieren `--rpc <Name>` explícito.
 Refusal: SOAP Fault 9001 "Request denied" + cabecera
 `X-Elsereno-Gate-Reason`. Ver §6.5 (CWMP).
 
-**v1.12.0** (2026-04-25) — gates tightening + paginación de
+**v1.12.0** (2026-04-25), gates tightening + paginación de
 inputs. Cada gate ya escopa por identidad fina:
 
 - **CWMP**: `--param-prefix InternetGatewayDevice.WANDevice.`
@@ -152,7 +152,7 @@ inputs. Cada gate ya escopa por identidad fina:
   (rate-limit upstream ~10 rps).
 
 Ladders de hash backwards-compat: si no usas los flags nuevos,
-los confirm-tokens v1.4–v1.11 siguen valiendo.
+los confirm-tokens v1.4-v1.11 siguen valiendo.
 
 Snapshot completo:
 [`.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`](
@@ -205,8 +205,8 @@ shasum -a 256 -c checksums.txt --ignore-missing
 tar xzf "elsereno_${VERSION}.tar.gz"
 
 # Dos binarios dentro del tar:
-#   elsereno            — build por defecto (read-only, safe)
-#   elsereno-offensive  — build -tags offensive (write/exploit/…)
+#   elsereno, build por defecto (read-only, safe)
+#   elsereno-offensive, build -tags offensive (write/exploit/…)
 ./elsereno_${VERSION}_${OS}_${ARCH}/elsereno version
 ./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 17
 ```
@@ -214,7 +214,7 @@ tar xzf "elsereno_${VERSION}.tar.gz"
 ### 1.2 Verificar el tag GPG firmado
 
 El tag `v1.15.0` está firmado con la clave del maintainer
-(GPG key `ACE3B86BACACE7D6` — Daniel Solís Agea). Es el
+(GPG key `ACE3B86BACACE7D6`: Daniel Solís Agea). Es el
 método de verificación canónico desde v1.8.0 (cosign keyless /
 SLSA requieren CI facturada y no aplican al free-tier flow).
 
@@ -265,7 +265,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 docker run --rm local/elsereno:v1.15.0 version
 ```
 
-### 1.5 Primer arranque — vault + dashboard
+### 1.5 Primer arranque, vault + dashboard
 
 ```sh
 # Inicializa el vault cifrado (Argon2id + AES-GCM)
@@ -297,7 +297,7 @@ elsereno serve        --vault-passphrase-file ~/.elsereno/dev.pp
 Sin `$DATABASE_URL`, los paneles de findings/triage/runs
 responden 503 y la UI muestra "backend unavailable". Los paneles
 overview / plugins / live-feed / security siguen funcionando
-100% sin BD — la BD es sólo para historia persistida.
+100% sin BD, la BD es sólo para historia persistida.
 
 #### 1.6.1 Con el script helper (`scripts/dev-db.sh`)
 
@@ -377,7 +377,7 @@ elsereno discover --auto 10.0.0.0/24 \
 
 Útil para el flujo "punto y dispara" cuando no tienes Shodan /
 Censys ni nmap-scriptless. La sweep es **defensive**: solo
-TCP-connect, no envía bytes adicionales — la fingerprint
+TCP-connect, no envía bytes adicionales, la fingerprint
 detallada (banner, parser por protocolo) queda en `scan`.
 
 ### 2.1 Flujo E2E: Shodan → scope → scan → findings → report
@@ -414,18 +414,18 @@ CLI desde v1.9 con `--input <provider>:<query>` +
 `--api-creds-file <path>`:
 
 ```sh
-# ejemplo FOFA (fofa.info) — fuerte cobertura APAC
+# ejemplo FOFA (fofa.info), fuerte cobertura APAC
 elsereno scan \
   --input fofa:'protocol="iax2" && country="ES"' \
   --api-creds-file ~/.elsereno/api-creds.yaml \
   --output-format ndjson --output findings.ndjson
 
-# ejemplo ZoomEye (zoomeye.org) — API-KEY header auth
+# ejemplo ZoomEye (zoomeye.org), API-KEY header auth
 elsereno scan \
   --input zoomeye:'app:"Asterisk"' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 
-# ejemplo ONYPHE (onyphe.io) — OQL query syntax, v1.9+
+# ejemplo ONYPHE (onyphe.io), OQL query syntax, v1.9+
 elsereno scan \
   --input onyphe:'category:datascan product:freepbx' \
   --api-creds-file ~/.elsereno/api-creds.yaml
@@ -486,7 +486,7 @@ elsereno scan --input-file targets.txt
 #### 2.1.6 Aplicar scope (filtro de sanidad previo a toda acción)
 
 ```yaml
-# scope.yaml — SIEMPRE carga un scope antes de scans grandes
+# scope.yaml, SIEMPRE carga un scope antes de scans grandes
 version: 1
 ranges:
   - cidr: 10.0.0.0/16
@@ -541,7 +541,7 @@ elsereno scan --input-file t.txt \
   --webhook-url https://ops.example/hook \
   --webhook-secret-file ~/.elsereno/wh.pp
 
-# STIX 2.1 (v1.15+) — feed MISP / OpenCTI / ThreatBus
+# STIX 2.1 (v1.15+), feed MISP / OpenCTI / ThreatBus
 elsereno scan --input-file t.txt --output-format stix > findings.stix.json
 ```
 
@@ -553,7 +553,7 @@ El bundle STIX 2.1 emite por finding:
 
 Bundle envuelto con `"type": "bundle", "id": "bundle--<uuid>"`.
 Los IDs de los SCO/SDO internos son **determinísticos**
-(UUIDv5 sobre namespace + canonical key) — diff entre runs
+(UUIDv5 sobre namespace + canonical key), diff entre runs
 solo cambia las timestamps del bundle wrapper, lo cual hace
 fácil regression-test sobre la salida.
 
@@ -564,9 +564,9 @@ navegador a `http://127.0.0.1:8787` para ver los findings
 llegar en tiempo real via `/api/v1/stream` (EventSource).
 
 El feed live tambén recibe:
-- `run_start` / `run_end` — lifecycle de runs
-- `finding` — cada hallazgo scored
-- `audit` — entradas de la cadena hash (cross-proceso via tail)
+- `run_start` / `run_end`: lifecycle de runs
+- `finding`: cada hallazgo scored
+- `audit`: entradas de la cadena hash (cross-proceso via tail)
 
 ---
 
@@ -669,7 +669,7 @@ elsereno scan --protocol iec104 --input stdin <<< "10.0.0.10:2404"
 elsereno scan --protocol hartip --input stdin <<< "10.0.0.11:5094"
 
 # Session Initiate. Respuesta revela si el gateway HART-IP está
-# activo. El fingerprint no va más allá — las commands HART
+# activo. El fingerprint no va más allá, las commands HART
 # viven dentro de TokenPassPDU y necesitan sesión autenticada.
 ```
 
@@ -749,7 +749,7 @@ elsereno scan --protocol sip --input stdin <<< "pbx.ejemplo.com:5060"
 # con Digest challenge.
 ```
 
-### 3.15 IAX2 — Asterisk binary protocol (v1.3+)
+### 3.15 IAX2, Asterisk binary protocol (v1.3+)
 
 ```sh
 # NEW frame → clasifica la respuesta por subclase
@@ -757,12 +757,12 @@ elsereno scan --protocol iax2 --input stdin <<< "pbx.ejemplo.com:4569"
 
 # Subclases que confirman IAX2 (protocol_risk=90, Asterisk-
 # specific PBX disclosure):
-#   ACCEPT  — el remote aceptó nuestra call (se envía HANGUP
+#   ACCEPT, el remote aceptó nuestra call (se envía HANGUP
 #             inmediatamente para no dejar dialog colgado)
-#   AUTHREQ — pide auth (auth_state baja a 50)
-#   REJECT  — aceptó la llegada pero rehúsa
-#   HANGUP  — cerró al vuelo
-#   PING / PONG / REG* — todos confirman IAX2
+#   AUTHREQ, pide auth (auth_state baja a 50)
+#   REJECT, aceptó la llegada pero rehúsa
+#   HANGUP, cerró al vuelo
+#   PING / PONG / REG*: todos confirman IAX2
 #
 # Mini-frames (audio) y frames no-IAX se descartan; bytes HTTP
 # que coincidan con mini-frame-encoding se filtran por length
@@ -794,7 +794,7 @@ elsereno scan --protocol pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
 # extension → protocol_risk sube a 70 para que el finding no
 # pase desapercibido.
 #
-# Default: InsecureSkipVerify=true — PBX default installs
+# Default: InsecureSkipVerify=true, PBX default installs
 # shippean certificados self-signed siempre; la alternativa
 # sería no poder fingerprintear el 80 % de los PBXes en
 # producción. El probe NO transmite credenciales, solo lee la
@@ -814,7 +814,7 @@ elsereno scan --protocol cwmp --input stdin <<< "acs.ejemplo.com:7547"
 #   ZTE ACS / Alcatel-Lucent Motive / CommScope Arris / etc.
 #
 # TR-069 es el protocolo estándar de gestión remota de CPE
-# (Customer Premises Equipment — routers, ONTs, STBs...).
+# (Customer Premises Equipment, routers, ONTs, STBs...).
 # Un ACS público es una superficie enorme: una RCE en el ACS
 # da control remoto sobre MILES de dispositivos end-user. De
 # ahí el protocol_risk alto por defecto.
@@ -895,7 +895,7 @@ backup cifrado).
 3. Triple confirmación: `--accept-writes`, `--confirm-target`, `--confirm-token`.
 4. (Si dial) `--dial-allowed` y números > 3 dígitos.
 
-### 6.1 Modbus write — dos modos
+### 6.1 Modbus write, dos modos
 
 Modbus es el único plugin ofensivo con dos modos de operación
 porque su CLI original (v1.2) era per-request, no per-session:
@@ -994,12 +994,12 @@ elsereno-offensive creds show --name cisco-snmp-1 --reveal   # registra token_re
 # Validación sin dialar (gate: ≤3 dígitos + scope.blocked_numbers)
 elsereno-offensive dial validate --number "+34 91 123 4567"
 
-# Batch wardial (v1.1 chunk 8) — clasifica + audita cada número
+# Batch wardial (v1.1 chunk 8), clasifica + audita cada número
 cat > nums.txt << 'EOF'
 # target list
 +34 91 123 4567
 +34 91 987 6543
-# números peligrosos — el guard los refusa
+# números peligrosos, el guard los refusa
 112
 555 1234
 EOF
@@ -1008,14 +1008,14 @@ elsereno-offensive dial batch \
   --numbers-file nums.txt --scope scope.yaml --disposition preview
 
 # Output:
-#   wardial batch — 4 numbers classified:
+#   wardial batch, 4 numbers classified:
 #     allow:   2
 #     short:   1 (≤3-digit hard block)
 #     blocked: 1 (scope.blocked_numbers)
 #   audit chain appended to: ~/.elsereno/audit.jsonl
 ```
 
-### 6.5 Proxy write-gated (v1.5+ — CLI `proxy listen`)
+### 6.5 Proxy write-gated (v1.5+, CLI `proxy listen`)
 
 Desde v1.5.0 todos los write-gates son ejecutables inline con
 un único verbo. Soporta **6 plugins**: modbus, opcua, sip,
@@ -1027,7 +1027,7 @@ El patrón canónico es `write <plugin> dry-run --emit-allow-file`:
 genera el YAML Y el confirm-token en una sola llamada.
 
 ```sh
-# SIP — permitir sólo INVITE + REGISTER
+# SIP, permitir sólo INVITE + REGISTER
 elsereno-offensive write sip dry-run \
   --target pbx.ejemplo.com:5060 \
   --method INVITE --method REGISTER \
@@ -1161,7 +1161,7 @@ Comportamiento del gate:
 | `OPTIONS sip:pbx SIP/2.0`            | PASA (always-safe) |
 
 Nota: la lista de prefijos solo aplica a INVITE. REGISTER,
-MESSAGE, SUBSCRIBE, etc. NO se ven afectados — esos métodos
+MESSAGE, SUBSCRIBE, etc. NO se ven afectados, esos métodos
 siguen con el gate método-nivel únicamente.
 
 #### 6.5.6 SIP REGISTER AOR allowlist (v1.10+, anti-registration-hijack)
@@ -1188,7 +1188,7 @@ elsereno-offensive write sip dry-run \
 #   Target:       pbx.ejemplo.com:5060
 #   Allowed:      REGISTER
 #   Always-safe:  OPTIONS, ACK, BYE, CANCEL, PRACK
-#   ToPrefixes:   (none — INVITE destination not constrained)
+#   ToPrefixes:   (none, INVITE destination not constrained)
 #   AORs:         sip:alice@pbx.ejemplo.com, sip:bob@pbx.ejemplo.com
 #   PayloadHash:  ...
 #   ConfirmToken: <hex>
@@ -1227,7 +1227,7 @@ Match es **exacto** (no prefix) a propósito: un attacker que pase
 - Lowercase el host (el user-part preservado case-sensitive per
   RFC 3261 §19.1.1)
 
-Se puede combinar con `--to-prefix` en el mismo dry-run — ambas
+Se puede combinar con `--to-prefix` en el mismo dry-run, ambas
 gates coexisten:
 
 ```sh
@@ -1278,7 +1278,7 @@ permite sólo las SOAP RPCs explícitamente allowlisted.
 Las RPCs read-only + protocol-flow (GetParameterNames,
 GetParameterValues, GetParameterAttributes, GetRPCMethods,
 Inform/InformResponse, TransferComplete, Kicked, Fault)
-**pasan siempre** — bloquearlas rompería el ciclo de registro
+**pasan siempre**: bloquearlas rompería el ciclo de registro
 del CPE.
 
 Las RPCs write-capable (SetParameterValues,
@@ -1335,7 +1335,7 @@ acepta prefix `cwmp:` o `cwmp-1-2:` copy-pasted de wire
 captures, pero case se preserva.
 
 La refusal se emite como HTTP 200 OK + SOAP Fault body con
-FaultCode 9001 — TR-069 trata errores a nivel RPC como SOAP
+FaultCode 9001, TR-069 trata errores a nivel RPC como SOAP
 Faults, no HTTP errors. Esto permite que el ACS cliente
 parsee la negativa limpiamente y la muestre en su GUI como "CPE
 returned fault 9001 Request denied" en lugar de un error de
@@ -1349,7 +1349,7 @@ transporte ambiguo.
 |-----------|------|-----------|
 | SIGINT    | 130  | Clean stop. El supervisor NO reinicia (exit ≠ 0 si se usa systemd `Restart=on-failure`, pero limpio para `Restart=always`). |
 | SIGTERM   | 143  | Clean stop, idéntico a SIGINT. |
-| **SIGHUP**| **75**| **EX_TEMPFAIL** — el supervisor reinicia. Workflow de reload sin perder allowlist-vivo: |
+| **SIGHUP**| **75**| **EX_TEMPFAIL**: el supervisor reinicia. Workflow de reload sin perder allowlist-vivo: |
 
 Workflow operator (systemd / runit / s6):
 
@@ -1435,7 +1435,7 @@ handler.OnTransferComplete = func(ctx context.Context, fields cwmp.TransferCompl
 La SHA-256 mismatch audit (correlar el TransferComplete con la
 entrada audit del Download autorizado y emitir un evento
 explícito si la firmware reportada NO matchea la pin) es
-backlog v1.16+ — la primera mitad (parser + observer) ya
+backlog v1.16+, la primera mitad (parser + observer) ya
 está cableada.
 
 ### 6.6 Sandbox seccomp-bpf (Linux)
@@ -1455,7 +1455,7 @@ En macOS el sandbox degrada a `Kind: unavailable` + audit
 
 ---
 
-## 7. Detection (caso defensivo — cómo lo detecta el blue team)
+## 7. Detection (caso defensivo, cómo lo detecta el blue team)
 
 El red team corre ElSereno contra tu red; qué deja en logs:
 
@@ -1597,7 +1597,7 @@ El vault no está desbloqueado. `elsereno vault unlock` antes.
 ### 10.3 Dashboard sin estilos
 Indica que tu navegador está bloqueando el inline `<style>` por
 CSP. Desde v1.1 chunk 4a (y v1.2 en `/admin/security`) el nonce
-está cableado. Si ves esto, tu binario es viejo — actualiza.
+está cableado. Si ves esto, tu binario es viejo, actualiza.
 
 ### 10.4 `/readyz` devuelve 503
 Postgres caído. `docker compose ps db` para ver el estado, o

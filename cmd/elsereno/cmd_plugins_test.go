@@ -9,7 +9,7 @@ import (
 	"local/elsereno/internal/core"
 )
 
-// TestBuildPluginsByPort_ColocatedPort — the canonical
+// TestBuildPluginsByPort_ColocatedPort the canonical
 // shared-port case (mms + s7 both on 102). Pin both names
 // in alphabetical order so the JSON output stays stable.
 func TestBuildPluginsByPort_ColocatedPort(t *testing.T) {
@@ -30,7 +30,7 @@ func TestBuildPluginsByPort_ColocatedPort(t *testing.T) {
 	}
 }
 
-// TestBuildPluginsByPort_SkipsZeroPort — atmodem has no
+// TestBuildPluginsByPort_SkipsZeroPort atmodem has no
 // well-known port (DefaultPort: 0); it must NOT appear in
 // the output.
 func TestBuildPluginsByPort_SkipsZeroPort(t *testing.T) {

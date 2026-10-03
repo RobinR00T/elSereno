@@ -11,7 +11,7 @@ import (
 	"local/elsereno/internal/tui/feeds"
 )
 
-// TestPickFeed_ReplayPropagatesRate — v1.43 pin. The
+// TestPickFeed_ReplayPropagatesRate v1.43 pin. The
 // --rate flag plumbs through to the feed's Rate field so
 // the streamNDJSON pacer slows playback as advertised.
 func TestPickFeed_ReplayPropagatesRate(t *testing.T) {
@@ -40,7 +40,7 @@ func TestPickFeed_ReplayPropagatesRate(t *testing.T) {
 	}
 }
 
-// TestPickFeed_StdinPropagatesRate — same shape for the
+// TestPickFeed_StdinPropagatesRate same shape for the
 // --feed - path.
 func TestPickFeed_StdinPropagatesRate(t *testing.T) {
 	_, feed, err := pickFeed(context.Background(), pickFeedArgs{
@@ -59,7 +59,7 @@ func TestPickFeed_StdinPropagatesRate(t *testing.T) {
 	}
 }
 
-// TestPickFeed_RateZeroIsUnlimited — default 0 leaves the
+// TestPickFeed_RateZeroIsUnlimited default 0 leaves the
 // pacer disabled (back-compat with pre-v1.43 behaviour).
 func TestPickFeed_RateZeroIsUnlimited(t *testing.T) {
 	dir := t.TempDir()

@@ -37,7 +37,7 @@ import (
 // RFC 5952). Hostname forms and bare addresses without ports
 // pass through unchanged. Used at every CLI parse boundary
 // where a target string flows into a hash, byte-for-byte
-// compare, or YAML emit — so an operator who writes
+// compare, or YAML emit, so an operator who writes
 // `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in proxy
 // listen sees both canonicalise to the same value and the
 // confirm-token matches.
@@ -127,11 +127,11 @@ func newWriteSIPDryRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the SIP server we'll proxy to)")
 	cmd.Flags().StringSliceVar(&methods, "method", nil, "one or more gated methods (repeat or comma-separated)")
 	cmd.Flags().StringSliceVar(&toPrefixes, "to-prefix", nil,
-		"optional: INVITE destination allowlist — URI user-part prefixes (e.g. +34, +44). Only applies to INVITE; other methods unaffected. Toll-fraud mitigation (v1.9+).")
+		"optional: INVITE destination allowlist, URI user-part prefixes (e.g. +34, +44). Only applies to INVITE; other methods unaffected. Toll-fraud mitigation (v1.9+).")
 	cmd.Flags().StringSliceVar(&aors, "aor", nil,
-		"optional: REGISTER AOR allowlist — exact AoRs (e.g. sip:alice@pbx.internal). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
+		"optional: REGISTER AOR allowlist, exact AoRs (e.g. sip:alice@pbx.internal). Only applies to REGISTER; exact match, not prefix. Registration-hijack mitigation (v1.10+).")
 	cmd.Flags().StringSliceVar(&fromDomains, "from-domain", nil,
-		"optional: From-header domain allowlist — exact host match (e.g. internal.pbx). Applies to every gated method. Identity-spoof mitigation (v1.12+).")
+		"optional: From-header domain allowlist, exact host match (e.g. internal.pbx). Applies to every gated method. Identity-spoof mitigation (v1.12+).")
 	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0,
 		"optional: token-generation cookie (v1.17+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens. 0 (default) preserves the v1.12-chunk-5 hash for backwards-compat. Mirrors the bacnet/cwmp flag.")
 	addPassphraseFileFlag(cmd, &ppFile)
@@ -150,17 +150,17 @@ func printSIPDryRunSummary(cmd *cobra.Command, target string, methods, toPrefixe
 	if len(toPrefixes) > 0 {
 		cmd.Printf("ToPrefixes:   %s\n", canonMethods(toPrefixes))
 	} else {
-		cmd.Printf("ToPrefixes:   (none — INVITE destination not constrained)\n")
+		cmd.Printf("ToPrefixes:   (none, INVITE destination not constrained)\n")
 	}
 	if len(aors) > 0 {
 		cmd.Printf("AORs:         %s\n", canonAORs(aors))
 	} else {
-		cmd.Printf("AORs:         (none — REGISTER AoR not constrained)\n")
+		cmd.Printf("AORs:         (none, REGISTER AoR not constrained)\n")
 	}
 	if len(fromDomains) > 0 {
 		cmd.Printf("FromDomains:  %s\n", canonFromDomains(fromDomains))
 	} else {
-		cmd.Printf("FromDomains:  (none — From: domain not constrained)\n")
+		cmd.Printf("FromDomains:  (none, From: domain not constrained)\n")
 	}
 	cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
 }
@@ -190,7 +190,7 @@ func canonFromDomains(in []string) string {
 
 // canonAORs prints a sorted comma-separated list of AoR inputs
 // after canonicalising each (scheme stripped, lowercased host).
-// Used only for the dry-run operator output — the hash function
+// Used only for the dry-run operator output, the hash function
 // does its own canonicalisation independently.
 func canonAORs(in []string) string {
 	if len(in) == 0 {
@@ -224,7 +224,7 @@ control subclasses (NEW / REGREQ / AUTHREP / ACCEPT); always-safe
 subclasses (HANGUP / ACK / PING / PONG / LAGRQ / LAGRP / INVAL /
 REGAUTH / REGACK / REGREJ / REGREL / REJECT) pass unconditionally.
 Mini-frames (audio) and non-IAX full frames (Voice / DTMF / Video
-/ etc.) ALWAYS pass — media is never blocked. Refused frames get a
+/ etc.) ALWAYS pass, media is never blocked. Refused frames get a
 HANGUP addressed to the client's SrcCallNum.`,
 	}
 	cmd.AddCommand(newWriteIAX2DryRunCmd())
@@ -287,7 +287,7 @@ func newWritePBXHTTPCmd() *cobra.Command {
 unconditionally. Refused requests get a 405 Method Not Allowed
 when the method isn't in the allowlist, or a 403 Forbidden when
 the method matches but the path doesn't. CONNECT is always
-refused — the gate can't inspect tunnelled traffic.`,
+refused, the gate can't inspect tunnelled traffic.`,
 	}
 	cmd.AddCommand(newWritePBXHTTPDryRunCmd())
 	return cmd
@@ -371,7 +371,7 @@ func maybeMintToken(cmd *cobra.Command, mut confirm.Mutation, ppFile string) err
 // canonicalisation.
 func canonMethods(methods []string) string {
 	if len(methods) == 0 {
-		return "(none — no gated methods allowed)"
+		return "(none, no gated methods allowed)"
 	}
 	set := map[string]struct{}{}
 	for _, m := range methods {
@@ -388,7 +388,7 @@ func canonMethods(methods []string) string {
 // canonSubclasses returns the human-readable sorted subclass list.
 func canonSubclasses(subs []string) string {
 	if len(subs) == 0 {
-		return "(none — no gated subclasses allowed)"
+		return "(none, no gated subclasses allowed)"
 	}
 	set := map[string]struct{}{}
 	for _, s := range subs {
@@ -406,7 +406,7 @@ func canonSubclasses(subs []string) string {
 // pbxhttp allowlist.
 func canonPBXEntries(allowed []pbxwrite.AllowedWrite) string {
 	if len(allowed) == 0 {
-		return "(none — no gated methods allowed)"
+		return "(none, no gated methods allowed)"
 	}
 	keys := make([]string, 0, len(allowed))
 	for _, a := range allowed {
@@ -473,7 +473,7 @@ A WriteRequest then passes only when both its service TypeID is
 allowed AND EVERY WriteValue's NodeId matches one of the
 per-node allowlist entries (v1.12 walks the full NodesToWrite
 batch; v1.6 chunk 2 only checked the first). Unparseable
-WriteValue layouts / DataValue encodings are refused — the
+WriteValue layouts / DataValue encodings are refused, the
 gate fails closed.`,
 	}
 	cmd.AddCommand(newWriteOPCUADryRunCmd())
@@ -589,15 +589,15 @@ func newWriteBACnetDryRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the BACnet/IP device we'll proxy to)")
 	cmd.Flags().UintSliceVar(&serviceChoices, "service-choice", nil, "confirmed-service choices to allow (15 WriteProperty, 20 ReinitializeDevice, etc.)")
 	cmd.Flags().StringSliceVar(&objects, "object", nil, "optional: per-object allowlist for WriteProperty (svc 15) and WritePropertyMultiple (svc 16). Format: type=N;instance=M;property=P (repeatable, exact match). v1.12+ (svc 15) and v1.13+ (svc 16).")
-	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only — no PropertyID dimension. v1.13+.")
-	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only — instance ignored at gate level. v1.13+.")
+	cmd.Flags().StringSliceVar(&deleteObjects, "delete-object", nil, "optional: per-target allowlist for DeleteObject (svc 11). Format: type=N;instance=M (repeatable, exact match). Object-level only, no PropertyID dimension. v1.13+.")
+	cmd.Flags().UintSliceVar(&createObjectTypes, "create-object-type", nil, "optional: per-type allowlist for CreateObject (svc 10). Numeric BACnetObjectType (e.g. 17 for Schedule). Type-only, instance ignored at gate level. v1.13+.")
 	cmd.Flags().StringSliceVar(&createObjectInstances, "create-object-instance", nil, "optional: per-(type, instance) allowlist for CreateObject (svc 10). Format: type=N;instance=M (repeatable, exact match). Refines --create-object-type when the ACS uses the [1] objectIdentifier CHOICE. v1.16+.")
 	cmd.Flags().UintSliceVar(&reinitStates, "reinit-state", nil, "optional: per-state allowlist for ReinitializeDevice (svc 20). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7. v1.13+.")
 	cmd.Flags().UintSliceVar(&dccStates, "dcc-state", nil, "optional: per-state allowlist for DeviceCommunicationControl (svc 17). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2 (silencing). v1.13+.")
-	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
+	cmd.Flags().UintSliceVar(&lsoOps, "lso-op", nil, "optional: per-operation allowlist for LifeSafetyOperation (svc 27). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants, POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. v1.13+.")
 	cmd.Flags().StringSliceVar(&lsoTargets, "lso-target", nil, "optional: per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier. v1.16+.")
 	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump this when editing the allow-file to invalidate stale tokens. 0 (default) preserves the chunk-3 hash for backwards-compat.")
-	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
+	cmd.Flags().UintSliceVar(&awfFiles, "awf-file", nil, "optional: per-File-instance allowlist for AtomicWriteFile (svc 7). Numeric File-object instance number (ObjectType is implicitly 10 = File per ASHRAE 135 §15.8). Restricts file overwrites to specific File instances, useful when File#1 is firmware blob and File#5 is a log file; allow log-file writes but refuse firmware overwrites. v1.13+.")
 	cmd.Flags().StringSliceVar(&listElements, "list-element", nil, "optional: per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38). v1.13+.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
@@ -1035,7 +1035,7 @@ func parseBACnetListElementFlags(in []string) ([]bacwrite.AllowedListElement, er
 			// so operators see the right flag name in the error.
 			return nil, fmt.Errorf("--list-element %q: %w", raw, err)
 		}
-		// Identical struct fields — straight conversion.
+		// Identical struct fields, straight conversion.
 		out = append(out, bacwrite.AllowedListElement(o))
 	}
 	return out, nil
@@ -1049,7 +1049,7 @@ func canonBACnetListElements(in []bacwrite.AllowedListElement) string {
 	for i, e := range in {
 		tuples[i] = bacnetTuple{T: e.ObjectType, I: e.ObjectInstance, P: e.PropertyID}
 	}
-	return formatBACnetTupleList(tuples, "(none — Add/RemoveListElement accept any (object, property) when 8/9 are in services)")
+	return formatBACnetTupleList(tuples, "(none, Add/RemoveListElement accept any (object, property) when 8/9 are in services)")
 }
 
 // bacnetTuple is the canonical (Type, Instance, Property)
@@ -1103,7 +1103,7 @@ func parseBACnetAWFFiles(in []uint) ([]bacwrite.AllowedAtomicWriteFile, error) {
 // canonBACnetAWFFiles prints the sorted list for dry-run.
 func canonBACnetAWFFiles(in []bacwrite.AllowedAtomicWriteFile) string {
 	if len(in) == 0 {
-		return "(none — AtomicWriteFile accepts any File instance when 7 is in services)"
+		return "(none, AtomicWriteFile accepts any File instance when 7 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedAtomicWriteFile(nil), in...)
@@ -1131,7 +1131,7 @@ func parseBACnetLSOOps(in []uint) ([]bacwrite.AllowedLSOOperation, error) {
 // canonBACnetLSOOps prints the sorted list for dry-run.
 func canonBACnetLSOOps(in []bacwrite.AllowedLSOOperation) string {
 	if len(in) == 0 {
-		return "(none — LifeSafetyOperation accepts any operation when 27 is in services)"
+		return "(none, LifeSafetyOperation accepts any operation when 27 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedLSOOperation(nil), in...)
@@ -1143,7 +1143,7 @@ func canonBACnetLSOOps(in []bacwrite.AllowedLSOOperation) string {
 }
 
 // lsoOpLabel returns the spec name for a BACnetLifeSafetyOperation
-// enum value. Unknown values render as "?" — never expected
+// enum value. Unknown values render as "?", never expected
 // since the parser validates the range.
 func lsoOpLabel(v uint8) string {
 	switch v {
@@ -1189,7 +1189,7 @@ func parseBACnetDCCStates(in []uint) ([]bacwrite.AllowedDCCState, error) {
 // canonBACnetDCCStates prints the sorted list for dry-run.
 func canonBACnetDCCStates(in []bacwrite.AllowedDCCState) string {
 	if len(in) == 0 {
-		return "(none — DeviceCommControl accepts any state when 17 is in services)"
+		return "(none, DeviceCommControl accepts any state when 17 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedDCCState(nil), in...)
@@ -1201,7 +1201,7 @@ func canonBACnetDCCStates(in []bacwrite.AllowedDCCState) string {
 }
 
 // dccStateLabel returns the spec name for an enableDisable
-// enum value. Unknown values render as "?" — never expected
+// enum value. Unknown values render as "?", never expected
 // since the parser validates the range.
 func dccStateLabel(v uint8) string {
 	switch v {
@@ -1234,7 +1234,7 @@ func parseBACnetReinitStates(in []uint) ([]bacwrite.AllowedReinitState, error) {
 // labelling each known state for operator readability.
 func canonBACnetReinitStates(in []bacwrite.AllowedReinitState) string {
 	if len(in) == 0 {
-		return "(none — ReinitializeDevice accepts any state when 20 is in services)"
+		return "(none, ReinitializeDevice accepts any state when 20 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedReinitState(nil), in...)
@@ -1246,7 +1246,7 @@ func canonBACnetReinitStates(in []bacwrite.AllowedReinitState) string {
 }
 
 // reinitStateLabel returns the spec name for an enum value.
-// Unknown values render as "?" — never expected since the
+// Unknown values render as "?", never expected since the
 // parser validates the range.
 func reinitStateLabel(v uint8) string {
 	switch v {
@@ -1274,7 +1274,7 @@ func reinitStateLabel(v uint8) string {
 // canonBACnetCreateObjects prints the sorted list for dry-run.
 func canonBACnetCreateObjects(in []bacwrite.AllowedCreateObject) string {
 	if len(in) == 0 {
-		return "(none — CreateObject accepts any object-type when 10 is in services)"
+		return "(none, CreateObject accepts any object-type when 10 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedCreateObject(nil), in...)
@@ -1288,7 +1288,7 @@ func canonBACnetCreateObjects(in []bacwrite.AllowedCreateObject) string {
 // canonBACnetDeleteObjects prints the sorted list for dry-run.
 func canonBACnetDeleteObjects(in []bacwrite.AllowedDeleteObject) string {
 	if len(in) == 0 {
-		return "(none — DeleteObject accepts any target when 11 is in services)"
+		return "(none, DeleteObject accepts any target when 11 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]bacwrite.AllowedDeleteObject(nil), in...)
@@ -1312,7 +1312,7 @@ func canonBACnetObjects(in []bacwrite.AllowedObject) string {
 	for i, o := range in {
 		tuples[i] = bacnetTuple{T: o.ObjectType, I: o.ObjectInstance, P: o.PropertyID}
 	}
-	return formatBACnetTupleList(tuples, "(none — WriteProperty accepts any object when 15 is in services)")
+	return formatBACnetTupleList(tuples, "(none, WriteProperty accepts any object when 15 is in services)")
 }
 
 // ---- elsereno write cwmp -------------------------------------
@@ -1382,7 +1382,7 @@ Exit code: 0 all match, 1 any mismatch, 2 usage / fetch error.`,
 				return fail(core.ExitUsage, err)
 			}
 			if len(af.Firmware) == 0 {
-				cmd.Printf("no firmware: entries in %s — nothing to verify\n", allowFile)
+				cmd.Printf("no firmware: entries in %s, nothing to verify\n", allowFile)
 				return nil
 			}
 			results, anyFail := verifyCWMPFirmwareURLs(cmd.Context(), af.Firmware, fetchTimeout)
@@ -1439,7 +1439,7 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 			if len(paramPrefixes) > 0 {
 				cmd.Printf("ParamPaths:   %s\n", canonCWMPPaths(paramPrefixes))
 			} else {
-				cmd.Printf("ParamPaths:   (none — Set* RPCs can target any parameter path)\n")
+				cmd.Printf("ParamPaths:   (none, Set* RPCs can target any parameter path)\n")
 			}
 			cmd.Printf("Firmware:     %s\n", canonCWMPFirmware(fws))
 			cmd.Printf("PayloadHash:  %s\n", hex.EncodeToString(mut.PayloadHash[:]))
@@ -1453,9 +1453,9 @@ func newWriteCWMPDryRunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "upstream host:port (the CWMP ACS we'll proxy to)")
-	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow — case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
-	cmd.Flags().StringSliceVar(&paramPrefixes, "param-prefix", nil, "optional: per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Only applies to SetParameterValues / SetParameterAttributes; other RPCs unaffected. Case-sensitive. Registration-hijack / partition mitigation (v1.12+).")
-	cmd.Flags().StringSliceVar(&firmware, "firmware", nil, "optional: per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional, repeatable). URL must EXACTLY match the <URL> the ACS sends; SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
+	cmd.Flags().StringSliceVar(&rpcs, "rpc", nil, "SOAP RPC name(s) to allow, case-sensitive per TR-069 §A.4 (e.g. SetParameterValues, Reboot, FactoryReset). Copy-paste from wire captures with \"cwmp:\" prefix is tolerated.")
+	cmd.Flags().StringSliceVar(&paramPrefixes, "param-prefix", nil, "optional: per-parameter-path allowlist, prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Only applies to SetParameterValues / SetParameterAttributes; other RPCs unaffected. Case-sensitive. Registration-hijack / partition mitigation (v1.12+).")
+	cmd.Flags().StringSliceVar(&firmware, "firmware", nil, "optional: per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional, repeatable). URL must EXACTLY match the <URL> the ACS sends; SHA256 is metadata for downstream verification (not enforced at RPC time, TR-069 doesn't carry it). v1.12+.")
 	cmd.Flags().Uint32Var(&tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.17+). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump this when editing the allow-file to invalidate stale tokens. 0 (default) preserves the v1.12-chunk-10 hash for backwards-compat. Mirrors the BACnet --token-generation flag.")
 	addPassphraseFileFlag(cmd, &ppFile)
 	addEmitAllowFileFlag(cmd, &emitFile)
@@ -1518,7 +1518,7 @@ func validHexSHA256(s string) bool {
 	return true
 }
 
-// firmwareVerifyStatus values as named constants — printed in
+// firmwareVerifyStatus values as named constants, printed in
 // the verify-firmware output and inspected by tests.
 const (
 	firmwareStatusMatch    = "match"
@@ -1549,7 +1549,7 @@ func loadCWMPFirmwareAllowFile(path string) (proxyAllowFile, error) {
 	// loadAllowFile populates opts.cwmpFirmware (CLI string form)
 	// but discards the structured data; reload directly to get
 	// the structured Firmware field.
-	raw, err := os.ReadFile(path) // #nosec G304 — operator-supplied YAML path
+	raw, err := os.ReadFile(path) // #nosec G304, operator-supplied YAML path
 	if err != nil {
 		return proxyAllowFile{}, fmt.Errorf("--allow-file %s: %w", path, err)
 	}
@@ -1599,7 +1599,7 @@ func verifyCWMPFirmwareURLs(ctx context.Context, entries []proxyCWMPFirmware, ti
 
 // fetchFirmwareSHA256 downloads url and returns the lowercase
 // hex SHA-256 of the body. Bounded by client.Timeout. Body is
-// streamed (no full-image buffering) — firmware can be tens of
+// streamed (no full-image buffering), firmware can be tens of
 // MB.
 func fetchFirmwareSHA256(ctx context.Context, client *http.Client, url string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -1644,7 +1644,7 @@ func printCWMPFirmwareVerifyResults(cmd *cobra.Command, results []firmwareVerify
 // for operator dry-run output.
 func canonCWMPFirmware(in []cwmpwrite.AllowedFirmware) string {
 	if len(in) == 0 {
-		return "(none — Download accepts any URL when Download is in RPCs)"
+		return "(none, Download accepts any URL when Download is in RPCs)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]cwmpwrite.AllowedFirmware(nil), in...)
@@ -1752,7 +1752,7 @@ func emitCWMPRPCCaseWarnings(cmd *cobra.Command, in []string) {
 		if canon == r {
 			continue
 		}
-		cmd.Printf("warning: --rpc %q differs in case from the canonical TR-069 spelling %q. The CWMP gate is case-sensitive per §A.4 — the wire-side RPC will not match the allowlist.\n", raw, canon)
+		cmd.Printf("warning: --rpc %q differs in case from the canonical TR-069 spelling %q. The CWMP gate is case-sensitive per §A.4, the wire-side RPC will not match the allowlist.\n", raw, canon)
 	}
 }
 
@@ -1762,7 +1762,7 @@ func emitCWMPRPCCaseWarnings(cmd *cobra.Command, in []string) {
 // sensitive).
 func canonCWMPRPCs(in []string) string {
 	if len(in) == 0 {
-		return "(none — all write-capable RPCs refused; reads still pass)"
+		return "(none, all write-capable RPCs refused; reads still pass)"
 	}
 	set := map[string]struct{}{}
 	for _, r := range in {
@@ -1969,7 +1969,7 @@ func parseNodeIDFlags(in []string) ([]opwrite.AllowedNodeID, []opwrite.AllowedCa
 
 // parseCallMethodFlags parses --call-method entries. Each entry
 // is `object=<nodeid>;method=<nodeid>` where each nodeid is
-// itself a ns=N;<k>=<v> form — so the flag has nested `;` (one
+// itself a ns=N;<k>=<v> form, so the flag has nested `;` (one
 // separating object= from method=, one inside each NodeId).
 // Valid because parseNodeIDFlag already handles a single
 // `ns=N;<k>=<v>` string.
@@ -2030,7 +2030,7 @@ func canonicalNodeIDForCallMethod(s string) (string, error) {
 // canonCallMethods prints the sorted list for operator output.
 func canonCallMethods(in []opwrite.AllowedCallMethod) string {
 	if len(in) == 0 {
-		return "(none — CallRequest accepts any object/method when 704 is in services)"
+		return "(none, CallRequest accepts any object/method when 704 is in services)"
 	}
 	out := make([]string, len(in))
 	sorted := append([]opwrite.AllowedCallMethod(nil), in...)
@@ -2050,7 +2050,7 @@ func canonCallMethods(in []opwrite.AllowedCallMethod) string {
 // canonical) in canonical string form.
 func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedCanonicalNodeID) string {
 	if len(nids) == 0 && len(canonNids) == 0 {
-		return "(none — gate only at service-TypeID level)"
+		return "(none, gate only at service-TypeID level)"
 	}
 	out := make([]string, 0, len(nids)+len(canonNids))
 	sortedNids := append([]opwrite.AllowedNodeID(nil), nids...)
@@ -2073,7 +2073,7 @@ func canonNodeIDsRich(nids []opwrite.AllowedNodeID, canonNids []opwrite.AllowedC
 
 // buildAllowFileOPCUA builds the YAML for an OPC UA proxy
 // session. v1.9 closes the v1.7 carry-over by persisting
-// per-NodeId entries alongside the service-TypeID allowlist —
+// per-NodeId entries alongside the service-TypeID allowlist,
 // the emitted YAML now round-trips cleanly through
 // loadAllowFile. v1.12 chunk 3 extends node_ids with s= / g= /
 // b= canonical-form entries (see proxyNodeID for schema). v1.12
@@ -2256,7 +2256,7 @@ func canonAllowFileBACnetObjects(in []string) []proxyBACnetObject {
 // canonAllowFileBACnetTuples is the shared parse-+-sort helper
 // for chunk-7 (objects) + chunk-13 (list_elements) YAML
 // emitters. Both flag shapes use the same
-// "type=N;instance=M;property=P" syntax — this helper parses
+// "type=N;instance=M;property=P" syntax, this helper parses
 // each entry, drops malformed ones, and returns the deduped
 // sorted (T, I, P) tuples.
 //
@@ -2344,11 +2344,11 @@ func canonAllowFileBACnetCreateInstances(in []string) []proxyBACnetCreateObjectI
 // proxyBACnetLSOTarget entries. v1.16 chunk 3. Shape parallels
 // canonAllowFileBACnetTuples / canonAllowFileBACnetDeleteObjects
 // (parse + drop malformed + sort) but operates on a distinct
-// (Op, Type, Instance) tuple — the dupl-lint similarity is
+// (Op, Type, Instance) tuple, the dupl-lint similarity is
 // surface-level, not refactorable without generics + the
 // surrounding callers use distinct YAML struct types.
 //
-//nolint:dupl // tuple shape differs (Op vs ObjectInstance prefix) — generic refactor would obscure intent.
+//nolint:dupl // tuple shape differs (Op vs ObjectInstance prefix), generic refactor would obscure intent.
 func canonAllowFileBACnetLSOTargets(in []string) []proxyBACnetLSOTarget {
 	if len(in) == 0 {
 		return nil

@@ -22,7 +22,7 @@ fins`, `omron`, `cpu`).
   per-controller-model.
 
 The probe is idempotent and side-effect-free: CONTROLLER DATA READ
-does not touch memory areas or registers — it returns the CPU's
+does not touch memory areas or registers, it returns the CPU's
 self-description.
 
 ## Wire layout
@@ -104,15 +104,15 @@ group-address tier).
   packaging lines, food-and-beverage, automotive plants.
 - Compatible HMIs (NS / NB / NA series) and SCADA gateways.
 - Impact: a writeable FINS endpoint can stop a CPU (RUN→STOP),
-  force an output bit, or rewrite a program memory file — direct
+  force an output bit, or rewrite a program memory file, direct
   effect on the factory floor.
 
 ## Public references
 
-- OMRON CPU Manual W421 (FINS Commands Reference) — canonical
+- OMRON CPU Manual W421 (FINS Commands Reference), canonical
   protocol reference.
 - ICS-CERT advisories on OMRON CJ/CS lacking authentication
   (multiple, 2015-onwards).
-- Industroyer / Industroyer2 IOC analyses — similar legacy-ICS
+- Industroyer / Industroyer2 IOC analyses, similar legacy-ICS
   pattern (no auth, model-string fingerprinting works on
   Internet-exposed CPUs).

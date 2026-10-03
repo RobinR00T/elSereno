@@ -1,7 +1,7 @@
 // Package opcuahttps is the OPC UA HTTPS (opc.https://) binding
 // fingerprint plugin. v2.35+.
 //
-// The OPC UA spec (Part 6 — Mappings) defines three transport
+// The OPC UA spec (Part 6, Mappings) defines three transport
 // bindings:
 //
 //   - opc.tcp://   binary over raw TCP. Port 4840. Already

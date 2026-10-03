@@ -15,7 +15,7 @@ import (
 // Interval-based rather than cron-style: continuous scanning
 // for security purposes wants "every N seconds" cadence more
 // than wall-clock anchors. A future cycle can add a CronExpr
-// alternative — the Scheduler just needs to know when each
+// alternative the Scheduler just needs to know when each
 // schedule's next tick should fire.
 type ScanSchedule struct {
 	// ID is the canonical 16-char hex schedule identifier.
@@ -32,7 +32,7 @@ type ScanSchedule struct {
 	IntervalSeconds int `json:"interval_seconds,omitempty"`
 	// CronExpr (v1.73+) is a 5-field cron expression
 	// alternative to IntervalSeconds. Empty when interval-
-	// based. Mutually exclusive with IntervalSeconds —
+	// based. Mutually exclusive with IntervalSeconds,
 	// exactly one of the two is non-empty per schedule.
 	CronExpr string `json:"cron_expr,omitempty"`
 	// Timezone (v1.75+) is an IANA zone name (e.g.
@@ -54,7 +54,7 @@ type ScanSchedule struct {
 	// recent state change to the schedule's editable
 	// fields. Set on Create (= CreatedAt) and bumped on
 	// every Update. Used by the optimistic-locking
-	// If-Match precondition — operators editing a
+	// If-Match precondition, operators editing a
 	// schedule that another operator has already changed
 	// see a 412 instead of overwriting blind. Not bumped
 	// by MarkFired or SetEnabled (those don't touch the
@@ -72,7 +72,7 @@ type ScanSchedule struct {
 	// match within the look-ahead window). Set by the REST
 	// layer after fetching from the store; the in-memory and
 	// DB stores both leave it at zero. The store does not
-	// touch this field on writes — serialisation by the
+	// touch this field on writes, serialisation by the
 	// handler is the only consumer.
 	NextFireAt time.Time `json:"next_fire_at,omitempty"`
 	// AuditRetentionDays (v1.89+) is the per-schedule override
@@ -88,7 +88,7 @@ type ScanSchedule struct {
 	//                 this schedule).
 	//
 	// "Never prune this schedule" is intentionally NOT
-	// supported via a magic value — operators wanting infinite
+	// supported via a magic value, operators wanting infinite
 	// retention should run with --audit-retention-days=0
 	// (global "do not prune") and leave the per-schedule
 	// override unset.
@@ -108,7 +108,7 @@ type ScanSchedule struct {
 	// dominant case stays compact.
 	//
 	// FK is ON DELETE SET NULL (migration 00017) so the
-	// clone row outlasts the source — matches v1.88 + v1.92
+	// clone row outlasts the source, matches v1.88 + v1.92
 	// "history outlasts source" patterns. Operators querying
 	// `GET /schedules/{id}/clones` see only existing live
 	// clones; orphaned source_schedule_id rows are filtered
@@ -166,7 +166,7 @@ type CreateScheduleRequest struct {
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
 // operator from accidentally creating a 1-Hz scanner that
-// hammers the worker pool. Upper bound is "weekly" — if you
+// hammers the worker pool. Upper bound is "weekly", if you
 // want monthly, run a manual scan.
 const (
 	scheduleMinInterval = 60               // 1 minute
@@ -197,7 +197,7 @@ var (
 	ErrScheduleCadenceRequired = errors.New("scanorch: schedule must specify either interval_seconds or cron_expr")
 	// ErrScheduleCadenceConflict (v1.73+) means
 	// CreateScheduleRequest set both IntervalSeconds AND
-	// CronExpr — ambiguous.
+	// CronExpr ambiguous.
 	ErrScheduleCadenceConflict = errors.New("scanorch: schedule cannot specify both interval_seconds and cron_expr")
 	// ErrScheduleInvalidTimezone (v1.75+) means the supplied
 	// IANA timezone name failed time.LoadLocation lookup. The
@@ -208,7 +208,7 @@ var (
 	// supplied an IfMatch precondition that didn't match the
 	// stored UpdatedAt. Surfaces as 412 in REST. Operators
 	// see a clear "the schedule was modified by another
-	// operator — refresh and retry" message instead of a
+	// operator refresh and retry" message instead of a
 	// silent overwrite.
 	ErrSchedulePreconditionFailed = errors.New("scanorch: schedule precondition failed")
 	// ErrScheduleInvalidAuditRetentionDays (v1.89+) means the
@@ -250,7 +250,7 @@ type ScheduleStore interface {
 	// locking precondition. If it doesn't match the stored
 	// UpdatedAt, returns ErrSchedulePreconditionFailed
 	// (mapped to 412 in REST). Nil IfMatch skips the check
-	// — back-compat for v1.74-v1.77 callers.
+	// back-compat for v1.74-v1.77 callers.
 	Update(ctx context.Context, id string, req UpdateScheduleRequest) (ScanSchedule, error)
 	// MarkFired stamps LastFiredAt to now and persists. The
 	// Scheduler calls this after a successful Submit so the
@@ -298,7 +298,7 @@ type ScheduleStore interface {
 	CreateClone(ctx context.Context, req CreateScheduleRequest, operator, sourceID string) (ScanSchedule, error)
 	// WithTx (v2.20+) executes `fn` within a Store-backed
 	// transaction context. `fn` receives a transaction-bound
-	// ScheduleStore — every mutation through that store is
+	// ScheduleStore every mutation through that store is
 	// part of the same tx. Returning a non-nil error rolls
 	// back; returning nil commits.
 	//
@@ -309,7 +309,7 @@ type ScheduleStore interface {
 	//     contract is "tx semantics best-effort given the
 	//     store's capability".
 	//   - **PG**: same pass-through pending v2.21 pool
-	//     plumbing — `NewDBScheduleStoreWithPool` ctor
+	//     plumbing `NewDBScheduleStoreWithPool` ctor
 	//     wires `pgxpool.Pool.BeginTx` to make this a real
 	//     atomic operation.
 	//
@@ -352,9 +352,9 @@ type TagCount struct {
 
 // UpdateScheduleRequest is the dashboard's edit body. Same
 // shape as CreateScheduleRequest minus the operator (immutable
-// — preserves audit trail of who created the schedule).
+// preserves audit trail of who created the schedule).
 //
-// Validation: same rules as Create — name + template.input
+// Validation: same rules as Create, name + template.input
 // non-empty; exactly one cadence; cron parses if specified.
 type UpdateScheduleRequest struct {
 	Name            string        `json:"name"`
@@ -366,7 +366,7 @@ type UpdateScheduleRequest struct {
 	Timezone string `json:"timezone,omitempty"`
 	// AuditRetentionDays (v1.89+, optional) per-schedule
 	// retention override. 0 = inherit global. Update writes
-	// the value through to the stored row — operator setting
+	// the value through to the stored row, operator setting
 	// it from N back to 0 reverts to global inheritance.
 	AuditRetentionDays int `json:"audit_retention_days,omitempty"`
 	// Tags (v2.4+, optional) replaces the stored tag set.
@@ -378,7 +378,7 @@ type UpdateScheduleRequest struct {
 	// proceeds if the schedule's stored UpdatedAt equals
 	// IfMatch. Mismatch yields ErrSchedulePreconditionFailed
 	// (mapped to 412 in REST). Nil IfMatch skips the check
-	// — back-compat with v1.74-v1.77 callers.
+	// back-compat with v1.74-v1.77 callers.
 	//
 	// Set by the REST handler from the `If-Match` HTTP
 	// header (RFC3339 timestamp). Direct Go callers can
@@ -650,11 +650,11 @@ func clampAuditRetention(days int) int {
 }
 
 // validateScheduleFields enforces the shared validation rules
-// for both Create and Update — name + template.input
+// for both Create and Update, name + template.input
 // non-empty; exactly one cadence; cron parses if specified;
 // timezone (if non-empty) loads via time.LoadLocation.
 //
-// Timezone is only validated when CronExpr is set — interval
+// Timezone is only validated when CronExpr is set, interval
 // schedules ignore the timezone field. Operators who supply
 // a timezone with an interval schedule see it stored but
 // unused (better than rejecting; lets the operator switch
@@ -689,7 +689,7 @@ func validateScheduleFields(name string, template SubmitRequest, intervalSeconds
 
 // applyCadence sets either IntervalSeconds (clamped) or
 // CronExpr on the schedule. Caller must have already validated
-// via validateScheduleFields — applyCadence assumes exactly
+// via validateScheduleFields, applyCadence assumes exactly
 // one of the two is set.
 func applyCadence(s *ScanSchedule, intervalSeconds int, cronExpr string) {
 	// Reset both fields so an Update that switches modes
@@ -893,7 +893,7 @@ func (s *MemoryScheduleStore) TagCounts(_ context.Context) ([]TagCount, error) {
 }
 
 // sortTagCounts orders the slice count-DESC + name-ASC for
-// deterministic dashboard rendering. Insertion sort — tag
+// deterministic dashboard rendering. Insertion sort, tag
 // space is small (< 50 typical).
 func sortTagCounts(s []TagCount) {
 	for i := 1; i < len(s); i++ {
@@ -1019,7 +1019,7 @@ func sortSchedulesByName(s []ScanSchedule) {
 //   - Interval-based: fire on the next tick (eager).
 //   - Cron-based: fire when the cron schedule's next-after-
 //     CreatedAt has passed. Operators creating "0 2 * * *"
-//     at 13:00 don't get an immediate fire — they wait for
+//     at 13:00 don't get an immediate fire, they wait for
 //     the next 02:00.
 func (s ScanSchedule) IsDue(now time.Time) bool {
 	if !s.Enabled {
@@ -1043,7 +1043,7 @@ func (s ScanSchedule) IsDue(now time.Time) bool {
 //
 // v1.77+: factored to share the next-fire computation with
 // cronNextFire. A cron parse / timezone error returns false
-// (defence in depth — should have been caught at Create
+// (defence in depth, should have been caught at Create
 // time).
 func (s ScanSchedule) cronIsDue(now time.Time) bool {
 	next := s.cronNextFire(now)
@@ -1061,9 +1061,9 @@ func (s ScanSchedule) cronIsDue(now time.Time) bool {
 
 // NextFire (v1.77+) returns the predicted next fire time for
 // this schedule, or the zero time if it cannot be predicted
-// (disabled, never-matches-cron, or invalid timezone — all
+// (disabled, never-matches-cron, or invalid timezone, all
 // these are surface-via-zero rather than as errors so the
-// dashboard can render "—" cleanly).
+// dashboard can render "-" cleanly).
 //
 // Used by:
 //   - the REST read paths (Get/List/Create/Update populate
@@ -1095,7 +1095,7 @@ func (s ScanSchedule) NextFire(now time.Time) time.Time {
 // schedules. Never-fired returns now (eager); otherwise
 // LastFiredAt + IntervalSeconds. The result is clipped to
 // not-before-now would be a usability win for the dashboard,
-// but it's also misleading for overdue schedules — better to
+// but it's also misleading for overdue schedules, better to
 // surface the real predicted time + let the UI label it.
 func (s ScanSchedule) intervalNextFire(now time.Time) time.Time {
 	if s.LastFiredAt.IsZero() {
@@ -1138,7 +1138,7 @@ func (s ScanSchedule) cronNextFire(_ time.Time) time.Time {
 // before clicking submit. Validation surface mirrors Create
 // (same sentinels for cadence + timezone errors).
 //
-// v1.79+: thin wrapper over PreviewNextFires(req, now, 1) —
+// v1.79+: thin wrapper over PreviewNextFires(req, now, 1),
 // preserved for back-compat with v1.77/v1.78 callers.
 func PreviewNextFire(req CreateScheduleRequest, now time.Time) (time.Time, error) {
 	fires, err := PreviewNextFires(req, now, 1)
@@ -1153,7 +1153,7 @@ func PreviewNextFire(req CreateScheduleRequest, now time.Time) (time.Time, error
 
 // PreviewNextFiresMaxCount (v1.79+) is the clamp applied to
 // the count argument of PreviewNextFires. Caps at 10 to keep
-// the cron walk bounded — each step is up to 1 year (the
+// the cron walk bounded, each step is up to 1 year (the
 // nextScanLimitMinutes guard), so 10 × 1y is a worst-case
 // upper bound on compute. Operators wanting more should
 // query the schedule's saved cadence + step the cron
@@ -1163,7 +1163,7 @@ const PreviewNextFiresMaxCount = 10
 // PreviewNextFires (v1.79+) validates a CreateScheduleRequest
 // + returns the predicted next `count` fire times. Empty
 // slice when the schedule won't fire at all (disabled /
-// invalid cron — though Create-time validation catches the
+// invalid cron, though Create-time validation catches the
 // invalid cron path, so the empty-result is mostly a
 // disabled-schedule signal in practice).
 //

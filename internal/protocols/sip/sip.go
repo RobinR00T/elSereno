@@ -47,7 +47,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "SIP / PBX OPTIONS probe on 5060 — identifies Asterisk, FreePBX, 3CX, Cisco UCM, Mitel, Avaya, Yeastar, Grandstream, Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH, SER",
+		Description: "SIP / PBX OPTIONS probe on 5060, identifies Asterisk, FreePBX, 3CX, Cisco UCM, Mitel, Avaya, Yeastar, Grandstream, Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH, SER",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -68,7 +68,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 
 	resp, rawErr := p.sendAndRead(ctx, transport, addr, req)
 	if rawErr != nil {
-		// Connection refused / timed out / DNS — no finding at
+		// Connection refused / timed out / DNS, no finding at
 		// all; the scanner treats that as a negative result.
 		return nil, fmt.Errorf("sip: probe %s/%s: %w", transport, addr, rawErr)
 	}
@@ -214,7 +214,7 @@ func hashBytes(target core.Target, note, vendor string) []byte {
 
 // randomBranch returns a hex-encoded 8-byte random suffix used
 // as the SIP Via branch cookie (RFC 3261 §8.1.1.7 requires a
-// "z9hG4bK" prefix + "unique" suffix — a cryptographic random
+// "z9hG4bK" prefix + "unique" suffix, a cryptographic random
 // satisfies that).
 func randomBranch() string {
 	var b [8]byte

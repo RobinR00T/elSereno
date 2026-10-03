@@ -56,7 +56,7 @@ const MaxVendorHintLen = 120
 // bytes, sanitised to printable-ASCII + dots. Empty string
 // when no vendor marker is present.
 //
-// This is best-effort fingerprinting — it doesn't parse BER.
+// This is best-effort fingerprinting, it doesn't parse BER.
 // We accept some false positives in exchange for working
 // against vendor stacks that emit non-standard or
 // extended-encoding AAREs.
@@ -140,7 +140,7 @@ func BuildMMSGetServerDirectoryRequest() []byte {
 		// future extensions where body could grow.
 		body = body[:0xFF]
 	}
-	pdu = append(pdu, 0xA0, byte(len(body))) // #nosec G115 — bounded above.
+	pdu = append(pdu, 0xA0, byte(len(body))) // #nosec G115, bounded above.
 	pdu = append(pdu, body...)
 	return pdu
 }
@@ -180,7 +180,7 @@ func ParseMMSGetServerDirectoryResponse(buf []byte) ([]string, error) {
 	}
 	// Find the outer ConfirmedResponse PDU tag 0xA1. Some
 	// stacks prepend extra OSI session/presentation header
-	// bytes (we already stripped COTP DT) — scan past up to
+	// bytes (we already stripped COTP DT), scan past up to
 	// 64 bytes to find it.
 	scan := 0
 	if len(buf) > 64 {
@@ -195,7 +195,7 @@ func ParseMMSGetServerDirectoryResponse(buf []byte) ([]string, error) {
 	}
 	// Find the VisibleString tag (0x1A) appearances. Each is
 	// length-prefixed by a single byte (LD names are short,
-	// <128 chars in practice — long-form length not
+	// <128 chars in practice, long-form length not
 	// encountered).
 	var names []string
 	cursor := 2

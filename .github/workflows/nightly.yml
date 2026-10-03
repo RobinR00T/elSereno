@@ -77,7 +77,7 @@ jobs:
       - name: install gremlins
         run: go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
       # Config lives in .gremlins.yaml. Kept report-only for F7
-      # (surface mutation kill-rate without blocking main) — F8 will
+      # (surface mutation kill-rate without blocking main), F8 will
       # tighten to `--threshold-efficacy 70`.
       - run: gremlins unleash ./... | tee mutation-report.txt || true
       - uses: actions/upload-artifact@v7

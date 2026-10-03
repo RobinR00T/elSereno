@@ -61,7 +61,7 @@ func (r doctorResult) String() string {
 	if r.message == "" {
 		return fmt.Sprintf("%-7s %s", sym, r.name)
 	}
-	return fmt.Sprintf("%-7s %s — %s", sym, r.name, r.message)
+	return fmt.Sprintf("%-7s %s, %s", sym, r.name, r.message)
 }
 
 // runDoctor performs the preflight checks that have no external
@@ -135,7 +135,7 @@ func checkPrivilegedScan() doctorResult {
 				return doctorResult{
 					name:    "privileged scan",
 					status:  doctorWarn,
-					message: "CAP_NET_RAW missing — use nmap -sT or `sudo setcap cap_net_raw=+ep $(which nmap)`",
+					message: "CAP_NET_RAW missing, use nmap -sT or `sudo setcap cap_net_raw=+ep $(which nmap)`",
 				}
 			}
 		}
@@ -147,7 +147,7 @@ func checkPrivilegedScan() doctorResult {
 		return doctorResult{
 			name:    "privileged scan",
 			status:  doctorWarn,
-			message: "not root — use nmap -sT for unprivileged scans",
+			message: "not root, use nmap -sT for unprivileged scans",
 		}
 	default:
 		return doctorResult{name: "privileged scan", status: doctorSkip, message: "only linux/darwin are supported in v1"}

@@ -31,7 +31,7 @@ func soapTransferComplete(commandKey, faultCode, faultString, startTime, complet
 
 // driveSessionWithObserver mirrors driveSession but also wires
 // an OnTransferComplete observer + returns the captured fields
-// slice (mutex-protected — the callback runs on the proxy
+// slice (mutex-protected, the callback runs on the proxy
 // goroutine).
 func driveSessionWithObserver(t *testing.T) (net.Conn, *upstreamACS, func() []cwmpwrite.TransferCompleteFields) {
 	t.Helper()
@@ -81,7 +81,7 @@ func driveSessionWithObserver(t *testing.T) (net.Conn, *upstreamACS, func() []cw
 	return clientPipe, acs, snapshot
 }
 
-// TestObserveTransferComplete_SuccessPath — CPE reports success
+// TestObserveTransferComplete_SuccessPath CPE reports success
 // (FaultCode "0"). Observer fires; gate forwards request
 // unchanged to upstream; IsSuccess() returns true.
 func TestObserveTransferComplete_SuccessPath(t *testing.T) {
@@ -117,11 +117,11 @@ func TestObserveTransferComplete_SuccessPath(t *testing.T) {
 		t.Errorf("CompleteTime = %q", f.CompleteTime)
 	}
 	if _, count := acs.seen(); count == 0 {
-		t.Error("upstream ACS saw no request — observer must NOT swallow forwarding")
+		t.Error("upstream ACS saw no request, observer must NOT swallow forwarding")
 	}
 }
 
-// TestObserveTransferComplete_FaultPath — CPE reports failure.
+// TestObserveTransferComplete_FaultPath CPE reports failure.
 func TestObserveTransferComplete_FaultPath(t *testing.T) {
 	client, _, snap := driveSessionWithObserver(t)
 	body := soapTransferComplete(
@@ -151,7 +151,7 @@ func TestObserveTransferComplete_FaultPath(t *testing.T) {
 	}
 }
 
-// TestObserveTransferComplete_NotInvokedForOtherRPCs — observer
+// TestObserveTransferComplete_NotInvokedForOtherRPCs observer
 // must fire ONLY for TransferComplete, not for other always-safe
 // RPCs (Inform / Kicked / Fault / GetParameter*).
 func TestObserveTransferComplete_NotInvokedForOtherRPCs(t *testing.T) {
@@ -161,11 +161,11 @@ func TestObserveTransferComplete_NotInvokedForOtherRPCs(t *testing.T) {
 	_, _, _ = readHTTPResponseSummary(t, client)
 	time.Sleep(50 * time.Millisecond)
 	if len(snap()) != 0 {
-		t.Errorf("observer fired for Inform — must only fire for TransferComplete")
+		t.Errorf("observer fired for Inform, must only fire for TransferComplete")
 	}
 }
 
-// TestObserveTransferComplete_NilObserverNoOps — when
+// TestObserveTransferComplete_NilObserverNoOps when
 // OnTransferComplete is nil, the gate forwards TransferComplete
 // transparently without inspection. Regression guard.
 func TestObserveTransferComplete_NilObserverNoOps(t *testing.T) {
@@ -178,7 +178,7 @@ func TestObserveTransferComplete_NilObserverNoOps(t *testing.T) {
 	}
 }
 
-// TestObserveTransferComplete_MissingCommandKey — older / non-
+// TestObserveTransferComplete_MissingCommandKey older / non-
 // conformant CPEs may send TransferComplete without a CommandKey.
 // The parser tolerates that (empty string) + observer still
 // fires.
@@ -204,7 +204,7 @@ func TestObserveTransferComplete_MissingCommandKey(t *testing.T) {
 	}
 }
 
-// TestTransferCompleteFields_IsSuccess — pin the FaultCode
+// TestTransferCompleteFields_IsSuccess pin the FaultCode
 // semantics: exactly "0" → success, anything else → fault.
 // Whitespace + leading zeros are NOT massaged at this layer
 // (parser already TrimSpace'd).
@@ -214,7 +214,7 @@ func TestTransferCompleteFields_IsSuccess(t *testing.T) {
 		"":     false,
 		"9010": false,
 		"9012": false, // checksum mismatch
-		"00":   false, // leading zeros are NOT "0" — be strict
+		"00":   false, // leading zeros are NOT "0", be strict
 	}
 	for code, want := range cases {
 		t.Run(code, func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestTransferCompleteFields_IsSuccess(t *testing.T) {
 	}
 }
 
-// TestTransferCompleteFields_Outcome — pin the v1.16 chunk-1
+// TestTransferCompleteFields_Outcome pin the v1.16 chunk-1
 // outcome classifier semantics. Crosses (IsSuccess, hasAuth) ×
 // the four resulting labels.
 func TestTransferCompleteFields_Outcome(t *testing.T) {
@@ -344,7 +344,7 @@ func driveSessionWithFirmwareAndObserver(t *testing.T, fws []cwmpwrite.AllowedFi
 }
 
 // TestObserveTransferComplete_ResolvesAuthorisationFromPriorDownload
-// — drive a Download → drive a TransferComplete with the same
+// drive a Download → drive a TransferComplete with the same
 // CommandKey → observer sees fields.Authorisation populated
 // with the canonical URL + SHA256 from the AllowedFirmware
 // entry that authorised the Download. v1.16 chunk 1.
@@ -397,7 +397,7 @@ func TestObserveTransferComplete_ResolvesAuthorisationFromPriorDownload(t *testi
 }
 
 // TestObserveTransferComplete_OrphanCompleteHasNoAuthorisation
-// — when the CPE reports TransferComplete for a CommandKey we
+// when the CPE reports TransferComplete for a CommandKey we
 // never authorised, observer fields.Authorisation is nil and
 // Outcome() returns "orphan_complete". Suspicious from an
 // operator perspective. v1.16 chunk 1.
@@ -424,7 +424,7 @@ func TestObserveTransferComplete_OrphanCompleteHasNoAuthorisation(t *testing.T) 
 	}
 }
 
-// TestObserveTransferComplete_FaultPathStillResolves — the gate
+// TestObserveTransferComplete_FaultPathStillResolves the gate
 // resolves the Authorisation regardless of FaultCode. Operator
 // authorised Download, CPE reports failure (e.g. 9010). The
 // observer sees Authorisation populated AND IsSuccess()=false.
@@ -468,7 +468,7 @@ func TestObserveTransferComplete_FaultPathStillResolves(t *testing.T) {
 	}
 }
 
-// TestObserveTransferComplete_ResolveIsOneShot — once
+// TestObserveTransferComplete_ResolveIsOneShot once
 // resolveDownload pops a CommandKey, a second TransferComplete
 // with the same key gets nil Authorisation. Defensive test:
 // duplicate / replayed TransferComplete shouldn't double-

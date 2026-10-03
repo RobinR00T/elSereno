@@ -33,12 +33,12 @@ type AllowedCommand struct {
 // matches at least one entry.
 //
 // MatchType encodes how strict the match is:
-//   - exact          — Class, Instance, Attribute all match.
-//   - class+instance — Class + Instance match; Attribute
+//   - exact, Class, Instance, Attribute all match.
+//   - class+instance, Class + Instance match; Attribute
 //     wildcarded (the op targets the
 //     whole instance, e.g. Forward_Open
 //     on an assembly).
-//   - class-only     — Class matches; Instance + Attribute
+//   - class-only, Class matches; Instance + Attribute
 //     wildcarded (operator allows ALL
 //     instances of a vendor object).
 //
@@ -185,7 +185,7 @@ type WriteGatedHandler struct {
 	// timestamped + direction-tagged + persisted. Wrapping
 	// happens BEFORE the encapsulation-packet parser reads,
 	// so wire-aware allowlist routing is captured intact. Nil
-	// disables recording — the gate behaves exactly as it did
+	// disables recording, the gate behaves exactly as it did
 	// pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -322,7 +322,7 @@ func (h *WriteGatedHandler) cmdAllowed(cmd uint16) bool {
 // attributeAllowed parses the MR target from the encapsulation
 // body and returns true iff at least one AllowedAttribute
 // entry matches. A parse failure (truncated body, unknown
-// EPATH segment) returns false — the gate refuses what it
+// EPATH segment) returns false, the gate refuses what it
 // can't classify.
 func (h *WriteGatedHandler) attributeAllowed(body []byte) bool {
 	target, ok := enipwire.ExtractMRTarget(body)

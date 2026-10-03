@@ -29,7 +29,7 @@ import (
 // direct tm.Send calls so each test stays deterministic.
 
 const (
-	// Standard test terminal — wide enough to render every
+	// Standard test terminal, wide enough to render every
 	// pane without truncation, tall enough to fit the full
 	// vertical layout (header + scan + triage + findings +
 	// audit + footer).
@@ -68,7 +68,7 @@ func asTUIModelFinal(t *testing.T, fm tea.Model) Model {
 	return m
 }
 
-// TestProgram_QuitsOnQ — boots the program, sends `q`, asserts
+// TestProgram_QuitsOnQ boots the program, sends `q`, asserts
 // the program terminates and the final model has Quitting=true.
 // This is the smallest end-to-end exercise: the bubbletea
 // loop, the keypress wiring, and the Quit cmd all need to
@@ -86,7 +86,7 @@ func TestProgram_QuitsOnQ(t *testing.T) {
 	}
 }
 
-// TestProgram_QuitsOnCtrlC — ctrl+c is the universal "get me
+// TestProgram_QuitsOnCtrlC ctrl+c is the universal "get me
 // out" key on every TTY app. Pin it explicitly so a future
 // keymap refactor can't drop it.
 func TestProgram_QuitsOnCtrlC(t *testing.T) {
@@ -102,7 +102,7 @@ func TestProgram_QuitsOnCtrlC(t *testing.T) {
 	}
 }
 
-// TestProgram_RendersHeaderAndPanes — pin the rendered output
+// TestProgram_RendersHeaderAndPanes pin the rendered output
 // at startup. Operators rely on the four pane labels showing
 // up immediately; a layout regression would shift them.
 func TestProgram_RendersHeaderAndPanes(t *testing.T) {
@@ -122,7 +122,7 @@ func TestProgram_RendersHeaderAndPanes(t *testing.T) {
 	}, teatest.WithDuration(waitDuration), teatest.WithCheckInterval(waitCheckTick))
 }
 
-// TestProgram_RendersFindingMsg — sends a FindingMsg and
+// TestProgram_RendersFindingMsg sends a FindingMsg and
 // verifies the protocol name reaches the rendered output.
 // This pins the FindingMsg → Update → AddFinding → View
 // chain end-to-end (the component tests cover each link
@@ -145,7 +145,7 @@ func TestProgram_RendersFindingMsg(t *testing.T) {
 	}, teatest.WithDuration(waitDuration), teatest.WithCheckInterval(waitCheckTick))
 }
 
-// TestProgram_RendersAuditMsg — sends an AuditMsg and verifies
+// TestProgram_RendersAuditMsg sends an AuditMsg and verifies
 // the line lands in the audit pane. Mirrors the FindingMsg
 // test but exercises the parallel branch in Update.
 func TestProgram_RendersAuditMsg(t *testing.T) {
@@ -161,7 +161,7 @@ func TestProgram_RendersAuditMsg(t *testing.T) {
 	}, teatest.WithDuration(waitDuration), teatest.WithCheckInterval(waitCheckTick))
 }
 
-// TestProgram_FilterEditCycle — pins the v1.30-chunk-4
+// TestProgram_FilterEditCycle pins the v1.30-chunk-4
 // audit-pane filter end-to-end. Switches focus to the audit
 // pane, types `/scan`, hits Enter, asserts AuditFilter has
 // been committed and the rendered output reflects it.
@@ -204,7 +204,7 @@ func TestProgram_FilterEditCycle(t *testing.T) {
 	}
 }
 
-// TestProgram_TabCyclesFocus — visual / state assertion on
+// TestProgram_TabCyclesFocus visual / state assertion on
 // the Tab keybinding. Sends Tab three times and asserts the
 // final FocusedPane.
 func TestProgram_TabCyclesFocus(t *testing.T) {
@@ -227,7 +227,7 @@ func TestProgram_TabCyclesFocus(t *testing.T) {
 	}
 }
 
-// TestProgram_FindingMsg_BumpsTriageCount — pins the
+// TestProgram_FindingMsg_BumpsTriageCount pins the
 // FindingMsg → severity-band → counter chain. A score of 95
 // must land in the Critical bucket and the chip must render.
 func TestProgram_FindingMsg_BumpsTriageCount(t *testing.T) {
@@ -243,7 +243,7 @@ func TestProgram_FindingMsg_BumpsTriageCount(t *testing.T) {
 	}, teatest.WithDuration(waitDuration), teatest.WithCheckInterval(waitCheckTick))
 }
 
-// TestProgram_TerminalTooSmall — render path branches on
+// TestProgram_TerminalTooSmall render path branches on
 // width<50 || height<10. Pin the friendly message that
 // surfaces when an operator launches the TUI in a tiny
 // terminal.
@@ -258,7 +258,7 @@ func TestProgram_TerminalTooSmall(t *testing.T) {
 	}, teatest.WithDuration(waitDuration), teatest.WithCheckInterval(waitCheckTick))
 }
 
-// TestProgram_FullSession_FinalOutputIsCleanASCII — drains
+// TestProgram_FullSession_FinalOutputIsCleanASCII drains
 // the FinalOutput after a complete session and verifies that
 // no diagnostic noise (panic stack, error prints) leaked
 // onto the terminal stream. Operators copying terminal logs

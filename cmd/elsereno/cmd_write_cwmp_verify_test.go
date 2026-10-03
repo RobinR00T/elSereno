@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// TestVerifyCWMPFirmwareURLs_HappyPath — server returns body
+// TestVerifyCWMPFirmwareURLs_HappyPath server returns body
 // whose SHA-256 matches the operator-supplied expected hash;
 // result is "match" + no failure.
 func TestVerifyCWMPFirmwareURLs_HappyPath(t *testing.T) {
@@ -39,7 +39,7 @@ func TestVerifyCWMPFirmwareURLs_HappyPath(t *testing.T) {
 	}
 }
 
-// TestVerifyCWMPFirmwareURLs_Mismatch — server returns body
+// TestVerifyCWMPFirmwareURLs_Mismatch server returns body
 // whose SHA-256 doesn't match the operator's expected hash;
 // status mismatch + anyFail=true.
 func TestVerifyCWMPFirmwareURLs_Mismatch(t *testing.T) {
@@ -63,7 +63,7 @@ func TestVerifyCWMPFirmwareURLs_Mismatch(t *testing.T) {
 	}
 }
 
-// TestVerifyCWMPFirmwareURLs_NoSHA256Skipped — entries without
+// TestVerifyCWMPFirmwareURLs_NoSHA256Skipped entries without
 // a sha256: get a "skipped" status but don't count as a failure.
 func TestVerifyCWMPFirmwareURLs_NoSHA256Skipped(t *testing.T) {
 	entries := []proxyCWMPFirmware{
@@ -78,7 +78,7 @@ func TestVerifyCWMPFirmwareURLs_NoSHA256Skipped(t *testing.T) {
 	}
 }
 
-// TestVerifyCWMPFirmwareURLs_500SurfacesAsError — server 500
+// TestVerifyCWMPFirmwareURLs_500SurfacesAsError server 500
 // surfaces as error status + counts as failure.
 func TestVerifyCWMPFirmwareURLs_500SurfacesAsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -98,7 +98,7 @@ func TestVerifyCWMPFirmwareURLs_500SurfacesAsError(t *testing.T) {
 	}
 }
 
-// TestNewWriteCWMPVerifyFirmwareCmd_AllowFileMissing — operator
+// TestNewWriteCWMPVerifyFirmwareCmd_AllowFileMissing operator
 // fails to pass --allow-file → exit usage.
 func TestNewWriteCWMPVerifyFirmwareCmd_AllowFileMissing(t *testing.T) {
 	cmd := newWriteCWMPVerifyFirmwareCmd()
@@ -113,7 +113,7 @@ func TestNewWriteCWMPVerifyFirmwareCmd_AllowFileMissing(t *testing.T) {
 	}
 }
 
-// TestNewWriteCWMPVerifyFirmwareCmd_E2E_Match — full CLI run:
+// TestNewWriteCWMPVerifyFirmwareCmd_E2E_Match full CLI run:
 // emit a YAML allow-file via buildAllowFileCWMP, then invoke
 // verify-firmware against an httptest server. End-to-end.
 func TestNewWriteCWMPVerifyFirmwareCmd_E2E_Match(t *testing.T) {
@@ -152,7 +152,7 @@ func TestNewWriteCWMPVerifyFirmwareCmd_E2E_Match(t *testing.T) {
 	}
 }
 
-// TestNewWriteCWMPVerifyFirmwareCmd_E2E_Mismatch — same flow
+// TestNewWriteCWMPVerifyFirmwareCmd_E2E_Mismatch same flow
 // but with the wrong expected hash; CLI returns a non-nil error
 // and writes a MISMATCH line.
 func TestNewWriteCWMPVerifyFirmwareCmd_E2E_Mismatch(t *testing.T) {
@@ -195,6 +195,6 @@ func sha256Hex(b []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
-// Touched by tests above — silence "imported and not used" if
+// Touched by tests above, silence "imported and not used" if
 // we ever drop one.
 var _ = os.Getenv

@@ -24,13 +24,13 @@ const (
 	// --- Core (0x02xx) ---
 
 	// ServiceTypeSearchRequest is the multicast SEARCH_REQUEST
-	// (0x0201) — clients announce themselves to discover servers
+	// (0x0201), clients announce themselves to discover servers
 	// on 224.0.23.12. Read-only; gate always-passes.
 	ServiceTypeSearchRequest uint16 = 0x0201
 	// ServiceTypeSearchResponse is the matching SEARCH_RESPONSE
 	// (0x0202).
 	ServiceTypeSearchResponse uint16 = 0x0202
-	// ServiceTypeConnectRequest is CONNECT_REQUEST (0x0205) —
+	// ServiceTypeConnectRequest is CONNECT_REQUEST (0x0205),
 	// opens a tunnel / device-config / object-server session.
 	// Gateable; allowing CONNECT without further filter lets the
 	// client open a tunnel and then issue any TUNNELLING_REQUEST.
@@ -43,7 +43,7 @@ const (
 	// ServiceTypeConnectionStateResponse (0x0208).
 	ServiceTypeConnectionStateResponse uint16 = 0x0208
 	// ServiceTypeDisconnectRequest is DISCONNECT_REQUEST (0x0209).
-	// Always-safe — operator may want to terminate a stuck
+	// Always-safe, operator may want to terminate a stuck
 	// session.
 	ServiceTypeDisconnectRequest uint16 = 0x0209
 	// ServiceTypeDisconnectResponse (0x020A).
@@ -54,7 +54,7 @@ const (
 	// ServiceTypeDeviceConfigurationRequest (0x0310) carries cEMI
 	// M_PropRead / M_PropWrite / M_Reset frames that mutate
 	// device-mgmt parameters (group-address table, LCN, IP
-	// settings, factory reset). Gateable — fine-grained gating
+	// settings, factory reset). Gateable, fine-grained gating
 	// at the M_PropWrite level is a future cycle (the cEMI parser
 	// in this package extracts MsgCode but not yet object-id /
 	// PID / element granularity for property writes).
@@ -68,7 +68,7 @@ const (
 	// bus telegram (cEMI L_Data.req / L_Data.ind frames). This is
 	// THE write-gating service: APCI inside the cEMI controls
 	// whether the request is a GroupValue_Read, GroupValue_Write,
-	// IndividualAddress_Write, Memory_Write, etc. — the full
+	// IndividualAddress_Write, Memory_Write, etc., the full
 	// blast radius of a KNX bus.
 	ServiceTypeTunnellingRequest uint16 = 0x0420
 	// ServiceTypeTunnellingAck (0x0421). Always-safe.
@@ -76,7 +76,7 @@ const (
 
 	// --- Routing (0x05xx, multicast) ---
 
-	// ServiceTypeRoutingIndication (0x0530) — multicast routing
+	// ServiceTypeRoutingIndication (0x0530), multicast routing
 	// of cEMI L_Data frames between IP-routers. Carries the same
 	// bus blast radius as TUNNELLING_REQUEST. Gateable.
 	ServiceTypeRoutingIndication uint16 = 0x0530
@@ -88,7 +88,7 @@ const (
 
 // --- cEMI Message Codes -----------------------------------------
 
-// cEMI (common External Message Interface) message codes — the
+// cEMI (common External Message Interface) message codes, the
 // inner cEMI frame's first byte. Defined in KNX Standard 03.06.03
 // §4.1.5.3.
 //
@@ -100,9 +100,9 @@ const (
 //	0x2F L_Raw.con          raw confirmation (rare)
 //	0xFC M_PropRead.req     property read request (DEVICE MGMT)
 //	0xFB M_PropRead.con     property read confirmation
-//	0xF6 M_PropWrite.req    property WRITE request — mutating
+//	0xF6 M_PropWrite.req    property WRITE request, mutating
 //	0xF5 M_PropWrite.con    property write confirmation
-//	0xF1 M_Reset.req        device reset request — DESTRUCTIVE
+//	0xF1 M_Reset.req        device reset request, DESTRUCTIVE
 const (
 	CEMILDataReq  byte = 0x11
 	CEMILDataInd  byte = 0x29
@@ -125,32 +125,32 @@ const (
 //	Higher 4-bit APCIs encode A_IndividualAddress_Read,
 //	A_ADC_Read, A_Memory_Read/Write, A_DeviceDescriptor_Read,
 //	A_Restart, A_PropertyValue_Read/Write, etc. The 10-bit
-//	encoding lives in bytes [tpci][apci] of the L_Data tail —
+//	encoding lives in bytes [tpci][apci] of the L_Data tail,
 //	see ParseCEMILData for the extraction logic.
 type APCI uint16
 
 const (
-	// APCIGroupValueRead is A_GroupValue_Read (0x000) — read a
+	// APCIGroupValueRead is A_GroupValue_Read (0x000), read a
 	// group-object value. Read-only; always-safe.
 	APCIGroupValueRead APCI = 0x000
-	// APCIGroupValueResponse is A_GroupValue_Response (0x040) —
+	// APCIGroupValueResponse is A_GroupValue_Response (0x040),
 	// the value-broadcast response to a Read or unsolicited
 	// status update. Read-only; always-safe.
 	APCIGroupValueResponse APCI = 0x040
-	// APCIGroupValueWrite is A_GroupValue_Write (0x080) — WRITES
+	// APCIGroupValueWrite is A_GroupValue_Write (0x080), WRITES
 	// a value to a group object. The flagship gating operation:
 	// every "turn on light", "set thermostat", "open valve",
 	// "unlock door" travels via this APCI.
 	APCIGroupValueWrite APCI = 0x080
 	// APCIIndividualAddressWrite is A_IndividualAddress_Write
-	// (0x0C0) — re-assigns a device's individual address.
+	// (0x0C0), re-assigns a device's individual address.
 	// Devastating: bricks the bus addressing scheme.
 	APCIIndividualAddressWrite APCI = 0x0C0
-	// APCIMemoryWrite is A_Memory_Write (0x280) — writes raw
+	// APCIMemoryWrite is A_Memory_Write (0x280), writes raw
 	// bytes to device memory. Used for parameter download +
 	// firmware tampering.
 	APCIMemoryWrite APCI = 0x280
-	// APCIRestart is A_Restart (0x380) — soft-restart a device.
+	// APCIRestart is A_Restart (0x380), soft-restart a device.
 	APCIRestart APCI = 0x380
 )
 
@@ -164,7 +164,7 @@ type CEMILData struct {
 	// (3.4.5 → 0x3445). Set by the IP-interface; clients usually
 	// see 0x0000 since the gateway re-stamps.
 	SourceIA uint16
-	// DestAddr is the 16-bit destination — Group Address (e.g.,
+	// DestAddr is the 16-bit destination, Group Address (e.g.,
 	// 1/0/3 → 0x0803) when DestIsGroup, else Individual Address.
 	DestAddr uint16
 	// DestIsGroup is true when the Address Type bit is 1 (group).

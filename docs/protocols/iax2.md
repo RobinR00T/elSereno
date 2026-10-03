@@ -18,7 +18,7 @@ length-prefixed UDP, so each datagram carries one frame.
 The default proxy responds with an IAX2 `HANGUP` frame (subclass
 0x05) addressed to the client's `SrcCallNum` for any non-allowed
 subclass. Mini-frames (audio) and non-IAX full frames (Voice /
-DTMF / Video / etc.) ALWAYS pass — media is never blocked.
+DTMF / Video / etc.) ALWAYS pass, media is never blocked.
 
 Always-safe subclasses (never gated): `HANGUP`, `ACK`, `PING`,
 `PONG`, `LAGRQ`, `LAGRP`, `INVAL`, `REGAUTH`, `REGACK`, `REGREJ`,

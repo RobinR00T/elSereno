@@ -10,7 +10,7 @@ package wire
 // calls it "a minimal dissector ... a starting point": it establishes
 // the wire framing and enumerates the Type opcodes, but it does NOT
 // authoritatively label every opcode read-vs-write. We therefore
-// classify conservatively and fail closed — only opcodes whose payload
+// classify conservatively and fail closed, only opcodes whose payload
 // carries an explicit READ-request structure are auto-passed; the
 // opcodes whose payload is clearly mutating data are the known writes;
 // every other opcode is CategoryUnknown and refused unless the
@@ -66,7 +66,7 @@ const (
 // readTypes is the deliberately-narrow auto-pass set: only opcodes the
 // dissector shows to carry an explicit read-request structure. SAFETY
 // INVARIANT: no opcode here may push data, values, or config to the
-// device. Handshake / no-payload opcodes are intentionally NOT here —
+// device. Handshake / no-payload opcodes are intentionally NOT here,
 // a no-payload command can be a mutating action (commit, reboot), and
 // the public dissector does not establish otherwise.
 var readTypes = map[PacketType]struct{}{
@@ -75,8 +75,8 @@ var readTypes = map[PacketType]struct{}{
 }
 
 // writeTypes are the well-known mutating opcodes (for intelligible
-// audit). Membership here is not required for refusal — anything not
-// in readTypes is refused unless allowlisted — but naming them keeps
+// audit). Membership here is not required for refusal, anything not
+// in readTypes is refused unless allowlisted, but naming them keeps
 // the audit trail legible.
 var writeTypes = map[PacketType]struct{}{
 	TypeRegPush:     {}, // 0x0300: register data/string push

@@ -1,4 +1,4 @@
-# elsereno.yaml — operator config for the elsereno daemon
+# elsereno.yaml, operator config for the elsereno daemon
 # (serve verb). Lives at /etc/elsereno/elsereno.yaml when
 # the deb/rpm package is installed.
 #
@@ -10,7 +10,7 @@
 # web:
 #   listen: "127.0.0.1:8787"
 #   # tls is OFF by default; cookie Secure flag follows
-#   # this — when listening on loopback only, cookies are
+#   # this, when listening on loopback only, cookies are
 #   # accepted without TLS (PITF-024 trade-off).
 #   tls:
 #     enabled: false
@@ -19,7 +19,7 @@
 
 # Postgres connection. The default below uses a local
 # socket; for remote hosts ALWAYS set tls_required: always
-# (PITF-007 enforced — non-loopback without TLS is
+# (PITF-007 enforced, non-loopback without TLS is
 # rejected at startup).
 # database:
 #   url: "postgres:///elsereno?host=/var/run/postgresql"
@@ -39,7 +39,7 @@
 # readyz:
 #   audit_tail_entries: 1000
 
-# scope.yaml — operator authorisation document. Optional;
+# scope.yaml, operator authorisation document. Optional;
 # when absent, an interactive AUP acknowledgement is
 # required on every elsereno run (PITF-019).
 # scope_path: "/etc/elsereno/scope.yaml"

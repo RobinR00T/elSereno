@@ -93,7 +93,7 @@ func TestScanL7_HighByteIsUnknown(t *testing.T) {
 }
 
 // A lone trailing first-magic-byte (0x55 with the 0xcd still in flight)
-// must be HELD, not forwarded — otherwise a magic split across two
+// must be HELD, not forwarded, otherwise a magic split across two
 // reads slips through unclassified (a write-gate bypass).
 func TestScanL7_LoneMagicFirstByteHeld(t *testing.T) {
 	full := l7(wire.SvcCmpApp, 0x14, magicA)

@@ -1,7 +1,7 @@
 // Package wire implements the minimum subset of CoDeSys V3
 // (3S-Smart Software Solutions / now CoDeSys GmbH) needed for
 // read-only fingerprinting on TCP/1217. CoDeSys V3 is the
-// runtime layer that ships with most modern soft-PLC vendors —
+// runtime layer that ships with most modern soft-PLC vendors,
 // Wago PFC200, Beckhoff ADS gateway alternatives, Eaton, Bosch
 // Rexroth, ABB AC500, Hilscher netX, Schneider M251/M258/M262,
 // Festo CMMP/CMMS, and many smaller automation-component
@@ -17,7 +17,7 @@
 // service-request layer (tag-length-value APDUs over the
 // BlockDriver framing, encrypted variants, the layered
 // "Layer-3 / Layer-4 / Layer-7" protocol stack) is out of
-// scope for v1.22 chunk 2 — the fingerprint is sufficient.
+// scope for v1.22 chunk 2, the fingerprint is sufficient.
 //
 // No service-request APDUs are issued; v1.22 chunk 2 is
 // read-only by design.
@@ -31,14 +31,14 @@ import (
 // CoDeSys V3 BlockDriver layout (reverse-engineered):
 //
 //	Offset  Field      Size  Description
-//	0..3    Magic      4     0xCD 0xCD 0xCD 0xCD — BlockDriver
+//	0..3    Magic      4     0xCD 0xCD 0xCD 0xCD, BlockDriver
 //	4..7    Length     4     LE: payload length (excludes header)
 //	8..11   Header     4     LE: protocol header (varies by version)
 //	12..15  Checksum   4     LE: header / payload checksum
 //	16+     Payload    …     APDU
 //
 // We treat all bytes after the 4-byte magic as opaque for
-// fingerprinting purposes — the server's response is classified
+// fingerprinting purposes, the server's response is classified
 // either by its leading 4 bytes (BlockDriver magic echo) or by
 // embedded ASCII banner strings.
 const (

@@ -12,10 +12,10 @@ some installations also expose 11740 (newer) or 1200 (V2 legacy).
 
 - Send the 4-byte BlockDriver magic hello: `0xCD 0xCD 0xCD 0xCD`.
 - Classify the response by either:
-  - **BlockDriver magic echo** — the server's first 4 bytes
+  - **BlockDriver magic echo**: the server's first 4 bytes
     match the magic, indicating a real CoDeSys V3
     handshake, OR
-  - **Banner substring match** — the response contains one of
+  - **Banner substring match**: the response contains one of
     the canonical CoDeSys banner strings:
     `CoDeSys`, `CODESYS`, `3S-Smart`, `3S-CoDeSys`,
     `CmpHostname`, `CmpAppBP`, `CmpRuntime`. Some gateways
@@ -33,7 +33,7 @@ Offset  Field      Size  Description
 ```
 
 The full CoDeSys V3 service-request layer is out of scope for
-this fingerprint — we treat all bytes after the 4-byte magic
+this fingerprint, we treat all bytes after the 4-byte magic
 as opaque. Future offensive plugins would decode the layered
 "Layer-3 / Layer-4 / Layer-7" APDU stack to drive specific
 service requests.
@@ -44,7 +44,7 @@ Fail-closed. CoDeSys V3 is a proprietary tag-length-value
 protocol whose deeper layers (Layer-3 / Layer-4 / Layer-7) are
 not implemented. The default-build proxy refuses sessions
 immediately rather than relay bytes that may or may not be
-valid CoDeSys frames — defence-in-depth fail-closed pattern.
+valid CoDeSys frames, defence-in-depth fail-closed pattern.
 
 ## Writes (`-tags offensive`)
 
@@ -111,9 +111,9 @@ Triple-confirm + audit-chain emission per ADR-039.
 ## Public references
 
 - ICS-CERT advisories ICSA-12-242-01, ICSA-19-080-01,
-  ICSA-21-014-04 — multiple CVEs on authentication bypass +
+  ICSA-21-014-04, multiple CVEs on authentication bypass +
   remote code execution paths.
 - nmap NSE script `codesys-info` (community).
 - Open-source clients: libcodesys-py, codesys-rs.
-- 3S CoDeSys Online Help — protocol reference (registration
+- 3S CoDeSys Online Help, protocol reference (registration
   required).

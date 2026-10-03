@@ -27,7 +27,7 @@ type ObjectIdentifier struct {
 // existing readObjectID helper.
 //
 // Returns (id, true) on success, (_, false) on any parse
-// error — the gate fails closed.
+// error the gate fails closed.
 func ParseDeleteObject(apdu []byte) (ObjectIdentifier, bool) {
 	objType, objInst, _, ok := readObjectID(apdu)
 	if !ok {

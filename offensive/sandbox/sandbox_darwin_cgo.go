@@ -11,7 +11,7 @@
 //
 // Operators who want full sandbox enforcement on macOS run
 // `make build-offensive-cgo` (introduced alongside this
-// file) — that path emits a binary with cgo + this
+// file), that path emits a binary with cgo + this
 // implementation linked. The trade-off: the binary is no
 // longer fully static (links against libsandbox.dylib +
 // libSystem.B.dylib), so it's tied to a specific macOS
@@ -27,7 +27,7 @@
 //     we capture + return as a Go error.
 //
 // The .sb Scheme strings we install per profile are kept
-// minimal — kernel-deny-default, allow what each profile
+// minimal kernel-deny-default, allow what each profile
 // needs, document the rationale inline. They're easier to
 // audit than the deprecated SBX_PROFILE_* constants
 // (which Apple no longer maintains the docs for).
@@ -64,7 +64,7 @@ import (
 // `(subpath "/dir")`, `(regex #"pattern")`, `(remote ip
 // "1.2.3.4")`.
 var macSandboxProfileSCM = map[Profile]string{
-	// ProfileExploit — CVE exploit subprocesses can hit
+	// ProfileExploit CVE exploit subprocesses can hit
 	// the network (the exploit IS the test); restrict
 	// file writes to /tmp/ + the per-process working
 	// directory. Block process-exec entirely so a
@@ -87,7 +87,7 @@ var macSandboxProfileSCM = map[Profile]string{
 (deny process-exec)
 `,
 
-	// ProfileHarvest — credential-harvest helpers need
+	// ProfileHarvest credential-harvest helpers need
 	// DNS but don't need full inet (most cred-harvest
 	// patterns talk to a single endpoint). Allow DNS,
 	// deny SMTP/IMAP/random ports. File writes to /tmp
@@ -109,8 +109,8 @@ var macSandboxProfileSCM = map[Profile]string{
 (deny process-exec)
 `,
 
-	// ProfileDial — dial subprocesses talk via inherited
-	// FDs (TTY/serial bridge). Deny ALL network — the
+	// ProfileDial dial subprocesses talk via inherited
+	// FDs (TTY/serial bridge). Deny ALL network, the
 	// subprocess should only talk to its inherited
 	// `tty` FD, never open a fresh socket. Allow ioctls
 	// (TTY config) but deny file-write outside /tmp.
@@ -130,7 +130,7 @@ var macSandboxProfileSCM = map[Profile]string{
 (deny process-exec)
 `,
 
-	// ProfileScan (v2.32+) — read-only scan subprocesses.
+	// ProfileScan (v2.32+), read-only scan subprocesses.
 	// Network allowed (probes). All file writes denied
 	// (the scanner shouldn't be writing to disk; the
 	// parent process serialises findings via the audit
@@ -185,7 +185,7 @@ func Load(profile Profile) (LoadResult, error) {
 		// v2.61+: if the kernel returns non-zero but doesn't
 		// populate errbuf (rare but observed on EINVAL with
 		// some macOS-14 hosts), the previous code surfaced
-		// "sandbox_init:  (rc=22)" — a confusing message with
+		// "sandbox_init:  (rc=22)", a confusing message with
 		// a literal double-space. Fall back to a stable
 		// human-readable sentinel so the audit log + operator
 		// stderr never show a blank reason.
@@ -220,7 +220,7 @@ func Load(profile Profile) (LoadResult, error) {
 // effective policy before forking a subprocess. Returns
 // ("", false) for unknown profiles.
 //
-// Only available on darwin+cgo builds — the schemes are
+// Only available on darwin+cgo builds, the schemes are
 // macOS-specific and have no analogue on Linux (seccomp-bpf
 // has its own filter program). Linux builds expose no
 // equivalent because the BPF program is a binary blob.

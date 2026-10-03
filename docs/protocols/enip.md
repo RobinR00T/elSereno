@@ -45,10 +45,10 @@ reference string).
 
 The encapsulation command is classified per wire table:
 
-- **CategoryRead** — ListServices (0x04), ListIdentity (0x63),
+- **CategoryRead**: ListServices (0x04), ListIdentity (0x63),
   ListInterfaces (0x64), RegisterSession (0x65), UnregisterSession
   (0x66). Forward untouched.
-- **CategoryWrite** — SendRRData (0x6F), SendUnitData (0x70). Both
+- **CategoryWrite**: SendRRData (0x6F), SendUnitData (0x70). Both
   envelope CIP service requests that can mutate state; short-
   circuited with an encapsulation status of 0x0001 ("Invalid or
   unsupported command").

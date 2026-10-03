@@ -111,7 +111,7 @@ func TestIsWrapperResponse(t *testing.T) {
 // buildAARE produces a 28-byte AARE frame: 8-byte wrapper +
 // 20-byte zero-padded APDU starting with the AARE tag (0x61).
 // The successful-classification tests don't introspect APDU
-// content beyond the tag — they verify wrapper consistency.
+// content beyond the tag, they verify wrapper consistency.
 func buildAARE() []byte {
 	const apduLen = 20
 	frame := make([]byte, 8+apduLen)

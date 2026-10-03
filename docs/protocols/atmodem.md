@@ -8,13 +8,13 @@ bridges, and medical-device maintenance interfaces.
 ## Ports scanned
 
 Historical defaults:
-- 23 (telnet — frequently not telnet at all, just raw TCP→serial).
-- 7 (echo — misconfigured serial servers).
-- 2001–2032 (Moxa NPort serial port range).
+- 23 (telnet, frequently not telnet at all, just raw TCP→serial).
+- 7 (echo, misconfigured serial servers).
+- 2001-2032 (Moxa NPort serial port range).
 - 3001 (Lantronix "TCP service 3001").
-- 4001–4009 (Digi PortServer).
+- 4001-4009 (Digi PortServer).
 - 9999 (Lantronix admin).
-- 10001–10004 (various serial-server defaults).
+- 10001-10004 (various serial-server defaults).
 
 ## Probe
 
@@ -23,7 +23,7 @@ Historical defaults:
 - Match the response against the vendor dictionary:
   Hayes baseline `OK`, plus Siemens, Nokia, Sierra, MultiTech,
   Cinterion, Telit, u-blox, Quectel, Huawei identifiers.
-- Elevator monitoring: EN 81-28 command set — `ATA`, `ATD`,
+- Elevator monitoring: EN 81-28 command set, `ATA`, `ATD`,
   `AT+CMGF`, vendor-specific `AT^MNSPV?`.
 
 ## Proxy policy (default build)
@@ -33,10 +33,10 @@ error-code extraction. The proxy enforces the list of
 `ForbiddenPrefixes` at the wire layer and replies `ERROR\r\n`
 without forwarding the command:
 
-- `ATD*` — dial (voice / data). Blocked.
-- `ATA` — answer incoming call.
-- `AT+CMGS` / `AT+CMGW` / `AT+CMSS` / `AT+CMGD` — SMS send / store.
-- `AT+CFUN` / `AT+CPWROFF` — power state.
+- `ATD*`: dial (voice / data). Blocked.
+- `ATA`: answer incoming call.
+- `AT+CMGS` / `AT+CMGW` / `AT+CMSS` / `AT+CMGD`: SMS send / store.
+- `AT+CFUN` / `AT+CPWROFF`: power state.
 - `+++` escape sequence (interpreted as "enter command mode").
 
 Information queries (`ATI`, `AT+CGMI`, `AT+CIMI`, `AT+CSQ`, etc.)
@@ -49,7 +49,7 @@ forward untouched.
 scope.blocked_numbers guard on top of the triple-confirm wrapper.
 
 SMS send / write operations land with the offensive-build SMS
-module in F6+ — NOT implemented in F5.
+module in F6+, NOT implemented in F5.
 
 ## Scope
 

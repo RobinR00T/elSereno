@@ -47,7 +47,7 @@ func TestAuditPruner_Tick_HappyPath(t *testing.T) {
 	}
 	// Pruner clamps RetentionPeriod to ≥ 1m, so the easiest
 	// way to test "events older than the cutoff" is to set
-	// Now to a time far in the future — then cutoff =
+	// Now to a time far in the future, then cutoff =
 	// future - 1min is well after the just-appended events.
 	var pruneCount int64
 	var pruneCalls int32
@@ -235,7 +235,7 @@ func TestAuditPruner_Tick_PerScheduleOverride(t *testing.T) {
 
 // TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal (v1.89+):
 // when no schedule has AuditRetentionDays>0, the pruner
-// behaves exactly like v1.87 — single PruneOlderThan call.
+// behaves exactly like v1.87, single PruneOlderThan call.
 func TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal(t *testing.T) {
 	ctx := context.Background()
 	scheduleStore := scanorch.NewMemoryScheduleStore()
@@ -276,7 +276,7 @@ func TestAuditPruner_Tick_NoOverrides_FallsBackToGlobal(t *testing.T) {
 // TestAuditPruner_AdvisoryLockKey_FallsBackOnMemory (v1.90+):
 // MemoryScheduleAuditStore doesn't implement
 // AdvisoryLockedAuditStore. Pruner with AdvisoryLockKey > 0
-// must fall through to PruneWithOverrides cleanly — the
+// must fall through to PruneWithOverrides cleanly, the
 // in-memory mode has no multi-process scenario.
 func TestAuditPruner_AdvisoryLockKey_FallsBackOnMemory(t *testing.T) {
 	ctx := context.Background()
@@ -299,7 +299,7 @@ func TestAuditPruner_AdvisoryLockKey_FallsBackOnMemory(t *testing.T) {
 		OnLockSkipped:   func(int64) { atomic.AddInt32(&skipped, 1) },
 	}
 	pruner.Tick(ctx)
-	// Memory store should NOT have triggered the skip path —
+	// Memory store should NOT have triggered the skip path,
 	// the pruner falls back to PruneWithOverrides cleanly.
 	if atomic.LoadInt32(&skipped) != 0 {
 		t.Errorf("OnLockSkipped fired = %d times, want 0 (memory store has no lock)", skipped)
@@ -338,7 +338,7 @@ func TestAuditPruner_AdvisoryLockKey_LockNotAcquired(t *testing.T) {
 }
 
 // TestAuditPruner_AdvisoryLockKey_LockAcquired (v1.90+):
-// happy path through the locked variant — acquired=true,
+// happy path through the locked variant, acquired=true,
 // PruneWithLock returns a row count, OnPrune fires.
 func TestAuditPruner_AdvisoryLockKey_LockAcquired(t *testing.T) {
 	store := &fakeLockingAuditStore{acquired: true, pruneCount: 42}

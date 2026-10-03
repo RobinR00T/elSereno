@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// TestFilteredAuditEvents_NoFilter — empty filter returns the
+// TestFilteredAuditEvents_NoFilter empty filter returns the
 // full slice (identity).
 func TestFilteredAuditEvents_NoFilter(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -21,7 +21,7 @@ func TestFilteredAuditEvents_NoFilter(t *testing.T) {
 	}
 }
 
-// TestFilteredAuditEvents_CaseInsensitive — filter matches
+// TestFilteredAuditEvents_CaseInsensitive filter matches
 // regardless of case so `/vault` finds both "vault" and "Vault".
 func TestFilteredAuditEvents_CaseInsensitive(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -40,7 +40,7 @@ func TestFilteredAuditEvents_CaseInsensitive(t *testing.T) {
 	}
 }
 
-// TestFilteredAuditEvents_NoMatches — filter that matches
+// TestFilteredAuditEvents_NoMatches filter that matches
 // nothing returns an empty (but non-nil) slice.
 func TestFilteredAuditEvents_NoMatches(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -55,7 +55,7 @@ func TestFilteredAuditEvents_NoMatches(t *testing.T) {
 	}
 }
 
-// TestFilterEdit_EnterCommits — pressing `/` on the audit pane
+// TestFilterEdit_EnterCommits pressing `/` on the audit pane
 // enters edit mode; typed runes accumulate into FilterDraft;
 // Enter commits to AuditFilter.
 func TestFilterEdit_EnterCommits(t *testing.T) {
@@ -91,7 +91,7 @@ func TestFilterEdit_EnterCommits(t *testing.T) {
 	}
 }
 
-// TestFilterEdit_EscCancels — Esc inside edit mode discards
+// TestFilterEdit_EscCancels Esc inside edit mode discards
 // the draft + restores the previous AuditFilter (here empty).
 func TestFilterEdit_EscCancels(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -112,7 +112,7 @@ func TestFilterEdit_EscCancels(t *testing.T) {
 	}
 }
 
-// TestFilterEdit_BackspaceDeletes — Backspace pops one rune
+// TestFilterEdit_BackspaceDeletes Backspace pops one rune
 // from the draft.
 func TestFilterEdit_BackspaceDeletes(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -127,7 +127,7 @@ func TestFilterEdit_BackspaceDeletes(t *testing.T) {
 	}
 }
 
-// TestFilterEdit_DoesNotQuit — `q` while editing must NOT
+// TestFilterEdit_DoesNotQuit `q` while editing must NOT
 // trigger tea.Quit; it should accumulate as a draft rune.
 func TestFilterEdit_DoesNotQuit(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -145,7 +145,7 @@ func TestFilterEdit_DoesNotQuit(t *testing.T) {
 	}
 }
 
-// TestEsc_ClearsActiveFilter — Esc outside edit mode clears the
+// TestEsc_ClearsActiveFilter Esc outside edit mode clears the
 // committed filter.
 func TestEsc_ClearsActiveFilter(t *testing.T) {
 	m := NewModel(ModeInteractive)
@@ -157,7 +157,7 @@ func TestEsc_ClearsActiveFilter(t *testing.T) {
 	}
 }
 
-// TestSlash_OnlyOnAuditPane — `/` outside the audit pane is a
+// TestSlash_OnlyOnAuditPane `/` outside the audit pane is a
 // no-op so a misclick doesn't activate filter edit somewhere
 // it doesn't make sense.
 func TestSlash_OnlyOnAuditPane(t *testing.T) {

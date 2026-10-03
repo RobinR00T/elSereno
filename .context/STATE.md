@@ -62,7 +62,7 @@ surfaces except CSV (stable csv:v1 contract), keyed by protocol
 
 **Phase**: **v2.63 cycle closed on `main`** (1 chunk +
 close). `elsereno sandbox diff PROFILE_A PROFILE_B`
-subverb — line-level symmetric difference of two profile
+subverb, line-level symmetric difference of two profile
 .sb Schemes (the vNext follow-up flagged in the v2.62
 snapshot). Text-unified (`+`/`-` prefixes) or `--json`
 (`a`/`b`/`only_in_a`/`only_in_b`/`common`, all sorted).
@@ -169,7 +169,7 @@ breakdown (v1.66). Snapshots in `.context/snapshots/`.
 
 **v1.58 → v1.65 cycles** (closed; per-cycle snapshots
 in `.context/snapshots/`):
-dashboard scan-orchestration feature line —
+dashboard scan-orchestration feature line, 
 v1.58 shell + v1.59 worker + v1.60 DB store +
 v1.61 runner + v1.62 panel + v1.63 state-SSE +
 v1.64 multi-plugin + v1.65 progress-SSE.
@@ -184,7 +184,7 @@ dashboard orchestration.
 
 **v1.41 → v1.49 cycles (closed; per-cycle snapshots in
 `.context/snapshots/`):**
-record/replay forensics + Linux packaging — tui --record
+record/replay forensics + Linux packaging, tui --record
 (v1.41), replay round-trip (v1.42), tui --rate (v1.43),
 proxy replay --since/--until (v1.44), --json (v1.45),
 --limit (v1.46), --tail (v1.47), --stats (v1.48). Linux
@@ -192,7 +192,7 @@ deb/rpm/apk via nfpm + hardened systemd units (v1.49).
 
 **v1.32 → v1.40 cycles (closed; per-cycle snapshots in
 `.context/snapshots/`):**
-hygiene + tooling cycles — gosec marker migration (v1.32
+hygiene + tooling cycles, gosec marker migration (v1.32
 + v1.34), teatest TUI integration (v1.33), proxy listen
 for 4 legacy-ICS protocols + recording (v1.35), dashboard
 --input preview endpoint (v1.36), fingerprint

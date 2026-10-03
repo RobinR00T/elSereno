@@ -250,7 +250,7 @@ func TestHandle_OutOfRangeWriteRefused(t *testing.T) {
 
 func TestHandle_ReadForwardsRegardlessOfAllowlist(t *testing.T) {
 	t.Parallel()
-	// Empty allowlist — reads still forward.
+	// Empty allowlist, reads still forward.
 	h, _ := buildGatedHandler(t, "target:502", nil)
 
 	client, clientSide, upstream, upstreamSide := newPipePair()
@@ -315,7 +315,7 @@ func TestAllowedWrite_UnitZeroMatchesAny(t *testing.T) {
 	}
 }
 
-// TestHandle_RecordsBytesWhenRecorderSet — v1.30 chunk 1
+// TestHandle_RecordsBytesWhenRecorderSet v1.30 chunk 1
 // proves the optional Recorder field captures bytes that cross
 // the wire-aware modbus gate. The wrap happens BEFORE the frame
 // parser reads, so allowlist routing is preserved + the
@@ -377,7 +377,7 @@ func TestHandle_RecordsBytesWhenRecorderSet(t *testing.T) {
 		t.Errorf("recording perms = %v, want no group/world bits", info.Mode().Perm())
 	}
 
-	// Header carries protocol="modbus" — distinguishes captures
+	// Header carries protocol="modbus", distinguishes captures
 	// across protocols when an operator has many recordings.
 	hdr, err := replay.SeekHeader(recPath)
 	if err != nil {

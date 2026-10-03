@@ -21,7 +21,7 @@ v1.22 chunk 2 ships read-only fingerprint with a fail-closed
 proxy.
 
 ## Spec references
-- ICS-CERT ICSA-12-242-01 / 19-080-01 / 21-014-04 — CVE families.
+- ICS-CERT ICSA-12-242-01 / 19-080-01 / 21-014-04, CVE families.
 - nmap NSE script `codesys-info` (community).
 - Open-source clients: libcodesys-py, codesys-rs.
 
@@ -75,7 +75,7 @@ factors{protocol_risk:80, exposure:75, auth_state:85, capability:30
   deployments don't enforce.
 - impact_class 75: factory-floor PLC blast radius.
 - cve_exposure 10: ICSA-12-242-01 / 19-080-01 / 21-014-04 are
-  well-known CVEs in the family — first plugin to set
+  well-known CVEs in the family, first plugin to set
   cve_exposure non-zero by default.
 
 ## Sentinel errors (wire package)

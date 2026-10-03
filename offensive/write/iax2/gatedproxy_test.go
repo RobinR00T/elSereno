@@ -268,7 +268,7 @@ func TestACKAlwaysPasses(t *testing.T) {
 }
 
 func TestVoiceFrameAlwaysPasses(t *testing.T) {
-	// FrameType Voice (0x02) is never gated — media always flows.
+	// FrameType Voice (0x02) is never gated, media always flows.
 	client, upstream := driveSession(t, nil)
 	voice := buildFullFrame(wire.FrameTypeVoice, 0, 0x1000, 0x2000, 5, 5)
 	_, _ = client.Write(voice)
@@ -307,7 +307,7 @@ func TestNEWBlockedReturnsHANGUP(t *testing.T) {
 		t.Fatalf("refusal should be HANGUP (0x%02x); got 0x%02x", wire.IAXHangup, buf[11])
 	}
 	// DstCallNum in the reply should equal the client's
-	// SrcCallNum — so the client routes the HANGUP to its
+	// SrcCallNum so the client routes the HANGUP to its
 	// pending call.
 	dst := binary.BigEndian.Uint16(buf[2:4]) & 0x7FFF
 	if dst != srcCall {

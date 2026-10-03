@@ -47,7 +47,7 @@ func newPluginsListCmd() *cobra.Command {
 // plugins list. Default output is human-readable text;
 // --json emits the map as JSON for scripting.
 //
-// Same-port collisions (rare but legal — IEC 61850 MMS shares
+// Same-port collisions (rare but legal, IEC 61850 MMS shares
 // port 102 with S7) list every claiming plugin.
 func newPluginsPortsCmd() *cobra.Command {
 	var asJSON bool
@@ -95,7 +95,7 @@ Default output is plain-text "port  plugin1, plugin2, …" lines.
 // without spinning up cobra.
 //
 // Plugins with DefaultPort==0 are skipped (some plugins are
-// transport-agnostic — atmodem doesn't have a port).
+// transport-agnostic, atmodem doesn't have a port).
 func buildPluginsByPort(plugins []core.Plugin) map[int][]string {
 	out := make(map[int][]string, len(plugins))
 	for _, p := range plugins {

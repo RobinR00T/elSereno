@@ -7,7 +7,7 @@
 // Customer Premises Equipment (routers, ONTs, STBs, phones).
 // An ACS (Auto-Configuration Server) sends SOAP RPCs to CPEs to
 // read state, push config, upgrade firmware, reboot, and
-// factory-reset — making the ACS-CPE link one of the most
+// factory-reset, making the ACS-CPE link one of the most
 // privileged channels in the ISP network. A compromised or
 // misconfigured ACS can push firmware to millions of devices.
 //
@@ -29,7 +29,7 @@
 //     name "SetParameterValues".
 //   - Read-only + protocol-flow RPCs (GetParameter{Names,Values,
 //     Attributes}, GetRPCMethods, Inform/InformResponse,
-//     TransferComplete) always pass — blocking these would
+//     TransferComplete) always pass, blocking these would
 //     break the CPE registration cycle.
 //   - Write-capable RPCs (SetParameter{Values,Attributes},
 //     AddObject, DeleteObject, Reboot, Download, Upload,
@@ -80,7 +80,7 @@ import (
 
 // AllowedRPC is one CWMP SOAP RPC name the operator has
 // authorised for this session. Names are case-sensitive per
-// TR-069 §A.4 — "SetParameterValues" ≠ "setparametervalues";
+// TR-069 §A.4, "SetParameterValues" ≠ "setparametervalues";
 // the canonicaliser trims whitespace + strips any namespace
 // prefix ("cwmp:") but preserves case.
 //
@@ -123,7 +123,7 @@ func canonicaliseRPC(s string) string {
 }
 
 // isXMLName returns true if s is a plausible XML NameStartChar
-// followed by NameChar* (ASCII-only fast path — CWMP namespace
+// followed by NameChar* (ASCII-only fast path, CWMP namespace
 // prefixes are always ASCII).
 func isXMLName(s string) bool {
 	if s == "" {
@@ -195,7 +195,7 @@ func SessionMutation(target string, allowed []AllowedRPC) confirm.Mutation {
 //
 // Typical use-case: operator allows `SetParameterValues` during
 // a WAN-side change window, but only over `InternetGatewayDevice.
-// WANDevice.*` — prevents a compromised ACS session from pushing
+// WANDevice.*`: prevents a compromised ACS session from pushing
 // config to the LAN / management sub-trees. Paired with v1.11
 // chunk 1's RPC-level gate: the RPC must be in Allowed AND
 // every parameter must be in AllowedParameterPaths.
@@ -326,7 +326,7 @@ type AllowedFirmware struct {
 	// path differences are exact.
 	URL string
 	// SHA256 is the hex-encoded SHA-256 of the firmware image
-	// the operator expects at URL. Optional — empty SHA256 is
+	// the operator expects at URL. Optional, empty SHA256 is
 	// allowed (gate enforces URL only). When populated, the
 	// dry-run + emit YAML print it for downstream verification.
 	SHA256 string
@@ -484,7 +484,7 @@ func SessionMutationWithFirmware(target string, rpcs []AllowedRPC, paths []Allow
 // Separator 0xFC is below 0xFD (firmware) and 0xFE (paths).
 // 5-byte block.
 //
-// Use case: in-process allow-file reload — operator bumps the
+// Use case: in-process allow-file reload, operator bumps the
 // generation when editing the allow-file; their dry-run
 // computes a new token incorporating the new generation; the
 // running proxy on reload rejects any stale (generation < new)
@@ -603,7 +603,7 @@ var alwaysSafeRPCs = map[string]struct{}{
 	"AutonomousTransferComplete":     {},
 	"Kicked":                         {},
 	"KickedResponse":                 {},
-	// "Fault" itself is also protocol flow — blocking it would
+	// "Fault" itself is also protocol flow, blocking it would
 	// mean a faulty RPC can't be reported to the peer.
 	"Fault": {},
 }
@@ -634,7 +634,7 @@ type WriteGatedHandler struct {
 	// Download RPC passes only when its <URL> matches one of
 	// these entries (canonicalised exact match). Other gated
 	// RPCs are NOT constrained by this list. SHA256 is metadata
-	// only — the gate cannot verify it at RPC time (TR-069
+	// only the gate cannot verify it at RPC time (TR-069
 	// reports the actual hash later via TransferComplete).
 	//
 	// Empty list restores v1.12-chunk-9 behaviour (Download
@@ -650,7 +650,7 @@ type WriteGatedHandler struct {
 	// authorisation (which they audited via EventOffWrite).
 	//
 	// The callback runs synchronously on the proxy's request
-	// goroutine — keep it cheap (the typical implementation
+	// goroutine keep it cheap (the typical implementation
 	// emits a structured log line + Prometheus counter and
 	// returns). Errors inside the callback are silently swallowed
 	// to keep the gate forwarding deterministic.
@@ -691,7 +691,7 @@ type WriteGatedHandler struct {
 	// + per-parameter-path + per-firmware-URL allowlist routing
 	// is captured intact. Useful for forensic post-mortems of
 	// TR-069 sessions where the operator authorised a Download
-	// or SetParameterValues. Nil disables recording — the gate
+	// or SetParameterValues. Nil disables recording, the gate
 	// behaves exactly as it did pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -700,7 +700,7 @@ type WriteGatedHandler struct {
 
 	// pendingMu guards pendingDownloads + pendingOrder. The
 	// state is touched only at Download authorisation time and
-	// at TransferComplete time — both rare paths — so a plain
+	// at TransferComplete time, both rare paths, so a plain
 	// mutex is fine.
 	pendingMu sync.Mutex
 	// pendingDownloads maps CommandKey → DownloadAuthorisation
@@ -711,8 +711,8 @@ type WriteGatedHandler struct {
 	// eviction (delete the oldest entry when at cap). Older
 	// CommandKeys are at the front; the slice is rewritten on
 	// resolve to preserve order without an O(N) walk per
-	// resolve (small N — bounded by PendingDownloadCap, default
-	// 256 — so the cost is acceptable).
+	// resolve (small N, bounded by PendingDownloadCap, default
+	// 256, so the cost is acceptable).
 	pendingOrder []string
 }
 
@@ -844,7 +844,7 @@ func removeFirstOrderEntry(order []string, key string) []string {
 
 // extractDownloadCommandKey walks a Download SOAP body and
 // returns the value of `<CommandKey>` nested under the Download
-// element. Mirrors extractDownloadURL — same streaming xml
+// element. Mirrors extractDownloadURL, same streaming xml
 // decoder pattern, returns "" on parse failure or absent
 // element. v1.16 chunk 1.
 func extractDownloadCommandKey(body []byte) string {
@@ -922,7 +922,7 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 // loop (Connection: close, context cancellation, etc.).
 func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, client, upstream io.Writer, upReader *bufio.Reader) (bool, error) {
 	// Non-POST (GET/HEAD/OPTIONS/PROPFIND/...) bypasses the SOAP
-	// gate — TR-069 RPCs are POST-only by spec; any other method
+	// gate TR-069 RPCs are POST-only by spec; any other method
 	// is either a vendor-specific status endpoint or health
 	// probe, which shouldn't become a hard dependency on the
 	// gate.
@@ -947,7 +947,7 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 	}
 	rpc, ok := extractRPCName(body)
 	if !ok || rpc == "" {
-		// Not a parseable SOAP envelope — could be a heartbeat
+		// Not a parseable SOAP envelope, could be a heartbeat
 		// or keep-alive POST with an empty body. Forward
 		// transparently; the upstream ACS will return its own
 		// error if the request is malformed.
@@ -1059,7 +1059,7 @@ func (h *WriteGatedHandler) firmwareURLAllowed(url string) bool {
 // tree.
 //
 // Returns the empty string when the URL element is absent or
-// the body is unparseable — caller treats either as fail-
+// the body is unparseable, caller treats either as fail-
 // closed when the gate is active.
 func extractDownloadURL(body []byte) string {
 	if len(body) == 0 {
@@ -1128,7 +1128,7 @@ func (h *WriteGatedHandler) refuseWithFault(
 // incoming request matches at least one prefix in the operator's
 // allowlist. Returns false if the path list is empty (we don't
 // let a malformed Set* RPC with no parameters sneak through when
-// the gate is active — fail closed).
+// the gate is active, fail closed).
 func (h *WriteGatedHandler) allParameterPathsAllowed(paths []string) bool {
 	if len(paths) == 0 {
 		return false
@@ -1164,7 +1164,7 @@ func (h *WriteGatedHandler) allParameterPathsAllowed(paths []string) bool {
 // the caller treats an empty slice as fail-closed.
 //
 // Uses encoding/xml's streaming decoder so we don't materialise
-// the full parameter tree in memory — Set* RPCs can carry
+// the full parameter tree in memory, Set* RPCs can carry
 // hundreds of parameters.
 func extractParameterNames(body []byte, rpc string) []string {
 	if len(body) == 0 {
@@ -1226,7 +1226,7 @@ const rpcNameDownload = "Download"
 
 // rpcNameTransferComplete is the CPE → ACS RPC the chunk-1
 // observer hook keys on. The CPE sends this back after it
-// completes (or aborts) a Download / Upload / ScheduleDownload —
+// completes (or aborts) a Download / Upload / ScheduleDownload,
 // it carries the operator-assigned CommandKey + FaultStruct +
 // timing.
 const rpcNameTransferComplete = "TransferComplete"
@@ -1255,7 +1255,7 @@ type TransferCompleteFields struct {
 	// CommandKey ties this report back to the operator-issued
 	// Download / Upload / ScheduleDownload that started the
 	// transfer. Empty when the CPE didn't echo the key (rare
-	// — most CPE stacks honour it).
+	// most CPE stacks honour it).
 	CommandKey string
 	// FaultCode is "0" on success or a TR-069 Annex A fault
 	// code on failure (e.g. "9010" download failure, "9012"
@@ -1275,7 +1275,7 @@ type TransferCompleteFields struct {
 	// CommandKey, populated by the gate when the same CommandKey
 	// was seen in a prior Download in this session. nil when
 	// the CPE reports a TransferComplete for a CommandKey we
-	// never authorised (orphan complete — see Outcome()).
+	// never authorised (orphan complete, see Outcome()).
 	//
 	// v1.16 chunk 1: closes the v1.15 chunk-1 observer half by
 	// letting operators correlate firmware-push outcome with the
@@ -1301,7 +1301,7 @@ type DownloadAuthorisation struct {
 	// the CPE in TransferComplete. Drives the lookup.
 	CommandKey string
 	// DownloadURL is the canonicalised URL extracted from the
-	// Download SOAP body — what the CPE actually fetches.
+	// Download SOAP body, what the CPE actually fetches.
 	DownloadURL string
 	// AllowlistURL is the matching `AllowedFirmware.URL` (canon
 	// form). Empty when the firmware gate was not active for
@@ -1336,10 +1336,10 @@ func (t TransferCompleteFields) IsSuccess() bool {
 //
 // Returns one of:
 //
-//   - "succeeded"       — IsSuccess() && Authorisation != nil
-//   - "failed"          — !IsSuccess() && Authorisation != nil
-//   - "orphan_complete" — IsSuccess() && Authorisation == nil
-//   - "orphan_fault"    — !IsSuccess() && Authorisation == nil
+//   - "succeeded", IsSuccess() && Authorisation != nil
+//   - "failed", !IsSuccess() && Authorisation != nil
+//   - "orphan_complete", IsSuccess() && Authorisation == nil
+//   - "orphan_fault", !IsSuccess() && Authorisation == nil
 //
 // Orphan outcomes are operationally suspicious: the CPE
 // reported a transfer that never traversed our gate (lost
@@ -1376,7 +1376,7 @@ type TransferCompleteObserver func(TransferCompleteFields)
 // recognisable <TransferComplete> element; (zero, false) when
 // the body is unparseable or the RPC element is missing.
 // Individual fields default to empty strings if their
-// elements are absent — callers handle that gracefully (e.g.
+// elements are absent, callers handle that gracefully (e.g.
 // missing CommandKey is rare but valid; the operator just
 // gets a less-correlatable log entry).
 func extractTransferComplete(body []byte) (TransferCompleteFields, bool) {
@@ -1602,7 +1602,7 @@ func (h *WriteGatedHandler) forwardBuffered(req *http.Request, body []byte, clie
 // body isn't parseable SOAP or the Body is empty.
 //
 // Implementation uses encoding/xml's streaming decoder so we
-// don't materialise the whole parameter tree — only enough to
+// don't materialise the whole parameter tree, only enough to
 // find the RPC name. Robust against whitespace, XML comments,
 // processing instructions, and the usual SOAP namespace
 // variations (soap, soap-env, soapenv).
@@ -1641,7 +1641,7 @@ const (
 
 // writeSOAPFault emits an HTTP 200 OK carrying a CWMP SOAP
 // Fault body (TR-069 treats per-RPC errors as application-
-// level SOAP Faults, not HTTP errors — the transport always
+// level SOAP Faults, not HTTP errors, the transport always
 // succeeds). The fault code 9001 "Request denied" maps cleanly
 // to "gate refused this RPC". An X-Elsereno-Gate-Reason header
 // adds operator trace.

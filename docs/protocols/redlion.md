@@ -12,7 +12,7 @@ protocol on TCP/789. Many devices also expose 23 (telnet) and
 - Connect to TCP/789. RLN servers typically send an unsolicited
   banner on connect.
 - If no banner arrives within IOTimeout/2, send a 3-byte zero
-  hello (`0x00 0x00 0x00`) — most Crimson firmware ignores
+  hello (`0x00 0x00 0x00`), most Crimson firmware ignores
   zero-padded handshakes and replies with the default banner.
 - Classify the response by canonical Red Lion banner substring:
   `Red Lion Controls`, `Red Lion`, `Crimson 3`, `CRIMSON 3`,
@@ -20,7 +20,7 @@ protocol on TCP/789. Many devices also expose 23 (telnet) and
   `G3 Kadet`, `G3 HMI`, `Sixnet`.
 
 The banner-substring approach is the conservative public-data
-choice — Crimson 3's tag-length-value RLN frame layout is not
+choice, Crimson 3's tag-length-value RLN frame layout is not
 fully published, but every Internet-exposed device announces
 itself via banner.
 

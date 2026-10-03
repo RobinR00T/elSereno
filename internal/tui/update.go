@@ -160,7 +160,7 @@ func (m Model) handleNavKey(key string) Model {
 // deletes one rune from the tail; printable keys append.
 // tea.KeyType has dozens of named keys; we only care about the
 // editor-meaningful subset and treat the rest as no-ops via
-// the default branch — hence the exhaustive lint suppression.
+// the default branch, hence the exhaustive lint suppression.
 //
 //nolint:exhaustive // see comment above.
 func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

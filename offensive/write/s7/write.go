@@ -18,7 +18,7 @@ type Op string
 // stop are the "classic" Siemens mutations; WriteVar covers memory
 // writes of any data-block / merker region.
 //
-// #nosec G101 -- false positive — op labels
+// #nosec G101 -- false positive, op labels
 const (
 	OpWriteVar   Op = "write_var"   // S7 func 0x05
 	OpPLCStop    Op = "plc_stop"    // S7 func 0x29

@@ -31,7 +31,7 @@ import (
 //
 // Mutating from the gate's perspective: SND_UD and SND_NKE.
 // SND_NKE is link-reset only (no payload), so it's safe in
-// practice — operators who want to refuse it can leave it off
+// practice operators who want to refuse it can leave it off
 // the always-safe list, but the default posture is safe.
 const (
 	// ControlSNDNKE is the link-reset send (0x40). Always-safe:
@@ -76,14 +76,14 @@ const (
 	// CIAppReset is "Application Reset" (0x50). Soft-reset the
 	// meter's internal state (clears tariff buffers, retariffs).
 	CIAppReset byte = 0x50
-	// CIDataSend is "Data send" (0x51) — the dominant write CI.
+	// CIDataSend is "Data send" (0x51), the dominant write CI.
 	// Parameter values + tariff configuration ride this.
 	CIDataSend byte = 0x51
 	// CISelectSlave is secondary-address selection (0x52). Not
 	// strictly mutating but routes subsequent SND_UD to the
 	// selected slave.
 	CISelectSlave byte = 0x52
-	// CISyncAction is "Sync Action" (0x55) — sync counters across
+	// CISyncAction is "Sync Action" (0x55), sync counters across
 	// a meter group. DESTRUCTIVE: typically resets all slaves.
 	CISyncAction byte = 0x55
 	// CISetBaudBase is the start of the "set baudrate to X" range

@@ -2,7 +2,7 @@
 // Phoenix Contact PCWorx runtime protocol on TCP/1962.
 //
 // PCWorx is the proprietary runtime protocol used by Phoenix
-// Contact's Inline Controller (ILC) PLC family — ILC 130, 150,
+// Contact's Inline Controller (ILC) PLC family, ILC 130, 150,
 // 170, 191, 350, 370, 390, plus the AXC F 1152 / 2152 / 3152
 // distributed-control series and the RFC 460R / 470S PN
 // Profinet-IO PLCs. A handful of OEM rebrands ship the same
@@ -22,7 +22,7 @@
 // control) is not implemented in v1.25, so the proxy refuses
 // the session immediately rather than relay opaque bytes.
 //
-// CVE history (cve_exposure: 8) — Phoenix Contact ILC family
+// CVE history (cve_exposure: 8), Phoenix Contact ILC family
 // has a recurring stream of advisories:
 //
 //   - ICSA-15-160-01 (PCWorx auth bypass + RCE).

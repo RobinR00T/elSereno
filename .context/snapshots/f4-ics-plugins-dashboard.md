@@ -5,7 +5,7 @@ date: 2026-04-19
 token-budget: 1500
 ---
 
-# Phase F4 snapshot — Remaining ICS plugins + dashboard + API
+# Phase F4 snapshot, Remaining ICS plugins + dashboard + API
 
 **Closed on 2026-04-19.** `make ci` green end-to-end. The plugin set
 covers every protocol the brief calls out for v1; the web dashboard
@@ -49,7 +49,7 @@ plus `atmodem`. 12 total.
 ### Dashboard + API + OpenAPI
 - `internal/web/handlers/dashboard.go`: overview page listing
   registered plugins with build-tag badges. Static HTML + inline
-  CSS (ADR-007 — no Node at build). The polished HTMX dashboard
+  CSS (ADR-007, no Node at build). The polished HTMX dashboard
   lands in F4 chunk 2.
 - `internal/web/handlers/api.go`: `/api/v1/plugins`,
   `/api/v1/scoring`, `/api/v1/health`. All read-only. Envelope
@@ -99,7 +99,7 @@ against the list.
 - **Pass-through proxies** for the new plugins. The write-gating
   matrix (per-FC / per-service / per-subcode) is protocol-specific
   and F5-scoped (each write has its own triple-confirm semantics).
-  Only Modbus and AT-modem ship with active gating today — the
+  Only Modbus and AT-modem ship with active gating today, the
   other proxies are F3-framework scaffolds.
 - **Conpot over per-plugin simulators**. Writing nine simulators
   duplicated the work the Conpot project already does. The Go
@@ -113,7 +113,7 @@ against the list.
 ## New pitfalls captured
 
 None. Lint surfaced the usual exhaustive / revive / misspell noise
-around CSS `color` — fixed inline.
+around CSS `color`: fixed inline.
 
 ## Debt accepted (moved to F4 chunk 2 or F5)
 

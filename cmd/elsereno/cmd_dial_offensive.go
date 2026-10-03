@@ -19,7 +19,7 @@ import (
 func newDialCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dial",
-		Short: "Dial guard (ADR-041) — individual validation + batch wardial",
+		Short: "Dial guard (ADR-041), individual validation + batch wardial",
 	}
 	cmd.AddCommand(newDialValidateCmd())
 	cmd.AddCommand(newDialBatchCmd())
@@ -38,7 +38,7 @@ func newDialValidateCmd() *cobra.Command {
 		Long: `Runs the dial guard (ADR-041):
 
   1. Normalise the number (strip +, 00, non-digit punctuation).
-  2. Reject if ≤3 digits (unbypassable — emergency / short codes).
+  2. Reject if ≤3 digits (unbypassable, emergency / short codes).
   3. Reject if scope.yaml's blocked_numbers matches (prefix or exact).
   4. (not in this verb) triple-confirm via offensive.confirm.Authorize.
 
@@ -54,18 +54,18 @@ Use this for dry-run validation before invoking a delivery channel.`,
 			norm, err := dial.Validate(number, sc)
 			switch {
 			case errors.Is(err, dial.ErrShortNumber):
-				cmd.Printf("DENY — ≤3-digit hard block (normalised=%q)\n", norm)
+				cmd.Printf("DENY, ≤3-digit hard block (normalised=%q)\n", norm)
 				return fail(core.ExitError, err)
 			case errors.Is(err, dial.ErrBlockedByScope):
-				cmd.Printf("DENY — scope.yaml blocked_numbers (normalised=%q)\n", norm)
+				cmd.Printf("DENY, scope.yaml blocked_numbers (normalised=%q)\n", norm)
 				return fail(core.ExitError, err)
 			case errors.Is(err, dial.ErrEmpty):
-				cmd.Println("DENY — empty / non-digit number")
+				cmd.Println("DENY, empty / non-digit number")
 				return fail(core.ExitUsage, err)
 			case err != nil:
 				return fail(core.ExitError, err)
 			}
-			cmd.Printf("ALLOW (pending triple-confirm) — normalised=%q\n", norm)
+			cmd.Printf("ALLOW (pending triple-confirm), normalised=%q\n", norm)
 			cmd.Println()
 			cmd.Println("Next: run `elsereno dial batch ...` for a multi-number dry-run with audit chain.")
 			return nil
@@ -79,7 +79,7 @@ Use this for dry-run validation before invoking a delivery channel.`,
 // newDialBatchCmd classifies a list of numbers against the dial
 // guard + scope + ≤3-digit hard block and appends one
 // `offensive_dial` audit entry per decision. Default mode is
-// preview (dry-run) — v1.2 wires in actual PSTN / VoIP delivery
+// preview (dry-run), v1.2 wires in actual PSTN / VoIP delivery
 // when the modem / VoIP backends land. The seccomp `dial`
 // sandbox is installed before the batch runs so the process
 // cannot spawn fresh network sockets while classifying.
@@ -87,7 +87,7 @@ func newDialBatchCmd() *cobra.Command {
 	var scopePath, numbersFile, disposition string
 	cmd := &cobra.Command{
 		Use:   "batch",
-		Short: "Wardial batch — validate + audit every number in a file or stdin",
+		Short: "Wardial batch, validate + audit every number in a file or stdin",
 		Long: `Reads one number per line from --numbers-file (or stdin if omitted)
 and appends one audit chain entry per number (allow / short /
 blocked / empty / error). Default disposition is "preview"; pass
@@ -173,7 +173,7 @@ func openNumbersInput(path string) (input interface{ Read(p []byte) (int, error)
 // `elsereno audit verify-file` afterwards.
 func printBatchSummary(cmd *cobra.Command, results []dial.BatchResult, auditPath string) {
 	s := dial.Summarise(results)
-	cmd.Printf("wardial batch — %d numbers classified:\n", s.Total)
+	cmd.Printf("wardial batch, %d numbers classified:\n", s.Total)
 	cmd.Printf("  allow:   %d\n", s.Allow)
 	cmd.Printf("  short:   %d (≤3-digit hard block)\n", s.Short)
 	cmd.Printf("  blocked: %d (scope.blocked_numbers)\n", s.Blocked)

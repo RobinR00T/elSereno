@@ -7,7 +7,7 @@ import (
 	"local/elsereno/internal/protocols/modbus/wire"
 )
 
-// BenchmarkReadFrame measures the hot path for the proxy — every
+// BenchmarkReadFrame measures the hot path for the proxy, every
 // forwarded byte passes through ReadFrame. Re-uses a single pre-
 // baked buffer so the allocator is the variable under test.
 func BenchmarkReadFrame(b *testing.B) {
@@ -28,7 +28,7 @@ func BenchmarkReadFrame(b *testing.B) {
 	}
 }
 
-// BenchmarkWriteFrame bounds the cost of emitting a Modbus frame —
+// BenchmarkWriteFrame bounds the cost of emitting a Modbus frame,
 // the proxy's write-ban refusal path relies on it.
 func BenchmarkWriteFrame(b *testing.B) {
 	frame := wire.BuildReadDeviceIDRequest(1, 1)

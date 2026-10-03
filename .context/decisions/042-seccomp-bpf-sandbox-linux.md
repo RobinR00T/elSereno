@@ -14,7 +14,7 @@ ADR-010 deferred the sandbox library decision to F5. F5 now wants a
 concrete answer: when an offensive subprocess is spawned (exploit
 binary, CVE PoC, credential harvester that shells out to nmap NSE),
 it must run under a syscall-filter that prevents the obvious escape
-paths — file I/O outside the working directory, network except the
+paths, file I/O outside the working directory, network except the
 target, `ptrace`, unshare, `mount`, kernel-module load, etc.
 
 ## Decision
@@ -33,12 +33,12 @@ Linux. Selection rationale:
   process.
 
 On non-Linux, the sandbox package compiles to a no-op with a logged
-warning — offensive subprocess is still allowed (matches F0 posture
+warning, offensive subprocess is still allowed (matches F0 posture
 for macOS dev workflows) but the audit event records
 `sandbox=unavailable`.
 
 ### Profiles
-- `exploit` — lift `read`, `write`, `close`, `mmap`, `munmap`,
+- `exploit`: lift `read`, `write`, `close`, `mmap`, `munmap`,
   `fcntl`, `poll`, `epoll_*`, `socket` (AF_INET/AF_INET6 only via
   filter arg-equality), `connect`, `recvfrom`, `sendto`, `exit`,
   `exit_group`, `rt_sigaction`, `rt_sigreturn`, `nanosleep`,
@@ -47,10 +47,10 @@ for macOS dev workflows) but the audit event records
   with CLONE_THREAD), `unshare`, `mount`, `ptrace`, `kexec_load`,
   `init_module`, `finit_module`, `delete_module`,
   `bpf`, `reboot`, `setns`, `pivot_root`.
-- `harvest` — same base + `getaddrinfo`-backing (`sendmmsg`,
+- `harvest`: same base + `getaddrinfo`-backing (`sendmmsg`,
   `recvmmsg`) for DNS. Block file writes (`openat` with `O_WRONLY |
   O_RDWR | O_CREAT` is argument-filtered to `-EPERM`).
-- `dial` — TTY + modem path; allow `ioctl` on `/dev/tty*`;
+- `dial`: TTY + modem path; allow `ioctl` on `/dev/tty*`;
   `termios` goes through `ioctl` so it's whitelisted. Block all
   network socket calls.
 
@@ -80,16 +80,16 @@ EPERM/EACCES. The test failure modes are fatal (not warnings).
 - macOS has no equivalent in pure Go without cgo into
   `sandbox_init(3)`; we accept the "log and continue" degradation
   during operator development. Operators running offensive in
-  production MUST use Linux — documented in `SECURITY.md`.
+  production MUST use Linux, documented in `SECURITY.md`.
 - A BPF filter that passes a carefully-crafted exploit is still an
   unknown; the sandbox is defence-in-depth, not the primary control.
 
 ## Alternatives considered
-- **`seccomp` from `libseccomp` via cgo**: rejected — cgo dependency
+- **`seccomp` from `libseccomp` via cgo**: rejected, cgo dependency
   fights ADR-002.
 - **`gVisor`**: excellent isolation but requires a sidecar runtime
   we are not willing to ship.
-- **No sandbox, rely on triple-confirm**: rejected — defence in
+- **No sandbox, rely on triple-confirm**: rejected, defence in
   depth is the point; we want both.
 
 ## References

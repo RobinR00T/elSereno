@@ -17,14 +17,14 @@
 //     Who-Has / I-Have / TimeSync / UnconfirmedCOVNotification /
 //     UnconfirmedEventNotification / UnconfirmedPrivateTransfer /
 //     UTCTimeSynchronization. Discovery / notification / presence
-//     — no state changes.
+//     no state changes.
 //   - Simple-ACK / Complex-ACK / Segment-ACK / Error / Reject /
 //     Abort PDUs: server-side responses, always passed through.
 //   - Confirmed-Request PDUs with a *non-mutating* service choice
 //     (ReadProperty, ReadPropertyMultiple, ReadRange,
 //     AtomicReadFile, SubscribeCOV, GetAlarmSummary, etc.).
 //
-// Gated traffic — Confirmed-Request PDUs with a mutating service:
+// Gated traffic, Confirmed-Request PDUs with a mutating service:
 //   - AtomicWriteFile
 //   - AddListElement / RemoveListElement
 //   - CreateObject / DeleteObject
@@ -61,7 +61,7 @@ import (
 
 // AllowedService is one BACnet confirmed-service choice the
 // operator has authorised for the session. ServiceChoice is the
-// ASHRAE 135 Table 20-7 numeric — e.g. 15 for WriteProperty.
+// ASHRAE 135 Table 20-7 numeric, e.g. 15 for WriteProperty.
 // Always-safe services (reads, unconfirmed, acks) don't need
 // listing.
 type AllowedService struct {
@@ -85,7 +85,7 @@ type AllowedService struct {
 // Other mutating services (WritePropertyMultiple, CreateObject,
 // DeleteObject, ReinitializeDevice, DeviceCommunicationControl,
 // LifeSafetyOperation, AtomicWriteFile, AddListElement,
-// RemoveListElement) are NOT constrained by AllowedObjects —
+// RemoveListElement) are NOT constrained by AllowedObjects,
 // their request structures differ. Operators who want per-object
 // scoping on those services will need v1.13+ (or keep using
 // service-only gating for them today).
@@ -93,7 +93,7 @@ type AllowedService struct {
 // Empty list disables the per-object gate (WriteProperty still
 // allowed service-wide if 15 is in Allowed).
 type AllowedObject struct {
-	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType, 10-bit
 	// enum (e.g. 0 = AnalogInput, 2 = BinaryOutput, 8 = Device).
 	ObjectType uint16
 	// ObjectInstance is the 22-bit instance number (0..4_194_303).
@@ -143,7 +143,7 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 //     level gate), AND
 //   - the parsed objectSpecifier's BACnetObjectType is in
 //     this list (regardless of which CHOICE form the request
-//     uses — [0] objectType OR [1] objectIdentifier; the
+//     uses [0] objectType OR [1] objectIdentifier; the
 //     instance is ignored at the gate).
 //
 // Empty list disables the per-create-object gate (CreateObject
@@ -152,10 +152,10 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 // Why type-only and not (type, instance)? Two reasons:
 //
 //  1. The most common CreateObject form is [0] objectType where
-//     the device picks the instance — an operator can't pre-
+//     the device picks the instance, an operator can't pre-
 //     declare a specific instance to allow.
 //  2. The typical BAS use-case is "operator may create new
-//     Schedule (type 17) objects on this device" — a TYPE-level
+//     Schedule (type 17) objects on this device", a TYPE-level
 //     allowlist matches this exactly. Per-instance Create
 //     allowlisting is unusual; v1.14+ may add it if asked.
 //
@@ -164,7 +164,7 @@ func SessionMutation(target string, allowed []AllowedService) confirm.Mutation {
 // of TypeX does not imply a DeleteObject of TypeX.Y or a
 // WriteProperty of TypeX.Y.PresentValue.
 type AllowedCreateObject struct {
-	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType, 10-bit
 	// enum (e.g. 17 = Schedule, 19 = MultiStateValue).
 	ObjectType uint16
 }
@@ -173,7 +173,7 @@ type AllowedCreateObject struct {
 // AllowedLSOOperation: scopes a LifeSafetyOperation request
 // (service 27) to a specific (ObjectType, ObjectInstance)
 // Life-Safety-Point. v1.13 chunk 11 closed LSO at the per-
-// operation grain ("operator may silence + unsilence" — affects
+// operation grain ("operator may silence + unsilence", affects
 // the entire device); v1.16 chunk 3 lets operators allow
 // per-object reset/unsilence ("only zone-3 fire-alarm panel
 // may receive ResetAlarm").
@@ -193,13 +193,13 @@ type AllowedCreateObject struct {
 //   - Empty AllowedLSOTargets: no behaviour change from v1.13
 //     chunk 11 (per-operation-only gating).
 //
-// Wire-level both shapes are inspected — see
+// Wire-level both shapes are inspected, see
 // wire.ParseLifeSafetyOperationWithTarget for the parser the
 // gate uses.
 type AllowedLSOTarget struct {
 	// Operation is the BACnet LifeSafetyOperation enum (0..9).
 	Operation uint8
-	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType, 10-bit
 	// enum (e.g. 21 = LifeSafetyPoint, 22 = LifeSafetyZone).
 	ObjectType uint16
 	// ObjectInstance is the 22-bit BACnet ObjectInstance per
@@ -234,11 +234,11 @@ type AllowedLSOTarget struct {
 //   - Empty AllowedCreateObjectInstances: no behaviour change
 //     from v1.13 chunk 8 (per-type-only gating).
 //
-// Wire-level both CHOICEs are inspected — see
+// Wire-level both CHOICEs are inspected, see
 // wire.ParseCreateObjectWithInstance for the parser the gate
 // uses.
 type AllowedCreateObjectInstance struct {
-	// ObjectType is ASHRAE 135 §21 BACnetObjectType — 10-bit
+	// ObjectType is ASHRAE 135 §21 BACnetObjectType, 10-bit
 	// enum.
 	ObjectType uint16
 	// ObjectInstance is the 22-bit BACnet ObjectInstance per
@@ -253,7 +253,7 @@ type AllowedCreateObjectInstance struct {
 // 13 closes the last BACnet mutating surface.
 //
 // Both services share the SAME request shape (per ASHRAE 135
-// §15.1 + §15.2) — `[0] objectIdentifier`, `[1]
+// §15.1 + §15.2), `[0] objectIdentifier`, `[1]
 // propertyIdentifier`, `[2] propertyArrayIndex` (optional),
 // `[3] listOfElements`. The gate parses the first two fields
 // (which is exactly the WriteProperty prefix) and refuses
@@ -275,7 +275,7 @@ type AllowedCreateObjectInstance struct {
 // property=102` (write recipient_list on NotificationClass#1)
 // might NOT want to allow appending or removing individual
 // recipients via list-mutations. The two privileges are
-// orthogonal — keeping the lists separate enforces explicit
+// orthogonal keeping the lists separate enforces explicit
 // opt-in per direction.
 //
 // Empty list disables the per-element gate (svc 8/9 remain
@@ -300,7 +300,7 @@ type AllowedListElement struct {
 // AllowedAtomicWriteFile scopes an AtomicWriteFile confirmed-
 // request (service 7) to a specific File object instance. v1.13
 // chunk 12 adds per-file-instance gating for the service that
-// overwrites File objects on the device — firmware blobs,
+// overwrites File objects on the device, firmware blobs,
 // configuration files, and log files all live behind File
 // objects on most BACnet devices.
 //
@@ -318,13 +318,13 @@ type AllowedListElement struct {
 // remains gated at service-choice level if 7 is in Allowed).
 //
 // Why per-instance and not (type, instance)? The fileIdentifier
-// in AtomicWriteFile MUST be a File object (ObjectType 10) —
+// in AtomicWriteFile MUST be a File object (ObjectType 10),
 // no operator would ever want to allow writing to non-File
 // objects via this RPC. Storing only the instance keeps the
 // API simple; the parser validates the type itself.
 //
 // Why not also gate the access specifier (stream vs record,
-// start position, record count)? That's wire-level minutiae —
+// start position, record count)? That's wire-level minutiae,
 // the operator's risk model is "may operator X overwrite
 // firmware blob File#3?" not "may they overwrite bytes
 // 100..200 of File#3?". Per-byte-range scoping has no
@@ -367,24 +367,24 @@ type AllowedAtomicWriteFile struct {
 //     incident can cause loss of life. Operators on production
 //     life-safety buses should NEVER allow these.
 //   - 4/5/6 reset/reset-alarm/reset-fault: operationally
-//     significant. Clear alarm/fault state — useful for post-
+//     significant. Clear alarm/fault state, useful for post-
 //     incident cleanup, dangerous if performed on an ACTIVE
 //     alarm before the underlying cause is addressed.
 //   - 7/8/9 unsilence/unsilence-audible/unsilence-visual: SAFE
-//     direction. Undoes a prior silence — allows audible/
+//     direction. Undoes a prior silence, allows audible/
 //     visual indicators to resume. Typical recovery action
 //     when a panel was wrongly silenced.
 //
-// Typical operator pattern: allow 7/8/9 (unsilence — recovery
+// Typical operator pattern: allow 7/8/9 (unsilence, recovery
 // direction) freely, allow 4/5/6 (reset) during incident
 // response after manual verification, REFUSE 1/2/3 (silence)
 // outright on production life-safety systems.
 //
 // The optional [3] objectIdentifier (which life-safety object
-// the operation targets) is ignored at gate level — per-object
+// the operation targets) is ignored at gate level, per-object
 // scoping for LSO is a v1.14+ extension if operators ask. The
 // requestingProcessIdentifier ([0]) and requestingSource ([1])
-// are also ignored — those are operator-side metadata, not
+// are also ignored, those are operator-side metadata, not
 // security-relevant at the gate.
 //
 // Kept SEPARATE from all other allowlists: this is a service-
@@ -417,7 +417,7 @@ type AllowedLSOOperation struct {
 // radii:
 //
 //   - 0 enable: SAFE direction. Re-enables comms on a device
-//     that was previously disabled — the typical recovery
+//     that was previously disabled, the typical recovery
 //     action after an attacker silenced it.
 //   - 1 disable: HOSTILE. Silences the device's BACnet
 //     communication for the requested duration; blocks all
@@ -426,10 +426,10 @@ type AllowedLSOOperation struct {
 //   - 2 disableInitiation: SUBTLER attack. Device still
 //     responds to read polls but will not INITIATE
 //     notifications (no I-Am, no UnconfirmedCOVNotification,
-//     no event broadcasts) — defenders lose proactive
+//     no event broadcasts), defenders lose proactive
 //     awareness while polled metrics look normal.
 //
-// Typical operator pattern: allow state 0 (enable) only —
+// Typical operator pattern: allow state 0 (enable) only,
 // permits recovery from an attacker-induced silence but
 // refuses any attempt to silence a device. The optional
 // timeDuration (context tag 0) and password (context tag 2)
@@ -470,12 +470,12 @@ type AllowedDCCState struct {
 //   - 2..6 backup/restore lifecycle: bracket vendor backup
 //     workflows; safe in isolation but destructive when
 //     interleaved with normal traffic.
-//   - 7 activate-changes: usually safe — post-config-write
+//   - 7 activate-changes: usually safe, post-config-write
 //     refresh.
 //
 // Typical operator pattern: allow only state 7
 // (activate-changes) during a maintenance window; refuse
-// 0..6 outright. Per-instance scoping doesn't apply here —
+// 0..6 outright. Per-instance scoping doesn't apply here,
 // ReinitializeDevice always targets the device the proxy is
 // forwarding to.
 //
@@ -588,7 +588,7 @@ func SessionMutationWithObjects(target string, allowed []AllowedService, objects
 // of the v1.12 layer. Backwards-compat ladder: empty
 // deleteObjects → equals AllowlistHashWithObjects (v1.12);
 // empty deleteObjects AND empty objects → equals AllowlistHash
-// (v1.4). v1.4–v1.12 confirm-tokens remain valid.
+// (v1.4). v1.4-v1.12 confirm-tokens remain valid.
 //
 // Hash layout (when deleteObjects is non-empty):
 //
@@ -688,7 +688,7 @@ func SessionMutationWithDeleteObjects(target string, allowed []AllowedService, o
 //	  || 0xFD || (type BE16) × sorted_createObjects
 //
 // Separator 0xFD is below 0xFE (deletes) and 0xFF (per-property
-// objects) — distinct sentinel byte. Per-entry is 2 bytes (type).
+// objects), distinct sentinel byte. Per-entry is 2 bytes (type).
 func AllowlistHashWithCreateObjects(target string, allowed []AllowedService, objects []AllowedObject, deleteObjects []AllowedDeleteObject, createObjects []AllowedCreateObject) [32]byte {
 	if len(createObjects) == 0 {
 		return AllowlistHashWithDeleteObjects(target, allowed, objects, deleteObjects)
@@ -802,7 +802,7 @@ func writeCreateObjectsBlock(h hashWriter, sorted []AllowedCreateObject) {
 }
 
 // hashWriter is the minimal io.Writer subset the per-block
-// helpers use — sha256.New() satisfies it via its hash.Hash
+// helpers use, sha256.New() satisfies it via its hash.Hash
 // interface. Defined locally so the helpers don't need to
 // import "hash" + "io" just to share signatures.
 type hashWriter interface {
@@ -908,7 +908,7 @@ type Allowlists struct {
 	// Generation is the optional v1.16 chunk-4 token-generation
 	// cookie. When non-zero it folds into the session hash so a
 	// dry-run + run with a different generation produce
-	// different confirm-tokens — the foundation for in-process
+	// different confirm-tokens, the foundation for in-process
 	// allow-file reload (operator bumps generation when
 	// editing the allow-file; the proxy sees a fresh token at
 	// reload time and rejects stale ones). When zero (default)
@@ -1079,7 +1079,7 @@ func SessionMutationWithLSOOps(target string, al Allowlists) confirm.Mutation {
 // Separator 0xF9 is below 0xFA (LSO ops), 0xFB (DCC), 0xFC
 // (reinit), 0xFD (creates), 0xFE (deletes), and 0xFF (per-
 // property objects). Per-entry is 4 bytes (the 22-bit instance
-// stored in a 4-byte big-endian word — the high 10 bits stay
+// stored in a 4-byte big-endian word, the high 10 bits stay
 // zero since File has no namespace prefix).
 func AllowlistHashWithAWF(target string, al Allowlists) [32]byte {
 	if len(al.AtomicWriteFiles) == 0 {
@@ -1156,7 +1156,7 @@ func SessionMutationWithAWF(target string, al Allowlists) confirm.Mutation {
 // Separator 0xF8 is below 0xF9 (AWF), 0xFA (LSO), 0xFB (DCC),
 // 0xFC (reinit), 0xFD (creates), 0xFE (deletes), and 0xFF
 // (per-property objects). Per-entry is 10 bytes (2 type + 4
-// instance + 4 property — same shape as AllowedObjects). The
+// instance + 4 property, same shape as AllowedObjects). The
 // allowlist applies to BOTH svc 8 (AddListElement) and svc 9
 // (RemoveListElement) since their request shapes are identical.
 func AllowlistHashWithListElements(target string, al Allowlists) [32]byte {
@@ -1703,7 +1703,7 @@ type WriteGatedHandler struct {
 	// preserves service-choice-only gating for that service.
 	AllowedCreateObjects []AllowedCreateObject
 	// AllowedCreateObjectInstances is the optional v1.16 chunk-2
-	// per-(type, instance) allowlist for CreateObject — refines
+	// per-(type, instance) allowlist for CreateObject, refines
 	// the v1.13 chunk-8 per-type list when the ACS uses the [1]
 	// objectIdentifier CHOICE. See AllowedCreateObjectInstance
 	// for semantics. Empty list preserves chunk-8 behaviour.
@@ -1725,7 +1725,7 @@ type WriteGatedHandler struct {
 	AllowedLSOOperations []AllowedLSOOperation
 	// AllowedLSOTargets is the optional v1.16 chunk-3 per-
 	// (operation, type, instance) allowlist for LifeSafety-
-	// Operation — refines the v1.13 chunk-11 per-operation list
+	// Operation refines the v1.13 chunk-11 per-operation list
 	// when the ACS includes the [3] objectIdentifier. See
 	// AllowedLSOTarget for semantics. Empty list preserves
 	// chunk-11 behaviour.
@@ -1759,7 +1759,7 @@ type WriteGatedHandler struct {
 	// every per-service / per-object / per-state allowlist
 	// decision (WriteProperty, ReinitializeDevice, DCC, LSO,
 	// AtomicWriteFile, ListElement, …) is captured intact. Nil
-	// disables recording — the gate behaves exactly as it did
+	// disables recording, the gate behaves exactly as it did
 	// pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -1968,7 +1968,7 @@ func (h *WriteGatedHandler) objectIdentityGatesAllow(svc wire.ConfirmedService, 
 // PropertyID) tuple is in the operator's per-element allowlist.
 // Fail-closed on unparseable BER. Both svc 8 and svc 9 share
 // the same request shape (per ASHRAE 135 §15.1 / §15.2), which
-// is also the WriteProperty prefix — we reuse
+// is also the WriteProperty prefix, we reuse
 // wire.ParseWriteProperty to extract the (object, property)
 // target.
 func (h *WriteGatedHandler) listElementAllowed(apdu []byte) bool {
@@ -2050,7 +2050,7 @@ func (h *WriteGatedHandler) stateListGatesAllow(svc wire.ConfirmedService, apdu 
 // Operators wanting strict per-object scoping leave
 // AllowedLSOOperations empty and populate AllowedLSOTargets;
 // device-wide LSO requests (no [3] field) then refuse because
-// they don't carry an object to match against — see
+// they don't carry an object to match against, see
 // AllowedLSOTarget.
 func (h *WriteGatedHandler) lsoOperationAllowed(apdu []byte) bool {
 	const crHeader = 4
@@ -2136,7 +2136,7 @@ func (h *WriteGatedHandler) reinitStateAllowed(apdu []byte) bool {
 // AllowedCreateObjects = nil and populate
 // AllowedCreateObjectInstances; CHOICE [0] requests
 // (type-only) then refuse because they don't carry an instance
-// to match against — see AllowedCreateObjectInstance.
+// to match against, see AllowedCreateObjectInstance.
 func (h *WriteGatedHandler) createObjectAllowed(apdu []byte) bool {
 	const crHeader = 4
 	if len(apdu) <= crHeader {

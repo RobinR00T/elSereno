@@ -38,7 +38,7 @@ type Plugin struct {
 	// most common PBX admin port, and self-signed certificates
 	// are ubiquitous).
 	Scheme string
-	// Path is the URL path to GET. Default "/" — enough to
+	// Path is the URL path to GET. Default "/", enough to
 	// fingerprint most PBXes because the brand usually appears in
 	// the HTML <title> or a canonical meta tag. Callers can
 	// override to a vendor-specific path like "/admin/config.php"
@@ -49,7 +49,7 @@ type Plugin struct {
 	// actively block curl/go-http-client.
 	UserAgent string
 	// InsecureSkipVerify disables TLS certificate validation.
-	// Default true — PBX default installs virtually always have
+	// Default true, PBX default installs virtually always have
 	// self-signed or long-expired certs, and we're fingerprinting
 	// rather than talking to them, so the operational value
 	// outweighs the MITM risk in this narrow context.
@@ -73,7 +73,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "HTTP(S) PBX admin-page fingerprint — identifies FreePBX, 3CX, Yeastar, Cisco UCM, Avaya, Mitel, Grandstream, Fanvil, Yealink, Asterisk Manager, Switchvox, Elastix, FreeSWITCH on ports 443 / 80 / 8088 / 5001 / 8443",
+		Description: "HTTP(S) PBX admin-page fingerprint, identifies FreePBX, 3CX, Yeastar, Cisco UCM, Avaya, Mitel, Grandstream, Fanvil, Yealink, Asterisk Manager, Switchvox, Elastix, FreeSWITCH on ports 443 / 80 / 8088 / 5001 / 8443",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -141,11 +141,11 @@ func (p *Plugin) httpClient() *http.Client {
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{Timeout: p.DialTimeout}).DialContext,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402 — PBX admin panels ubiquitously ship self-signed certs; we're fingerprinting, not transmitting credentials, so the operational value outweighs MITM risk in this narrow context.
+			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402, PBX admin panels ubiquitously ship self-signed certs; we're fingerprinting, not transmitting credentials, so the operational value outweighs MITM risk in this narrow context.
 			MinVersion:         tls.VersionTLS12,
 		},
 		TLSHandshakeTimeout: p.DialTimeout,
-		// PBX admin pages are small — no need for keep-alive.
+		// PBX admin pages are small, no need for keep-alive.
 		DisableKeepAlives: true,
 	}
 	return &http.Client{
@@ -157,7 +157,7 @@ func (p *Plugin) httpClient() *http.Client {
 	}
 }
 
-// REPL stub — consistent with every other protocol plugin.
+// REPL stub, consistent with every other protocol plugin.
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("pbxhttp: REPL arrives with the generic framework")
 }
@@ -237,9 +237,9 @@ func buildFinding(target core.Target, statusCode int, vendor Vendor, title, body
 	factors := map[string]int{
 		"protocol_risk": 30, // default for "HTTP responder, no PBX markers"
 		"exposure":      70, // HTTP admin UIs on the public internet
-		"auth_state":    60, // unknown — most PBX logins challenge but allow OPTIONS to pass
+		"auth_state":    60, // unknown, most PBX logins challenge but allow OPTIONS to pass
 		"capability":    30,
-		"impact_class":  40, // HTTP alone isn't a full PBX — scoring bumps on vendor match
+		"impact_class":  40, // HTTP alone isn't a full PBX, scoring bumps on vendor match
 		// cve_exposure 11: FreePBX RCE family (CVE-2014-7235
 		// admin shell injection + CVE-2019-19006 + CVE-2020-
 		// 25822), Asterisk Manager web (CVE-2017-9358), 3CX

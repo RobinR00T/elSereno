@@ -190,7 +190,7 @@ func TestProbeAgainstRefusalEndCode(t *testing.T) {
 func TestProbeAgainstAbsurdLength(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
-		// Header with declared length 0xFFFF — past the
+		// Header with declared length 0xFFFF, past the
 		// MaxResponseDataLength sanity ceiling.
 		return []byte{
 			0xD0, 0x00,

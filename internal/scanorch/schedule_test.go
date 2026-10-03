@@ -10,7 +10,7 @@ import (
 )
 
 // newSchedReq is a helper for tests. The input parameter is
-// retained even though every callsite passes "stdin" — keeps
+// retained even though every callsite passes "stdin", keeps
 // the call shape obvious + lets future tests use list:/nmap:
 // inputs without rewriting the helper.
 //
@@ -186,7 +186,7 @@ func TestMemoryScheduleStore_Create_BadCron(t *testing.T) {
 	}
 }
 
-// TestScanSchedule_IsDue_Cron: "0 2 * * *" — at 02:00 same
+// TestScanSchedule_IsDue_Cron: "0 2 * * *", at 02:00 same
 // day after creation, the schedule is due.
 func TestScanSchedule_IsDue_Cron(t *testing.T) {
 	created := time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)
@@ -830,7 +830,7 @@ func TestMemoryScheduleStore_Update_IfMatchSkippedWhenNil(t *testing.T) {
 		Name:            "y",
 		Template:        scanorch.SubmitRequest{Input: "stdin"},
 		IntervalSeconds: 3600,
-		// IfMatch nil — no precondition.
+		// IfMatch nil, no precondition.
 	})
 	if err != nil {
 		t.Errorf("err = %v, want nil with nil IfMatch", err)

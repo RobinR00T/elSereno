@@ -22,7 +22,7 @@ import (
 	sipwrite "local/elsereno/offensive/write/sip"
 )
 
-// TestAttachRecorder_AllSupportedHandlers — pin that every
+// TestAttachRecorder_AllSupportedHandlers pin that every
 // gated-proxy handler type that ships a Recorder field is
 // covered by attachRecorder. v1.30 chunk 1 wired the original
 // 7; v1.35 chunk 1 added pcworx + mms + enip + s7. A new
@@ -61,7 +61,7 @@ func TestAttachRecorder_AllSupportedHandlers(t *testing.T) {
 	}
 }
 
-// TestAttachRecorder_UnsupportedTypeReturnsFalse — the
+// TestAttachRecorder_UnsupportedTypeReturnsFalse the
 // fall-through default branch returns false for any type
 // that's not in the switch. We verify by passing a typed
 // zero-value of a different shape (a pointer to a string).
@@ -75,7 +75,7 @@ func TestAttachRecorder_UnsupportedTypeReturnsFalse(t *testing.T) {
 
 	// stringHandler intentionally satisfies neither the
 	// gatedProxyHandler interface nor any of the gated types
-	// — but for the type-switch we just need a pointer-to-
+	// but for the type-switch we just need a pointer-to-
 	// something concrete. Using a stub gated-proxy type
 	// would be cleaner; for now this is a structural smoke
 	// test.

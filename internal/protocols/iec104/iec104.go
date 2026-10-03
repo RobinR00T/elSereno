@@ -144,7 +144,7 @@ func buildFinding(target core.Target, note string, isOK bool) *core.Finding {
 		"impact_class":  90,
 		// cve_exposure 10: CVE-2015-7906 (Siemens SIPROTEC IEC
 		// 104 stack), CVE-2017-12089 (Siemens SICAM PAS), CVE-
-		// 2019-13548 (Siemens SICAM PAS) — well-documented
+		// 2019-13548 (Siemens SICAM PAS), well-documented
 		// substation-automation family. impact_class is already
 		// 90 so the additional cve_exposure pushes scoring into
 		// the highest severity bucket on positive ID.

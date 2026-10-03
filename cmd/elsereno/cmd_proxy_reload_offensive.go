@@ -26,7 +26,7 @@ import (
 // pointer (loaded at entry) so a swap mid-call doesn't tear
 // state. New connections after the swap pick up the new
 // allowlist on their first Handle invocation. Authorise on the
-// wrapper delegates to the current inner — the initial Authorise
+// wrapper delegates to the current inner, the initial Authorise
 // runs before any Handle, so the wrapper is only ever invoked
 // after at least one inner has been installed.
 type reloadableHandler struct {
@@ -80,7 +80,7 @@ func (r *reloadableHandler) swap(h gatedProxyHandler) {
 // preserved untouched and a typed error is returned. v1.17
 // chunk 4.
 //
-// Every reload attempt — success or failure — emits a
+// Every reload attempt, success or failure, emits a
 // `proxy_allowlist_reload` audit entry (v1.17 chunk 5) so
 // operators can correlate SIGUSR1 firings with the actual
 // allowlist state at audit-trail time.
@@ -98,7 +98,7 @@ func (r *reloadableHandler) swap(h gatedProxyHandler) {
 //     with the old.
 //
 // Returns nil on successful swap; non-nil error otherwise.
-// Caller logs but doesn't need to audit — performReload
+// Caller logs but doesn't need to audit, performReload
 // already does.
 func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts, rt *offensiveRuntime, target *reloadableHandler) error {
 	if original.allowFile == "" {
@@ -147,7 +147,7 @@ func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts
 	target.swap(newHandler)
 	newHash := currentHandlerHashPrefix(target)
 	emitReloadAudit(ctx, rt, original, oldHash, newHash, nil)
-	cmd.Printf("proxy: SIGUSR1 reload OK — new allowlist active for new connections (in-flight finish with old) [old=%s new=%s]\n", oldHash, newHash)
+	cmd.Printf("proxy: SIGUSR1 reload OK, new allowlist active for new connections (in-flight finish with old) [old=%s new=%s]\n", oldHash, newHash)
 	return nil
 }
 
@@ -156,7 +156,7 @@ func performReload(ctx context.Context, cmd cmdPrinter, original proxyListenOpts
 // confirm.Mutation produced at Authorise time). Used to give
 // operators a grepable correlation handle between the audit
 // log and the allowlist state. Returns "" when the wrapper has
-// no inner installed (defensive — should never happen in
+// no inner installed (defensive, should never happen in
 // production paths since Authorise is called pre-listen).
 func currentHandlerHashPrefix(r *reloadableHandler) string {
 	hp := r.inner.Load()
@@ -166,7 +166,7 @@ func currentHandlerHashPrefix(r *reloadableHandler) string {
 	// We don't have the Mutation handy on the gatedProxyHandler
 	// interface, so we use the address of the inner pointer as
 	// a proxy for "which generation of the handler is active".
-	// 8 hex chars = 4 bytes of the pointer's low half — enough
+	// 8 hex chars = 4 bytes of the pointer's low half, enough
 	// to disambiguate within a session. The audit chain itself
 	// is the authoritative source for the actual hash.
 	addr := fmt.Sprintf("%p", *hp)

@@ -155,7 +155,7 @@ func TestProbeMMSConfirm(t *testing.T) {
 func TestProbeS7Disconnect(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func(_ []byte) []byte {
-		// COTP-DR — what S7 returns when our MMS TSAPs don't match.
+		// COTP-DR, what S7 returns when our MMS TSAPs don't match.
 		dr := []byte{0x06, 0x80, 0x00, 0x01, 0x00, 0x01, 0x01}
 		return buildTPKT(dr)
 	})

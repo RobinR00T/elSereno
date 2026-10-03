@@ -113,7 +113,7 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 
 	// Optional DB pool for the /api/v1/findings, /runs, /triage
 	// endpoints (v1.2 chunk 1b). If DATABASE_URL isn't set, the
-	// pool is nil and those endpoints return 503 — serve still
+	// pool is nil and those endpoints return 503, serve still
 	// runs.
 	pool := maybeOpenPool(cmd, cfg)
 	if pool != nil {
@@ -183,7 +183,7 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 		out.PoolStatter = &pgxpoolStatter{pool: pool}
 	}
 	// v2.59: when cfg.Auth.OIDC is fully configured, wire the
-	// verifier. Footgun-safe — partial config (Enabled()==
+	// verifier. Footgun-safe, partial config (Enabled()==
 	// false) falls through to nil → back-compat dev mode.
 	if cfg.Auth.OIDC.Enabled() {
 		out.AuthVerifier = auth.NewVerifier(
@@ -207,7 +207,7 @@ func buildMetricsHandler(stat handlers.PoolStatter) http.Handler {
 	m := telemetry.Global()
 	if stat != nil {
 		// Adapt handlers.PoolStat (web-facing JSON shape) into
-		// telemetry.PoolStat (Prometheus-facing — same fields,
+		// telemetry.PoolStat (Prometheus-facing, same fields,
 		// different struct so each package stays dep-light).
 		collector := telemetry.NewPoolCollector(&handlersToTelemetryStat{src: stat})
 		// MustRegister panics on duplicate registration; in
@@ -250,7 +250,7 @@ func (h *handlersToTelemetryStat) Stat() *telemetry.PoolStat {
 
 // pgxpoolStatter (v2.58+) adapts a *pgxpool.Pool to the
 // handlers.PoolStatter interface. Single Stat() call per scrape;
-// no caching needed (pgxpool.Pool.Stat() is cheap — it builds
+// no caching needed (pgxpool.Pool.Stat() is cheap, it builds
 // a fresh struct from atomic counters on each call).
 type pgxpoolStatter struct {
 	pool *pgxpool.Pool
@@ -284,7 +284,7 @@ func (p *pgxpoolStatter) Stat() *handlers.PoolStat {
 
 // buildScanAndSchedule wraps buildScanOrchestrator with the
 // v1.70 schedule-store + scheduler goroutine. Returns a stop
-// closure that the caller defers — handles both the worker
+// closure that the caller defers, handles both the worker
 // pool Stop and the scan-store cleanup. Splitting this out
 // keeps runServe under the gocyclo 15-branch ceiling.
 //
@@ -323,7 +323,7 @@ func buildScanAndSchedule(ctx context.Context, opts serveOpts, pool *pgxpool.Poo
 	} else {
 		scheduleStore = scanorch.NewMemoryScheduleStore()
 		// v1.84: memory-mode audit lives only for the
-		// process lifetime — matches scan-store=memory
+		// process lifetime, matches scan-store=memory
 		// semantics.
 		auditStore = scanorch.NewMemoryScheduleAuditStore()
 	}
@@ -390,11 +390,11 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 		},
 		OnLockSkipped: func(key int64) {
 			_, _ = fmt.Fprintf(os.Stderr,
-				"elsereno serve: audit pruner skipped tick — advisory lock %d held by another instance\n", key)
+				"elsereno serve: audit pruner skipped tick, advisory lock %d held by another instance\n", key)
 			telemetry.Global().AuditPrunerRunsTotal.WithLabelValues("skipped_lock").Inc()
 		},
 		// v1.94: tick duration histogram. Observed on every tick
-		// regardless of outcome — operators graphing p99 see the
+		// regardless of outcome, operators graphing p99 see the
 		// blended distribution of "got lock + did work" vs.
 		// "skipped" vs. "errored".
 		OnTick: func(d time.Duration) {
@@ -410,7 +410,7 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 }
 
 // startScheduler spawns the v1.70 Scheduler goroutine. Tied to
-// ctx — cancellation tears it down cleanly. Errors during a
+// ctx cancellation tears it down cleanly. Errors during a
 // fire are logged to stderr; the next tick re-evaluates the
 // schedule, so a transient Submit failure isn't fatal.
 func startScheduler(ctx context.Context, schedStore scanorch.ScheduleStore, scanStore scanorch.Store) {
@@ -440,7 +440,7 @@ func startScheduler(ctx context.Context, schedStore scanorch.ScheduleStore, scan
 // verbs (which run in a separate process and append to
 // ~/.elsereno/audit.jsonl) light up the dashboard's live feed.
 // Best-effort: a missing home dir or unreadable audit path
-// just means the feed stays quiet for audit events — it does
+// just means the feed stays quiet for audit events, it does
 // NOT block `serve` startup. Returns a stop func that cancels
 // the tail goroutine.
 func startAuditTail(parent context.Context, srv *web.Server) func() {
@@ -455,7 +455,7 @@ func startAuditTail(parent context.Context, srv *web.Server) func() {
 
 // buildScanOrchestrator constructs the scanorch.Store + Worker
 // pool selected by `--scan-store`. Returns (nil, nil, nil) when
-// the operator chose `off` — APIV1Deps.ScanStore stays nil and
+// the operator chose `off`: APIV1Deps.ScanStore stays nil and
 // /api/v1/scans/ surfaces 503.
 //
 // db requires a non-nil pgxpool.Pool from maybeOpenPool. memory
@@ -466,7 +466,7 @@ func startAuditTail(parent context.Context, srv *web.Server) func() {
 // so every successful Submit / Transition publishes a
 // scan_state_change event on the supplied broadcaster. The same
 // wrapped store goes to BOTH the REST handler (APIV1Deps) AND
-// the worker pool — so transitions from operator-driven REST
+// the worker pool, so transitions from operator-driven REST
 // calls (Submit, Cancel) AND from the worker (Running →
 // Completed) all flow through the SSE bus.
 func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Pool, broadcaster *stream.Broadcaster) (scanorch.Store, *scanorch.Pool, error) {
@@ -502,7 +502,7 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 	}
 	store := stream.NewBroadcastingStore(inner, broadcaster)
 	// v1.65: progress throttle for mid-run Stats snapshots.
-	// Default 500ms cadence — balances "operator sees the
+	// Default 500ms cadence, balances "operator sees the
 	// counter tick" against "100k-target scan doesn't flood
 	// the SSE bus". Attached to the store so terminal
 	// transitions clear per-job state.
@@ -559,7 +559,7 @@ func dashboardAuditPath() (string, error) {
 // isLoopbackAddr returns true iff addr binds only to loopback.
 // Delegates to netutil.IsLoopbackHostPort which catches every
 // IPv6 variant (longform `[0:0:0:0:0:0:0:1]:port`, zone-scoped
-// `[::1%lo0]:port`, etc.) — the previous substring-based
+// `[::1%lo0]:port`, etc.), the previous substring-based
 // implementation only matched `[::1]:` shortform.
 func isLoopbackAddr(addr string) bool {
 	return netutil.IsLoopbackHostPort(addr)

@@ -70,7 +70,7 @@ func TestAllowlistHashWithDeleteObjects_OrderInsensitive(t *testing.T) {
 // a given (type, instance) target.
 func buildDeleteObjectServiceBody(objType uint16, objInst uint32) []byte {
 	buf := make([]byte, 0, 5)
-	// #nosec G115 -- test-bounded — type fits in 10 bits, instance in 22.
+	// #nosec G115 -- test-bounded, type fits in 10 bits, instance in 22.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	buf = append(buf, 0x0C)
 	var u32 [4]byte
@@ -165,7 +165,7 @@ func buildDeleteObjectFrame(objType uint16, objInst uint32) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetDelete_AllowedTargetPasses — DeleteObject for an
+// TestGateBACnetDelete_AllowedTargetPasses DeleteObject for an
 // allowlisted (type, instance) tuple forwards.
 func TestGateBACnetDelete_AllowedTargetPasses(t *testing.T) {
 	dels := []bwrite.AllowedDeleteObject{
@@ -181,14 +181,14 @@ func TestGateBACnetDelete_AllowedTargetPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDelete_ForbiddenTargetRefuses — DeleteObject for
+// TestGateBACnetDelete_ForbiddenTargetRefuses DeleteObject for
 // a non-allowlisted target gets an Abort-PDU refusal.
 func TestGateBACnetDelete_ForbiddenTargetRefuses(t *testing.T) {
 	dels := []bwrite.AllowedDeleteObject{
 		{ObjectType: 2, ObjectInstance: 99},
 	}
 	client, upstream := driveDeleteObjectSession(t, dels)
-	frame := buildDeleteObjectFrame(0, 42) // AnalogInput#42 — not in list
+	frame := buildDeleteObjectFrame(0, 42) // AnalogInput#42, not in list
 	_, _ = client.Write(frame)
 
 	_ = client.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
@@ -206,7 +206,7 @@ func TestGateBACnetDelete_ForbiddenTargetRefuses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDelete_EmptyAllowlistBypasses — empty
+// TestGateBACnetDelete_EmptyAllowlistBypasses empty
 // AllowedDeleteObjects list bypasses the per-target gate (svc
 // 11 still passes service-only).
 func TestGateBACnetDelete_EmptyAllowlistBypasses(t *testing.T) {
@@ -220,7 +220,7 @@ func TestGateBACnetDelete_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDelete_PerObjectVsDeleteAreSeparate — proves
+// TestGateBACnetDelete_PerObjectVsDeleteAreSeparate proves
 // that a (Type, Instance) entry in AllowedObjects (property
 // list) does NOT auto-grant delete; the operator must
 // explicitly add the same target to AllowedDeleteObjects.
@@ -255,13 +255,13 @@ func TestGateBACnetDelete_PerObjectVsDeleteAreSeparate(t *testing.T) {
 		t.Fatal(err)
 	}
 	// With AllowedDeleteObjects empty, the delete gate is
-	// disabled (bypass) — DeleteObject would PASS service-only.
+	// disabled (bypass), DeleteObject would PASS service-only.
 	// This test specifically validates the SEPARATE semantics:
 	// operator must opt INTO per-delete restriction by adding
 	// at least one entry. Once they add an entry that doesn't
 	// match, all unmatched targets refuse.
 	h.AllowedDeleteObjects = []bwrite.AllowedDeleteObject{
-		{ObjectType: 999, ObjectInstance: 0}, // dummy — (2, 99) is NOT here.
+		{ObjectType: 999, ObjectInstance: 0}, // dummy, (2, 99) is NOT here.
 	}
 	clientIn, handlerClientSide := net.Pipe()
 	handlerUpstreamSide, upstreamSide := net.Pipe()
@@ -284,7 +284,7 @@ func TestGateBACnetDelete_PerObjectVsDeleteAreSeparate(t *testing.T) {
 	rbuf := make([]byte, 256)
 	n, _ := clientIn.Read(rbuf)
 	if n == 0 {
-		t.Fatal("expected abort refusal — AllowedObjects entry should NOT auto-grant delete")
+		t.Fatal("expected abort refusal, AllowedObjects entry should NOT auto-grant delete")
 	}
 	time.Sleep(50 * time.Millisecond)
 	if snap := rec.snapshot(); len(snap) != 0 {

@@ -11,7 +11,7 @@
 //     discretion; the framework exposes a PreHook/PostHook pair
 //     that lives on the connection for the session's lifetime.
 //   - Rendering of target-controlled bytes is the hook's
-//     responsibility — the framework passes raw bytes verbatim.
+//     responsibility the framework passes raw bytes verbatim.
 //     Hooks that log MUST run content through
 //     internal/render.SafeBytes.
 //

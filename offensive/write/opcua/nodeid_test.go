@@ -89,7 +89,7 @@ func TestAllowlistHashWithNodeIDs_OrderInsensitive(t *testing.T) {
 // ---- WriteRequestFirstNode wire parser ------------------------
 
 // buildMSGBody crafts a MSG chunk body with:
-//   - 16 bytes fixed header (SCId, TokenId, SeqNo, ReqId — all 0)
+//   - 16 bytes fixed header (SCId, TokenId, SeqNo, ReqId, all 0)
 //   - 4 bytes FourByte NodeId TypeID (always WriteRequest 673
 //     for this helper; WriteRequest is the only service whose
 //     per-NodeId gate fires)
@@ -139,7 +139,7 @@ func buildMSGBody(firstNode opwrite.AllowedNodeID) []byte {
 	binary.LittleEndian.PutUint16(u16[:], uint16(firstNode.Identifier&0xFFFF))
 	buf = append(buf, u16[:]...)
 	// Rest of WriteValue (AttributeId u32, IndexRange String null,
-	// Value DataValue) — not inspected, pad with zeros.
+	// Value DataValue), not inspected, pad with zeros.
 	buf = append(buf, make([]byte, 4+4+1)...)
 	return buf
 }
@@ -269,7 +269,7 @@ func TestGate_NodeIDAllowed(t *testing.T) {
 
 func TestGate_NodeIDBlockedGetsServiceFault(t *testing.T) {
 	svcs := []opwrite.AllowedService{{TypeID: wire.TypeIDWriteRequest}}
-	// Allow ns=2;i=42 but the client targets ns=2;i=99 — denied.
+	// Allow ns=2;i=42 but the client targets ns=2;i=99, denied.
 	nodeIDs := []opwrite.AllowedNodeID{{Namespace: 2, Identifier: 42}}
 	client, upstreamBuf := driveNodeGateSession(t, svcs, nodeIDs)
 

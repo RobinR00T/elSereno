@@ -71,7 +71,7 @@ func TestSearchParsesMatches(t *testing.T) {
 		t.Errorf("path = %q, want /api/v2/search/...", sawPath)
 	}
 	if !strings.Contains(sawPath, "category%3Adatascan") && !strings.Contains(sawPath, "category:datascan") {
-		// Either PathEscape-encoded or literal — both are valid
+		// Either PathEscape-encoded or literal, both are valid
 		// depending on Go version; just confirm the content is
 		// reachable.
 		t.Errorf("path %q did not include query payload", sawPath)

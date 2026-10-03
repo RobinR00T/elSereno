@@ -1,14 +1,14 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.84 — audit log for the schedule edit path.
+-- v1.84, audit log for the schedule edit path.
 -- Currently records force_overwrite events (operator
 -- submitted a PUT without If-Match, overriding the v1.78
 -- optimistic-locking precondition). Future cycles may add
 -- delete / set_enabled / etc.
 --
 -- The CHECK constraint on event_type is the source of truth
--- mirrored Go-side by ValidScheduleAuditEventTypes — keeping
+-- mirrored Go-side by ValidScheduleAuditEventTypes, keeping
 -- both in sync is operator hygiene (per PITF-030).
 
 CREATE TABLE scan_schedule_audit (

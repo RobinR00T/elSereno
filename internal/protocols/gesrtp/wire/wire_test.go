@@ -126,7 +126,7 @@ func TestExtractModelHintNoMatch(t *testing.T) {
 
 func TestExtractModelHintFirstWins(t *testing.T) {
 	t.Parallel()
-	// Two candidate prefixes — the scanner should return the
+	// Two candidate prefixes, the scanner should return the
 	// first one it encounters.
 	in := appendBytes(make([]byte, 4), []byte("IC693CPU\x00\x00\x00IC695CPE\x00")...)
 	got := wire.ExtractModelHint(in)

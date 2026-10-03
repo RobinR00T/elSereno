@@ -6,12 +6,12 @@ token-budget: 1200
 surface: scanner + proxy framework
 ---
 
-# Threat model — scanner + proxy framework
+# Threat model, scanner + proxy framework
 
 Covers `internal/scanner/` (async probe orchestrator) and
 `internal/proxy/` (generic TCP proxy with PreHook + PostHook). These
 are the surfaces where ElSereno touches adversary-controlled bytes
-at scale — an ICS PLC returning a malformed packet, or a Shodan hit
+at scale, an ICS PLC returning a malformed packet, or a Shodan hit
 that sends the scanner into a degenerate retry loop.
 
 ## Scope
@@ -23,14 +23,14 @@ that sends the scanner into a degenerate retry loop.
 | Concurrency + rate limiting | Upstream reachability beyond the dial |
 | Evidence capture + truncation | Evidence storage backend (see `vault-audit.md`) |
 
-## S — Spoofing
+## S, Spoofing
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Adversary spoofs IP to frame an authorised target | Scanner scope check (`internal/scope.Check`) runs pre-dial; scope.yaml CIDR is operator authority | `internal/scanner/scanner.go:Run` → `scope.Check` |
 | Proxy client impersonates a downstream | Per-connection idle deadline closes stale; proxy does not authenticate clients today (operator-network trust zone) | `internal/proxy/framework.go:handle` |
 
-## T — Tampering
+## T, Tampering
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -38,22 +38,22 @@ that sends the scanner into a degenerate retry loop.
 | Hook rewrites bytes but leaks original-vs-replacement race | Hook's PreHook returns a replacement slice; framework copies atomically into the read buffer before forwarding | `internal/proxy/framework.go:Read` |
 | Malformed wire frame crashes parser | Fuzz targets on every wire parser (Modbus, S7, ENIP, DNP3, IEC-104, HART-IP, XOT, atmodem) + nightly 30-min per-target fuzz matrix (F7 chunk 1) | `scripts/run-fuzz.sh`, `.github/workflows/nightly.yml` |
 
-## R — Repudiation
+## R, Repudiation
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Operator denies having scanned a target | Every scan emits `protocol_probe` audit event with `target + plugin + score + factors`; retention keep-if-referenced keeps the reference as long as the finding exists | `internal/audit/events.go:EventProtoProbe` |
 | Proxy session with no record | F3 proxy hooks include `LoggingHook` wired into the default config; session lifecycle logs session_start / session_end | `internal/proxy/logger.go` |
 
-## I — Information disclosure
+## I, Information disclosure
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
-| Target response contains credentials that leak into NDJSON output | Evidence is truncated at `evidence.max_payload_bytes`; `OriginalSHA256` only populated when truncated (ADR-007). Secrets in banner would still leak — mitigated at the redaction hook layer | `internal/retention/pruner.go` + telemetry hook |
+| Target response contains credentials that leak into NDJSON output | Evidence is truncated at `evidence.max_payload_bytes`; `OriginalSHA256` only populated when truncated (ADR-007). Secrets in banner would still leak, mitigated at the redaction hook layer | `internal/retention/pruner.go` + telemetry hook |
 | Shodan API key leaks via argv / env / log | Creds flow only through vault → `internal/creds.Retrieve` → HTTP Authorization header; never logged | `internal/inputs/shodan/client.go` |
 | Temporal dedupe buffer leaks across runs | 5-min in-memory map, never persisted, zeroised on process exit | `internal/scanner/dedupe.go` |
 
-## D — Denial of service
+## D, Denial of service
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
@@ -62,7 +62,7 @@ that sends the scanner into a degenerate retry loop.
 | Target causes per-host hot spot | Per-host semaphore (`newHostSemaphore`) caps concurrent probes against the same IP | `internal/scanner/hostsem.go` |
 | Retry storm on persistent failure | Circuit breaker (F1 chunk 3) opens after N consecutive failures and exponential backoff with jitter | `internal/scanner/scanner.go:withRetries` |
 
-## E — Elevation of privilege
+## E, Elevation of privilege
 
 | Threat | Mitigation | Code |
 |--------|------------|------|

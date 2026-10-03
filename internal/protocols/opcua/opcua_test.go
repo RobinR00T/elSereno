@@ -78,7 +78,7 @@ func TestProbe_AckPath(t *testing.T) {
 		frame := make([]byte, wire.HeaderSize+len(body))
 		copy(frame[0:3], "ACK")
 		frame[3] = 'F'
-		// #nosec G115 — frame length is a fixed 28 bytes by construction
+		// #nosec G115, frame length is a fixed 28 bytes by construction
 		binary.LittleEndian.PutUint32(frame[4:8], uint32(wire.HeaderSize+len(body)))
 		copy(frame[wire.HeaderSize:], body)
 		return frame
@@ -101,13 +101,13 @@ func TestProbe_ErrPath(t *testing.T) {
 		reason := "Bad_ResourceLimitsExceeded"
 		body := make([]byte, 8+len(reason))
 		binary.LittleEndian.PutUint32(body[0:4], 0x80A40000)
-		// #nosec G115 — reason literal length fits uint32
+		// #nosec G115, reason literal length fits uint32
 		binary.LittleEndian.PutUint32(body[4:8], uint32(len(reason)))
 		copy(body[8:], reason)
 		frame := make([]byte, wire.HeaderSize+len(body))
 		copy(frame[0:3], "ERR")
 		frame[3] = 'F'
-		// #nosec G115 — frame length fits uint32 by construction
+		// #nosec G115, frame length fits uint32 by construction
 		binary.LittleEndian.PutUint32(frame[4:8], uint32(wire.HeaderSize+len(body)))
 		copy(frame[wire.HeaderSize:], body)
 		return frame

@@ -34,7 +34,7 @@ const (
 	EventOffSMS       EventType = "offensive_sms"
 	EventOffHarvest   EventType = "offensive_harvest"
 	// EventOffSandbox captures a seccomp-bpf profile load attempt
-	// (see ADR-042). One entry per `ApplySandbox` call — whether
+	// (see ADR-042). One entry per `ApplySandbox` call, whether
 	// the install succeeded, degraded (non-Linux), or errored.
 	// The chronological position in the chain (immediately before
 	// the matching EventOff<Write|Dial|Harvest>) lets operators
@@ -44,7 +44,7 @@ const (
 	EventAdmin      EventType = "admin_action"
 	// EventProxyAllowlistReload captures a v1.17 chunk-4
 	// SIGUSR1 in-process allow-file reload attempt. One entry
-	// per SIGUSR1 firing — both successful swaps and rejections
+	// per SIGUSR1 firing, both successful swaps and rejections
 	// (parse error, sidecar mode, authorise mismatch). The
 	// payload carries enough state for an operator to decide
 	// whether a swap actually happened: status (ok|failed),

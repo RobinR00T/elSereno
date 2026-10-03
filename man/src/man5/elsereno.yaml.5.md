@@ -4,7 +4,7 @@
 
 # NAME
 
-**elsereno.yaml** — configuration file for *elsereno*(1)
+**elsereno.yaml**: configuration file for *elsereno*(1)
 
 # SYNOPSIS
 

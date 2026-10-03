@@ -17,15 +17,15 @@ read-only fingerprint plus a wire-layer write-ban proxy that
 replies with a 56-byte mailbox carrying a non-zero status byte.
 
 ## Spec references
-- Rapid7 nmap NSE script `gesrtp-info` — canonical public
+- Rapid7 nmap NSE script `gesrtp-info`: canonical public
   reverse engineering.
-- Conpot project — GE simulator fixtures.
+- Conpot project, GE simulator fixtures.
 - ICS-CERT advisories on GE Fanuc PACSystems lacking authentication.
 
 ## Wire format (summary)
 SRTP is **mailbox-framed**: every request and response is exactly
 56 bytes for the basic service-request set. The plugin treats all
-bytes other than byte 0 as opaque for v1.20 chunk 3 — the full
+bytes other than byte 0 as opaque for v1.20 chunk 3, the full
 layout (with packet sequencing + service-request payloads) lands
 when offensive write services are wired.
 
@@ -45,7 +45,7 @@ One-shot probe over TCP. Send a 56-byte CONNECTION INIT mailbox
 (byte 0 = 0x02, rest zero); read 56 bytes of response. Classify by
 the response type byte (0x03). Public protocol documentation is
 sparse, so deeper service-code probing (CPU model identification
-via service 0x21) is deferred — the plugin captures the fact that
+via service 0x21) is deferred, the plugin captures the fact that
 "a 56-byte SRTP mailbox came back" as the fingerprint signal.
 
 **v1.21 chunk 4**: model-hint extraction. After classification, the
@@ -81,7 +81,7 @@ confirm + audit-chain emission per ADR-039.
 Wire-layer write-ban: the default-build handler reads the
 client's 56-byte mailbox and replies with a 56-byte mailbox
 carrying byte 0 = 0x03 (response) + byte 42 = 0x01 (non-zero
-"status / minor error" indicator). Does NOT forward — defence-in-
+"status / minor error" indicator). Does NOT forward, defence-in-
 depth fail-closed pattern matching the Modbus / S7 / EtherNet/IP
 proxy idioms.
 
@@ -97,7 +97,7 @@ Capability lift breakdown:
 - 30: no SRTP reply.
 - 70: SRTP-shape reply with no embedded model hint.
 - 75: SRTP-shape reply with a recognised GE PLC family hint
-  (IC693 / IC695 / IC697 / IC200 / RX3i / RX7i / PACSystems) —
+  (IC693 / IC695 / IC697 / IC200 / RX3i / RX7i / PACSystems), 
   parity with finsudp / slmp.
 
 ## Sentinel errors (wire package)

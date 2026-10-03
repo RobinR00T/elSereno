@@ -22,7 +22,7 @@ type ScheduleAuditEventType string
 // Event type constants. See package doc.
 const (
 	// ScheduleAuditEventForceOverwrite (v1.84+): operator
-	// submitted a PUT without If-Match — overriding the
+	// submitted a PUT without If-Match, overriding the
 	// v1.78 optimistic-locking precondition.
 	ScheduleAuditEventForceOverwrite ScheduleAuditEventType = "force_overwrite"
 	// ScheduleAuditEventDelete (v1.88+): schedule was
@@ -62,7 +62,7 @@ var ValidScheduleAuditEventTypes = []ScheduleAuditEventType{
 // ScheduleAuditEvent (v1.84+) is one row of the audit log
 // for a schedule. PayloadBefore + PayloadAfter are full
 // JSON snapshots of the ScanSchedule at the moment of the
-// event — operators get the literal field-by-field
+// event operators get the literal field-by-field
 // before/after so they can audit what was changed.
 type ScheduleAuditEvent struct {
 	// ID is a 16-char hex identifier generated on Append.
@@ -86,7 +86,7 @@ type ScheduleAuditEvent struct {
 
 // ErrScheduleAuditInvalidEventType (v1.84+) means Append
 // was called with an event_type that's not in
-// ValidScheduleAuditEventTypes. Defence in depth — the SQL
+// ValidScheduleAuditEventTypes. Defence in depth, the SQL
 // CHECK constraint is the wire-level guard.
 var ErrScheduleAuditInvalidEventType = errors.New("scanorch: schedule audit invalid event_type")
 
@@ -107,12 +107,12 @@ type ScheduleAuditStore interface {
 	ListBySchedule(ctx context.Context, scheduleID string) ([]ScheduleAuditEvent, error)
 	// PruneOlderThan (v1.86+) removes events with
 	// OccurredAt < cutoff. Returns the number of deleted
-	// rows. Used for retention-policy enforcement — operator
+	// rows. Used for retention-policy enforcement, operator
 	// invokes via DELETE /api/v1/schedules/audit?before=…
 	// or (future) a scheduled background pruner.
 	//
 	// Cutoff times in the future are valid and delete every
-	// event — defensive callers should reject obviously-
+	// event defensive callers should reject obviously-
 	// wrong cutoffs at the REST layer.
 	PruneOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
 	// PruneWithOverrides (v1.89+) is the per-schedule-aware
@@ -122,7 +122,7 @@ type ScheduleAuditStore interface {
 	// `overrides`, those events are pruned with the per-
 	// schedule cutoff instead.
 	//
-	// Semantics for orphaned audit rows (schedule_id IS NULL —
+	// Semantics for orphaned audit rows (schedule_id IS NULL,
 	// happens when v1.88 FK SET NULL fires on schedule delete):
 	// they always fall under the globalCutoff. The override
 	// table is keyed by the live schedule_id, which is gone
@@ -138,7 +138,7 @@ type ScheduleAuditStore interface {
 // implemented by audit stores that can serialise concurrent
 // pruners via a Postgres advisory lock. Multi-process serve
 // deployments wire this so only one `serve` instance runs the
-// prune at a time — without it, concurrent DELETEs are safe
+// prune at a time, without it, concurrent DELETEs are safe
 // (idempotent) but each instance double-counts the work and
 // the OnPrune callback fires N times per cutoff.
 //
@@ -156,7 +156,7 @@ type AdvisoryLockedAuditStore interface {
 	//     and this caller skipped (NOT an error).
 	//   - err = wire/SQL error during lock acquire OR prune.
 	//
-	// Lock auto-releases on commit/rollback — no leaked locks
+	// Lock auto-releases on commit/rollback, no leaked locks
 	// even on crash. Caller specifies the `key` (typically a
 	// stable bigint hash derived from a process-wide
 	// identifier; see scanorch.AuditPrunerLockKey).

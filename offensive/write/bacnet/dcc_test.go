@@ -68,7 +68,7 @@ func TestAllowlistHashWithDCCStates_OrderInsensitive(t *testing.T) {
 
 // buildDCCBodyWithoutDuration crafts a DeviceCommControl body
 // (AFTER the 4-byte confirmed-request header) WITHOUT the
-// optional [0] timeDuration field — operator picks
+// optional [0] timeDuration field, operator picks
 // "indefinitely silenced" / immediate enable.
 func buildDCCBodyWithoutDuration(state uint8) []byte {
 	return []byte{
@@ -147,7 +147,7 @@ func TestParseDeviceCommControl_TruncatedFails(t *testing.T) {
 
 func TestParseDeviceCommControl_WrongTagFails(t *testing.T) {
 	body := buildDCCBodyWithoutDuration(0)
-	body[0] = 0x29 // looks like context-2 length-1 — wrong context
+	body[0] = 0x29 // looks like context-2 length-1, wrong context
 	_, ok := bwire.ParseDeviceCommControl(body)
 	if ok {
 		t.Fatal("wrong tag byte should return ok=false")
@@ -222,7 +222,7 @@ func buildDCCFrame(body []byte) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetDCC_AllowedStatePasses — DeviceCommControl for
+// TestGateBACnetDCC_AllowedStatePasses DeviceCommControl for
 // an allowlisted state forwards.
 func TestGateBACnetDCC_AllowedStatePasses(t *testing.T) {
 	dcc := []bwrite.AllowedDCCState{{State: bwire.DCCStateEnable}}
@@ -236,7 +236,7 @@ func TestGateBACnetDCC_AllowedStatePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDCC_DisableRefused — disable MUST refuse when
+// TestGateBACnetDCC_DisableRefused disable MUST refuse when
 // only enable is allowed. This is the canonical safety
 // invariant: an attacker cannot silence the device.
 func TestGateBACnetDCC_DisableRefused(t *testing.T) {
@@ -260,7 +260,7 @@ func TestGateBACnetDCC_DisableRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDCC_DisableInitiationRefused — same invariant
+// TestGateBACnetDCC_DisableInitiationRefused same invariant
 // for the subtler attack vector. disableInitiation is also a
 // silencing mode and must refuse when only enable is allowed.
 func TestGateBACnetDCC_DisableInitiationRefused(t *testing.T) {
@@ -281,7 +281,7 @@ func TestGateBACnetDCC_DisableInitiationRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDCC_EmptyAllowlistBypasses — empty
+// TestGateBACnetDCC_EmptyAllowlistBypasses empty
 // AllowedDCCStates list bypasses the per-state gate (svc 17
 // still passes service-only).
 func TestGateBACnetDCC_EmptyAllowlistBypasses(t *testing.T) {
@@ -296,7 +296,7 @@ func TestGateBACnetDCC_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetDCC_AllowedStateWithDurationPasses — the
+// TestGateBACnetDCC_AllowedStateWithDurationPasses the
 // optional timeDuration prefix is correctly skipped by the
 // parser before reading the enableDisable enum.
 func TestGateBACnetDCC_AllowedStateWithDurationPasses(t *testing.T) {
@@ -308,6 +308,6 @@ func TestGateBACnetDCC_AllowedStateWithDurationPasses(t *testing.T) {
 
 	frames := waitForFramesOne(t, upstream)
 	if len(frames) == 0 {
-		t.Fatal("upstream saw nothing — duration prefix should not affect gate decision")
+		t.Fatal("upstream saw nothing, duration prefix should not affect gate decision")
 	}
 }

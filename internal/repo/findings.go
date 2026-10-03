@@ -21,7 +21,7 @@ type Querier interface {
 }
 
 // Finding mirrors the dashboard-facing projection of the
-// findings table — the wire shape the `/api/v1/findings`
+// findings table, the wire shape the `/api/v1/findings`
 // handler emits. We deliberately flatten the JSONB `factors`
 // column into a `map[string]int` so the JSON envelope matches
 // the SSE `finding` event payload byte-for-byte.
@@ -46,7 +46,7 @@ type FindingsQuery struct {
 	// Protocol, if non-empty, restricts to one protocol.
 	Protocol string
 	// RunID, if non-empty, restricts to findings from a single
-	// run (v1.18 chunk 2 — used by the diff endpoint).
+	// run (v1.18 chunk 2, used by the diff endpoint).
 	RunID string
 	// MinScore filters score ≥ N.
 	MinScore int
@@ -162,7 +162,7 @@ type FindingsDiff struct {
 	// (target_id, protocol) match in the old run.
 	New []Finding `json:"new"`
 	// Resolved are findings from the old run with no match in
-	// the new run — the operator's remediation worked.
+	// the new run, the operator's remediation worked.
 	Resolved []Finding `json:"resolved"`
 	// Persisting are findings present in both runs (matched by
 	// target_id + protocol). The Finding included is from the
@@ -225,7 +225,7 @@ func diffFindingsByTargetProtocol(oldRows, newRows []Finding) FindingsDiff {
 
 // scanFinding pulls one row into a Finding, decoding the JSONB
 // factors column. Corrupt JSON in the column is surfaced to the
-// caller — the dashboard can still render the row minus
+// caller the dashboard can still render the row minus
 // factors, but operators deserve to know.
 func scanFinding(rows interface {
 	Scan(dst ...any) error

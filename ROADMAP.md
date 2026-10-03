@@ -1,4 +1,4 @@
-# ElSereno — Roadmap
+# ElSereno, Roadmap
 
 > **⚠️ STALE (last real refresh 2026-04-29; banner added 2026-08-31).**
 > Most "vNext proposals" and the "priority matrix" below have SHIPPED in
@@ -33,90 +33,90 @@ the long-running roadmap so the delta between **shipped** and
 
 ## Shipped highlights (post-v1.1)
 
-- **v1.2** — DB panels (findings / runs / triage), SLSA via
+- **v1.2**: DB panels (findings / runs / triage), SLSA via
   Attestations API, Modbus offensive write-gate (per-FC + unit
   + address-range), OPC UA write-gate (service-TypeID).
-- **v1.3** — PBX discovery: SIP / IAX2 / pbxhttp probes + 15
+- **v1.3**: PBX discovery: SIP / IAX2 / pbxhttp probes + 15
   PBX vendor fingerprints.
-- **v1.4** — Offensive PBX write-gates (sip / iax2 / pbxhttp),
+- **v1.4**: Offensive PBX write-gates (sip / iax2 / pbxhttp),
   BACnet UDP relay (per-service-choice), TR-069/CWMP probe.
-- **v1.5** — `elsereno proxy listen` CLI verb (one command for
+- **v1.5**: `elsereno proxy listen` CLI verb (one command for
   all 6 write-gated plugins).
-- **v1.6** — `--allow-file` YAML loader + OPC UA per-NodeId
+- **v1.6**: `--allow-file` YAML loader + OPC UA per-NodeId
   allowlist (numeric encodings).
-- **v1.7** — `--emit-allow-file` YAML emitter (round-trip).
-- **v1.8** — FOFA + ZoomEye input clients (5 providers total).
+- **v1.7**: `--emit-allow-file` YAML emitter (round-trip).
+- **v1.8**: FOFA + ZoomEye input clients (5 providers total).
   First **free-tier** release (cosign+SLSA pivot to free-tier
   GPG-signed tag + SHA-256 + CycloneDX SBOM).
-- **v1.9** — CLI wire-up for the input providers, ONYPHE
+- **v1.9**: CLI wire-up for the input providers, ONYPHE
   (5th provider), SIP INVITE prefix gate (toll-fraud).
-- **v1.10** — SIP REGISTER AOR allowlist (registration-hijack).
-- **v1.11** — CWMP/TR-069 offensive proxy (per-SOAP-RPC). 7
+- **v1.10**: SIP REGISTER AOR allowlist (registration-hijack).
+- **v1.11**: CWMP/TR-069 offensive proxy (per-SOAP-RPC). 7
   offensive write-gated proxies in the default build.
-- **v1.12** — gates tightening + input pagination. Per-object /
+- **v1.12**: gates tightening + input pagination. Per-object /
   per-path scoping across all 7 gates; pagination across the 5
   paid input providers; Shodan InternetDB joins as the 6th
   no-key provider.
-- **v1.13** — BACnet completion + CWMP polish. **Closes every
+- **v1.13**: BACnet completion + CWMP polish. **Closes every
   BACnet mutating service** (svc 7/8/9/10/11/15/16/17/20/27)
   with wire-level per-target-or-state allowlists. Plus CWMP
   firmware pre-flight verifier, RPC case-warning, over-TLS
   recipe; InternetDB bulk lookup; triage `utility` bucket.
   13 chunks.
-- **v1.14** — IPv6 cross-cutting. New `internal/netutil`
+- **v1.14**: IPv6 cross-cutting. New `internal/netutil`
   package + `canonicaliseTarget` at CLI parse boundaries +
   `scan --input internetdb:` dispatcher fix +
   bracket-stripping ergonomics + scope/dedupe IPv6 contract
   tests. 4 chunks.
-- **v1.15** — Loose-end closure: CWMP TransferComplete
+- **v1.15**: Loose-end closure: CWMP TransferComplete
   observer + `elsereno discover --auto <CIDR>` + STIX 2.1
   export sink + audit cross-process flock + SIGHUP
   reload-style exit. 5 chunks. Released on GitHub
   ([v1.15.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0)).
-- **v1.16** — CWMP/BACnet refinements + token-generation
+- **v1.16**: CWMP/BACnet refinements + token-generation
   cookie groundwork. CWMP TransferComplete authorisation
   cross-reference + BACnet per-(type, instance) CreateObject
   + per-(operation, type, instance) LifeSafetyOperation +
   BACnet token-generation cookie (foundation for in-process
   reload). 4 chunks.
-- **v1.17** — Token-generation parity + SIGUSR1 in-process
+- **v1.17**: Token-generation parity + SIGUSR1 in-process
   reload. Cross-protocol token-generation cookie (CWMP / SIP
   / Modbus / IAX2 / pbxhttp / OPC UA), `--reload-allow-file`
   + `reloadableHandler` (atomic.Pointer wrapper) + sidecar
   `<allow-file>.token` (0600) + `proxy_allowlist_reload`
   audit event. 5 chunks.
-- **v1.18** — Dashboard CSV export + run-diff. `?format=csv`
+- **v1.18**: Dashboard CSV export + run-diff. `?format=csv`
   on `/api/v1/findings` + `/api/v1/findings/diff?old=&new=`
   with new / resolved / persisting buckets matched by
   (target_id, protocol). 2 chunks.
-- **v1.19** — Observability completion. Audit log API
+- **v1.19**: Observability completion. Audit log API
   (`/api/v1/audit` + `/api/v1/audit/cadence`) + dashboard
   "Audit feed" panel + reload-cadence bar-chart panel + CWMP
   TransferComplete async firmware re-fetch (opt-in via
   `--verify-firmware-on-complete`). 3 chunks.
-- **v1.20** — Legacy ICS fingerprint trio. Omron FINS UDP
+- **v1.20**: Legacy ICS fingerprint trio. Omron FINS UDP
   (UDP/9600) + MELSEC SLMP TCP (TCP/5007) + GE-SRTP TCP
   (TCP/18245). Default build now registers 20 protocol plugins
   (was 17). 3 chunks.
-- **v1.21** — Legacy ICS trio + GE-SRTP refinement. KNXnet/IP
+- **v1.21**: Legacy ICS trio + GE-SRTP refinement. KNXnet/IP
   UDP/3671 + M-Bus over TCP/10001 + DLMS/COSEM TCP/4059 (3 new
   read-only fingerprint plugins) + GE-SRTP model-hint extraction
   (capability lift 70→75 when an embedded GE PLC family string
   is recoverable from the connection-init reply). Default build
   now registers 23 protocol plugins (was 20). 4 chunks.
-- **v1.22** — CI hygiene + CoDeSys + Red Lion + fuzz coverage.
+- **v1.22**: CI hygiene + CoDeSys + Red Lion + fuzz coverage.
   Fuzz-flake retry + explicit `-timeout` in run-fuzz.sh
   (chunk 1) + CoDeSys V3 TCP/1217 (chunk 2, first plugin to
   set cve_exposure non-zero) + Red Lion Crimson/RLN TCP/789
   (chunk 3) + Fuzz* targets across all 8 v1.20+v1.21+v1.22
-  wire packages (chunk 4 — fuzz found a real trimASCII bug in
+  wire packages (chunk 4, fuzz found a real trimASCII bug in
   v1.20 finsudp; same shape as the slmp bug fixed in v1.21
   chunk 2 but missed at the time). Default build now
   registers 25 protocol plugins (was 23); in-tree Fuzz*
   count doubles 6→14. 4 chunks.
-- **v1.23** — Scoring refinements. CVE-exposure factor
+- **v1.23**: Scoring refinements. CVE-exposure factor
   expansion across 7 plugins (cwmp=15, dnp3=12, iec104=10,
-  bacnet=8, opcua=8, hartip=7, atg=6 — each citing concrete
+  bacnet=8, opcua=8, hartip=7, atg=6, each citing concrete
   CVEs in code comments) + banner dictionary expansion +21
   vendors (industrial controllers + HMIs + RTUs +
   adjacent network gear). No new plugins; default-build
@@ -127,14 +127,14 @@ the long-running roadmap so the delta between **shipped** and
 ## v1.24+ proposed backlog
 
 - **4 remaining legacy ICS protocols** (PROFINET DCP / GOOSE
-  / SV — Layer-2 multicast, framework requires IP-rework; IEC
-  61850 MMS — port-102 share with S7 + complex ASN.1 stack;
+  / SV, Layer-2 multicast, framework requires IP-rework; IEC
+  61850 MMS, port-102 share with S7 + complex ASN.1 stack;
   OPC UA HTTPS). v1.20 + v1.21 + v1.22 cycles together shipped
   8 legacy-ICS fingerprint plugins (FINS / SLMP / SRTP / KNX /
   M-Bus / DLMS / CoDeSys / RLN); the rest are deferred for the
   reasons above.
 - **Offensive plugins for the v1.20 + v1.21 + v1.22 fingerprint
-  trios** — FINS memory-area writes / RUN-STOP, SLMP Batch
+  trios**: FINS memory-area writes / RUN-STOP, SLMP Batch
   Write / Remote RUN-STOP / Password Lock-Unlock, SRTP write
   memory / program block transfer / RUN-STOP-RESET, KNX
   TUNNELLING_REQUEST / DEVICE_CONFIGURATION, M-Bus SND_UD
@@ -143,7 +143,7 @@ the long-running roadmap so the delta between **shipped** and
   requests, RLN per-tag/object writes. Each needs the per-
   target gating pattern + triple-confirm + audit-chain
   emission per ADR-009.
-- **GE-SRTP service-0x21 follow-up probe** — Read PLC Long
+- **GE-SRTP service-0x21 follow-up probe**: Read PLC Long
   Status as a richer second exchange after the connection-init.
   v1.21 chunk 4 shipped the model-hint extractor (decodes
   embedded ASCII from the existing connection-init response);
@@ -159,39 +159,39 @@ the long-running roadmap so the delta between **shipped** and
 ## Historical deferral list (v1.1 era)
 
 The notes below preserve the original v1.1-era checklist for
-provenance. Most line items have shipped in v1.2–v1.15; what
+provenance. Most line items have shipped in v1.2-v1.15; what
 remains is mirrored above in "v1.16+ proposed backlog".
 
-## v1.1 shipped (closed — see `.context/snapshots/v1.1-sse-sandbox-opcua-wardial.md`)
+## v1.1 shipped (closed, see `.context/snapshots/v1.1-sse-sandbox-opcua-wardial.md`)
 
-- [x] **Chunk 1** — Per-plugin offensive `WriteGatedHandler`
+- [x] **Chunk 1**: Per-plugin offensive `WriteGatedHandler`
   (ADR-040 close). Full wire-level Handle for
   modbus/s7/enip + session-auth primitives for
   bacnet/dnp3/iec104/hartip/atg/fox.
-- [x] **Chunk 2** — File-backed audit writer
+- [x] **Chunk 2**: File-backed audit writer
   (`internal/audit/FileWriter`) + `offensive/confirm/adapter`.
   Chain-resumable JSONL at `~/.elsereno/audit.jsonl` 0600.
-- [x] **Chunk 3** — Network delivery: `write modbus send`,
+- [x] **Chunk 3**: Network delivery: `write modbus send`,
   `exploit run` (tcp/udp), `audit verify-file`,
   `offensive_runtime` CLI helper.
-- [x] **Chunk 4a** — SSE `/api/v1/stream` +
+- [x] **Chunk 4a**: SSE `/api/v1/stream` +
   `internal/web/stream` Broadcaster + dashboard live-feed panel
   + cross-process `TailAudit`.
-- [ ] **Chunk 4b** — findings/triage/runs DB tables + panels
+- [ ] **Chunk 4b**: findings/triage/runs DB tables + panels
   reading from DB (CARRY-OVER: lands with v1.2 DB-backed
   audit Writer).
-- [x] **Chunk 5** — GHCR docker image via `dockers_v2` —
+- [x] **Chunk 5**: GHCR docker image via `dockers_v2`: 
   multi-arch amd64/arm64, `sbom: true`, cosign-keyless
   manifest sign, buildx/qemu action setup in release.yml.
-- [x] **Chunk 6** — seccomp-bpf sandbox per profile
+- [x] **Chunk 6**: seccomp-bpf sandbox per profile
   (exploit/harvest/dial). BPF denylist + TSYNC + migration
   00002 for `offensive_sandbox` audit entries.
-- [x] **Chunk 7** — OPC UA plugin on port 4840. UA-TCP Part 6
+- [x] **Chunk 7**: OPC UA plugin on port 4840. UA-TCP Part 6
   Hello/Ack/Err probe + simulator. Write gating deferred to v1.2.
-- [x] **Chunk 8** — `elsereno dial batch --numbers-file
+- [x] **Chunk 8**: `elsereno dial batch --numbers-file
   <path>` wardialing mode. Audit entry per decision. Real
   PSTN/VoIP delivery deferred to v1.2.
-- [x] **v1.1 close** — snapshot flipped to closed +
+- [x] **v1.1 close**: snapshot flipped to closed +
   retrospective, top-level CHANGELOG.md gains [1.1.0] entry,
   signed tag `v1.1.0` on commit `0238f15`.
 
@@ -210,19 +210,19 @@ remains is mirrored above in "v1.16+ proposed backlog".
 
 ## Legend
 
-- 🟠 — **v1.1 carry-overs** already tracked in snapshots / ADRs.
-- 🟡 — **v1.2 expansions** — natural next step, still within the
+- 🟠, **v1.1 carry-overs** already tracked in snapshots / ADRs.
+- 🟡, **v1.2 expansions**: natural next step, still within the
   brief's scope.
-- 🟢 — **vNext proposals** — new features not in the original
+- 🟢, **vNext proposals**: new features not in the original
   brief but high-leverage.
-- ⚪ — **research / speculative** — needs a design doc before
+- ⚪, **research / speculative**: needs a design doc before
   implementation.
 
 ---
 
 ## 🟠 v1.1 carry-overs (already tracked)
 
-### Offensive build — network delivery
+### Offensive build, network delivery
 
 Dry-run CLI verbs are in `main` since F5 chunk 5 but don't emit
 real traffic yet. The mutating I/O half of `elsereno
@@ -234,7 +234,7 @@ evident chain row, not just stdout).
 1. `internal/audit.Writer` (pgx-backed, single-goroutine
    INSERT). Carry-over from F1.
 2. `offensive/confirm.AuditorWriter` adapter.
-3. Network send wrapper for every existing Build — reuse
+3. Network send wrapper for every existing Build, reuse
    `offensive/write/modbus.Execute()` pattern for S7 / ENIP /
    BACnet / exploits / dial.
 4. `elsereno audit verify --tail 100` operator verb so the
@@ -259,7 +259,7 @@ profile enum + `PR_SET_NO_NEW_PRIVS`); the actual BPF filter
 instruction sequences per profile (exploit / harvest / dial) land
 when the first offensive subprocess needs them.
 
-Library: `github.com/elastic/go-seccomp-bpf` — already pinned in
+Library: `github.com/elastic/go-seccomp-bpf`: already pinned in
 ADR-042.
 
 ### SSE `/api/v1/stream` + DB-backed dashboard panels
@@ -268,7 +268,7 @@ Dashboard at `/` currently meta-refreshes every 30 s; the
 findings / triage / runs panels show placeholders. The SSE
 stream + the DB tables (findings, triage, runs) come together:
 
-- `internal/web/handlers/stream.go` — server-sent events wired
+- `internal/web/handlers/stream.go`: server-sent events wired
   to the pgx `LISTEN/NOTIFY` channel.
 - Migration 00002: findings / triage / runs tables per the
   scanner's existing types.
@@ -287,7 +287,7 @@ Disabled in v1.0.0 (buildx driver issue + wrong slug). Fixes:
 
 Scorecard, CodeQL analyze, and osv-scanner-action are gated on
 `github.event.repository.visibility == 'public'` because they
-upload SARIF to the Security tab (requires GHAS — free only on
+upload SARIF to the Security tab (requires GHAS, free only on
 public repos). When the repo flips to public the workflows
 activate automatically; no code change needed.
 
@@ -327,7 +327,7 @@ fully reproducible from `go build`.
 ### Audit export verbs
 
 `elsereno audit export --format {cef,syslog,ndjson} --since
-<time>` — read from the chain, emit through the F6 sinks. Pair
+<time>`: read from the chain, emit through the F6 sinks. Pair
 with `elsereno audit verify --since <time>` for forensic
 workflows.
 
@@ -403,17 +403,17 @@ frame (pure passive).
 
 ### 6. Additional protocols (already in brief)
 
-- **OPC UA** (port 4840) — the modern ICS protocol; important
+- **OPC UA** (port 4840), the modern ICS protocol; important
   for Industry-4.0 deployments.
-- **CoDeSys** (port 1200/11740) — many European PLC brands.
+- **CoDeSys** (port 1200/11740), many European PLC brands.
 - **Omron FINS** (port 9600/UDP).
 - **MELSEC SLMP** (Mitsubishi).
 - **PCWorx / ProConOS** (Phoenix Contact, some Siemens).
 - **Red Lion Crimson** (port 789).
 - **GE-SRTP** (port 18245).
-- **IEC 61850 MMS** (port 102 — coexists with S7!).
+- **IEC 61850 MMS** (port 102, coexists with S7!).
 - **KNX** (port 3671/UDP).
-- **M-Bus** (port 10001/TCP — legacy).
+- **M-Bus** (port 10001/TCP, legacy).
 
 Each needs its own `internal/protocols/<proto>/` with a
 from-scratch wire parser + fuzz target + write-ban proxy per
@@ -456,7 +456,7 @@ Before hitting a real target, run the payload against the
 `simulators/` honeypot (Conpot). ElSereno can tell the operator
 "your WriteVar frame, when applied to a S7-1200 Conpot image,
 caused a write to memory at DB1.DBB0 and produced this audit
-trace" — a canary that catches regressions in the operator's
+trace", a canary that catches regressions in the operator's
 intent vs. the actual bytes.
 
 ### D. Mobile companion app
@@ -496,6 +496,6 @@ Still apply from `NON-GOALS.md`:
 | P4 | L2 PROFINET / GOOSE / SV | 🟢 vNext | ~2 weeks |
 | P4 | Windows support | 🟢 vNext | ~2 weeks |
 
-Best order: **P0 (operator action — public flip + revoke PAT +
+Best order: **P0 (operator action, public flip + revoke PAT +
 restore Actions billing) → P1 (close v1.15 loose ends) → P2
 (reload + wardialing) → P3+ (operator-driven priorities)**.

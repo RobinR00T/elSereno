@@ -172,7 +172,7 @@ func TestNonAllowedChunkRefused(t *testing.T) {
 	expectRefused(t, done, rec)
 }
 
-// An unknown/handshake opcode is refused unless allowlisted — the gate
+// An unknown/handshake opcode is refused unless allowlisted, the gate
 // does not guess that a no-payload opcode is safe.
 func TestUnknownTypeRefused(t *testing.T) {
 	client, rec, done := driveSession(t, nil)

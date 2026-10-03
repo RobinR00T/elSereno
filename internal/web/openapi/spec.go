@@ -104,7 +104,7 @@ func inputPreviewSpecPaths() []Path {
 				"default_port=<int> (optional, host-only entries fall back here). " +
 				"Returns {count, targets[], truncated}; sample is capped at 200 entries. " +
 				"Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT " +
-				"in scope here — they need credentials + rate-limit tuning that the " +
+				"in scope here, they need credentials + rate-limit tuning that the " +
 				"dashboard process intentionally doesn't carry; use the CLI scan verb " +
 				"for those. v1.36+.",
 			Tags: []string{"inputs"},
@@ -440,7 +440,7 @@ func schedulesIOPaths() []Path {
 					"CSV is 10-column flat (id, name, cadence, enabled, operator, " +
 					"created_at, last_fired_at, audit_retention_days, input, plugins). " +
 					"NDJSON is round-trippable via per-line POST. " +
-					"v2.49+: ics emits RFC 5545 iCalendar — interval cadence → RRULE " +
+					"v2.49+: ics emits RFC 5545 iCalendar, interval cadence → RRULE " +
 					"FREQ=HOURLY/DAILY best-fit; cron → DESCRIPTION-only; disabled → " +
 					"STATUS:CANCELLED. Content-Disposition: attachment with sensible " +
 					"filenames.",
@@ -459,7 +459,7 @@ func schedulesIOPaths() []Path {
 					"v1.97 export format) OR JSON array. Content-Type drives the " +
 					"parser; unknown CT auto-detects via the first non-whitespace " +
 					"byte. Query param `on_conflict=skip|overwrite|rename` " +
-					"(default skip). IDs from the input are IGNORED — the server " +
+					"(default skip). IDs from the input are IGNORED, the server " +
 					"generates fresh IDs in every case. Returns aggregate counts + " +
 					"per-row items.",
 				Tags: tag,

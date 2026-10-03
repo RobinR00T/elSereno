@@ -11,7 +11,7 @@ import (
 	pbxwrite "local/elsereno/offensive/write/pbxhttp"
 )
 
-// TestPBXHTTPAllowlistHashWithGeneration_ZeroMatchesV14 — gen=0
+// TestPBXHTTPAllowlistHashWithGeneration_ZeroMatchesV14 gen=0
 // must equal AllowlistHash byte-for-byte.
 func TestPBXHTTPAllowlistHashWithGeneration_ZeroMatchesV14(t *testing.T) {
 	target := "pbx.test:443"
@@ -23,7 +23,7 @@ func TestPBXHTTPAllowlistHashWithGeneration_ZeroMatchesV14(t *testing.T) {
 	}
 }
 
-// TestPBXHTTPAllowlistHashWithGeneration_NonZeroChangesHash —
+// TestPBXHTTPAllowlistHashWithGeneration_NonZeroChangesHash
 // gen bump perturbs hash.
 func TestPBXHTTPAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	target := "pbx.test:443"

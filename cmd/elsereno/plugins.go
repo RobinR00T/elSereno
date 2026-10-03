@@ -59,7 +59,7 @@ func init() {
 	// opcua-exposure: opt-in deep exposure probe (DefaultPort 0 keeps it out
 	// of the default scan/discover sweep; runs only via --plugin opcua-exposure).
 	core.Register(core.Plugin{PluginMetadata: opcua.DefaultExposure().Metadata(), Factory: func() core.Protocol { return opcua.DefaultExposure() }})
-	// v2.35: OPC UA HTTPS binding (Part 6) — separate plugin for the
+	// v2.35: OPC UA HTTPS binding (Part 6), separate plugin for the
 	// HTTPS transport since it has different default port (4843),
 	// different framing (HTTP over TLS), and different failure modes
 	// than the existing opcua plugin (raw UA-TCP on 4840).

@@ -20,7 +20,7 @@ plugin gates per-(SOAP-RPC, parameter-prefix, firmware-URL)
 since v1.12.
 
 ## Spec references
-- TR-069 Issue 1 Amendment 6 (CWMP — CPE WAN Management
+- TR-069 Issue 1 Amendment 6 (CWMP, CPE WAN Management
   Protocol).
 - TR-098 / TR-181 (Internet Gateway Device data model).
 - TR-064 (LAN-side DSL CPE configuration; the
@@ -34,7 +34,7 @@ Set/GetParameterValues / Download / Upload / Reboot / Factory
 Reset RPCs.
 
 The fingerprint probe is plain HTTP HEAD / OPTIONS with no
-SOAP body — it relies on the `Server:` header + 401 challenge
+SOAP body, it relies on the `Server:` header + 401 challenge
 shape to identify CWMP-bearing endpoints.
 
 ## Fingerprint strategy
@@ -58,7 +58,7 @@ SOAP-RPC gating:
 - per-RPC allowlist (Set/GetParameterValues, Download,
   Reboot, FactoryReset, Upload, etc.).
 - per-parameter-prefix allowlist (e.g.,
-  `Device.Time.NTPServer1` only — not the whole
+  `Device.Time.NTPServer1` only, not the whole
   `Device.Time.*` tree).
 - per-firmware-URL allowlist for Download RPCs (v1.12-chunk-10
   matches the URL against an exact list AND captures the
@@ -83,7 +83,7 @@ or 9005 ("Invalid parameter name") per TR-069 Annex A.
 ## Proxy hooks
 v1.5+ ships the in-band CWMP proxy at port 7547. Default-build
 proxy refuses every SOAP RPC with Fault 9001 before forwarding
-to upstream — even GetParameterValues is refused (the protocol
+to upstream, even GetParameterValues is refused (the protocol
 is by design write-capable end-to-end and we don't want to
 forward read-only frames as cover for write payloads).
 
@@ -95,11 +95,11 @@ above.
 factors{protocol_risk:30→80 on cwmp-likely, exposure:80,
 auth_state:60, capability:30→60 on cwmp-likely, impact_class:
 50, **cve_exposure:15** (CVE-2014-9222 Misfortune Cookie /
-RomPager + TR-064 NewNTPServer family — broad legacy CPE
+RomPager + TR-064 NewNTPServer family, broad legacy CPE
 exposure on the same port 7547 ACS endpoint)}.
 
 cve_exposure 15 is the highest in the entire codebase
-(v1.23 chunk 1) — TR-069 / 7547 carries one of the most
+(v1.23 chunk 1), TR-069 / 7547 carries one of the most
 extensively-exploited CVE families in the ICS-adjacent
 landscape.
 

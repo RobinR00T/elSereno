@@ -20,7 +20,7 @@ import (
 //   - RS256 / RS384 / RS512 (RSA + SHA-256/384/512).
 //   - ES256 / ES384 / ES512 (ECDSA + same hashes).
 //
-// Symmetric (HS*) algorithms are deliberately NOT supported —
+// Symmetric (HS*) algorithms are deliberately NOT supported,
 // they require a shared secret on the resource server, which is
 // not the OIDC bearer-token model.
 
@@ -46,7 +46,7 @@ type Header struct {
 }
 
 // Claims is the subset of registered + namespaced claims we
-// care about. Decoding is lenient — extra fields are ignored.
+// care about. Decoding is lenient, extra fields are ignored.
 type Claims struct {
 	Iss   string   `json:"iss"`
 	Sub   string   `json:"sub"`
@@ -128,7 +128,7 @@ func Validate(tok string, keys map[string]any, cfg ValidatorConfig, now time.Tim
 	if err := verifySignature(hdr.Alg, key, []byte(signingInput), sigBytes); err != nil {
 		return nil, err
 	}
-	// Signature good — decode + check claims.
+	// Signature good, decode + check claims.
 	payloadBytes, err := decodeSegment(parts[1])
 	if err != nil {
 		return nil, fmt.Errorf("%w: payload decode: %w", ErrJWTMalformed, err)
@@ -235,7 +235,7 @@ func (h *hasher) Write(p []byte)      { _, _ = h.d.Write(p) }
 func (h *hasher) Sum(b []byte) []byte { return h.d.Sum(b) }
 
 // checkClaims enforces the standard claim invariants.
-// cfg.SkipExp and similar fields are NOT exposed — production
+// cfg.SkipExp and similar fields are NOT exposed, production
 // validators always check exp. Test seams pass via `now`.
 func checkClaims(c *Claims, cfg ValidatorConfig, now time.Time) error {
 	if cfg.Issuer != "" && c.Iss != cfg.Issuer {

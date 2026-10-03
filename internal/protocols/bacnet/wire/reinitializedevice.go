@@ -47,7 +47,7 @@ const (
 // follows at context tag 1; the gate ignores it.
 //
 // Returns (state, true) on success, (0, false) on any parse
-// error — the gate fails closed.
+// error the gate fails closed.
 func ParseReinitializeDevice(apdu []byte) (uint8, bool) {
 	if len(apdu) < 2 {
 		return 0, false

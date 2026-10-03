@@ -94,7 +94,7 @@ func (x *Writer) buildAddrSCO(findingID core.UUID, addr string) map[string]any {
 	}
 	parsed, err := netip.ParseAddr(addr)
 	if err != nil {
-		// Pass the raw string through as ipv4-addr — STIX
+		// Pass the raw string through as ipv4-addr, STIX
 		// validators will reject; better than silently
 		// dropping the SCO.
 		return nil

@@ -9,7 +9,7 @@ import (
 // Only the encodings the gate cares about are materialised:
 // TwoByte + FourByte + Numeric produce concrete (ns, id) pairs.
 // String / Guid / ByteString encodings return (0, 0, false) from
-// parseNodeID — the caller treats them as "can't match; fall
+// parseNodeID the caller treats them as "can't match; fall
 // through to the next policy layer" rather than refusing the
 // frame outright.
 type NodeID struct {
@@ -47,7 +47,7 @@ type NodeIDValue struct {
 // Canonical returns the OPC UA standard notation for this
 // NodeID: `ns=N;i=M` (numeric), `ns=N;s=STR` (string),
 // `ns=N;g=HEX` (guid), `ns=N;b=HEXBYTES` (bytestring). This
-// is the form operator allowlists use — it's human-readable
+// is the form operator allowlists use, it's human-readable
 // and unambiguous.
 func (v NodeIDValue) Canonical() string {
 	switch v.Kind {
@@ -84,7 +84,7 @@ func hexBytesUpper(b []byte) string {
 // Contrast with parseNodeID (v1.6): that function returns
 // ok=false for String / Guid / ByteString even though it
 // structurally-consumes them. parseNodeIDRich succeeds for all
-// encodings — designed for gates + per-NodeId-canonical
+// encodings designed for gates + per-NodeId-canonical
 // allowlists that want to authorise non-numeric NodeIDs.
 func parseNodeIDRich(b []byte) (NodeIDValue, int, bool) {
 	if len(b) < 1 {
@@ -138,7 +138,7 @@ func parseStringNodeID(b []byte) (NodeIDValue, int, bool) {
 		return NodeIDValue{}, 0, false
 	}
 	ns := binary.LittleEndian.Uint16(b[1:3])
-	sLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115, -1 null sentinel intentional
 	if sLen < 0 {
 		return NodeIDValue{Namespace: ns, Kind: NodeIDKindString}, 7, true
 	}
@@ -182,7 +182,7 @@ func parseByteStringNodeID(b []byte) (NodeIDValue, int, bool) {
 		return NodeIDValue{}, 0, false
 	}
 	ns := binary.LittleEndian.Uint16(b[1:3])
-	bLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115 — -1 null sentinel intentional
+	bLen := int32(binary.LittleEndian.Uint32(b[3:7])) // #nosec G115, -1 null sentinel intentional
 	if bLen < 0 {
 		return NodeIDValue{Namespace: ns, Kind: NodeIDKindByteString}, 7, true
 	}
@@ -248,7 +248,7 @@ func walkWriteRequestArrayPrefix(msgBody []byte) (body []byte, arrLen int32, ok 
 	if off+4 > len(msgBody) {
 		return nil, 0, false
 	}
-	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+	arrLen = int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115, -1 null sentinel intentional
 	off += 4
 	// arrLen is attacker-controlled (int32 up to ~2.1e9) and the callers
 	// presize a slice with it (make([]T, 0, arrLen)), which reserves the
@@ -282,7 +282,7 @@ func parseWriteValueRich(b []byte) (NodeIDValue, int, bool) {
 	if off+4 > len(b) {
 		return NodeIDValue{}, 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -311,10 +311,10 @@ func parseWriteValueRich(b []byte) (NodeIDValue, int, bool) {
 // The fail-closed behaviour is intentional: the caller uses
 // this for a multi-node allowlist check; if we can't verify
 // every NodeId, the gate must refuse. Partial success is worse
-// than refusal — it could let an attacker slip a malicious
+// than refusal, it could let an attacker slip a malicious
 // value in behind an unparseable one.
 //
-// v1.12 chunk 2 complement of WriteRequestFirstNode — that
+// v1.12 chunk 2 complement of WriteRequestFirstNode, that
 // function still ships for v1.6-era callers that only need the
 // first NodeId + don't want fail-closed semantics on unusual
 // DataValue shapes.
@@ -339,20 +339,20 @@ func WriteRequestAllNodes(msgBody []byte) (ids []NodeID, ok bool) {
 // parseWriteValue parses one WriteValue struct at the given
 // buffer. Layout (OPC UA Part 4 §5.10.4):
 //
-//	NodeId     — variable (TwoByte / FourByte / Numeric handled)
-//	AttributeId — UInt32 (4 bytes)
-//	IndexRange  — String (4-byte len + bytes; -1 null)
-//	Value       — DataValue
+//	NodeId variable (TwoByte / FourByte / Numeric handled)
+//	AttributeId UInt32 (4 bytes)
+//	IndexRange String (4-byte len + bytes; -1 null)
+//	Value DataValue
 //
 // Returns (nodeID, bytesConsumed, true) on success, (_, 0, false)
-// on any parse error — the caller fails closed.
+// on any parse error, the caller fails closed.
 func parseWriteValue(b []byte) (NodeID, int, bool) {
 	off := 0
 	nid, consumed, ok := parseNodeID(b[off:])
 	if !ok {
 		// NodeId encoding we don't understand (String / Guid /
 		// ByteString). The caller fails closed rather than try
-		// to skip structurally — walking the WriteValue past
+		// to skip structurally, walking the WriteValue past
 		// an unknown NodeId would produce nonsense offsets.
 		return NodeID{}, 0, false
 	}
@@ -366,7 +366,7 @@ func parseWriteValue(b []byte) (NodeID, int, bool) {
 	if off+4 > len(b) {
 		return NodeID{}, 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -385,7 +385,7 @@ func parseWriteValue(b []byte) (NodeID, int, bool) {
 
 // skipDataValue walks past an OPC UA DataValue (Part 4
 // §7.7). Returns the consumed byte count. On any parse error
-// returns (0, false) — caller fails closed.
+// returns (0, false), caller fails closed.
 //
 // DataValue layout:
 //
@@ -401,7 +401,7 @@ func parseWriteValue(b []byte) (NodeID, int, bool) {
 // common scalar + array cases (Boolean through String + NodeId +
 // ExtensionObject with null body). Complex nested types
 // (Variant inside Variant, DataValue inside Variant,
-// DiagnosticInfo) fall through to fail-closed refusal — write
+// DiagnosticInfo) fall through to fail-closed refusal, write
 // requests targeting ICS state rarely carry those shapes.
 func skipDataValue(b []byte) (int, bool) {
 	if len(b) < 1 {
@@ -450,7 +450,7 @@ func skipDataValue(b []byte) (int, bool) {
 }
 
 // skipVariant walks past a scalar or 1-dim array Variant
-// (Part 6 §5.2.2.16). Limited support — we handle the built-
+// (Part 6 §5.2.2.16). Limited support, we handle the built-
 // in types commonly targeted by operational writes (Boolean
 // through Double, String, ByteString, NodeId). Dimensional
 // arrays (multi-D) and recursive types (Variant, DataValue,
@@ -475,7 +475,7 @@ func skipVariant(b []byte) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		n := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+		n := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 		off += 4
 		switch {
 		case n < 0:
@@ -497,7 +497,7 @@ func skipVariant(b []byte) (int, bool) {
 	}
 
 	if hasDims {
-		// Array dimensions: Int32 array. Rare — we stop trying
+		// Array dimensions: Int32 array. Rare, we stop trying
 		// and fail closed.
 		return 0, false
 	}
@@ -511,17 +511,17 @@ func skipBuiltInType(b []byte, builtIn byte) (int, bool) {
 	switch builtIn {
 	case 0: // Null
 		return 0, true
-	case 1, 2, 3: // Boolean, SByte, Byte — 1 byte
+	case 1, 2, 3: // Boolean, SByte, Byte, 1 byte
 		return fixed(b, 1)
-	case 4, 5: // Int16, UInt16 — 2 bytes
+	case 4, 5: // Int16, UInt16, 2 bytes
 		return fixed(b, 2)
-	case 6, 7, 10, 19: // Int32, UInt32, Float, StatusCode — 4 bytes
+	case 6, 7, 10, 19: // Int32, UInt32, Float, StatusCode, 4 bytes
 		return fixed(b, 4)
-	case 8, 9, 11, 13: // Int64, UInt64, Double, DateTime — 8 bytes
+	case 8, 9, 11, 13: // Int64, UInt64, Double, DateTime, 8 bytes
 		return fixed(b, 8)
-	case 12, 15, 16: // String, ByteString, XmlElement — 4-byte len + bytes
+	case 12, 15, 16: // String, ByteString, XmlElement, 4-byte len + bytes
 		return skipLengthPrefixedBytes(b)
-	case 14: // Guid — 16 bytes
+	case 14: // Guid, 16 bytes
 		return fixed(b, 16)
 	case 17: // NodeId
 		_, c, ok := parseNodeID(b)
@@ -534,7 +534,7 @@ func skipBuiltInType(b []byte, builtIn byte) (int, bool) {
 	}
 	// 18 ExpandedNodeId, 20 QualifiedName, 21 LocalizedText,
 	// 23 DataValue, 24 Variant (recursive), 25 DiagnosticInfo
-	// — fall through to fail-closed. The gate refuses rather
+	// fall through to fail-closed. The gate refuses rather
 	// than try to walk an ambiguous encoding.
 	return 0, false
 }
@@ -553,7 +553,7 @@ func skipLengthPrefixedBytes(b []byte) (int, bool) {
 	if len(b) < 4 {
 		return 0, false
 	}
-	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115 — -1 null sentinel intentional
+	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115, -1 null sentinel intentional
 	if n < 0 {
 		return 4, true
 	}
@@ -600,10 +600,10 @@ func skipExtensionObject(b []byte) (int, bool) {
 // WriteRequestFirstNode extracts the NodeId of the first
 // WriteValue inside a WriteRequest MSG body. Returns:
 //
-//	id    — (namespace, identifier) of the first NodeId
-//	nodes — the count of NodeId entries in NodesToWrite (0 on
+//	id (namespace, identifier) of the first NodeId
+//	nodes the count of NodeId entries in NodesToWrite (0 on
 //	        null array, otherwise the array length prefix)
-//	ok    — true when the header + array length + first NodeId
+//	ok true when the header + array length + first NodeId
 //	        were all parseable; false when any layer didn't
 //	        match an encoding we understand
 //
@@ -611,7 +611,7 @@ func skipExtensionObject(b []byte) (int, bool) {
 // allowlist when ok==false. This conservative contract lets the
 // gate work against OPC UA stacks that use rarer encodings
 // (GUID NodeIds, String NodeIds) without refusing their traffic
-// — those rarer cases just can't get the per-NodeId benefit.
+// those rarer cases just can't get the per-NodeId benefit.
 //
 // Input: the full MSG body (same bytes ServiceTypeID consumes).
 // The caller has already confirmed TypeID == WriteRequest (673)
@@ -624,7 +624,7 @@ func skipExtensionObject(b []byte) (int, bool) {
 //	[8..11]  SequenceNumber
 //	[12..15] RequestId
 //	[16..19] ExpandedNodeId prefix for WriteRequest TypeId
-//	         (skipped — caller already validated)
+//	         (skipped, caller already validated)
 //	[20..]   RequestHeader (see requestHeaderLen)
 //	[...]    NodesToWrite array: u32 length + N × WriteValue
 //	[...]    WriteValue: NodeId (variable) + AttributeId (u32) + …
@@ -651,10 +651,10 @@ func WriteRequestFirstNode(msgBody []byte) (id NodeID, nodes int, ok bool) {
 	if off+4 > len(msgBody) {
 		return NodeID{}, 0, false
 	}
-	arrLen := int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115 — int32 cast is intentional; 0xFFFFFFFF = -1 is the UA "null array" sentinel we want to see
+	arrLen := int32(binary.LittleEndian.Uint32(msgBody[off : off+4])) // #nosec G115, int32 cast is intentional; 0xFFFFFFFF = -1 is the UA "null array" sentinel we want to see
 	off += 4
 	if arrLen <= 0 {
-		// Null or empty array — no NodeIds to gate against.
+		// Null or empty array, no NodeIds to gate against.
 		return NodeID{}, 0, false
 	}
 
@@ -714,7 +714,7 @@ func skipAuditEntryAndTimeout(b []byte, off int) (int, bool) {
 	if off+4 > len(b) {
 		return 0, false
 	}
-	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+	sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 	off += 4
 	if sLen > 0 {
 		if off+int(sLen) > len(b) {
@@ -750,7 +750,7 @@ func skipAdditionalHeader(b []byte, off int) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		bLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+		bLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 		off += 4
 		if bLen > 0 {
 			if off+int(bLen) > len(b) {
@@ -768,7 +768,7 @@ func skipAdditionalHeader(b []byte, off int) (int, bool) {
 // TwoByte (2 bytes total), FourByte (4 bytes), Numeric (7 bytes).
 // String / Guid / ByteString encodings are consumed structurally
 // but the returned NodeID is a zero value with ok=false for those
-// encodings — the caller treats that as "can't match".
+// encodings the caller treats that as "can't match".
 func parseNodeID(b []byte) (NodeID, int, bool) {
 	if len(b) < 1 {
 		return NodeID{}, 0, false
@@ -802,7 +802,7 @@ func parseNodeID(b []byte) (NodeID, int, bool) {
 			return NodeID{}, 0, false
 		}
 		// We've consumed the NodeId successfully but can't
-		// produce a (ns, id) pair for matching — signal "parse
+		// produce a (ns, id) pair for matching, signal "parse
 		// ok, match not possible" by returning ok=false but the
 		// caller distinguishes via consumed > 0.
 		_ = consumed
@@ -814,7 +814,7 @@ func parseNodeID(b []byte) (NodeID, int, bool) {
 // structuralSkip returns the number of bytes a String / Guid /
 // ByteString NodeId consumes, so the caller can walk past it
 // when parsing a containing struct. Returns (_, false) on
-// truncation. Intentionally unexported — v1.6 chunk 2 doesn't
+// truncation. Intentionally unexported, v1.6 chunk 2 doesn't
 // need it externally; a follow-up that supports matching on
 // these encodings will promote it.
 func structuralSkip(b []byte, enc NodeIDEncoding) (int, bool) {
@@ -831,7 +831,7 @@ func structuralSkip(b []byte, enc NodeIDEncoding) (int, bool) {
 		if off+4 > len(b) {
 			return 0, false
 		}
-		sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115 — -1 null sentinel intentional
+		sLen := int32(binary.LittleEndian.Uint32(b[off : off+4])) // #nosec G115, -1 null sentinel intentional
 		off += 4
 		if sLen > 0 {
 			if off+int(sLen) > len(b) {

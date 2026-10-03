@@ -61,7 +61,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "Beckhoff TwinCAT ADS read-only fingerprint on TCP/48898 (CXxxxx IPCs, embedded PCs, BC bus terminals — TC2 + TC3 runtimes).",
+		Description: "Beckhoff TwinCAT ADS read-only fingerprint on TCP/48898 (CXxxxx IPCs, embedded PCs, BC bus terminals, TC2 + TC3 runtimes).",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -115,7 +115,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("twincat: TCP proxy framework requires a TwinCAT-aware classifier; v1.54 is fingerprint-only — a relay arrives with the future offensive plugin")
+	return fmt.Errorf("twincat: TCP proxy framework requires a TwinCAT-aware classifier; v1.54 is fingerprint-only, a relay arrives with the future offensive plugin")
 }
 
 func classifyParseError(err error) string {

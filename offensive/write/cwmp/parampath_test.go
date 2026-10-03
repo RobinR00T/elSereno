@@ -137,7 +137,7 @@ func setParamValuesBody(names ...string) string {
 		params.String()))
 }
 
-// TestGatePerPath_AllowedPathPasses — single parameter under an
+// TestGatePerPath_AllowedPathPasses single parameter under an
 // allowed prefix → PASS.
 func TestGatePerPath_AllowedPathPasses(t *testing.T) {
 	client, acs := driveSessionWithPaths(t,
@@ -162,7 +162,7 @@ func TestGatePerPath_AllowedPathPasses(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_UnknownPathRefused — parameter outside the
+// TestGatePerPath_UnknownPathRefused parameter outside the
 // allowed prefixes → SOAP Fault 9005 (Invalid parameter name).
 func TestGatePerPath_UnknownPathRefused(t *testing.T) {
 	client, acs := driveSessionWithPaths(t,
@@ -190,7 +190,7 @@ func TestGatePerPath_UnknownPathRefused(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_MixedNamesOneOutsideRefused — when EVEN ONE
+// TestGatePerPath_MixedNamesOneOutsideRefused when EVEN ONE
 // of the parameters in the request is outside the allowlist,
 // the entire RPC is refused. Prevents an attacker slipping a
 // malicious setting inside a batch of benign ones.
@@ -211,7 +211,7 @@ func TestGatePerPath_MixedNamesOneOutsideRefused(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_EmptyPathListFallsBackToV11 — empty path list
+// TestGatePerPath_EmptyPathListFallsBackToV11 empty path list
 // degrades to v1.11 behaviour: RPC-only gating, any parameter
 // target accepted.
 func TestGatePerPath_EmptyPathListFallsBackToV11(t *testing.T) {
@@ -237,7 +237,7 @@ func TestGatePerPath_EmptyPathListFallsBackToV11(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_RebootNotAffectedByPathAllowlist — the per-
+// TestGatePerPath_RebootNotAffectedByPathAllowlist the per-
 // path gate only applies to Set* RPCs. Reboot with an active
 // path allowlist should still be gated purely by the RPC list.
 func TestGatePerPath_RebootNotAffectedByPathAllowlist(t *testing.T) {
@@ -263,7 +263,7 @@ func TestGatePerPath_RebootNotAffectedByPathAllowlist(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_EmptySetParameterValuesBodyRefused — fail-
+// TestGatePerPath_EmptySetParameterValuesBodyRefused fail-
 // closed behaviour: a SetParameterValues with no parameter
 // names in it is refused when the per-path gate is active
 // (attacker can't slip through by sending empty requests).
@@ -286,7 +286,7 @@ func TestGatePerPath_EmptySetParameterValuesBodyRefused(t *testing.T) {
 	}
 }
 
-// TestGatePerPath_SetParameterAttributesAlsoGated — the same
+// TestGatePerPath_SetParameterAttributesAlsoGated the same
 // path gate applies to SetParameterAttributes (different inner
 // struct but same Name element).
 func TestGatePerPath_SetParameterAttributesAlsoGated(t *testing.T) {

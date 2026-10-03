@@ -60,7 +60,7 @@ while IFS= read -r -d '' f; do
   awk -v file="$f" '
     /^```/ { in_code = !in_code; next }
     !in_code && /(versión anterior|mantener del v[0-9]+|sección v[0-9]+ sin cambios|del v[0-9]+)/ {
-      printf "VIOLATES PITF-007 — %s:%d: %s\n", file, NR, $0
+      printf "VIOLATES PITF-007, %s:%d: %s\n", file, NR, $0
       err = 1
     }
     END { if (err) exit 1 }

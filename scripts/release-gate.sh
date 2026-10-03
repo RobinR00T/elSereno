@@ -5,8 +5,8 @@
 # release workflow.
 #
 # Exit codes:
-#   0  — all gates pass
-#   1  — at least one gate failed; see stderr
+#   0, all gates pass
+#   1, at least one gate failed; see stderr
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +20,7 @@ say_section() { printf "\n== %s ==\n" "$*"; }
 
 say_section "working tree"
 if [ -n "$(git status --porcelain)" ]; then
-  fail "working tree is dirty — commit or stash before tagging"
+  fail "working tree is dirty, commit or stash before tagging"
 else
   ok "git status clean"
 fi
@@ -29,7 +29,7 @@ say_section "tests + lint"
 if go test ./... >/dev/null 2>&1; then
   ok "go test ./..."
 else
-  fail "go test failed — see \`make test\`"
+  fail "go test failed, see \`make test\`"
 fi
 
 if go test -tags offensive ./... >/dev/null 2>&1; then
@@ -119,8 +119,8 @@ fi
 
 say_section "summary"
 if [ "$status" -eq 0 ]; then
-  ok "release gate PASSED — safe to \`git tag -s\`"
+  ok "release gate PASSED, safe to \`git tag -s\`"
 else
-  fail "release gate FAILED — see above"
+  fail "release gate FAILED, see above"
 fi
 exit "$status"

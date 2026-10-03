@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-opcua-https-fingerprint.sh — end-to-end demo of the opcuahttps
+# demo-opcua-https-fingerprint.sh, end-to-end demo of the opcuahttps
 # plugin's deep GetEndpoints fingerprint, with no real OPC UA server.
 #
 # The opcuahttps plugin (TCP/4843, OPC UA HTTPS binding, Part 6 §7.4)
@@ -19,7 +19,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SIMP=4843            # opcuahttps DefaultPort — scan matches the opcuahttps plugin here
+SIMP=4843            # opcuahttps DefaultPort, scan matches the opcuahttps plugin here
 TMP="$(mktemp -d)"   # isolated elsereno HOME
 BIN="$TMP/elsereno"
 SIM="$TMP/opcuahttps-sim"

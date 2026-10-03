@@ -1,8 +1,8 @@
 //go:build offensive
 
-// v2.62 — tests for `elsereno sandbox` parent verb + `list`
+// v2.62, tests for `elsereno sandbox` parent verb + `list`
 // and `introspect` subverbs. Built for every offensive build
-// (regardless of cgo) — assertions branch on the
+// (regardless of cgo), assertions branch on the
 // `sandboxIntrospectionAvailable` const so the same test
 // file fences behaviour across the cgo / non-cgo paths.
 
@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// TestSandboxList_Text — `sandbox list` (text mode) prints
+// TestSandboxList_Text `sandbox list` (text mode) prints
 // the 4 profile names, one per line, in declaration order.
 func TestSandboxList_Text(t *testing.T) {
 	cmd := newSandboxCmd()
@@ -33,8 +33,8 @@ func TestSandboxList_Text(t *testing.T) {
 	}
 }
 
-// TestSandboxList_JSON — `sandbox list --json` emits a stable
-// JSON array (alphabetical-by-declaration; not sorted —
+// TestSandboxList_JSON `sandbox list --json` emits a stable
+// JSON array (alphabetical-by-declaration; not sorted,
 // declaration order from Profiles()).
 func TestSandboxList_JSON(t *testing.T) {
 	cmd := newSandboxCmd()
@@ -60,7 +60,7 @@ func TestSandboxList_JSON(t *testing.T) {
 	}
 }
 
-// TestSandboxIntrospect_UnknownProfile — bogus profile name
+// TestSandboxIntrospect_UnknownProfile bogus profile name
 // errors at the args-validation layer (before
 // schemeForProfile is even called), with a hint to run
 // `sandbox list`.
@@ -79,7 +79,7 @@ func TestSandboxIntrospect_UnknownProfile(t *testing.T) {
 	}
 }
 
-// TestSandboxIntrospect_AllJSON — `--all --format=json` emits
+// TestSandboxIntrospect_AllJSON `--all --format=json` emits
 // 4 entries (one per recognised profile) with the same
 // profile-name order as Profiles(). On the darwin+cgo build
 // every Scheme is non-empty; on every other offensive build
@@ -118,7 +118,7 @@ func TestSandboxIntrospect_AllJSON(t *testing.T) {
 	}
 }
 
-// TestSandboxIntrospect_AllMutexWithPositional — passing
+// TestSandboxIntrospect_AllMutexWithPositional passing
 // both --all and a positional PROFILE arg is rejected with
 // a clear message (not silently ignoring one).
 func TestSandboxIntrospect_AllMutexWithPositional(t *testing.T) {
@@ -136,7 +136,7 @@ func TestSandboxIntrospect_AllMutexWithPositional(t *testing.T) {
 	}
 }
 
-// TestSandboxIntrospect_BadFormat — unsupported --format
+// TestSandboxIntrospect_BadFormat unsupported --format
 // values are rejected with a usage error.
 func TestSandboxIntrospect_BadFormat(t *testing.T) {
 	cmd := newSandboxCmd()
@@ -153,7 +153,7 @@ func TestSandboxIntrospect_BadFormat(t *testing.T) {
 	}
 }
 
-// TestSandboxDiff_TwoProfilesJSON (v2.63+) — `sandbox diff
+// TestSandboxDiff_TwoProfilesJSON (v2.63+), `sandbox diff
 // exploit scan --json` returns a JSON object with a/b
 // matching the args and only_in_a/only_in_b/common arrays
 // populated. Only meaningful on the darwin+cgo build; on
@@ -220,7 +220,7 @@ func TestSandboxDiff_TwoProfilesJSON(t *testing.T) {
 	}
 }
 
-// TestSandboxDiff_SelfDiffEmpty (v2.63+) — diffing a
+// TestSandboxDiff_SelfDiffEmpty (v2.63+), diffing a
 // profile against itself should produce empty
 // only_in_a + only_in_b arrays and a non-empty common.
 // This is the sanity-check that the comparison is
@@ -252,7 +252,7 @@ func TestSandboxDiff_SelfDiffEmpty(t *testing.T) {
 	}
 }
 
-// TestSandboxDiff_UnknownProfile (v2.63+) — bogus profile
+// TestSandboxDiff_UnknownProfile (v2.63+), bogus profile
 // names fail at the args layer with a hint.
 func TestSandboxDiff_UnknownProfile(t *testing.T) {
 	cmd := newSandboxCmd()
@@ -269,7 +269,7 @@ func TestSandboxDiff_UnknownProfile(t *testing.T) {
 	}
 }
 
-// TestDiffSchemes_LineLevel (v2.63+) — pure unit test for
+// TestDiffSchemes_LineLevel (v2.63+), pure unit test for
 // diffSchemes() without going through cobra. Verifies that
 // (a) whitespace-only lines are dropped, (b) lines are
 // trimmed before comparison, (c) intersection + symmetric
@@ -301,7 +301,7 @@ func TestDiffSchemes_LineLevel(t *testing.T) {
 	}
 }
 
-// TestSandboxIntrospect_TextSingle — `sandbox introspect dial`
+// TestSandboxIntrospect_TextSingle `sandbox introspect dial`
 // (text mode, single profile) prints a `# profile=dial`
 // header followed by the .sb scheme body on cgo builds, or
 // just the header line on non-cgo builds (empty body).

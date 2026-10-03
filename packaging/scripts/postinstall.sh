@@ -1,5 +1,5 @@
 #!/bin/sh
-# postinstall — runs AFTER files unpack. Creates the
+# postinstall, runs AFTER files unpack. Creates the
 # /etc/elsereno + state dirs (the tmpfiles config handles
 # /run, but persistent state needs a one-time mkdir +
 # chown), then sets up the systemd units.
@@ -23,7 +23,7 @@ chmod 0750 /etc/elsereno
 chown elsereno:elsereno /etc/elsereno || true
 
 # 2. State + log dirs. systemd-tmpfiles creates them on
-#    boot, but until the next boot they don't exist —
+#    boot, but until the next boot they don't exist, 
 #    create now so an immediate `systemctl start` works.
 mkdir -p /var/lib/elsereno
 chmod 0750 /var/lib/elsereno
@@ -37,7 +37,7 @@ chown elsereno:elsereno /var/log/elsereno || true
 #    isn't on PATH (containers, build VMs).
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
     systemctl daemon-reload >/dev/null 2>&1 || true
-    # Don't auto-enable — operators decide when to start.
+    # Don't auto-enable, operators decide when to start.
     # Print a hint instead.
     cat <<'EOF'
 

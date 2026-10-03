@@ -37,7 +37,7 @@ jobs:
         # requires regenerating + committing the pages in
         # man/man{5,7}/ via `bash scripts/gen-manpages.sh`.
         env:
-          # Real upstream tag names (not SemVer — pandoc uses 4-dot
+          # Real upstream tag names (not SemVer, pandoc uses 4-dot
           # variants). Check https://github.com/jgm/pandoc/releases
           # before bumping.
           PANDOC_VERSION: "3.9.0.2"
@@ -52,7 +52,7 @@ jobs:
         # release workflow never mutates the tree (goreleaser
         # refuses to release a dirty working tree). pandoc output
         # is NOT byte-deterministic across versions, so running
-        # gen-manpages in CI almost always drifts — running a
+        # gen-manpages in CI almost always drifts, running a
         # strict verify step would block every release. Instead
         # we reset any runner-side mutations so the tree matches
         # HEAD, and trust the source-of-truth check at `make man`
@@ -60,7 +60,7 @@ jobs:
         run: |
           git status --porcelain man/ || true
           git checkout -- man/ 2>/dev/null || true
-      # buildx is required for dockers_v2 — multi-platform manifests
+      # buildx is required for dockers_v2, multi-platform manifests
       # and SBOM / provenance attestations (`--attest=type=sbom` +
       # `--attest=type=provenance,mode=max`) only work under a
       # buildx driver. QEMU enables cross-architecture builds
@@ -92,7 +92,7 @@ jobs:
 
       # v1.2: drop the slsa-framework/slsa-github-generator
       # reusable workflow (exit-27 bug tracked since v2.0.0 and
-      # still present in v2.1.0 — see
+      # still present in v2.1.0, see
       # github.com/slsa-framework/slsa-github-generator/issues/2610).
       # Use GitHub's native actions/attest-build-provenance@v4
       # instead. Produces a SLSA v1.0 predicate + Sigstore keyless

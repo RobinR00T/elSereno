@@ -1,4 +1,4 @@
-# ElSereno — manual para dummies
+# ElSereno, manual para dummies
 
 Manual end-to-end con cada comando, ejemplos reales, variables
 de entorno y workflows operativos. Pensado para alguien que
@@ -25,34 +25,34 @@ qué orden, con qué argumentos**.
 5. [Archivos y rutas](#5-archivos-y-rutas)
 6. [Build variants](#6-build-variants-default--offensive--mini)
 7. [CLI: referencia completa](#7-cli-referencia-completa)
-   1. [scan — escanear targets](#71-scan)
-   2. [discover — descubrir hosts vivos](#72-discover)
-   3. [serve — dashboard + API](#73-serve)
-   4. [vault — secretos cifrados](#74-vault)
-   5. [creds — credenciales gestionadas](#75-creds)
-   6. [db — operaciones de base de datos](#76-db)
-   7. [audit — log de auditoría](#77-audit)
-   8. [backup — copias cifradas](#78-backup)
-   9. [config — configuración](#79-config)
-   10. [plugins — plugins de protocolo](#710-plugins)
-   11. [fingerprint — debug de plugins](#711-fingerprint)
-   12. [triage — clasificar findings](#712-triage)
-   13. [explain — explicar score](#713-explain)
-   14. [scoring — ver pesos](#714-scoring)
-   15. [doctor — preflight](#715-doctor)
-   16. [tui — terminal UI](#716-tui)
-   17. [api — meta de la HTTP API](#717-api)
+   1. [scan, escanear targets](#71-scan)
+   2. [discover, descubrir hosts vivos](#72-discover)
+   3. [serve, dashboard + API](#73-serve)
+   4. [vault, secretos cifrados](#74-vault)
+   5. [creds, credenciales gestionadas](#75-creds)
+   6. [db, operaciones de base de datos](#76-db)
+   7. [audit, log de auditoría](#77-audit)
+   8. [backup, copias cifradas](#78-backup)
+   9. [config, configuración](#79-config)
+   10. [plugins, plugins de protocolo](#710-plugins)
+   11. [fingerprint, debug de plugins](#711-fingerprint)
+   12. [triage, clasificar findings](#712-triage)
+   13. [explain, explicar score](#713-explain)
+   14. [scoring, ver pesos](#714-scoring)
+   15. [doctor, preflight](#715-doctor)
+   16. [tui, terminal UI](#716-tui)
+   17. [api, meta de la HTTP API](#717-api)
    18. [legal · version · why · diff · proxy · repl · init · token](#718-otros-verbos)
 8. [El dashboard web](#8-el-dashboard-web)
 9. [Workflows típicos](#9-workflows-típicos)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Glosario](#11-glosario)
-12. [`scope.yaml` — limitar qué se puede tocar](#12-scopeyaml-reference)
-13. [`elsereno.yaml` — configuración](#13-elserenoyaml-reference)
+12. [`scope.yaml`: limitar qué se puede tocar](#12-scopeyaml-reference)
+13. [`elsereno.yaml`: configuración](#13-elserenoyaml-reference)
 14. [Schema de finding (NDJSON v1)](#14-schema-de-finding-ndjson-v1)
 15. [HTTP API reference (/api/v1/*)](#15-http-api-reference)
 16. [Plugins por protocolo](#16-plugins-por-protocolo)
-17. [Offensive build — triple-confirm + writes](#17-offensive-build)
+17. [Offensive build, triple-confirm + writes](#17-offensive-build)
 18. [Deployment (systemd + Docker + K8s)](#18-deployment)
 19. [Shell completion + man pages](#19-shell-completion--man-pages)
 20. [Backup & disaster recovery](#20-backup--disaster-recovery)
@@ -72,9 +72,9 @@ puntuados con un score de severidad.
 
 Dos modos de uso:
 
-- **CLI por lotes** — `elsereno scan ...` produce NDJSON que
+- **CLI por lotes**: `elsereno scan ...` produce NDJSON que
   se canaliza a `triage` / `explain` / SIEM externo.
-- **Dashboard web** — `elsereno serve` levanta una UI en
+- **Dashboard web**: `elsereno serve` levanta una UI en
   `http://127.0.0.1:8787` con scans interactivos, scheduling
   recurrente, audit log, merge-view para edición concurrente.
 
@@ -89,7 +89,7 @@ Dos modos de uso:
 
 Tres caminos posibles: paquete del sistema (recomendado para
 operadores), tarball (laptops / kiosks), contenedor OCI (CI /
-K8s). El binario **es estático sin dependencias** — no instala
+K8s). El binario **es estático sin dependencias**: no instala
 nada en `/usr/lib`.
 
 ### 2.1 macOS
@@ -97,10 +97,10 @@ nada en `/usr/lib`.
 Apple Silicon (M1/M2/M3/M4) y Intel ambos soportados.
 
 ```bash
-# Opción A — Homebrew tap (si está publicado):
+# Opción A, Homebrew tap (si está publicado):
 brew install RobinR00T/tap/elsereno
 
-# Opción B — Tarball manual:
+# Opción B, Tarball manual:
 ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 curl -L "https://github.com/RobinR00T/elSereno/releases/latest/download/elsereno_darwin_${ARCH}.tar.gz" \
     | tar -xz -C /tmp
@@ -206,7 +206,7 @@ which elsereno                  # /usr/local/bin/elsereno (o similar)
 # 2) Versión y commit:
 elsereno version                # vX.Y.Z (commit ABC123, built YYYY-MM-DDTHH:MM:SSZ)
 
-# 3) Disclaimer legal — debe mostrarse al menos una vez:
+# 3) Disclaimer legal, debe mostrarse al menos una vez:
 elsereno legal
 
 # 4) Preflight: comprueba paths, perms, vault, db reachability:
@@ -230,7 +230,7 @@ elsereno legal
 #    master key para CSRF / backup encryption:
 elsereno vault init
 #    Te pedirá una passphrase. ÚSALA FUERTE. Si la olvidas,
-#    perderás acceso al vault — no hay recuperación.
+#    perderás acceso al vault, no hay recuperación.
 
 # 3) Desbloquear el vault (necesario antes de cada serve):
 elsereno vault unlock
@@ -240,7 +240,7 @@ elsereno config show > ~/.elsereno/elsereno.yaml
 # Edita el archivo a tu gusto; las claves están documentadas en
 # .context/conventions.md.
 
-# 5) (Opcional) Para persistencia entre reinicios — apunta a
+# 5) (Opcional) Para persistencia entre reinicios, apunta a
 #    una Postgres y migra:
 export DATABASE_URL='postgres://elsereno:****@db-host:5432/elsereno?sslmode=require'
 elsereno db migrate up
@@ -266,7 +266,7 @@ serve **exige** TLS + `--i-know-what-im-doing`.
 | `ELSERENO_WEB_BIND`               | `127.0.0.1:8787`                         | Bind por defecto de `serve`.                           |
 | `ELSERENO_WEB_TOKEN_TTL_DAYS`     | `30`                                     | TTL de tokens web.                                     |
 | `ELSERENO_LOG_LEVEL`              | `info`                                   | `debug` / `info` / `warn` / `error`.                   |
-| `ELSERENO_VAULT_PASSPHRASE`       | (vacío)                                  | **No usar en prod** — pasa el passphrase al vault via env. Equivalente a `--vault-passphrase-file` pero más inseguro (PITF-032). |
+| `ELSERENO_VAULT_PASSPHRASE`       | (vacío)                                  | **No usar en prod**: pasa el passphrase al vault via env. Equivalente a `--vault-passphrase-file` pero más inseguro (PITF-032). |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`     | (vacío)                                  | Endpoint OpenTelemetry para traces / metrics.          |
 | `SHODAN_API_KEY`                  | (vacío)                                  | Clave API Shodan; prefiere `elsereno creds store`.     |
 | `CENSYS_API_ID` / `CENSYS_API_SECRET` | (vacío)                              | Credenciales Censys; prefiere creds.                   |
@@ -291,7 +291,7 @@ sólo está admitido para CI / cron con rationale documentado.
 ├── audit.jsonl         # audit log file-backed (chain con HMAC)
 ├── dev.pp              # (sólo dev) passphrase del vault, 0600
 ├── dev-db.env          # (sólo dev) DATABASE_URL para dev-db.sh
-└── gh-token            # (legacy, borrable) bootstrap PAT — ver hygiene
+└── gh-token            # (legacy, borrable) bootstrap PAT, ver hygiene
 ```
 
 - `vault.v1.bin`: cifrado con la passphrase. Pérdida =
@@ -383,7 +383,7 @@ echo -e "10.0.0.1:502\n10.0.0.2:44818" | elsereno scan --input stdin > findings.
 
 Sweep de un CIDR (o lista de hosts) para detectar puertos
 de cualquier plugin registrado. Es un **TCP-connect sweep**,
-no fingerprint — el output suele encadenarse a `scan`.
+no fingerprint, el output suele encadenarse a `scan`.
 
 **Flags importantes:**
 
@@ -405,7 +405,7 @@ elsereno discover --auto 10.0.0.0/24 \
 cat > hosts.txt <<EOF
 10.0.0.1
 10.0.0.2
-# 10.0.0.3 — host fuera de mantenimiento
+# 10.0.0.3, host fuera de mantenimiento
 10.0.0.5
 EOF
 elsereno discover --hosts hosts.txt > responsive.ndjson
@@ -463,7 +463,7 @@ Gestión del vault cifrado.
 
 | Sub-comando  | Qué hace                                                              |
 |--------------|-----------------------------------------------------------------------|
-| `init`       | Crea el vault. Pide passphrase. **Falla** si ya existe (no se sobreescribe — PITF-021). |
+| `init`       | Crea el vault. Pide passphrase. **Falla** si ya existe (no se sobreescribe, PITF-021). |
 | `unlock`     | Desbloquea el vault en la memguard del proceso CLI. Útil para precargar antes de `serve`. |
 | `lock`       | Zeroiza la copia en memoria. Útil tras usar `creds show --reveal`.    |
 | `status`     | Reporta si existe + dónde vive.                                       |
@@ -502,7 +502,7 @@ Sustituye a las env vars de `SHODAN_API_KEY` etc.
 
 | Sub-comando | Uso                                                              |
 |-------------|------------------------------------------------------------------|
-| `store`     | Guarda una credencial nueva. Lee plaintext de stdin (no argv — PITF-032). |
+| `store`     | Guarda una credencial nueva. Lee plaintext de stdin (no argv, PITF-032). |
 | `rotate`    | Sobrescribe una existente.                                       |
 | `show`      | Imprime metadata (nombre, fecha). Con `--reveal` imprime también el plaintext + escribe entrada en audit. |
 | `list`      | Lista nombres de creds guardadas.                                |
@@ -973,7 +973,7 @@ elsereno scan --input shodan:'port:502' ...   # debe usar la nueva
 ### 9.9 Tras restart del servidor: bring-up del dashboard
 
 ```bash
-# (Si usas el dev tooling — ver DEV-SETUP.md):
+# (Si usas el dev tooling, ver DEV-SETUP.md):
 scripts/start.sh
 
 # Manual:
@@ -1006,7 +1006,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | `vault: not initialised`                                         | Primera ejecución sin `vault init`                     | `elsereno vault init`                                                     |
 | `serve: bind 0.0.0.0:8787 requires --tls-cert/--tls-key`         | Non-loopback bind sin TLS                              | Añade certs + `--i-know-what-im-doing`                                    |
 | `failed to authenticate caller: error obtaining token: expired_token` (cosign) | Device flow OIDC expira en 300s              | Re-ejecuta + abre el URL inmediatamente, o `--skip=sign`                  |
-| `migrations failed — see output above`                           | Binario stale (no conoce las últimas migraciones)      | Rebuild: `go build -o elsereno ./cmd/elsereno && elsereno db migrate up`  |
+| `migrations failed, see output above`                           | Binario stale (no conoce las últimas migraciones)      | Rebuild: `go build -o elsereno ./cmd/elsereno && elsereno db migrate up`  |
 | `Did not find any relation named "scan_schedule_audit"`          | Idem (migration 00011/00012 no aplicada por binario stale) | Mismo fix de arriba                                                       |
 | `HTTP 401: Bad credentials` al usar `gh`                         | PAT revocado o expirado                               | `gh auth login -h github.com`                                             |
 | `error=missing GITHUB_TOKEN, GITLAB_TOKEN and GITEA_TOKEN` (goreleaser) | Env var no setea (local, no en CI)             | `GITHUB_TOKEN=$(gh auth token) goreleaser release ...`                    |
@@ -1015,7 +1015,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | Dashboard 503 en `/api/v1/scans` o `/schedules`                  | `--scan-store=off` (default)                           | Re-arranca con `--scan-store=memory` o `=db`                              |
 | Audit chain reports `ErrChainBroken`                             | Alguien editó `audit.jsonl` a mano                     | Recovery manual; sin atajo                                                |
 | `OCI image runtime: tzdata: cannot find zone "..."`              | Sistema sin tzdata bundle                              | `apt install tzdata` o equivalente                                        |
-| `elsereno serve: scheduler exited: ...`                          | Bug del scheduler — reportar issue                     | Captura stderr + abre issue                                               |
+| `elsereno serve: scheduler exited: ...`                          | Bug del scheduler, reportar issue                     | Captura stderr + abre issue                                               |
 | `403 Forbidden` en POST                                           | CSRF token faltante                                    | El dashboard lo añade automático; en curl: usa el cookie + header X-CSRF-Token |
 
 ---
@@ -1064,10 +1064,10 @@ de "scan accidental".
 ### Forma canónica
 
 ```yaml
-# scope.yaml — autoriza explícitamente targets para esta sesión.
+# scope.yaml, autoriza explícitamente targets para esta sesión.
 version: 1
 allow:
-  # CIDR — todo lo dentro está permitido.
+  # CIDR, todo lo dentro está permitido.
   - cidr: 10.0.0.0/24
   - cidr: 192.168.50.0/24
   # IPv6 también soportado.
@@ -1080,7 +1080,7 @@ allow:
   # Range explícito.
   - range: 10.0.1.10-10.0.1.30
 deny:
-  # Excepciones — un deny dentro de un allow tiene prioridad.
+  # Excepciones, un deny dentro de un allow tiene prioridad.
   - host: 10.0.0.99    # router crítico, NO tocar
   - cidr: 10.0.0.250/32
 notes: |
@@ -1125,7 +1125,7 @@ elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml --dry-run
 
 ### Best practices
 
-- **Una sesión, un scope** — no recicles `scope.yaml` entre
+- **Una sesión, un scope**: no recicles `scope.yaml` entre
   ventanas de pen-test. Crear uno fresco por engagement
   evita confusiones.
 - **Comentarios obligatorios** (campo `notes`): quién
@@ -1153,7 +1153,7 @@ output que `elsereno config show` con un binario virgen).
 ### Esqueleto comentado
 
 ```yaml
-# elsereno.yaml — ejemplo con todos los campos comunes anotados.
+# elsereno.yaml, ejemplo con todos los campos comunes anotados.
 # Generado por: elsereno config show > ~/.elsereno/elsereno.yaml
 
 web:
@@ -1176,7 +1176,7 @@ scan:
   retry_count: 0         # protocol-aware probes ya manejan retries internos
 
 scoring:
-  # ADR-006 — pesos del scorer. Cámbialos sólo con rationale documentado.
+  # ADR-006, pesos del scorer. Cámbialos sólo con rationale documentado.
   weights:
     protocol_risk: 0.30
     cve_exposure: 0.25
@@ -1389,7 +1389,7 @@ curl -X POST http://127.0.0.1:8787/api/v1/schedules \
 ```
 
 Forma alternativa sin CSRF (sólo para clientes que no son
-browser — pasa `X-Operator` directo si tu config lo
+browser, pasa `X-Operator` directo si tu config lo
 permite).
 
 ---
@@ -1428,7 +1428,7 @@ Lista actualizada del build default (28 plugins).
 | `sip`        | UDP/5060          | SIP / PBX                                                             | RO + WG  |
 | `slmp`       | TCP/5007          | Mitsubishi MELSEC SLMP                                                | RO       |
 | `twincat`    | TCP/48898         | Beckhoff TwinCAT ADS                                                  | RO       |
-| `xot`        | TCP/1998 / 5555   | X.25 over TCP (RFC 1613) — legacy banking/airline                     | RO + WG  |
+| `xot`        | TCP/1998 / 5555   | X.25 over TCP (RFC 1613), legacy banking/airline                     | RO + WG  |
 
 **Leyenda:** `RO` = read-only (default build); `WG` = write-gated
 proxy disponible en offensive build con triple-confirm.
@@ -1454,11 +1454,11 @@ Todas las operaciones de escritura/explote requieren:
 
 1. `--accept-writes` (flag explícito en la CLI).
 2. `--confirm-target <ip>:<port>` (confirma que sabes a
-   qué estás disparando — fail-fast en typos).
+   qué estás disparando, fail-fast en typos).
 3. `--confirm-token <STRING>` (string mostrado en el log
    de inicio para confirmar que estás viendo la sesión
    correcta).
-4. **Vault desbloqueado** — el audit HMAC se firma con la
+4. **Vault desbloqueado**: el audit HMAC se firma con la
    master key. Si está locked, la operación se rechaza.
 
 ### Ejemplo: write Modbus
@@ -1707,7 +1707,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
 
-        # SSE — desactiva buffering:
+        # SSE, desactiva buffering:
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 24h;
@@ -1820,7 +1820,7 @@ sudo install -m 0640 -o elsereno -g elsereno \
 
 # 4) Arrancar y verificar:
 sudo systemctl start elsereno
-elsereno audit verify-file       # debería pasar — la chain es íntegra
+elsereno audit verify-file       # debería pasar, la chain es íntegra
 ```
 
 ### Qué se incluye en el backup
@@ -1899,7 +1899,7 @@ para no leak metadata en deploy normal.)
 ## 22. FAQ rápida
 
 **¿Necesito Postgres?**
-No para `scan` / `discover` / lotes — el binario es
+No para `scan` / `discover` / lotes, el binario es
 stateless. Sí si quieres que el dashboard (`serve`) recuerde
 scans/schedules tras reinicio (`--scan-store=db`).
 
@@ -1956,24 +1956,24 @@ mantenedor (`ACE3B86BACACE7D6`).
 
 ## Más documentación
 
-- [`INSTALL.md`](../INSTALL.md) — instalación detallada con
+- [`INSTALL.md`](../INSTALL.md), instalación detallada con
   todos los paquetes y SBOM verification.
-- [`README.md`](../README.md) — overview + Quickstart.
-- [`docs/DEV-SETUP.md`](DEV-SETUP.md) — workflow de
+- [`README.md`](../README.md), overview + Quickstart.
+- [`docs/DEV-SETUP.md`](DEV-SETUP.md), workflow de
   desarrollo (clonar repo, scripts/bootstrap.sh, scripts/start.sh).
-- [`docs/SECURITY.md`](SECURITY.md) — modelo de seguridad,
+- [`docs/SECURITY.md`](SECURITY.md), modelo de seguridad,
   threat model, hardening checklist.
-- [`docs/INTEGRATIONS.md`](INTEGRATIONS.md) — SIEM /
+- [`docs/INTEGRATIONS.md`](INTEGRATIONS.md), SIEM /
   observability recipes (Splunk, Elastic, Loki, Prometheus).
-- [`docs/OPERATIONS.md`](OPERATIONS.md) — runbooks
+- [`docs/OPERATIONS.md`](OPERATIONS.md), runbooks
   operacionales: release flow, Dependabot policy, post-public-
   flip checklist, troubleshooting CI, admin handoff.
-- [`docs/FAQ.md`](FAQ.md) — preguntas frecuentes
+- [`docs/FAQ.md`](FAQ.md), preguntas frecuentes
   expandidas.
-- [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — diseño
+- [`docs/ARCHITECTURE.md`](ARCHITECTURE.md), diseño
   interno.
-- [`docs/openapi.yaml`](openapi.yaml) — spec de la API.
-- [`docs/protocols/`](protocols/) — engineering notes por
+- [`docs/openapi.yaml`](openapi.yaml), spec de la API.
+- [`docs/protocols/`](protocols/), engineering notes por
   protocolo.
 - [`docs/exposure-auditing.md`](exposure-auditing.md): guía de las
   probes de exposición read-only (S7, OPC UA, plaintext-check,
@@ -1983,10 +1983,10 @@ mantenedor (`ACE3B86BACACE7D6`).
 - [`docs/standards/nist-sp800-82r4.md`](standards/nist-sp800-82r4.md):
   mapeo de detecciones a vulnerabilidades del estándar.
 - [`docs/manual/elsereno-manual.md`](manual/elsereno-manual.md)
-  — manual narrativo histórico (casos de uso con detalle).
-- `.context/` — internal context (state, decisions,
+manual narrativo histórico (casos de uso con detalle).
+- `.context/`: internal context (state, decisions,
   pitfalls). Lectura recomendada antes de modificar
   código.
 
 ¿Algo no cubre este manual? Abre un issue o expande la
-sección directamente — es markdown vivo.
+sección directamente, es markdown vivo.

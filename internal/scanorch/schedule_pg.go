@@ -13,12 +13,12 @@ import (
 // Schema in migration 00007_scan_schedules.sql.
 //
 // All mutations use single-statement SQL (INSERT / UPDATE /
-// DELETE) — no multi-row transactions. The Scheduler tick is
+// DELETE), no multi-row transactions. The Scheduler tick is
 // the only writer that races against operator-driven CRUD,
 // and its MarkFired update is a single UPDATE that's atomic
 // at the row level. SELECT FOR UPDATE on the schedule row
 // before MarkFired would be required if multiple `serve`
-// instances share the same DB; deferred — the typical
+// instances share the same DB; deferred, the typical
 // deployment is a single serve process.
 type DBScheduleStore struct {
 	q Querier
@@ -105,7 +105,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
 func (s *DBScheduleStore) WithTx(ctx context.Context, fn func(ScheduleStore) error) error {
 	beginner, ok := s.q.(txQuerier)
 	if !ok {
-		// Test-fake fallback — no real BeginTx; document
+		// Test-fake fallback, no real BeginTx; document
 		// matches MemoryScheduleStore.
 		return fn(s)
 	}
@@ -318,7 +318,7 @@ func (s *DBScheduleStore) List(ctx context.Context) ([]ScanSchedule, error) {
 // When non-nil, the WHERE clause adds `AND updated_at = $9`,
 // so a 0-row response means EITHER the schedule doesn't exist
 // OR another operator updated it since the caller last read.
-// We disambiguate by issuing a follow-up SELECT — costs an
+// We disambiguate by issuing a follow-up SELECT, costs an
 // extra round-trip only on the precondition-failure path
 // (rare). updated_at is also written ($10) so the new value
 // is observable on the next read.
@@ -448,7 +448,7 @@ func (s *DBScheduleStore) ListByTag(ctx context.Context, tag string) ([]ScanSche
 //     v2.17+).
 //
 // AND + OR are GIN-friendly. NOT can't use the GIN index
-// directly; the planner falls back to seq scan + filter —
+// directly; the planner falls back to seq scan + filter,
 // acceptable for typical fleets (<10k schedules).
 func (s *DBScheduleStore) ListByTags(ctx context.Context, tags []string, op string) ([]ScanSchedule, error) {
 	if len(tags) == 0 {
@@ -590,7 +590,7 @@ func scanSchedule(rows pgx.Rows) (ScanSchedule, error) {
 // underlying pgx driver picks the right column type at bind
 // time regardless of platform int size.
 //
-// The int → int32 conversion is bounded by callers — Create
+// The int → int32 conversion is bounded by callers, Create
 // + Update clamp via clampAuditRetention to <= 365*10 well
 // inside int32 range. Defensive cap below catches any future
 // callers that bypass clamping.
@@ -601,7 +601,7 @@ func auditRetentionDaysToDB(days int) any {
 	if days > scheduleMaxAuditRetentionDays {
 		days = scheduleMaxAuditRetentionDays
 	}
-	v := int32(days) // #nosec G115 — clamped above to fit int32.
+	v := int32(days) // #nosec G115, clamped above to fit int32.
 	return &v
 }
 

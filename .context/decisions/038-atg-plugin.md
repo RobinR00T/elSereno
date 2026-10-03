@@ -1,12 +1,12 @@
 ---
 id: 038
-title: ATG Veeder-Root (TLS-350/4) plugin — read-only probe + fingerprint
+title: ATG Veeder-Root (TLS-350/4) plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-038: ATG Veeder-Root (TLS-350/4) plugin — read-only probe + fingerprint
+# ADR-038: ATG Veeder-Root (TLS-350/4) plugin, read-only probe + fingerprint
 
 ## Context
 ATG Veeder-Root (TLS-350/4) is an ICS/OT protocol commonly exposed on port 10001/tcp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

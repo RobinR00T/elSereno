@@ -20,7 +20,7 @@ exists but TCP is by far the most common Internet-exposed shape.
   catalogue.
 
 The probe is idempotent and side-effect-free: READ CPU MODEL NAME
-does not touch memory devices, latches, or program memory — it
+does not touch memory devices, latches, or program memory, it
 returns the CPU's self-description.
 
 ## Wire layout (3E binary frame)
@@ -53,7 +53,7 @@ SLMP is **TCP**, so the generic proxy framework applies. The
 default-build handler reads the first frame's request data length,
 drains the body, and replies with a 13-byte error frame carrying
 end code 0xC059 ("command unsupported" per SLMP §6.6 end-code
-table). It does NOT forward to upstream — defence-in-depth: a
+table). It does NOT forward to upstream, defence-in-depth: a
 malformed length could bypass a request classifier, so we
 fail-closed for every request in the default build.
 
@@ -123,5 +123,5 @@ allowed Device Write (the SLMP analogue of the s7 per-item gate).
 - MELSEC iQ-R / iQ-F / Q / L Series CPU Module User's Manual.
 - ICS-CERT advisories on Mitsubishi MELSEC lacking authentication
   on the default port (multiple, 2018-onwards).
-- Talos blog "MELSEC over Internet" (Cisco Talos, 2020) — surveys
+- Talos blog "MELSEC over Internet" (Cisco Talos, 2020), surveys
   Internet-exposed CPUs.

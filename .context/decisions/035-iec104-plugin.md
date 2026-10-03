@@ -1,12 +1,12 @@
 ---
 id: 035
-title: IEC 60870-5-104 plugin — read-only probe + fingerprint
+title: IEC 60870-5-104 plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-035: IEC 60870-5-104 plugin — read-only probe + fingerprint
+# ADR-035: IEC 60870-5-104 plugin, read-only probe + fingerprint
 
 ## Context
 IEC 60870-5-104 is an ICS/OT protocol commonly exposed on port 2404/tcp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

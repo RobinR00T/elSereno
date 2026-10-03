@@ -23,7 +23,7 @@ import (
 // The verb is observe-only: no IO replay against a target
 // (the recorder package's Replay() callback is library-level
 // for tools that want to do replay-against-lab-PLC, but the
-// CLI keeps to printing for now — it's the 90% use case
+// CLI keeps to printing for now, it's the 90% use case
 // for forensic post-mortem).
 // proxyReplayArgs bundles every CLI flag the verb consumes
 // so the RunE closure stays a thin driver. Private to this
@@ -132,7 +132,7 @@ func validateMutexFlags(args proxyReplayArgs) error {
 	return nil
 }
 
-// runProxyReplayStream is the streaming-emission path —
+// runProxyReplayStream is the streaming-emission path,
 // covers default (unbounded) and --limit (cap-at-N). Emits
 // each matching chunk as it walks the file.
 func runProxyReplayStream(cmd *cobra.Command, path string, args proxyReplayArgs, window timeWindow) error {
@@ -285,7 +285,7 @@ func printReplayStats(cmd *cobra.Command, s replayStats) {
 		cmd.Println("range  (no matching chunks)")
 		return
 	}
-	cmd.Printf("range  %s — %s\n",
+	cmd.Printf("range  %s, %s\n",
 		s.firstTS.UTC().Format(time.RFC3339Nano),
 		s.lastTS.UTC().Format(time.RFC3339Nano))
 }
@@ -326,7 +326,7 @@ func printReplayHeader(cmd *cobra.Command, path string, hdr replay.HeaderEvent, 
 	cmd.Printf("# target    %s\n", hdr.Target)
 	cmd.Printf("# started   %s\n", hdr.StartedAt.UTC().Format("2006-01-02T15:04:05.999999Z07:00"))
 	if !window.since.IsZero() || !window.until.IsZero() {
-		cmd.Printf("# window    %s — %s\n",
+		cmd.Printf("# window    %s, %s\n",
 			formatWindowSide(window.since, "(open)"),
 			formatWindowSide(window.until, "(open)"))
 	}
@@ -345,7 +345,7 @@ type timeWindow struct {
 // zero bound disables that side. ts is also tolerated as zero
 // (a ChunkEvent with an unparseable TS would have zero); we
 // pass those through so a corrupted line doesn't get filtered
-// out silently — the operator notices the bad timestamp in
+// out silently, the operator notices the bad timestamp in
 // the rendered output instead.
 func (w timeWindow) contains(ts time.Time) bool {
 	if !w.since.IsZero() && !ts.IsZero() && ts.Before(w.since) {
@@ -387,7 +387,7 @@ func parseTimeWindow(since, until string) (timeWindow, error) {
 
 // formatWindowSide renders one bound for the "# window" header
 // line. Zero-value bounds get the placeholder so the operator
-// sees "(open) — 12:00:00Z" rather than a confusing "0001-…".
+// sees "(open), 12:00:00Z" rather than a confusing "0001-…".
 func formatWindowSide(t time.Time, placeholder string) string {
 	if t.IsZero() {
 		return placeholder
@@ -396,7 +396,7 @@ func formatWindowSide(t time.Time, placeholder string) string {
 }
 
 // parseDirFilter maps the --dir flag to a (clientWanted,
-// upstreamWanted) pair. Unknown values fall back to both — the
+// upstreamWanted) pair. Unknown values fall back to both, the
 // typical pilot-error mode is a typo, and showing everything is
 // safer than showing nothing.
 func parseDirFilter(s string) (bool, bool) {

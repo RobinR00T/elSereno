@@ -25,7 +25,7 @@
 // I could validate. Inventing a wire-parser based on conflicting
 // nmap-NSE / Metasploit / ICS-CERT-advisory excerpts would risk
 // shipping a gate that incorrectly classifies operator traffic
-// (false positives that block legitimate reads, or — worse —
+// (false positives that block legitimate reads, or, worse,
 // false negatives that pass writes through). The v1.27 chunk 2
 // scope is therefore deliberate: ship the triple-confirm fence
 // + audit row + relay, leave wire-level command gating to a
@@ -36,7 +36,7 @@
 //   - The triple-confirm fence (build tag + --accept-writes +
 //     --confirm-target + --confirm-token) protects the upstream.
 //     A misconfigured operator command can't accidentally relay
-//     PCWorx bytes — Authorise must succeed first.
+//     PCWorx bytes, Authorise must succeed first.
 //   - The audit chain records the session (offensive_allowed
 //     event with proxy_session operation + target hash) so the
 //     forensic record exists even though the gate doesn't slice
@@ -61,7 +61,7 @@ import (
 )
 
 // AllowedIntent is the operator's free-text rationale for the
-// session. It does NOT gate any wire-level behaviour — it's
+// session. It does NOT gate any wire-level behaviour, it's
 // recorded in the session PayloadHash so two sessions with
 // different rationale produce different confirm-tokens. Useful
 // for audit lineage: a token minted for "ILC reset to factory
@@ -132,7 +132,7 @@ type WriteGatedHandler struct {
 	// the proxy session to an NDJSON file. When non-nil, Handle
 	// wraps both client + upstream io.ReadWriter through the
 	// recorder so every byte that crosses the gate is timestamped
-	// + direction-tagged + persisted. Nil disables recording —
+	// + direction-tagged + persisted. Nil disables recording,
 	// the gate behaves exactly as it did pre-v1.28.
 	//
 	// The operator's CLI wrapper is responsible for opening +
@@ -148,7 +148,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	// Reject sessions with no operator-supplied rationale — the
+	// Reject sessions with no operator-supplied rationale, the
 	// audit lineage requires at least one non-empty intent so
 	// future forensic queries can join "what was this session
 	// for?" against the operator's declared purpose.
@@ -177,7 +177,7 @@ var ErrSessionNotAuthorised = errors.New("pcworx: write-gated proxy requires Aut
 // Handle implements core.ProxyHandler. After Authorise has
 // succeeded, splits into two io.Copy goroutines (client →
 // upstream + upstream → client) and waits for either side to
-// close. Bytes are relayed verbatim — no per-frame parsing or
+// close. Bytes are relayed verbatim, no per-frame parsing or
 // allowlist gating in v1.27 chunk 2.
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
@@ -217,5 +217,5 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 // session-level mode" so operators see the granularity choice
 // up-front rather than after running into a surprise.
 func (h *WriteGatedHandler) Description() string {
-	return fmt.Sprintf("pcworx session-level proxy (target=%s, intents=%d) — bytes relayed verbatim once Authorise succeeds", h.Target, len(h.Allowed))
+	return fmt.Sprintf("pcworx session-level proxy (target=%s, intents=%d), bytes relayed verbatim once Authorise succeeds", h.Target, len(h.Allowed))
 }

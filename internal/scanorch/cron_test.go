@@ -73,12 +73,12 @@ func TestParseCron_Range(t *testing.T) {
 	if !c.Match(mondayMidday) {
 		t.Errorf("Monday 12:00 should match")
 	}
-	// Saturday May 9 2026 — should NOT match (dow=6).
+	// Saturday May 9 2026, should NOT match (dow=6).
 	saturdayMidday := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 	if c.Match(saturdayMidday) {
 		t.Errorf("Saturday 12:00 should NOT match")
 	}
-	// Monday 08:00 — outside 9-17 range.
+	// Monday 08:00, outside 9-17 range.
 	mondayMorning := time.Date(2026, 5, 4, 8, 0, 0, 0, time.UTC)
 	if c.Match(mondayMorning) {
 		t.Errorf("Monday 08:00 should NOT match (outside 9-17)")
@@ -153,7 +153,7 @@ func TestParseCron_InvalidField(t *testing.T) {
 	}
 }
 
-// TestParseCron_Next: "0 2 * * *" — next fire after midnight
+// TestParseCron_Next: "0 2 * * *", next fire after midnight
 // is 02:00 same day.
 func TestParseCron_Next(t *testing.T) {
 	c, _ := scanorch.ParseCron("0 2 * * *")
@@ -180,7 +180,7 @@ func TestParseCron_Next_AfterDailyTrigger(t *testing.T) {
 	}
 }
 
-// TestParseCron_Next_WeekdaysOnly: "0 9 * * 1-5" — after a
+// TestParseCron_Next_WeekdaysOnly: "0 9 * * 1-5", after a
 // Friday 17:00, next fire is Monday 09:00.
 func TestParseCron_Next_WeekdaysOnly(t *testing.T) {
 	c, _ := scanorch.ParseCron("0 9 * * 1-5")
@@ -194,7 +194,7 @@ func TestParseCron_Next_WeekdaysOnly(t *testing.T) {
 	}
 }
 
-// TestParseCron_Next_NoMatch: "0 0 30 2 *" — Feb 30 doesn't
+// TestParseCron_Next_NoMatch: "0 0 30 2 *", Feb 30 doesn't
 // exist, so Next eventually gives up with ErrCronNoMatch.
 func TestParseCron_Next_NoMatch(t *testing.T) {
 	c, _ := scanorch.ParseCron("0 0 30 2 *")

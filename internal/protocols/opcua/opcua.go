@@ -37,7 +37,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "OPC UA TCP (Part 6) fingerprint on 4840 — sends Hello, classifies ACK/ERR response",
+		Description: "OPC UA TCP (Part 6) fingerprint on 4840, sends Hello, classifies ACK/ERR response",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -72,7 +72,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	return classifyFrame(target, h, body), nil
 }
 
-// rawFrameErr is the degraded-path error type from readFrame —
+// rawFrameErr is the degraded-path error type from readFrame,
 // not strictly an "error" because the caller still wants to
 // emit a finding, just without any UA-layer detail.
 type rawFrameErr struct {
@@ -150,7 +150,7 @@ func classifyFrame(target core.Target, h wire.Header, body []byte) *core.Finding
 	}
 }
 
-// REPL stub — same pattern as fox; the generic framework
+// REPL stub, same pattern as fox; the generic framework
 // replaces this in F4 chunk 2.
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return errors.New("opcua: REPL arrives with the generic framework")
@@ -193,7 +193,7 @@ func buildRefusalFrame() []byte {
 		0x06, 0x00, 0x00, 0x00, // reason length = 6
 		'd', 'e', 'n', 'i', 'e', 'd',
 	}
-	// #nosec G115 — total length is a const 22 bytes by construction
+	// #nosec G115, total length is a const 22 bytes by construction
 	l := uint32(wire.HeaderSize + len(body))
 	frame := make([]byte, wire.HeaderSize+len(body))
 	copy(frame[0:3], "ERR")
@@ -220,7 +220,7 @@ func buildFinding(target core.Target, note string, uaTCP bool, detail, extra str
 		// cve_exposure 8: CVE-2017-12069 (Siemens OPC UA stack
 		// auth bypass), CVE-2019-10936 (open62541 cert
 		// validation), CVE-2022-29862 (Unified Automation OPC
-		// UA C++ DoS) — modest but well-documented across the
+		// UA C++ DoS), modest but well-documented across the
 		// OPC UA stack landscape.
 		"cve_exposure": 8,
 	}

@@ -166,7 +166,7 @@ func (m *Metrics) Registry() *prometheus.Registry { return m.registry }
 // and checked against a known set; asn is numeric-only; country is
 // ISO 3166-1 alpha-2. Anything else collapses to "unknown".
 //
-// The function is intentionally pure — callers pass already-derived
+// The function is intentionally pure, callers pass already-derived
 // values and receive back the sanitised ones.
 func SanitiseLabels(protocol, severity, asn, country string) (string, string, string, string) {
 	return sanitiseProtocol(protocol),

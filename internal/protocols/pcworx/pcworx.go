@@ -52,7 +52,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 //   - any of the PCWorx banner markers (ILC / AXC F / RFC /
 //     Phoenix / PCWorx / ProConOS / "FW V" / "Boot V").
 //
-// No service-request frames are issued — the default build is
+// No service-request frames are issued, the default build is
 // read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
@@ -80,7 +80,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	return buildFinding(target, "PCWorx "+note, true), nil
 }
 
-// REPL stub — consistent with every other protocol plugin.
+// REPL stub, consistent with every other protocol plugin.
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("pcworx: REPL arrives with the generic framework")
 }
@@ -96,7 +96,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("pcworx: TCP proxy framework requires a PCWorx-aware classifier; v1.25 is fingerprint-only — a relay arrives with the future offensive plugin")
+	return fmt.Errorf("pcworx: TCP proxy framework requires a PCWorx-aware classifier; v1.25 is fingerprint-only, a relay arrives with the future offensive plugin")
 }
 
 func classifyParseError(err error) string {
@@ -117,7 +117,7 @@ func buildFinding(target core.Target, note string, isPCWorx bool) *core.Finding 
 		"auth_state":    90, // PCWorx default install has no enforced auth
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLC blast radius
-		// cve_exposure: 8 — Phoenix Contact ILC family has a
+		// cve_exposure: 8, Phoenix Contact ILC family has a
 		// recurring CVE history. Anchor advisories:
 		//   ICSA-15-160-01 (PCWorx auth bypass + RCE).
 		//   ICSA-17-201-01 (PCWorx variable-write privilege escalation).

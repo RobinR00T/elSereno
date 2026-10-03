@@ -20,7 +20,7 @@ import (
 // recorder tests without a real network.
 type fakeRW struct {
 	in  *bytes.Buffer // bytes the test side wants the wrapper to "Read" from
-	out *bytes.Buffer // bytes the wrapper "Wrote" — test inspects after
+	out *bytes.Buffer // bytes the wrapper "Wrote", test inspects after
 }
 
 func (f *fakeRW) Read(p []byte) (int, error)  { return f.in.Read(p) }
@@ -128,7 +128,7 @@ func TestWrap_RecordsReadsAndWrites(t *testing.T) {
 		t.Errorf("event[2] dir = %q, want client_to_upstream", got2[2].Dir)
 	}
 
-	// Decode the read event's bytes — should match what we put in.
+	// Decode the read event's bytes, should match what we put in.
 	b, err := got2[1].DecodeBytes()
 	if err != nil {
 		t.Fatalf("DecodeBytes: %v", err)

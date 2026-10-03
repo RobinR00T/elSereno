@@ -1,12 +1,12 @@
 ---
 id: 032
-title: EtherNet/IP CIP plugin — read-only probe + fingerprint
+title: EtherNet/IP CIP plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-032: EtherNet/IP CIP plugin — read-only probe + fingerprint
+# ADR-032: EtherNet/IP CIP plugin, read-only probe + fingerprint
 
 ## Context
 EtherNet/IP CIP is an ICS/OT protocol commonly exposed on port 44818/tcp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

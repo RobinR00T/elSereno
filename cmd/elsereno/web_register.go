@@ -6,7 +6,7 @@ import "github.com/spf13/cobra"
 
 // registerWebVerbs wires the HTTP-server-dependent CLI verbs
 // (`serve`, `api openapi`) into the root command. Excluded from
-// the mini build via the !mini build tag — the mini variant
+// the mini build via the !mini build tag, the mini variant
 // targets device deployments that don't host the dashboard or
 // expose the API.
 //

@@ -72,7 +72,7 @@ func TestParseError_HandlesUTF8Reason(t *testing.T) {
 	reason := "Bad_Server_State"
 	body := make([]byte, 8+len(reason))
 	binary.LittleEndian.PutUint32(body[0:4], 0x80af0000)
-	// #nosec G115 — reason literal fits uint32
+	// #nosec G115, reason literal fits uint32
 	binary.LittleEndian.PutUint32(body[4:8], uint32(len(reason)))
 	copy(body[8:], reason)
 	e, err := wire.ParseError(body)
@@ -95,7 +95,7 @@ func TestParseHeader_RejectsBadChunk(t *testing.T) {
 
 func TestParseHeader_RejectsOversize(t *testing.T) {
 	b := []byte{'H', 'E', 'L', 'F'}
-	// Length larger than MaxMessageSize — 0xFFFFFFFF = ~4 GiB.
+	// Length larger than MaxMessageSize, 0xFFFFFFFF = ~4 GiB.
 	b = append(b, 0xFF, 0xFF, 0xFF, 0xFF)
 	_, err := wire.ParseHeader(b)
 	if !errors.Is(err, wire.ErrOversize) {

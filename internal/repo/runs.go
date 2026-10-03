@@ -122,7 +122,7 @@ func Triage(ctx context.Context, q Querier) ([]TriageBucket, error) {
 	}
 	defer rows.Close()
 	// Return an empty slice (not nil) when there are no rows so
-	// the JSON serializer renders `[]` rather than `null` — the
+	// the JSON serializer renders `[]` rather than `null`: the
 	// dashboard JS doesn't have to special-case either value,
 	// but a consumer parsing the envelope schema strictly would.
 	out := []TriageBucket{}

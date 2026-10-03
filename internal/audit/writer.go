@@ -109,7 +109,7 @@ func (w *FileWriter) Close() error {
 // prevHash so the next Append continues the chain.
 func (w *FileWriter) resume() error {
 	// The append-only layout guarantees the last line is the most
-	// recent entry. We can scan forwards — fine for modest
+	// recent entry. We can scan forwards, fine for modest
 	// audit-log sizes (operator workstations rarely exceed MiB of
 	// audit rows in a session).
 	// #nosec G304 -- same path we just opened
@@ -160,7 +160,7 @@ func indexByte(b []byte, c byte) int {
 	return -1
 }
 
-// ErrBadEventType — the caller passed an event type not in the
+// ErrBadEventType the caller passed an event type not in the
 // AllEventTypes enum. Catching this at Append time keeps bad data
 // out of the chain.
 var ErrBadEventType = errors.New("audit: event type not in enum")
@@ -186,7 +186,7 @@ func (w *FileWriter) Append(_ context.Context, e Entry) (Entry, error) {
 	defer func() { _ = w.unlockExclusive() }()
 	// Pick up any entries another process may have appended
 	// while we were idle. resume() walks the file from offset 0
-	// — for typical operator-driven audit logs (KB-scale) this
+	// for typical operator-driven audit logs (KB-scale) this
 	// is fine; high-volume scenarios should switch to
 	// incremental tail-reads.
 	if err := w.resume(); err != nil {

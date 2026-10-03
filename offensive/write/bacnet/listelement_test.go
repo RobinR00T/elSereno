@@ -146,7 +146,7 @@ func buildListElementFrame(svc uint8, objType uint16, objInst, propID uint32) []
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetLE_AddAllowedTuplePasses — AddListElement for
+// TestGateBACnetLE_AddAllowedTuplePasses AddListElement for
 // an allowlisted (object, property) tuple forwards.
 func TestGateBACnetLE_AddAllowedTuplePasses(t *testing.T) {
 	le := []bwrite.AllowedListElement{
@@ -162,7 +162,7 @@ func TestGateBACnetLE_AddAllowedTuplePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLE_RemoveAllowedTuplePasses — RemoveListElement
+// TestGateBACnetLE_RemoveAllowedTuplePasses RemoveListElement
 // uses the same allowlist (no separate add/remove dimension).
 // Uses Schedule (type=17) to also exercise non-NotificationClass
 // targets through the gate.
@@ -180,14 +180,14 @@ func TestGateBACnetLE_RemoveAllowedTuplePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLE_ForbiddenTupleRefuses — a (type, instance,
+// TestGateBACnetLE_ForbiddenTupleRefuses a (type, instance,
 // property) tuple NOT in the allowlist must refuse.
 func TestGateBACnetLE_ForbiddenTupleRefuses(t *testing.T) {
 	le := []bwrite.AllowedListElement{
 		{ObjectType: 15, ObjectInstance: 1, PropertyID: 102},
 	}
 	client, upstream := driveListElementSession(t, le)
-	// Different NotificationClass instance — not in allowlist.
+	// Different NotificationClass instance, not in allowlist.
 	frame := buildListElementFrame(byte(bwire.ConfirmedSvcAddListElement), 15, 99, 102)
 	_, _ = client.Write(frame)
 
@@ -206,7 +206,7 @@ func TestGateBACnetLE_ForbiddenTupleRefuses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLE_EmptyAllowlistBypasses — empty
+// TestGateBACnetLE_EmptyAllowlistBypasses empty
 // AllowedListElements list bypasses the per-element gate
 // (svc 8/9 still pass service-only).
 func TestGateBACnetLE_EmptyAllowlistBypasses(t *testing.T) {
@@ -220,7 +220,7 @@ func TestGateBACnetLE_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLE_PropertyAllowDoesNotGrantListMutation —
+// TestGateBACnetLE_PropertyAllowDoesNotGrantListMutation
 // proves the canonical separation: an entry in AllowedObjects
 // (svc 15/16 WriteProperty) does NOT auto-grant
 // Add/RemoveListElement on the same (type, instance, property).
@@ -279,7 +279,7 @@ func TestGateBACnetLE_PropertyAllowDoesNotGrantListMutation(t *testing.T) {
 	go rec.run(upstreamSide)
 	go func() { _ = h.Handle(ctx, handlerClientSide, handlerUpstreamSide) }()
 
-	// AddListElement with (15, 1, 102) — present in
+	// AddListElement with (15, 1, 102), present in
 	// AllowedObjects, NOT in AllowedListElements.
 	frame := buildListElementFrame(byte(bwire.ConfirmedSvcAddListElement), 15, 1, 102)
 	_, _ = clientIn.Write(frame)
@@ -288,7 +288,7 @@ func TestGateBACnetLE_PropertyAllowDoesNotGrantListMutation(t *testing.T) {
 	rbuf := make([]byte, 256)
 	n, _ := clientIn.Read(rbuf)
 	if n == 0 {
-		t.Fatal("expected abort refusal — AllowedObjects entry should NOT auto-grant AddListElement")
+		t.Fatal("expected abort refusal, AllowedObjects entry should NOT auto-grant AddListElement")
 	}
 	time.Sleep(50 * time.Millisecond)
 	if snap := rec.snapshot(); len(snap) != 0 {

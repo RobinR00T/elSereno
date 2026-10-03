@@ -173,14 +173,14 @@ func TestRouting_EmptyPrefixListFallsBackToV14(t *testing.T) {
 }
 
 // Other gated methods (REGISTER, MESSAGE, …) are NOT affected
-// by the prefix allowlist — only INVITE is gated on
+// by the prefix allowlist, only INVITE is gated on
 // destination.
 func TestRouting_RegisterNotAffectedByPrefixAllowlist(t *testing.T) {
 	client, upstream := driveSessionWithPrefixes(t,
 		[]sipwrite.AllowedMethod{{Method: "REGISTER"}},
 		[]sipwrite.AllowedToURIPrefix{{Prefix: "+34"}},
 	)
-	// REGISTER to a non-+34 destination — should STILL pass
+	// REGISTER to a non-+34 destination, should STILL pass
 	// because prefix list gates INVITE only.
 	req := "REGISTER sip:server SIP/2.0\r\n" +
 		"Via: SIP/2.0/TCP c;branch=z9hG4bK.1\r\n" +

@@ -21,7 +21,7 @@ import (
 // bytes.Buffer for tests that share a buffer between a
 // writer goroutine (e.g. runFingerprintCapture's Out) and
 // a poll-reader (e.g. waitForListenPort). bytes.Buffer is
-// NOT safe for concurrent read/write — the race detector
+// NOT safe for concurrent read/write, the race detector
 // catches it on `make test-race`. This wrapper serialises
 // access behind a mutex so both sides can interleave
 // without data races.
@@ -119,7 +119,7 @@ func TestFingerprintValidate_HexBlob_KWBanner(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_FilePath — operator-supplied
+// TestFingerprintValidate_FilePath operator-supplied
 // capture from disk (the typical workflow: capture via
 // Wireshark / netcat → save → feed to verb).
 func TestFingerprintValidate_FilePath(t *testing.T) {
@@ -146,7 +146,7 @@ func TestFingerprintValidate_FilePath(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_HexWithWhitespace — operators
+// TestFingerprintValidate_HexWithWhitespace operators
 // often paste pretty-printed hex. We strip whitespace before
 // decoding.
 func TestFingerprintValidate_HexWithWhitespace(t *testing.T) {
@@ -162,7 +162,7 @@ func TestFingerprintValidate_HexWithWhitespace(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_EmptyHexAfterStrip — guards
+// TestFingerprintValidate_EmptyHexAfterStrip guards
 // against an operator pasting only whitespace.
 func TestFingerprintValidate_EmptyHexAfterStrip(t *testing.T) {
 	var out bytes.Buffer
@@ -179,7 +179,7 @@ func TestFingerprintValidate_EmptyHexAfterStrip(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_BadHex — malformed hex string.
+// TestFingerprintValidate_BadHex malformed hex string.
 func TestFingerprintValidate_BadHex(t *testing.T) {
 	var out bytes.Buffer
 	err := runFingerprintValidate(t.Context(), fingerprintValidateOpts{
@@ -192,7 +192,7 @@ func TestFingerprintValidate_BadHex(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_MissingPlugin — empty --plugin
+// TestFingerprintValidate_MissingPlugin empty --plugin
 // rejected at the dispatcher.
 func TestFingerprintValidate_MissingPlugin(t *testing.T) {
 	var out bytes.Buffer
@@ -209,7 +209,7 @@ func TestFingerprintValidate_MissingPlugin(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_UnknownPlugin — plugin name that
+// TestFingerprintValidate_UnknownPlugin plugin name that
 // doesn't exist in the registry.
 func TestFingerprintValidate_UnknownPlugin(t *testing.T) {
 	var out bytes.Buffer
@@ -229,7 +229,7 @@ func TestFingerprintValidate_UnknownPlugin(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_BothFileAndHex — mutually
+// TestFingerprintValidate_BothFileAndHex mutually
 // exclusive flags.
 func TestFingerprintValidate_BothFileAndHex(t *testing.T) {
 	var out bytes.Buffer
@@ -264,7 +264,7 @@ func TestFingerprintValidate_MissingFile(t *testing.T) {
 	}
 }
 
-// TestEmitFingerprintFinding_NilFinding — safe-handling
+// TestEmitFingerprintFinding_NilFinding safe-handling
 // when probe somehow returns no Finding.
 func TestEmitFingerprintFinding_NilFinding(t *testing.T) {
 	var out bytes.Buffer
@@ -276,7 +276,7 @@ func TestEmitFingerprintFinding_NilFinding(t *testing.T) {
 	}
 }
 
-// TestDriveProbeAgainstBytes_SilentResponder — the
+// TestDriveProbeAgainstBytes_SilentResponder the
 // listener-based driver returns the plugin's silent-
 // responder Finding when reply is empty.
 func TestDriveProbeAgainstBytes_SilentResponder(t *testing.T) {
@@ -298,7 +298,7 @@ func TestDriveProbeAgainstBytes_SilentResponder(t *testing.T) {
 	}
 }
 
-// TestFingerprintValidate_AcrossPlugins — pin that the
+// TestFingerprintValidate_AcrossPlugins pin that the
 // verb dispatches correctly to multiple plugins, not just
 // proconos. We feed a silent (nil-reply) response to each;
 // the result should distinguish the plugin via Finding.Protocol.
@@ -328,7 +328,7 @@ func TestFingerprintValidate_AcrossPlugins(t *testing.T) {
 	}
 }
 
-// TestFingerprintCapture_HappyPath — fixed-port server +
+// TestFingerprintCapture_HappyPath fixed-port server +
 // in-process net.Dial client. Drives the full capture →
 // file → readback path.
 func TestFingerprintCapture_HappyPath(t *testing.T) {
@@ -339,7 +339,7 @@ func TestFingerprintCapture_HappyPath(t *testing.T) {
 	// dials it once we see "connected from" in the output.
 	// syncBuf (not bytes.Buffer) because the capture
 	// goroutine writes while waitForListenPort polls
-	// String() — bytes.Buffer races there.
+	// String(), bytes.Buffer races there.
 	var out syncBuf
 	captureDone := make(chan error, 1)
 	go func() {
@@ -387,7 +387,7 @@ func TestFingerprintCapture_HappyPath(t *testing.T) {
 	}
 }
 
-// TestFingerprintCapture_MissingOutput — required flag.
+// TestFingerprintCapture_MissingOutput required flag.
 func TestFingerprintCapture_MissingOutput(t *testing.T) {
 	var out bytes.Buffer
 	err := runFingerprintCapture(t.Context(), fingerprintCaptureOpts{
@@ -399,7 +399,7 @@ func TestFingerprintCapture_MissingOutput(t *testing.T) {
 	}
 }
 
-// TestFingerprintCapture_TimeoutOnIdleListener — ctx
+// TestFingerprintCapture_TimeoutOnIdleListener ctx
 // timeout fires when no client connects.
 func TestFingerprintCapture_TimeoutOnIdleListener(t *testing.T) {
 	dir := t.TempDir()
@@ -430,7 +430,7 @@ func TestFingerprintCapture_TimeoutOnIdleListener(t *testing.T) {
 	}
 }
 
-// TestFingerprintCapture_ClientClosesEmpty — client opens
+// TestFingerprintCapture_ClientClosesEmpty client opens
 // but writes nothing, then closes. Capture should refuse
 // rather than write a 0-byte file.
 func TestFingerprintCapture_ClientClosesEmpty(t *testing.T) {
@@ -462,7 +462,7 @@ func TestFingerprintCapture_ClientClosesEmpty(t *testing.T) {
 	}
 }
 
-// TestDriveProbeAgainstBytes_DefaultTimeout — ensures the
+// TestDriveProbeAgainstBytes_DefaultTimeout ensures the
 // timeout=0 fallback (5s) doesn't overshadow ctx.
 func TestDriveProbeAgainstBytes_DefaultTimeout(t *testing.T) {
 	plugin, err := lookupPlugin("proconos")

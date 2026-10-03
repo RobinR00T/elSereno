@@ -18,7 +18,7 @@ write-ban proxy that refuses every request with end code 0xC059
 ("command unsupported").
 
 ## Spec references
-- Mitsubishi Electric SLMP Reference Manual SH(NA)-080956ENG —
+- Mitsubishi Electric SLMP Reference Manual SH(NA)-080956ENG, 
   canonical protocol reference.
 - MELSEC iQ-R / iQ-F / Q / L / FX Series CPU Module User's Manuals.
 - ICS-CERT advisories on Mitsubishi MELSEC lacking authentication.
@@ -54,7 +54,7 @@ D0 00 ROUTING(5) 14 00 00 00 [16-byte model] [2-byte CPU type LE]
 
 ## Fingerprint strategy
 One-shot probe over TCP. The Model string ("Q03UDVCPU",
-"L26CPU-BT", "R04ENCPU", etc.) is the canonical signal — captured
+"L26CPU-BT", "R04ENCPU", etc.) is the canonical signal, captured
 into the finding hash so dedup is per-controller-model. Sentinel-
 error classification surfaces in the note: short frame, length-
 field mismatch, end-code refusal, wrong subheader, or generic
@@ -87,7 +87,7 @@ emission per ADR-039.
 Wire-layer write-ban: the default-build handler reads the first
 frame's header, drains the body based on the declared length, and
 replies with a 13-byte error frame carrying end code 0xC059 (the
-SLMP "command unsupported" code). Does NOT forward — defence-in-
+SLMP "command unsupported" code). Does NOT forward, defence-in-
 depth fail-closed pattern matching the Modbus / S7 / EtherNet/IP
 proxy idioms.
 
@@ -96,7 +96,7 @@ factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
 (75 on SLMP reply), impact_class:75, cve_exposure:0}. impact_class
 75 reflects factory-floor PLC blast radius (RUN/STOP, force-set on
 D / M / X / Y devices via Batch Write, error-log clearing).
-auth_state 95 because SLMP has no native authentication — the
+auth_state 95 because SLMP has no native authentication, the
 optional Password Lock/Unlock services (0x1818/0x1819) are
 post-handshake and most deployments don't enable them.
 

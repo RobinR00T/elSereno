@@ -1,12 +1,12 @@
 ---
 id: 034
-title: DNP3 plugin — read-only probe + fingerprint
+title: DNP3 plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-034: DNP3 plugin — read-only probe + fingerprint
+# ADR-034: DNP3 plugin, read-only probe + fingerprint
 
 ## Context
 DNP3 is an ICS/OT protocol commonly exposed on port 20000/tcp.
@@ -37,7 +37,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

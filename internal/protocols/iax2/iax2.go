@@ -42,7 +42,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "Asterisk IAX2 (RFC 5456) probe on UDP/4569 — sends NEW, classifies ACCEPT / AUTHREQ / REJECT reply",
+		Description: "Asterisk IAX2 (RFC 5456) probe on UDP/4569, sends NEW, classifies ACCEPT / AUTHREQ / REJECT reply",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -154,7 +154,7 @@ func buildFinding(target core.Target, note string, iax2Confirmed bool, subclass 
 		factors["protocol_risk"] = 90
 		factors["capability"] = 60
 	}
-	// AUTHREQ means the server asks for credentials — slightly
+	// AUTHREQ means the server asks for credentials, slightly
 	// harder to exploit than a fully-open registrar.
 	if wire.IAXSubclass(subclass) == wire.IAXAuthReq {
 		factors["auth_state"] = 50
@@ -195,7 +195,7 @@ func hashBytes(target core.Target, note string) []byte {
 
 // randomCallNumber returns a 15-bit call number from crypto/rand.
 // IAX2 call numbers are unique per-peer but we don't track state
-// across probes — any random value works.
+// across probes, any random value works.
 func randomCallNumber() uint16 {
 	var b [2]byte
 	_, _ = rand.Read(b[:])

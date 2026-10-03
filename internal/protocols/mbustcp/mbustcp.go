@@ -92,7 +92,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // TCP-wrapped; the proxy reads the first frame from the client
 // and replies with a single-byte ACK (0xE5) without forwarding to
 // upstream. This matches the M-Bus protocol's link-layer ACK
-// idiom — the meter reports nothing went wrong but no data is
+// idiom the meter reports nothing went wrong but no data is
 // returned, which is the closest thing to a "request denied"
 // response in the protocol.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
@@ -146,12 +146,12 @@ func buildFinding(target core.Target, note string, isMBus bool) *core.Finding {
 		"auth_state":    90, // M-Bus has no native authentication on the wire
 		"capability":    30,
 		"impact_class":  60, // billing accuracy + privacy of consumption data
-		// cve_exposure: 6 (v2.33+, bumped from 4) — M-Bus CVE
+		// cve_exposure: 6 (v2.33+, bumped from 4), M-Bus CVE
 		// catalogue is thin but growing as more parsers ship.
 		// Anchors:
 		//   CVE-2018-9966 (Wired M-Bus master parser RCE).
 		//   CVE-2021-37155 (downstream M-Bus format parser issue).
-		//   CVE-2023-2001  (libmbus memory corruption — long-form
+		//   CVE-2023-2001  (libmbus memory corruption, long-form
 		//                  data records).
 		//   CVE-2023-50447 (Itron Centron meter unauth read).
 		//   CVE-2024-31034 (Diehl Hydrus2 secondary-address spoof).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-opcua-proxy.sh — end-to-end demo of the OPC UA (opc.tcp) write-
+# demo-opcua-proxy.sh, end-to-end demo of the OPC UA (opc.tcp) write-
 # gated proxy against the bundled opcua-sim, with no real OPC UA server.
 #
 # It builds the offensive binary + opcua-sim, creates a throwaway vault

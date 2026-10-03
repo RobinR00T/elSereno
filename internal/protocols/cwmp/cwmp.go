@@ -35,7 +35,7 @@ const MaxBodyBytes int64 = 16 * 1024
 type Plugin struct {
 	DialTimeout time.Duration
 	IOTimeout   time.Duration
-	// Scheme is "http" (default — TR-069 is historically plain
+	// Scheme is "http" (default, TR-069 is historically plain
 	// HTTP with Digest auth) or "https" for the less-common
 	// CWMP-over-TLS deployments on 7548.
 	Scheme string
@@ -66,7 +66,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "TR-069 / CWMP ACS fingerprint on 7547 — identifies GenieACS, FreeACS, Axiros, Nokia Altiplano, Huawei FusionHome, Broadcom BroadWorks, Cisco Prime, ADB, and generic CWMP ACS responders",
+		Description: "TR-069 / CWMP ACS fingerprint on 7547, identifies GenieACS, FreeACS, Axiros, Nokia Altiplano, Huawei FusionHome, Broadcom BroadWorks, Cisco Prime, ADB, and generic CWMP ACS responders",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -98,7 +98,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		ua = "ElSereno-cwmp/1"
 	}
 	req.Header.Set("User-Agent", ua)
-	// Hint that we speak SOAP — some ACSs gate the 401 challenge
+	// Hint that we speak SOAP, some ACSs gate the 401 challenge
 	// on SOAPAction presence.
 	req.Header.Set("SOAPAction", "")
 
@@ -125,7 +125,7 @@ func (p *Plugin) httpClient() *http.Client {
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{Timeout: p.DialTimeout}).DialContext,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402 — CWMP ACS on 7548 ubiquitously ships self-signed; we're fingerprinting, not transmitting credentials.
+			InsecureSkipVerify: p.InsecureSkipVerify, // #nosec G402, CWMP ACS on 7548 ubiquitously ships self-signed; we're fingerprinting, not transmitting credentials.
 			MinVersion:         tls.VersionTLS12,
 		},
 		TLSHandshakeTimeout: p.DialTimeout,
@@ -146,7 +146,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 }
 
 // ProxyHandler returns the default deny-all proxy. An ACS proxy
-// is extremely sensitive — any write to the gate could push
+// is extremely sensitive, any write to the gate could push
 // config to a fleet. The default build refuses every client
 // byte; an offensive write-gated variant (v1.5+) would
 // allowlist specific SOAP RPCs (GetParameterValues for reads,
@@ -207,13 +207,13 @@ func isCWMPLikely(statusCode int, headers, body string) bool {
 func buildFinding(target core.Target, statusCode int, vendor Vendor, cwmpLikely bool) *core.Finding {
 	factors := map[string]int{
 		"protocol_risk": 30, // default for "HTTP responder, not obviously CWMP"
-		"exposure":      80, // 7547 on the public internet is a finding — fleet-wide
+		"exposure":      80, // 7547 on the public internet is a finding, fleet-wide
 		"auth_state":    60,
 		"capability":    30,
 		"impact_class":  50, // HTTP alone isn't catastrophic without CWMP confirmation
 		// cve_exposure 15: CVE-2014-9222 (Misfortune Cookie /
 		// RomPager) + TR-064 NewNTPServer command-injection
-		// family — broad legacy CPE exposure, exploitable via
+		// family broad legacy CPE exposure, exploitable via
 		// the same port 7547 ACS endpoint when CWMP is confirmed.
 		"cve_exposure": 15,
 	}

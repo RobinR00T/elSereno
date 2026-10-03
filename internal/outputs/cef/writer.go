@@ -22,7 +22,7 @@ import (
 const Contract = "cef:v1"
 
 // Vendor / Product / ProductVersion are CEF envelope fields. Version
-// follows the binary's release — callers set it via WithVersion.
+// follows the binary's release, callers set it via WithVersion.
 const (
 	Vendor  = "ElSereno"
 	Product = "elsereno"
@@ -49,7 +49,7 @@ func (x *Writer) WriteFinding(f core.Finding, addr string) error {
 	if f.ID == "" {
 		return fmt.Errorf("cef: finding.ID is required")
 	}
-	// Core envelope — pipes separate header fields and therefore
+	// Core envelope, pipes separate header fields and therefore
 	// must be escaped in each field.
 	header := fmt.Sprintf(
 		"CEF:0|%s|%s|%s|%s|%s|%d|",

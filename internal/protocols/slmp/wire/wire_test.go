@@ -137,7 +137,7 @@ func TestParseReadCPUModelNameRejectsTruncatedSuccess(t *testing.T) {
 		0x00,
 		0x14, 0x00, // declared length 20
 		0x00, 0x00, // end code = success
-		// payload missing — buffer is only 11 bytes total
+		// payload missing, buffer is only 11 bytes total
 	}
 	_, err := wire.ParseReadCPUModelName(frame)
 	if !errors.Is(err, wire.ErrLengthMismatch) {

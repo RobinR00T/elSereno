@@ -1,12 +1,12 @@
 ---
 id: 006
-title: Scoring 0–100 multi-factor with named weights
+title: Scoring 0-100 multi-factor with named weights
 status: accepted
 date: 2026-04-19
 phase: F0
 ---
 
-# ADR-006: Scoring 0–100 multi-factor with named weights
+# ADR-006: Scoring 0-100 multi-factor with named weights
 
 ## Context
 A single "critical / not critical" boolean is useless for triage. A

@@ -1,12 +1,12 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.89 — per-schedule audit retention override.
+-- v1.89, per-schedule audit retention override.
 --
 -- v1.87 introduced a global `--audit-retention-days N` flag
 -- that prunes ALL schedule audit events older than the cutoff.
 -- v1.89 lets operators opt specific schedules into a longer
--- (or shorter) retention window — e.g. "critical" infra
+-- (or shorter) retention window, e.g. "critical" infra
 -- schedules keep audit history for 365 days even when the
 -- default is 30.
 --

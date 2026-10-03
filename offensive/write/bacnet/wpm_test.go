@@ -117,7 +117,7 @@ func TestParseWPM_MultipleObjects(t *testing.T) {
 	if len(targets) != 4 {
 		t.Fatalf("len=%d, want 4 total properties (1+2+1)", len(targets))
 	}
-	// Check sequence — first AnalogInput#42, then BinaryOutput#3 ×2,
+	// Check sequence, first AnalogInput#42, then BinaryOutput#3 ×2,
 	// then Device#1.
 	wants := []bwire.WritePropertyTarget{
 		{ObjectType: 0, ObjectInstance: 42, PropertyID: 85},
@@ -147,7 +147,7 @@ func TestParseWPM_TruncatedFails(t *testing.T) {
 	body := buildWPMServiceBody([]wpmGroup{
 		{objectType: 0, objectInstance: 42, propertyIDs: []uint32{85, 87}},
 	})
-	// Cut off mid-second-property — the inner BACnetPropertyValue
+	// Cut off mid-second-property, the inner BACnetPropertyValue
 	// loop should fail.
 	_, ok := bwire.ParseWritePropertyMultiple(body[:len(body)-3])
 	if ok {
@@ -167,7 +167,7 @@ func TestParseWPM_WrongOpeningTagFails(t *testing.T) {
 	}
 }
 
-// TestParseWPM_NestedConstructedValue — values can themselves be
+// TestParseWPM_NestedConstructedValue values can themselves be
 // constructed (e.g. BACnetWeeklySchedule). The depth-aware
 // walker must skip past nested opening/closing pairs.
 func TestParseWPM_NestedConstructedValue(t *testing.T) {
@@ -253,7 +253,7 @@ func buildWPMFrame(groups []wpmGroup) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetWPM_AllAllowedPasses — every (type, instance,
+// TestGateBACnetWPM_AllAllowedPasses every (type, instance,
 // property) in the WPM batch is in the allowlist → forward.
 func TestGateBACnetWPM_AllAllowedPasses(t *testing.T) {
 	objs := []bwrite.AllowedObject{
@@ -274,7 +274,7 @@ func TestGateBACnetWPM_AllAllowedPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetWPM_OneForbiddenRefuses — a single forbidden
+// TestGateBACnetWPM_OneForbiddenRefuses a single forbidden
 // (type, instance, property) tuple in the batch must refuse the
 // WHOLE WPM. Closes the multi-object gap analogous to v1.12
 // chunk 2 for OPC UA WriteRequest.
@@ -284,7 +284,7 @@ func TestGateBACnetWPM_OneForbiddenRefuses(t *testing.T) {
 	}
 	client, upstream := driveWPMSession(t, objs)
 
-	// Allowed first, forbidden second — the gate must walk the
+	// Allowed first, forbidden second, the gate must walk the
 	// whole batch and refuse.
 	frame := buildWPMFrame([]wpmGroup{
 		{objectType: 0, objectInstance: 42, propertyIDs: []uint32{85}},
@@ -307,7 +307,7 @@ func TestGateBACnetWPM_OneForbiddenRefuses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetWPM_EmptyAllowlistBypasses — empty AllowedObjects
+// TestGateBACnetWPM_EmptyAllowlistBypasses empty AllowedObjects
 // list bypasses the per-object gate (svc 16 still passes
 // service-only).
 func TestGateBACnetWPM_EmptyAllowlistBypasses(t *testing.T) {
@@ -323,7 +323,7 @@ func TestGateBACnetWPM_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetWPM_OnlyOneObjectAllowedRefuses — single
+// TestGateBACnetWPM_OnlyOneObjectAllowedRefuses single
 // (type, instance, property) batch where the lone entry isn't
 // in the allowlist refuses immediately.
 func TestGateBACnetWPM_OnlyOneObjectAllowedRefuses(t *testing.T) {

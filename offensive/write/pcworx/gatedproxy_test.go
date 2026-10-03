@@ -198,7 +198,7 @@ func TestDescription_NonEmpty(t *testing.T) {
 	}
 }
 
-// TestHandle_RecordsBytesWhenRecorderSet — v1.28 chunk 3
+// TestHandle_RecordsBytesWhenRecorderSet v1.28 chunk 3
 // proof-of-concept: setting the Recorder field on the gate
 // captures every byte that crosses Handle into an NDJSON file.
 // On nil Recorder the gate behaves identically to v1.27.

@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v2.1 — extend scan_schedule_audit CHECK enum with the
+-- v2.1, extend scan_schedule_audit CHECK enum with the
 -- `cloned_from` event type. v1.93 added the clone endpoint
 -- but no audit row was written, so compliance reviews
 -- couldn't trace clone provenance. v2.1 closes that gap:
@@ -10,7 +10,7 @@
 -- snapshot, payload_after = clone snapshot.
 --
 -- Migration 00012 set the canonical pattern (DROP + ADD the
--- CHECK with the wider set). PITF-030 — SQL DDL is source of
+-- CHECK with the wider set). PITF-030, SQL DDL is source of
 -- truth, mirrored Go-side by ValidScheduleAuditEventTypes.
 
 ALTER TABLE scan_schedule_audit

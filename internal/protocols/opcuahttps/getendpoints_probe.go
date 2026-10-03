@@ -30,7 +30,7 @@ const httpsContentType = "application/octet-stream"
 var ErrNotUAEndpoints = errors.New("opcuahttps: no decodable GetEndpointsResponse")
 
 // probeGetEndpoints POSTs a GetEndpointsRequest to postURL over HTTPS
-// and decodes the endpoint list. TLS certificates are NOT verified —
+// and decodes the endpoint list. TLS certificates are NOT verified,
 // this fingerprints untrusted hosts, it does not trust them.
 func probeGetEndpoints(ctx context.Context, postURL, endpointURL string, timeout time.Duration) ([]wire.EndpointDescription, error) {
 	body := wire.EncodeGetEndpointsRequest(endpointURL)
@@ -82,7 +82,7 @@ func hasNoneEndpoint(eps []wire.EndpointDescription) bool {
 }
 
 // buildEndpointsFinding renders a finding from an enumerated
-// EndpointDescription list — a definitive OPC UA HTTPS identification.
+// EndpointDescription list, a definitive OPC UA HTTPS identification.
 // A SecurityMode=None endpoint (anonymous, unencrypted UA access) bumps
 // exposure + auth_state above the baseline.
 func buildEndpointsFinding(target core.Target, eps []wire.EndpointDescription) *core.Finding {

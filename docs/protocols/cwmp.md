@@ -43,11 +43,11 @@ CPE registration.
 **Refusals** are HTTP 200 OK + a TR-069 SOAP fault body. Three
 distinct fault codes per refusal class:
 
-- `9001 Request denied` — RPC name not in `--rpc` allowlist.
-- `9005 Invalid parameter name` — at least one `<Name>` outside
+- `9001 Request denied`: RPC name not in `--rpc` allowlist.
+- `9005 Invalid parameter name`: at least one `<Name>` outside
   the `--param-prefix` allowlist.
 - `9001 Request denied` + `X-Elsereno-Gate-Reason: CWMP firmware
-  URL not in session allowlist` — `Download` URL not in
+  URL not in session allowlist`-`Download` URL not in
   `--firmware` list.
 
 ## SHA-256 metadata note
@@ -55,7 +55,7 @@ distinct fault codes per refusal class:
 TR-069's `Download` RPC does NOT carry the firmware checksum;
 the CPE downloads the file AFTER the RPC and reports the actual
 hash later via `TransferComplete`. The gate enforces URL only.
-The optional `sha256=` field in `--firmware` is metadata —
+The optional `sha256=` field in `--firmware` is metadata, 
 written to the YAML and the dry-run output for downstream
 verification (e.g. on a syslog of the `TransferComplete` reply).
 
@@ -63,7 +63,7 @@ verification (e.g. on a syslog of the `TransferComplete` reply).
 
 The CWMP gate exposes an opt-in observer hook that fires when
 the CPE → ACS `TransferComplete` envelope traverses the proxy.
-Every `proxy listen --plugin cwmp` enables it by default —
+Every `proxy listen --plugin cwmp` enables it by default, 
 each TransferComplete produces a structured stderr line:
 
 ```
@@ -90,7 +90,7 @@ the audit DB directly).
 
 The gate cannot byte-verify the firmware against the
 operator's pinned `sha256` because TR-069 doesn't carry a
-hash in `TransferComplete` — but the observer surfaces the
+hash in `TransferComplete`: but the observer surfaces the
 CPE's own success/failure report so a fleet-wide change
 window has a clear post-hoc trail.
 
@@ -114,7 +114,7 @@ mismatch, `2` usage / fetch error.
 Use this to catch a hostile / misconfigured ACS that swapped
 the firmware image at the URL between the dry-run when the
 operator computed the hash and the actual change window. The
-gate alone can't see the body content — it only enforces URL
+gate alone can't see the body content, it only enforces URL
 match at RPC time.
 
 ## Operator example
@@ -136,12 +136,12 @@ YAML keys: `rpcs:`, `param_prefixes:`, `firmware:` (with
 ## CWMP-over-TLS (port 7548)
 
 TR-069 §3.4 ("CPE protocol stack") defines two transport
-profiles: **HTTP** on port 7547 (the most common — covered by
+profiles: **HTTP** on port 7547 (the most common, covered by
 this document) and **HTTPS** on port 7548. TLS-encapsulated
 CWMP is increasingly common with newer ACSs that enforce
 mutually-authenticated TLS between ACS and CPE.
 
-The ElSereno proxy doesn't bind 7548 directly — it speaks plain
+The ElSereno proxy doesn't bind 7548 directly, it speaks plain
 HTTP. To gate CWMP-over-TLS, run a TLS-terminating reverse
 proxy (nginx / HAProxy / Caddy) in front of the ElSereno gate,
 re-encrypt to upstream:
@@ -175,7 +175,7 @@ stream {
 For the back (ACS-facing) leg, configure the gate's `--target`
 to the ACS HTTPS endpoint and let the gate's `http.Client`
 perform a fresh TLS handshake. Inspect ACS-cert validation in
-`internal/protocols/cwmp/cwmp.go` — fingerprint code accepts
+`internal/protocols/cwmp/cwmp.go`: fingerprint code accepts
 self-signed certs (common for ISP ACSs) when
 `InsecureSkipVerify` is set; the gate path uses Go's default
 strict cert verification.

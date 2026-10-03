@@ -91,7 +91,7 @@ func buildCreateObjectChoiceObjectIdentifier(objType uint16, objInst uint32) []b
 		0x0E, // open context tag 0
 		0x1C, // [1] objectIdentifier, length 4
 	}
-	// #nosec G115 -- test-bounded — type fits in 10 bits, instance in 22.
+	// #nosec G115 -- test-bounded, type fits in 10 bits, instance in 22.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	var u32 [4]byte
 	binary.BigEndian.PutUint32(u32[:], packed)
@@ -228,7 +228,7 @@ func buildCreateObjectFrame(body []byte) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetCreate_AllowedTypePasses — CreateObject for an
+// TestGateBACnetCreate_AllowedTypePasses CreateObject for an
 // allowlisted type forwards.
 func TestGateBACnetCreate_AllowedTypePasses(t *testing.T) {
 	cre := []bwrite.AllowedCreateObject{{ObjectType: 17}} // Schedule
@@ -242,12 +242,12 @@ func TestGateBACnetCreate_AllowedTypePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_ForbiddenTypeRefuses — CreateObject for a
+// TestGateBACnetCreate_ForbiddenTypeRefuses CreateObject for a
 // non-allowlisted type gets an Abort-PDU refusal.
 func TestGateBACnetCreate_ForbiddenTypeRefuses(t *testing.T) {
 	cre := []bwrite.AllowedCreateObject{{ObjectType: 17}}
 	client, upstream := driveCreateObjectSession(t, cre)
-	frame := buildCreateObjectFrame(buildCreateObjectChoiceObjectType(8)) // Device — not in list
+	frame := buildCreateObjectFrame(buildCreateObjectChoiceObjectType(8)) // Device, not in list
 	_, _ = client.Write(frame)
 
 	_ = client.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
@@ -265,7 +265,7 @@ func TestGateBACnetCreate_ForbiddenTypeRefuses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_EmptyAllowlistBypasses — empty
+// TestGateBACnetCreate_EmptyAllowlistBypasses empty
 // AllowedCreateObjects list bypasses the per-type gate (svc
 // 10 still passes service-only).
 func TestGateBACnetCreate_EmptyAllowlistBypasses(t *testing.T) {
@@ -279,13 +279,13 @@ func TestGateBACnetCreate_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_ObjectIdentifierFormMatchesByType — the
+// TestGateBACnetCreate_ObjectIdentifierFormMatchesByType the
 // [1] objectIdentifier choice form (with a specific instance)
 // still matches the per-type allowlist.
 func TestGateBACnetCreate_ObjectIdentifierFormMatchesByType(t *testing.T) {
 	cre := []bwrite.AllowedCreateObject{{ObjectType: 17}}
 	client, upstream := driveCreateObjectSession(t, cre)
-	// [1] form with type=17, instance=42 — instance is ignored.
+	// [1] form with type=17, instance=42, instance is ignored.
 	frame := buildCreateObjectFrame(buildCreateObjectChoiceObjectIdentifier(17, 42))
 	_, _ = client.Write(frame)
 
@@ -295,7 +295,7 @@ func TestGateBACnetCreate_ObjectIdentifierFormMatchesByType(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate — an
+// TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate an
 // AllowedObject for (TypeX, InstanceY, PropZ) does NOT auto-
 // grant CreateObject of TypeX. The two allowlists are separate.
 func TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate(t *testing.T) {
@@ -308,7 +308,7 @@ func TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate(t *testing.T) {
 		{ObjectType: 17, ObjectInstance: 42, PropertyID: 85},
 	}
 	cre := []bwrite.AllowedCreateObject{
-		{ObjectType: 999}, // dummy — type 17 is NOT here.
+		{ObjectType: 999}, // dummy, type 17 is NOT here.
 	}
 	h := &bwrite.WriteGatedHandler{
 		Target:               target,
@@ -345,7 +345,7 @@ func TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate(t *testing.T) {
 	go rec.run(upstreamSide)
 	go func() { _ = h.Handle(ctx, handlerClientSide, handlerUpstreamSide) }()
 
-	// CreateObject with type 17 — present in AllowedObjects, NOT
+	// CreateObject with type 17, present in AllowedObjects, NOT
 	// in AllowedCreateObjects.
 	frame := buildCreateObjectFrame(buildCreateObjectChoiceObjectType(17))
 	_, _ = clientIn.Write(frame)
@@ -354,7 +354,7 @@ func TestGateBACnetCreate_PropertyAllowDoesNotGrantCreate(t *testing.T) {
 	rbuf := make([]byte, 256)
 	n, _ := clientIn.Read(rbuf)
 	if n == 0 {
-		t.Fatal("expected abort refusal — AllowedObjects entry should NOT auto-grant CreateObject")
+		t.Fatal("expected abort refusal, AllowedObjects entry should NOT auto-grant CreateObject")
 	}
 	time.Sleep(50 * time.Millisecond)
 	if snap := rec.snapshot(); len(snap) != 0 {

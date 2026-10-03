@@ -43,7 +43,7 @@ type FeedClosedMsg struct {
 // wants to know "am I 10% or 90% through?".
 //
 // The feed emits one ReplayStatusMsg every N lines (configured
-// via Replay.StatusEvery) — typically every 100 lines.
+// via Replay.StatusEvery), typically every 100 lines.
 type ReplayStatusMsg struct {
 	// Path of the capture file being replayed.
 	Path string

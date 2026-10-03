@@ -63,7 +63,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "OPC UA HTTPS (Part 6 binding) fingerprint on 4843 — POST /discovery, classifies response Content-Type + Server header",
+		Description: "OPC UA HTTPS (Part 6 binding) fingerprint on 4843, POST /discovery, classifies response Content-Type + Server header",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -84,10 +84,10 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if eps, err := probeGetEndpoints(ctx, "https://"+addr+"/", "opc.https://"+addr+"/", p.IOTimeout); err == nil && len(eps) > 0 {
 		return buildEndpointsFinding(target, eps), nil
 	}
-	// We do NOT verify the cert — see SkipVerify rationale on
+	// We do NOT verify the cert, see SkipVerify rationale on
 	// the Plugin struct. The fingerprint cares about the
 	// service identity (headers), not PKI trust.
-	tlsCfg := &tls.Config{InsecureSkipVerify: p.SkipVerify, MinVersion: tls.VersionTLS12} // #nosec G402 — fingerprint-only; documented invariant.
+	tlsCfg := &tls.Config{InsecureSkipVerify: p.SkipVerify, MinVersion: tls.VersionTLS12} // #nosec G402, fingerprint-only; documented invariant.
 	dialer := &net.Dialer{Timeout: p.DialTimeout}
 	tlsDialer := &tls.Dialer{NetDialer: dialer, Config: tlsCfg}
 	conn, err := tlsDialer.DialContext(ctx, "tcp", addr)
@@ -110,7 +110,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		return nil, fmt.Errorf("opcuahttps: read: %w", readErr)
 	}
 	if len(respBytes) == 0 {
-		// Empty HTTPS response after TLS handshake — not OPC
+		// Empty HTTPS response after TLS handshake, not OPC
 		// UA but report the fact for forensic value.
 		return buildFinding(target, "tls-handshake-only", false, "", ""), nil
 	}
@@ -120,7 +120,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 // buildDiscoveryRequest assembles the HTTP/1.1 POST.
 // Host header carries the target hostname so SNI-aware
 // servers route correctly. Content-Length is 1 (a single
-// 0x00 byte) — OPC UA servers usually respond with an HTTP
+// 0x00 byte), OPC UA servers usually respond with an HTTP
 // 400/500 but still emit the diagnostic Server/Content-Type
 // headers we need.
 func buildDiscoveryRequest(host string) string {
@@ -140,7 +140,7 @@ func buildDiscoveryRequest(host string) string {
 // classifyResponse parses an HTTP response prefix from the
 // first 8KB. We only need headers; body is incidental.
 //
-// Header parsing is intentionally minimal — we tolerate
+// Header parsing is intentionally minimal, we tolerate
 // malformed responses (OPC UA servers occasionally emit
 // non-RFC-compliant headers) by looking for substrings.
 func classifyResponse(target core.Target, resp []byte) *core.Finding {
@@ -163,7 +163,7 @@ func classifyResponse(target core.Target, resp []byte) *core.Finding {
 	//   - UA JSON content-type   → strong (capability 75).
 	//   - Server header suggests UA → moderate (capability 60).
 	//   - Plain HTTPS with no UA hints → not OPC UA (build no
-	//     finding — return early).
+	//     finding return early).
 	switch {
 	case hasUABinary:
 		return buildFinding(target, "uabinary-discovery", true, statusLine,
@@ -176,7 +176,7 @@ func classifyResponse(target core.Target, resp []byte) *core.Finding {
 			extractServer(lower))
 	default:
 		// Plain HTTPS response that doesn't look like OPC UA.
-		// We DON'T return a finding here — saves the operator
+		// We DON'T return a finding here, saves the operator
 		// from noise. Plain HTTP plugins (banner / etc) cover
 		// it.
 		return nil
@@ -184,7 +184,7 @@ func classifyResponse(target core.Target, resp []byte) *core.Finding {
 }
 
 // serverSuggestsUA matches a curated list of OPC UA stack
-// names commonly observed in production. NOT exhaustive —
+// names commonly observed in production. NOT exhaustive,
 // new vendors get added as we observe them.
 func serverSuggestsUA(lower string) bool {
 	uaStacks := []string{
@@ -291,7 +291,7 @@ func hashBytes(target core.Target, note string) []byte {
 	return h.Sum(nil)
 }
 
-// REPL stub — same pattern as opcua / fox; the generic framework
+// REPL stub, same pattern as opcua / fox; the generic framework
 // will replace this in a future cycle.
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return errors.New("opcuahttps: REPL arrives with the generic framework")
@@ -304,7 +304,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &denyAll{} }
 
 // denyAll satisfies core.ProxyHandler with a hang-up. For OPC UA
-// HTTPS we drop the connection without emitting an HTTP 403 —
+// HTTPS we drop the connection without emitting an HTTP 403,
 // SCADA clients reconnect anyway, and silence reduces our
 // fingerprint at the proxy.
 type denyAll struct{}

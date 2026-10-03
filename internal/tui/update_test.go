@@ -70,7 +70,7 @@ func TestUpdateScanProgressMsg(t *testing.T) {
 }
 
 // TestUpdateFeedClosedMsgRendersLine pins the synthetic audit
-// entry — operator-visible signal that the feed terminated.
+// entry operator-visible signal that the feed terminated.
 func TestUpdateFeedClosedMsgRendersLine(t *testing.T) {
 	m := NewModel(ModeReplay)
 	mm, _ := m.Update(FeedClosedMsg{Mode: ModeReplay, Err: nil})
@@ -92,7 +92,7 @@ func TestUpdateFeedClosedMsgRendersLine(t *testing.T) {
 	}
 }
 
-// TestHandleKeyQuit pins the q/ctrl+c bindings — the top-level
+// TestHandleKeyQuit pins the q/ctrl+c bindings, the top-level
 // way to leave the TUI cleanly.
 func TestHandleKeyQuit(t *testing.T) {
 	for _, key := range []string{"q", "ctrl+c"} {

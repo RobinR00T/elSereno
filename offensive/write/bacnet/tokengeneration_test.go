@@ -16,7 +16,7 @@ import (
 
 // ---- Hash ladder: token-generation cookie degrades --------
 
-// TestAllowlistHashWithGeneration_ZeroMatchesV16Chunk3 — the
+// TestAllowlistHashWithGeneration_ZeroMatchesV16Chunk3 the
 // v1.16 chunk-4 hash with Generation=0 must equal the v1.16
 // chunk-3 hash. Backwards-compat ladder step 1: every v1.4 →
 // v1.16-chunk-3 confirm-token still validates when the
@@ -36,7 +36,7 @@ func TestAllowlistHashWithGeneration_ZeroMatchesV16Chunk3(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithGeneration_NonZeroChangesHash — bumping
+// TestAllowlistHashWithGeneration_NonZeroChangesHash bumping
 // the generation must perturb the hash so a stale confirm-
 // token (minted at the prior generation) is rejected.
 func TestAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
@@ -54,7 +54,7 @@ func TestAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithGeneration_DifferentGenerationsDiffer —
+// TestAllowlistHashWithGeneration_DifferentGenerationsDiffer
 // every distinct generation produces a distinct hash. Pin
 // the cryptographic property that the operator's reload
 // workflow depends on (each bump → fresh token).
@@ -76,7 +76,7 @@ func TestAllowlistHashWithGeneration_DifferentGenerationsDiffer(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithGeneration_StableForSameGeneration — the
+// TestAllowlistHashWithGeneration_StableForSameGeneration the
 // hash is deterministic; same input → same output across
 // invocations.
 func TestAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
@@ -94,7 +94,7 @@ func TestAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
 
 // ---- E2E gate: TokenGeneration flowed through Authorise ------
 
-// TestGateBACnet_TokenGeneration_StaleTokenRejected — operator
+// TestGateBACnet_TokenGeneration_StaleTokenRejected operator
 // originally minted a token at Generation=0; bumps allow-file
 // + Generation; the bumped session refuses the old token. End-
 // to-end verification that the chunk-4 hash flips invalidate
@@ -128,7 +128,7 @@ func TestGateBACnet_TokenGeneration_StaleTokenRejected(t *testing.T) {
 		SessionConfirm: confirm.Confirm{
 			AcceptsWrites: true,
 			ConfirmTarget: target,
-			ConfirmToken:  tokOld, // stale — minted at Generation=0
+			ConfirmToken:  tokOld, // stale, minted at Generation=0
 		},
 	}
 	if err := h.Authorise(context.Background()); err == nil {
@@ -136,7 +136,7 @@ func TestGateBACnet_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	}
 }
 
-// TestGateBACnet_TokenGeneration_FreshTokenAccepted — operator
+// TestGateBACnet_TokenGeneration_FreshTokenAccepted operator
 // bumps the generation AND mints a new token at the same
 // generation; Authorise succeeds. Pins the happy path.
 func TestGateBACnet_TokenGeneration_FreshTokenAccepted(t *testing.T) {
@@ -173,7 +173,7 @@ func TestGateBACnet_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestGateBACnet_TokenGeneration_DefaultPreservesOldTokens — the
+// TestGateBACnet_TokenGeneration_DefaultPreservesOldTokens the
 // dual of the stale-rejection test: when operator does NOT
 // bump (Generation stays 0), v1.4 → v1.16-chunk-3 tokens
 // continue to validate. Pins the backwards-compat promise.
@@ -214,7 +214,7 @@ func TestGateBACnet_TokenGeneration_DefaultPreservesOldTokens(t *testing.T) {
 
 // ---- E2E gate: chunk-4-tokened session still routes traffic --
 
-// TestGateBACnetLSO_TokenGeneration_FrameForwards — sanity:
+// TestGateBACnetLSO_TokenGeneration_FrameForwards sanity:
 // after authorising with a chunk-4 mutation, the gate still
 // forwards permitted LSO requests. Catches regressions from
 // the new mutation factory.

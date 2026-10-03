@@ -392,7 +392,7 @@ paths:
         - health
   /api/v1/inputs/preview:
     get:
-      description: 'Query params: kind=list:<path>|nmap:<path>|stdin (required), default_port=<int> (optional, host-only entries fall back here). Returns {count, targets[], truncated}; sample is capped at 200 entries. Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT in scope here — they need credentials + rate-limit tuning that the dashboard process intentionally doesn''t carry; use the CLI scan verb for those. v1.36+.'
+      description: 'Query params: kind=list:<path>|nmap:<path>|stdin (required), default_port=<int> (optional, host-only entries fall back here). Returns {count, targets[], truncated}; sample is capped at 200 entries. Provider kinds (shodan/censys/fofa/zoomeye/onyphe/internetdb) are NOT in scope here, they need credentials + rate-limit tuning that the dashboard process intentionally doesn''t carry; use the CLI scan verb for those. v1.36+.'
       responses:
         "200":
           content:
@@ -731,7 +731,7 @@ paths:
         - schedules
   /api/v1/schedules/export:
     get:
-      description: 'Query param: format=csv|ndjson|json|ics (default json). CSV is 10-column flat (id, name, cadence, enabled, operator, created_at, last_fired_at, audit_retention_days, input, plugins). NDJSON is round-trippable via per-line POST. v2.49+: ics emits RFC 5545 iCalendar — interval cadence → RRULE FREQ=HOURLY/DAILY best-fit; cron → DESCRIPTION-only; disabled → STATUS:CANCELLED. Content-Disposition: attachment with sensible filenames.'
+      description: 'Query param: format=csv|ndjson|json|ics (default json). CSV is 10-column flat (id, name, cadence, enabled, operator, created_at, last_fired_at, audit_retention_days, input, plugins). NDJSON is round-trippable via per-line POST. v2.49+: ics emits RFC 5545 iCalendar, interval cadence → RRULE FREQ=HOURLY/DAILY best-fit; cron → DESCRIPTION-only; disabled → STATUS:CANCELLED. Content-Disposition: attachment with sensible filenames.'
       responses:
         "200":
           description: Body in the requested format.
@@ -744,7 +744,7 @@ paths:
         - schedules
   /api/v1/schedules/import:
     post:
-      description: 'Body: NDJSON (one ScanSchedule per line; matches the v1.97 export format) OR JSON array. Content-Type drives the parser; unknown CT auto-detects via the first non-whitespace byte. Query param `on_conflict=skip|overwrite|rename` (default skip). IDs from the input are IGNORED — the server generates fresh IDs in every case. Returns aggregate counts + per-row items.'
+      description: 'Body: NDJSON (one ScanSchedule per line; matches the v1.97 export format) OR JSON array. Content-Type drives the parser; unknown CT auto-detects via the first non-whitespace byte. Query param `on_conflict=skip|overwrite|rename` (default skip). IDs from the input are IGNORED, the server generates fresh IDs in every case. Returns aggregate counts + per-row items.'
       responses:
         "200":
           content:

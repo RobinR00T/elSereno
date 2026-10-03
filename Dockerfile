@@ -26,7 +26,7 @@ RUN go build -trimpath -buildvcs=false \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
     -o /out/elsereno ./cmd/elsereno
 
-# Runtime — distroless nonroot.
+# Runtime, distroless nonroot.
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/elsereno /usr/local/bin/elsereno
 USER nonroot:nonroot

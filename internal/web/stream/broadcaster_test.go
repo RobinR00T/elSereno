@@ -58,7 +58,7 @@ func TestPublish_SlowSubscriberDropped(t *testing.T) {
 		b.Publish(Event{Kind: EventFinding})
 	}
 	// The subscriber's channel has exactly bufSize (2) events in
-	// it; the rest were dropped — no panic, no block.
+	// it; the rest were dropped, no panic, no block.
 	var count int
 	// Drain what's available with a short timeout.
 	for {
@@ -164,7 +164,7 @@ func TestPublish_PublishedAtSet(t *testing.T) {
 	// the bounds to the same precision so a wall-clock with a
 	// non-zero nanosecond suffix doesn't push PublishedAt
 	// below `before` (an artefact of truncation, not an actual
-	// time-ordering bug — caught flakily on Linux CI 2026-05-12).
+	// time-ordering bug, caught flakily on Linux CI 2026-05-12).
 	before := time.Now().UTC().Truncate(time.Microsecond)
 	b.Publish(Event{Kind: EventRunStart})
 	ev := <-ch

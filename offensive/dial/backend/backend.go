@@ -13,7 +13,7 @@
 //     AT framing as `internal/protocols/atmodem` for
 //     consistency with the read-only probe path.
 //   - `voip-sip`: SIP INVITE + BYE over UDP/TCP against a SIP
-//     proxy. No RTP is sent — the "dial" completes on
+//     proxy. No RTP is sent, the "dial" completes on
 //     200 OK + ACK and is cancelled with BYE immediately.
 //
 // The offensive dial CLI (`elsereno dial batch`) selects a
@@ -22,7 +22,7 @@
 // drive a real phone line.
 //
 // Every backend MUST install the seccomp `dial` profile before
-// opening any fd — the CLI does that before calling Deliver.
+// opening any fd, the CLI does that before calling Deliver.
 // Backends that need network sockets (voip-sip) must run in a
 // separate process because the seccomp dial profile blocks
 // socket() on the Elsereno parent. v1.2 ships the interface +
@@ -97,7 +97,7 @@ type Backend interface {
 	Name() string
 	// Deliver attempts to dial `normalisedNumber` (digits only,
 	// same shape as `dial.Normalise` output). Returns a Result
-	// whose Disposition is always set — no nil Result on any
+	// whose Disposition is always set, no nil Result on any
 	// error path.
 	Deliver(ctx context.Context, normalisedNumber string) (Result, error)
 	// Close releases any persistent resources (open serial fd,

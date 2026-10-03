@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-codesys-proxy.sh — end-to-end demo of the CODESYS v3 write-gated
+# demo-codesys-proxy.sh, end-to-end demo of the CODESYS v3 write-gated
 # proxy against the bundled codesys-sim, with no real CODESYS runtime.
 #
 # It builds the offensive binary + codesys-sim, creates a throwaway

@@ -10,7 +10,7 @@ package wire
 // L3 (router) / L4 (channel) / L7 (service) structure; the classifier
 // key is the L7 (service_id, cmd_id) pair. Locating that pair inside a
 // raw TCP frame requires parsing the L3 + L4 headers (variable length,
-// with L4 reassembly) — that framing lands with the WriteGatedHandler;
+// with L4 reassembly), that framing lands with the WriteGatedHandler;
 // this file is the validated category map it consumes.
 
 import "bytes"
@@ -42,7 +42,7 @@ type Category int
 const (
 	// CategoryUnknown is the fallback; the proxy refuses it.
 	CategoryUnknown Category = iota
-	// CategoryRead covers session/handshake ops and pure queries —
+	// CategoryRead covers session/handshake ops and pure queries,
 	// nothing that mutates control state, application code, variables,
 	// or run state.
 	CategoryRead
@@ -202,7 +202,7 @@ func decodeL7(buf []byte, p int) (Command, Category) {
 }
 
 // magicPrefixAt reports whether buf[p:] is a (possibly partial) prefix
-// of an L7 magic — i.e. once more of the stream arrives it could extend
+// of an L7 magic, i.e. once more of the stream arrives it could extend
 // into a real header. This is what makes a lone trailing first-magic-
 // byte (e.g. 0x55 with the 0xcd still in flight) unsafe to forward: a
 // plain two-byte matchMagic would miss it and let a magic split across
@@ -228,7 +228,7 @@ func magicPrefixAt(buf []byte, p int) bool {
 // as-yet-incomplete header and must be held until more data arrives.
 //
 // safeLen holds back the last up-to-7 bytes whenever their suffix is a
-// magic prefix — INCLUDING a single trailing 0x55/0x75 whose second
+// magic prefix, INCLUDING a single trailing 0x55/0x75 whose second
 // magic byte has not arrived. Any magic starting in the final 7 bytes
 // has an incomplete 8-byte header, so this covers every partial header;
 // a magic that spans two reads can never be forwarded before it is

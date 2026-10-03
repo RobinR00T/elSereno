@@ -13,7 +13,7 @@ import (
 
 // Querier is the narrow pgx surface scanorch's DBStore needs.
 // Both *pgxpool.Pool and *pgx.Conn satisfy it; tests use an
-// in-memory fake. Mirrors the repo.Querier shape — kept
+// in-memory fake. Mirrors the repo.Querier shape, kept
 // separate to avoid an internal/scanorch → internal/repo
 // import (no orchestration → repo dependency yet).
 type Querier interface {
@@ -293,7 +293,7 @@ WHERE triggered_by_schedule_id = $1 AND created_at >= $2`
 }
 
 // StatsTimeseries (v2.11+) buckets via PG's date_trunc.
-// Empty buckets are NOT auto-filled by SQL — caller would
+// Empty buckets are NOT auto-filled by SQL, caller would
 // have to generate_series() and LEFT JOIN. Today the dashboard
 // renders gaps naturally; if a future cycle needs continuous
 // timelines, we can revisit. Memory variant DOES auto-fill.
@@ -461,7 +461,7 @@ func (s *DBStore) runTransition(ctx context.Context, id string, to State, fromSt
 
 // encodeFindingsByPlugin produces the JSONB bytes the UPDATE
 // query binds. Nil / empty maps yield "{}" so the column never
-// holds NULL — the migration NOT NULL DEFAULT depends on this.
+// holds NULL, the migration NOT NULL DEFAULT depends on this.
 func encodeFindingsByPlugin(byPlugin map[string]int) ([]byte, error) {
 	if len(byPlugin) == 0 {
 		return []byte(`{}`), nil

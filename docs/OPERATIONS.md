@@ -1,4 +1,4 @@
-# ElSereno — operations runbooks
+# ElSereno, operations runbooks
 
 Runbooks operacionales para mantenimiento, releases, hygiene
 del repo. Léelo cuando vayas a:
@@ -10,10 +10,10 @@ del repo. Léelo cuando vayas a:
 - Onboardear un admin nuevo / handoff.
 
 > Documentos hermanos:
-> - [`MANUAL.md`](MANUAL.md) — referencia CLI completa.
-> - [`DEV-SETUP.md`](DEV-SETUP.md) — clonar repo + dev workflow.
-> - [`SECURITY.md`](SECURITY.md) — modelo de seguridad.
-> - [`.github/SETTINGS.md`](../.github/SETTINGS.md) — config esperada de GitHub.
+> - [`MANUAL.md`](MANUAL.md), referencia CLI completa.
+> - [`DEV-SETUP.md`](DEV-SETUP.md), clonar repo + dev workflow.
+> - [`SECURITY.md`](SECURITY.md), modelo de seguridad.
+> - [`.github/SETTINGS.md`](../.github/SETTINGS.md), config esperada de GitHub.
 
 ---
 
@@ -24,7 +24,7 @@ del repo. Léelo cuando vayas a:
 3. [Post-public-flip checklist](#3-post-public-flip-checklist)
 4. [Troubleshooting CI](#4-troubleshooting-ci)
 5. [Re-auth de `gh` tras revocar PAT](#5-re-auth-gh)
-6. [DR — backup + restore](#6-disaster-recovery)
+6. [DR, backup + restore](#6-disaster-recovery)
 7. [Admin handoff](#7-admin-handoff)
 8. [Audit checklist (`scripts/audit.sh`)](#8-audit-checklist)
 
@@ -53,13 +53,13 @@ git status -s     # vacío
 git pull --rebase origin main
 
 # 2. Cierra el cycle con su commit de docs (STATE/CHANGELOG/etc):
-git commit -m "docs(vN.M): close cycle — <feature line>"
+git commit -m "docs(vN.M): close cycle, <feature line>"
 
 # 3. Crea el tag firmado:
 git tag -s vN.M.0 -m "$(cat <<'EOF'
-vN.M.0 — <one-line summary>
+vN.M.0, <one-line summary>
 
-<full release notes body — copy from .context/snapshots/vN.M.0-*.md>
+<full release notes body, copy from .context/snapshots/vN.M.0-*.md>
 EOF
 )"
 
@@ -67,7 +67,7 @@ EOF
 git push origin main
 git push origin vN.M.0
 
-# 5. Release con goreleaser (LOCAL — NO confíes en CI hasta
+# 5. Release con goreleaser (LOCAL, NO confíes en CI hasta
 #    que billing esté restored):
 GITHUB_TOKEN=$(gh auth token) \
 GITHUB_REPOSITORY=RobinR00T/elSereno \
@@ -113,11 +113,11 @@ ElSereno trata las PRs de Dependabot con esta política:
 
 ### Configuración
 
-- **`.github/dependabot.yml`** — schedule weekly Monday 06:00
+- **`.github/dependabot.yml`**: schedule weekly Monday 06:00
   CET, grouped minor+patch, 10 PRs simultáneas máximo,
   separate ecosystems (gomod, github-actions, docker).
 
-- **`.github/workflows/auto-approve-dependabot.yml`** — escucha
+- **`.github/workflows/auto-approve-dependabot.yml`**: escucha
   `pull_request_target`, usa `dependabot/fetch-metadata@v2`
   para clasificar el bump, aplica auto-approve + auto-merge
   para minor+patch, label para major.
@@ -217,7 +217,7 @@ estructurado, ve a [`MANUAL.md §10`](MANUAL.md#10-troubleshooting).
 | `secrets`: gitleaks fail | Falsos positivos o secret real committed | Revisa SARIF; añade exclusiones en `.gitleaks.toml` si es FP |
 | Workflow runs reportan "no checks reported" | Approval policy bloquea | §3 |
 | PR tiene "merge conflict" tras merges en main | Base desactualizada | `@dependabot rebase` |
-| `gh pr merge --auto` "failed" | PR ya verde — `--auto` no aplica | Usa `gh pr merge --squash --delete-branch` (sin `--auto`) |
+| `gh pr merge --auto` "failed" | PR ya verde, `--auto` no aplica | Usa `gh pr merge --squash --delete-branch` (sin `--auto`) |
 | Dependency graph UI muestra "Your .github/dependabot.yml contained invalid details" + "did not contain a minimum number of items 1" | `ignore: []` (o cualquier array vacío) en `dependabot.yml` viola el schema (minItems: 1) | Borrar el array vacío o ponerle al menos 1 entry. Documentar formato esperado via comentarios YAML, no via array vacío |
 
 ---
@@ -298,7 +298,7 @@ etc.), camina:
    firmar nuevas tags. Importa la clave pública del mantenedor
    en su keyring + configura `git config user.signingkey`.
 2. **`.github/SETTINGS.md`**: walk through con el nuevo admin
-   — qué configuraciones esperar y cómo verificarlas.
+qué configuraciones esperar y cómo verificarlas.
 3. **Webhooks externos**: si hay alguno (SIEM, ticketing),
    regenera el secret + actualiza en el sistema receiver.
 4. **Dependabot secrets**: si la org viene con secrets
@@ -317,7 +317,7 @@ etc.), camina:
 ## 8. Audit checklist
 
 `scripts/audit.sh` es un comando único proactivo que valida TODA
-la clase de problemas que hemos cazado durante v1.74–v1.88
+la clase de problemas que hemos cazado durante v1.74-v1.88
 (YAML schema, dependabot empty arrays, broken markdown links,
 Go toolchain pin, CVEs en stdlib, build/lint/test/gosec/govulncheck,
 context-check, tag signatures, GitHub repo state).
@@ -328,7 +328,7 @@ context-check, tag signatures, GitHub repo state).
 |---|---|---|
 | Antes de cada commit "close de cycle" | `--full` | ~5 min |
 | Durante desarrollo (sanity check rápido) | `--quick` | ~5 s |
-| En cada push/PR | CI (`audit.yml`) automático | ~6–8 min |
+| En cada push/PR | CI (`audit.yml`) automático | ~6-8 min |
 | Auditoría semanal de stdlib CVEs | CI cron lunes 06:00 UTC | automático |
 | Antes de abrir tarea nueva en sesión Claude | `--quick` | ~5 s |
 
@@ -367,15 +367,15 @@ scripts/audit.sh --ci
 
 ### Exit codes
 
-- `0` — todo verde.
-- `1` — al menos un check falló (logs preservados en `/tmp/.audit-*`).
-- `2` — error de invocación (flag inválido, etc.).
+- `0`: todo verde.
+- `1`: al menos un check falló (logs preservados en `/tmp/.audit-*`).
+- `2`: error de invocación (flag inválido, etc.).
 
 ### Si un check falla
 
 1. Lee `/tmp/.audit-*.<PID>` para el log completo.
 2. Cross-check contra `memory/elsereno_operational_playbook.md`
-   §Gotchas — probablemente está catalogado.
+   §Gotchas, probablemente está catalogado.
 3. Si no está: arréglalo + añade entry nueva al playbook + añade
    chequeo al script si no estaba cubierto.
 

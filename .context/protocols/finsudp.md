@@ -17,7 +17,7 @@ chunk 1 ships read-only fingerprint; memory-area writes / RUN-STOP
 deferred to a later cycle.
 
 ## Spec references
-- OMRON CPU Manual W421 (FINS Commands Reference) — canonical.
+- OMRON CPU Manual W421 (FINS Commands Reference), canonical.
 - ICS-CERT advisories on OMRON CJ/CS lacking authentication.
 
 ## Wire format (summary)
@@ -33,7 +33,7 @@ SystemVersion.
 
 ## Fingerprint strategy
 One-shot probe. The Model string ("CJ2M-CPU33", "NJ501-1500", etc.)
-is the canonical signal — captured into the finding hash so dedup is
+is the canonical signal, captured into the finding hash so dedup is
 per-controller-model. Sentinel-error classification surfaces in the
 note: short frame, SID echo mismatch, end-code refusal, wrong
 MRC/SRC, or generic non-FINS noise.
@@ -70,7 +70,7 @@ factors{protocol_risk:80, exposure:80, auth_state:95, capability:30
 (75 on FINS reply), impact_class:75, cve_exposure:0}. impact_class
 75 reflects factory-floor PLC blast radius (RUN/STOP, force-set
 output bit, program rewrite). auth_state 95 because FINS has no
-native authentication — every Internet-exposed CPU on 9600 is a
+native authentication, every Internet-exposed CPU on 9600 is a
 potential write target if an offensive plugin lands.
 
 ## Sentinel errors (wire package)

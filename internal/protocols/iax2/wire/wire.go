@@ -4,7 +4,7 @@
 // share the same stream.
 //
 // The probe sends a `NEW` full frame and looks for any full-
-// frame reply — an ACCEPT means the remote accepted our
+// frame reply, an ACCEPT means the remote accepted our
 // proposed call (which we immediately HANGUP), AUTHREQ means
 // it wants authentication (the server is alive and in
 // production use), REJECT or HANGUP mean it's alive but
@@ -26,7 +26,7 @@
 //	...
 //
 // F=1 = full frame (control). FrameType + Subclass tell us what
-// kind of control message — IAX (0x06) + NEW (0x01) is the
+// kind of control message, IAX (0x06) + NEW (0x01) is the
 // canonical probe.
 package wire
 
@@ -136,7 +136,7 @@ func (h Header) IsIAXReply() bool {
 }
 
 // BuildNEW crafts a minimal NEW frame announcing a probe call.
-// Information Elements omitted — most Asterisk deployments
+// Information Elements omitted, most Asterisk deployments
 // will accept a bare NEW and respond (with AUTHREQ or REJECT)
 // even without DNID/CALLEDCONTEXT IEs.
 //

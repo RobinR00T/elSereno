@@ -1,10 +1,10 @@
 // Package wire implements the minimum subset of DLMS/COSEM over
 // TCP needed for read-only fingerprinting on TCP/4059. The
-// on-wire layout is from IEC 62056-46 (Green Book §8.4 — DLMS
+// on-wire layout is from IEC 62056-46 (Green Book §8.4, DLMS
 // Wrapper) and IEC 62056-53 (COSEM application layer).
 //
 // This package implements ONLY the request builder + response
-// classifier for **AARQ** (Application Association Request) —
+// classifier for **AARQ** (Application Association Request),
 // the canonical "associate with me" handshake. The AARE
 // (Application Association Response) carries an
 // association-result code that fingerprints the server. No
@@ -21,9 +21,9 @@ import (
 //
 //	Offset  Field        Size  Description
 //	0..1    Version      2     0x0001 BE
-//	2..3    SourceWPort  2     BE — typically 0x0001 (mgmt) or 0x0010 (US)
-//	4..5    DestWPort    2     BE — typically 0x0001 (server mgmt logical device)
-//	6..7    Length       2     BE — APDU length in bytes
+//	2..3    SourceWPort  2     BE, typically 0x0001 (mgmt) or 0x0010 (US)
+//	4..5    DestWPort    2     BE, typically 0x0001 (server mgmt logical device)
+//	6..7    Length       2     BE, APDU length in bytes
 //	8+      APDU         …     BER-encoded COSEM APDU
 const (
 	// WrapperVersion is the canonical DLMS wrapper version.
@@ -102,13 +102,13 @@ var canonicalMinimalAARQ = []byte{
 }
 
 // AARQAPDULen is the length of the canonical minimal AARQ APDU
-// (29 bytes — see canonicalMinimalAARQ).
+// (29 bytes, see canonicalMinimalAARQ).
 const AARQAPDULen = 29
 
 // BuildAARQ crafts a 37-byte DLMS-wrapper-framed AARQ probe:
 // 8-byte wrapper header + 29-byte canonical minimal AARQ APDU.
 // The wrapper uses Source=0x0010 (Public Client management) and
-// Dest=0x0001 (Server management logical device) — the canonical
+// Dest=0x0001 (Server management logical device), the canonical
 // default endpoints for unauthenticated probes.
 func BuildAARQ() []byte {
 	frame := make([]byte, WrapperLen+AARQAPDULen)

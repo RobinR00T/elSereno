@@ -32,15 +32,15 @@ var ErrEmptyHostPort = errors.New("netutil: empty host:port")
 //
 // Recognised loopback forms:
 //
-//   - "" (empty) — treated as "default loopback", per the
+//   - "" (empty), treated as "default loopback", per the
 //     historical cmd_serve.go contract.
 //   - localhost:port and localhost (no port).
-//   - 127.0.0.1:port, 127.0.0.x:port (any IP in 127/8 — they
+//   - 127.0.0.1:port, 127.0.0.x:port (any IP in 127/8, they
 //     all loop back per RFC 1122).
-//   - [::1]:port — IPv6 loopback shortform.
-//   - [0:0:0:0:0:0:0:1]:port — IPv6 loopback longform (rfc 5952
+//   - [::1]:port, IPv6 loopback shortform.
+//   - [0:0:0:0:0:0:0:1]:port, IPv6 loopback longform (rfc 5952
 //     §4.2.2 prefers the shortform but the longform is valid).
-//   - [::1%zone]:port — IPv6 loopback with interface zone
+//   - [::1%zone]:port, IPv6 loopback with interface zone
 //     specifier (e.g. `[::1%lo0]` on macOS).
 //
 // Non-loopback forms (including the IPv6 unspecified address
@@ -49,7 +49,7 @@ func IsLoopbackHostPort(s string) bool {
 	if s == "" {
 		return true
 	}
-	// Hostname forms — netip.ParseAddrPort doesn't accept names.
+	// Hostname forms, netip.ParseAddrPort doesn't accept names.
 	if isLocalhostName(s) {
 		return true
 	}
@@ -57,7 +57,7 @@ func IsLoopbackHostPort(s string) bool {
 	if ap, err := netip.ParseAddrPort(s); err == nil {
 		return ap.Addr().IsLoopback()
 	}
-	// Fall back to a bare-address parse (no port) — the operator
+	// Fall back to a bare-address parse (no port), the operator
 	// might be passing just an IP literal without a port.
 	if addr, err := netip.ParseAddr(s); err == nil {
 		return addr.IsLoopback()
@@ -66,7 +66,7 @@ func IsLoopbackHostPort(s string) bool {
 }
 
 // isLocalhostName matches the `localhost` hostname (with or
-// without port). DNS resolution is intentionally NOT performed —
+// without port). DNS resolution is intentionally NOT performed,
 // "localhost" is the bind-time literal we accept; if the
 // operator's hosts file resolves localhost to something other
 // than 127.0.0.1 / ::1 they can use the explicit IP literal.
@@ -74,7 +74,7 @@ func isLocalhostName(s string) bool {
 	if s == "localhost" {
 		return true
 	}
-	// "localhost:port" form — must have an exact "localhost"
+	// "localhost:port" form, must have an exact "localhost"
 	// prefix followed by ":" + a port.
 	if rest, ok := strings.CutPrefix(s, "localhost:"); ok && rest != "" {
 		return true
@@ -107,7 +107,7 @@ func CanonicalHostPort(s string) (string, error) {
 		// brackets around v6 addresses.
 		return ap.String(), nil
 	}
-	// Hostname form (or bare IP without port) — return as-is.
+	// Hostname form (or bare IP without port), return as-is.
 	// CanonicalHostPort doesn't attempt to parse host-only or
 	// host-only-with-port; that's beyond IP canonicalisation.
 	return s, nil

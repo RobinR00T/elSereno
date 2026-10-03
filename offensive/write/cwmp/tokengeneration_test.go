@@ -13,7 +13,7 @@ import (
 
 // ---- Hash ladder: token-generation cookie degrades --------
 
-// TestCWMPAllowlistHashWithGeneration_ZeroMatchesV12Chunk10 —
+// TestCWMPAllowlistHashWithGeneration_ZeroMatchesV12Chunk10
 // the v1.17 chunk-1 hash with generation=0 must equal the
 // v1.12 chunk-10 (Firmware) hash. Backwards-compat ladder
 // step 1: every v1.11 → v1.12 confirm-token still validates
@@ -31,7 +31,7 @@ func TestCWMPAllowlistHashWithGeneration_ZeroMatchesV12Chunk10(t *testing.T) {
 	}
 }
 
-// TestCWMPAllowlistHashWithGeneration_NonZeroChangesHash —
+// TestCWMPAllowlistHashWithGeneration_NonZeroChangesHash
 // bumping the generation must perturb the hash so a stale
 // confirm-token (minted at the prior generation) is rejected.
 func TestCWMPAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCWMPAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 }
 
 // TestCWMPAllowlistHashWithGeneration_DifferentGenerationsDiffer
-// — every distinct generation produces a distinct hash. Pin
+// every distinct generation produces a distinct hash. Pin
 // the cryptographic property the operator's reload workflow
 // depends on (each bump → fresh token).
 func TestCWMPAllowlistHashWithGeneration_DifferentGenerationsDiffer(t *testing.T) {
@@ -62,7 +62,7 @@ func TestCWMPAllowlistHashWithGeneration_DifferentGenerationsDiffer(t *testing.T
 	}
 }
 
-// TestCWMPAllowlistHashWithGeneration_StableForSameGeneration —
+// TestCWMPAllowlistHashWithGeneration_StableForSameGeneration
 // the hash is deterministic; same input → same output across
 // invocations.
 func TestCWMPAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
@@ -77,7 +77,7 @@ func TestCWMPAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
 
 // ---- E2E gate: TokenGeneration flowed through Authorise ------
 
-// TestCWMPGate_TokenGeneration_StaleTokenRejected — operator
+// TestCWMPGate_TokenGeneration_StaleTokenRejected operator
 // originally minted a token at Generation=0; bumps allow-file
 // + Generation; the bumped session refuses the old token.
 func TestCWMPGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
@@ -99,7 +99,7 @@ func TestCWMPGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 		SessionConfirm: confirm.Confirm{
 			AcceptsWrites: true,
 			ConfirmTarget: target,
-			ConfirmToken:  tokOld, // stale — minted at generation=0
+			ConfirmToken:  tokOld, // stale, minted at generation=0
 		},
 	}
 	if err := h.Authorise(context.Background()); err == nil {
@@ -107,7 +107,7 @@ func TestCWMPGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	}
 }
 
-// TestCWMPGate_TokenGeneration_FreshTokenAccepted — operator
+// TestCWMPGate_TokenGeneration_FreshTokenAccepted operator
 // bumps the generation AND mints a new token at the same
 // generation; Authorise succeeds. Pins the happy path.
 func TestCWMPGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
@@ -137,7 +137,7 @@ func TestCWMPGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestCWMPGate_TokenGeneration_DefaultPreservesOldTokens — the
+// TestCWMPGate_TokenGeneration_DefaultPreservesOldTokens the
 // dual: when operator does NOT bump (generation stays 0),
 // v1.11 → v1.12 tokens minted with the prior helpers continue
 // to validate. Pins the backwards-compat promise.

@@ -171,7 +171,7 @@ func classifyTerminal(line string) (ResultCode, int) {
 	case "RING":
 		return ResultRing, 0
 	}
-	// CONNECT may include a baud rate: "CONNECT 9600" — match prefix.
+	// CONNECT may include a baud rate: "CONNECT 9600", match prefix.
 	if strings.HasPrefix(line, "CONNECT") {
 		return ResultConnect, 0
 	}

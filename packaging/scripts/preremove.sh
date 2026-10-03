@@ -1,14 +1,14 @@
 #!/bin/sh
-# preremove — stop + disable the systemd units before
+# preremove, stop + disable the systemd units before
 # files vanish. We DON'T remove the elsereno user / group
-# here — operators may have chown'd custom files to them
+# here, operators may have chown'd custom files to them
 # and removing the uid would orphan those files.
 #
 # Persistent state (/var/lib/elsereno, /var/log/elsereno,
 # /etc/elsereno) is left alone on package remove so the
 # operator can reinstall + resume without losing data.
 # `apt purge` (which calls postrm purge) is the verb that
-# wipes those — purge handling lives in a separate script
+# wipes those, purge handling lives in a separate script
 # (deb-only) that nfpm doesn't expose; if needed, add
 # postremove with --postremove and a `purge` arg parse.
 

@@ -28,7 +28,7 @@ import (
 // "real-PLC validation". Operators can now capture bytes
 // from their lab PLC (via Wireshark, netcat, etc.) and
 // feed them to this verb to confirm the parser handles
-// the response correctly — no DB, no scope, no scan-run
+// the response correctly, no DB, no scope, no scan-run
 // orchestration required.
 //
 // The verb spins up a localhost TCP listener that replies
@@ -409,7 +409,7 @@ func lookupPlugin(name string) (*core.Plugin, error) {
 // then calls plugin.Probe against the listener. Returns the
 // resulting Finding.
 //
-// The listener accepts exactly one connection then closes —
+// The listener accepts exactly one connection then closes,
 // real probes do a single dial-read-close cycle, which matches
 // the responder's lifetime. Wired-aware plugins that read
 // multiple frames (e.g. GE-SRTP service-0x21 follow-up) can
@@ -434,7 +434,7 @@ func driveProbeAgainstBytes(ctx context.Context, p core.Protocol, reply []byte, 
 		defer func() { _ = conn.Close() }()
 		// Drain whatever the probe sends so the server-side
 		// read doesn't block on a half-open connection. We
-		// don't care about the request bytes — the operator
+		// don't care about the request bytes, the operator
 		// supplies the response that the plugin would receive
 		// from a real PLC.
 		go func() {

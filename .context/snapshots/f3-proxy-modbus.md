@@ -5,7 +5,7 @@ date: 2026-04-19
 token-budget: 1200
 ---
 
-# Phase F3 snapshot — Proxy framework + Modbus read-only
+# Phase F3 snapshot, Proxy framework + Modbus read-only
 
 **Closed on 2026-04-19.** `make ci` green end-to-end. The proxy
 framework is live; Modbus is the first plugin to plug into it and
@@ -20,7 +20,7 @@ serves as the template for the F4 ICS plugins.
   so `Hook.PreHook` / `PostHook` see every byte chunk.
 - `logger.go`: `LoggingHook` logs a line per chunk using
   `render.SafeBytes` (PITF logs never escape ANSI/control bytes).
-- `Hook` interface with optional rewrite semantics — PreHook can
+- `Hook` interface with optional rewrite semantics, PreHook can
   return a replacement buffer. `NoopHook` is the pass-through used
   by plugins that do not need observation.
 - Tests: end-to-end accept+dial+echo test against a local echo
@@ -40,7 +40,7 @@ serves as the template for the F4 ICS plugins.
 - `modbus.go`: Plugin with Probe (FC 1 minimal + opportunistic FC
   43/14 vendor strings) and ProxyHandler. The proxy parses each
   client frame and replies with IllegalFunction for every
-  CategoryWrite FC, MEI sub-code != 14, or Unknown FC — the
+  CategoryWrite FC, MEI sub-code != 14, or Unknown FC, the
   upstream device never sees a write when fronted by the proxy.
 - Tests: probe against a local PLC simulator (FC 1 accepted, FC 1
   exception, FC 43/14 vendor/product strings); proxy FC-by-FC
@@ -55,7 +55,7 @@ serves as the template for the F4 ICS plugins.
   accidentally mutate the simulator even if the product code
   regresses.
 - Operators who want a full PLC can use pymodbus (installed via
-  `pipx install 'pymodbus[repl]'` during the F3 prep) — the doc
+  `pipx install 'pymodbus[repl]'` during the F3 prep), the doc
   points at it.
 
 ### Chaos helpers (`test/chaos`)
@@ -71,7 +71,7 @@ serves as the template for the F4 ICS plugins.
 
 ### Integration test
 - `test/integration/modbus_integration_test.go` (build tag
-  `integration`): end-to-end through the proxy framework —
+  `integration`): end-to-end through the proxy framework, 
   upstream listener records what it sees, client sends FC 5
   Write Single Coil through the proxy, asserts upstream received
   0 bytes and the client received IllegalFunction.
@@ -96,13 +96,13 @@ serves as the template for the F4 ICS plugins.
 
 ## New pitfalls captured
 
-None. The work surfaced the usual gosec/exhaustive/noctx friction —
+None. The work surfaced the usual gosec/exhaustive/noctx friction, 
 addressed inline.
 
 ## Debt accepted (moved to F4+)
 
 - Full protocol REPL (call / read_coils / write_single_coil with
-  triple confirm) — the generic REPL framework lands in F4 and the
+  triple confirm), the generic REPL framework lands in F4 and the
   Modbus commands bind there. Write commands go behind
   `-tags offensive` in F5.
 - UDP-only protocols (e.g. BACnet/IP) arrive with a UDP proxy
@@ -119,7 +119,7 @@ addressed inline.
   scaffolded in F1).
 - TUI (bubbletea).
 - `/api/v1` + OpenAPI.
-- Generic REPL framework — XOT / atmodem / modbus commands bind
+- Generic REPL framework, XOT / atmodem / modbus commands bind
   there.
 - Conpot simulator under `simulators/docker-compose.test.yml` for
   wider ICS coverage in integration tests.

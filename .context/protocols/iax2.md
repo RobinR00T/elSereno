@@ -73,7 +73,7 @@ refused with HANGUP before reaching upstream.
 factors{protocol_risk:70→90 on IAX2 confirmed, exposure:80,
 auth_state:60, capability:30→60 on IAX2 reply, impact_class:
 75, **cve_exposure:9** (Asterisk IAX2 family CVE-2007-3764 +
-CVE-2008-3263 + CVE-2009-3727 + CVE-2014-9374 — narrower
+CVE-2008-3263 + CVE-2009-3727 + CVE-2014-9374, narrower
 than SIP's CVE-2009-1207 family but with high toll-fraud
 value)}.
 

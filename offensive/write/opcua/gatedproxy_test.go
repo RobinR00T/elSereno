@@ -38,7 +38,7 @@ func (f *fakeAuditor) Record(_ context.Context, ev confirm.AuditEvent) error {
 // path without bringing in a full UA request encoder.
 func buildMSG(typeID uint16) []byte {
 	body := make([]byte, 0, 24)
-	// SecureChannelId, TokenId, SequenceNumber, RequestId — all 0.
+	// SecureChannelId, TokenId, SequenceNumber, RequestId, all 0.
 	body = append(body, make([]byte, 16)...)
 	// FourByteNodeId encoding.
 	body = append(body, byte(wire.NodeIDFourByte), 0x00)
@@ -50,7 +50,7 @@ func buildMSG(typeID uint16) []byte {
 	frame := make([]byte, total)
 	copy(frame[0:3], "MSG")
 	frame[3] = byte(wire.ChunkFinal)
-	// #nosec G115 — total is bounded by the test's hand-rolled body
+	// #nosec G115, total is bounded by the test's hand-rolled body
 	binary.LittleEndian.PutUint32(frame[4:8], uint32(total))
 	copy(frame[wire.HeaderSize:], body)
 	return frame

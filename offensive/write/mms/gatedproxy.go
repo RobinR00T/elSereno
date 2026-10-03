@@ -8,7 +8,7 @@
 // units, station controllers. The default-build fingerprint
 // plugin (`internal/protocols/mms`) ships a fail-closed proxy
 // because the wire layer beyond the COTP Connect-Confirm is the
-// OSI session layer + ACSE association + MMS PDUs (ASN.1 BER) —
+// OSI session layer + ACSE association + MMS PDUs (ASN.1 BER),
 // a substantial parser surface. This offensive variant replaces
 // that fail-closed handler when `-tags offensive` is built AND
 // the three operator fences pass (--accept-writes +
@@ -29,7 +29,7 @@
 // surface (think v1.6 OPC UA per-NodeId × 10) and shipping it
 // without test vectors against a real substation device risks
 // gates that misclassify operator traffic (false positives that
-// block legitimate reads, or — worse — false negatives that pass
+// block legitimate reads, or, worse, false negatives that pass
 // writes through). v1.27 chunk 3 therefore ships the triple-
 // confirm fence + audit row + byte relay; full ASN.1-walking
 // MMS PDU gating is the v1.35 candidate (MMS ACSE association
@@ -39,7 +39,7 @@
 //   - The triple-confirm fence (build tag + --accept-writes +
 //     --confirm-target + --confirm-token) protects the upstream.
 //     A misconfigured operator command can't accidentally relay
-//     MMS bytes — Authorise must succeed first.
+//     MMS bytes, Authorise must succeed first.
 //   - The audit chain records the session (offensive_allowed
 //     event with proxy_session operation + target hash) so the
 //     forensic record exists even though the gate doesn't slice
@@ -64,7 +64,7 @@ import (
 )
 
 // AllowedIntent is the operator's free-text rationale for the
-// session. It does NOT gate any wire-level behaviour — it's
+// session. It does NOT gate any wire-level behaviour, it's
 // recorded in the session PayloadHash so two sessions with
 // different rationale produce different confirm-tokens. Useful
 // for audit lineage: a token minted for "ILC reset to factory
@@ -134,7 +134,7 @@ type WriteGatedHandler struct {
 	// Recorder is the optional v1.28-chunk-3 hook for capturing
 	// the proxy session to an NDJSON file. When non-nil, Handle
 	// wraps both client + upstream io.ReadWriter through the
-	// recorder. Nil disables recording — the gate behaves exactly
+	// recorder. Nil disables recording, the gate behaves exactly
 	// as it did pre-v1.28.
 	Recorder *replay.Recorder
 
@@ -147,7 +147,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 	if h.authorised {
 		return nil
 	}
-	// Reject sessions with no operator-supplied rationale — the
+	// Reject sessions with no operator-supplied rationale, the
 	// audit lineage requires at least one non-empty intent so
 	// future forensic queries can join "what was this session
 	// for?" against the operator's declared purpose.
@@ -176,7 +176,7 @@ var ErrSessionNotAuthorised = errors.New("mms: write-gated proxy requires Author
 // Handle implements core.ProxyHandler. After Authorise has
 // succeeded, splits into two io.Copy goroutines (client →
 // upstream + upstream → client) and waits for either side to
-// close. Bytes are relayed verbatim — no per-frame parsing or
+// close. Bytes are relayed verbatim, no per-frame parsing or
 // allowlist gating in v1.27 chunk 3.
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
 	if !h.authorised {
@@ -212,5 +212,5 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 // session-level mode" so operators see the granularity choice
 // up-front rather than after running into a surprise.
 func (h *WriteGatedHandler) Description() string {
-	return fmt.Sprintf("mms session-level proxy (target=%s, intents=%d) — bytes relayed verbatim once Authorise succeeds", h.Target, len(h.Allowed))
+	return fmt.Sprintf("mms session-level proxy (target=%s, intents=%d), bytes relayed verbatim once Authorise succeeds", h.Target, len(h.Allowed))
 }

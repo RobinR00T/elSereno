@@ -36,7 +36,7 @@ token-budget: 800
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary
-- **25 plugins** registered in the default build (read-only) as of v1.24 chunk 2 — engineering notes complete for all 25.
+- **25 plugins** registered in the default build (read-only) as of v1.24 chunk 2, engineering notes complete for all 25.
 - Every plugin ships: from-scratch wire parser (with `FuzzXxx`
   targets), Probe method emitting a scored Finding, pass-through
   ProxyHandler, REPL stub (wires with the generic REPL framework in
@@ -52,7 +52,7 @@ token-budget: 800
   alongside the REPL framework.
 
 ## Integration simulators
-- `simulators/xot/`, `simulators/atmodem/`, `simulators/modbus/` —
+- `simulators/xot/`, `simulators/atmodem/`, `simulators/modbus/`: 
   deterministic Go responders used by unit + integration tests.
 - `simulators/docker-compose.test.yml` includes a Conpot container
   that emulates Modbus, S7, EtherNet/IP, BACnet, HART-IP, IEC-104,

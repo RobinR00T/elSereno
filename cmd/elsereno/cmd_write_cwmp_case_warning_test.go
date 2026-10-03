@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestEmitCWMPRPCCaseWarnings_AllCanonical — when every
+// TestEmitCWMPRPCCaseWarnings_AllCanonical when every
 // operator-supplied RPC matches the canonical case, no warning
 // is emitted.
 func TestEmitCWMPRPCCaseWarnings_AllCanonical(t *testing.T) {
@@ -27,7 +27,7 @@ func TestEmitCWMPRPCCaseWarnings_AllCanonical(t *testing.T) {
 	}
 }
 
-// TestEmitCWMPRPCCaseWarnings_LowercaseFiresWarning — operator
+// TestEmitCWMPRPCCaseWarnings_LowercaseFiresWarning operator
 // typed lowercase; warning fires with the canonical spelling.
 func TestEmitCWMPRPCCaseWarnings_LowercaseFiresWarning(t *testing.T) {
 	cmd := &cobra.Command{}
@@ -48,7 +48,7 @@ func TestEmitCWMPRPCCaseWarnings_LowercaseFiresWarning(t *testing.T) {
 	}
 }
 
-// TestEmitCWMPRPCCaseWarnings_PrefixStripped — operator pasted
+// TestEmitCWMPRPCCaseWarnings_PrefixStripped operator pasted
 // `cwmp:setparametervalues`; warning still fires with canonical
 // spelling.
 func TestEmitCWMPRPCCaseWarnings_PrefixStripped(t *testing.T) {
@@ -64,7 +64,7 @@ func TestEmitCWMPRPCCaseWarnings_PrefixStripped(t *testing.T) {
 	}
 }
 
-// TestEmitCWMPRPCCaseWarnings_VendorRPCSilent — RPC names not
+// TestEmitCWMPRPCCaseWarnings_VendorRPCSilent RPC names not
 // in the canonical TR-069 list (vendor extensions like
 // `X_VENDOR_DoSomething`) don't trigger a warning.
 func TestEmitCWMPRPCCaseWarnings_VendorRPCSilent(t *testing.T) {
@@ -79,7 +79,7 @@ func TestEmitCWMPRPCCaseWarnings_VendorRPCSilent(t *testing.T) {
 	}
 }
 
-// TestEmitCWMPRPCCaseWarnings_BlankAndPrefixOnlySkipped —
+// TestEmitCWMPRPCCaseWarnings_BlankAndPrefixOnlySkipped
 // trimmed-empty inputs (just whitespace, or `cwmp:`) skip the
 // warning loop without panicking.
 func TestEmitCWMPRPCCaseWarnings_BlankAndPrefixOnlySkipped(t *testing.T) {
@@ -94,9 +94,9 @@ func TestEmitCWMPRPCCaseWarnings_BlankAndPrefixOnlySkipped(t *testing.T) {
 	}
 }
 
-// TestNewWriteCWMPDryRunCmd_CaseWarningOnLowercase — full CLI
+// TestNewWriteCWMPDryRunCmd_CaseWarningOnLowercase full CLI
 // dry-run with a lowercase RPC fires the warning to stdout AND
-// completes (the gate doesn't refuse — it just informs).
+// completes (the gate doesn't refuse, it just informs).
 func TestNewWriteCWMPDryRunCmd_CaseWarningOnLowercase(t *testing.T) {
 	cmd := newWriteCWMPDryRunCmd()
 	cmd.SilenceUsage = true

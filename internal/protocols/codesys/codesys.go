@@ -52,7 +52,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 //     (CoDeSys / CODESYS / 3S-Smart / 3S-CoDeSys / CmpHostname /
 //     CmpAppBP / CmpRuntime).
 //
-// No service-request APDUs are issued — the default build is
+// No service-request APDUs are issued, the default build is
 // read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
@@ -97,7 +97,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("codesys: TCP proxy framework requires a CoDeSys-aware classifier; v1.22 chunk 2 is fingerprint-only — a relay arrives with the future offensive plugin")
+	return fmt.Errorf("codesys: TCP proxy framework requires a CoDeSys-aware classifier; v1.22 chunk 2 is fingerprint-only, a relay arrives with the future offensive plugin")
 }
 
 func classifyParseError(err error) string {
@@ -118,7 +118,7 @@ func buildFinding(target core.Target, note string, isCoDeSys bool) *core.Finding
 		"auth_state":    85, // CoDeSys V3 supports password / OAUTH but many deployments don't enforce
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLC blast radius
-		"cve_exposure":  10, // ICSA-12-242-01 / 19-080-01 / 21-014-04 — well-known CVEs
+		"cve_exposure":  10, // ICSA-12-242-01 / 19-080-01 / 21-014-04, well-known CVEs
 	}
 	if isCoDeSys {
 		factors["capability"] = 70

@@ -110,15 +110,15 @@ type AuditEvent struct {
 
 // Errors returned by Authorize.
 var (
-	// ErrBadCategory — Mutation.Category is not a known enum value.
+	// ErrBadCategory Mutation.Category is not a known enum value.
 	ErrBadCategory = errors.New("confirm: unknown category")
-	// ErrNotAccepted — the operator did not pass --accept-writes.
+	// ErrNotAccepted the operator did not pass --accept-writes.
 	ErrNotAccepted = errors.New("confirm: --accept-writes not set")
-	// ErrTargetMismatch — --confirm-target did not match Mutation.Target.
+	// ErrTargetMismatch --confirm-target did not match Mutation.Target.
 	ErrTargetMismatch = errors.New("confirm: --confirm-target does not match target")
-	// ErrTokenMismatch — --confirm-token did not match the expected token.
+	// ErrTokenMismatch --confirm-token did not match the expected token.
 	ErrTokenMismatch = errors.New("confirm: --confirm-token does not match expected")
-	// ErrVaultLocked — deriver refused to produce a key.
+	// ErrVaultLocked deriver refused to produce a key.
 	ErrVaultLocked = errors.New("confirm: vault locked")
 )
 
@@ -175,7 +175,7 @@ func ExpectedToken(m Mutation, d KeyDeriver) (string, error) {
 // been recorded. A denied result returns the typed sentinel AND
 // records the denial.
 //
-// The audit record is a best-effort emission — if the Auditor itself
+// The audit record is a best-effort emission, if the Auditor itself
 // errors, Authorize propagates that error with the allowed decision
 // unchanged (the caller should refuse to fire the mutation when the
 // audit write failed; see cmd/elsereno/cmd_write_offensive.go).

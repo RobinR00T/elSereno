@@ -197,7 +197,7 @@ func buildFinding(target core.Target, note string, isConfirm bool) *core.Finding
 		// cve_exposure 14: CVE-2014-2249 (S7-300 stack
 		// overflow), CVE-2016-4785 (S7-1500 auth bypass),
 		// CVE-2018-13815 (S7-300 PLC crash), and the
-		// Stuxnet-era family (CVE-2010-2772) — broadest CVE
+		// Stuxnet-era family (CVE-2010-2772), broadest CVE
 		// surface in the ICS plugin set, reflecting Siemens
 		// PLC market share + documented exploit history.
 		"cve_exposure": 14,

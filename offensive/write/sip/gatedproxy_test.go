@@ -49,7 +49,7 @@ func mintToken(t *testing.T, target string, allowed []sipwrite.AllowedMethod) st
 }
 
 // newHandler returns an authorised WriteGatedHandler ready to
-// Handle traffic. The fakeAuditor is installed but not exposed —
+// Handle traffic. The fakeAuditor is installed but not exposed,
 // the tests here don't assert on audit events (those are covered
 // by confirm_test).
 func newHandler(t *testing.T, target string, allowed []sipwrite.AllowedMethod) *sipwrite.WriteGatedHandler {
@@ -423,7 +423,7 @@ func TestRouting_MalformedRequestLineFailsFast(t *testing.T) {
 }
 
 func TestRouting_LowercaseMethodIsCanonicalised(t *testing.T) {
-	// The test sends "Invite" — the allowlist holds "INVITE".
+	// The test sends "Invite", the allowlist holds "INVITE".
 	// allow() must fold case.
 	client, upstream := driveSession(t, []sipwrite.AllowedMethod{{Method: "INVITE"}})
 	req := "Invite sip:dest@server SIP/2.0\r\n" +
@@ -492,7 +492,7 @@ func TestAllowHeader_IncludesAllowlistedMethods(t *testing.T) {
 			"CSeq: 1 MESSAGE\r\n"+
 			"Content-Length: 0\r\n\r\n")
 	resp := readSIPResponse(t, client)
-	// Extract the Allow line specifically — the echoed CSeq and
+	// Extract the Allow line specifically, the echoed CSeq and
 	// other headers can legitimately contain method names.
 	allow := allowLineFromResponse(t, resp)
 	// Allow must contain INVITE + REGISTER + always-safe.

@@ -17,10 +17,10 @@ const (
 // Group places a finding into a triage bucket.
 //
 //   - quick_win:  severity in {critical, high} AND no auth configured
-//     on the target (auth_state == 0) — remediated fast
+//     on the target (auth_state == 0), remediated fast
 //     because the fix is usually "turn on auth".
 //   - strategic:  severity == critical AND impact_class > 60
-//     — matters for long-horizon remediation plans.
+//     matters for long-horizon remediation plans.
 //   - utility:    severity in {info, low} AND the finding surfaces
 //     reconnaissance / inventory value (banner data, version
 //     leaks, vendor identification) but isn't directly
@@ -62,7 +62,7 @@ func Group(f core.Finding) string {
 //     signal, no operational lever).
 //
 // Severity > low always falls through (those are real findings
-// regardless of impact). The result is intentionally narrow —
+// regardless of impact). The result is intentionally narrow,
 // "utility" should be a small, useful bucket that surfaces
 // recon-grade signals an operator wants to see, not a dumping
 // ground for everything routine.

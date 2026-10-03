@@ -73,7 +73,7 @@ func TestRecorder_Tee_AuditMsg(t *testing.T) {
 	}
 }
 
-// TestRecorder_Tee_ScanProgressMsg — completed/total
+// TestRecorder_Tee_ScanProgressMsg completed/total
 // pointers carry the values across the JSON boundary.
 func TestRecorder_Tee_ScanProgressMsg(t *testing.T) {
 	var buf bytes.Buffer
@@ -96,7 +96,7 @@ func TestRecorder_Tee_ScanProgressMsg(t *testing.T) {
 	}
 }
 
-// TestRecorder_Tee_FeedClosedMsg — the close event
+// TestRecorder_Tee_FeedClosedMsg the close event
 // carries the mode + the error string (empty when nil).
 func TestRecorder_Tee_FeedClosedMsg(t *testing.T) {
 	var buf bytes.Buffer
@@ -119,7 +119,7 @@ func TestRecorder_Tee_FeedClosedMsg(t *testing.T) {
 		t.Errorf("err = %q, want EOF", got.Err)
 	}
 
-	// Same shape with nil Err — Err field must be empty
+	// Same shape with nil Err, Err field must be empty
 	// (omitempty on the struct).
 	buf.Reset()
 	r2 := newRecorder(nopWriteCloser{&buf})
@@ -134,7 +134,7 @@ func TestRecorder_Tee_FeedClosedMsg(t *testing.T) {
 	}
 }
 
-// TestRecorder_Tee_UnknownMsgPassthrough — messages that
+// TestRecorder_Tee_UnknownMsgPassthrough messages that
 // aren't in the recorded set forward to next without
 // writing to disk.
 func TestRecorder_Tee_UnknownMsgPassthrough(t *testing.T) {
@@ -167,7 +167,7 @@ func TestRecorder_Stats(t *testing.T) {
 	}
 }
 
-// TestRecorder_NDJSONLineFormat — each Encode terminates
+// TestRecorder_NDJSONLineFormat each Encode terminates
 // with a newline so consumers can split on \n. We write 3
 // events and assert 3 lines.
 func TestRecorder_NDJSONLineFormat(t *testing.T) {
@@ -189,7 +189,7 @@ func TestRecorder_NDJSONLineFormat(t *testing.T) {
 	}
 }
 
-// TestRecorder_Close_idempotent — Close is safe to call twice.
+// TestRecorder_Close_idempotent Close is safe to call twice.
 func TestRecorder_Close_idempotent(t *testing.T) {
 	var buf bytes.Buffer
 	r := newRecorder(nopWriteCloser{&buf})

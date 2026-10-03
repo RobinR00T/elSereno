@@ -80,7 +80,7 @@ type Broadcaster struct {
 }
 
 // New returns a Broadcaster whose subscribers each get a channel
-// of capacity bufSize. 32 is a sensible default — enough to
+// of capacity bufSize. 32 is a sensible default, enough to
 // absorb a few-hundred-event burst from a fast scan while a slow
 // browser catches up.
 func New(bufSize int) *Broadcaster {

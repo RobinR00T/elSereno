@@ -80,8 +80,8 @@ func (r *offensiveRuntime) Close() {
 func (r *offensiveRuntime) AuditPath() string { return r.path }
 
 // newAuditOnlyRuntime opens the audit writer without unlocking
-// the vault. Harvest probes don't need vault-derived tokens —
-// they read default credential lists and emit observations — but
+// the vault. Harvest probes don't need vault-derived tokens,
+// they read default credential lists and emit observations, but
 // they DO need to record the sandbox load event in the audit
 // chain, same as the write/exploit verbs. The returned runtime's
 // Vault field is nil; callers that pass it to a verb requiring a

@@ -44,7 +44,7 @@ import (
 // listens on internally (multiplexed over the same TCP
 // 48898 connection by the AMS Router).
 const (
-	// AMSPortRouter is AMS port 0x2710 (10000) — the
+	// AMSPortRouter is AMS port 0x2710 (10000), the
 	// AMS Router service. Every TwinCAT runtime
 	// listens here for service-discovery + global
 	// device-info queries; we target it for the
@@ -114,8 +114,8 @@ type DeviceInfo struct {
 // Router (port 10000).
 //
 // targetNetID is the upstream's AMS Net ID. For initial
-// fingerprint probes — when we don't yet know the device's
-// real ID — we use the standard "I don't know yet, please
+// fingerprint probes, when we don't yet know the device's
+// real ID, we use the standard "I don't know yet, please
 // reply anyway" convention of all-zero AMS Net ID; many
 // TwinCAT runtimes answer regardless. Operators with the
 // real ID can override via the plugin's NetID option.
@@ -129,7 +129,7 @@ func BuildReadDeviceInfo(targetNetID [6]byte) []byte {
 	// AMS header
 	copy(frame[6:12], targetNetID[:])
 	binary.LittleEndian.PutUint16(frame[12:14], AMSPortRouter)
-	// Source NetID + Port: zero — the runtime echoes them
+	// Source NetID + Port: zero, the runtime echoes them
 	// back in the response, no routing needed for
 	// fingerprint.
 	copy(frame[14:20], make([]byte, 6))

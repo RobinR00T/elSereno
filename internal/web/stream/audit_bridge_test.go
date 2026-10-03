@@ -41,11 +41,11 @@ func TestAuditObserver_PublishesPerAppend(t *testing.T) {
 		}
 		var got map[string]any
 		if err := json.Unmarshal(ev.Payload, &got); err != nil {
-			t.Fatalf("payload not valid JSON: %v — raw=%q", err, ev.Payload)
+			t.Fatalf("payload not valid JSON: %v, raw=%q", err, ev.Payload)
 		}
 		id, ok := got["id"].(float64)
 		if !ok || id != float64(entry.ID) {
-			t.Fatalf("id mismatch — got %v, want %d", got["id"], entry.ID)
+			t.Fatalf("id mismatch, got %v, want %d", got["id"], entry.ID)
 		}
 		if got["event_type"] != string(audit.EventGenesis) {
 			t.Fatalf("event_type = %v, want %q", got["event_type"], audit.EventGenesis)
@@ -54,7 +54,7 @@ func TestAuditObserver_PublishesPerAppend(t *testing.T) {
 			t.Fatalf("actor = %v", got["actor"])
 		}
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("no event received — observer not invoked")
+		t.Fatal("no event received, observer not invoked")
 	}
 }
 

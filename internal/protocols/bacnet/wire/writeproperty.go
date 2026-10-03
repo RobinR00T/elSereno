@@ -31,7 +31,7 @@ type WritePropertyTarget struct {
 //
 // Only tags 0 and 1 are needed by the gate; later tags are
 // walked over / skipped. Returns (target, true) on success,
-// (_, false) on any parse error — caller fails closed.
+// (_, false) on any parse error, caller fails closed.
 //
 // v1.12 chunk 7: covers service 15 WriteProperty only. The
 // analogous per-object gate for WritePropertyMultiple

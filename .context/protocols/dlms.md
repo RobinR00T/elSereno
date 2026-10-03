@@ -32,7 +32,7 @@ length) + BER-encoded COSEM APDU. Frame layout in
 One-shot probe over TCP. The wrapper version (0x0001) plus AARE
 tag (0x61) at the APDU start indicates a confirmed
 DLMS/COSEM server. Wrapper-only responses (e.g., AARQ tag echo
-or fault APDU) also count as positive ID — the server speaks
+or fault APDU) also count as positive ID, the server speaks
 DLMS-wrapper but rejected our AARQ, common with HLS-locked
 deployments.
 
@@ -43,7 +43,7 @@ deployments.
 
 ## Write / dial operations (offensive build tag)
 Deferred. DLMS supports SET-Request, ACTION-Request (canonically
-`remote_disconnect()` on the disconnect-control object — opens
+`remote_disconnect()` on the disconnect-control object, opens
 the service breaker remotely), tariff-schedule rewrites,
 push-destination URL changes. Per-(class-id, instance,
 attribute/method-id) gating + DLMS HLS authentication path
@@ -63,7 +63,7 @@ end-of-content byte. Does NOT forward to upstream.
 factors{protocol_risk:75, exposure:70, auth_state:85, capability:30
 (70 on DLMS reply), impact_class:65, cve_exposure:0}.
 - protocol_risk 75: smart meters with kinetic effects (remote
-  disconnect breaker) — slightly above pure metering.
+  disconnect breaker), slightly above pure metering.
 - auth_state 85: DLMS supports HLS authentication but unauth
   probes still elicit AARE responses (negotiation phase).
 - impact_class 65: billing accuracy + privacy + remote service

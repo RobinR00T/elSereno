@@ -20,7 +20,7 @@ import (
 	"local/elsereno/internal/web/auth"
 )
 
-// genKey + sign helpers — produce RS256-signed JWTs we can
+// genKey + sign helpers, produce RS256-signed JWTs we can
 // validate against a synthesised JWKS in the same test.
 
 func genKey(t *testing.T) (*rsa.PrivateKey, string) {

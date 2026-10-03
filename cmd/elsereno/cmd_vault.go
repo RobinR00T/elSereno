@@ -16,12 +16,12 @@ import (
 
 // ErrPassphraseFileMode is returned when --vault-passphrase-file
 // points at a file readable by group or other. ADR-026 + PITF-016
-// require 0600 at most — laxer bits risk leakage via a multi-user
+// require 0600 at most, laxer bits risk leakage via a multi-user
 // system's process inspection surface.
 var ErrPassphraseFileMode = errors.New("vault: passphrase file must be mode 0600 or stricter")
 
 // ErrPassphraseFileNotRegular rejects symlinks, device nodes, pipes,
-// etc. — attacks on the resolve path would otherwise let an
+// etc., attacks on the resolve path would otherwise let an
 // attacker coerce the loader to read /dev/stdin or an arbitrary
 // file.
 var ErrPassphraseFileNotRegular = errors.New("vault: passphrase file must be a regular file")
@@ -68,7 +68,7 @@ func readPassphraseFromFileOrPrompt(cmd *cobra.Command, path, prompt string) ([]
 
 // addPassphraseFileFlag registers the common --vault-passphrase-file
 // flag on a cobra command. `target` is the string the flag value is
-// bound to — each command keeps its own variable so the persistent
+// bound to, each command keeps its own variable so the persistent
 // flag boundary doesn't leak across subcommands.
 func addPassphraseFileFlag(cmd *cobra.Command, target *string) {
 	cmd.Flags().StringVar(target, "vault-passphrase-file", "",
@@ -214,7 +214,7 @@ func loadVault(_ context.Context) (*creds.Vault, string, error) {
 
 // readPassphrase reads a line from stdin with echo disabled. If stdin
 // is not a TTY (piped input), it reads without the "not echoed"
-// suffix to support CI/cron patterns — but still never logs it.
+// suffix to support CI/cron patterns, but still never logs it.
 func readPassphrase(cmd *cobra.Command, prompt string) ([]byte, error) {
 	// term.IsTerminal expects int; os.Stdin.Fd returns uintptr. The
 	// cast is safe on every supported platform because file descriptors

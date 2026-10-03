@@ -13,7 +13,7 @@ Controls that justify L3:
 
 | Requirement | Evidence |
 |-------------|----------|
-| Build integrity — hermetic, reproducible | `CGO_ENABLED=0`, `-trimpath`, `-buildvcs=false`, `GOFLAGS=-mod=readonly` in `.goreleaser.yml` |
+| Build integrity, hermetic, reproducible | `CGO_ENABLED=0`, `-trimpath`, `-buildvcs=false`, `GOFLAGS=-mod=readonly` in `.goreleaser.yml` |
 | Isolated build environment | GitHub-hosted `ubuntu-latest` runner (single-use VM) |
 | Provenance exists | `actions/attest-build-provenance@v2` attests every archive + `checksums.txt` with a SLSA v1.0 predicate (v1.2+) |
 | Provenance is authenticated | GitHub OIDC identity signs the attestation via Sigstore; no long-lived key |
@@ -43,7 +43,7 @@ exit-27 bug (upstream issue 2610) that forced v1.0.1 and v1.1.0 to
 wrap the job in a non-blocking gate. The GitHub Attestations API
 path is maintained by GitHub itself, produces the same SLSA v1.0
 predicate, and doesn't hit the upstream bug. `slsa-verifier` still
-works against the attestation — you just fetch it via `gh
+works against the attestation, you just fetch it via `gh
 attestation download` instead of it being a release asset.
 
 ## Dependency policy
@@ -57,9 +57,9 @@ Implicit allow: **MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0,
 ISC, MPL-2.0, Unlicense**.
 
 Explicit deny:
-- GPL family (v2, v3, AGPL, LGPL) — copyleft conflicts with the
+- GPL family (v2, v3, AGPL, LGPL), copyleft conflicts with the
   MIT licence we ship under.
-- SSPL-1.0, Commons-Clause, Elastic-2.0 — commercial restrictions
+- SSPL-1.0, Commons-Clause, Elastic-2.0, commercial restrictions
   that block pentesting / consultancy use.
 
 Adding a dep under a listed-allow licence requires no action;
@@ -109,7 +109,7 @@ become blocker tickets for 1.0.
 | Secret | Owner | Rotation policy |
 |--------|-------|-----------------|
 | Vault passphrase | operator | operator-driven; no scheduled rotation |
-| Canary webhook HMAC key | `creds.Derive(info="elsereno/canary/webhook/v1")` — tied to vault master | rotates when vault re-keyed |
+| Canary webhook HMAC key | `creds.Derive(info="elsereno/canary/webhook/v1")`: tied to vault master | rotates when vault re-keyed |
 | CSRF key | `creds.Derive(info="elsereno/csrf/v1")` | rotates when vault re-keyed |
 | cosign keyless identity | GitHub OIDC; per-build, short-lived | n/a |
 | JIRA / GitHub Issues / Shodan / Censys tokens | vault entries | operator rotates via `elsereno creds rotate <name>` |

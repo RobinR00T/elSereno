@@ -10,7 +10,7 @@ phase: F0
 
 ## Context
 Prompting for the vault passphrase on every credential access is unusable
-(a scan can touch thousands of targets — PITF-005). Keeping the master
+(a scan can touch thousands of targets, PITF-005). Keeping the master
 key in plain Go memory leaks it to core dumps and swap.
 
 ## Decision
@@ -22,7 +22,7 @@ key in plain Go memory leaks it to core dumps and swap.
   an explicit reversion).
 - SIGINT/SIGTERM also zeroise the buffer before exit.
 - `elsereno doctor` verifies `memguard` `mlock` capability; on macOS the
-  library may fall back to software protection — doctor emits a warning.
+  library may fall back to software protection, doctor emits a warning.
 
 ## Consequences
 ### Positive

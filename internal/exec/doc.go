@@ -1,4 +1,4 @@
-// Package exec provides SafeCommand — the only sanctioned way to spawn
+// Package exec provides SafeCommand, the only sanctioned way to spawn
 // subprocesses from ElSereno.
 //
 // The contract is deliberate (ADR-024, PITF-023):

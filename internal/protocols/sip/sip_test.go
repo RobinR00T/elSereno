@@ -159,7 +159,7 @@ func TestProbe_CiscoUCM401(t *testing.T) {
 }
 
 func TestProbe_NonSIPService(t *testing.T) {
-	// Responder sends an HTTP 400 — the probe should still
+	// Responder sends an HTTP 400, the probe should still
 	// return a finding but with the default (non-SIP) factors.
 	port, stop := udpResponder(t, "HTTP/1.1 400 Bad Request\r\n\r\n")
 	defer stop()

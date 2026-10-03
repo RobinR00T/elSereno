@@ -8,14 +8,14 @@ package wire
 // Content-Type application/octet-stream; HTTP+TLS replaces the opc.tcp
 // / SecureChannel framing entirely (Part 6 §7.4.4). The body is the
 // service message in UA Binary: the FourByte NodeId of the message's
-// DefaultBinary encoding followed by the encoded fields — the same
+// DefaultBinary encoding followed by the encoded fields, the same
 // "message" encoding this package already parses for opc.tcp MSG
 // bodies (ServiceTypeID) and that the UA-.NETStandard
 // HttpsTransportChannel emits via BinaryEncoder.EncodeMessage.
 //
 // (§7.4.4's prose calls the body an "ExtensionObject"; the reference
-// .NET stack — effectively the only one that ships the HTTPS binary
-// binding — writes the message encoding, i.e. TypeId + body with no
+// .NET stack, effectively the only one that ships the HTTPS binary
+// binding writes the message encoding, i.e. TypeId + body with no
 // ExtensionObject length prefix, which is what real servers accept.
 // We use that interoperable form; a capture against a specific server
 // can confirm the variant it expects.)
@@ -31,7 +31,7 @@ import (
 )
 
 // GetEndpoints message TypeIds (namespace 0, DefaultBinary encoding
-// NodeIds — verified against the OPC Foundation NodeIds.csv, the same
+// NodeIds verified against the OPC Foundation NodeIds.csv, the same
 // convention as TypeIDWriteRequest=673).
 const (
 	TypeIDGetEndpointsRequest  uint16 = 428
@@ -108,7 +108,7 @@ func putNullString(b []byte) []byte { return putU32(b, 0xFFFFFFFF) }
 func putNullArray(b []byte) []byte { return putU32(b, 0xFFFFFFFF) }
 
 // putFourByteNodeID appends a FourByte NodeId (encoding 0x01, ns u8,
-// identifier u16 LE) — the form service message TypeIds use.
+// identifier u16 LE), the form service message TypeIds use.
 func putFourByteNodeID(b []byte, id uint16) []byte {
 	var tmp [2]byte
 	binary.LittleEndian.PutUint16(tmp[:], id)
@@ -139,7 +139,7 @@ func EncodeGetEndpointsRequest(endpointURL string) []byte {
 	return b
 }
 
-// putI32 appends a signed Int32 (LE) — used for array counts.
+// putI32 appends a signed Int32 (LE), used for array counts.
 func putI32(b []byte, v int32) []byte { return putU32(b, uint32(v)) } // #nosec G115 -- Int32 is the u32 bit pattern.
 
 // putLocalizedText appends a LocalizedText carrying only text (mask

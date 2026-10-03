@@ -17,7 +17,7 @@ import (
 	"local/elsereno/internal/scope"
 )
 
-// v2.37+ — wardialing orchestrator. Extends Batch with:
+// v2.37+, wardialing orchestrator. Extends Batch with:
 //
 //   - Range-spec expansion (offensive/dial/range.go).
 //   - Concurrency-controlled classification (configurable workers).
@@ -72,7 +72,7 @@ var ErrWardialNoWriter = errors.New("dial: Wardial.Writer required")
 // Run consumes either a range spec or a reader of numbers and
 // classifies each through the standard Batch decision tree.
 // Returns per-number results in stable order. The audit chain
-// is appended to as each decision is made (no buffering — a
+// is appended to as each decision is made (no buffering, a
 // kill -9 mid-run leaves a valid prefix in the chain).
 func (w *Wardial) Run(ctx context.Context, rangeOrFile string, r io.Reader) ([]BatchResult, error) {
 	if w.Writer == nil {
@@ -135,7 +135,7 @@ func (w *Wardial) loadCheckpoint() (map[string]struct{}, error) {
 	if w.CheckpointPath == "" {
 		return out, nil
 	}
-	f, err := os.Open(w.CheckpointPath) // #nosec G304 — operator-supplied path.
+	f, err := os.Open(w.CheckpointPath) // #nosec G304, operator-supplied path.
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return out, nil
@@ -220,7 +220,7 @@ func (w *Wardial) clampedParams() (int, time.Duration) {
 	return workers, rateGap
 }
 
-// batchFromConfig builds a Batch with defaults applied — used
+// batchFromConfig builds a Batch with defaults applied, used
 // by workers for audit append + scope-aware classify.
 func (w *Wardial) batchFromConfig() *Batch {
 	b := &Batch{
@@ -285,7 +285,7 @@ func (w *Wardial) dispatch(ctx context.Context, jobs chan<- indexedJob, numbers 
 // markCheckpoint appends the raw input to the checkpoint file
 // so a resumed run skips it. Failures are silent (logging
 // would mix into stderr; operator notices via the
-// audit-chain reconciliation). Append is the only mode —
+// audit-chain reconciliation). Append is the only mode,
 // the file grows monotonically.
 func (w *Wardial) markCheckpoint(raw string) {
 	if w.CheckpointPath == "" {

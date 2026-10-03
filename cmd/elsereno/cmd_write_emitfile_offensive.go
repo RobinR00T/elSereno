@@ -208,7 +208,7 @@ func cleanCWMPFirmware(firmwareRaw []string) []proxyCWMPFirmware {
 		seen[key] = struct{}{}
 		out = append(out, proxyCWMPFirmware{URL: f.URL, SHA256: f.SHA256})
 	}
-	// Sort by (URL, SHA256) — deterministic, stable.
+	// Sort by (URL, SHA256), deterministic, stable.
 	for i := 1; i < len(out); i++ {
 		for j := i; j > 0; j-- {
 			a, b := out[j-1], out[j]

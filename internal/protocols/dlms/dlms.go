@@ -87,7 +87,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	info, cerr := wire.ClassifyResponse(buf[:total])
 	if cerr != nil {
-		// Wrapper-shape only — that's still a positive ID.
+		// Wrapper-shape only, that's still a positive ID.
 		return buildFinding(target, classifyParseError(cerr), true), nil
 	}
 	note := fmt.Sprintf("DLMS AARE src=0x%04x dst=0x%04x apdu=%d", info.SourceWPort, info.DestWPort, info.APDULen)
@@ -167,7 +167,7 @@ func buildFinding(target core.Target, note string, isDLMS bool) *core.Finding {
 		"auth_state":    85, // DLMS supports HLS authentication but unauth probes still respond
 		"capability":    30,
 		"impact_class":  65, // billing accuracy + privacy + remote disconnect of supply
-		// cve_exposure: 12 (v2.33+, bumped from 7) — DLMS/COSEM
+		// cve_exposure: 12 (v2.33+, bumped from 7), DLMS/COSEM
 		// has the deepest CVE catalogue of the legacy-ICS trio
 		// (smart-meter scale: billions of endpoints worldwide
 		// + remote-disconnect breaker capability raises impact).

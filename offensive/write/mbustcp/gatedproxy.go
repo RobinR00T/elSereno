@@ -15,18 +15,18 @@
 //
 // Two-tier gate (control field + per-(CI, address) tuple):
 //
-//  1. **Control field level** — only SND_UD (0x53/0x73) is
+//  1. **Control field level**: only SND_UD (0x53/0x73) is
 //     mutating. All other controls (SND_NKE, REQ_UD1, REQ_UD2,
 //     ACK, RSP_UD) pass without an allowlist entry.
 //
-//  2. **Per-(CI, address) level** — within SND_UD, refuse any
+//  2. **Per-(CI, address) level**: within SND_UD, refuse any
 //     frame whose (CI, address) tuple isn't in the allowlist.
 //     Wildcards: CI=0 matches any CI; Address=0 matches any
 //     address. The operator picks granularity:
-//     - {CI: CIDataSend, Address: 0x05} — Data Send only,
+//     - {CI: CIDataSend, Address: 0x05}, Data Send only,
 //     only to meter 5
-//     - {CI: 0, Address: 0x05} — any CI, only to meter 5
-//     - {CI: CIDataSend, Address: 0} — Data Send only, any
+//     - {CI: 0, Address: 0x05}, any CI, only to meter 5
+//     - {CI: CIDataSend, Address: 0}, Data Send only, any
 //     meter (NOT recommended; meters share a primary address
 //     on shared M-Bus links).
 //
@@ -37,16 +37,16 @@
 //
 // Out of scope (slated future):
 //
-//   - **Per-CI argument parsing** — set-baudrate (CI 0x56..0x5D)
+//   - **Per-CI argument parsing**: set-baudrate (CI 0x56..0x5D)
 //     leaks the baudrate in the CI byte itself, but Data Send
 //     (0x51) carries the parameter ID + value in the UD payload.
 //     Per-DIB parsing for fine-grained "allow setting tariff but
 //     not primary address" is not in this chunk.
-//   - **Secondary-addressing flow** — CI 0x52 (Select Slave) +
+//   - **Secondary-addressing flow**: CI 0x52 (Select Slave) +
 //     subsequent SND_UD pair. Currently each frame is gated
 //     independently; a future cycle could track the "currently
 //     selected slave" and apply gating per-slave.
-//   - **CLI flag plumbing** in cmd_write_offensive.go — same
+//   - **CLI flag plumbing** in cmd_write_offensive.go, same
 //     pattern as v1.52/v1.53/v1.55.
 package mbustcp
 
@@ -79,7 +79,7 @@ type AllowedSNDUD struct {
 // dispatching here.
 func (a AllowedSNDUD) Matches(f mbwire.Frame) bool {
 	if a == (AllowedSNDUD{}) {
-		// Empty struct matches nothing — guards against operators
+		// Empty struct matches nothing, guards against operators
 		// who accidentally configure {CI: 0, Address: 0} thinking
 		// it means "wildcard all" (which would make the gate
 		// ineffective).
@@ -252,7 +252,7 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer) error 
 			return err
 		}
 		if !h.shouldForward(f) {
-			// Silent drop — see package doc for refusal rationale.
+			// Silent drop, see package doc for refusal rationale.
 			continue
 		}
 		if _, werr := upstream.Write(f.Raw); werr != nil {
@@ -268,7 +268,7 @@ func (h *WriteGatedHandler) shouldForward(f mbwire.Frame) bool {
 	if f.IsACK {
 		// Master clients rarely send ACK; meters do. The forward
 		// direction is master→meter, so an ACK here is
-		// extraordinary but not mutating — pass it through.
+		// extraordinary but not mutating, pass it through.
 		return true
 	}
 	if f.IsAlwaysSafeControl() {

@@ -13,9 +13,9 @@
 // This package implements:
 //
 //   - the request builder + response classifier for the **CONNECTION
-//     INIT** mailbox — a 56-byte zero-filled frame with byte 0 = 0x02;
+//     INIT** mailbox, a 56-byte zero-filled frame with byte 0 = 0x02;
 //     the PLC replies with a 56-byte mailbox carrying byte 0 = 0x03;
-//   - **model-hint extraction** — scans the connection-init response
+//   - **model-hint extraction**: scans the connection-init response
 //     payload for printable-ASCII runs matching the canonical GE PLC
 //     family patterns (IC693/IC695/IC697/IC200/RX3i/RX7i/PACSystems).
 //     Many CONNECTION_INIT responses embed short model strings in the
@@ -24,8 +24,8 @@
 //     chunk 4 refinement of the v1.20 chunk 3 connection-init-only
 //     signal).
 //
-// Service 0x21 (Read PLC Long Status) probing — a richer follow-up
-// that explicitly asks the CPU for its model + firmware version —
+// Service 0x21 (Read PLC Long Status) probing, a richer follow-up
+// that explicitly asks the CPU for its model + firmware version,
 // is left for a future cycle that can carry test vectors against
 // real PLCs.
 package wire
@@ -181,7 +181,7 @@ type LongStatusInfo struct {
 	// we don't have the bytes (defensive default).
 	RawHex string
 	// SerialHint (v2.47+) is a best-effort printable-ASCII
-	// run that looks like a serial number — typically 8-16
+	// run that looks like a serial number, typically 8-16
 	// chars of digits + uppercase letters that appears
 	// after the firmware string. Empty when no plausible
 	// match found.
@@ -323,7 +323,7 @@ func extractFirmwareTag(buf []byte) string {
 		for j < limit && (isDigit(buf[j]) || buf[j] == '.') {
 			j++
 		}
-		// Reject 1-byte runs ("V0", "V1") — too noisy.
+		// Reject 1-byte runs ("V0", "V1"), too noisy.
 		if j-i < 4 {
 			i = j
 			continue
@@ -396,7 +396,7 @@ var gePLCFamilyPrefixes = []string{
 // run that begins with one of the canonical GE PLC family
 // prefixes (IC693, IC695, IC697, IC200, PACSystems, RX3i, RX7i)
 // and returns it. Only ASCII letters, digits, dashes, and
-// underscores extend the run — the scanner stops at the first
+// underscores extend the run, the scanner stops at the first
 // non-matching byte. If no canonical prefix is present the
 // function returns "" so callers can fall back to the generic
 // "SRTP mailbox response" note.
@@ -432,7 +432,7 @@ func ExtractModelHint(buf []byte) string {
 }
 
 // isModelStart returns true iff b can plausibly start a GE PLC
-// model string (uppercase letters only — every canonical prefix
+// model string (uppercase letters only, every canonical prefix
 // starts with one of: I, P, R).
 func isModelStart(b byte) bool {
 	return b >= 'A' && b <= 'Z'

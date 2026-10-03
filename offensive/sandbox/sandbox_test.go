@@ -5,7 +5,7 @@ package sandbox
 import "testing"
 
 func TestProfileValid(t *testing.T) {
-	// v2.61+: iterate Profiles() — single source of truth.
+	// v2.61+: iterate Profiles(), single source of truth.
 	// Before v2.61 this slice was hand-rolled and silently
 	// missed ProfileScan (added in v2.32).
 	for _, p := range Profiles() {
@@ -18,12 +18,12 @@ func TestProfileValid(t *testing.T) {
 	}
 }
 
-// TestProfilesEnumerationStable (v2.61+) — Profiles() returns
+// TestProfilesEnumerationStable (v2.61+), Profiles() returns
 // the canonical 4 values in declaration order. A regression
 // that dropped or reordered an entry would surface here.
 // Single source of truth: this slice. If a new profile is
 // added, update sandbox.go's Profiles() and add the constant
-// to the want list below — the .sb scheme map (darwin+cgo)
+// to the want list below, the .sb scheme map (darwin+cgo)
 // has its own present/non-empty check.
 func TestProfilesEnumerationStable(t *testing.T) {
 	want := []Profile{ProfileExploit, ProfileHarvest, ProfileDial, ProfileScan}
@@ -48,7 +48,7 @@ func TestLoad_BadProfileRejected(t *testing.T) {
 // TestLoad_ValidProfileOnNonLinux exercises the degraded path
 // (no seccomp, Availability.Available=false). On Linux, Load
 // actually installs the kernel filter and is exercised by the
-// sandbox_integration build — see sandbox_integration_test.go.
+// sandbox_integration build, see sandbox_integration_test.go.
 //
 // Skipped under v1.50+ darwin+cgo builds because that path
 // installs sandbox_init(3) and reports Available=true. The

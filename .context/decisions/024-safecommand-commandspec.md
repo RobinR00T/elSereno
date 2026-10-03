@@ -19,7 +19,7 @@ brittle.
   is the **only** way to spawn a subprocess.
 - `CommandSpec{Name string; Flags []string; Positional []string}`.
 - Final argv is assembled deterministically as:
-  `[Name] ++ Flags ++ ["--"] ++ Positional` — the `--` is always present
+  `[Name] ++ Flags ++ ["--"] ++ Positional`: the `--` is always present
   (PITF-023).
 - `Name` is validated via `exec.LookPath` and the resolved path is
   checked against `exec.allowed_paths` (default

@@ -5,7 +5,7 @@ last-updated: 2026-05-03
 token-budget: 950
 ---
 
-# ElSereno — Quick Reference
+# ElSereno, Quick Reference
 
 **What**: ICS/OT legacy exposure scanner + fingerprinter + proxy + REPL + dashboard + interactive TUI. Defensive default; `-tags offensive` for writes/exploits/harvest/dial. Three build variants since v1.29: default / offensive / mini (mini excludes dashboard + TUI for device deployments).
 
@@ -19,7 +19,7 @@ token-budget: 950
 - Hexagonal: `core` only stdlib.
 - Plugins register in `init()` via `core.Register(...)`.
 - Findings: CopyFrom batched. Audit: sequential INSERT single-threaded.
-- Scoring 0–100 multi-factor (ADR-006).
+- Scoring 0-100 multi-factor (ADR-006).
 - Audit JCS hash chain; genesis `prev_hash=0x00..00`; canonical `id/occurred_at/actor/event_type/payload/prev_hash`; tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries. `event_type` is CHECK enum.
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.
 - Web: Bearer `/api/v1/*`; cookie+CSRF (HKDF from vault) HTML. Cookie `token_generation` persisted in `web_state`; bumped with advisory lock; middleware cache TTL 5s.

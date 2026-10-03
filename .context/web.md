@@ -27,13 +27,13 @@ in `binds.allow` in `scope.yaml`, and an audit `serve_start` entry.
 ## Auth (ADR-014)
 Dual:
 
-- **`/api/v1/*`** — `Authorization: Bearer <token>`. Token is 32 bytes from
+- **`/api/v1/*`**: `Authorization: Bearer <token>`. Token is 32 bytes from
   `crypto/rand`, base64url-encoded, stored at `~/.elsereno/web-token`
   (0600). TTL per `web.token_ttl_days` (default 30). **No CSRF.**
-- **`/` (HTML)** — `POST /login` exchanges Bearer for a cookie
+- **`/` (HTML)**: `POST /login` exchanges Bearer for a cookie
   `HttpOnly, SameSite=Strict, Secure=<tls>`. Cookie embeds the current
   `token_generation`. CSRF via `gorilla/csrf`, key HKDF-SHA256 derived from
-  the vault master key (`info="elsereno/csrf/v1"` — ADR-017).
+  the vault master key (`info="elsereno/csrf/v1"`: ADR-017).
 
 ### Token generation
 Persisted in `web_state` (ADR-014, PITF-001). `token rotate` is a
@@ -42,7 +42,7 @@ transaction with `pg_advisory_xact_lock(hashtext('web_state_token_rotate'))`
 
 ### Cache
 Middleware caches `token_generation` with TTL
-`web.token_generation_cache_ttl` (default 5 s — PITF-034). After a
+`web.token_generation_cache_ttl` (default 5 s, PITF-034). After a
 rotation, cookies expire within that TTL.
 
 ## Headers
@@ -59,17 +59,17 @@ rotation, cookies expire within that TTL.
 - More restrictive limit wins.
 
 ## Endpoints (F4 close)
-- `GET /healthz` — liveness.
-- `GET /readyz` — DB ping + migrations status + disk check + audit chain
+- `GET /healthz`: liveness.
+- `GET /readyz`: DB ping + migrations status + disk check + audit chain
   tail verification (`readyz.audit_tail_entries = 100`). Degraded
   without DB wiring; returns 200 with `"db":"skipped"`.
-- `GET /metrics` — Prometheus (wiring lands with the findings sink).
+- `GET /metrics`: Prometheus (wiring lands with the findings sink).
 - `POST /login`, `POST /logout` (planned F4 chunk 2).
-- `GET /` — dashboard overview page (inline HTML listing 12
+- `GET /`: dashboard overview page (inline HTML listing 12
   registered plugins). HTMX + Alpine move in for chunk 2 polish.
-- `GET /api/v1/plugins` — plugin list (read-only).
-- `GET /api/v1/scoring` — ADR-006 weights + severity thresholds.
-- `GET /api/v1/health` — API-level health.
+- `GET /api/v1/plugins`: plugin list (read-only).
+- `GET /api/v1/scoring`: ADR-006 weights + severity thresholds.
+- `GET /api/v1/health`: API-level health.
 
 All `/api/v1/*` responses carry `{"schema":"api:v1","data":…}`. The
 contract lives in `docs/openapi.yaml` (OpenAPI 3.1). Bearer-token

@@ -1,11 +1,11 @@
 // Package wire implements a best-effort fingerprint for the
 // KW-Software ProConOS runtime protocol on TCP/20547. ProConOS
-// is the runtime kernel that ships on numerous PLC brands —
+// is the runtime kernel that ships on numerous PLC brands,
 // Phoenix Contact ILC (which also speaks the higher-level
 // PCWorx layer on TCP/1962), Berghof, IPC2u, ABB / B&R / Lenze
 // re-skins, and a long tail of OEM rebrands.
 //
-// **HONEST SCOPE NOTE — needs real-PLC validation**: public
+// **HONEST SCOPE NOTE, needs real-PLC validation**: public
 // references to the ProConOS handshake conflict. Two candidate
 // hello-frame layouts are documented in the open-source
 // ecosystem:
@@ -20,7 +20,7 @@
 // This package implements **the second variant** because it
 // matches the dissector that ships in Wireshark's master
 // branch + the metasploit/auxiliary/scanner/scada/proconos
-// scanner module — both lineages an operator can verify
+// scanner module, both lineages an operator can verify
 // independently.
 //
 // **The classifier is permissive on response shape** to maximise
@@ -81,7 +81,7 @@ var ProConOSBannerSubstrings = [][]byte{
 	[]byte("KW-Software"),
 	[]byte("KW Software"),
 	[]byte("KWS-LDR"),                          // KW-Software loader marker (Berghof firmwares)
-	[]byte("MultiProg"),                        // KW Multiprog runtime — same lineage
+	[]byte("MultiProg"),                        // KW Multiprog runtime, same lineage
 	[]byte("MULTIPROG"),                        // uppercase variant
 	[]byte("\xCA\xFE\x00\x00\xCE\xFA\xDE\xC0"), // alternate-prefix firmwares
 }
@@ -105,7 +105,7 @@ func BuildHello() []byte {
 	out := make([]byte, HelloLen)
 	copy(out[0:4], ProConOSHelloPrefix)
 	copy(out[4:12], ProConOSToken)
-	// out[12..15] zero — canonical pad.
+	// out[12..15] zero, canonical pad.
 	return out
 }
 
@@ -114,7 +114,7 @@ func BuildHello() []byte {
 // "alt-prefix echo") on positive identification, or an
 // appropriate sentinel error.
 //
-// The classifier is intentionally permissive — see package
+// The classifier is intentionally permissive, see package
 // docstring's HONEST SCOPE NOTE.
 func Classify(buf []byte) (string, error) {
 	if len(buf) < len(ProConOSHelloPrefix) {

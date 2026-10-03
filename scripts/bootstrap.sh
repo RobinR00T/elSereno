@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bootstrap.sh — interactive dependency installer for ElSereno
+# bootstrap.sh, interactive dependency installer for ElSereno
 # development workflow.
 #
 # Usage:
@@ -69,7 +69,7 @@ case "$(uname -s)" in
             PM="apk"
         else
             PM="manual"
-            note "no supported package manager found — install missing deps by hand"
+            note "no supported package manager found, install missing deps by hand"
         fi
         ;;
     *) abort "unsupported OS: $(uname -s)" ;;
@@ -123,7 +123,7 @@ install_via_pm() {
 # Falls back when system PM doesn't ship the tool.
 install_via_go() {
     local mod="$1"
-    command -v go >/dev/null 2>&1 || { fail "go not installed — cannot install $mod via go install"; return 1; }
+    command -v go >/dev/null 2>&1 || { fail "go not installed, cannot install $mod via go install"; return 1; }
     note "go install $mod@latest"
     GO111MODULE=on go install "$mod@latest"
 }
@@ -157,7 +157,7 @@ check_and_install() {
         fi
     else
         if [ "$required" -eq 1 ]; then
-            fail "$name is required — declined"
+            fail "$name is required, declined"
             return 2
         fi
         note "skipped $name"
@@ -166,7 +166,7 @@ check_and_install() {
 }
 
 # ====================================================================
-# Per-tool installers — each one a function so the dispatcher stays
+# Per-tool installers, each one a function so the dispatcher stays
 # uniform.
 # ====================================================================
 
@@ -183,7 +183,7 @@ install_go() {
 
 install_docker() {
     if [ "$OS" = "macos" ]; then
-        note "Docker Desktop required — install from https://www.docker.com/products/docker-desktop/"
+        note "Docker Desktop required, install from https://www.docker.com/products/docker-desktop/"
         if ask_yes "open the download page?"; then open "https://www.docker.com/products/docker-desktop/"; fi
         return 1
     fi
@@ -249,7 +249,7 @@ run_check() {
         return 0
     else
         MISSING_REQUIRED+=("$label")
-        return 0  # don't abort the whole run yet — report all at end
+        return 0  # don't abort the whole run yet, report all at end
     fi
 }
 

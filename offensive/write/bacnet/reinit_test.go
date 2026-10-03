@@ -98,7 +98,7 @@ func TestParseReinitializeDevice_TruncatedFails(t *testing.T) {
 
 func TestParseReinitializeDevice_WrongTagFails(t *testing.T) {
 	body := buildReinitServiceBody(0)
-	body[0] = 0x19 // looks like a context-1 length-1 tag — wrong context
+	body[0] = 0x19 // looks like a context-1 length-1 tag, wrong context
 	_, ok := bwire.ParseReinitializeDevice(body)
 	if ok {
 		t.Fatal("wrong tag byte should return ok=false")
@@ -170,7 +170,7 @@ func buildReinitFrame(state uint8) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetReinit_AllowedStatePasses — ReinitializeDevice
+// TestGateBACnetReinit_AllowedStatePasses ReinitializeDevice
 // for an allowlisted state forwards.
 func TestGateBACnetReinit_AllowedStatePasses(t *testing.T) {
 	rei := []bwrite.AllowedReinitState{{State: bwire.ReinitStateActivateChanges}}
@@ -184,7 +184,7 @@ func TestGateBACnetReinit_AllowedStatePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetReinit_ColdstartRefused — coldstart MUST refuse
+// TestGateBACnetReinit_ColdstartRefused coldstart MUST refuse
 // when only activate-changes is allowed. This is the canonical
 // safety invariant of the per-state gate.
 func TestGateBACnetReinit_ColdstartRefused(t *testing.T) {
@@ -208,7 +208,7 @@ func TestGateBACnetReinit_ColdstartRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetReinit_EmptyAllowlistBypasses — empty
+// TestGateBACnetReinit_EmptyAllowlistBypasses empty
 // AllowedReinitStates list bypasses the per-state gate (svc
 // 20 still passes service-only).
 func TestGateBACnetReinit_EmptyAllowlistBypasses(t *testing.T) {
@@ -222,7 +222,7 @@ func TestGateBACnetReinit_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetReinit_PartialAllowlist_OnlyAllowedPasses — when
+// TestGateBACnetReinit_PartialAllowlist_OnlyAllowedPasses when
 // the allowlist has 2 of the 8 states, the others all refuse.
 func TestGateBACnetReinit_PartialAllowlist_OnlyAllowedPasses(t *testing.T) {
 	rei := []bwrite.AllowedReinitState{

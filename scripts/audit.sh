@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# audit.sh — single-command proactive audit of the entire repo.
+# audit.sh, single-command proactive audit of the entire repo.
 #
 # Catches the failure classes we hit during the 2026-05-10/12
 # sessions (and any new ones added over time) BEFORE they end
@@ -25,7 +25,7 @@
 #   docs/OPERATIONS.md §"Audit checklist"
 #   memory/elsereno_operational_playbook.md (Claude side, off-repo)
 
-set -uo pipefail   # NOT -e — we want to run all checks and aggregate
+set -uo pipefail   # NOT -e, we want to run all checks and aggregate
 
 MODE="full"
 for arg in "${@:-}"; do
@@ -64,7 +64,7 @@ fail() {
     N_FAIL=$((N_FAIL+1)); STATUS=1
     FAILED_CHECKS="$FAILED_CHECKS\n  - $*"
 }
-skip() { printf "  ${Y}—${N} %s (skipped)\n" "$*"; N_SKIP=$((N_SKIP+1)); }
+skip() { printf "  ${Y}, ${N} %s (skipped)\n" "$*"; N_SKIP=$((N_SKIP+1)); }
 hdr()  { printf "\n${B}${D}━━━ %s ━━━${N}\n" "$*"; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -85,7 +85,7 @@ if [ -n "${GITHUB_ACTIONS:-}" ]; then
     # check is a local reminder to push/pull; only run it off-CI.
     skip "Sync check (CI: HEAD is a PR branch, not local main)"
 elif git fetch origin --quiet 2>&1 | tail -1 | grep -q error; then
-    skip "Sync check (fetch failed — maybe offline)"
+    skip "Sync check (fetch failed, maybe offline)"
 else
     if [ -z "$(git log --oneline origin/main..HEAD 2>/dev/null)" ] && \
        [ -z "$(git log --oneline HEAD..origin/main 2>/dev/null)" ]; then
@@ -217,9 +217,9 @@ fi
 # ====================================================================
 hdr "6. Build (default + offensive + mini)"
 # ====================================================================
-if go build ./... >/tmp/.audit-build.$$ 2>&1; then ok "build default"; else fail "build default — see /tmp/.audit-build.$$"; fi
-if go build -tags offensive ./... >/tmp/.audit-build-off.$$ 2>&1; then ok "build offensive"; else fail "build offensive — see /tmp/.audit-build-off.$$"; fi
-if go build -tags mini ./... >/tmp/.audit-build-mini.$$ 2>&1; then ok "build mini"; else fail "build mini — see /tmp/.audit-build-mini.$$"; fi
+if go build ./... >/tmp/.audit-build.$$ 2>&1; then ok "build default"; else fail "build default, see /tmp/.audit-build.$$"; fi
+if go build -tags offensive ./... >/tmp/.audit-build-off.$$ 2>&1; then ok "build offensive"; else fail "build offensive, see /tmp/.audit-build-off.$$"; fi
+if go build -tags mini ./... >/tmp/.audit-build-mini.$$ 2>&1; then ok "build mini"; else fail "build mini, see /tmp/.audit-build-mini.$$"; fi
 
 # ====================================================================
 hdr "7. golangci-lint"
@@ -228,7 +228,7 @@ if command -v golangci-lint >/dev/null 2>&1; then
     if golangci-lint run ./... >/tmp/.audit-lint.$$ 2>&1; then
         ok "golangci-lint: 0 issues"
     else
-        fail "golangci-lint reported issues — see /tmp/.audit-lint.$$"
+        fail "golangci-lint reported issues, see /tmp/.audit-lint.$$"
     fi
 else
     skip "golangci-lint not installed (scripts/bootstrap.sh)"
@@ -240,7 +240,7 @@ hdr "8. Tests + race detector"
 if go test -race -count=1 -short ./... >/tmp/.audit-test.$$ 2>&1; then
     ok "go test -race -short: all packages pass"
 else
-    fail "tests failed — see /tmp/.audit-test.$$ (last 30 lines below)"
+    fail "tests failed, see /tmp/.audit-test.$$ (last 30 lines below)"
     tail -30 /tmp/.audit-test.$$ | sed 's/^/      /'
 fi
 
@@ -255,7 +255,7 @@ if command -v gosec >/dev/null 2>&1; then
         if grep -q "Issues : 0" /tmp/.audit-gosec.$$; then
             ok "gosec: 0 issues"
         else
-            fail "gosec reported issues — see /tmp/.audit-gosec.$$"
+            fail "gosec reported issues, see /tmp/.audit-gosec.$$"
         fi
     fi
 else
@@ -285,7 +285,7 @@ if [ -x scripts/context-check.sh ]; then
     if scripts/context-check.sh >/tmp/.audit-context.$$ 2>&1; then
         ok "context-check: OK"
     else
-        fail "context-check failed — see /tmp/.audit-context.$$"
+        fail "context-check failed, see /tmp/.audit-context.$$"
     fi
 else
     skip "scripts/context-check.sh not present"
@@ -294,7 +294,7 @@ fi
 # ====================================================================
 hdr "12. Git tag signatures (last 3 tags)"
 # ====================================================================
-# Local (full) mode: full GPG verification via `git tag -v` — fails
+# Local (full) mode: full GPG verification via `git tag -v`: fails
 # if the maintainer's public key isn't in the local keyring.
 # CI mode: presence-only check via `git cat-file -p <tag> | grep
 # -q "BEGIN PGP SIGNATURE"`. CI runners don't have the
@@ -347,7 +347,7 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
 
         # Code Scanning + workflow perms require admin/repo scope
         # on the token. The default GITHUB_TOKEN in workflows
-        # returns 403 for these endpoints — skip in CI mode so
+        # returns 403 for these endpoints, skip in CI mode so
         # the run doesn't fail on a token-scope artifact. Operator
         # running locally with `gh auth status` showing repo+admin
         # scopes gets the full check.
@@ -368,13 +368,13 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
             if [ "$WF_PERM" = "write" ]; then
                 ok "Workflow permissions: write"
             elif [ "$WF_PERM" = "read" ]; then
-                fail "Workflow permissions: read (expected write — release flow needs it)"
+                fail "Workflow permissions: read (expected write, release flow needs it)"
             else
                 skip "Workflow permissions check (got: $WF_PERM)"
             fi
         fi
 
-        # Open Dependabot PRs (status info only — not a fail)
+        # Open Dependabot PRs (status info only, not a fail)
         DEP_PRS=$(gh pr list --state open --author 'app/dependabot' --json number 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?")
         printf "  ${B}i${N} Open Dependabot PRs: %s\n" "$DEP_PRS"
     else
@@ -394,7 +394,7 @@ printf "  ${G}pass=%d${N} · ${R}fail=%d${N} · ${Y}skip=%d${N} · total=%d\n" \
 # Cleanup tmp files unless failures (preserve logs for debug)
 if [ "$STATUS" -eq 0 ]; then
     rm -f /tmp/.audit-*.$$ 2>/dev/null
-    printf "\n${G}▶ AUDIT PASS${N} — repo en estado sano\n"
+    printf "\n${G}▶ AUDIT PASS${N}, repo en estado sano\n"
 else
     printf "\n${R}▶ AUDIT FAIL${N}\nFailed checks:${FAILED_CHECKS}\n\n"
     printf "Logs preservados en /tmp/.audit-*.$$ para debug.\n"

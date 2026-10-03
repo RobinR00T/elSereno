@@ -8,7 +8,7 @@ token-budget: 2200
 # TUI (interactive terminal UI)
 
 ## Status
-v1.29 ships `elsereno tui` — bubbletea-based read-only viewer.
+v1.29 ships `elsereno tui`: bubbletea-based read-only viewer.
 Default + offensive builds include it; the **mini** build excludes
 the bubbletea / lipgloss / bubbles ecosystem to keep the device
 binary small (`build-mini` ≈ 21 MB vs default ≈ 23 MB stripped).
@@ -19,7 +19,7 @@ elsereno tui [--replay FILE | --feed - | --watch URL --bearer TOKEN]
 ```
 
 The four flag groups are mutually exclusive. Without any flag the
-TUI opens with the **Empty** feed — the panes render but no events
+TUI opens with the **Empty** feed, the panes render but no events
 flow. Useful as a smoke test that the program starts cleanly.
 
 | Flag             | Mode          | Source                                    |
@@ -29,7 +29,7 @@ flow. Useful as a smoke test that the program starts cleanly.
 | `--feed -`       | feed (stdin)  | `feeds.Stdin` reading ndjson:v1 from pipe |
 | `--watch URL`    | watch (SSE)   | `feeds.Watch` consuming `/api/v1/stream`  |
 
-`--feed FILE` is rejected — that's `--replay`'s job. `--bearer`
+`--feed FILE` is rejected, that's `--replay`'s job. `--bearer`
 without `--watch` is silently ignored.
 
 ## Layout
@@ -37,7 +37,7 @@ Four panes, lipgloss-styled, sized off `tea.WindowSizeMsg`:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ elsereno tui — mode=replay  src=…/shift.ndjson              │
+│ elsereno tui, mode=replay  src=…/shift.ndjson              │
 ├──────────────┬──────────────────────────┬───────────────────┤
 │ scan         │ findings (cursor=12/40)  │ triage            │
 │ 47%          │ 95 critical modbus 10.0… │ critical  3       │
@@ -66,7 +66,7 @@ Pane order (Tab cycle): findings → triage → audit → scan → findings.
 | `g` / `home`   | findings cursor → 0                         |
 | `G` / `end`    | findings cursor → last                      |
 
-Other panes are observe-only — j/k/g/G are routed to no-ops when
+Other panes are observe-only, j/k/g/G are routed to no-ops when
 the focused pane is not findings.
 
 ## Architecture
@@ -90,7 +90,7 @@ and returns when the source is exhausted or `ctx` cancels. The
 runner pushes a `FeedClosedMsg{Mode, Err}` after Run returns so
 the audit pane records the closure.
 
-`tui.Model` is a pure-data struct — no I/O. `Update(tea.Msg)` folds
+`tui.Model` is a pure-data struct, no I/O. `Update(tea.Msg)` folds
 events into the next state; `View()` renders without side effects.
 This shape lets unit tests drive Update + View directly without
 spinning up a tea.Program.
@@ -106,7 +106,7 @@ Identical to `internal/outputs/ndjson` (schema `ndjson:v1`):
 ```
 One record per line. Records with the wrong schema are skipped + a
 synthetic AuditMsg ("ndjson: skipped line N: unknown schema …")
-surfaces in the audit pane. Bad JSON is treated the same way —
+surfaces in the audit pane. Bad JSON is treated the same way, 
 **a single corrupt line never aborts a feed**.
 
 ### SSE (watch)
@@ -148,30 +148,30 @@ excludes the bubbletea/lipgloss UI dependencies …)
 …instead of cobra's "unknown command".
 
 ## ADRs touched
-- ADR-005 (CLI must compile without web tree) — `feeds.Watch`
+- ADR-005 (CLI must compile without web tree), `feeds.Watch`
   duplicates the SSE payload structs locally rather than importing
   `internal/web/stream`. Wire format is the contract; duplication
   is annotated.
-- ADR-006 (severity bands) — TUI's `severityOf(score)` mirrors the
+- ADR-006 (severity bands), TUI's `severityOf(score)` mirrors the
   scoring service's bands. Test `TestAddFindingBucketing` gates
   every band edge.
 
 ## Test coverage (v1.29)
-- `internal/tui/model_test.go` — 9 tests (Model state mutations)
-- `internal/tui/update_test.go` — 7 tests (tea.Msg routing,
+- `internal/tui/model_test.go`: 9 tests (Model state mutations)
+- `internal/tui/update_test.go`: 7 tests (tea.Msg routing,
   key bindings)
-- `internal/tui/feeds/replay_test.go` — 8 tests (file source,
+- `internal/tui/feeds/replay_test.go`: 8 tests (file source,
   malformed line, schema mismatch, pacing, cancel)
-- `internal/tui/feeds/stdin_test.go` — 7 tests (pipe semantics,
+- `internal/tui/feeds/stdin_test.go`: 7 tests (pipe semantics,
   EOF clean, cancel + close, defaults)
-- `internal/tui/feeds/watch_test.go` — 13 tests (SSE decoding,
+- `internal/tui/feeds/watch_test.go`: 13 tests (SSE decoding,
   4 event kinds, auth, retry, unknown kind, multi-line data)
 
 Total: 44 tests, all passing under `-race`.
 
 ## Known limitations
 - **Interactive mode** (no flag) currently uses `feeds.Empty`. The
-  in-TUI scan launcher is a future enrichment — for now, drive
+  in-TUI scan launcher is a future enrichment, for now, drive
   the TUI from `--feed -` against a live `elsereno scan` pipe.
 - **`teatest` integration** (full program-level tests) is deferred;
   the per-component coverage above gates the public surface.

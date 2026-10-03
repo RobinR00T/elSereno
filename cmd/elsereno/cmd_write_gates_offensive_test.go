@@ -95,7 +95,7 @@ func TestIAXSubclassByName_Unknown(t *testing.T) {
 func TestCanonMethods_SortsAndDedupes(t *testing.T) {
 	in := []string{"invite", "INVITE", "REGISTER", "message"}
 	got := canonMethods(in)
-	// Expected: unique + sorted + upper — "INVITE, MESSAGE, REGISTER".
+	// Expected: unique + sorted + upper, "INVITE, MESSAGE, REGISTER".
 	if got != "INVITE, MESSAGE, REGISTER" {
 		t.Errorf("canonMethods(%v) = %q, want INVITE, MESSAGE, REGISTER", in, got)
 	}
@@ -167,7 +167,7 @@ func TestWritePBXHTTPDryRun_OutputShape(t *testing.T) {
 	}
 }
 
-// TestWriteSIPDryRun_FromDomainFlag — v1.12 chunk 5 adds
+// TestWriteSIPDryRun_FromDomainFlag v1.12 chunk 5 adds
 // --from-domain repeatable. Output should list canonical
 // (sorted, lowercased, deduped) from-domain values + register
 // the per-domain block in the PayloadHash.
@@ -192,8 +192,8 @@ func TestWriteSIPDryRun_FromDomainFlag(t *testing.T) {
 	}
 }
 
-// TestWriteSIPDryRun_FromDomainEmpty — when --from-domain is
-// omitted the dry-run prints the "(none — …)" placeholder and
+// TestWriteSIPDryRun_FromDomainEmpty when --from-domain is
+// omitted the dry-run prints the "(none, …)" placeholder and
 // the hash collapses to the v1.10 layer.
 func TestWriteSIPDryRun_FromDomainEmpty(t *testing.T) {
 	cmd := newWriteSIPDryRunCmd()
@@ -204,7 +204,7 @@ func TestWriteSIPDryRun_FromDomainEmpty(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(buf.String(), "FromDomains:  (none — From: domain not constrained)") {
+	if !strings.Contains(buf.String(), "FromDomains:  (none, From: domain not constrained)") {
 		t.Errorf("expected placeholder when from-domains empty:\n%s", buf.String())
 	}
 }
@@ -364,7 +364,7 @@ func TestWriteCWMPDryRun_EmptyRPCsShowsHint(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "(none — all write-capable RPCs refused; reads still pass)") {
+	if !strings.Contains(out, "(none, all write-capable RPCs refused; reads still pass)") {
 		t.Errorf("empty-rpcs hint missing:\n%s", out)
 	}
 }
@@ -386,7 +386,7 @@ func TestCanonCWMPRPCs(t *testing.T) {
 		in   []string
 		want string
 	}{
-		{nil, "(none — all write-capable RPCs refused; reads still pass)"},
+		{nil, "(none, all write-capable RPCs refused; reads still pass)"},
 		{[]string{"SetParameterValues", "Reboot"}, "Reboot, SetParameterValues"},
 		{[]string{"cwmp:Reboot", " Reboot "}, "Reboot"}, // dedup + prefix strip
 		{[]string{"Reboot", "SetParameterValues", "Download", "Reboot"}, "Download, Reboot, SetParameterValues"},
@@ -432,20 +432,20 @@ func TestParseNodeIDFlag_ValidNumeric(t *testing.T) {
 	}
 }
 
-// v1.12 chunk 3 — the s= / g= / b= encodings normalise to
+// v1.12 chunk 3, the s= / g= / b= encodings normalise to
 // canonical-string form and go through the Canonical path.
 func TestParseNodeIDFlag_ValidCanonical(t *testing.T) {
 	cases := []struct {
 		in   string
 		want string
 	}{
-		// String form — case preserved.
+		// String form, case preserved.
 		{"ns=2;s=Temperature", "ns=2;s=Temperature"},
 		{"ns=0;s=MyVar", "ns=0;s=MyVar"},
-		// Guid form — dashes stripped, hex uppercased.
+		// Guid form, dashes stripped, hex uppercased.
 		{"ns=1;g=6b29fc40-ca47-1067-b31d-00dd010662da", "ns=1;g=6B29FC40CA471067B31D00DD010662DA"},
 		{"ns=3;g=6B29FC40CA471067B31D00DD010662DA", "ns=3;g=6B29FC40CA471067B31D00DD010662DA"},
-		// ByteString form — hex uppercased.
+		// ByteString form, hex uppercased.
 		{"ns=4;b=deadbeef", "ns=4;b=DEADBEEF"},
 		{"ns=5;b=AA", "ns=5;b=AA"},
 	}

@@ -13,7 +13,7 @@ import (
 	"local/elsereno/internal/inputs/fofa"
 )
 
-// TestSearchPaged_AccumulatesAcrossPages — server returns 100
+// TestSearchPaged_AccumulatesAcrossPages server returns 100
 // per page; loop iterates until totalLimit hit. Verifies the
 // `page=N` query param is incremented (FOFA convention is
 // 1-indexed).

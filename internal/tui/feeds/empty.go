@@ -18,7 +18,7 @@ import (
 // mode.
 //
 // Useful as a sanity check that the bubbletea program starts
-// cleanly — and as the v1.29 chunk 2 default while replay /
+// cleanly and as the v1.29 chunk 2 default while replay /
 // feed / watch land in chunks 3-5.
 type Empty struct{}
 

@@ -13,7 +13,7 @@ import (
 	"local/elsereno/internal/web"
 )
 
-// stubMetricsHandler — synthetic handler so we can confirm
+// stubMetricsHandler synthetic handler so we can confirm
 // /metrics is mounted without standing up the full Prometheus
 // machinery.
 type stubMetricsHandler struct {
@@ -44,7 +44,7 @@ func TestMetrics_Mounted(t *testing.T) {
 	}
 	// Serve via httptest by hitting the internal mux.
 	// We rely on Server.Run binding the same handler tree,
-	// but here we want a one-shot direct check — re-execute
+	// but here we want a one-shot direct check, re-execute
 	// NewServer's chain by issuing a request through the
 	// httptest server wrapping srv's Handler.
 	ts := httptest.NewServer(srv.Handler())
@@ -95,7 +95,7 @@ func TestMetrics_Unmounted(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
-	// Either 404, or "/" catch-all dashboard HTML — both
+	// Either 404, or "/" catch-all dashboard HTML, both
 	// acceptable. What MUST NOT happen: a Prometheus expo
 	// body (which would mean the route IS bound and would
 	// be a regression).

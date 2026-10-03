@@ -4,27 +4,27 @@
 
 # NAME
 
-**elsereno-security** — threat model, controls, and flags
+**elsereno-security**: threat model, controls, and flags
 
 # THREAT MODEL
 
 ElSereno is operated by a single authorised operator on a workstation or
 jump host. The primary adversaries are:
 
-- **Target-controlled bytes** — responses from scanned hosts. Mitigated
+- **Target-controlled bytes**: responses from scanned hosts. Mitigated
   by *render.SafeBytes* (bytes) and *telemetry.SafeField* (strings at
   the log boundary).
-- **Credential exfiltration** — shell history, argv, **ps e**,
+- **Credential exfiltration**: shell history, argv, **ps e**,
   */proc/<pid>/environ*. Never pass secrets on argv or via herestring.
   Env vars leak via */proc*; use a 0600 file for persistent secrets or
   the encrypted vault (*elsereno creds store*).
-- **Audit tampering** — the audit log is a JCS hash chain with a genesis
+- **Audit tampering**: the audit log is a JCS hash chain with a genesis
   marker, tombstoning purge, and an auditable rebase on compact.
   Cross-process safety: writers acquire **flock(LOCK_EX)** before
   Append / appendVerbatim and resume from the latest tail under the
   lock so two ElSereno processes (e.g. **serve** + **proxy listen**)
   cannot race the chain (Linux + macOS, v1.15+).
-- **Supply-chain** — reproducible builds (**-trimpath**,
+- **Supply-chain**: reproducible builds (**-trimpath**,
   **-buildvcs=false**); free-tier flow since v1.8 ships GPG-signed
   tag (key **ACE3B86BACACE7D6**) + SHA-256 + CycloneDX SBOM via
   **goreleaser local + gh release create**; **cosign** keyless +

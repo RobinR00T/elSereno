@@ -12,7 +12,7 @@
 //     CLO. HEL is the transport Hello (passes unchanged). OPN
 //     opens a SecureChannel (passes unchanged; the gate is
 //     higher-layer). CLO closes the channel (passes unchanged).
-//     MSG carries service requests — that's where the gate acts.
+//     MSG carries service requests, that's where the gate acts.
 //   - A MSG body begins with SecureChannelId + TokenId +
 //     SequenceNumber + RequestId + ExpandedNodeId(TypeId). The
 //     TypeId tells us WriteRequest (673) vs. CallRequest (704)
@@ -46,7 +46,7 @@ import (
 
 // AllowedService names one UA service the operator has
 // authorised for the session. A literal BrowseRequest or
-// ReadRequest entry is redundant — reads always pass — so the
+// ReadRequest entry is redundant, reads always pass, so the
 // useful values here are TypeIDWriteRequest + TypeIDCallRequest.
 // An empty allowlist is a "no writes" session, equivalent to
 // the default deny-all proxy.
@@ -94,13 +94,13 @@ type AllowedNodeID struct {
 // Both fields are NodeIds in the canonical string form used by
 // AllowedCanonicalNodeID (see below): `ns=N;i=M` for numeric,
 // `ns=N;s=STR` for string, `ns=N;g=HEX` for GUID,
-// `ns=N;b=HEX` for ByteString. Exact match only — method calls
+// `ns=N;b=HEX` for ByteString. Exact match only, method calls
 // are capability-grants, so prefix / range matching is
 // deliberately not supported.
 //
 // v1.12 chunk 6: the complement to v1.12 chunk 3 for
 // WriteRequest NodeIds. Where chunk 3 gates `write this
-// variable`, this gates `call this method on this object` —
+// variable`, this gates `call this method on this object`:
 // the other mutating-service surface area.
 //
 // Empty list disables the per-method gate (CallRequests still
@@ -125,7 +125,7 @@ type AllowedCallMethod struct {
 // wire.NodeIDValue.Canonical()) use uppercase hex for GUIDs and
 // ByteStrings; the hash and gate-check treat entries as raw
 // strings, so operator-supplied values must match the wire form
-// exactly — lowercase hex wouldn't match. The CLI flag parser
+// exactly lowercase hex wouldn't match. The CLI flag parser
 // normalises to uppercase to close that gap.
 type AllowedCanonicalNodeID string
 
@@ -259,7 +259,7 @@ func AllowlistHashWithRichNodeIDs(target string, services []AllowedService, node
 		binary.BigEndian.PutUint16(u16[:], a.TypeID)
 		_, _ = h.Write(u16[:])
 	}
-	// v1.6 numeric NodeID block — only emitted when nodeIDs has
+	// v1.6 numeric NodeID block, only emitted when nodeIDs has
 	// entries; otherwise skip the 0xFF separator so the canonical
 	// block isn't preceded by a redundant empty block.
 	if len(sortedNodes) > 0 {
@@ -276,7 +276,7 @@ func AllowlistHashWithRichNodeIDs(target string, services []AllowedService, node
 	_, _ = h.Write([]byte{0xFD})
 	for _, c := range sortedCanon {
 		s := string(c)
-		// Length-prefix bounded to uint16 — any single canonical
+		// Length-prefix bounded to uint16, any single canonical
 		// NodeID longer than 65535 bytes is truncated at hash
 		// time. In practice UA NodeID strings are well under 1 KB.
 		n := len(s)
@@ -543,7 +543,7 @@ func SessionMutationWithGeneration(target string, services []AllowedService, nod
 // UA deny-all proxy. Construction requires triple-confirm
 // authorised session context (Deriver, Auditor, and the
 // session-level Confirm struct). The handler does NOT
-// re-authorise per frame — it parses the UA-TCP framing and
+// re-authorise per frame, it parses the UA-TCP framing and
 // allows (a) HEL/OPN/CLO always, (b) MSG with TypeId in the
 // allowlist OR any non-mutating service TypeId.
 type WriteGatedHandler struct {
@@ -591,7 +591,7 @@ type WriteGatedHandler struct {
 	// happens BEFORE the OPC UA chunk parser reads, so HEL /
 	// OPN / MSG (with all the v1.6/v1.12 NodeId + CallMethod
 	// gating) / CLO routing is captured intact. Nil disables
-	// recording — the gate behaves exactly as it did pre-v1.30.
+	// recording the gate behaves exactly as it did pre-v1.30.
 	Recorder *replay.Recorder
 
 	// authorised flips true after a successful Authorise.
@@ -676,7 +676,7 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 	// The gate only cares about service requests, which live
 	// inside MSG chunks. An OPN that fails later on the server
 	// side will surface as a server-emitted ERR on the return
-	// path — we don't need to second-guess here.
+	// path we don't need to second-guess here.
 	if header.Type != wire.MessageMessage {
 		return writeFrame(upstream, header.Type, body)
 	}
@@ -722,7 +722,7 @@ func (h *WriteGatedHandler) routeFrame(header wire.Header, body []byte, upstream
 //     truncated, null array).
 //   - ANY CallMethodRequest targets a pair outside the allowlist.
 //
-// Fail-closed on unparseable frames — same contract as
+// Fail-closed on unparseable frames, same contract as
 // writeRequestNodeAllowed.
 func (h *WriteGatedHandler) callRequestAllMethodsAllowed(body []byte) bool {
 	methods, ok := wire.CallRequestAllMethods(body)
@@ -840,13 +840,13 @@ func (h *WriteGatedHandler) isAllowed(typeID uint16) bool {
 // Manually wrapped so we don't depend on the wire package's
 // internal `wrap` helper (which is private). The chunk is
 // always final ('F') because the handler doesn't split service
-// requests — if the client sent a continuation chunk, we
+// requests if the client sent a continuation chunk, we
 // forward it byte-for-byte already (body copy above).
 func writeFrame(w io.Writer, mt wire.MessageType, body []byte) error {
 	frame := make([]byte, wire.HeaderSize+len(body))
 	copy(frame[0:3], string(mt))
 	frame[3] = byte(wire.ChunkFinal)
-	// #nosec G115 — header+body ≤ MaxMessageSize (1 MiB) by construction
+	// #nosec G115, header+body ≤ MaxMessageSize (1 MiB) by construction
 	binary.LittleEndian.PutUint32(frame[4:8], uint32(wire.HeaderSize+len(body)))
 	copy(frame[wire.HeaderSize:], body)
 	_, err := w.Write(frame)
@@ -858,18 +858,18 @@ func writeFrame(w io.Writer, mt wire.MessageType, body []byte) error {
 // informational.
 const statusBadUserAccessDenied uint32 = 0x80100000
 
-// ServiceFault TypeId — OPC-UA Part 4 §5.5.2.
+// ServiceFault TypeId, OPC-UA Part 4 §5.5.2.
 const typeIDServiceFault uint16 = 397
 
 // writeServiceFault emits a minimal UA ServiceFault MSG in
 // response to a blocked request. Body layout:
 //
-//	[0..3]   SecureChannelId  — copied from the blocked request
-//	[4..7]   TokenId          — copied
-//	[8..11]  SequenceNumber   — +1 from the blocked request
-//	[12..15] RequestId        — copied (binds reply → request)
-//	[16..]   ExpandedNodeId   — FourByteNodeId, ns=0, id=397 (ServiceFault)
-//	[...]    ResponseHeader   — Timestamp(now)=0 + RequestHandle(0) +
+//	[0..3]   SecureChannelId, copied from the blocked request
+//	[4..7]   TokenId, copied
+//	[8..11]  SequenceNumber, +1 from the blocked request
+//	[12..15] RequestId, copied (binds reply → request)
+//	[16..]   ExpandedNodeId, FourByteNodeId, ns=0, id=397 (ServiceFault)
+//	[...]    ResponseHeader, Timestamp(now)=0 + RequestHandle(0) +
 //	                            ServiceResult=BadUserAccessDenied +
 //	                            ServiceDiagnostics(null) +
 //	                            StringTable(empty) +

@@ -17,7 +17,7 @@ import (
 
 // ---- AllowlistHashWithAORs ----------------------------------
 
-// TestAllowlistHashWithAORs_EmptyMatchesV19 — backwards compat:
+// TestAllowlistHashWithAORs_EmptyMatchesV19 backwards compat:
 // when aors is nil/empty the v1.10 hash MUST equal the v1.9
 // hash. Operators who never opt into AOR gating don't need to
 // re-mint anything.
@@ -31,7 +31,7 @@ func TestAllowlistHashWithAORs_EmptyMatchesV19(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithAORs_EmptyAndNoPrefixMatchesV14 — double
+// TestAllowlistHashWithAORs_EmptyAndNoPrefixMatchesV14 double
 // backwards compat: empty aors AND empty prefixes → v1.4 hash.
 func TestAllowlistHashWithAORs_EmptyAndNoPrefixMatchesV14(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "REGISTER"}}
@@ -42,7 +42,7 @@ func TestAllowlistHashWithAORs_EmptyAndNoPrefixMatchesV14(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithAORs_Changes — non-empty aors CHANGES the
+// TestAllowlistHashWithAORs_Changes non-empty aors CHANGES the
 // hash. Operators who opt in get a new token.
 func TestAllowlistHashWithAORs_Changes(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "REGISTER"}}
@@ -54,7 +54,7 @@ func TestAllowlistHashWithAORs_Changes(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithAORs_OrderInsensitive — input order of
+// TestAllowlistHashWithAORs_OrderInsensitive input order of
 // AORs doesn't affect the hash.
 func TestAllowlistHashWithAORs_OrderInsensitive(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "REGISTER"}}
@@ -73,7 +73,7 @@ func TestAllowlistHashWithAORs_OrderInsensitive(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithAORs_NormalizesInput — different input
+// TestAllowlistHashWithAORs_NormalizesInput different input
 // spellings of the same AOR produce the same hash (scheme +
 // whitespace + host case folding).
 func TestAllowlistHashWithAORs_NormalizesInput(t *testing.T) {
@@ -87,7 +87,7 @@ func TestAllowlistHashWithAORs_NormalizesInput(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithAORs_PrefixAndAORsCombine — when both
+// TestAllowlistHashWithAORs_PrefixAndAORsCombine when both
 // prefixes AND aors are set, both contribute to the hash
 // independently.
 func TestAllowlistHashWithAORs_PrefixAndAORsCombine(t *testing.T) {
@@ -106,7 +106,7 @@ func TestAllowlistHashWithAORs_PrefixAndAORsCombine(t *testing.T) {
 	}
 }
 
-// TestSessionMutationWithAORs_Shape — sanity check on the
+// TestSessionMutationWithAORs_Shape sanity check on the
 // confirm.Mutation produced by the v1.10 factory.
 func TestSessionMutationWithAORs_Shape(t *testing.T) {
 	methods := []sipwrite.AllowedMethod{{Method: "REGISTER"}}
@@ -174,7 +174,7 @@ func driveSessionWithAORs(t *testing.T, methods []sipwrite.AllowedMethod, aors [
 	return clientPipe, recorder
 }
 
-// TestRouting_REGISTERAllowedByAOR — REGISTER whose To: header
+// TestRouting_REGISTERAllowedByAOR REGISTER whose To: header
 // exactly matches an allowlist entry passes.
 func TestRouting_REGISTERAllowedByAOR(t *testing.T) {
 	client, upstream := driveSessionWithAORs(t,
@@ -200,7 +200,7 @@ func TestRouting_REGISTERAllowedByAOR(t *testing.T) {
 	}
 }
 
-// TestRouting_REGISTERBlockedByAOR — REGISTER whose AoR is NOT
+// TestRouting_REGISTERBlockedByAOR REGISTER whose AoR is NOT
 // in the allowlist is refused with 403 + X-Elsereno-Gate-Reason.
 // This is the registration-hijack mitigation working.
 func TestRouting_REGISTERBlockedByAOR(t *testing.T) {
@@ -237,7 +237,7 @@ func TestRouting_REGISTERBlockedByAOR(t *testing.T) {
 	}
 }
 
-// TestRouting_EmptyAORListFallsBackToV19 — empty aors → v1.9
+// TestRouting_EmptyAORListFallsBackToV19 empty aors → v1.9
 // (or v1.4) behaviour: REGISTER passes as long as REGISTER is
 // in the method allowlist.
 func TestRouting_EmptyAORListFallsBackToV19(t *testing.T) {
@@ -260,7 +260,7 @@ func TestRouting_EmptyAORListFallsBackToV19(t *testing.T) {
 	}
 }
 
-// TestRouting_INVITENotAffectedByAORAllowlist — AOR list gates
+// TestRouting_INVITENotAffectedByAORAllowlist AOR list gates
 // REGISTER only. INVITE with a different To: than any AOR entry
 // still passes (the AOR gate doesn't touch the INVITE path).
 func TestRouting_INVITENotAffectedByAORAllowlist(t *testing.T) {
@@ -269,7 +269,7 @@ func TestRouting_INVITENotAffectedByAORAllowlist(t *testing.T) {
 		[]sipwrite.AllowedAOR{{AOR: "sip:alice@pbx.internal"}},
 	)
 	// INVITE to a destination that has nothing to do with the
-	// AOR entry — should STILL pass because AOR list gates REGISTER.
+	// AOR entry, should STILL pass because AOR list gates REGISTER.
 	req := "INVITE sip:+34600123@carrier SIP/2.0\r\n" +
 		"Via: SIP/2.0/TCP c;branch=z9hG4bK.1\r\n" +
 		"From: <sip:a@c>;tag=x\r\n" +
@@ -284,7 +284,7 @@ func TestRouting_INVITENotAffectedByAORAllowlist(t *testing.T) {
 	}
 }
 
-// TestRouting_REGISTERCanonicaliseOnCompare — the wire To: header
+// TestRouting_REGISTERCanonicaliseOnCompare the wire To: header
 // uses `<sips:Alice@PBX.Internal>` but the operator allowlisted
 // `sip:alice@pbx.internal`. Canonicalisation folds scheme + host
 // case, so the match should succeed.

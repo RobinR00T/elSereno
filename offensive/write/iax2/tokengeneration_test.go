@@ -12,7 +12,7 @@ import (
 	iaxwrite "local/elsereno/offensive/write/iax2"
 )
 
-// TestIAX2AllowlistHashWithGeneration_ZeroMatchesV15 — gen=0
+// TestIAX2AllowlistHashWithGeneration_ZeroMatchesV15 gen=0
 // must equal AllowlistHash byte-for-byte.
 func TestIAX2AllowlistHashWithGeneration_ZeroMatchesV15(t *testing.T) {
 	target := "pbx.test:4569"
@@ -24,7 +24,7 @@ func TestIAX2AllowlistHashWithGeneration_ZeroMatchesV15(t *testing.T) {
 	}
 }
 
-// TestIAX2AllowlistHashWithGeneration_NonZeroChangesHash — gen
+// TestIAX2AllowlistHashWithGeneration_NonZeroChangesHash gen
 // bump perturbs hash.
 func TestIAX2AllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	target := "pbx.test:4569"
@@ -36,7 +36,7 @@ func TestIAX2AllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	}
 }
 
-// TestIAX2Gate_TokenGeneration_StaleTokenRejected — stale
+// TestIAX2Gate_TokenGeneration_StaleTokenRejected stale
 // token rejected when handler bumps gen.
 func TestIAX2Gate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	target := "pbx.test:4569"
@@ -64,7 +64,7 @@ func TestIAX2Gate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	}
 }
 
-// TestIAX2Gate_TokenGeneration_FreshTokenAccepted — fresh gen
+// TestIAX2Gate_TokenGeneration_FreshTokenAccepted fresh gen
 // token works.
 func TestIAX2Gate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	target := "pbx.test:4569"
@@ -92,7 +92,7 @@ func TestIAX2Gate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestIAX2Gate_TokenGeneration_DefaultPreservesOldTokens —
+// TestIAX2Gate_TokenGeneration_DefaultPreservesOldTokens
 // default gen=0 preserves v1.5 tokens.
 func TestIAX2Gate_TokenGeneration_DefaultPreservesOldTokens(t *testing.T) {
 	target := "pbx.test:4569"

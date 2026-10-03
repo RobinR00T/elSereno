@@ -1,4 +1,4 @@
-# GitHub repo settings — expected configuration
+# GitHub repo settings, expected configuration
 
 This file documents the GitHub repo-level settings that ElSereno
 expects. **These cannot be fully managed in version control**
@@ -70,7 +70,7 @@ only" would break almost every workflow.)
 | Approval policy | ✅ "Require approval for first-time contributors who are new to GitHub" | Dependabot bots and established users pass auto; only literal brand-new GitHub accounts need approval |
 
 > ⚠️ Default after flipping PUBLIC is "Require approval for all
-> external contributors" — this BLOCKS Dependabot. Must be
+> external contributors", this BLOCKS Dependabot. Must be
 > changed manually after a flip. See `docs/OPERATIONS.md`
 > §"Post-public-flip checklist".
 
@@ -100,7 +100,7 @@ only" would break almost every workflow.)
 | Secret scanning | ✅ ON | Detect committed secrets |
 | Secret scanning push protection | ✅ ON | Block secret push at git-push time |
 
-> ⚠️ Default after flipping PUBLIC is many of these OFF —
+> ⚠️ Default after flipping PUBLIC is many of these OFF, 
 > Advanced Security features don't auto-enable on flip. Walk
 > the checklist after every visibility change.
 
@@ -124,7 +124,7 @@ only" would break almost every workflow.)
 
 | Secret | When set | Purpose |
 |---|---|---|
-| (none required for base CI) | — | All canonical workflows use `GITHUB_TOKEN` (auto-provisioned) |
+| (none required for base CI) |, | All canonical workflows use `GITHUB_TOKEN` (auto-provisioned) |
 | `COSIGN_*` | When publishing to Sigstore (release-time) | Optional; CI falls back to OIDC keyless |
 | `GHCR_TOKEN` | When pushing OCI images | Optional; PAT with `packages:write` |
 

@@ -48,7 +48,7 @@ func countSyscall(rs []ArgDenyRule, nr uint32) int {
 
 func TestArgFilterPresets_Amd64Tables(t *testing.T) {
 	// On amd64 the preset union covers openat=257 (mask), open=2
-	// (mask), socket=41 (equal) and clone=56 (mask) — four rules.
+	// (mask), socket=41 (equal) and clone=56 (mask), four rules.
 	rules := ArgFilterPresets(syscallsAMD64)
 	if len(rules) != 4 {
 		t.Fatalf("expected 4 preset rules (openat+open+socket+clone), got %d", len(rules))
@@ -60,11 +60,11 @@ func TestArgFilterPresets_Amd64Tables(t *testing.T) {
 	}
 	for _, r := range rules {
 		switch r.Syscall {
-		case 257, 2: // openat / open — mask mode, must include O_WRONLY|O_RDWR
+		case 257, 2: // openat / open, mask mode, must include O_WRONLY|O_RDWR
 			if r.MaskBits&0x0003 == 0 {
 				t.Errorf("syscall %d mask 0x%x missing O_WRONLY|O_RDWR", r.Syscall, r.MaskBits)
 			}
-		case 41: // socket — equal mode, AF_PACKET(17) + AF_NETLINK(16)
+		case 41: // socket, equal mode, AF_PACKET(17) + AF_NETLINK(16)
 			gotPacket, gotNetlink := false, false
 			for _, v := range r.EqualValues {
 				switch v {
@@ -77,7 +77,7 @@ func TestArgFilterPresets_Amd64Tables(t *testing.T) {
 			if !gotPacket || !gotNetlink {
 				t.Errorf("socket preset missing AF_PACKET/AF_NETLINK: %v", r.EqualValues)
 			}
-		case 56: // clone — mask mode, must carry the namespace mask
+		case 56: // clone, mask mode, must carry the namespace mask
 			if r.MaskBits != cloneNewMask {
 				t.Errorf("clone preset mask 0x%x, want cloneNewMask 0x%x", r.MaskBits, cloneNewMask)
 			}
@@ -275,8 +275,8 @@ func TestCombinedFilter_Verdicts(t *testing.T) {
 	const (
 		oRdonly    uint32 = 0x0000
 		oWronly    uint32 = 0x0001
-		cloneThr   uint32 = 0x00010000 // CLONE_THREAD — not a namespace flag
-		cloneNewUs uint32 = 0x10000000 // CLONE_NEWUSER — in cloneNewMask
+		cloneThr   uint32 = 0x00010000 // CLONE_THREAD, not a namespace flag
+		cloneNewUs uint32 = 0x10000000 // CLONE_NEWUSER, in cloneNewMask
 		afInet     uint32 = 2
 		benignNR   uint32 = 0xFFFE // not a real syscall: no denylist / arg rule
 	)

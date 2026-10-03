@@ -7,7 +7,7 @@ import (
 	"local/elsereno/internal/render"
 )
 
-// BenchmarkSafeBytes_ASCII measures the cheap path — all-printable
+// BenchmarkSafeBytes_ASCII measures the cheap path, all-printable
 // input is the most common scanner banner shape.
 func BenchmarkSafeBytes_ASCII(b *testing.B) {
 	payload := bytes.Repeat([]byte("Siemens SIMATIC S7-1200 FW 4.5.0"), 32) // 1 KiB

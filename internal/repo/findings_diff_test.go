@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TestDiffFindingsByTargetProtocol_AllNew — when the old run
+// TestDiffFindingsByTargetProtocol_AllNew when the old run
 // has zero rows, every row from the new run lands in `new`;
 // `resolved` and `persisting` are empty.
 func TestDiffFindingsByTargetProtocol_AllNew(t *testing.T) {
@@ -21,7 +21,7 @@ func TestDiffFindingsByTargetProtocol_AllNew(t *testing.T) {
 	}
 }
 
-// TestDiffFindingsByTargetProtocol_AllResolved — new run is
+// TestDiffFindingsByTargetProtocol_AllResolved new run is
 // empty (operator's remediation removed every prior finding).
 func TestDiffFindingsByTargetProtocol_AllResolved(t *testing.T) {
 	oldRows := []Finding{
@@ -36,7 +36,7 @@ func TestDiffFindingsByTargetProtocol_AllResolved(t *testing.T) {
 	}
 }
 
-// TestDiffFindingsByTargetProtocol_Persisting — same
+// TestDiffFindingsByTargetProtocol_Persisting same
 // (target_id, protocol) in both runs → persisting; the row
 // returned is from the new run (freshest score / factors).
 func TestDiffFindingsByTargetProtocol_Persisting(t *testing.T) {
@@ -54,7 +54,7 @@ func TestDiffFindingsByTargetProtocol_Persisting(t *testing.T) {
 	}
 }
 
-// TestDiffFindingsByTargetProtocol_Mixed — exercises all three
+// TestDiffFindingsByTargetProtocol_Mixed exercises all three
 // buckets in one diff.
 func TestDiffFindingsByTargetProtocol_Mixed(t *testing.T) {
 	oldRows := []Finding{
@@ -71,7 +71,7 @@ func TestDiffFindingsByTargetProtocol_Mixed(t *testing.T) {
 	}
 }
 
-// TestDiffFindingsByTargetProtocol_DifferentProtocolNoMatch —
+// TestDiffFindingsByTargetProtocol_DifferentProtocolNoMatch
 // same target, different protocol → both rows are tracked
 // independently (one as "resolved", one as "new").
 func TestDiffFindingsByTargetProtocol_DifferentProtocolNoMatch(t *testing.T) {
@@ -83,11 +83,11 @@ func TestDiffFindingsByTargetProtocol_DifferentProtocolNoMatch(t *testing.T) {
 	}
 	d := diffFindingsByTargetProtocol(oldRows, newRows)
 	if len(d.New) != 1 || len(d.Resolved) != 1 || len(d.Persisting) != 0 {
-		t.Errorf("buckets = (new=%d, resolved=%d, persisting=%d); want (1,1,0) — protocol mismatch must NOT fold into persisting", len(d.New), len(d.Resolved), len(d.Persisting))
+		t.Errorf("buckets = (new=%d, resolved=%d, persisting=%d); want (1,1,0), protocol mismatch must NOT fold into persisting", len(d.New), len(d.Resolved), len(d.Persisting))
 	}
 }
 
-// TestDiffFindingsByTargetProtocol_BothEmpty — defensive: zero
+// TestDiffFindingsByTargetProtocol_BothEmpty defensive: zero
 // rows in both runs returns an all-empty diff (not nil).
 func TestDiffFindingsByTargetProtocol_BothEmpty(t *testing.T) {
 	d := diffFindingsByTargetProtocol(nil, nil)

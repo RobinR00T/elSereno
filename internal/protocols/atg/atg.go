@@ -61,7 +61,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
-	// \x01I20100\n — the classic Veeder-Root "system status" query.
+	// \x01I20100\n, the classic Veeder-Root "system status" query.
 	if _, err := conn.Write([]byte{0x01, 'I', '2', '0', '1', '0', '0', '\r', '\n'}); err != nil {
 		return nil, fmt.Errorf("atg: write: %w", err)
 	}
@@ -86,8 +86,8 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // `I`-family (Info) command, and replies with the Veeder-Root
 // `9999FF1B` Data-Error sequence (ADR-040). ATG is a line-oriented
 // ASCII protocol; the only read-class commands start with `I`
-// (I20100, I10200, I20200, …). Any other command — V (setpoint),
-// S (set configuration), T (tank calibration) — mutates state. The
+// (I20100, I10200, I20200, …). Any other command, V (setpoint),
+// S (set configuration), T (tank calibration), mutates state. The
 // offensive build substitutes a handler that allows the full
 // command set behind triple confirm.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
@@ -169,7 +169,7 @@ func buildFinding(target core.Target, note string, isATG bool) *core.Finding {
 		"impact_class":  60, // fuel dispensing impact
 		// cve_exposure 6: CVE-2017-14432 (Veeder-Root TLS-450
 		// authentication bypass), CVE-2017-14433 (TLS-450
-		// information disclosure), CVE-2018-5443 — known
+		// information disclosure), CVE-2018-5443, known
 		// gas-station-tank-gauge family. Lower than DNP3/CWMP
 		// because the affected device population is smaller.
 		"cve_exposure": 6,

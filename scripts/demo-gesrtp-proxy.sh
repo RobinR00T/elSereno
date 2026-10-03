@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-gesrtp-proxy.sh — end-to-end demo of the GE-SRTP write-gated
+# demo-gesrtp-proxy.sh, end-to-end demo of the GE-SRTP write-gated
 # proxy against the bundled gesrtp-sim, with no real PACSystems PLC.
 #
 # It builds the offensive binary + gesrtp-sim, creates a throwaway vault

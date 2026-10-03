@@ -1,6 +1,6 @@
 //go:build offensive
 
-// v2.62 — `elsereno sandbox` parent command + `list` and
+// v2.62, `elsereno sandbox` parent command + `list` and
 // `introspect` subverbs.
 //
 // `list` works on every offensive build (it just enumerates
@@ -8,7 +8,7 @@
 // `introspect` only emits a .sb Scheme on the darwin+cgo
 // build path; on every other offensive build it returns a
 // clear "schemes only available on darwin+cgo" message
-// rather than silently emitting an empty body — this avoids
+// rather than silently emitting an empty body, this avoids
 // the "did the verb work?" ambiguity that bit operators when
 // the v1.50 cgo-gated build was first introduced.
 //
@@ -43,7 +43,7 @@ to subprocesses.
 ` + "`list`" + ` enumerates the recognised profile names.
 
 ` + "`introspect PROFILE`" + ` dumps the effective .sb Scheme for the
-named profile (darwin+cgo build only — Linux uses seccomp-bpf
+named profile (darwin+cgo build only, Linux uses seccomp-bpf
 which is a binary BPF program; introspection there has a
 different shape and is not implemented).
 
@@ -58,7 +58,7 @@ effect-free, and safe to run without elevation.`,
 
 // newSandboxListCmd returns a cobra command that prints the
 // canonical Profile enumeration. Works on every offensive
-// build (no platform branching — the enumeration lives in
+// build (no platform branching, the enumeration lives in
 // the always-compiled sandbox.go).
 func newSandboxListCmd() *cobra.Command {
 	var jsonOut bool
@@ -162,7 +162,7 @@ type sandboxSchemeResult struct {
 	Scheme  string `json:"scheme"`
 }
 
-// newSandboxDiffCmd (v2.63+) — symmetric difference between
+// newSandboxDiffCmd (v2.63+), symmetric difference between
 // two profile schemes. Useful for security audits: "what
 // does ProfileExploit allow that ProfileScan does NOT?"
 //
@@ -270,7 +270,7 @@ func runSandboxDiff(cmd *cobra.Command, nameA, nameB string, jsonOut bool) error
 // "common" array is included so operators can sanity-check
 // that the comparison is comparing what they think.
 //
-// Empty / whitespace-only lines are dropped — they're not
+// Empty / whitespace-only lines are dropped, they're not
 // semantically meaningful in .sb Scheme.
 func diffSchemes(nameA, nameB, scmA, scmB string) sandboxDiffResult {
 	setA := schemeLineSet(scmA)

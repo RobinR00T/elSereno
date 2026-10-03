@@ -36,7 +36,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "KW-Software ProConOS runtime fingerprint on TCP/20547 (best-effort; ILC + Berghof + IPC2u + ABB/B&R/Lenze re-skins) — needs real-PLC validation",
+		Description: "KW-Software ProConOS runtime fingerprint on TCP/20547 (best-effort; ILC + Berghof + IPC2u + ABB/B&R/Lenze re-skins), needs real-PLC validation",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -49,7 +49,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 //   - any of the ProConOS banner markers (PROCONOS / ProConOS /
 //     KW-Software / MultiProg / KWS-LDR / alt-prefix).
 //
-// No service-request frames are issued — the default build is
+// No service-request frames are issued, the default build is
 // read-only by design.
 //
 // HONEST SCOPE NOTE: positives ship at ~0.7 confidence rather
@@ -92,7 +92,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("proconos: TCP proxy framework requires a ProConOS-aware classifier; v1.28 is fingerprint-only — best-effort wire interpretation needs real-PLC validation before per-frame gating ships")
+	return fmt.Errorf("proconos: TCP proxy framework requires a ProConOS-aware classifier; v1.28 is fingerprint-only, best-effort wire interpretation needs real-PLC validation before per-frame gating ships")
 }
 
 func classifyParseError(err error) string {
@@ -117,10 +117,10 @@ func buildFinding(target core.Target, note string, isProConOS bool) *core.Findin
 		"auth_state":    90, // ProConOS default install has no enforced auth
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLC blast radius
-		// cve_exposure: 7 — KW-Software runtime ecosystem
+		// cve_exposure: 7, KW-Software runtime ecosystem
 		// inherits much of the Phoenix Contact ILC family's
 		// CVE record. Anchor advisories:
-		//   ICSA-15-160-01 (PCWorx auth bypass + RCE — also
+		//   ICSA-15-160-01 (PCWorx auth bypass + RCE, also
 		//                   affects ProConOS-only Berghof +
 		//                   Lenze deployments).
 		//   ICSA-17-201-01 (PCWorx + ProConOS variable-write

@@ -14,7 +14,7 @@ import (
 
 // newExplainCmd prints the scoring-factor breakdown for a single
 // finding. Input is a JSON document on stdin (or `--from-file`) with
-// the `factors` map and optional `protocol`/`severity` hints — exactly
+// the `factors` map and optional `protocol`/`severity` hints, exactly
 // the shape the NDJSON output emits.
 func newExplainCmd() *cobra.Command {
 	var path string
@@ -96,7 +96,7 @@ func explainFromJSON(cmd *cobra.Command, raw []byte) error {
 }
 
 // newWhyCmd is `elsereno why <target>`. It prints the available scope
-// context and the default scoring weights — answering "why is this
+// context and the default scoring weights, answering "why is this
 // target (or might this target) be flagged the way it is" without
 // needing a live DB.
 func newWhyCmd() *cobra.Command {

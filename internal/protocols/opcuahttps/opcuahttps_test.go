@@ -92,7 +92,7 @@ func mustPort(t *testing.T, p int) core.Port {
 	if p < 0 || p > 65535 {
 		t.Fatalf("port out of range: %d", p)
 	}
-	return core.Port(p) // #nosec G115 — bounded above.
+	return core.Port(p) // #nosec G115, bounded above.
 }
 
 // TestProbe_UABinaryContentType: server replies with the
@@ -205,7 +205,7 @@ func TestProbe_PlainHTTPS(t *testing.T) {
 // TLS → error propagated.
 func TestProbe_TLSHandshakeFailure(t *testing.T) {
 	// Bind a plain TCP listener (no TLS) on a random port.
-	// noctx wants Listen via a ListenConfig — fine, that lets
+	// noctx wants Listen via a ListenConfig, fine, that lets
 	// the test deadline propagate via ctx.
 	lc := &net.ListenConfig{}
 	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")

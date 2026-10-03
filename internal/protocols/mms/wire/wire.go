@@ -4,7 +4,7 @@
 // layer protocol every IEC 61850-8-1 substation device speaks
 // (protection relays, RTUs, merging units, station controllers).
 //
-// Port 102 is shared with Siemens S7 — both wrap their PDUs in
+// Port 102 is shared with Siemens S7, both wrap their PDUs in
 // TPKT (RFC 1006) + ISO 8073 COTP. The disambig point is the
 // TSAP (Transport Service Access Point) selectors carried in
 // the COTP Connect-Request:
@@ -19,7 +19,7 @@
 // the transport layer, which is a positive identification at
 // reasonable confidence. Higher-confidence MMS detection (full
 // ACSE A-ASSOCIATE-REQUEST with the IEC 61850-8-1 application-
-// context name OID 1.0.9506.2.3) is a future tightening — the
+// context name OID 1.0.9506.2.3) is a future tightening, the
 // COTP-layer disambig is sufficient to distinguish MMS from S7
 // on shared-port-102 deployments.
 //
@@ -72,7 +72,7 @@ var (
 	// or PDU type byte requires.
 	ErrShortCOTP = errors.New("mms: short COTP body")
 	// ErrNotCOTPConfirm means the response is COTP-DR or some
-	// other non-CC PDU — the upstream refused our MMS-style
+	// other non-CC PDU, the upstream refused our MMS-style
 	// TSAPs.
 	ErrNotCOTPConfirm = errors.New("mms: COTP did not confirm (likely S7 or non-MMS server on port 102)")
 )
@@ -161,7 +161,7 @@ func IsCOTPConfirm(buf []byte) bool {
 
 // IsCOTPDisconnect returns true iff the COTP payload's PDU-type
 // byte is COTPDisconnectRequest (0x80). A DR means the server
-// rejected our TSAPs — the upstream is on port 102 but is
+// rejected our TSAPs, the upstream is on port 102 but is
 // almost certainly S7 (or another vendor-specific server) that
 // doesn't accept the MMS TSAPs.
 func IsCOTPDisconnect(buf []byte) bool {

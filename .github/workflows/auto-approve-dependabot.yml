@@ -11,7 +11,7 @@
 #   `pull_request` from Dependabot has read-only GITHUB_TOKEN
 #   in public repos (cannot approve / merge). `pull_request_
 #   target` runs in the repo's context with write token but
-#   checks out the BASE branch only (no PR code) — safe.
+#   checks out the BASE branch only (no PR code), safe.
 #
 # Why this exists:
 #   After flipping the repo to PUBLIC (2026-05-12), Dependabot

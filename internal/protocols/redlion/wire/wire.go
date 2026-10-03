@@ -12,7 +12,7 @@
 // This package implements ONLY a banner-substring classifier.
 // The full RLN tag-length-value frame layout (3-byte handshake
 // + variable-length TLV body) is out of scope for v1.22 chunk
-// 3 — banner classification covers the common Internet-exposed
+// 3, banner classification covers the common Internet-exposed
 // shape (HMI gateways with default Crimson 3 firmware that
 // announce themselves on connect).
 //
@@ -64,7 +64,7 @@ var RedLionBannerSubstrings = [][]byte{
 //
 // We send 3 zero bytes deliberately: most RLN dialects ignore
 // zero-padded handshakes and respond with their default
-// banner. This is intentionally minimal — no live state is
+// banner. This is intentionally minimal, no live state is
 // established, no session is opened.
 func BuildHello() []byte {
 	return []byte{0x00, 0x00, 0x00}

@@ -7,13 +7,13 @@ date: 2026-04-19
 phase: F0
 ---
 
-# ADR-012: SQLite build via CGO with SQLCipher, native arch only — SUPERSEDED
+# ADR-012: SQLite build via CGO with SQLCipher, native arch only, SUPERSEDED
 
 ## Status: SUPERSEDED in v1.2 (2026-04-22)
 
 The `-tags sqlite` portable variant has been removed. Operators
 who previously relied on SQLite + SQLCipher for single-host
-deployments should use Postgres directly — either the dev-db
+deployments should use Postgres directly, either the dev-db
 docker-compose for local work, or a dedicated Postgres instance
 for production. The vault itself is file-backed (AES-GCM +
 Argon2id) and does not need DB encryption. Migration path:

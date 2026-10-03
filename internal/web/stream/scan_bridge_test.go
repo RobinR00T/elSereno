@@ -322,7 +322,7 @@ func TestThrottle_PerJob(t *testing.T) {
 }
 
 // TestThrottle_ClampsBadInterval: zero / negative / too-big
-// intervals fall back to 500ms default. Smoke test only —
+// intervals fall back to 500ms default. Smoke test only,
 // observable via "first call emits, second within ~500ms
 // drops".
 func TestThrottle_ClampsBadInterval(t *testing.T) {
@@ -396,7 +396,7 @@ func TestBroadcastingStore_AttachProgressThrottle_ForgetsOnTerminal(t *testing.T
 }
 
 // TestBroadcastingStore_NilBroadcasterStillFunctional: a nil
-// broadcaster makes the wrapper a transparent pass-through —
+// broadcaster makes the wrapper a transparent pass-through,
 // useful for tests + dev configs that don't wire SSE.
 func TestBroadcastingStore_NilBroadcasterStillFunctional(t *testing.T) {
 	inner := scanorch.NewMemoryStore()

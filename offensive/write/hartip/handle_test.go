@@ -132,7 +132,7 @@ func TestWriteCommandRefusedByDefault(t *testing.T) {
 		t.Fatalf("refusal too short: %d", n)
 	}
 	// Response code 1 = command-not-implemented (0x40) at HART body
-	// offset 8 (long frame — our request uses 0x82).
+	// offset 8 (long frame, our request uses 0x82).
 	hartBody := buf[wire.HeaderLen:n]
 	var rc1 uint8
 	if hartBody[0]&0x80 != 0 && len(hartBody) >= 9 {

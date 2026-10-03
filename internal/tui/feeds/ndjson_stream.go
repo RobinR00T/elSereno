@@ -108,7 +108,7 @@ type schemaPeek struct {
 // Mirrors recordEvent in internal/tui/recorder.go; we keep a
 // dedicated decode struct here to avoid an import cycle (the
 // recorder imports tui types, the feeds package imports the
-// same — circular).
+// same circular).
 type tuiRecordRecord struct {
 	Schema    string `json:"schema"`
 	TS        string `json:"ts"`
@@ -162,7 +162,7 @@ func parseRecord(line []byte, lineNo int) (tea.Msg, error) {
 	}
 }
 
-// parseScanFinding decodes one `ndjson:v1` line — the
+// parseScanFinding decodes one `ndjson:v1` line, the
 // original scan-output shape that v1.29 chunk 3's --replay
 // reads.
 func parseScanFinding(line []byte, lineNo int) (tea.Msg, error) {

@@ -18,7 +18,7 @@ import (
 type AuditPruner struct {
 	// AuditStore is the target of PruneOlderThan. Required.
 	AuditStore ScheduleAuditStore
-	// RetentionPeriod is the cutoff lookback — events with
+	// RetentionPeriod is the cutoff lookback, events with
 	// OccurredAt < (now - RetentionPeriod) are deleted on
 	// each tick. Required > 0; clamped to ≥ 1m
 	// defensively to prevent operator footgun (deleting
@@ -36,7 +36,7 @@ type AuditPruner struct {
 	// stderr logging.
 	OnPrune func(deletedCount int64, cutoff time.Time)
 	// OnError (optional) fires when PruneOlderThan returns
-	// an error. The pruner doesn't retry internally — next
+	// an error. The pruner doesn't retry internally, next
 	// tick re-attempts.
 	OnError func(err error)
 	// ScheduleStore (v1.89+, optional) lets the pruner honour
@@ -129,7 +129,7 @@ func (p *AuditPruner) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	// Eager first prune so the pruner doesn't wait a full
 	// interval after process start. Especially useful on a
-	// 24h cadence — the operator restarting serve doesn't
+	// 24h cadence, the operator restarting serve doesn't
 	// have to wait a day for the first cleanup.
 	p.tick(ctx, retention, nowFn)
 	for {
@@ -160,7 +160,7 @@ func (p *AuditPruner) Run(ctx context.Context) error {
 // only one instance does the work per cutoff.
 func (p *AuditPruner) tick(ctx context.Context, retention time.Duration, nowFn func() time.Time) {
 	now := nowFn()
-	// v1.94: measure tick duration via wall-clock (not nowFn —
+	// v1.94: measure tick duration via wall-clock (not nowFn,
 	// nowFn is the cutoff fixture, not a real clock; using
 	// time.Now keeps histogram observations honest even with
 	// the test-seam time travel pattern).
@@ -220,7 +220,7 @@ func (p *AuditPruner) runPrune(ctx context.Context, globalCutoff time.Time, over
 //
 // A ScheduleStore.List error surfaces via OnError + falls back
 // to global-only (empty overrides). Better to over-prune
-// briefly than crash the pruner — next tick re-attempts.
+// briefly than crash the pruner, next tick re-attempts.
 func (p *AuditPruner) collectOverrides(ctx context.Context, now time.Time) map[string]time.Time {
 	if p.ScheduleStore == nil {
 		return nil
@@ -244,7 +244,7 @@ func (p *AuditPruner) collectOverrides(ctx context.Context, now time.Time) map[s
 	return overrides
 }
 
-// Tick is a test affordance — single-shot prune without
+// Tick is a test affordance, single-shot prune without
 // the ticker goroutine. Mirrors Scheduler.Tick.
 func (p *AuditPruner) Tick(ctx context.Context) {
 	if p.AuditStore == nil || p.RetentionPeriod <= 0 {

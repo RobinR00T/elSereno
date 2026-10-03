@@ -49,7 +49,7 @@ type Config struct {
 	// Secret, when non-empty, HMAC-SHA256-signs each body into the
 	// X-Elsereno-Signature header.
 	Secret []byte
-	// ExtraHeaders are attached to every request — useful for custom
+	// ExtraHeaders are attached to every request, useful for custom
 	// auth schemes (Slack, Teams, etc.). Callers must not put secrets
 	// here if the HTTP client logs full request traces; use Secret.
 	ExtraHeaders map[string]string

@@ -1,12 +1,12 @@
 ---
 id: 027
-title: XOT (RFC 1613) plugin — parser from scratch, read-only fingerprint
+title: XOT (RFC 1613) plugin, parser from scratch, read-only fingerprint
 status: accepted
 date: 2026-04-19
 phase: F2
 ---
 
-# ADR-027: XOT (RFC 1613) plugin — parser from scratch, read-only fingerprint
+# ADR-027: XOT (RFC 1613) plugin, parser from scratch, read-only fingerprint
 
 ## Context
 X.25 over TCP remains deployed on legacy industrial and financial
@@ -72,6 +72,6 @@ semantics we do not need.
   serialise via SafeCommand for scan-list ingestion only.
 
 ## References
-- RFC 1613 — Cisco Systems X.25 over TCP (XOT) — 1994.
-- ITU-T Recommendation X.25 (Packet Layer Protocol) — 1996.
-- `.context/protocols/xot.md` — operator-facing notes.
+- RFC 1613, Cisco Systems X.25 over TCP (XOT), 1994.
+- ITU-T Recommendation X.25 (Packet Layer Protocol), 1996.
+- `.context/protocols/xot.md`: operator-facing notes.

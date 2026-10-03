@@ -22,7 +22,7 @@ type DBConn interface {
 
 // DBWriter persists audit entries to Postgres while maintaining
 // the same chain invariant as FileWriter. ADR-008 requires audit
-// appends to be serialised end-to-end — the struct mutex
+// appends to be serialised end-to-end, the struct mutex
 // enforces that, so a pool with MaxConns>1 is still safe (every
 // Append serialises through a single goroutine).
 //
@@ -32,7 +32,7 @@ type DBConn interface {
 // `GenesisPrevHash` (32 zero bytes) exactly like FileWriter.
 //
 // ID continuity: DBWriter does NOT let Postgres assign the
-// BIGSERIAL automatically — it pulls `nextval` from the
+// BIGSERIAL automatically, it pulls `nextval` from the
 // sequence, uses that ID in the hash, and INSERTs with the
 // explicit ID. This means a single Append is two SQL
 // round-trips; the mutex keeps them together.

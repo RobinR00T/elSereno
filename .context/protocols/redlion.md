@@ -57,9 +57,9 @@ Fail-closed. RLN TLV stack not implemented in chunk 3.
 ## Scoring contribution
 factors{protocol_risk:75, exposure:75, auth_state:85, capability:30
 (70 on Red Lion reply), impact_class:70, cve_exposure:5}.
-- protocol_risk 75 (vs 80 PLCs) — HMI/RTU rather than direct PLC.
-- impact_class 70 — HMI screen forge + tag forcing + firmware push.
-- cve_exposure 5 — ICSA-21-103-01 (hardcoded crypto key) +
+- protocol_risk 75 (vs 80 PLCs), HMI/RTU rather than direct PLC.
+- impact_class 70, HMI screen forge + tag forcing + firmware push.
+- cve_exposure 5, ICSA-21-103-01 (hardcoded crypto key) +
   ICSA-22-088-01 (path traversal); smaller than CoDeSys's 10
   but non-zero.
 

@@ -34,7 +34,7 @@ func (s *stubGatedHandler) Handle(_ context.Context, _, _ io.ReadWriter) error {
 	return nil
 }
 
-// TestReloadableHandler_DelegatesAuthorise — Authorise on the
+// TestReloadableHandler_DelegatesAuthorise Authorise on the
 // wrapper delegates to the current inner.
 func TestReloadableHandler_DelegatesAuthorise(t *testing.T) {
 	inner := &stubGatedHandler{id: "v1"}
@@ -47,7 +47,7 @@ func TestReloadableHandler_DelegatesAuthorise(t *testing.T) {
 	}
 }
 
-// TestReloadableHandler_DelegatesHandle — Handle on the wrapper
+// TestReloadableHandler_DelegatesHandle Handle on the wrapper
 // delegates to the current inner.
 func TestReloadableHandler_DelegatesHandle(t *testing.T) {
 	inner := &stubGatedHandler{id: "v1"}
@@ -60,7 +60,7 @@ func TestReloadableHandler_DelegatesHandle(t *testing.T) {
 	}
 }
 
-// TestReloadableHandler_SwapReplacesInner — swap installs the
+// TestReloadableHandler_SwapReplacesInner swap installs the
 // new inner; subsequent calls go to v2, not v1.
 func TestReloadableHandler_SwapReplacesInner(t *testing.T) {
 	v1 := &stubGatedHandler{id: "v1"}
@@ -84,7 +84,7 @@ func TestReloadableHandler_SwapReplacesInner(t *testing.T) {
 	}
 }
 
-// TestReloadableHandler_AuthoriseAfterSwap — Authorise after
+// TestReloadableHandler_AuthoriseAfterSwap Authorise after
 // swap delegates to the new inner.
 func TestReloadableHandler_AuthoriseAfterSwap(t *testing.T) {
 	v1 := &stubGatedHandler{id: "v1"}
@@ -102,7 +102,7 @@ func TestReloadableHandler_AuthoriseAfterSwap(t *testing.T) {
 	}
 }
 
-// TestReadSidecarToken_HappyPath — 0600 file is read + trimmed.
+// TestReadSidecarToken_HappyPath 0600 file is read + trimmed.
 func TestReadSidecarToken_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "allow.yaml.token")
@@ -119,7 +119,7 @@ func TestReadSidecarToken_HappyPath(t *testing.T) {
 	}
 }
 
-// TestReadSidecarToken_RejectsLooseMode — 0644 is rejected.
+// TestReadSidecarToken_RejectsLooseMode 0644 is rejected.
 func TestReadSidecarToken_RejectsLooseMode(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "allow.yaml.token")
@@ -135,7 +135,7 @@ func TestReadSidecarToken_RejectsLooseMode(t *testing.T) {
 	}
 }
 
-// TestReadSidecarToken_MissingFile — non-existent path errors.
+// TestReadSidecarToken_MissingFile non-existent path errors.
 func TestReadSidecarToken_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nope.token")
@@ -145,7 +145,7 @@ func TestReadSidecarToken_MissingFile(t *testing.T) {
 	}
 }
 
-// TestPerformReload_RequiresAllowFile — performReload errors
+// TestPerformReload_RequiresAllowFile performReload errors
 // when allowFile is empty.
 func TestPerformReload_RequiresAllowFile(t *testing.T) {
 	r := newReloadableHandler(&stubGatedHandler{id: "v1"})
@@ -159,7 +159,7 @@ func TestPerformReload_RequiresAllowFile(t *testing.T) {
 	}
 }
 
-// TestValidateProxyListenOpts_ReloadRequiresAllowFile — the
+// TestValidateProxyListenOpts_ReloadRequiresAllowFile the
 // CLI-validation layer rejects --reload-allow-file without
 // --allow-file.
 func TestValidateProxyListenOpts_ReloadRequiresAllowFile(t *testing.T) {
@@ -182,7 +182,7 @@ func TestValidateProxyListenOpts_ReloadRequiresAllowFile(t *testing.T) {
 	}
 }
 
-// TestFreshReloadOpts_PreservesImmutables — the reload helper
+// TestFreshReloadOpts_PreservesImmutables the reload helper
 // keeps target/listen/timeouts but clears plugin-specific
 // allowlist fields. Pin the contract.
 func TestFreshReloadOpts_PreservesImmutables(t *testing.T) {
@@ -212,7 +212,7 @@ type nopPrinter struct{}
 
 func (n *nopPrinter) Printf(_ string, _ ...any) {}
 
-// TestWrapForReload_OptOut — when --reload-allow-file is not
+// TestWrapForReload_OptOut when --reload-allow-file is not
 // set, wrapForReload returns the handler unchanged (no
 // wrapper, byte-identical to pre-v1.17 behaviour).
 func TestWrapForReload_OptOut(t *testing.T) {
@@ -223,7 +223,7 @@ func TestWrapForReload_OptOut(t *testing.T) {
 	}
 }
 
-// TestWrapForReload_OptIn — when --reload-allow-file is set,
+// TestWrapForReload_OptIn when --reload-allow-file is set,
 // wrapForReload returns a *reloadableHandler.
 func TestWrapForReload_OptIn(t *testing.T) {
 	h := &stubGatedHandler{id: "v1"}
@@ -233,7 +233,7 @@ func TestWrapForReload_OptIn(t *testing.T) {
 	}
 }
 
-// TestReloadableHandler_HandleWithNilInnerErrors — defensive:
+// TestReloadableHandler_HandleWithNilInnerErrors defensive:
 // a wrapper without an installed inner returns a typed error
 // (don't NPE).
 func TestReloadableHandler_HandleWithNilInnerErrors(t *testing.T) {
@@ -247,18 +247,18 @@ func TestReloadableHandler_HandleWithNilInnerErrors(t *testing.T) {
 	}
 }
 
-// TestEmitReloadAudit_NilWriterNoOps — defensive: when the
+// TestEmitReloadAudit_NilWriterNoOps defensive: when the
 // runtime has no audit writer (rare but possible during early
 // shutdown / setup error paths), the audit emit silently no-ops
 // without panicking.
 func TestEmitReloadAudit_NilWriterNoOps(_ *testing.T) {
-	// Should not panic — t is unused because the tests are
+	// Should not panic, t is unused because the tests are
 	// purely "doesn't crash" assertions.
 	emitReloadAudit(context.Background(), nil, proxyListenOpts{plugin: "sip"}, "old", "new", nil)
 	emitReloadAudit(context.Background(), &offensiveRuntime{}, proxyListenOpts{plugin: "sip"}, "old", "new", nil)
 }
 
-// TestCurrentHandlerHashPrefix_Stable — pin the hash-prefix
+// TestCurrentHandlerHashPrefix_Stable pin the hash-prefix
 // extraction shape: same handler → same prefix; different
 // handler instances → different prefixes (modulo address
 // reuse, which is rare in a process).

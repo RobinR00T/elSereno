@@ -19,24 +19,24 @@
 //     forwards the entire request (headers + Content-Length body)
 //     to the upstream or emits a 405 back to the client.
 //   - Methods that are always safe to forward (never gated):
-//     OPTIONS — probe; no side effects.
-//     ACK     — part of the INVITE three-way; required for
+//     OPTIONS probe; no side effects.
+//     ACK part of the INVITE three-way; required for
 //     dialog completion AFTER an INVITE the operator
 //     already allowed.
-//     BYE     — dialog teardown. Blocking BYE would leak
+//     BYE dialog teardown. Blocking BYE would leak
 //     resources on both sides.
-//     CANCEL  — cancels a pending INVITE; analogous to BYE.
-//     PRACK   — provisional ACK for reliable 1xx.
+//     CANCEL cancels a pending INVITE; analogous to BYE.
+//     PRACK provisional ACK for reliable 1xx.
 //   - Methods the operator explicitly gates:
-//     INVITE        — toll fraud, call hijack.
-//     REGISTER      — registration hijack.
-//     MESSAGE       — SMS-over-SIP spam / phish.
-//     SUBSCRIBE     — presence/event data exfil.
-//     NOTIFY        — forged event injection.
-//     REFER         — call transfer (can redirect to attacker).
-//     PUBLISH       — presence state forgery.
-//     UPDATE        — session modify mid-dialog.
-//     INFO          — mid-dialog DTMF / app info.
+//     INVITE toll fraud, call hijack.
+//     REGISTER registration hijack.
+//     MESSAGE SMS-over-SIP spam / phish.
+//     SUBSCRIBE presence/event data exfil.
+//     NOTIFY forged event injection.
+//     REFER call transfer (can redirect to attacker).
+//     PUBLISH presence state forgery.
+//     UPDATE session modify mid-dialog.
+//     INFO mid-dialog DTMF / app info.
 //   - Refusal path is a canonical SIP 405 Method Not Allowed with
 //     an `Allow:` header listing the always-safe methods plus any
 //     allowlisted methods. Real SIP clients parse 405 correctly
@@ -45,7 +45,7 @@
 // v1.9 chunk 5 added INVITE To-URI prefix allowlist
 // (`AllowedToURIPrefixes`) for toll-fraud mitigation. v1.10
 // chunk 1 adds REGISTER AOR allowlist (`AllowedAORs`) for
-// registration-hijack mitigation — pairs with the INVITE prefix
+// registration-hijack mitigation, pairs with the INVITE prefix
 // list as the two sides of PBX-abuse gating:
 //
 //   - INVITE + prefix list  → controls WHERE calls can go.
@@ -82,7 +82,7 @@ import (
 // AllowedMethod is one SIP method the operator has authorised for
 // the session. An empty allowlist forbids every gated method
 // (equivalent to the default deny-all proxy, but with a 405
-// refusal instead of a 403 — slightly gentler for real SIP
+// refusal instead of a 403, slightly gentler for real SIP
 // clients).
 type AllowedMethod struct {
 	// Method is the canonical upper-case SIP method (INVITE,
@@ -226,7 +226,7 @@ func SessionMutationWithPrefixes(target string, methods []AllowedMethod, prefixe
 // Typical use-case: registration-hijack mitigation. An attacker
 // who captures SIP creds for one account (e.g. via phishing,
 // WiFi sniff, or a compromised endpoint) would normally be
-// able to register bindings for any AoR the upstream accepts —
+// able to register bindings for any AoR the upstream accepts,
 // hijacking inbound calls for `admin@pbx` using `alice@pbx`'s
 // stolen creds. With the AOR allowlist, REGISTER is scoped to
 // the exact AoR(s) the operator expects to serve; any drift is
@@ -234,8 +234,8 @@ func SessionMutationWithPrefixes(target string, methods []AllowedMethod, prefixe
 //
 // AORs are case-folded + URI-scheme-stripped before compare so
 // operators can write `sip:alice@example.com` or just
-// `alice@example.com` — both canonicalise the same. The match
-// is EXACT (not prefix), unlike the INVITE prefix gate — an
+// `alice@example.com`: both canonicalise the same. The match
+// is EXACT (not prefix), unlike the INVITE prefix gate, an
 // attacker who gets `alice.evil@example.com` past the allowlist
 // shouldn't also get `alice@example.com`.
 type AllowedAOR struct {
@@ -288,7 +288,7 @@ func canonicaliseAOR(s string) string {
 		host := strings.ToLower(s[i+1:])
 		return user + "@" + host
 	}
-	// No '@' — likely a `tel:` that lost its scheme. Lowercase
+	// No '@', likely a `tel:` that lost its scheme. Lowercase
 	// the whole thing since there's no user/host distinction
 	// to preserve.
 	return strings.ToLower(s)
@@ -303,7 +303,7 @@ func canonicaliseAOR(s string) string {
 // plain). When only prefixes is non-empty, the hash equals
 // `AllowlistHashWithPrefixes(target, methods, prefixes)` (v1.9
 // variant). Only when aors is non-empty does the new layout
-// kick in — existing tokens remain valid for operators who
+// kick in, existing tokens remain valid for operators who
 // don't opt into AOR gating.
 //
 // New hash layout (when aors is non-empty):
@@ -475,7 +475,7 @@ func sortedFromDomainList(fromDomains []AllowedFromDomain) []string {
 }
 
 // writeNulTerminatedList writes each entry followed by a 0x00
-// byte — the shared on-wire shape of every block in the hash
+// byte the shared on-wire shape of every block in the hash
 // layout.
 func writeNulTerminatedList(w io.Writer, entries []string) {
 	for _, e := range entries {
@@ -566,7 +566,7 @@ func SessionMutationWithGeneration(target string, methods []AllowedMethod, prefi
 // authorised for the session's From: header. v1.12 chunk 5:
 // complements the REGISTER AOR gate (which controls WHO can
 // register) and the INVITE prefix gate (which controls WHERE
-// calls can go) with a WHOSE-IDENTITY check — the domain part
+// calls can go) with a WHOSE-IDENTITY check, the domain part
 // of the originator's From: URI.
 //
 // Typical use-case: an ITSP providing outbound trunks wants to
@@ -584,14 +584,14 @@ func SessionMutationWithGeneration(target string, methods []AllowedMethod, prefi
 // behaviour (no from-domain check).
 //
 // Matching is EXACT on the canonicalised domain: lowercased,
-// IDN-aware (we don't decode puny — compare on the wire form).
+// IDN-aware (we don't decode puny, compare on the wire form).
 // An attacker with creds for `@pbx.example.com` can't spoof
 // `@evil.pbx.example.com` or `@pbx.example.com.attacker.io`
 // because those canonicalise differently.
 type AllowedFromDomain struct {
 	// Domain is the canonical from-domain the operator
 	// authorises. Accepts bare `host`, `@host`, or a full
-	// `sip:user@host` form — the canonicaliser extracts the
+	// `sip:user@host` form, the canonicaliser extracts the
 	// host portion and lowercases it.
 	Domain string
 }
@@ -665,7 +665,7 @@ var alwaysSafeMethods = map[string]struct{}{
 // SIP deny-all proxy. Construction requires triple-confirm
 // authorised session context (Deriver, Auditor, and the
 // session-level Confirm struct). The handler does NOT
-// re-authorise per request — it parses the SIP request-line per
+// re-authorise per request, it parses the SIP request-line per
 // message and allows (a) alwaysSafeMethods always, (b) any method
 // in the operator-supplied allowlist.
 type WriteGatedHandler struct {
@@ -690,7 +690,7 @@ type WriteGatedHandler struct {
 	// (a) REGISTER is in Allowed AND (b) the To: header's URI
 	// (canonicalised user@host form) EXACTLY matches one of these
 	// entries. The match is exact, not prefix (unlike
-	// AllowedToURIPrefixes) — stolen creds for `alice@pbx`
+	// AllowedToURIPrefixes), stolen creds for `alice@pbx`
 	// shouldn't let an attacker register `admin@pbx`.
 	//
 	// Other gated methods (INVITE, MESSAGE, …) are NOT constrained
@@ -707,7 +707,7 @@ type WriteGatedHandler struct {
 	// (a) its Method is in Allowed AND (b) the From: header's
 	// canonicalised host domain EXACTLY matches one of these
 	// entries. Always-safe methods (OPTIONS / ACK / BYE /
-	// CANCEL / PRACK) are not checked — their semantics are
+	// CANCEL / PRACK) are not checked, their semantics are
 	// transport-level.
 	//
 	// Complements AllowedAORs (REGISTER identity) and
@@ -742,7 +742,7 @@ type WriteGatedHandler struct {
 	// Wrapping happens BEFORE the bufio.NewReader / textproto
 	// wrap, so per-method + per-prefix + per-AOR + per-from-
 	// domain routing decisions are all captured intact. Nil
-	// disables recording — the gate behaves exactly as it did
+	// disables recording, the gate behaves exactly as it did
 	// pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -772,7 +772,7 @@ var ErrSessionNotAuthorised = errors.New("sip: write-gated proxy requires Author
 // Handle implements core.ProxyHandler. Splits into two goroutines:
 // the client→upstream stream is parsed + gated per request; the
 // upstream→client stream is a straight io.Copy (responses are
-// never gated — operators always want to see what upstream
+// never gated, operators always want to see what upstream
 // replied, so they can notice a successful call even if the gate
 // slipped).
 func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.ReadWriter) error {
@@ -813,7 +813,7 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 		if line == "" {
 			continue
 		}
-		// Responses start with "SIP/" — client is misbehaving,
+		// Responses start with "SIP/", client is misbehaving,
 		// pass through so the upstream can decide.
 		if strings.HasPrefix(line, "SIP/") {
 			if err := passthroughRawHead(line, tp, upstream); err != nil {
@@ -876,7 +876,7 @@ func (h *WriteGatedHandler) checkSubGates(method string, headers textproto.MIMEH
 	}
 	// From-domain gate applies to every gated method (not always-
 	// safe ones). If the method passed the allowlist, this is a
-	// gated method — enforce.
+	// gated method, enforce.
 	if len(h.AllowedFromDomains) > 0 && !isAlwaysSafe(method) {
 		if !h.fromDomainAllowed(headers.Get("From")) {
 			return writeFromDomainForbidden
@@ -1221,7 +1221,7 @@ func parseContentLength(v string) (int, error) {
 const maxBodyLen = 1 << 20
 
 // writeRequest re-serialises an allowed request onto the
-// upstream. Headers are sorted alphabetically for determinism —
+// upstream. Headers are sorted alphabetically for determinism,
 // SIP is header-order-insensitive at the server side per RFC 3261
 // §7.3.1.
 func writeRequest(w io.Writer, requestLine string, headers textproto.MIMEHeader, body []byte) error {
@@ -1292,7 +1292,7 @@ func writeMethodNotAllowed(w io.Writer, reqHeaders textproto.MIMEHeader, allowHe
 // passthroughRawHead forwards a response (SIP/… line + headers +
 // body) from client to upstream without inspection. Used only
 // when the client happens to send a response-line to the server
-// (which violates SIP but can happen from buggy UACs — we want
+// (which violates SIP but can happen from buggy UACs, we want
 // to stay transparent).
 func passthroughRawHead(statusLine string, tp *textproto.Reader, w io.Writer) error {
 	headers, err := tp.ReadMIMEHeader()

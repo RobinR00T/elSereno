@@ -147,8 +147,8 @@ func TestReadFrame_LongShortBody(t *testing.T) {
 // TestReadFrame_TruncatedStream refuses partial reads. io.ReadFull
 // returns io.EOF when ZERO bytes are read at the start of the
 // expected chunk, and io.ErrUnexpectedEOF when a partial read
-// dies mid-chunk. The gate treats both equivalently — connection
-// is closed either way — so accept both.
+// dies mid-chunk. The gate treats both equivalently, connection
+// is closed either way, so accept both.
 func TestReadFrame_TruncatedStream(t *testing.T) {
 	for _, tc := range []struct {
 		name string

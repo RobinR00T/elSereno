@@ -5,7 +5,7 @@ last-updated: 2026-04-20
 token-budget: 1500
 ---
 
-# Snapshot — F6: Reporting + release
+# Snapshot, F6: Reporting + release
 
 Closed **2026-04-20**. Ships the full reporting surface
 (HTML polish + 5 SIEM/ticketing/webhook sinks + OpenAPI autogen),
@@ -15,27 +15,27 @@ dashboard, and the release runbook ready for a signed 0.1.0 tag.
 
 ## New output sinks
 
-### `internal/outputs/cef` — ArcSight CEF 0.1
+### `internal/outputs/cef`: ArcSight CEF 0.1
 One line per Finding: `CEF:0|ElSereno|elsereno|<ver>|<proto>|<op>|
 <sev 1..10>|<sorted extensions>`. Severity maps 0..100 score →
 CEF 1..10. Header / extension escape rules implemented.
 
-### `internal/outputs/syslog` — RFC 5424
+### `internal/outputs/syslog`: RFC 5424
 `<PRI>1 <ts> <host> <app> - <msgid> [elsereno@32473 <sorted SD>]
 <msg>`. Facility local1 (17); severity mapping
 critical=2 / high=3 / medium=4 / low=6 / info=7 / unknown=5.
 
-### `internal/outputs/jira` — JIRA Cloud REST v3
+### `internal/outputs/jira`: JIRA Cloud REST v3
 POST /rest/api/3/issue with HTTP Basic email:api_token. ADF
 description, severity → priority (Highest..Lowest), labels for
 severity / protocol / run id plus operator-supplied LabelsExtra.
 
-### `internal/outputs/githubissues` — GitHub REST
+### `internal/outputs/githubissues`: GitHub REST
 POST /repos/{owner}/{repo}/issues with Bearer PAT + the
 2022-11-28 API pin. Markdown body with factor table, GHES
 BaseURL override.
 
-### `internal/outputs/webhook` — generic webhook
+### `internal/outputs/webhook`: generic webhook
 POST JSON envelope `{schema:"webhook:v1", …}` with optional
 HMAC-SHA256 in X-Elsereno-Signature, plus ExtraHeaders for
 custom auth (Slack, Teams, etc.).
@@ -48,7 +48,7 @@ custom auth (Slack, Teams, etc.).
 - Per-protocol sections with count + max + avg heading and
   within-section findings sorted by descending score.
 - Tabular-numeric font for score columns.
-- Self-contained — no external fetches.
+- Self-contained, no external fetches.
 
 ## OpenAPI autogen (F6 chunk 6)
 
@@ -56,7 +56,7 @@ custom auth (Slack, Teams, etc.).
   single source of truth. `Marshal` renders deterministic
   OpenAPI 3.1 YAML.
 - `GET /api/v1/openapi.yaml` serves the live spec straight from
-  code — the binary never goes out of sync.
+  code, the binary never goes out of sync.
 - `elsereno api openapi [-o <path>]` dumps to stdout or file for
   the release snapshot.
 - `docs/openapi.yaml` regenerated; every handler in

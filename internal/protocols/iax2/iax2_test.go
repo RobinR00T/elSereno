@@ -94,7 +94,7 @@ func TestProbe_AcceptConfirmsIAX2(t *testing.T) {
 	if f.Factors["protocol_risk"] != 90 {
 		t.Fatalf("protocol_risk = %d, want 90", f.Factors["protocol_risk"])
 	}
-	// ACCEPT means the remote picked up — no 401, so
+	// ACCEPT means the remote picked up, no 401, so
 	// auth_state stays at the default 60.
 	if f.Factors["auth_state"] != 60 {
 		t.Fatalf("auth_state = %d, want 60", f.Factors["auth_state"])

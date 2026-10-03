@@ -1,4 +1,4 @@
-# ElSereno — integraciones con SIEM y observabilidad
+# ElSereno, integraciones con SIEM y observabilidad
 
 Recetas concretas para mandar los findings de ElSereno a los
 sistemas externos típicos. Cada sección tiene **el pipeline
@@ -7,7 +7,7 @@ mínimo viable** + un par de notas de operación.
 > El binario ElSereno **no se integra directamente** con
 > ningún SIEM/observability stack: emite NDJSON v1 estable
 > y deja la decisión de transporte al operador. Es
-> intencional — minimiza acoplamiento, mantiene el binario
+> intencional, minimiza acoplamiento, mantiene el binario
 > stateless, evita vendor lock-in.
 
 ---
@@ -113,7 +113,7 @@ for f in /tmp/batch-*; do
 done
 ```
 
-> El token HEC va en header (no argv) — PITF-032 satisfecho.
+> El token HEC va en header (no argv), PITF-032 satisfecho.
 
 ---
 
@@ -245,10 +245,10 @@ avg by (plugin) (
 ## Prometheus (metrics-style)
 
 ElSereno **no expone `/metrics`** Prometheus directamente
-(scope intencional — es un scanner, no un service). Para
+(scope intencional, es un scanner, no un service). Para
 métricas derivadas, dos opciones:
 
-### Opción A — `mtail` parseando NDJSON
+### Opción A, `mtail` parseando NDJSON
 
 ```bash
 # /etc/mtail/elsereno.mtail
@@ -270,7 +270,7 @@ mtail --logs '/var/log/elsereno/findings-*.ndjson' --progs /etc/mtail/
 # Prometheus scrapes :3903/metrics
 ```
 
-### Opción B — exporter custom (Python sketch)
+### Opción B, exporter custom (Python sketch)
 
 ```python
 #!/usr/bin/env python3
@@ -388,7 +388,7 @@ elsereno scan --input list:fleet.txt \
 ## STIX 2.1
 
 `elsereno scan --output-format stix` (planeado/en construcción
-por versión — comprueba `elsereno scan --help` para tu build).
+por versión, comprueba `elsereno scan --help` para tu build).
 Emite bundles STIX 2.1 con:
 
 - `indicator` para cada finding con score ≥ medium.
@@ -410,7 +410,7 @@ curl -X POST https://misp.example.com/events/restSearch \
 
 ## MISP
 
-Pipeline básico (sin STIX intermediate — directly to MISP
+Pipeline básico (sin STIX intermediate, directly to MISP
 event):
 
 ```bash
@@ -451,7 +451,7 @@ elsereno scan --input list:fleet.txt \
     done
 ```
 
-> Slack webhook URL es un secreto — archivo 0600.
+> Slack webhook URL es un secreto, archivo 0600.
 
 Recommendation: **batch + threshold**, no notification por
 cada finding. Tu canal de Slack se va a llenar.
@@ -488,7 +488,7 @@ Checklist trimestral:
 
 ## Más
 
-- [`MANUAL.md`](MANUAL.md) §14 — schema completo del finding.
-- [`MANUAL.md`](MANUAL.md) §15 — HTTP API reference.
-- [`SECURITY.md`](SECURITY.md) — modelo de seguridad para
+- [`MANUAL.md`](MANUAL.md) §14, schema completo del finding.
+- [`MANUAL.md`](MANUAL.md) §15, HTTP API reference.
+- [`SECURITY.md`](SECURITY.md), modelo de seguridad para
   el threat-modeller de tu SOC.

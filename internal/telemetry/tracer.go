@@ -27,7 +27,7 @@ const TracerName = "local/elsereno"
 
 // Tracer returns the globally registered OpenTelemetry tracer. When
 // InitTracer has not been called (or the exporter is "none"), the
-// returned tracer is a no-op — callers can emit spans
+// returned tracer is a no-op, callers can emit spans
 // unconditionally without paying any runtime cost.
 func Tracer() trace.Tracer {
 	return otel.Tracer(TracerName)
@@ -35,10 +35,10 @@ func Tracer() trace.Tracer {
 
 // InitTracer wires a trace exporter per `OTEL_TRACES_EXPORTER`:
 //
-//   - unset / "none" — no-op (global no-op tracer stays in place).
-//   - "otlp"        — gRPC OTLP to `OTEL_EXPORTER_OTLP_ENDPOINT`
+//   - unset / "none", no-op (global no-op tracer stays in place).
+//   - "otlp", gRPC OTLP to `OTEL_EXPORTER_OTLP_ENDPOINT`
 //     (default localhost:4317).
-//   - "stdout"      — stdouttrace exporter; useful for operator
+//   - "stdout", stdouttrace exporter; useful for operator
 //     debugging.
 //
 // Returned shutdown function MUST be called before process exit so

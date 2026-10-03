@@ -6,7 +6,7 @@
 // / CP / NJ / NX series PLCs and shared by some HMIs.
 //
 // This package implements ONLY the request builder + response
-// parser for **CONTROLLER DATA READ** (MRC=0x05, SRC=0x01) —
+// parser for **CONTROLLER DATA READ** (MRC=0x05, SRC=0x01),
 // the canonical "tell me what you are" query. The response
 // carries the controller model (20 ASCII bytes) which is the
 // fingerprint signal. No write or memory-read services are
@@ -32,7 +32,7 @@ import (
 //	6       SNA    1     Source network. 0x00.
 //	7       SA1    1     Source node. 0x01 (caller).
 //	8       SA2    1     Source unit. 0x00 (no-PC origin).
-//	9       SID    1     Service ID — request identifier (echoed
+//	9       SID    1     Service ID, request identifier (echoed
 //	                     in response). 0x00..0xFF.
 //	10      MRC    1     Main Request Code.
 //	11      SRC    1     Sub Request Code.
@@ -97,13 +97,13 @@ var (
 	// 14-byte minimum (10 header + 2 MRC/SRC + 2 end-code).
 	ErrShortFrame = errors.New("finsudp: response shorter than minimum")
 	// ErrNotResponse means the ICF byte doesn't have bit 6
-	// (response) set — the datagram came from a request
+	// (response) set, the datagram came from a request
 	// loopback, a half-finished implementation, or an
 	// unrelated UDP service binding port 9600.
 	ErrNotResponse = errors.New("finsudp: ICF lacks the response bit (0x40)")
 	// ErrServiceMismatch means the SID we sent was not the
-	// SID we got back. Not strictly a protocol error — some
-	// gateways re-write the SID — but worth flagging at the
+	// SID we got back. Not strictly a protocol error, some
+	// gateways re-write the SID, but worth flagging at the
 	// plugin layer for false-positive suppression.
 	ErrServiceMismatch = errors.New("finsudp: SID echo mismatch")
 	// ErrEndCodeNonZero means the controller responded with a
@@ -123,10 +123,10 @@ var (
 //	1..9    rest of header  (9)
 //	10      MRC (0x05)    1
 //	11      SRC (0x01)    1
-//	12..13  end code      2  — 0x0000 = success
-//	14..33  Model              20 — ASCII, padded with 0x20/0x00
-//	34..53  Controller Version 20 — ASCII, padded
-//	54..93  For System Use     40 — RESERVED (not a version); then
+//	12..13  end code      2, 0x0000 = success
+//	14..33  Model              20, ASCII, padded with 0x20/0x00
+//	34..53  Controller Version 20, ASCII, padded
+//	54..93  For System Use     40, RESERVED (not a version); then
 //	                                program/IOM/DM sizes
 //
 // Validated byte for byte against a real Omron CP1L-EL20DR-D response
@@ -168,10 +168,10 @@ func ParseControllerDataRead(buf []byte, wantSID byte) (ControllerData, error) {
 
 // trimASCII strips trailing NULs and spaces and returns the
 // remaining string. The cutset is "any of NUL/space" applied in
-// a single pass — the order-dependent two-call form
+// a single pass, the order-dependent two-call form
 // (TrimRight("\x00") then TrimRight(" ")) leaves embedded NULs
 // when padding interleaves NUL and space, e.g. "MODEL\x00 \x00 "
-// → after trim NUL: "MODEL\x00 \x00 " (no trailing NUL — last is
+// → after trim NUL: "MODEL\x00 \x00 " (no trailing NUL, last is
 // space) → after trim space: "MODEL\x00 \x00" (still trailing NUL).
 // Embedded printable bytes mid-string are preserved.
 func trimASCII(b []byte) string {

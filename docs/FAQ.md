@@ -1,4 +1,4 @@
-# ElSereno — FAQ expandida
+# ElSereno, FAQ expandida
 
 Preguntas frecuentes con respuestas detalladas. Para
 preguntas rápidas con un párrafo de respuesta, ver el
@@ -27,7 +27,7 @@ Default + offensive pueden coexistir en el mismo host
 
 Sólo para escribir en `/usr/local/bin/` (`sudo install`) o
 crear el systemd service. El binario en sí corre como un
-usuario sin privilegios — sólo necesita `cap_net_bind_service`
+usuario sin privilegios, sólo necesita `cap_net_bind_service`
 si quiere bindear puertos <1024:
 
 ```bash
@@ -39,7 +39,7 @@ sudo setcap cap_net_bind_service=+ep /usr/local/bin/elsereno
 **Aún no**. Bloqueadores:
 
 - `syscall.*` por-plataforma en `internal/audit` (file
-  locking via flock — usaríamos `LockFileEx` en Windows).
+  locking via flock, usaríamos `LockFileEx` en Windows).
 - Sandboxing (Windows usaría AppContainer / Job Objects en
   lugar de seccomp).
 
@@ -79,7 +79,7 @@ Más info en [SECURITY.md §7](SECURITY.md#7-supply-chain).
 ### Olvidé la passphrase del vault. ¿Cómo recupero?
 
 **No hay recuperación**. El vault se cifra con scrypt-derived
-key — sin la passphrase, el vault es bytes random.
+key, sin la passphrase, el vault es bytes random.
 Sin escape-hatch a propósito (PITF-021).
 
 Opciones:
@@ -155,7 +155,7 @@ Para uso ad-hoc (`elsereno scan` por lotes), no.
 El binario está validado contra Postgres 16. Versions 14/15
 **probablemente** funcionan (no usa nada de 16-only en las
 migraciones), pero no están en el CI matrix. Postgres 17
-recién está saliendo (Q1 2026) — testing pendiente.
+recién está saliendo (Q1 2026), testing pendiente.
 
 ### ¿Puedo usar SQLite en lugar de Postgres?
 
@@ -176,7 +176,7 @@ significativo.
   Migration 00006 dejó hooks para esto (no obligatorio).
 - **Read replicas**: streaming replication estándar.
 - **`pgbouncer`** front para pooling.
-- `pool_max` en config (default 16) — para 50+ workers
+- `pool_max` en config (default 16), para 50+ workers
   necesitarás subirlo.
 
 ---
@@ -207,7 +207,7 @@ Sí, pero implica compilar tu fork:
    interfaz `core.Plugin`.
 2. `internal/plugins/myplugin/init.go` con `init()` que
    registra el plugin en el global registry.
-3. `go build -o elsereno ./cmd/elsereno` — el plugin queda
+3. `go build -o elsereno ./cmd/elsereno`: el plugin queda
    compilado en el binario.
 
 No hay plugin-as-shared-library en v1.88 (intencional: el
@@ -293,7 +293,7 @@ Causas comunes:
    un add-on inyecta scripts, los bloquea.
 2. **Vault locked**: el CSRF key se deriva del vault. Si
    `serve` arrancó sin unlock, /api/v1/* devuelve 503.
-3. **Stale binary** — ver troubleshooting en
+3. **Stale binary**: ver troubleshooting en
    [MANUAL.md §10](MANUAL.md#10-troubleshooting).
 
 ### ¿Cómo cierro `serve`?
@@ -383,13 +383,13 @@ Te confirma que la chain era válida en ese instante.
 
 ### ¿Cómo exporto el audit log a mi DLP?
 
-Ver [INTEGRATIONS.md](INTEGRATIONS.md) — patrón general
+Ver [INTEGRATIONS.md](INTEGRATIONS.md), patrón general
 (file → forwarder → SIEM) aplica al audit igual que a
 findings.
 
 ### ¿Tengo que cumplir GDPR / personal data?
 
-ElSereno NO captura PII por default — registra IPs +
+ElSereno NO captura PII por default, registra IPs +
 banners + device IDs. Si tu organización considera la
 IP como PII (algunas autoridades de protección de datos
 europeas), incluye `audit.jsonl` en tu retention policy
@@ -444,10 +444,10 @@ make ci             # superset de CI: lint + build × 3 variants + test-race + t
 
 ## Más
 
-- [`MANUAL.md`](MANUAL.md) — referencia general.
-- [`DEV-SETUP.md`](DEV-SETUP.md) — dev workflow.
-- [`SECURITY.md`](SECURITY.md) — modelo de seguridad.
-- [`INTEGRATIONS.md`](INTEGRATIONS.md) — SIEM / observ.
+- [`MANUAL.md`](MANUAL.md), referencia general.
+- [`DEV-SETUP.md`](DEV-SETUP.md), dev workflow.
+- [`SECURITY.md`](SECURITY.md), modelo de seguridad.
+- [`INTEGRATIONS.md`](INTEGRATIONS.md), SIEM / observ.
 
 ¿Tu pregunta no está aquí? Abre un issue marcado `question`
 o `docs`.

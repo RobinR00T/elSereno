@@ -43,7 +43,7 @@ type CronExpr struct {
 	month  uint64 // bits 1..12
 	dow    uint64 // bits 0..6
 	// raw is the original expression string. Useful for
-	// dashboards / logging — we never need to round-trip the
+	// dashboards / logging, we never need to round-trip the
 	// bitmasks back to the canonical form.
 	raw string
 }
@@ -286,9 +286,9 @@ var ErrCronNoMatch = errors.New("scanorch: cron expression has no match within 1
 // truncated to minute precision (sub-second components on
 // `after` are dropped).
 //
-// Returns ErrCronNoMatch if no match is found within 1 year —
+// Returns ErrCronNoMatch if no match is found within 1 year,
 // guards against expressions that look valid but never match
-// (e.g., "0 0 30 2 *" — Feb 30 doesn't exist).
+// (e.g., "0 0 30 2 *", Feb 30 doesn't exist).
 func (c CronExpr) Next(after time.Time) (time.Time, error) {
 	t := after.Truncate(time.Minute).Add(time.Minute)
 	for i := 0; i < nextScanLimitMinutes; i++ {

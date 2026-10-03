@@ -5,7 +5,7 @@
 // Why a codec package, not a Probe plugin:
 //
 // PROFINET DCP runs directly over Ethernet (EtherType 0x8892)
-// using multicast MAC 01:0E:CF:00:00:00 — L2, no IP, no TCP.
+// using multicast MAC 01:0E:CF:00:00:00, L2, no IP, no TCP.
 // The elsereno Probe(ctx, target) framework expects an
 // (IP, port) target. Until v2.40+ ships a raw-socket scanner
 // (gopacket + root cap), v2.39 delivers:

@@ -205,7 +205,7 @@ func TestGateCallMethod_OneForbiddenRefuses(t *testing.T) {
 	}
 	client, upstreamBuf := driveCallMethodSession(t, calls)
 
-	// Allowed (100,101) first, then FORBIDDEN (100,999) — whole
+	// Allowed (100,101) first, then FORBIDDEN (100,999), whole
 	// request must refuse.
 	body := buildCallMSGBody([]wire.CallMethod{
 		{
@@ -267,7 +267,7 @@ func TestGateCallMethod_StringNodeMatches(t *testing.T) {
 //
 //	ObjectID (variable)
 //	MethodID (variable)
-//	InputArguments: Variant[]  — always null for simplicity
+//	InputArguments: Variant[], always null for simplicity
 //	                 (-1 i32 length prefix, 4 bytes)
 func buildCallMSGBody(methods []wire.CallMethod) []byte {
 	buf := make([]byte, 16) // SCId + TokenId + SeqNo + ReqId

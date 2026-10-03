@@ -279,7 +279,7 @@ func buildFinding(target core.Target, note, vendor, product, revision string) *c
 	}
 }
 
-// portBytes splits a uint16 port into (hi, lo) — same pattern as
+// portBytes splits a uint16 port into (hi, lo), same pattern as
 // xot/atmodem: avoid a uint16->byte conversion that gosec flags.
 func portBytes(p core.Port) [2]byte {
 	return [2]byte{byte(uint16(p) >> 8 & 0xff), byte(uint16(p) & 0xff)}

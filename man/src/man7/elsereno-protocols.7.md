@@ -4,7 +4,7 @@
 
 # NAME
 
-**elsereno-protocols** — overview of protocols supported or planned
+**elsereno-protocols**: overview of protocols supported or planned
 
 # DESCRIPTION
 

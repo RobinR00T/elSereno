@@ -10,7 +10,7 @@ default-port: <port>/<tcp|udp>
 # <Protocol Name>
 
 ## TL;DR
-<3–5 lines>
+<3-5 lines>
 
 ## Spec references
 - Primary: <RFC / standard>

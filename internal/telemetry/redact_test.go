@@ -39,14 +39,14 @@ func TestRedactByEntropy(t *testing.T) {
 		t.Fatalf("expected redaction for high-entropy %q, got %q", randomish, got)
 	}
 
-	// UUID v4 — must NOT be redacted even though it is long.
+	// UUID v4, must NOT be redacted even though it is long.
 	uuid := "550e8400-e29b-41d4-a716-446655440000"
 	got = telemetry.Redact("request_id", uuid)
 	if got != uuid {
 		t.Fatalf("UUID was redacted (%q -> %q); must pass through (PITF-004)", uuid, got)
 	}
 
-	// Short high-entropy value — below MinEntropyLen; pass through.
+	// Short high-entropy value, below MinEntropyLen; pass through.
 	short := "Aa1Bb2"
 	got = telemetry.Redact("note", short)
 	if got != short {

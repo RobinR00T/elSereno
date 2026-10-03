@@ -71,7 +71,7 @@ func (r *auditRows) Scan(dst ...any) error {
 	return nil
 }
 
-// TestAudit_NilQuerierReturns503 — dashboard renders without
+// TestAudit_NilQuerierReturns503 dashboard renders without
 // DB; API endpoint signals 503.
 func TestAudit_NilQuerierReturns503(t *testing.T) {
 	h := handlers.APIV1(handlers.APIV1Deps{})
@@ -84,7 +84,7 @@ func TestAudit_NilQuerierReturns503(t *testing.T) {
 	}
 }
 
-// TestAudit_HappyPath — single canned row returns through the
+// TestAudit_HappyPath single canned row returns through the
 // JSON envelope; payload renders as JSON object (not bytes).
 func TestAudit_HappyPath(t *testing.T) {
 	q := &auditFake{rows: []any{1}}
@@ -120,7 +120,7 @@ func TestAudit_HappyPath(t *testing.T) {
 	if r.ID != 42 || r.Actor != "operator" || r.EventType != "proxy_allowlist_reload" {
 		t.Errorf("row = %+v; want canned (42, operator, proxy_allowlist_reload)", r)
 	}
-	// Normalise whitespace before comparing — writeJSON may
+	// Normalise whitespace before comparing, writeJSON may
 	// emit indented JSON depending on the dashboard's pretty-
 	// print toggle.
 	if !strings.Contains(strings.ReplaceAll(string(r.Payload), " ", ""), `"plugin":"sip"`) {
@@ -128,7 +128,7 @@ func TestAudit_HappyPath(t *testing.T) {
 	}
 }
 
-// TestAudit_FilterIgnoresInvalidLimit — non-int `limit=` falls
+// TestAudit_FilterIgnoresInvalidLimit non-int `limit=` falls
 // back to the default rather than 400'ing.
 func TestAudit_FilterIgnoresInvalidLimit(t *testing.T) {
 	q := &auditFake{rows: []any{1}}
@@ -155,7 +155,7 @@ func TestAuditCadence_NilQuerierReturns503(t *testing.T) {
 	}
 }
 
-// TestAuditCadence_HappyPath — defaults to 7 days; canned 1
+// TestAuditCadence_HappyPath defaults to 7 days; canned 1
 // row returns through the envelope.
 func TestAuditCadence_HappyPath(t *testing.T) {
 	q := &auditFake{rows: []any{1}}

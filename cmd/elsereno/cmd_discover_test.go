@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// TestExpandCIDR_IPv4Slash30 — /30 prefix should yield 4
+// TestExpandCIDR_IPv4Slash30 /30 prefix should yield 4
 // consecutive addresses (the network + 2 hosts + broadcast)
 // when maxHosts is unlimited.
 func TestExpandCIDR_IPv4Slash30(t *testing.T) {
@@ -32,7 +32,7 @@ func TestExpandCIDR_IPv4Slash30(t *testing.T) {
 	}
 }
 
-// TestExpandCIDR_MaxHostsCap — maxHosts caps the output even
+// TestExpandCIDR_MaxHostsCap maxHosts caps the output even
 // for a large prefix. /16 = 65k addrs but maxHosts=10 limits.
 func TestExpandCIDR_MaxHostsCap(t *testing.T) {
 	addrs, err := expandCIDR("10.0.0.0/16", 10)
@@ -44,7 +44,7 @@ func TestExpandCIDR_MaxHostsCap(t *testing.T) {
 	}
 }
 
-// TestExpandCIDR_IPv6Slash126 — IPv6 /126 yields 4 addrs.
+// TestExpandCIDR_IPv6Slash126 IPv6 /126 yields 4 addrs.
 // Validates the v6 path through expandCIDR (chunk 4 of v1.14
 // pinned the contract upstream).
 func TestExpandCIDR_IPv6Slash126(t *testing.T) {
@@ -60,7 +60,7 @@ func TestExpandCIDR_IPv6Slash126(t *testing.T) {
 	}
 }
 
-// TestExpandCIDR_BadInput — malformed CIDRs return errors with
+// TestExpandCIDR_BadInput malformed CIDRs return errors with
 // the original input echoed back so operators see what they
 // typed.
 func TestExpandCIDR_BadInput(t *testing.T) {
@@ -73,7 +73,7 @@ func TestExpandCIDR_BadInput(t *testing.T) {
 	}
 }
 
-// TestPluginsForPort_SharedPortListsAll — the shared-port
+// TestPluginsForPort_SharedPortListsAll the shared-port
 // case (e.g. svc 102 used by both s7 and IEC 61850 MMS in
 // future). Verifies pluginsForPort returns every claimant.
 func TestPluginsForPort_SharedPortListsAll(t *testing.T) {
@@ -88,8 +88,8 @@ func TestPluginsForPort_SharedPortListsAll(t *testing.T) {
 	}
 }
 
-// TestPluginsForPort_NoMatch — port not in the list returns
-// nil (callers handle that as "unknown port responded — log
+// TestPluginsForPort_NoMatch port not in the list returns
+// nil (callers handle that as "unknown port responded, log
 // without protocol hint").
 func TestPluginsForPort_NoMatch(t *testing.T) {
 	ports := []pluginPort{{Port: 502, PluginID: "modbus"}}
@@ -99,7 +99,7 @@ func TestPluginsForPort_NoMatch(t *testing.T) {
 	}
 }
 
-// TestSweep_RespondingPortDetected — boot a tiny TCP listener,
+// TestSweep_RespondingPortDetected boot a tiny TCP listener,
 // have the sweep target it, verify we see the hit.
 func TestSweep_RespondingPortDetected(t *testing.T) {
 	lc := net.ListenConfig{}
@@ -140,7 +140,7 @@ func TestSweep_RespondingPortDetected(t *testing.T) {
 	}
 }
 
-// TestSweep_DeadPortIgnored — a closed port produces no hit.
+// TestSweep_DeadPortIgnored a closed port produces no hit.
 // Use a port we're sure isn't listening (random in the
 // ephemeral range without a listener).
 func TestSweep_DeadPortIgnored(t *testing.T) {
@@ -156,7 +156,7 @@ func TestSweep_DeadPortIgnored(t *testing.T) {
 	}
 }
 
-// TestEmitDiscoverResults_NDJSON — output format ndjson
+// TestEmitDiscoverResults_NDJSON output format ndjson
 // produces one JSON object per line.
 func TestEmitDiscoverResults_NDJSON(t *testing.T) {
 	hits := []discoverHit{
@@ -176,7 +176,7 @@ func TestEmitDiscoverResults_NDJSON(t *testing.T) {
 	}
 }
 
-// TestEmitDiscoverResults_List — list format emits host:port
+// TestEmitDiscoverResults_List list format emits host:port
 // pairs (pipe-friendly with `scan --input list:-`).
 func TestEmitDiscoverResults_List(t *testing.T) {
 	hits := []discoverHit{
@@ -196,7 +196,7 @@ func TestEmitDiscoverResults_List(t *testing.T) {
 	}
 }
 
-// TestEmitDiscoverResults_BadFormat — unknown format errors.
+// TestEmitDiscoverResults_BadFormat unknown format errors.
 func TestEmitDiscoverResults_BadFormat(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	err := emitDiscoverResults(&stdout, &stderr, nil, "yaml")
@@ -205,7 +205,7 @@ func TestEmitDiscoverResults_BadFormat(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_HappyPath — minimal file with
+// TestLoadDiscoverHostsFile_HappyPath minimal file with
 // IP per line + comments + blank lines parses cleanly.
 func TestLoadDiscoverHostsFile_HappyPath(t *testing.T) {
 	dir := t.TempDir()
@@ -234,7 +234,7 @@ func TestLoadDiscoverHostsFile_HappyPath(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_HostPortStrip — operator pasting
+// TestLoadDiscoverHostsFile_HostPortStrip operator pasting
 // `host:port` lines works (we strip the port half).
 func TestLoadDiscoverHostsFile_HostPortStrip(t *testing.T) {
 	dir := t.TempDir()
@@ -255,7 +255,7 @@ func TestLoadDiscoverHostsFile_HostPortStrip(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_IPv6Preserved — ipv6 with double-
+// TestLoadDiscoverHostsFile_IPv6Preserved ipv6 with double-
 // colon retains its full form (port-strip skips IPv6).
 func TestLoadDiscoverHostsFile_IPv6Preserved(t *testing.T) {
 	dir := t.TempDir()
@@ -276,7 +276,7 @@ func TestLoadDiscoverHostsFile_IPv6Preserved(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_MaxHostsCap — bounded walk.
+// TestLoadDiscoverHostsFile_MaxHostsCap bounded walk.
 func TestLoadDiscoverHostsFile_MaxHostsCap(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hosts.txt")
@@ -293,7 +293,7 @@ func TestLoadDiscoverHostsFile_MaxHostsCap(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_EmptyFile — file with no IPs at
+// TestLoadDiscoverHostsFile_EmptyFile file with no IPs at
 // all → typed error.
 func TestLoadDiscoverHostsFile_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
@@ -307,7 +307,7 @@ func TestLoadDiscoverHostsFile_EmptyFile(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_BadIP — line that doesn't parse
+// TestLoadDiscoverHostsFile_BadIP line that doesn't parse
 // as a netip.Addr surfaces with file + line context.
 func TestLoadDiscoverHostsFile_BadIP(t *testing.T) {
 	dir := t.TempDir()
@@ -325,7 +325,7 @@ func TestLoadDiscoverHostsFile_BadIP(t *testing.T) {
 	}
 }
 
-// TestLoadDiscoverHostsFile_MissingFile — wrapped open error.
+// TestLoadDiscoverHostsFile_MissingFile wrapped open error.
 func TestLoadDiscoverHostsFile_MissingFile(t *testing.T) {
 	_, err := loadDiscoverHostsFile(filepath.Join(t.TempDir(), "no-such.txt"), 0)
 	if err == nil {

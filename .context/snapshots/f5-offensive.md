@@ -5,26 +5,26 @@ last-updated: 2026-04-19
 token-budget: 1500
 ---
 
-# Snapshot — F5: Offensive build
+# Snapshot, F5: Offensive build
 
 Closed **2026-04-19**. All safety-critical deliverables shipped
 behind `-tags offensive` + the triple-confirm wrapper. No offensive
 code path is reachable from the default build.
 
 ## Decisions
-- **ADR-039** — triple-confirm wrapper (build tag + `--accept-writes`
+- **ADR-039**: triple-confirm wrapper (build tag + `--accept-writes`
   + `--confirm-target` + HMAC-SHA256 token derived from vault via
   HKDF `info="elsereno/offensive/confirm/v1"`). Every Authorize call
   emits one of `offensive_allowed` / `offensive_denied` /
   `offensive_failed` to the audit chain with the payload hash but
   never the payload.
-- **ADR-040** — per-plugin proxy write-gating matrix for the 7 F4
+- **ADR-040**: per-plugin proxy write-gating matrix for the 7 F4
   pass-through plugins. Every TCP-based plugin now refuses non-read
   frames at the wire layer with a protocol-native refusal response.
-- **ADR-041** — dial guard. Unbypassable ≤3-digit hard block + scope
+- **ADR-041**: dial guard. Unbypassable ≤3-digit hard block + scope
   `blocked_numbers` list + confirm-wrapper. Wardialing batch stays
   vNext.
-- **ADR-042** — Linux seccomp-bpf sandbox via pure Go
+- **ADR-042**: Linux seccomp-bpf sandbox via pure Go
   `golang.org/x/sys/unix.Prctl`. F5 installs `PR_SET_NO_NEW_PRIVS`
   unconditionally; BPF-filter instruction sequences are deferred to
   F6 (the filters are profile-scoped and land with the subprocess
@@ -72,9 +72,9 @@ valid profile, and degraded-continuation contracts.
 
 ### `offensive/exploits`
 Registry + Module interface + 2 CVE implementations:
-- **CVE-2015-5374** — Siemens SIPROTEC 4 / Compact EN100 UDP/50000
+- **CVE-2015-5374**: Siemens SIPROTEC 4 / Compact EN100 UDP/50000
   DoS.
-- **CVE-2019-10953** — Schneider / Allen-Bradley / Phoenix Contact
+- **CVE-2019-10953**: Schneider / Allen-Bradley / Phoenix Contact
   CIP ListIdentity DoS with inflated encapsulation length.
 Both are strictly DoS; no memory-corruption primitives ship.
 
@@ -101,8 +101,8 @@ audit aborts the spawn. Default reason "unspecified" when empty.
 | iec104  | S/U frames Read; I frames Write             | STOPDT_act (Control 0x13)                      |
 | hartip  | SessionInitiate/Close/KeepAlive Read; TokenPassPDU Write | Session-close, status 0x04         |
 | atg     | `I`-family commands Read; everything else Write | Veeder-Root `9999FF1B` Data Error          |
-| fox     | (line-oriented admin) — default fail-closed | "fox a 0 -1 fox denied\n" + disconnect         |
-| bacnet  | (UDP — incompatible with TCP proxy framework) | immediate error from Handle                  |
+| fox     | (line-oriented admin), default fail-closed | "fox a 0 -1 fox denied\n" + disconnect         |
+| bacnet  | (UDP, incompatible with TCP proxy framework) | immediate error from Handle                  |
 
 ## Notable engineering choices
 - Vault-derived token means an operator cannot script past the
@@ -113,16 +113,16 @@ audit aborts the spawn. Default reason "unspecified" when empty.
   delivered I/O result) so the audit chain captures the decision
   and the payload hash, keeping the delivery plane smaller.
 - Sandbox degrades gracefully on macOS (log + continue) rather than
-  refusing to run — matches F0 developer workflow.
+  refusing to run, matches F0 developer workflow.
 
 ## Metrics
-- 8 commits on main (chunks 1–8).
+- 8 commits on main (chunks 1-8).
 - ~3100 LOC added behind `-tags offensive`.
 - 52 new unit tests (all offensive-tag).
 - `make ci` green on both default and offensive build variants.
 
 ## Carry-overs to F6
-- CLI verbs `elsereno write|exploit|harvest|dial` — wiring lands
+- CLI verbs `elsereno write|exploit|harvest|dial`: wiring lands
   when the DB-backed audit writer ships.
 - seccomp-bpf BPF-filter instruction sequences (profile shell
   already in place).

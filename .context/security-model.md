@@ -50,7 +50,7 @@ collaboration is vNext.
   pass-through proxies; their per-service write-ban matrices land in F5
   with triple-confirm wrappers.
 - **Sandbox**: offensive subprocesses on Linux under seccomp-bpf (F5; library
-  decision deferred — ADR-010).
+  decision deferred, ADR-010).
 - **Secrets transport**: never argv, never herestring; env vars accepted
   only for CI/cron contexts with a rationale and a TTY warning (ADR-026,
   PITF-016, PITF-032).

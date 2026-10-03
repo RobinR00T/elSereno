@@ -19,7 +19,7 @@ import (
 // that the Model folds into the UI.
 //
 // Pairs with the v1.30-chunk-3 `elsereno tui --input list:FILE`
-// flag — operators can scan + triage in one process without
+// flag operators can scan + triage in one process without
 // piping `scan --output-format ndjson | tui --feed -`.
 //
 // Closure: when the scanner finishes the runner emits
@@ -63,7 +63,7 @@ func (i Interactive) Run(ctx context.Context, emit func(tea.Msg)) error {
 	var completed atomic.Int64
 
 	// Initial progress so the bar renders immediately at 0/N
-	// instead of "idle" — operators should see a scan started.
+	// instead of "idle", operators should see a scan started.
 	emit(tui.ScanProgressMsg{Completed: 0, Total: total})
 
 	findings, errs := scn.Run(ctx, i.Targets, i.Probe)

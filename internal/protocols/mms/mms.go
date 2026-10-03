@@ -53,7 +53,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 //   - COTP-DR → likely S7 or other non-MMS server on port 102.
 //   - non-TPKT → not OSI on port 102.
 //
-// No service-request frames are issued — the default build is
+// No service-request frames are issued, the default build is
 // read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
@@ -91,7 +91,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// confidence from "MMS-compatible TSAPs" (~0.8) to
 	// "actual IEC 61850-8-1 IED" (~0.95). Any failure here
 	// (write timeout, AARE without the IEC 61850 OID,
-	// short response) falls back to the COTP-level note —
+	// short response) falls back to the COTP-level note,
 	// the v1.25 behaviour is preserved for non-IEC 61850
 	// MMS-style servers.
 	// v2.36+: on a successful ACSE associate, extract a
@@ -125,7 +125,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 //
 // Wraps the AARQ in COTP DT (LI=02, type=0xF0, TPDU-nr=0x80
 // = end-of-TSDU marker) before TPKT. The conn deadline
-// already covers this exchange — operator-tunable via
+// already covers this exchange, operator-tunable via
 // Plugin.IOTimeout.
 func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, []byte, bool) {
 	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
@@ -174,7 +174,7 @@ func tryGetServerDirectory(conn net.Conn, ioTimeout time.Duration) ([]string, er
 	return wire.ParseMMSGetServerDirectoryResponse(body)
 }
 
-// REPL stub — consistent with every other protocol plugin.
+// REPL stub, consistent with every other protocol plugin.
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("mms: REPL arrives with the generic framework")
 }
@@ -190,7 +190,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("mms: TCP proxy framework requires an MMS-aware classifier; v1.25 is fingerprint-only — a relay arrives with the future offensive plugin")
+	return fmt.Errorf("mms: TCP proxy framework requires an MMS-aware classifier; v1.25 is fingerprint-only, a relay arrives with the future offensive plugin")
 }
 
 func classifyParseError(err error) string {
@@ -211,7 +211,7 @@ func buildFinding(target core.Target, note string, isMMS bool) *core.Finding {
 		"auth_state":    85, // IEC 61850-8-1 supports ACSE auth but many deployments don't enforce
 		"capability":    30,
 		"impact_class":  85, // grid-scale blast radius (transmission + distribution)
-		// cve_exposure: 9 — IEC 61850 MMS family has a recurring
+		// cve_exposure: 9, IEC 61850 MMS family has a recurring
 		// CVE record across vendors. Anchor CVEs:
 		//   CVE-2018-13802 (Siemens SIPROTEC 4 / DIGSI 4 OSI stack DoS).
 		//   CVE-2020-7517  (Schneider EcoStruxure Power Operation MMS).

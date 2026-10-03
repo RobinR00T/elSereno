@@ -28,7 +28,7 @@ import (
 //
 // On parse error, the bad line is converted into a synthetic
 // AuditMsg ("ndjson: skipped malformed line N: …") rather than
-// terminating the feed — a single corrupted entry shouldn't kill
+// terminating the feed, a single corrupted entry shouldn't kill
 // a long capture. The first I/O error (read failure, EOF
 // excepted) terminates the feed and is returned via Run.
 type Replay struct {
@@ -36,7 +36,7 @@ type Replay struct {
 	Path string
 	// Rate is the playback rate in lines per second. 0 (the
 	// default) plays as fast as the goroutine schedules.
-	// Ignored when Control is non-nil — Control.Rate() wins.
+	// Ignored when Control is non-nil, Control.Rate() wins.
 	Rate float64
 	// StatusEvery (v2.51+) is the line-count interval between
 	// ReplayStatusMsg emissions. 0 (default) → 100. Set to
@@ -85,7 +85,7 @@ func (r Replay) stream(ctx context.Context, src io.Reader, emit func(tea.Msg)) e
 	wrapped := func(m tea.Msg) {
 		// v2.53: honour pause + rate-change before the
 		// emission. WaitIfPaused returns true when it had to
-		// block — that already burns the time we'd otherwise
+		// block that already burns the time we'd otherwise
 		// have paced, so we skip the next paceDelay sleep
 		// when it does.
 		if r.Control != nil {

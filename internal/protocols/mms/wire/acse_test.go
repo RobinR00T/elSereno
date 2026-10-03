@@ -7,7 +7,7 @@ import (
 	"local/elsereno/internal/protocols/mms/wire"
 )
 
-// TestMMSApplicationContextOIDBytes — pin the BER encoding
+// TestMMSApplicationContextOIDBytes pin the BER encoding
 // of the IEC 61850-8-1 application-context-name OID. A
 // regression here means we'd send the wrong OID in the
 // AARQ, and real MMS servers would reject the
@@ -31,7 +31,7 @@ func TestMMSApplicationContextOIDBytes(t *testing.T) {
 	}
 }
 
-// TestBuildACSEAssociateRequestMMS — the static AARQ frame
+// TestBuildACSEAssociateRequestMMS the static AARQ frame
 // must be non-empty + must contain the IEC 61850-8-1 OID
 // (so any future refactor that loses the OID gets caught
 // at test time).
@@ -40,7 +40,7 @@ func TestBuildACSEAssociateRequestMMS(t *testing.T) {
 	if len(frame) < 64 {
 		t.Errorf("AARQ too short: %d bytes", len(frame))
 	}
-	// The OID must appear at least twice — once in the
+	// The OID must appear at least twice, once in the
 	// presentation context-definition (abstract syntax)
 	// and once in the AARQ application-context-name.
 	count := 0
@@ -55,7 +55,7 @@ func TestBuildACSEAssociateRequestMMS(t *testing.T) {
 	}
 }
 
-// TestParseACSEAssociateResponseMMS_Positive — a buffer
+// TestParseACSEAssociateResponseMMS_Positive a buffer
 // containing the OID anywhere returns nil.
 func TestParseACSEAssociateResponseMMS_Positive(t *testing.T) {
 	// COTP DT (3 bytes) + arbitrary preamble + OID + tail.
@@ -71,7 +71,7 @@ func TestParseACSEAssociateResponseMMS_Positive(t *testing.T) {
 	}
 }
 
-// TestParseACSEAssociateResponseMMS_NoOID — a long buffer
+// TestParseACSEAssociateResponseMMS_NoOID a long buffer
 // without the OID returns ErrNoMMSACSEResponse.
 func TestParseACSEAssociateResponseMMS_NoOID(t *testing.T) {
 	resp := make([]byte, 256)
@@ -84,7 +84,7 @@ func TestParseACSEAssociateResponseMMS_NoOID(t *testing.T) {
 	}
 }
 
-// TestParseACSEAssociateResponseMMS_TooShort — a buffer
+// TestParseACSEAssociateResponseMMS_TooShort a buffer
 // shorter than COTP-DT-header + OID-len returns
 // ErrACSETooShort.
 func TestParseACSEAssociateResponseMMS_TooShort(t *testing.T) {
@@ -95,7 +95,7 @@ func TestParseACSEAssociateResponseMMS_TooShort(t *testing.T) {
 	}
 }
 
-// TestParseACSEAssociateResponseMMS_OIDAtBoundary — OID
+// TestParseACSEAssociateResponseMMS_OIDAtBoundary OID
 // at the very start (just after a 3-byte preamble) is
 // found.
 func TestParseACSEAssociateResponseMMS_OIDAtBoundary(t *testing.T) {
@@ -108,7 +108,7 @@ func TestParseACSEAssociateResponseMMS_OIDAtBoundary(t *testing.T) {
 	}
 }
 
-// TestParseACSEAssociateResponseMMS_PartialOID — a buffer
+// TestParseACSEAssociateResponseMMS_PartialOID a buffer
 // with 4 of the 5 OID bytes (missing the last) does NOT
 // match.
 func TestParseACSEAssociateResponseMMS_PartialOID(t *testing.T) {

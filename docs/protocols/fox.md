@@ -3,7 +3,7 @@
 Tridium Niagara framework (JACE, WebSupervisor) runs Building
 Automation Systems on top of the proprietary "fox" protocol. BMS
 dealers, HVAC contractors, hospital facility teams deploy it
-widely — often exposed to the Internet.
+widely, often exposed to the Internet.
 
 ## Probe
 

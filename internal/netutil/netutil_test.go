@@ -21,7 +21,7 @@ func TestIsLoopbackHostPort(t *testing.T) {
 		"127.0.0.5:1234":         true,
 		"127.255.255.255:443":    true,
 		"127.0.0.1":              true,  // bare IP without port
-		"127.0.0.1:8787:invalid": false, // double colons — ParseAddrPort rejects
+		"127.0.0.1:8787:invalid": false, // double colons, ParseAddrPort rejects
 
 		// IPv6 loopback shortform.
 		"[::1]:8787": true,
@@ -36,7 +36,7 @@ func TestIsLoopbackHostPort(t *testing.T) {
 		"[::1%lo0]:8787": true,
 		"[::1%lo]:443":   true,
 
-		// IPv6 unspecified (::, any-interface bind) — NOT loopback.
+		// IPv6 unspecified (::, any-interface bind), NOT loopback.
 		"[::]:8787":            false,
 		"[::]:443":             false,
 		"[0:0:0:0:0:0:0:0]:80": false,
@@ -52,7 +52,7 @@ func TestIsLoopbackHostPort(t *testing.T) {
 		"[fe80::1]:8787":    false,
 
 		// Garbage.
-		"::1:8787":              false, // missing brackets — not a parseable v6 host:port
+		"::1:8787":              false, // missing brackets, not a parseable v6 host:port
 		"localhost:":            false, // empty port after colon
 		"i-am-not-an-address":   false,
 		"random:thing:withport": false,
@@ -69,11 +69,11 @@ func TestIsLoopbackHostPort(t *testing.T) {
 
 func TestCanonicalHostPort(t *testing.T) {
 	cases := map[string]string{
-		// IPv4 — unchanged.
+		// IPv4 unchanged.
 		"127.0.0.1:7547": "127.0.0.1:7547",
 		"8.8.8.8:53":     "8.8.8.8:53",
 
-		// IPv6 — already canonical.
+		// IPv6 already canonical.
 		"[::1]:7547":        "[::1]:7547",
 		"[2001:db8::1]:443": "[2001:db8::1]:443",
 
@@ -85,7 +85,7 @@ func TestCanonicalHostPort(t *testing.T) {
 		"[2001:DB8::1]:443": "[2001:db8::1]:443",
 		"[FE80::ABCD]:8787": "[fe80::abcd]:8787",
 
-		// Hostname forms — passed through unchanged.
+		// Hostname forms, passed through unchanged.
 		"localhost:8787":  "localhost:8787",
 		"example.com:443": "example.com:443",
 	}

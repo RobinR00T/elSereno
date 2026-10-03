@@ -84,7 +84,7 @@ func (c *Client) Lookup(ctx context.Context, ip string) ([]core.Target, error) {
 	case http.StatusOK:
 		// fall through to decode
 	case http.StatusNotFound:
-		// "No information available for this IP" — not an error.
+		// "No information available for this IP", not an error.
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("internetdb: status %d", resp.StatusCode)

@@ -29,7 +29,7 @@ type BatchResult struct {
 }
 
 // Batch walks numbers in r and classifies each one against the
-// dial guard (ADR-041). Every number — allowed or rejected —
+// dial guard (ADR-041). Every number, allowed or rejected,
 // produces one audit Entry of type `offensive_dial` so the chain
 // reflects the operator's full intent, not just the ones that
 // would have gone through.
@@ -44,14 +44,14 @@ type Batch struct {
 	// Nil scope = no additional filter (the hard ≤3-digit block
 	// still applies).
 	Scope *scope.Scope
-	// Writer is the audit sink. Required — the whole point of a
+	// Writer is the audit sink. Required, the whole point of a
 	// batch is that every decision is recorded.
 	Writer audit.Writer
 	// Actor is written into each audit entry. Usually currentActor().
 	Actor string
 	// Disposition is the `disposition` payload field. "preview" is
 	// the default; an operator passing --accept-writes can flip it
-	// to "delivery-requested" to record INTENT — the actual hardware
+	// to "delivery-requested" to record INTENT, the actual hardware
 	// call is v1.2.
 	Disposition string
 	// Operation is the protocol-ish label emitted under
@@ -66,7 +66,7 @@ type Batch struct {
 //
 // Errors from the audit writer are fatal (a broken chain is
 // worse than a partial batch). Per-number decision errors
-// (ErrShortNumber, ErrBlockedByScope) are NOT fatal — they're
+// (ErrShortNumber, ErrBlockedByScope) are NOT fatal, they're
 // the common case for a big list.
 func (b *Batch) Run(ctx context.Context, r io.Reader) ([]BatchResult, error) {
 	if b.Writer == nil {

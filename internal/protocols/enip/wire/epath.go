@@ -26,7 +26,7 @@ import (
 // successfully but the gate evaluates them at full
 // uint32 precision.
 //
-// `Has*` flags signal which segments were present —
+// `Has*` flags signal which segments were present,
 // many MR requests omit attribute (target the whole
 // instance), and a few omit instance (target the class).
 type EPathTarget struct {
@@ -75,7 +75,7 @@ var (
 	// ErrEPathUnknownSegment is returned when the path
 	// contains a segment type we don't classify
 	// (port-segments, symbolic, network-segments).
-	// Gate refuses on this — partial parse can't
+	// Gate refuses on this, partial parse can't
 	// safely allow.
 	ErrEPathUnknownSegment = errors.New("enip: EPATH unknown segment type")
 )
@@ -199,7 +199,7 @@ func parseSymbolSegment(path []byte, cursor int, t *EPathTarget) (int, error) {
 //
 // Returns (target, true) when the MR can be parsed.
 // Returns (_, false) for non-MR encapsulation commands
-// (ListIdentity etc.) or malformed bodies — the gate
+// (ListIdentity etc.) or malformed bodies, the gate
 // treats false as "no per-attr constraint applies",
 // falling back to the command-level allowlist.
 func ExtractMRTarget(body []byte) (EPathTarget, bool) {

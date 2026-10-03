@@ -15,10 +15,10 @@ temperature instrumentation gateways.
 
 The 8-byte HART-IP header MsgID classifies the message:
 
-- **CategoryRead** — SessionInitiate (0x00), SessionClose (0x01),
+- **CategoryRead**: SessionInitiate (0x00), SessionClose (0x01),
   KeepAlive (0x02). Forward untouched (session lifecycle must
   complete).
-- **CategoryWrite** — TokenPassPDU (0x03). Carries an inner HART
+- **CategoryWrite**: TokenPassPDU (0x03). Carries an inner HART
   command that can be a read OR a write depending on the command
   number. The default conservatively blocks.
 

@@ -5,7 +5,7 @@ date: 2026-04-19
 token-budget: 1200
 ---
 
-# Phase F2 snapshot — Legacy telephony (XOT + AT modems)
+# Phase F2 snapshot, Legacy telephony (XOT + AT modems)
 
 **Closed on 2026-04-19.** `make ci` green end-to-end. Repo is now at
 the brief's F2 milestone: ready to push to a private GitHub
@@ -87,7 +87,7 @@ section 17 paso 17).
   exhaustion against adversarial responses.
 - **Vendor detection via a priority table** (`vendorMatches`)
   replaces a 12-case switch to stay under golangci-lint's gocyclo
-  ceiling — and keeps the ordering explicit (lifts before GSM vendors
+  ceiling, and keeps the ordering explicit (lifts before GSM vendors
   because lift stacks sometimes advertise GSM radios).
 
 ## New pitfalls captured
@@ -98,16 +98,16 @@ inline with rationale comments.
 
 ## Debt accepted (moved to F3+)
 
-- **XOT REPL** (`call / clear / data / quit`) — generic REPL
+- **XOT REPL** (`call / clear / data / quit`), generic REPL
   framework lands in F4.
 - **AT REPL** (`atinfo / signal / imsi / imei / operator / quit`)
-  — same.
+same.
 - **Proxy framework instrumentation**: the two protocol proxies
   exist but run without per-frame logging / hook points. The F3
   framework binds those in.
-- **XOT X.29 PAD parameter handling** — needed for full Call
+- **XOT X.29 PAD parameter handling**: needed for full Call
   Accepted interaction; F3+.
-- **Offensive plugins** (write/dial/sms/harvest) — F5.
+- **Offensive plugins** (write/dial/sms/harvest), F5.
 
 ## What moves to F3
 

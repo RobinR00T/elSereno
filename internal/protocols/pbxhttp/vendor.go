@@ -18,7 +18,7 @@ import "strings"
 type Vendor string
 
 // Known vendors. The list intentionally overlaps with
-// `internal/protocols/sip.Vendor` — a single deployment will
+// `internal/protocols/sip.Vendor`: a single deployment will
 // often appear in both (SIP on 5060 + web UI on 443 / 8088 /
 // 5001), and deduplication happens at the scanner level.
 const (
@@ -47,27 +47,27 @@ var vendorMatchers = []struct {
 	needle string
 	vendor Vendor
 }{
-	// FreePBX admin page — Sangoma now owns both FreePBX and PBXact.
+	// FreePBX admin page, Sangoma now owns both FreePBX and PBXact.
 	{"freepbx administration", VendorFreePBX},
 	{"freepbx", VendorFreePBX},
 	{"sangoma pbxact", VendorPBXact},
 	{"pbxact", VendorPBXact},
 
-	// 3CX — web client + management console.
+	// 3CX, web client + management console.
 	{"3cx phone system", VendorThreeCX},
 	{"3cx web client", VendorThreeCX},
 	{"3cx webmeeting", VendorThreeCX},
 	{"3cxphone", VendorThreeCX},
 	{"3cx", VendorThreeCX},
 
-	// Yeastar — multi-product line: NeoGate, S-series, P-series,
+	// Yeastar multi-product line: NeoGate, S-series, P-series,
 	// K2, MyPBX. Linkus is the softphone.
 	{"yeastar", VendorYeastar},
 	{"linkus server", VendorYeastar},
 	{"neogate", VendorYeastar},
 	{"mypbx", VendorYeastar},
 
-	// Cisco UCM — Unified Communications Manager.
+	// Cisco UCM, Unified Communications Manager.
 	{"cisco unified cm administration", VendorCiscoUCM},
 	{"cisco unified communications manager", VendorCiscoUCM},
 	{"ccmadmin", VendorCiscoUCM},
@@ -80,7 +80,7 @@ var vendorMatchers = []struct {
 	{"communication manager", VendorAvaya},
 	{"avaya", VendorAvaya},
 
-	// Mitel — including acquired ShoreTel.
+	// Mitel including acquired ShoreTel.
 	{"mitel", VendorMitel},
 	{"shoretel", VendorMitel},
 	{"micollab", VendorMitel},
@@ -92,10 +92,10 @@ var vendorMatchers = []struct {
 	{"gxp", VendorGrandstream},  // GXP series IP phones
 	{"gxw", VendorGrandstream},  // GXW gateways
 
-	// Fanvil — phones + paging adapters.
+	// Fanvil phones + paging adapters.
 	{"fanvil", VendorFanvil},
 
-	// Yealink — phones + MVC. Title tag is the strongest signal.
+	// Yealink phones + MVC. Title tag is the strongest signal.
 	{"yealink", VendorYealink},
 	{"sip-t", VendorYealink}, // SIP-T4x, SIP-T5x, SIP-T3x series
 
@@ -122,7 +122,7 @@ var vendorMatchers = []struct {
 // is case-insensitive (inputs are lowercased internally). The
 // first match wins, priority-ordered.
 //
-// Returns VendorUnknown if nothing matches (which is normal —
+// Returns VendorUnknown if nothing matches (which is normal,
 // most HTTP servers on 443 are unrelated web apps, not PBXes).
 func IdentifyVendor(headers, title, body string) Vendor {
 	haystacks := []string{
@@ -143,13 +143,13 @@ func IdentifyVendor(headers, title, body string) Vendor {
 // VendorRisk returns the protocol_risk factor for a vendor. The
 // tier logic mirrors `internal/protocols/sip.VendorRisk`:
 //
-//	90 — attack-ripe PBXes (FreePBX, 3CX, Asterisk, PBXact, Elastix)
-//	85 — enterprise (Cisco UCM, Avaya, Mitel)
-//	80 — SOHO appliances with default-exposed admin webs
+//	90, attack-ripe PBXes (FreePBX, 3CX, Asterisk, PBXact, Elastix)
+//	85, enterprise (Cisco UCM, Avaya, Mitel)
+//	80, SOHO appliances with default-exposed admin webs
 //	     (Yeastar, Grandstream, Fanvil, Yealink)
-//	75 — SIP gateways / commercial Asterisk flavours (Switchvox,
+//	75, SIP gateways / commercial Asterisk flavours (Switchvox,
 //	     FreeSWITCH)
-//	70 — default for an unknown HTTP responder that nonetheless
+//	70, default for an unknown HTTP responder that nonetheless
 //	     looked PBX-ish (e.g. the page title said "login" + the
 //	     URL was /admin/config.php)
 func VendorRisk(v Vendor) int {

@@ -1,18 +1,18 @@
 ---
 id: 039
-title: Offensive build — architecture & triple-confirm wrapper
+title: Offensive build, architecture & triple-confirm wrapper
 status: accepted
 date: 2026-04-19
 phase: F5
 ---
 
-# ADR-039: Offensive build — architecture & triple-confirm wrapper
+# ADR-039: Offensive build, architecture & triple-confirm wrapper
 
 ## Context
 F5 introduces writes to live OT devices (Modbus, S7, CIP, BACnet),
 two public-stable CVE exploits, credential harvest, and dial. Every
 operation in this set can cause physical impact or violate AUP. The
-default-denial posture of F0–F4 (read-only, wire-level write-ban in
+default-denial posture of F0-F4 (read-only, wire-level write-ban in
 Modbus/atmodem, pass-through for the rest) was the correct "no
 surprise" stance. F5 opens specific, auditable escape hatches that
 never widen the default.
@@ -22,7 +22,7 @@ The architecture must satisfy, simultaneously:
   cause a write (compile-time fence).
 - An operator who compiles `-tags offensive` still cannot cause a write
   without a deliberate, per-invocation signal.
-- Every write leaves a tamper-evident audit trail — including the denied
+- Every write leaves a tamper-evident audit trail, including the denied
   attempts.
 - The wire layer remains the last line of defence; a bug in a higher
   layer must not slip a frame through.
@@ -42,17 +42,17 @@ Every mutating operation passes through
 `offensive/confirm.Authorize(ctx, Mutation, Confirm) error`. The call
 succeeds iff **all three** of these hold:
 
-1. `c.AcceptsWrites == true` — set by the `--accept-writes` CLI flag
+1. `c.AcceptsWrites == true`: set by the `--accept-writes` CLI flag
    (no default, no env var).
-2. `c.ConfirmTarget == m.Target.String()` — set by
+2. `c.ConfirmTarget == m.Target.String()`: set by
    `--confirm-target host:port`; must match the argv-provided target
    byte-for-byte.
-3. `c.ConfirmToken == ExpectedToken(m)` — set by `--confirm-token`.
+3. `c.ConfirmToken == ExpectedToken(m)`: set by `--confirm-token`.
    `ExpectedToken(m)` is `HMAC-SHA256(masterKey, proto || 0x00 || op ||
    0x00 || target || 0x00 || payloadHash)` truncated to the first 16
    hex bytes (32 chars). `masterKey` is derived via HKDF from the vault
    master key with `info="elsereno/offensive/confirm/v1"`. The vault
-   MUST be unlocked — otherwise the token cannot be computed and
+   MUST be unlocked, otherwise the token cannot be computed and
    `Authorize` fails with `ErrVaultLocked`.
 
 Dry-run prints the expected token (requires `--accept-writes` already
@@ -70,7 +70,7 @@ populated via the CLI. The default proxy behaviour (even under
 `-tags offensive`) remains the read-only policy.
 
 ### Audit contract
-Every `Authorize` call — allowed, denied, or errored — emits an audit
+Every `Authorize` call, allowed, denied, or errored, emits an audit
 event with `event_type` in `{offensive_attempt, offensive_allowed,
 offensive_denied, offensive_failed}`, payload contains
 `{proto, op, target, denied_reason}`; `payloadHash` is stored but the
@@ -80,11 +80,11 @@ so they cannot be erased by the operator.
 ### Scoping: writes vs. exploits vs. harvest vs. dial
 All four offensive categories route through the same `Authorize`
 wrapper. Differences are declared in the `Mutation.Category`:
-- `CategoryWrite` — writes to live devices.
-- `CategoryExploit` — CVE modules.
-- `CategoryHarvest` — credential-list based probes (Telnet, FTP,
+- `CategoryWrite`: writes to live devices.
+- `CategoryExploit`: CVE modules.
+- `CategoryHarvest`: credential-list based probes (Telnet, FTP,
   HTTP-Basic, SNMPv1/v2c).
-- `CategoryDial` — outbound PSTN dial (F5 per ADR-041).
+- `CategoryDial`: outbound PSTN dial (F5 per ADR-041).
 
 ## Consequences
 

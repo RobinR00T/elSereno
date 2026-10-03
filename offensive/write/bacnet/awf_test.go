@@ -76,7 +76,7 @@ func TestAllowlistHashWithAWF_OrderInsensitive(t *testing.T) {
 // to the gate parser (it only reads the leading
 // fileIdentifier).
 func buildAWFServiceBody(instance uint32) []byte {
-	// #nosec G115 -- test-bounded — instance fits in 22 bits.
+	// #nosec G115 -- test-bounded, instance fits in 22 bits.
 	packed := (uint32(bwire.FileObjectType) << 22) | (instance & 0x3FFFFF)
 	buf := []byte{0xC4} // application tag 12, primitive, length 4
 	var u32 [4]byte
@@ -90,7 +90,7 @@ func buildAWFServiceBody(instance uint32) []byte {
 }
 
 // buildAWFServiceBodyWithType crafts a body with an arbitrary
-// ObjectType — used to exercise the "ObjectType != 10 fails
+// ObjectType used to exercise the "ObjectType != 10 fails
 // closed" invariant.
 func buildAWFServiceBodyWithType(objType uint16, instance uint32) []byte {
 	// #nosec G115 -- test-bounded.
@@ -123,7 +123,7 @@ func TestParseAtomicWriteFile_TruncatedFails(t *testing.T) {
 
 func TestParseAtomicWriteFile_WrongTagFails(t *testing.T) {
 	body := buildAWFServiceBody(42)
-	body[0] = 0x0C // looks like context-0 length-4 — wrong class
+	body[0] = 0x0C // looks like context-0 length-4, wrong class
 	_, ok := bwire.ParseAtomicWriteFile(body)
 	if ok {
 		t.Fatal("wrong tag class should return ok=false")
@@ -131,7 +131,7 @@ func TestParseAtomicWriteFile_WrongTagFails(t *testing.T) {
 }
 
 func TestParseAtomicWriteFile_NonFileTypeFails(t *testing.T) {
-	// ObjectType = 2 (BinaryOutput) — not File.
+	// ObjectType = 2 (BinaryOutput), not File.
 	body := buildAWFServiceBodyWithType(2, 42)
 	_, ok := bwire.ParseAtomicWriteFile(body)
 	if ok {
@@ -211,7 +211,7 @@ func buildAWFFrame(instance uint32) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetAWF_AllowedFilePasses — AWF for an allowlisted
+// TestGateBACnetAWF_AllowedFilePasses AWF for an allowlisted
 // File instance forwards.
 func TestGateBACnetAWF_AllowedFilePasses(t *testing.T) {
 	awf := []bwrite.AllowedAtomicWriteFile{{Instance: 5}}
@@ -225,13 +225,13 @@ func TestGateBACnetAWF_AllowedFilePasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetAWF_FirmwareFileRefused — when only File#5 (log)
+// TestGateBACnetAWF_FirmwareFileRefused when only File#5 (log)
 // is allowed, an attempt to overwrite File#1 (firmware) refuses.
 // Canonical safety invariant.
 func TestGateBACnetAWF_FirmwareFileRefused(t *testing.T) {
 	awf := []bwrite.AllowedAtomicWriteFile{{Instance: 5}}
 	client, upstream := driveAWFSession(t, awf)
-	frame := buildAWFFrame(1) // firmware blob — NOT in allowlist
+	frame := buildAWFFrame(1) // firmware blob, NOT in allowlist
 	_, _ = client.Write(frame)
 
 	_ = client.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
@@ -249,7 +249,7 @@ func TestGateBACnetAWF_FirmwareFileRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetAWF_EmptyAllowlistBypasses — empty
+// TestGateBACnetAWF_EmptyAllowlistBypasses empty
 // AllowedAtomicWriteFiles list bypasses the per-file gate
 // (svc 7 still passes service-only).
 func TestGateBACnetAWF_EmptyAllowlistBypasses(t *testing.T) {
@@ -263,7 +263,7 @@ func TestGateBACnetAWF_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetAWF_NonFileTypeRefuses — a request claiming to
+// TestGateBACnetAWF_NonFileTypeRefuses a request claiming to
 // write to AnalogValue#5 (ObjectType=2, not File=10) refuses
 // even when File#5 is in the allowlist.
 func TestGateBACnetAWF_NonFileTypeRefuses(t *testing.T) {
@@ -283,7 +283,7 @@ func TestGateBACnetAWF_NonFileTypeRefuses(t *testing.T) {
 	rbuf := make([]byte, 256)
 	n, _ := client.Read(rbuf)
 	if n == 0 {
-		t.Fatal("expected abort refusal — non-File object type must fail closed")
+		t.Fatal("expected abort refusal, non-File object type must fail closed")
 	}
 	time.Sleep(50 * time.Millisecond)
 	if snap := upstream.snapshot(); len(snap) != 0 {

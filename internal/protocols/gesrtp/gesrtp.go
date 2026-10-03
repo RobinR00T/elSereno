@@ -30,7 +30,7 @@ type Plugin struct {
 }
 
 // Default returns a Plugin with sensible timeouts. SRTP CONNECTION
-// INIT is unannounced — no banner, no negotiation — so a single
+// INIT is unannounced, no banner, no negotiation, so a single
 // round-trip is enough to fingerprint.
 func Default() *Plugin {
 	return &Plugin{DialTimeout: 5 * time.Second, IOTimeout: 3 * time.Second}
@@ -51,7 +51,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 // 56-byte mailbox, reads up to 64 bytes, and classifies the
 // response. The CPU model identification request (service code
 // 0x21) is deferred to a future cycle that can carry test vectors
-// against real PLCs — public protocol documentation is sparse and
+// against real PLCs, public protocol documentation is sparse and
 // the connection-init classifier is the safest reliable
 // fingerprint.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
@@ -85,7 +85,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// follow-up. Many GE PLCs respond to the connection-init
 	// with a short payload but reveal richer model + firmware-
 	// version info on the second exchange. The follow-up is
-	// best-effort — the response field-layout varies across
+	// best-effort, the response field-layout varies across
 	// firmwares and the parser is heuristic. On any error
 	// (timeout, short frame, missing markers) the probe falls
 	// back to the v1.21 chunk-4 model-hint result.
@@ -103,7 +103,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 // tryReadLongStatus issues a Read PLC Long Status (service 0x21)
 // follow-up against an already-connected SRTP server + tries to
 // extract a firmware-version tag from the response payload.
-// Returns "" on any error or missing-marker outcome — the
+// Returns "" on any error or missing-marker outcome, the
 // follow-up is purely additive enrichment over the v1.21-chunk-4
 // connection-init model hint.
 //
@@ -140,15 +140,15 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 }
 
 // ProxyHandler returns a wire-layer write-ban handler. SRTP is
-// TCP, so the generic proxy framework applies — but every SRTP
+// TCP, so the generic proxy framework applies, but every SRTP
 // service request is a potential write target (memory writes,
 // program block writes, RUN/STOP transitions). The default-build
 // proxy reads the first 56-byte mailbox from the client and
 // replies with a 56-byte mailbox response carrying byte 0 = 0x03
 // + a single non-zero byte at offset 42 (status / minor error
-// indicator) — close enough to the protocol's "request denied"
+// indicator), close enough to the protocol's "request denied"
 // idiom that compatible clients will move on rather than
-// reconnect. It does NOT forward to upstream — defence-in-depth
+// reconnect. It does NOT forward to upstream, defence-in-depth
 // fail-closed pattern matching the Modbus / S7 / EtherNet/IP
 // proxy idioms.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
@@ -163,7 +163,7 @@ func (writeBanHandler) Handle(ctx context.Context, client, _ io.ReadWriter) erro
 	}
 	// Reply with a 56-byte mailbox: type byte 0x03 (response),
 	// byte 42 = 0x01 (a non-zero "status / minor error" indicator
-	// in the published reverse-engineering notes — compatible
+	// in the published reverse-engineering notes, compatible
 	// clients treat this as "request not honoured" and back off
 	// rather than retry).
 	resp := make([]byte, wire.MailboxLen)
@@ -197,7 +197,7 @@ func classifyParseError(err error, n int) string {
 
 // buildFinding builds the SRTP finding. modelHint, when non-
 // empty, both folds into the finding hash via note (already done
-// by the caller) and lifts capability from 70 to 75 — the
+// by the caller) and lifts capability from 70 to 75, the
 // extracted hint is real, decoded, actionable model info, the
 // same delta finsudp/slmp get for their parsed model strings.
 func buildFinding(target core.Target, note string, isSRTP bool, modelHint string) *core.Finding {
@@ -207,7 +207,7 @@ func buildFinding(target core.Target, note string, isSRTP bool, modelHint string
 		"auth_state":    95, // SRTP has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure: 8 (v2.33+, bumped from 5) — GE-IP / Mark
+		// cve_exposure: 8 (v2.33+, bumped from 5), GE-IP / Mark
 		// VIe / PACSystems CVE catalogue has matured. Anchors:
 		//   CVE-2018-19003 (Mark VIe firmware download fault).
 		//   CVE-2018-19010 (RX3i memory leak / DoS).

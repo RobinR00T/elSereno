@@ -42,7 +42,7 @@ func loadIPv6Scope(t *testing.T) *scope.Scope {
 	return s
 }
 
-// TestCheck_IPv6_InRange — IPv6 target inside the documentation
+// TestCheck_IPv6_InRange IPv6 target inside the documentation
 // prefix matches the IPv6 CIDR. The canonical safety invariant
 // of v1.14 chunk 4: IPv6 ranges declared in scope.yaml actually
 // gate IPv6 targets.
@@ -57,7 +57,7 @@ func TestCheck_IPv6_InRange(t *testing.T) {
 	}
 }
 
-// TestCheck_IPv6_LoopbackHostPrefix — host-prefix /128 is
+// TestCheck_IPv6_LoopbackHostPrefix host-prefix /128 is
 // honoured (the chunk-1 IsLoopbackHostPort already detects
 // loopback for bind addresses; here we verify scope.yaml
 // can also gate scanning the loopback target).
@@ -72,12 +72,12 @@ func TestCheck_IPv6_LoopbackHostPrefix(t *testing.T) {
 	}
 }
 
-// TestCheck_IPv6_OutOfRange — IPv6 target outside the declared
+// TestCheck_IPv6_OutOfRange IPv6 target outside the declared
 // ranges returns ErrOutOfScope.
 func TestCheck_IPv6_OutOfRange(t *testing.T) {
 	s := loadIPv6Scope(t)
 	tg := core.Target{
-		Address: netip.MustParseAddr("fe80::1"), // link-local — not in scope
+		Address: netip.MustParseAddr("fe80::1"), // link-local, not in scope
 		Port:    502,
 	}
 	err := s.Check(tg)
@@ -86,7 +86,7 @@ func TestCheck_IPv6_OutOfRange(t *testing.T) {
 	}
 }
 
-// TestCheck_IPv4MappedIPv6_MatchesV4Range — `::ffff:192.168.1.5`
+// TestCheck_IPv4MappedIPv6_MatchesV4Range `::ffff:192.168.1.5`
 // (IPv4-mapped IPv6) must match the v4 CIDR `192.168.0.0/16`
 // via .Unmap() canonicalisation. Without this the operator
 // could bypass scope by using the v4-mapped form.
@@ -102,7 +102,7 @@ func TestCheck_IPv4MappedIPv6_MatchesV4Range(t *testing.T) {
 	}
 }
 
-// TestCheck_IPv4Target_DoesNotMatchIPv6Range — the inverse: a
+// TestCheck_IPv4Target_DoesNotMatchIPv6Range the inverse: a
 // pure IPv4 target like 1.2.3.4 must NOT match an IPv6 prefix
 // like 2001:db8::/32 just because the prefix would syntactically
 // contain its v4-mapped form. Verifies that scope ranges

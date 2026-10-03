@@ -4,7 +4,7 @@
 
 # NAME
 
-**elsereno-scoring** — scoring model and weights
+**elsereno-scoring**: scoring model and weights
 
 # DESCRIPTION
 
@@ -41,11 +41,11 @@ The **`elsereno triage`** verb groups findings into four
 buckets in priority order. The first match wins:
 
 **quick_win**
-:   severity ∈ {critical, high} AND **auth_state ≤ 10** — fast
+:   severity ∈ {critical, high} AND **auth_state ≤ 10**: fast
     remediation, fix is usually "turn on auth".
 
 **strategic**
-:   severity == critical AND **impact_class ≥ 60** — long-
+:   severity == critical AND **impact_class ≥ 60**: long-
     horizon remediation plans.
 
 **utility** (v1.13+)

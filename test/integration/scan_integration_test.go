@@ -49,7 +49,7 @@ func TestBannerScanAgainstLocalServer(t *testing.T) {
 
 	targets := []core.Target{
 		{Address: host, Port: port},
-		{Address: host, Port: port}, // dup — Dedupe must collapse
+		{Address: host, Port: port}, // dup, Dedupe must collapse
 		{Address: host, Port: port},
 	}
 

@@ -9,7 +9,7 @@ type FunctionCode uint8
 // (ADR-040). This list is not exhaustive; any function outside the
 // table classifies as CategoryUnknown (default-deny posture).
 const (
-	FuncCommSetup       FunctionCode = 0xF0 // Setup Communication — read-category for the handshake
+	FuncCommSetup       FunctionCode = 0xF0 // Setup Communication, read-category for the handshake
 	FuncReadVar         FunctionCode = 0x04
 	FuncWriteVar        FunctionCode = 0x05
 	FuncRequestDownload FunctionCode = 0x1A
@@ -18,7 +18,7 @@ const (
 	FuncStartUpload     FunctionCode = 0x1D
 	FuncUpload          FunctionCode = 0x1E
 	FuncEndUpload       FunctionCode = 0x1F
-	FuncPLCControl      FunctionCode = 0x28 // start / warm-restart / cold-restart — write-category
+	FuncPLCControl      FunctionCode = 0x28 // start / warm-restart / cold-restart, write-category
 	FuncPLCStop         FunctionCode = 0x29
 	FuncUserData        FunctionCode = 0x00 // ROSCTR 7 steers this branch
 )

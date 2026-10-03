@@ -9,7 +9,7 @@
 //     finding's severity in labels.
 //
 // The bundle is buffered in memory and emitted as a single JSON
-// document on Close — STIX consumers (MISP, OpenCTI, ThreatBus)
+// document on Close, STIX consumers (MISP, OpenCTI, ThreatBus)
 // expect a complete bundle, not a stream of objects.
 //
 // All STIX object IDs are deterministic UUIDv5 keyed on the

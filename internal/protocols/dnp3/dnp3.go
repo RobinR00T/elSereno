@@ -142,7 +142,7 @@ func buildFinding(target core.Target, isDNP3 bool) *core.Finding {
 		"impact_class":  90, // electric grid
 		// cve_exposure 12: CVE-2013-2825 (CRC bypass), CVE-
 		// 2013-2829 (TCP frame stack overflow), CVE-2014-5410
-		// (Triangle MicroWorks DNP3 implementation flaws) —
+		// (Triangle MicroWorks DNP3 implementation flaws),
 		// well-documented family across multiple vendor stacks.
 		"cve_exposure": 12,
 	}

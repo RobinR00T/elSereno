@@ -29,7 +29,7 @@ import (
 //
 // The "ciphered" variants (GLO_GET_REQUEST 0xC8 etc.) wrap an
 // inner APDU with authentication-encryption. They're refused by
-// this gate at the APDU-tag level — fine-grained gating inside
+// this gate at the APDU-tag level, fine-grained gating inside
 // a ciphered APDU requires the operator's master key, which we
 // don't have. Operators who need ciphered SET allowlisting can
 // run the proxy ahead of the cipher layer (e.g., on the
@@ -50,7 +50,7 @@ const (
 
 // CosemTarget captures the (class-id, OBIS instance-id,
 // attribute-or-method-id) tuple extracted from a SET-Request or
-// ACTION-Request. The same shape works for both — SET targets an
+// ACTION-Request. The same shape works for both, SET targets an
 // attribute, ACTION targets a method, and the byte at the same
 // offset distinguishes them (operator-meaningful via the APDU
 // tag).
@@ -214,12 +214,12 @@ func parseAttributeDescriptor(apdu []byte) (CosemTarget, error) {
 //
 // Common OBIS codes:
 //
-//	0-0:0.0.0*255  — Logical Device Name
-//	0-0:42.0.0*255 — COSEM logical device name
-//	0-0:43.0.0*255 — Security Setup
-//	1-0:94.7.0*255 — Tariff register class 7
-//	0-0:96.50.0*255 — Disconnect Control object (DESTRUCTIVE)
-//	0-0:96.10.5*255 — Firmware Identifier
+//	0-0:0.0.0*255, Logical Device Name
+//	0-0:42.0.0*255, COSEM logical device name
+//	0-0:43.0.0*255, Security Setup
+//	1-0:94.7.0*255, Tariff register class 7
+//	0-0:96.50.0*255, Disconnect Control object (DESTRUCTIVE)
+//	0-0:96.10.5*255, Firmware Identifier
 func FormatOBIS(obis [6]byte) string {
 	return obisHelper(obis)
 }

@@ -19,16 +19,16 @@ PACSystems also bind 18246 for a backup/extended frame.
   family prefixes (PACSystems / IC693 / IC695 / IC697 / IC200 /
   RX3i / RX7i). When a model hint is extracted (e.g.,
   "IC695CPE330"), it folds into the finding hash and lifts the
-  capability factor from 70 to 75 — same delta finsudp / slmp
+  capability factor from 70 to 75, same delta finsudp / slmp
   get for parsed model strings.
 
-Service 0x21 (Read PLC Long Status) probing — a richer follow-up
-that explicitly asks the CPU for its model + firmware version —
+Service 0x21 (Read PLC Long Status) probing, a richer follow-up
+that explicitly asks the CPU for its model + firmware version, 
 is left for a future cycle that can carry test vectors against
 real PLCs.
 
 The probe is idempotent and side-effect-free: CONNECTION INIT is
-the SRTP equivalent of a TCP handshake — no memory areas, no
+the SRTP equivalent of a TCP handshake, no memory areas, no
 program blocks, no service-request payloads.
 
 ## Wire layout (mailbox)
@@ -50,7 +50,7 @@ The 56-byte zero-with-0x02-prefix on initialisation means the
 response carries the PLC's connection-acceptance flags and an
 internally-allocated mailbox ID that subsequent service-request
 mailboxes echo. The plugin doesn't parse those fields for v1.20
-chunk 3 — the response shape alone is enough for fingerprinting.
+chunk 3, the response shape alone is enough for fingerprinting.
 
 ## Proxy policy (default build)
 
@@ -58,9 +58,9 @@ SRTP is **TCP**. The default-build handler reads the first 56-byte
 mailbox from the client and replies with a 56-byte mailbox
 carrying byte 0 = 0x03 (response) + byte 42 = 0x01 (a non-zero
 "status / minor error" indicator in the public reverse-engineering
-notes — compatible clients treat this as "request not honoured"
+notes, compatible clients treat this as "request not honoured"
 and back off rather than retry). It does NOT forward to upstream
-— defence-in-depth fail-closed pattern matching the Modbus / S7 /
+defence-in-depth fail-closed pattern matching the Modbus / S7 /
 EtherNet/IP proxy idioms.
 
 ## Writes (`-tags offensive`)
@@ -117,9 +117,9 @@ emission per ADR-039.
 
 ## Public references
 
-- Rapid7 nmap NSE script `gesrtp-info` — the canonical public
+- Rapid7 nmap NSE script `gesrtp-info`: the canonical public
   reverse-engineering effort.
-- Conpot project — GE simulator fixtures that document the
+- Conpot project, GE simulator fixtures that document the
   on-wire shape used by this plugin.
 - ICS-CERT advisories on GE Fanuc PACSystems lacking
   authentication on the default port (multiple, 2014-onwards).

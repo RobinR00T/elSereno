@@ -12,7 +12,7 @@ import (
 	"local/elsereno/internal/audit"
 )
 
-// TestFlock_TwoWritersInterleaveCleanly — boots two FileWriter
+// TestFlock_TwoWritersInterleaveCleanly boots two FileWriter
 // instances against the same path (simulating two ElSereno
 // processes) and has each append entries concurrently. With
 // the v1.15 chunk-4 flock + resume-tail-on-Append flow, the
@@ -92,7 +92,7 @@ func TestFlock_TwoWritersInterleaveCleanly(t *testing.T) {
 	}
 }
 
-// TestFlock_AppendVerbatimAlsoLocked — appendVerbatim is the
+// TestFlock_AppendVerbatimAlsoLocked appendVerbatim is the
 // MultiWriter mirror path; the same flock invariant applies
 // (it shares the file with the primary FileWriter on a
 // different ElSereno process). Use the public path: open one
@@ -106,7 +106,7 @@ func TestFlock_AppendVerbatimAlsoLocked(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = w.Close() })
-	// Two appends in sequence — verifies the flock unlock
+	// Two appends in sequence, verifies the flock unlock
 	// after each call works (we'd deadlock on the second
 	// Append if unlock didn't fire).
 	for i := 0; i < 5; i++ {
@@ -128,7 +128,7 @@ func TestFlock_AppendVerbatimAlsoLocked(t *testing.T) {
 // returns the entries in append order.
 func readAllEntries(t *testing.T, path string) []audit.Entry {
 	t.Helper()
-	// #nosec G304 — test-controlled path
+	// #nosec G304, test-controlled path
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)

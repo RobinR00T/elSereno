@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.92 — per-schedule run history.
+-- v1.92, per-schedule run history.
 --
 -- Adds a NULL-able foreign key from scan_jobs back to
 -- scan_schedules so the dashboard can answer
@@ -14,7 +14,7 @@
 --              originating schedule's ID at fire time.
 --
 -- ON DELETE SET NULL preserves the scan_jobs row when the
--- originating schedule is deleted — matches the v1.88 audit
+-- originating schedule is deleted, matches the v1.88 audit
 -- pattern (history outlasts the schedule).
 --
 -- Index supports the dominant access pattern:

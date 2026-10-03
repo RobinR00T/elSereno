@@ -4,7 +4,7 @@ package wire
 //
 // The default-build policy is: allow session-management and list-
 // identity traffic (read-only), refuse SendRRData / SendUnitData
-// (the envelopes that carry CIP service requests — and therefore the
+// (the envelopes that carry CIP service requests, and therefore the
 // vector for writes). Proper CIP-service-level classification lands
 // with the offensive write plugin (F5) that actually speaks CIP.
 type Category int
@@ -34,7 +34,7 @@ func Classify(cmd uint16) Category {
 }
 
 // BuildRefusal returns a CIP encapsulation reply echoing the request
-// command code with status 0x0001 (Invalid/unsupported command) —
+// command code with status 0x0001 (Invalid/unsupported command),
 // the closest the protocol has to "service not supported" at the
 // encapsulation layer.
 func BuildRefusal(req Header) []byte {

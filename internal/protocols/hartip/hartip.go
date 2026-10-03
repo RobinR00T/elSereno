@@ -142,7 +142,7 @@ func buildFinding(target core.Target, note string, isOK bool) *core.Finding {
 		"impact_class":  80,
 		// cve_exposure 7: CVE-2014-7494 (Honeywell XYR 6000),
 		// CVE-2015-7905 (Yokogawa STARDOM HART), CVE-2019-9869
-		// (Phoenix Contact HART-IP) — modest sensor-network
+		// (Phoenix Contact HART-IP), modest sensor-network
 		// surface, less broad than DNP3/IEC104 but real.
 		"cve_exposure": 7,
 	}

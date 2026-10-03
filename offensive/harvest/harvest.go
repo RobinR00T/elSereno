@@ -9,7 +9,7 @@ import (
 )
 
 // Credential is a username/password or SNMP community tried against
-// a target. Fields are mutually optional — Telnet/FTP/HTTP-Basic use
+// a target. Fields are mutually optional, Telnet/FTP/HTTP-Basic use
 // Username+Password, SNMPv1/v2c uses Community.
 type Credential struct {
 	Username  string
@@ -48,17 +48,17 @@ type Prober interface {
 
 // Errors returned by probers.
 var (
-	// ErrNoHit — the entire credential list was exhausted without a
+	// ErrNoHit the entire credential list was exhausted without a
 	// successful login. Not an error in the "something went wrong"
 	// sense; callers decide whether to surface it.
 	ErrNoHit = errors.New("harvest: no credential in list succeeded")
-	// ErrBadTarget — target string could not be parsed as host:port.
+	// ErrBadTarget target string could not be parsed as host:port.
 	ErrBadTarget = errors.New("harvest: bad target address")
 )
 
 // DefaultCredentials returns a small list of credentials that appear
 // on public ICS / OT misconfiguration lists. The list is intentionally
-// short — offensive harvest is NOT a brute-force tool; operators
+// short offensive harvest is NOT a brute-force tool; operators
 // supply their own wordlist via --creds-file for anything wider.
 //
 // Sources: OWASP embedded-device default-password database, Kaspersky

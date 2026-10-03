@@ -1,5 +1,5 @@
 version: 2
-# Dependabot config — see context + rationale in
+# Dependabot config, see context + rationale in
 # docs/OPERATIONS.md §"Dependabot policy".
 #
 # Highlights:

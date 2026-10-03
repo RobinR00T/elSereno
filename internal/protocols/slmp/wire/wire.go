@@ -8,7 +8,7 @@
 //
 // This package implements ONLY the request builder + response
 // parser for **READ CPU MODEL NAME** (command 0x0101, subcommand
-// 0x0000) — the canonical read-only fingerprint. The response
+// 0x0000), the canonical read-only fingerprint. The response
 // carries the 16-byte ASCII CPU model name + 2-byte CPU type code
 // (e.g. "Q03UDVCPU      " + 0x4612). No memory device read or
 // write services are implemented; v1.20 chunk 2 is read-only by
@@ -47,11 +47,11 @@ import (
 //	9..10   EndCode                  2     LE: 0x0000 = success
 //	11+     payload                  …     command-specific
 const (
-	// HeaderLenRequest is the 9-byte 3E request header — through
+	// HeaderLenRequest is the 9-byte 3E request header, through
 	// the RequestDataLength field at offset 7..8 inclusive. The
 	// monitoring timer + command + subcommand triple follows.
 	HeaderLenRequest = 9
-	// HeaderLenResponse is the 9-byte 3E response header —
+	// HeaderLenResponse is the 9-byte 3E response header,
 	// through the ResponseDataLength field at offset 7..8
 	// inclusive. The end code + payload follow.
 	HeaderLenResponse = 9
@@ -62,7 +62,7 @@ const (
 	SubheaderResponseLE uint16 = 0x00D0
 
 	// CommandReadCPUModelName + SubcommandZero is "Read CPU model
-	// name" per SLMP Reference Manual §3.10 — returns the 16-byte
+	// name" per SLMP Reference Manual §3.10, returns the 16-byte
 	// ASCII CPU model name + 2-byte CPU type code. Read-only.
 	CommandReadCPUModelName uint16 = 0x0101
 	// SubcommandZero is the standard sub-zero used by Read CPU
@@ -123,13 +123,13 @@ type CPUInfo struct {
 // (no timeout), command=0x0101, subcommand=0x0000.
 //
 // The frame is binary-stable (no caller-supplied service ID at
-// this layer — SLMP doesn't have one for the basic 3E-frame
+// this layer, SLMP doesn't have one for the basic 3E-frame
 // command set; the higher-tier 4E / 1E frames carry a serial
 // number that v1.20 chunk 2 doesn't use).
 func BuildReadCPUModelName() []byte {
 	// 11 (header) + 2 (monitoring) + 2 (command) + 2 (subcommand)
 	// = 17 bytes. But the data-length field counts only the
-	// monitoring + command + subcommand + payload — here 6 bytes.
+	// monitoring + command + subcommand + payload, here 6 bytes.
 	frame := make([]byte, 17)
 	binary.LittleEndian.PutUint16(frame[0:2], SubheaderRequestLE)
 	frame[2] = 0x00 // network

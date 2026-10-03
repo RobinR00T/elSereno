@@ -31,9 +31,9 @@ const cloneNewMask uint32 = 0x00020000 | // CLONE_NEWNS
 // Two match modes are supported:
 //
 //   - **Equal**: deny when arg == one of EqualValues. Useful for
-//     `socket(family, …)` — deny when family == AF_PACKET.
+//     `socket(family, …)`: deny when family == AF_PACKET.
 //   - **MaskAny**: deny when (arg & MaskBits) != 0. Useful for
-//     `openat(dirfd, path, flags, …)` — deny when flags has any
+//     `openat(dirfd, path, flags, …)`: deny when flags has any
 //     of {O_WRONLY, O_RDWR, O_CREAT, O_TRUNC} set.
 //
 // Use NewArgDenyEqual / NewArgDenyMaskAny rather than
@@ -137,10 +137,10 @@ func argRulesFor(p Profile, nums syscallNums) []ArgDenyRule {
 			out = append(out, NewArgDenyEqual(nums.Socket, 0, afPacket, afNetlink))
 		}
 	case ProfileExploit:
-		// No arg-filter preset — see argRulesFor's docstring.
+		// No arg-filter preset, see argRulesFor's docstring.
 	case ProfileScan:
 		// v2.32+: scan subprocess mirrors Harvest for the
-		// write-flag denial — openat without write flags only.
+		// write-flag denial, openat without write flags only.
 		// Allows reading probe data + writing nothing on disk.
 		if nums.Openat != 0 {
 			out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
@@ -175,15 +175,15 @@ func ArgFilterPresets(nums syscallNums) []ArgDenyRule {
 	)
 	out := make([]ArgDenyRule, 0, 4)
 	if nums.Openat != 0 {
-		// openat(dirfd, pathname, flags, mode) — flags is arg 2.
+		// openat(dirfd, pathname, flags, mode), flags is arg 2.
 		out = append(out, NewArgDenyMaskAny(nums.Openat, 2, writeBits))
 	}
 	if nums.Open != 0 {
-		// open(pathname, flags, mode) — flags is arg 1.
+		// open(pathname, flags, mode), flags is arg 1.
 		out = append(out, NewArgDenyMaskAny(nums.Open, 1, writeBits))
 	}
 	if nums.Socket != 0 {
-		// socket(domain, type, protocol) — domain is arg 0.
+		// socket(domain, type, protocol), domain is arg 0.
 		out = append(out, NewArgDenyEqual(nums.Socket, 0, afPacket, afNetlink))
 	}
 	if nums.Clone != 0 {
@@ -199,7 +199,7 @@ func ArgFilterPresets(nums syscallNums) []ArgDenyRule {
 // so we don't carry a high-dword path here).
 func seccompDataArgOffset(idx uint8) uint32 {
 	// idx is uint8 (0..5 in practice; max 255), so 16 + idx*8
-	// is bounded above by 2056 — fits cleanly in uint32 without
+	// is bounded above by 2056, fits cleanly in uint32 without
 	// overflow.
 	return uint32(16) + uint32(idx)*uint32(8)
 }
@@ -316,7 +316,7 @@ func compileCombinedFilter(auditArch uint32, blocked []uint32, argRules []ArgDen
 }
 
 // ruleBodyLen counts the BPF instructions emitRuleBody would
-// emit for rule r — used to compute jump offsets in the first
+// emit for rule r, used to compute jump offsets in the first
 // pass.
 func ruleBodyLen(r ArgDenyRule) int {
 	if r.MaskBits != 0 {
@@ -351,7 +351,7 @@ func emitCombinedRuleBody(r ArgDenyRule, bodyStart, retErrnoIdx int) []unix.Sock
 			Code: bpfALU | bpfAND | bpfK,
 			K:    r.MaskBits,
 		})
-		// JEQ 0 — (arg & mask) == 0 falls through (allow); != 0 jumps
+		// JEQ 0, (arg & mask) == 0 falls through (allow); != 0 jumps
 		// to the shared RET ERRNO (deny).
 		jeqIdx := bodyStart + 2
 		out = append(out, unix.SockFilter{

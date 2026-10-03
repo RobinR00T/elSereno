@@ -25,7 +25,7 @@ import "encoding/binary"
 //	0x0F                                    close context tag 0
 //	[ 0x1E ... 0x1F ]                       optional listOfInitialValues
 //
-// The v1.13 chunk-8 gate inspects only the ObjectType — even
+// The v1.13 chunk-8 gate inspects only the ObjectType, even
 // when the operator uses the [1] choice with a specific
 // instance, the per-type allowlist matches by type alone. The
 // v1.16 chunk-2 refinement adds a parallel per-(type, instance)
@@ -33,7 +33,7 @@ import "encoding/binary"
 // shape.
 //
 // Returns (objType, true) on success, (0, false) on any parse
-// error — the gate fails closed.
+// error the gate fails closed.
 func ParseCreateObject(apdu []byte) (uint16, bool) {
 	objType, _, _, ok := ParseCreateObjectWithInstance(apdu)
 	return objType, ok
@@ -46,7 +46,7 @@ func ParseCreateObject(apdu []byte) (uint16, bool) {
 // the ACS uses the [1] objectIdentifier form.
 //
 //   - CHOICE [0] objectType (`0x09` / `0x0A`): hasInstance=false,
-//     instance=0. The device picks the instance — operators who
+//     instance=0. The device picks the instance, operators who
 //     want exact-instance control must refuse this CHOICE
 //     (handled at the gate layer, not here).
 //   - CHOICE [1] objectIdentifier (`0x1C`): hasInstance=true,

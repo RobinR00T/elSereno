@@ -9,7 +9,7 @@ import (
 // FuzzParseDescriptionResponse asserts that
 // ParseDescriptionResponse never panics on arbitrary input and
 // that, on success, the FriendlyName has no TRAILING NUL or
-// space (trimASCII's contract — embedded bytes preserved on
+// space (trimASCII's contract, embedded bytes preserved on
 // purpose so attacker-controlled NUL-splice input doesn't get
 // silently merged into a shorter benign string).
 func FuzzParseDescriptionResponse(f *testing.F) {

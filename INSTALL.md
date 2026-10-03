@@ -6,7 +6,7 @@ This document covers every supported install method, the per-platform feature ma
 
 ---
 
-## TL;DR — pick your path
+## TL;DR, pick your path
 
 | Use case | Best path | OS |
 |---|---|---|
@@ -92,7 +92,7 @@ sudo systemctl enable --now elsereno-serve.service
 sudo systemctl enable --now elsereno-audit.service
 ```
 
-Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `MemoryDenyWriteExecute`, empty `CapabilityBoundingSet`, `SystemCallFilter=@system-service ~@mount @swap @reboot @debug @cpu-emulation`, `SystemCallArchitectures=native`. The daemon doesn't need any capabilities — it uses Go's `net` package for IO.
+Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `MemoryDenyWriteExecute`, empty `CapabilityBoundingSet`, `SystemCallFilter=@system-service ~@mount @swap @reboot @debug @cpu-emulation`, `SystemCallArchitectures=native`. The daemon doesn't need any capabilities, it uses Go's `net` package for IO.
 
 ### Tarball install (any Linux, no root)
 
@@ -194,16 +194,16 @@ Two build modes available since **v1.50**:
 
 | Mode | Sandbox | How to build | Trade-off |
 |------|---------|--------------|-----------|
-| **Default macOS** (release tarball) | `sandbox: unavailable on darwin` warning; offensive verbs run with OS-level mitigations only (TCC, hardened runtime, SIP) | `make build-offensive` — `CGO_ENABLED=0`, fully static | No kernel sandbox; relies on macOS OS-level controls |
-| **Sandboxed macOS** (opt-in build) | `sandbox_init(3)` enforced per-profile (.sb Scheme) for harvest/dial/exploit subprocesses | `make build-offensive-darwin-sandboxed` — `CGO_ENABLED=1` | Binary links against `libSystem.B.dylib` (SDK-version specific); not in release tarballs |
+| **Default macOS** (release tarball) | `sandbox: unavailable on darwin` warning; offensive verbs run with OS-level mitigations only (TCC, hardened runtime, SIP) | `make build-offensive`-`CGO_ENABLED=0`, fully static | No kernel sandbox; relies on macOS OS-level controls |
+| **Sandboxed macOS** (opt-in build) | `sandbox_init(3)` enforced per-profile (.sb Scheme) for harvest/dial/exploit subprocesses | `make build-offensive-darwin-sandboxed`-`CGO_ENABLED=1` | Binary links against `libSystem.B.dylib` (SDK-version specific); not in release tarballs |
 
 The opt-in mode applies a `.sb` Scheme profile per subprocess type:
 
-  - **exploit** — full network access (the exploit IS the test) but `(deny process-exec)` so a successful RCE on the target can't pivot back to the operator's host. File writes restricted to `/tmp` + `/private/var/folders`.
-  - **harvest** — `(allow network-outbound (remote tcp))` for the harvest endpoint, but `(deny process-exec)` and file writes restricted to `/tmp` only.
-  - **dial** — `(deny network*)` (the subprocess only talks via inherited TTY/serial FDs). `(allow file-write* (subpath "/dev/tty"))` for legitimate UART config.
+  - **exploit**: full network access (the exploit IS the test) but `(deny process-exec)` so a successful RCE on the target can't pivot back to the operator's host. File writes restricted to `/tmp` + `/private/var/folders`.
+  - **harvest**: `(allow network-outbound (remote tcp))` for the harvest endpoint, but `(deny process-exec)` and file writes restricted to `/tmp` only.
+  - **dial**: `(deny network*)` (the subprocess only talks via inherited TTY/serial FDs). `(allow file-write* (subpath "/dev/tty"))` for legitimate UART config.
 
-If you need fully-static + sandboxed on macOS at the same time: not possible (Apple's sandbox API is C-only). For full sandbox enforcement on a static binary, use the **Linux build** — seccomp-bpf has been wired up for harvest + dial profiles since v1.27 and works without cgo.
+If you need fully-static + sandboxed on macOS at the same time: not possible (Apple's sandbox API is C-only). For full sandbox enforcement on a static binary, use the **Linux build**: seccomp-bpf has been wired up for harvest + dial profiles since v1.27 and works without cgo.
 
 ### OCI image
 
@@ -224,7 +224,7 @@ docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
 | Offensive proxy listen + write/exploit | ✅ | ✅ | offensive tag image | triple-confirm fences |
 | seccomp-bpf sandbox for harvest / dial | ✅ | ❌ | ✅ | macOS uses sandbox_init via opt-in cgo build (v1.50+) |
 | macOS `sandbox_init(3)` (cgo-gated) | n/a | ✅ via `build-offensive-darwin-sandboxed` | n/a | v1.50+; NOT in release tarballs |
-| `elsereno sandbox` (list + introspect + diff) | ✅ (list only) | ✅ (full introspection + diff on cgo build) | ✅ (list only) | v2.62+ (`diff` v2.63+); read-only dry-run verbs — safe pre-flight before forking offensive subprocesses. `diff` needs darwin+cgo schemes |
+| `elsereno sandbox` (list + introspect + diff) | ✅ (list only) | ✅ (full introspection + diff on cgo build) | ✅ (list only) | v2.62+ (`diff` v2.63+); read-only dry-run verbs, safe pre-flight before forking offensive subprocesses. `diff` needs darwin+cgo schemes |
 | systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
 | deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
 | Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |
@@ -237,13 +237,13 @@ docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
 - **Native packaging** (deb/rpm/apk via nfpm). One command to install. systemd units + log rotation + tmpfiles drop-in handled.
 - **Full sandbox** via seccomp-bpf for the offensive verbs (harvest + dial).
 - **No quarantine xattr** dance.
-- **Smaller community/CI matrix to test against** — the project's CI gates Linux first.
+- **Smaller community/CI matrix to test against**: the project's CI gates Linux first.
 
 ### macOS advantages
 
 - **Operator UX**: most pen-testers and SOC analysts run macOS daily; install + run without a VM.
 - **TCC + hardened runtime** as a parallel mitigation layer (no equivalent on Linux).
-- **No need for systemd** — launchd ships in the OS.
+- **No need for systemd**: launchd ships in the OS.
 - **Apple Silicon perf** for crypto-heavy workloads (the audit chain hashing benefits).
 
 ---
@@ -271,7 +271,7 @@ sudo apt update && sudo apt install elsereno     # apt picks up the new version
 sudo systemctl restart elsereno-serve            # if the daemon was running
 ```
 
-The `noreplace` flag on `/etc/elsereno/elsereno.yaml` means upgrades don't clobber operator edits — apt prompts on conflict, dnf saves to `.rpmnew`.
+The `noreplace` flag on `/etc/elsereno/elsereno.yaml` means upgrades don't clobber operator edits, apt prompts on conflict, dnf saves to `.rpmnew`.
 
 ### Tarball
 
@@ -392,11 +392,11 @@ Cancel button.
 
 **Plugin selection (v1.64+)**:
 
-- **One plugin** — name it: `modbus`
-- **Multiple plugins** — comma-separate: `modbus,s7,enip`
+- **One plugin**: name it: `modbus`
+- **Multiple plugins**: comma-separate: `modbus,s7,enip`
   Each target gets every named plugin whose `DefaultPort`
   matches the target's port.
-- **All plugins** — leave the field blank. The runner uses
+- **All plugins**: leave the field blank. The runner uses
   every registered plugin in the build (default-build
   registry; offensive plugins gated by `-tags offensive`).
 
@@ -426,7 +426,7 @@ intervals column renders human-friendly labels (`60` → `1m`,
 form with the schedule's current values + flips the submit
 button to "Update". Cancel button (visible only in edit mode)
 resets back to create. ID, CreatedAt, LastFiredAt, Operator,
-and Enabled survive the edit untouched — only the editable
+and Enabled survive the edit untouched, only the editable
 fields (name, template, cadence) change. Curl path:
 
 ```sh
@@ -519,7 +519,7 @@ curl -X POST http://127.0.0.1:8787/api/v1/schedules \
 ```
 
 Validation uses `time.LoadLocation` (Go stdlib). The accepted
-zone names match the host tzdata bundle — typo or
+zone names match the host tzdata bundle, typo or
 unknown-zone → 400 `schedules: scanorch: schedule timezone
 invalid`. Empty / omitted timezone falls back to UTC
 (back-compat with v1.73/v1.74 cron schedules).
@@ -535,7 +535,7 @@ a "Next fire" column with the predicted next firing time.
 Schedules whose predicted next fire is already in the past
 (overdue) are tagged so operators see at a glance which
 ones will trigger on the next tick. The Create/Edit form
-also has a "Preview next fire" button — clicking it sends
+also has a "Preview next fire" button, clicking it sends
 the current form values to `/api/v1/schedules/preview` and
 shows the predicted next fire below the submit row,
 including the timezone label for cron schedules:
@@ -552,7 +552,7 @@ The preview endpoint validates the same way as Create
 (name + template.input non-empty; exactly one cadence;
 cron parses if specified; timezone resolves via
 `time.LoadLocation`). 400 surfaces the same sentinels as
-Create. The preview is store-independent — no schedule is
+Create. The preview is store-independent, no schedule is
 created, no DB write happens.
 
 **Multi-fire preview (v1.79+)**: pass `?count=N` (default 1,
@@ -565,7 +565,7 @@ operators can sanity-check non-trivial patterns at a glance.
 
 **Live preview (v1.80+)**: changes to any cadence field in
 the dashboard form (mode dropdown / interval / cron /
-timezone) trigger an auto-preview after a 350ms debounce —
+timezone) trigger an auto-preview after a 350ms debounce, 
 operators see the predicted fire(s) update as they type.
 The manual "Preview next fire" button remains as a
 force-refresh.
@@ -609,16 +609,16 @@ operator can cherry-pick which side wins for each
 conflicting field. Cadence-XOR is preserved
 automatically: picking server's `interval_seconds`
 clears `cron_expr` (and vice versa). The merged PUT is
-still sent **with** `If-Match` — a third concurrent
+still sent **with** `If-Match`: a third concurrent
 edit re-opens the merge view.
 
 Three resolution buttons (v1.83 layout):
 
-  - **Apply selected (per-field)** — merged submit
+  - **Apply selected (per-field)**: merged submit
     with `If-Match`.
-  - **Take server (discard my edits)** — re-loads the
+  - **Take server (discard my edits)**: re-loads the
     form with server's values for a clean re-edit.
-  - **Force overwrite (re-submit ignoring If-Match)** —
+  - **Force overwrite (re-submit ignoring If-Match)**: 
     last-write-wins, after a confirmation prompt. v1.84+
     additionally sends `X-Schedule-Force-Overwrite: true`
     which causes the server to persist an audit row.
@@ -655,7 +655,7 @@ When `--scan-store=db`, the audit log persists to the
 survives serve restart. When `--scan-store=memory`, the
 audit log lives only for the process lifetime. The audit
 row is best-effort: a persistence failure does not reverse
-the update — instead the response carries an
+the update, instead the response carries an
 `X-Schedule-Audit-Warning` header so the operator can
 investigate.
 
@@ -664,10 +664,10 @@ on `schedule_id` (deleting a schedule wiped its audit
 history). **v1.88+** widens the `event_type` enumeration
 to:
 
-  - `force_overwrite` — v1.78 If-Match precondition bypass.
-  - `delete` — `DELETE /api/v1/schedules/{id}`.
-  - `set_enabled_true` — `POST /…/enable`.
-  - `set_enabled_false` — `POST /…/disable`.
+  - `force_overwrite`: v1.78 If-Match precondition bypass.
+  - `delete`-`DELETE /api/v1/schedules/{id}`.
+  - `set_enabled_true`-`POST /…/enable`.
+  - `set_enabled_false`-`POST /…/disable`.
 
 …and switches the FK to `ON DELETE SET NULL` so the audit
 trail for a deleted schedule survives with
@@ -679,7 +679,7 @@ listing the recorded events with the operator, timestamp,
 event type, and a per-field before→after diff. The button
 is always present; if the audit store is unavailable
 (memory deployments), the panel shows
-"audit log unavailable — run with --scan-store=db".
+"audit log unavailable, run with --scan-store=db".
 
 **Audit retention (v1.86+)**: the audit table is
 append-only, so high-frequency force-overwrite use can
@@ -695,7 +695,7 @@ curl -X DELETE "http://127.0.0.1:8787/api/v1/schedules/audit?before=$cutoff"
 
 The endpoint is **global** (no per-schedule filter) and
 requires the `before=` RFC3339 timestamp. The DELETE is
-irrevocable — operators wanting a preview can `GET
+irrevocable, operators wanting a preview can `GET
 /api/v1/schedules/{id}/audit` per schedule and filter
 client-side first.
 
@@ -715,7 +715,7 @@ with these clamps:
 
 The pruner runs an **eager first tick** at startup so a
 serve restart doesn't wait a full interval. OnPrune /
-OnError log to stderr — operators wanting Prometheus
+OnError log to stderr, operators wanting Prometheus
 metrics wrap the binary's stderr or wire their own
 hooks. Multiple `serve` processes against a shared DB
 race idempotently (the DELETE is safe to run
@@ -727,7 +727,7 @@ Run `elsereno db migrate` to apply migrations 00011 +
 is required for v1.84+; 00012 adds the v1.88 event-type
 expansion and FK SET NULL).
 
-`If-Match` is **optional** — pre-v1.78 callers (and any
+`If-Match` is **optional**: pre-v1.78 callers (and any
 script that doesn't care about racy edits) can omit the
 header and the precondition is skipped. Migration 00010
 backfills `updated_at = created_at` on existing rows so
@@ -740,7 +740,7 @@ chosen to match `--scan-store`:
 |----------------|--------------------|-------------------|
 | `memory`       | MemoryScheduleStore | No  |
 | `db`           | DBScheduleStore (migration 00007) | Yes |
-| `off`          | n/a — `/schedules` returns 503 | n/a |
+| `off`          | n/a, `/schedules` returns 503 | n/a |
 
 Run `elsereno db migrate` to apply migration 00007 before
 deploying v1.71+ in db-store mode.
@@ -750,7 +750,7 @@ goroutine only spins up when `--scan-store != off`. Operators
 running `--scan-store=off` see 503 from `/api/v1/schedules/`.
 
 **Bulk submit (v1.69+)**: the "Bulk…" button on the dashboard
-reveals a textarea — paste one input string per line and click
+reveals a textarea, paste one input string per line and click
 "Bulk submit". Plugin(s) + default port from the form above
 apply to every line. Capped at 200 inputs per request to
 protect the worker pool from a single-request DoS.
@@ -779,7 +779,7 @@ Response shape:
 Per-input failures (typically empty inputs) populate `errors`
 with `{index, input, error}` entries; the rest still land in
 `submitted`. The HTTP status is 202 Accepted as long as the
-request was syntactically valid — individual input failures
+request was syntactically valid, individual input failures
 don't fail the batch.
 
 **curl** (operator scripts / CI):
@@ -835,7 +835,7 @@ breakdown shown for legacy completed jobs).
 ### Same on Linux + macOS
 
 The orchestration endpoints behave identically across both
-platforms — no platform-specific code paths. The only
+platforms, no platform-specific code paths. The only
 difference: macOS runs of `elsereno serve --scan-store db`
 require a Postgres reachable from your macOS host (typically
 via the bundled `scripts/dev-db.sh` Docker container).

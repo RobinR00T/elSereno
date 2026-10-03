@@ -14,7 +14,7 @@ import (
 // across a NUL boundary.
 func FuzzParseReadCPUModelName(f *testing.F) {
 	f.Add([]byte{})
-	// 11-byte minimal response (header + end code) — should
+	// 11-byte minimal response (header + end code), should
 	// trip ErrShortFrame.
 	f.Add([]byte{
 		0xD0, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x02, 0x00, 0x00, 0x00,

@@ -27,7 +27,7 @@ func fixtureFinding() core.Finding {
 	}
 }
 
-// TestWriteFinding_BundleEmitsThreeObjects — every finding
+// TestWriteFinding_BundleEmitsThreeObjects every finding
 // produces address SCO + network-traffic SCO + observed-data
 // SDO (3 objects in the bundle).
 func TestWriteFinding_BundleEmitsThreeObjects(t *testing.T) {
@@ -83,7 +83,7 @@ func observedData(t *testing.T, f core.Finding, addr string, port int) map[strin
 	return nil
 }
 
-// TestWriteFinding_StandardsExternalRefs — a mapped protocol cites the
+// TestWriteFinding_StandardsExternalRefs a mapped protocol cites the
 // SP 800-82 r4 vulnerabilities in the STIX-native external_references.
 func TestWriteFinding_StandardsExternalRefs(t *testing.T) {
 	obs := observedData(t, fixtureFinding(), "192.168.1.5", 502) // modbus
@@ -106,7 +106,7 @@ func TestWriteFinding_StandardsExternalRefs(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_IPv4AddrSCO — IPv4 input produces an
+// TestWriteFinding_IPv4AddrSCO IPv4 input produces an
 // ipv4-addr SCO with the correct value.
 func TestWriteFinding_IPv4AddrSCO(t *testing.T) {
 	var buf bytes.Buffer
@@ -124,7 +124,7 @@ func TestWriteFinding_IPv4AddrSCO(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_IPv6AddrSCO — IPv6 input produces an
+// TestWriteFinding_IPv6AddrSCO IPv6 input produces an
 // ipv6-addr SCO with the canonical value.
 func TestWriteFinding_IPv6AddrSCO(t *testing.T) {
 	var buf bytes.Buffer
@@ -142,7 +142,7 @@ func TestWriteFinding_IPv6AddrSCO(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_NetworkTrafficSCO — port + protocols
+// TestWriteFinding_NetworkTrafficSCO port + protocols
 // populated correctly.
 func TestWriteFinding_NetworkTrafficSCO(t *testing.T) {
 	var buf bytes.Buffer
@@ -158,13 +158,13 @@ func TestWriteFinding_NetworkTrafficSCO(t *testing.T) {
 	if !strings.Contains(got, `"dst_port": 502`) {
 		t.Errorf("missing dst_port: %s", got)
 	}
-	// Modbus over TCP — protocols should be ["tcp", "modbus"].
+	// Modbus over TCP, protocols should be ["tcp", "modbus"].
 	if !strings.Contains(got, `"tcp"`) || !strings.Contains(got, `"modbus"`) {
 		t.Errorf("missing protocols list: %s", got)
 	}
 }
 
-// TestWriteFinding_BACnetUsesUDPTransport — BACnet runs over
+// TestWriteFinding_BACnetUsesUDPTransport BACnet runs over
 // UDP per ASHRAE 135; the STIX `protocols` array reflects
 // that.
 func TestWriteFinding_BACnetUsesUDPTransport(t *testing.T) {
@@ -182,7 +182,7 @@ func TestWriteFinding_BACnetUsesUDPTransport(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_ObservedDataSDO — the SDO carries severity
+// TestWriteFinding_ObservedDataSDO the SDO carries severity
 // + protocol in labels and the timestamps line up with the
 // finding's CreatedAt.
 func TestWriteFinding_ObservedDataSDO(t *testing.T) {
@@ -204,7 +204,7 @@ func TestWriteFinding_ObservedDataSDO(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_DeterministicIDs — running twice with
+// TestWriteFinding_DeterministicIDs running twice with
 // identical input produces identical SCO/SDO IDs. The bundle
 // id itself contains a timestamp so it differs run-to-run,
 // but the inner objects are stable for diff-testing.
@@ -242,7 +242,7 @@ func TestWriteFinding_DeterministicIDs(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_EmptyAddrSkipsAddrSCO — when the caller
+// TestWriteFinding_EmptyAddrSkipsAddrSCO when the caller
 // can't resolve the address, the bundle still emits the
 // network-traffic + observed-data pair (just no dst_ref).
 func TestWriteFinding_EmptyAddrSkipsAddrSCO(t *testing.T) {
@@ -263,7 +263,7 @@ func TestWriteFinding_EmptyAddrSkipsAddrSCO(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_RequiresID — empty Finding.ID returns an
+// TestWriteFinding_RequiresID empty Finding.ID returns an
 // error (caller must populate the ID upstream).
 func TestWriteFinding_RequiresID(t *testing.T) {
 	var buf bytes.Buffer
@@ -276,7 +276,7 @@ func TestWriteFinding_RequiresID(t *testing.T) {
 	}
 }
 
-// TestWriteFinding_BundleSpecVersion — every bundle declares
+// TestWriteFinding_BundleSpecVersion every bundle declares
 // spec_version 2.1 (STIX 2.1 conformance).
 func TestWriteFinding_BundleSpecVersion(t *testing.T) {
 	var buf bytes.Buffer

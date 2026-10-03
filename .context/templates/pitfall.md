@@ -1,4 +1,4 @@
-## PITF-NNN — <short title>
+## PITF-NNN, <short title>
 
 **Síntoma**: <cómo se manifiesta el bug>
 

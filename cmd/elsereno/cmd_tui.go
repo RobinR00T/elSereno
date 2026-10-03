@@ -16,10 +16,10 @@ import (
 	"local/elsereno/internal/tui/feeds"
 )
 
-// newTUICmd registers `elsereno tui` — the interactive
+// newTUICmd registers `elsereno tui`: the interactive
 // terminal UI. Four modes selected by flag:
 //
-//   - (no flag)        interactive — opens the panes with an
+//   - (no flag)        interactive, opens the panes with an
 //     empty feed; the operator verifies the
 //     program runs but no events flow until
 //     they restart with --input or another
@@ -102,7 +102,7 @@ N.NN/s)" feedback.`,
 // newTUICmd so the parent stays under funlen as new flags land.
 func registerTUIFlags(cmd *cobra.Command, args *pickFeedArgs) {
 	cmd.Flags().StringVar(&args.inputKind, "input", "",
-		"v1.30+: scan from inside the TUI. Same kinds as `elsereno scan` (list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>) — v1.31+.")
+		"v1.30+: scan from inside the TUI. Same kinds as `elsereno scan` (list:<path> | nmap:<path> | stdin | shodan:<q> | censys:<q> | fofa:<q> | zoomeye:<q> | onyphe:<q> | internetdb:<ip>), v1.31+.")
 	cmd.Flags().Uint16Var(&args.defaultPort, "default-port", 0,
 		"v1.30+: default port for --input list / stdin entries that omit one (host-only lines)")
 	cmd.Flags().StringVar(&args.apiCredsFile, "api-creds-file", "",
@@ -152,7 +152,7 @@ func openRecordSink(path string) (tui.RunOpts, error) {
 }
 
 // pickFeed maps the CLI flags to a tui.Feed + Mode. Mutual
-// exclusion is enforced — each --replay / --feed / --watch /
+// exclusion is enforced, each --replay / --feed / --watch /
 // --input excludes the others. No flag → interactive mode with
 // the empty feed (sanity-check shape).
 func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
@@ -165,8 +165,8 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 	}
 	switch {
 	case hasReplay:
-		// Pre-flight stat. We don't open here — the feed
-		// goroutine does that — but a missing file is the
+		// Pre-flight stat. We don't open here, the feed
+		// goroutine does that, but a missing file is the
 		// common operator typo, and surfacing it before the
 		// alt screen takes over saves them from a confusing
 		// "feed closed with error" line on a still-blank TUI.
@@ -223,7 +223,7 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 //
 // stdin input note: when invoked with `--input stdin`, the
 // dispatcher reads from os.Stdin. The TUI also takes its own
-// keyboard input from os.Stdin once the alt screen mounts —
+// keyboard input from os.Stdin once the alt screen mounts,
 // these can't share. Operators wanting "stdin-as-input" should
 // either pipe via `--feed -` (which reads NDJSON live) or use
 // list:/dev/stdin. We keep the kind here for symmetry with

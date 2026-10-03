@@ -76,7 +76,7 @@ The proxy runs until SIGINT / SIGTERM (clean shutdown, exit 0)
 or SIGHUP (reload-style exit 75 / EX_TEMPFAIL). The SIGHUP path
 is for operators wrapping the proxy in a supervisor (systemd
 ` + "`Restart=always`" + `, runit, s6, etc.): edit the allow-file, mint
-a fresh confirm-token, then ` + "`kill -HUP`" + ` — the supervisor
+a fresh confirm-token, then ` + "`kill -HUP`" + `: the supervisor
 restarts the proxy and the new instance picks up the updated
 config.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -187,7 +187,7 @@ func registerProxyListenIAX2PBXFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 
 // registerProxyListenModbusFlags adds the modbus flags.
 func registerProxyListenModbusFlags(cmd *cobra.Command, opts *proxyListenOpts) {
-	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form — any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
+	cmd.Flags().UintSliceVar(&opts.functions, "function", nil, "modbus: function codes to allow (e.g. 6 for WriteSingleRegister, 16 for WriteMultipleRegisters). Legacy form, any unit, any address. For per-entry unit+FC+address-range tightening use --write instead.")
 	cmd.Flags().StringSliceVar(&opts.modbusWritesCLI, "write", nil, "modbus: structured allowlist entry unit=N;fc=M;start=A;end=B (repeatable). unit/start/end are optional (0 = any). Example: unit=1;fc=6;start=100;end=200. v1.12+.")
 	cmd.Flags().StringSliceVar(&opts.modbusDiagCLI, "diag-subfunction", nil, "modbus: authorise one mutating FC 8 Diagnostics sub-function (repeatable; hex 0x04 or decimal). Read/counter sub-functions never need this. Mutating: 0x01 Restart, 0x03 Change Delimiter, 0x04 Force Listen Only, 0x0A Clear Counters, 0x14 Clear Overrun. Default-deny without it.")
 }
@@ -204,22 +204,22 @@ func registerProxyListenBACnetFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().UintSliceVar(&opts.serviceChoices, "service-choice", nil, "bacnet: confirmed-service choices to allow (e.g. 15 WriteProperty, 20 ReinitializeDevice)")
 	cmd.Flags().StringSliceVar(&opts.bacnetObjects, "object", nil, "bacnet: optional per-object allowlist for WriteProperty (svc 15, v1.12+) and WritePropertyMultiple (svc 16, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Both gates walk every (object, property) tuple in the request. Other mutating services keep service-only gating.")
 	cmd.Flags().StringSliceVar(&opts.bacnetDeleteObjects, "delete-object", nil, "bacnet: optional per-target allowlist for DeleteObject (svc 11, v1.13+). Format: type=N;instance=M (repeatable, exact match). Object-level only.")
-	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only — instance ignored at gate level. Pair with --create-object-instance for per-(type,instance) tightening (v1.16+).")
+	cmd.Flags().UintSliceVar(&opts.bacnetCreateObjectTypes, "create-object-type", nil, "bacnet: optional per-type allowlist for CreateObject (svc 10, v1.13+). Numeric BACnetObjectType (e.g. 17 for Schedule, 19 for MultiStateValue). Type-only, instance ignored at gate level. Pair with --create-object-instance for per-(type,instance) tightening (v1.16+).")
 	cmd.Flags().StringSliceVar(&opts.bacnetCreateObjectInstances, "create-object-instance", nil, "bacnet: optional per-(type, instance) allowlist for CreateObject (svc 10, v1.16+). Format: type=N;instance=M (repeatable, exact match). Refines --create-object-type when the ACS uses the [1] objectIdentifier CHOICE form (operator pre-declares which exact instance the device should create). When this list is set AND the request uses CHOICE [0] objectType (no explicit instance), the per-type list governs.")
 	cmd.Flags().UintSliceVar(&opts.bacnetReinitStates, "reinit-state", nil, "bacnet: optional per-state allowlist for ReinitializeDevice (svc 20, v1.13+). Numeric reinitializedStateOfDevice enum (0 coldstart, 1 warmstart, 2..6 backup/restore, 7 activate-changes). Operator typically allows only 7.")
 	cmd.Flags().UintSliceVar(&opts.bacnetDCCStates, "dcc-state", nil, "bacnet: optional per-state allowlist for DeviceCommunicationControl (svc 17, v1.13+). Numeric enableDisable enum (0 enable, 1 disable, 2 disableInitiation). Operator typically allows only 0 (recovery from attacker-induced silence) and refuses 1/2.")
-	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants — POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. Pair with --lso-target for per-(op, type, instance) tightening (v1.16+).")
+	cmd.Flags().UintSliceVar(&opts.bacnetLSOOps, "lso-op", nil, "bacnet: optional per-operation allowlist for LifeSafetyOperation (svc 27, v1.13+). Numeric BACnetLifeSafetyOperation enum (0 none, 1/2/3 silence variants, POTENTIALLY LETHAL on fire-alarm panels, 4/5/6 reset variants, 7/8/9 unsilence variants). Operator typically allows 7/8/9 freely + 4/5/6 case-by-case + REFUSES 1/2/3 outright on production life-safety buses. Pair with --lso-target for per-(op, type, instance) tightening (v1.16+).")
 	cmd.Flags().StringSliceVar(&opts.bacnetLSOTargets, "lso-target", nil, "bacnet: optional per-(operation, type, instance) allowlist for LifeSafetyOperation (svc 27, v1.16+). Format: op=N;type=N;instance=N (repeatable, exact match). Refines --lso-op when the ACS includes the [3] objectIdentifier (operator-scoped LSO at a specific Life-Safety-Point object). Per-target match wins; falls back to --lso-op for device-wide requests (those without [3]).")
-	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances — useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
+	cmd.Flags().UintSliceVar(&opts.bacnetAWFFiles, "awf-file", nil, "bacnet: optional per-File-instance allowlist for AtomicWriteFile (svc 7, v1.13+). Numeric File-object instance number (ObjectType implicitly 10 = File). Restricts file overwrites to specific File instances, useful when File#1 is firmware blob and File#5 is a log file; allow log writes but refuse firmware overwrites.")
 	cmd.Flags().StringSliceVar(&opts.bacnetListElements, "list-element", nil, "bacnet: optional per-(object, property) allowlist for AddListElement (svc 8) AND RemoveListElement (svc 9, v1.13+). Format: type=N;instance=M;property=P (repeatable, exact match). Same shape as --object but applies only to the list-mutation services. Common targets: NotificationClass#N.recipient_list (102), Schedule#N.exception_schedule (38).")
 }
 
 // registerProxyListenCWMPFlags adds the cwmp flags.
 func registerProxyListenCWMPFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	cmd.Flags().StringSliceVar(&opts.rpcs, "rpc", nil, "cwmp: SOAP RPC name(s) to allow (e.g. SetParameterValues, Reboot, FactoryReset). Case-sensitive per TR-069 §A.4; \"cwmp:\" prefix tolerated. Read-only + protocol-flow RPCs (GetParameter*, Inform, TransferComplete, …) always pass (v1.11+).")
-	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist — prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
-	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time — TR-069 doesn't carry it). v1.12+.")
-	cmd.Flags().BoolVar(&opts.cwmpVerifyFirmwareOnComplete, "verify-firmware-on-complete", false, "cwmp: opt-in async post-flash firmware re-fetch (v1.19+). On every successful TransferComplete with a resolved Authorisation + non-empty AllowlistSHA256, the proxy spawns a goroutine that re-downloads the URL, hashes it, and emits a `cwmp_firmware_verify` audit row with status match/mismatch/unreachable. Catches firmware swaps on the source server (supply-chain attack) that the CPE-side TC report alone can't surface. Async — doesn't block the proxy.")
+	cmd.Flags().StringSliceVar(&opts.paramPrefixes, "param-prefix", nil, "cwmp: optional per-parameter-path allowlist, prefixes like \"InternetGatewayDevice.WANDevice.\" constrain Set* RPCs to specific sub-trees. Every Name in the request must match at least one prefix. Case-sensitive per TR-069 data model. Non-Set RPCs unaffected (v1.12+).")
+	cmd.Flags().StringSliceVar(&opts.cwmpFirmware, "firmware", nil, "cwmp: optional per-image allowlist for Download RPC. Format: url=<full-url>;sha256=<hex> (sha256 optional; repeatable). URL must EXACTLY match the <URL> the ACS sends. SHA256 is metadata for downstream verification (not enforced at RPC time, TR-069 doesn't carry it). v1.12+.")
+	cmd.Flags().BoolVar(&opts.cwmpVerifyFirmwareOnComplete, "verify-firmware-on-complete", false, "cwmp: opt-in async post-flash firmware re-fetch (v1.19+). On every successful TransferComplete with a resolved Authorisation + non-empty AllowlistSHA256, the proxy spawns a goroutine that re-downloads the URL, hashes it, and emits a `cwmp_firmware_verify` audit row with status match/mismatch/unreachable. Catches firmware swaps on the source server (supply-chain attack) that the CPE-side TC report alone can't surface. Async, doesn't block the proxy.")
 	cmd.Flags().DurationVar(&opts.cwmpVerifyFirmwareTimeout, "verify-firmware-timeout", 5*time.Minute, "cwmp: timeout for the v1.19+ async firmware re-fetch (only used when --verify-firmware-on-complete is set). Default 5m; bump for slow links / large images. A timeout produces a `cwmp_firmware_verify` audit row with status `unreachable`.")
 }
 
@@ -235,15 +235,15 @@ func registerProxyListenSessionFlags(cmd *cobra.Command, opts *proxyListenOpts) 
 	cmd.Flags().DurationVar(&opts.dialTimeout, "dial-timeout", 5*time.Second, "upstream dial timeout")
 	cmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 120*time.Second, "per-connection idle timeout")
 	cmd.Flags().IntVar(&opts.maxConns, "max-conns", 0, "max concurrent clients (0 = unlimited)")
-	cmd.Flags().BoolVar(&opts.reloadAllowFile, "reload-allow-file", false, "v1.17+: enable in-process SIGUSR1 reload of --allow-file. On SIGUSR1 the proxy re-reads the allow-file, re-reads the sidecar `<allow-file>.token` (0600) for the new confirm-token, builds + authorises the new handler, and atomically swaps it. In-flight connections finish with the old allowlist; new connections use the new. Requires --allow-file. Mutually-exclusive with the v1.15 SIGHUP supervisor-restart pattern only insofar as SIGHUP still exits 75 — operators choose: USR1 in-process or HUP supervisor restart.")
-	cmd.Flags().StringVar(&opts.recordPath, "record", "", "v1.30+: capture every byte that crosses the gate to FILE as `elsereno-replay/v1` NDJSON (one line per chunk, both directions, RFC3339 microsecond timestamps). The file is created 0600. Operators replay later with `elsereno proxy replay FILE`. Empty (default) disables recording. Recording adds zero overhead to the bytes flowing — the recorder is a tee — but expect FILE to grow at line-rate. Pair with `--max-conns 1` for clean per-session captures.")
+	cmd.Flags().BoolVar(&opts.reloadAllowFile, "reload-allow-file", false, "v1.17+: enable in-process SIGUSR1 reload of --allow-file. On SIGUSR1 the proxy re-reads the allow-file, re-reads the sidecar `<allow-file>.token` (0600) for the new confirm-token, builds + authorises the new handler, and atomically swaps it. In-flight connections finish with the old allowlist; new connections use the new. Requires --allow-file. Mutually-exclusive with the v1.15 SIGHUP supervisor-restart pattern only insofar as SIGHUP still exits 75, operators choose: USR1 in-process or HUP supervisor restart.")
+	cmd.Flags().StringVar(&opts.recordPath, "record", "", "v1.30+: capture every byte that crosses the gate to FILE as `elsereno-replay/v1` NDJSON (one line per chunk, both directions, RFC3339 microsecond timestamps). The file is created 0600. Operators replay later with `elsereno proxy replay FILE`. Empty (default) disables recording. Recording adds zero overhead to the bytes flowing, the recorder is a tee, but expect FILE to grow at line-rate. Pair with `--max-conns 1` for clean per-session captures.")
 	// Shared across plugins that ship a token-generation cookie
 	// (v1.16+ for bacnet; v1.17+ adding cwmp + others). Each
-	// plugin's handler builder picks this up — only the active
+	// plugin's handler builder picks this up, only the active
 	// --plugin's gate consumes it. Folds into the session hash
 	// so confirm-tokens minted with a different generation are
 	// rejected.
-	cmd.Flags().Uint32Var(&opts.tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+ bacnet, v1.17+ all 7 write-gated plugins). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens — the cryptographic foundation for in-process allow-file reload (paired with --reload-allow-file). 0 (default) preserves the prior-cycle hash for backwards-compat. Plugins without per-plugin generation support ignore this flag.")
+	cmd.Flags().Uint32Var(&opts.tokenGeneration, "token-generation", 0, "optional: token-generation cookie (v1.16+ bacnet, v1.17+ all 7 write-gated plugins). Folds into the session hash so a confirm-token minted with a different generation is rejected. Bump on allow-file edit to invalidate stale tokens, the cryptographic foundation for in-process allow-file reload (paired with --reload-allow-file). 0 (default) preserves the prior-cycle hash for backwards-compat. Plugins without per-plugin generation support ignore this flag.")
 }
 
 type proxyListenOpts struct {
@@ -282,7 +282,7 @@ type proxyListenOpts struct {
 	bacnetObjects []string
 	// bacnetDeleteObjects holds the bacnet per-target
 	// DeleteObject allowlist in the CLI-friendly
-	// "type=N;instance=M" form (v1.13+). Object-level only —
+	// "type=N;instance=M" form (v1.13+). Object-level only,
 	// PropertyID doesn't apply to deletion. Restricts service
 	// 11 DeleteObject requests to specific (ObjectType,
 	// ObjectInstance) pairs.
@@ -360,18 +360,18 @@ type proxyListenOpts struct {
 	// extensions. Empty → v1.4 method-only gating.
 	toPrefixes []string
 	// aors holds the sip REGISTER AOR allowlist (v1.10+). Full
-	// AoRs (e.g. "sip:alice@pbx.internal") — exact-match after
+	// AoRs (e.g. "sip:alice@pbx.internal"), exact-match after
 	// canonicalisation. Empty → v1.9 (or v1.4) gating without
 	// AOR-level tightening.
 	aors []string
 	// fromDomains holds the sip From-header domain allowlist
-	// (v1.12+). Host names (e.g. "internal.pbx") — exact-match
+	// (v1.12+). Host names (e.g. "internal.pbx"), exact-match
 	// after canonicalisation, applied to every gated method.
 	// Empty → v1.10 (or earlier) gating without from-domain
 	// tightening.
 	fromDomains []string
 	// rpcs holds the cwmp SOAP RPC allowlist (v1.11+). RPC
-	// names (e.g. "SetParameterValues", "Reboot") — case-
+	// names (e.g. "SetParameterValues", "Reboot"), case-
 	// sensitive per TR-069 §A.4. Empty → only read-only +
 	// protocol-flow RPCs pass; every write-capable RPC refused.
 	rpcs []string
@@ -416,7 +416,7 @@ type proxyListenOpts struct {
 	recordPath string
 	// v1.35+: legacy-ICS plugin allowlists.
 	// intents holds the operator-supplied free-text tags for
-	// pcworx + mms (session-level — no wire allowlist; each
+	// pcworx + mms (session-level, no wire allowlist; each
 	// intent rolls into the session-mutation hash).
 	intents []string
 	// cipCommands holds the enip allowlist of CIP encapsulation
@@ -544,7 +544,7 @@ func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
 	// v1.17 chunk 4: when --reload-allow-file is set, wrap the
 	// handler in a reloadableHandler so SIGUSR1 can swap the
 	// allowlist atomically. Plain runs (no flag) install the
-	// concrete handler directly — same as pre-v1.17 behaviour.
+	// concrete handler directly, same as pre-v1.17 behaviour.
 	servedHandler := wrapForReload(opts, handler)
 
 	srv, err := proxy.New(proxy.Options{
@@ -646,7 +646,7 @@ func finishProxyListen(cmd *cobra.Command, hupCh <-chan os.Signal) error {
 	// real crash; runit / s6 just restart unconditionally.
 	select {
 	case <-hupCh:
-		cmd.Printf("proxy: stopping for SIGHUP reload (exit %d — supervisor should restart)\n", core.ExitTempFail)
+		cmd.Printf("proxy: stopping for SIGHUP reload (exit %d, supervisor should restart)\n", core.ExitTempFail)
 		return fail(core.ExitTempFail, errReloadRequested)
 	default:
 	}
@@ -781,7 +781,7 @@ func buildICSGatedHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.
 	return nil, fmt.Errorf("--plugin %q: supported values are sip / iax2 / pbxhttp / modbus / opcua / opcuahttps / bacnet / cwmp / pcworx / mms / enip / s7 / finsudp / slmp / gesrtp / codesys / redlion / dnp3", opts.plugin)
 }
 
-// buildPcworxHandler — v1.35+. Session-level allowlist of
+// buildPcworxHandler v1.35+. Session-level allowlist of
 // operator-supplied free-text intents (no wire allowlist).
 func buildPcworxHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *pcworxwrite.WriteGatedHandler {
 	allowed := make([]pcworxwrite.AllowedIntent, 0, len(opts.intents))
@@ -797,7 +797,7 @@ func buildPcworxHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Co
 	}
 }
 
-// buildMMSHandler — v1.35+. Session-level allowlist of
+// buildMMSHandler v1.35+. Session-level allowlist of
 // operator-supplied free-text intents (mirror of pcworx).
 func buildMMSHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) *mmswrite.WriteGatedHandler {
 	allowed := make([]mmswrite.AllowedIntent, 0, len(opts.intents))
@@ -1109,7 +1109,7 @@ func parseCIPAttr(s string) (enipwrite.AllowedAttribute, error) {
 	return a, nil
 }
 
-// buildENIPHandler — v1.35+. Wire-aware allowlist of CIP encapsulation
+// buildENIPHandler v1.35+. Wire-aware allowlist of CIP encapsulation
 // command codes (--cip-command) plus an optional per-(class, instance,
 // attribute) object-level allowlist (--cip-attr) that tightens the gate
 // below the encapsulation command.
@@ -1139,7 +1139,7 @@ func buildENIPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Conf
 	}, nil
 }
 
-// buildS7Handler — v1.35+. Wire-aware allowlist of S7
+// buildS7Handler v1.35+. Wire-aware allowlist of S7
 // function codes (uint8). Each --s7-fc flag value is mapped
 // 1:1 onto s7wire.FunctionCode.
 func buildS7Handler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*s7write.WriteGatedHandler, error) {
@@ -1465,7 +1465,7 @@ func parseBACnetProxyOpts(opts proxyListenOpts) (parsedBACnetProxyOpts, error) {
 
 // buildCWMPHandler wires opts.rpcs onto a CWMP WriteGatedHandler.
 // Read-only / protocol-flow RPCs are hardcoded in the library's
-// alwaysSafeRPCs set and don't need to pass through here — the
+// alwaysSafeRPCs set and don't need to pass through here, the
 // operator only supplies the write-capable RPCs they want to
 // authorise (SetParameterValues, Reboot, Download, etc.).
 func buildCWMPHandler(opts proxyListenOpts, rt *offensiveRuntime, c confirm.Confirm) (*cwmpwrite.WriteGatedHandler, error) {
@@ -1524,9 +1524,9 @@ func chooseTransferCompleteObserver(opts proxyListenOpts, rt *offensiveRuntime) 
 // `download_url=` + `allowlist_sha256=` cross-references.
 // When no matching authorisation is found,
 // `outcome=orphan_complete|orphan_fault` and the cross-ref
-// fields are empty — operators should alert on orphan rows.
+// fields are empty, operators should alert on orphan rows.
 //
-// Lightweight on purpose — runs synchronously on the proxy
+// Lightweight on purpose, runs synchronously on the proxy
 // request goroutine. Operators wanting structured ingest
 // should pipe stderr through their existing zerolog/loki/etc.
 // pipeline.
@@ -1588,7 +1588,7 @@ var _ = iaxwire.IAXNew
 //
 // We type-switch rather than extending the gatedProxyHandler
 // interface because the interface should stay narrow (Authorise
-// + Handle) — recording is an orthogonal capture concern.
+// + Handle), recording is an orthogonal capture concern.
 func attachRecorder(h gatedProxyHandler, rec *replay.Recorder) bool {
 	switch t := h.(type) {
 	case *sipwrite.WriteGatedHandler:

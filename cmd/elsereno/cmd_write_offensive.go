@@ -204,7 +204,7 @@ type modbusProxyFlags struct {
 	tokenGeneration          uint32   // v1.17+: token-generation cookie
 }
 
-// newWriteModbusProxyDryRunCmd — v1.9 chunk 2.
+// newWriteModbusProxyDryRunCmd v1.9 chunk 2.
 // Session-level dry-run that mints the confirm-token for the
 // eventual `proxy listen --plugin modbus` session. Takes a
 // function-code allowlist (repeatable) + optional --unit and
@@ -213,7 +213,7 @@ func newWriteModbusProxyDryRunCmd() *cobra.Command {
 	var f modbusProxyFlags
 	cmd := &cobra.Command{
 		Use:   "proxy-dry-run",
-		Short: "Proxy-session dry-run — derive the confirm-token for `proxy listen --plugin modbus`",
+		Short: "Proxy-session dry-run, derive the confirm-token for `proxy listen --plugin modbus`",
 		Long: `Takes an allowlist of function codes (and optional unit +
 address range) and prints:
   - the canonical SessionMutation
@@ -231,7 +231,7 @@ Function codes: 5 (WriteSingleCoil), 6 (WriteSingleRegister),
 		},
 	}
 	cmd.Flags().StringVar(&f.target, "target", "", "upstream host:port (the Modbus/TCP device we'll proxy to)")
-	cmd.Flags().UintSliceVar(&f.functions, "function", nil, "function code(s) to allow — repeatable; e.g. 6 16 (legacy; pairs with --unit/--address-from/--address-to to produce one allow-entry shared by every FC)")
+	cmd.Flags().UintSliceVar(&f.functions, "function", nil, "function code(s) to allow, repeatable; e.g. 6 16 (legacy; pairs with --unit/--address-from/--address-to to produce one allow-entry shared by every FC)")
 	cmd.Flags().Uint8Var(&f.unit, "unit", 0, "optional: Modbus unit identifier (0 = any)")
 	cmd.Flags().Uint16Var(&f.addrFrom, "address-from", 0, "optional: inclusive start of address range")
 	cmd.Flags().Uint16Var(&f.addrTo, "address-to", 0, "optional: inclusive end of address range")
@@ -326,7 +326,7 @@ func printModbusProxySummary(cmd *cobra.Command, f modbusProxyFlags, mut confirm
 // --emit-allow-file is set. v1.12 chunk 4 closes the v1.9 carry-
 // over: structured --write entries round-trip cleanly through
 // the new `writes:` YAML field, so the guard against --unit /
-// --address-* + emit is lifted — those legacy flags now
+// --address-* + emit is lifted, those legacy flags now
 // materialise as a single `writes:` entry in the emitted file.
 func maybeEmitModbusProxyAllow(cmd *cobra.Command, f modbusProxyFlags) error {
 	p, err := ensureAllowFilePath(f.emitFile)
@@ -567,7 +567,7 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 			if err != nil {
 				return fail(core.ExitError, err)
 			}
-			cmd.Printf("sent OK — upstream responded PDU: %s\n", hex.EncodeToString(resp.PDU))
+			cmd.Printf("sent OK, upstream responded PDU: %s\n", hex.EncodeToString(resp.PDU))
 			cmd.Printf("audit row appended to: %s\n", rt.AuditPath())
 			return nil
 		},

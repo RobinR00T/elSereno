@@ -17,7 +17,7 @@ import (
 // ---- Hash ladder: per-(type, instance) variant degrades -------
 
 // TestAllowlistHashWithCreateObjectInstances_EmptyMatchesV13Chunk13
-// — the v1.16 chunk-2 hash with empty CreateObjectInstances
+// the v1.16 chunk-2 hash with empty CreateObjectInstances
 // must equal the v1.13 chunk-13 hash. Backwards-compat ladder
 // step 1.
 func TestAllowlistHashWithCreateObjectInstances_EmptyMatchesV13Chunk13(t *testing.T) {
@@ -36,7 +36,7 @@ func TestAllowlistHashWithCreateObjectInstances_EmptyMatchesV13Chunk13(t *testin
 }
 
 // TestAllowlistHashWithCreateObjectInstances_NonEmptyChangesHash
-// — adding a per-(type, instance) entry must perturb the hash.
+// adding a per-(type, instance) entry must perturb the hash.
 func TestAllowlistHashWithCreateObjectInstances_NonEmptyChangesHash(t *testing.T) {
 	target := "bms.test:47808"
 	base := bwrite.Allowlists{
@@ -54,7 +54,7 @@ func TestAllowlistHashWithCreateObjectInstances_NonEmptyChangesHash(t *testing.T
 	}
 }
 
-// TestAllowlistHashWithCreateObjectInstances_OrderInsensitive — hash
+// TestAllowlistHashWithCreateObjectInstances_OrderInsensitive hash
 // is stable across different CLI input orders.
 func TestAllowlistHashWithCreateObjectInstances_OrderInsensitive(t *testing.T) {
 	target := "bms.test:47808"
@@ -80,7 +80,7 @@ func TestAllowlistHashWithCreateObjectInstances_OrderInsensitive(t *testing.T) {
 
 // ---- Wire parser: ParseCreateObjectWithInstance ---------------
 
-// TestParseCreateObjectWithInstance_ChoiceObjectTypeNoInstance —
+// TestParseCreateObjectWithInstance_ChoiceObjectTypeNoInstance
 // CHOICE [0] returns hasInstance=false, instance=0.
 func TestParseCreateObjectWithInstance_ChoiceObjectTypeNoInstance(t *testing.T) {
 	body := buildCreateObjectChoiceObjectType(17)
@@ -100,7 +100,7 @@ func TestParseCreateObjectWithInstance_ChoiceObjectTypeNoInstance(t *testing.T) 
 }
 
 // TestParseCreateObjectWithInstance_ChoiceObjectIdentifierExtractsInstance
-// — CHOICE [1] returns the instance from the packed
+// CHOICE [1] returns the instance from the packed
 // ObjectIdentifier.
 func TestParseCreateObjectWithInstance_ChoiceObjectIdentifierExtractsInstance(t *testing.T) {
 	body := buildCreateObjectChoiceObjectIdentifier(19, 4096) // MultiStateValue#4096
@@ -119,7 +119,7 @@ func TestParseCreateObjectWithInstance_ChoiceObjectIdentifierExtractsInstance(t 
 	}
 }
 
-// TestParseCreateObjectWithInstance_LargestInstance — boundary
+// TestParseCreateObjectWithInstance_LargestInstance boundary
 // test: 22-bit max instance value (4194303).
 func TestParseCreateObjectWithInstance_LargestInstance(t *testing.T) {
 	body := buildCreateObjectChoiceObjectIdentifier(17, 0x3FFFFF)
@@ -182,7 +182,7 @@ func driveCreateObjectInstanceSession(t *testing.T, types []bwrite.AllowedCreate
 	return clientIn, rec
 }
 
-// TestGateBACnetCreate_PerInstance_AllowedExactPasses — operator
+// TestGateBACnetCreate_PerInstance_AllowedExactPasses operator
 // declares (type=17, instance=42); ACS sends CHOICE [1] with
 // matching tuple → forwards.
 func TestGateBACnetCreate_PerInstance_AllowedExactPasses(t *testing.T) {
@@ -197,7 +197,7 @@ func TestGateBACnetCreate_PerInstance_AllowedExactPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_PerInstance_DifferentInstanceRefuses — same
+// TestGateBACnetCreate_PerInstance_DifferentInstanceRefuses same
 // type but a different instance → refused.
 func TestGateBACnetCreate_PerInstance_DifferentInstanceRefuses(t *testing.T) {
 	instances := []bwrite.AllowedCreateObjectInstance{{ObjectType: 17, ObjectInstance: 42}}
@@ -221,7 +221,7 @@ func TestGateBACnetCreate_PerInstance_DifferentInstanceRefuses(t *testing.T) {
 }
 
 // TestGateBACnetCreate_PerInstance_ChoiceObjectTypeRefusesWhenOnlyInstancesSet
-// — operator opted in to per-instance scoping (only
+// operator opted in to per-instance scoping (only
 // CreateObjectInstances populated, no CreateObjects fallback);
 // CHOICE [0] (type-only) carries no instance to match against
 // → refused. Failure mode chosen because the operator's intent
@@ -244,7 +244,7 @@ func TestGateBACnetCreate_PerInstance_ChoiceObjectTypeRefusesWhenOnlyInstancesSe
 	}
 }
 
-// TestGateBACnetCreate_PerInstance_FallbackToTypeList — operator
+// TestGateBACnetCreate_PerInstance_FallbackToTypeList operator
 // mixes both lists: per-instance for fine control + per-type
 // as fallback. CHOICE [0] with type=17 falls back to per-type
 // list (which has 17) → forwards.
@@ -253,7 +253,7 @@ func TestGateBACnetCreate_PerInstance_FallbackToTypeList(t *testing.T) {
 	instances := []bwrite.AllowedCreateObjectInstance{{ObjectType: 17, ObjectInstance: 42}}
 	client, upstream := driveCreateObjectInstanceSession(t, types, instances)
 
-	// CHOICE [0] type=17 — per-type list passes.
+	// CHOICE [0] type=17, per-type list passes.
 	frame := buildCreateObjectFrame(buildCreateObjectChoiceObjectType(17))
 	_, _ = client.Write(frame)
 	frames := waitForFramesOne(t, upstream)
@@ -262,7 +262,7 @@ func TestGateBACnetCreate_PerInstance_FallbackToTypeList(t *testing.T) {
 	}
 }
 
-// TestGateBACnetCreate_PerInstance_TypeMismatchRefuses — even
+// TestGateBACnetCreate_PerInstance_TypeMismatchRefuses even
 // when AllowedCreateObjectInstances has (17, 42), a CHOICE [1]
 // request with type=8 (Device) refuses (type doesn't match
 // any list entry).

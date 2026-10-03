@@ -102,7 +102,7 @@ type Job struct {
 	// running.
 	Stats Stats `json:"stats"`
 	// FindingsByPlugin is the per-plugin breakdown of
-	// FindingsCount. Operator-facing — answers "which protocol
+	// FindingsCount. Operator-facing, answers "which protocol
 	// produced which findings" on a multi-plugin scan.
 	// Populated by the runner via TransitionFields; nil until
 	// the worker writes it (typically on the terminal
@@ -143,7 +143,7 @@ type Stats struct {
 }
 
 // SubmitRequest is the dashboard's "trigger a scan" payload. The
-// JSON shape is the same on the wire — see openapi.yaml.
+// JSON shape is the same on the wire, see openapi.yaml.
 type SubmitRequest struct {
 	Input       string   `json:"input"`
 	Plugins     []string `json:"plugins,omitempty"`
@@ -273,7 +273,7 @@ type ScheduleRunStats struct {
 	Running   int `json:"running"`
 	Queued    int `json:"queued"`
 	// SuccessRate = Completed / TotalRuns. Range [0, 1].
-	// Zero TotalRuns → SuccessRate=0 (defensive — divides
+	// Zero TotalRuns → SuccessRate=0 (defensive, divides
 	// by zero are nasty in JSON).
 	SuccessRate float64 `json:"success_rate"`
 	// AvgDurationSeconds is the mean (FinishedAt - StartedAt)
@@ -344,7 +344,7 @@ func generateID() (string, error) {
 
 // MemoryStore is the in-memory Store implementation. Goroutine-
 // safe; backed by a sync.RWMutex around a map. Bounded growth
-// is the operator's responsibility — there's no eviction in
+// is the operator's responsibility, there's no eviction in
 // chunk 1, but List(limit) caps the returned slice.
 type MemoryStore struct {
 	mu   sync.RWMutex
@@ -542,7 +542,7 @@ func (s *MemoryStore) StatsTimeseries(_ context.Context, scheduleID string, sinc
 }
 
 // bucketDuration maps the bucket name to a time.Duration. Note
-// "week" is a tidy 7*24h — not 7-day-clock-week-with-DST. The
+// "week" is a tidy 7*24h, not 7-day-clock-week-with-DST. The
 // PG variant uses date_trunc('week', …) which IS DST-aware,
 // minor divergence at week boundaries.
 func bucketDuration(bucket string) (time.Duration, error) {

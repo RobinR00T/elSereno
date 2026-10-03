@@ -6,7 +6,7 @@ labels: bug
 
 ## What happened
 
-<!-- 1–3 lines. -->
+<!-- 1-3 lines. -->
 
 ## Expected
 

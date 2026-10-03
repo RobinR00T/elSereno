@@ -1,11 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.88 — expand scan_schedule_audit:
+-- v1.88, expand scan_schedule_audit:
 --   1. Add new event_type values (delete, set_enabled_true,
 --      set_enabled_false). The Go enum mirrors this CHECK
 --      via ValidScheduleAuditEventTypes (PITF-030 source of
---      truth — SQL DDL).
+--      truth, SQL DDL).
 --   2. Relax the schedule_id FK to ON DELETE SET NULL.
 --      v1.84's CASCADE meant deleting a schedule wiped its
 --      audit history; v1.88 keeps the history with

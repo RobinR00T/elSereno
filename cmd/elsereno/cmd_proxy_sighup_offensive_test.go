@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// TestErrReloadRequested_Sentinel — pin the contract: the
+// TestErrReloadRequested_Sentinel pin the contract: the
 // errReloadRequested sentinel returned on SIGHUP is a typed,
 // non-nil error whose message mentions SIGHUP (so operators
 // grepping the proxy log find it). v1.15 chunk 5.

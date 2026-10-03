@@ -56,7 +56,7 @@ type RunOpts struct {
 // os.Stdin); injectable so tests can drive the TUI through a
 // teatest harness.
 //
-// Backward-compat shim — see RunWithOpts for the v1.41+
+// Backward-compat shim, see RunWithOpts for the v1.41+
 // signature with --record support.
 func Run(ctx context.Context, mode Mode, feed Feed, out io.Writer, in io.Reader) error {
 	return RunWithOpts(ctx, mode, feed, out, in, RunOpts{})

@@ -53,7 +53,7 @@ writes, SET_BAUDRATE (CI=0xB8..0xBC) for re-bauding the meter
 ## Proxy hooks
 Wire-layer write-ban: reads the first M-Bus frame and replies
 with a single-byte ACK (0xE5). Matches the protocol's own
-link-layer ACK idiom — the meter says "got it" but no data is
+link-layer ACK idiom, the meter says "got it" but no data is
 returned, which is the closest "request denied" surface.
 
 ## Scoring contribution

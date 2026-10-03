@@ -19,7 +19,7 @@ type Event struct {
 	// Schema is always "canary:v1"; pins the envelope so
 	// downstream parsers fail fast on upgrade.
 	Schema string `json:"schema"`
-	// Kind labels the canary category — one of
+	// Kind labels the canary category, one of
 	// "scope_violation_target", "scope_violation_protocol",
 	// "scope_violation_dial", "offensive_denied".
 	Kind string `json:"kind"`
@@ -117,7 +117,7 @@ func (s *httpSender) Send(ctx context.Context, ev Event) error {
 }
 
 // InMemorySender captures events into a slice for tests. Safe for
-// single-goroutine use — tests that care about concurrent sends
+// single-goroutine use, tests that care about concurrent sends
 // should add their own mutex.
 type InMemorySender struct {
 	Events []Event

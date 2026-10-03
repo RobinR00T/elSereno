@@ -102,7 +102,7 @@ func buildFinding(target core.Target, note string, isIAm bool) *core.Finding {
 		"impact_class":  70, // BACnet drives HVAC; BMS / life safety adjacent
 		// cve_exposure 8: CVE-2018-10628 (BAS auth bypass),
 		// CVE-2019-12480 (Wago I/O System BACnet stack), CVE-
-		// 2020-12511 (Schneider U.motion Builder BACnet) —
+		// 2020-12511 (Schneider U.motion Builder BACnet),
 		// modest but well-documented across BAS vendors.
 		"cve_exposure": 8,
 	}

@@ -13,7 +13,7 @@ import (
 	"local/elsereno/internal/inputs/zoomeye"
 )
 
-// TestSearchPaged_AccumulatesAcrossPages — server returns 20
+// TestSearchPaged_AccumulatesAcrossPages server returns 20
 // per page; SearchPaged must iterate until totalLimit hit.
 func TestSearchPaged_AccumulatesAcrossPages(t *testing.T) {
 	var pages int64
@@ -54,7 +54,7 @@ func TestSearchPaged_AccumulatesAcrossPages(t *testing.T) {
 	}
 }
 
-// TestSearchPaged_StopsOnEmpty — page 1 returns 20, page 2 is
+// TestSearchPaged_StopsOnEmpty page 1 returns 20, page 2 is
 // empty → loop exits with 20 hits even though totalLimit is
 // 1000.
 func TestSearchPaged_StopsOnEmpty(t *testing.T) {

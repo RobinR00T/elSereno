@@ -63,7 +63,7 @@ func (v *Verifier) VerifyToken(ctx context.Context, token string) (*Claims, erro
 		return claims, nil
 	}
 	// Unknown KID may mean the IdP rotated keys after the
-	// cache last refreshed — force a refresh + retry once.
+	// cache last refreshed, force a refresh + retry once.
 	if errors.Is(err, ErrJWTUnknownKey) {
 		keys, refreshErr := v.cache.Refresh(ctx)
 		if refreshErr != nil {
@@ -122,7 +122,7 @@ func OperatorFromContext(ctx context.Context) string {
 
 // RequireRole wraps a handler with bearer-token validation +
 // role check. When the Verifier is not enabled (back-compat),
-// requests pass through with role = RoleUnknown — downstream
+// requests pass through with role = RoleUnknown, downstream
 // can fall back to X-Operator.
 //
 // On enforcement:
@@ -201,7 +201,7 @@ func pickOperator(c *Claims) string {
 
 // writeAuthError writes a stable JSON error envelope so the
 // dashboard can render a friendly message + the API gives a
-// predictable shape. json.Marshal handles all escaping —
+// predictable shape. json.Marshal handles all escaping,
 // preferred over Sprintf to keep gosec G705 happy and to
 // guarantee a valid JSON shape even if `msg` ever included
 // quotes / control chars.

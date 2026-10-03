@@ -24,27 +24,27 @@
 //
 // Three-tier gate:
 //
-//  1. **APDU tag level** — refuse APDUs whose tag isn't in the
+//  1. **APDU tag level**: refuse APDUs whose tag isn't in the
 //     allowlist. Always-safe set: AARQ/AARE/RLRQ/RLRE
 //     (association lifecycle), GET-Request/Response (read),
 //     SET-Response/ACTION-Response (server-side echoes),
 //     EXCEPTION-Response.
 //
-//  2. **COSEM target level** (SET / ACTION only) — refuse any
+//  2. **COSEM target level** (SET / ACTION only), refuse any
 //     APDU whose (class-id, OBIS, member-id) tuple isn't
 //     allowlisted. OBIS bytes equal to 255 in an allowlist
 //     entry act as wildcards, so an entry like
 //     {ClassID: 70, OBIS: {0, 0, 96, 255, 255, 255}, MemberID: 0}
 //     allows the entire 0-0:96.* OBIS sub-tree.
 //
-//  3. **Member-id level** — MatchExact requires all of (class,
+//  3. **Member-id level**: MatchExact requires all of (class,
 //     OBIS, member) to match; MatchClassOnly wildcards member +
 //     OBIS; MatchClassOBIS wildcards only member. Mirrors enip's
 //     MatchExact / MatchClassInstance / MatchClassOnly.
 //
 // Refusal mode: silent drop. DLMS has an EXCEPTION-Response
 // APDU we could synthesise, but it's a deliberate protocol-
-// level error that the meter would never emit — using it as a
+// level error that the meter would never emit, using it as a
 // gate signal would deceive the operator about what's
 // happening on the wire. Silent drop with the connection
 // staying open lets the client time out cleanly.
@@ -60,7 +60,7 @@
 //   - **GLO_/DED_ ciphered APDUs.** Refused at APDU-tag level.
 //     Inline gating of ciphered SET requires the operator's
 //     master key.
-//   - **CLI flag plumbing** in cmd_write_offensive.go — same
+//   - **CLI flag plumbing** in cmd_write_offensive.go, same
 //     pattern as v1.52/v1.53/v1.55/v1.56.
 package dlms
 
@@ -90,7 +90,7 @@ type CosemMatch uint8
 
 const (
 	// MatchExact requires class-id, OBIS, AND member-id to all
-	// match. Tightest grain — typical for "the Disconnect
+	// match. Tightest grain, typical for "the Disconnect
 	// Control object's reconnect method only".
 	MatchExact CosemMatch = iota
 	// MatchClassOBIS wildcards only the member-id; class + OBIS
@@ -98,7 +98,7 @@ const (
 	// register object".
 	MatchClassOBIS
 	// MatchClassOnly wildcards OBIS + member-id; only class-id
-	// matches. Loose grain — typical for "any Register class
+	// matches. Loose grain, typical for "any Register class
 	// (3) write".
 	MatchClassOnly
 )
@@ -146,7 +146,7 @@ func obisMatches(allow, observed [6]byte) bool {
 	return true
 }
 
-// Hash separators — chosen in the high range so they can't
+// Hash separators, chosen in the high range so they can't
 // collide with APDU tag values (max 0xD8) or OBIS bytes
 // (any uint8).
 const (
@@ -326,7 +326,7 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer) error 
 			return err
 		}
 		if !h.shouldForward(f) {
-			// Silent drop — see package doc for refusal rationale.
+			// Silent drop, see package doc for refusal rationale.
 			continue
 		}
 		if _, werr := upstream.Write(f.Raw); werr != nil {

@@ -4,7 +4,7 @@ import "strings"
 
 // Vendor is a known PBX / SIP-stack brand we can identify from
 // a Server or User-Agent header. The list is deliberately
-// non-exhaustive — it captures the brands operators most often
+// non-exhaustive, it captures the brands operators most often
 // find exposed on the public internet.
 type Vendor string
 
@@ -32,7 +32,7 @@ const (
 
 // vendorMatchers lists (canonical-lowercase substring, vendor)
 // pairs in priority order. The first match wins, so more
-// specific strings come first — "cisco-cucm" before "cisco".
+// specific strings come first, "cisco-cucm" before "cisco".
 var vendorMatchers = []struct {
 	needle string
 	vendor Vendor
@@ -66,7 +66,7 @@ var vendorMatchers = []struct {
 // match is case-insensitive.
 //
 // VendorUnknown is returned when nothing matches OR both inputs
-// are empty — callers can distinguish by also checking whether
+// are empty, callers can distinguish by also checking whether
 // the SIP response had a valid SIP/2.0 status line (a vendor
 // who strips identifying headers is still a SIP responder).
 func IdentifyVendor(server, userAgent string) Vendor {
@@ -96,16 +96,16 @@ func VendorRisk(v Vendor) int {
 		// default-install deployments still on the internet.
 		return 90
 	case VendorCiscoUCM, VendorAvaya, VendorMitel:
-		// Enterprise PBX — usually well-patched but high impact.
+		// Enterprise PBX, usually well-patched but high impact.
 		return 85
 	case VendorYeastar, VendorGrandstream, VendorFanvil, VendorYealink:
 		// SOHO appliances. High exposure, usually shipped with
 		// admin webs on the public side.
 		return 80
 	case VendorKamailio, VendorOpenSIPS, VendorFreeSWITCH, VendorSER, VendorCiscoSIPGW:
-		// SIP proxy / gateway — valuable pivot for call routing
+		// SIP proxy / gateway, valuable pivot for call routing
 		// abuse but not a full PBX.
 		return 75
 	}
-	return 70 // SIP server of unknown vendor — still high protocol_risk
+	return 70 // SIP server of unknown vendor, still high protocol_risk
 }

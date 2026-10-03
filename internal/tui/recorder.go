@@ -65,7 +65,7 @@ type recordEvent struct {
 
 // recorder tees tea.Msg events to an NDJSON file. Owns
 // the file handle for the recorder's lifetime; Close
-// finalises it. Methods are safe for concurrent use — the
+// finalises it. Methods are safe for concurrent use, the
 // feed goroutine is the only producer in production but
 // tests + future multi-feed compositions might overlap.
 type recorder struct {
@@ -105,7 +105,7 @@ func (r *recorder) Tee(next func(tea.Msg)) func(tea.Msg) {
 }
 
 // record serialises one message and writes a JSON line.
-// Errors are silenced — recording is best-effort, the
+// Errors are silenced, recording is best-effort, the
 // operator-supplied file might fill the disk mid-session
 // and the TUI shouldn't die for that. The Stats() method
 // surfaces the line count so the caller can sanity-check.

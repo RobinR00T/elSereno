@@ -80,7 +80,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // ProxyHandler returns the default Fox proxy, which refuses every
 // client→upstream byte with a "fox a 0 -1 fox denied\n" line and
 // closes the connection (ADR-040). Niagara Fox is a line-oriented
-// administrative protocol — any client input can mutate state, so
+// administrative protocol, any client input can mutate state, so
 // the default build offers no legitimate proxy use. The offensive
 // build substitutes a handler that allows `fox a 0 -1 fox hello`
 // handshake and routes everything else through triple confirm.
@@ -101,9 +101,9 @@ func buildFinding(target core.Target, note string, isFox bool) *core.Finding {
 		"capability":    30,
 		"impact_class":  80,
 		// cve_exposure 13: CVE-2012-3024 (Niagara hardcoded
-		// dev creds — high-impact authentication bypass),
+		// dev creds, high-impact authentication bypass),
 		// CVE-2015-2916 (Niagara directory traversal),
-		// CVE-2017-16744 (Niagara AX) — Tridium dominates
+		// CVE-2017-16744 (Niagara AX), Tridium dominates
 		// large-scale BMS deployments so even modest CVE
 		// counts hit a wide install base.
 		"cve_exposure": 13,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-fins-proxy.sh — end-to-end demo of the FINS write-gated proxy
+# demo-fins-proxy.sh, end-to-end demo of the FINS write-gated proxy
 # (UDP) against the bundled fins-sim, with no real Omron PLC.
 #
 # It builds the offensive binary + fins-sim, creates a throwaway vault

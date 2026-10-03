@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.71 — closes the v1.70 honest-scope gap: scan schedules
+-- v1.71, closes the v1.70 honest-scope gap: scan schedules
 -- now persist across `serve` restarts. The MemoryScheduleStore
 -- stays available for tests + dev; production wiring switches
 -- to DBScheduleStore when --scan-store=db.
@@ -35,8 +35,8 @@ CREATE TABLE scan_schedules (
 );
 
 -- Indices supporting the two hot paths:
---   1. List() ORDER BY name ASC — dashboard read.
---   2. Scheduler tick: WHERE enabled = TRUE — most schedules
+--   1. List() ORDER BY name ASC, dashboard read.
+--   2. Scheduler tick: WHERE enabled = TRUE, most schedules
 --      are enabled, but disabled ones are skipped.
 CREATE INDEX idx_scan_schedules_name    ON scan_schedules(name);
 CREATE INDEX idx_scan_schedules_enabled ON scan_schedules(enabled) WHERE enabled = TRUE;

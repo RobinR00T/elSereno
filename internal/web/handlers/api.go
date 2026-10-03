@@ -35,7 +35,7 @@ type APIV1Deps struct {
 	// via a Scheduler goroutine in cmd_serve.
 	ScheduleStore scanorch.ScheduleStore
 	// ScheduleAuditStore (v1.84+) backs the force-overwrite
-	// audit path. Nil = audit-disabled — force-overwrite
+	// audit path. Nil = audit-disabled, force-overwrite
 	// PUTs still succeed but no row is persisted, and
 	// GET /api/v1/schedules/{id}/audit returns 503.
 	ScheduleAuditStore scanorch.ScheduleAuditStore
@@ -65,7 +65,7 @@ type PoolStatter interface {
 }
 
 // PoolStat is the local shape of pgxpool.Stat-relevant fields
-// — flattened so the handler doesn't pull pgxpool into its
+// flattened so the handler doesn't pull pgxpool into its
 // import graph. Adapter in cmd_serve converts the real
 // pgxpool.Stat into this shape.
 type PoolStat struct {
@@ -127,7 +127,7 @@ func APIV1(deps APIV1Deps) http.Handler {
 	mux.Handle("GET /api/v1/audit", wrapWithRole(v, auth.RoleViewer, Audit(deps.Querier)))
 	mux.Handle("GET /api/v1/audit/cadence", wrapWithRole(v, auth.RoleViewer, AuditCadence(deps.Querier)))
 	// v1.36+: input-preview parity with the `scan` / `tui`
-	// CLI verbs. Read-only — does NOT run a scan; just parses
+	// CLI verbs. Read-only, does NOT run a scan; just parses
 	// the input file + returns the resolved targets so
 	// operators can verify a list:/nmap: file from inside the
 	// dashboard before invoking the (CLI) scan against it.
@@ -193,7 +193,7 @@ type scheduleRouteEntry struct {
 // future docs/openapi spec annotation cycle.
 func scheduleRoutes() []scheduleRouteEntry {
 	return []scheduleRouteEntry{
-		// Reads — viewer.
+		// Reads viewer.
 		{"GET /api/v1/schedules", auth.RoleViewer},
 		{"GET /api/v1/schedules/{id}", auth.RoleViewer},
 		{"GET /api/v1/schedules/{id}/audit", auth.RoleViewer},
@@ -203,14 +203,14 @@ func scheduleRoutes() []scheduleRouteEntry {
 		{"GET /api/v1/schedules/{id}/stats/timeseries", auth.RoleViewer},
 		{"GET /api/v1/schedules/export", auth.RoleViewer},
 		{"GET /api/v1/schedules/tags", auth.RoleViewer},
-		// Single-schedule mutations — operator.
+		// Single-schedule mutations, operator.
 		{"POST /api/v1/schedules", auth.RoleOperator},
 		{"PUT /api/v1/schedules/{id}", auth.RoleOperator},
 		{"DELETE /api/v1/schedules/{id}", auth.RoleOperator},
 		{"POST /api/v1/schedules/{id}/enable", auth.RoleOperator},
 		{"POST /api/v1/schedules/{id}/disable", auth.RoleOperator},
 		{"POST /api/v1/schedules/{id}/clone", auth.RoleOperator},
-		// Fleet-wide / destructive — admin.
+		// Fleet-wide / destructive, admin.
 		{"POST /api/v1/schedules/tags/rename", auth.RoleAdmin},
 		{"POST /api/v1/schedules/bulk/enable", auth.RoleAdmin},
 		{"POST /api/v1/schedules/bulk/disable", auth.RoleAdmin},

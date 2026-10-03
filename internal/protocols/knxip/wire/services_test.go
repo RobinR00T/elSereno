@@ -40,7 +40,7 @@ func TestServiceType_TooShort(t *testing.T) {
 //
 // buildTunnelling: dst is fixed at 0x0803 in test cases below
 // because the inner-cEMI parsing is what's under test, not the
-// destination-address byte handling — but we keep dst as a
+// destination-address byte handling, but we keep dst as a
 // parameter to document the intent. nolint:unparam avoids the
 // false-positive complaint about it always being 0x0803.
 //

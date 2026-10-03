@@ -41,7 +41,7 @@ func (t *TelnetProber) Probe(ctx context.Context, target string, creds []Credent
 		}
 		hit, banner, err := t.attempt(ctx, target, c)
 		if err != nil {
-			// dial or protocol error — try next credential.
+			// dial or protocol error, try next credential.
 			continue
 		}
 		if hit {

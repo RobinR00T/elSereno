@@ -23,11 +23,11 @@ type Op string
 // FC 23 (Read/Write Multiple Registers) are intentionally excluded
 // from this initial set; they land in F6 with per-device risk notes.
 // Names contain "register" which gosec's G101 regex flags as a
-// potential credential literal — they are Modbus PDU operation
+// potential credential literal, they are Modbus PDU operation
 // labels, not secrets. The gosec directive below disarms that rule
 // for this block only.
 //
-// #nosec G101 -- false positive — op labels
+// #nosec G101 -- false positive, op labels
 const (
 	OpWriteSingleCoil        Op = "write_single_coil"        // FC 5
 	OpWriteSingleRegister    Op = "write_single_register"    // FC 6

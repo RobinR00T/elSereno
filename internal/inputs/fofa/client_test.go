@@ -74,7 +74,7 @@ func TestSearchParsesHits(t *testing.T) {
 	if targets[0].Address.String() != "10.0.0.1" || int(targets[0].Port) != 502 {
 		t.Fatalf("unexpected hit[0]: %+v", targets[0])
 	}
-	// qbase64 must decode back to the original query — proves
+	// qbase64 must decode back to the original query, proves
 	// the client base64-encoded what the server expects.
 	decoded, err := base64.StdEncoding.DecodeString(sawQbase64)
 	if err != nil {

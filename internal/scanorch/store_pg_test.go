@@ -150,7 +150,7 @@ func (r *fakeRows) Scan(dst ...any) error {
 		return scanFakeSchedule(dst, row)
 	case 1:
 		// Existence-check uses `SELECT 1`. We only ever Next()
-		// against this — the caller doesn't Scan(1). Implement
+		// against this, the caller doesn't Scan(1). Implement
 		// for completeness so a future test can.
 		if v, ok := dst[0].(*int); ok {
 			*v = 1

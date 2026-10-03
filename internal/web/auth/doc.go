@@ -8,7 +8,7 @@
 //   - crypto/ecdsa + encoding/base64 + encoding/json are
 //     enough for RS256 / ES256 signature verification + claim
 //     parsing. We deliberately don't support symmetric (HS*)
-//     algorithms — bearer tokens minted by an IdP must be
+//     algorithms bearer tokens minted by an IdP must be
 //     verifiable without a shared secret on the resource server.
 //
 //   - JWKS fetched + cached with a TTL. New keys discovered

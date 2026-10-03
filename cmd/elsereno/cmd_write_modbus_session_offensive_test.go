@@ -110,7 +110,7 @@ func TestWriteModbusProxyDryRun_FunctionOutOfRange(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_StructuredWriteFlag — v1.12 chunk 4
+// TestWriteModbusProxyDryRun_StructuredWriteFlag v1.12 chunk 4
 // adds --write unit=N;fc=M;start=A;end=B (repeatable) so the
 // operator can allowlist multiple (unit, FC, address-range)
 // tuples in one session without the legacy --function+--unit+
@@ -142,7 +142,7 @@ func TestWriteModbusProxyDryRun_StructuredWriteFlag(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_StructuredWriteRoundTrip — --write
+// TestWriteModbusProxyDryRun_StructuredWriteRoundTrip --write
 // entries round-trip through --emit-allow-file into the YAML's
 // structured `writes:` block.
 func TestWriteModbusProxyDryRun_StructuredWriteRoundTrip(t *testing.T) {
@@ -192,7 +192,7 @@ func TestWriteModbusProxyDryRun_StructuredWriteRoundTrip(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_DiagOutputShape — the FC 8 diag
+// TestWriteModbusProxyDryRun_DiagOutputShape the FC 8 diag
 // allowlist renders in the dry-run summary.
 func TestWriteModbusProxyDryRun_DiagOutputShape(t *testing.T) {
 	cmd := newWriteModbusProxyDryRunCmd()
@@ -221,7 +221,7 @@ func TestWriteModbusProxyDryRun_DiagOutputShape(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_DiagRejectsReadOnly — listing a
+// TestWriteModbusProxyDryRun_DiagRejectsReadOnly listing a
 // read/counter sub-function is a no-op and is rejected with a hint.
 func TestWriteModbusProxyDryRun_DiagRejectsReadOnly(t *testing.T) {
 	cmd := newWriteModbusProxyDryRunCmd()
@@ -236,7 +236,7 @@ func TestWriteModbusProxyDryRun_DiagRejectsReadOnly(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_DiagRoundTripHashStable — a diag
+// TestWriteModbusProxyDryRun_DiagRoundTripHashStable a diag
 // allowlist round-trips through --emit-allow-file: reloading the
 // YAML reproduces the exact PayloadHash the dry-run printed, so the
 // minted confirm-token still authorises the proxy-listen session.
@@ -283,7 +283,7 @@ func TestWriteModbusProxyDryRun_DiagRoundTripHashStable(t *testing.T) {
 	}
 }
 
-// TestParseModbusWriteFlag_Valid — canonical inputs parse.
+// TestParseModbusWriteFlag_Valid canonical inputs parse.
 func TestParseModbusWriteFlag_Valid(t *testing.T) {
 	cases := []struct {
 		in                 string
@@ -310,7 +310,7 @@ func TestParseModbusWriteFlag_Valid(t *testing.T) {
 	}
 }
 
-// TestParseModbusWriteFlag_Invalid — rejection cases.
+// TestParseModbusWriteFlag_Invalid rejection cases.
 func TestParseModbusWriteFlag_Invalid(t *testing.T) {
 	for _, in := range []string{
 		"",                       // empty
@@ -328,7 +328,7 @@ func TestParseModbusWriteFlag_Invalid(t *testing.T) {
 	}
 }
 
-// TestWriteModbusProxyDryRun_RoundTripHashStable — the hash of
+// TestWriteModbusProxyDryRun_RoundTripHashStable the hash of
 // the session mutation must be identical whether the operator
 // supplies the allowlist via CLI --write flags OR via a reloaded
 // YAML allow-file. Otherwise the minted confirm-token doesn't
@@ -384,7 +384,7 @@ func extractPayloadHash(t *testing.T, out string) string {
 	return ""
 }
 
-// TestWriteModbusProxyDryRun_TightGateRoundTrips — v1.12 chunk 4
+// TestWriteModbusProxyDryRun_TightGateRoundTrips v1.12 chunk 4
 // closed the v1.9 carry-over. --unit / --address-from /
 // --address-to combined with --emit-allow-file now emit a
 // structured `writes:` entry that preserves the gate tightening

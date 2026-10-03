@@ -10,7 +10,7 @@ import (
 	"local/elsereno/internal/tui"
 )
 
-// TestParseTUIRecord_FindingType — a finding event from the
+// TestParseTUIRecord_FindingType a finding event from the
 // v1.41 schema produces a FindingMsg with the Score / Protocol
 // preserved.
 func TestParseTUIRecord_FindingType(t *testing.T) {
@@ -35,7 +35,7 @@ func TestParseTUIRecord_FindingType(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_AuditType — audit lines round-trip
+// TestParseTUIRecord_AuditType audit lines round-trip
 // through the schema.
 func TestParseTUIRecord_AuditType(t *testing.T) {
 	line := `{"schema":"elsereno-tui-record/v1","ts":"2026-05-04T12:00:00Z","type":"audit","line":"vault unlocked"}`
@@ -53,7 +53,7 @@ func TestParseTUIRecord_AuditType(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_ScanProgressType — completed/total
+// TestParseTUIRecord_ScanProgressType completed/total
 // pointers round-trip through the schema.
 func TestParseTUIRecord_ScanProgressType(t *testing.T) {
 	line := `{"schema":"elsereno-tui-record/v1","ts":"2026-05-04T12:00:00Z","type":"scan_progress","completed":42,"total":100}`
@@ -74,7 +74,7 @@ func TestParseTUIRecord_ScanProgressType(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_ScanProgressNilFields — when completed
+// TestParseTUIRecord_ScanProgressNilFields when completed
 // or total are nil in the JSON, the resulting Msg has zero
 // values (no panic, no surprise).
 func TestParseTUIRecord_ScanProgressNilFields(t *testing.T) {
@@ -93,7 +93,7 @@ func TestParseTUIRecord_ScanProgressNilFields(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_FeedClosedType — mode + err round-trip.
+// TestParseTUIRecord_FeedClosedType mode + err round-trip.
 func TestParseTUIRecord_FeedClosedType(t *testing.T) {
 	line := `{"schema":"elsereno-tui-record/v1","type":"feed_closed","mode":"replay","err":"EOF"}`
 	src := strings.NewReader(line + "\n")
@@ -113,7 +113,7 @@ func TestParseTUIRecord_FeedClosedType(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_FeedClosedNilErr — empty err string
+// TestParseTUIRecord_FeedClosedNilErr empty err string
 // yields a nil error in the resulting Msg.
 func TestParseTUIRecord_FeedClosedNilErr(t *testing.T) {
 	line := `{"schema":"elsereno-tui-record/v1","type":"feed_closed","mode":"interactive"}`
@@ -131,7 +131,7 @@ func TestParseTUIRecord_FeedClosedNilErr(t *testing.T) {
 	}
 }
 
-// TestParseTUIRecord_UnknownType — a forward-compat schema
+// TestParseTUIRecord_UnknownType a forward-compat schema
 // bump that adds a new event type renders as an AuditMsg
 // with the "unknown type" hint.
 func TestParseTUIRecord_UnknownType(t *testing.T) {
@@ -150,7 +150,7 @@ func TestParseTUIRecord_UnknownType(t *testing.T) {
 	}
 }
 
-// TestParseRecord_MultiSchemaInOneFile — a file mixing
+// TestParseRecord_MultiSchemaInOneFile a file mixing
 // ndjson:v1 + elsereno-tui-record/v1 lines streams through
 // without skipping either.
 func TestParseRecord_MultiSchemaInOneFile(t *testing.T) {

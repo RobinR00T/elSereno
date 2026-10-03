@@ -70,7 +70,7 @@ func newHarvestRunCmd(name string, p prober) *cobra.Command {
 			case err != nil:
 				return fail(core.ExitError, err)
 			}
-			cmd.Printf("HIT %s %s — ", name, target)
+			cmd.Printf("HIT %s %s, ", name, target)
 			if res.Credential.Community != "" {
 				cmd.Printf("community=%q", res.Credential.Community)
 			} else {

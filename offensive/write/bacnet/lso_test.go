@@ -74,7 +74,7 @@ func TestAllowlistHashWithLSOOps_OrderInsensitive(t *testing.T) {
 // fields (no optional objectIdentifier).
 //
 //	[0] requestingProcessIdentifier (length 1)
-//	[1] requestingSource ("ops" — 1 encoding byte + 3 chars = length 4)
+//	[1] requestingSource ("ops", 1 encoding byte + 3 chars = length 4)
 //	[2] request (length 1)
 func buildLSOServiceBody(processID, op uint8) []byte {
 	return []byte{
@@ -161,7 +161,7 @@ func TestParseLifeSafetyOperation_TruncatedFails(t *testing.T) {
 
 func TestParseLifeSafetyOperation_WrongTagFails(t *testing.T) {
 	body := buildLSOServiceBody(1, bwire.LSOOpSilence)
-	body[0] = 0x19 // looks like context-1 length-1 — wrong context for processID
+	body[0] = 0x19 // looks like context-1 length-1, wrong context for processID
 	_, ok := bwire.ParseLifeSafetyOperation(body)
 	if ok {
 		t.Fatal("wrong tag byte should return ok=false")
@@ -236,7 +236,7 @@ func buildLSOFrame(op uint8) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetLSO_AllowedOpPasses — LSO for an allowlisted
+// TestGateBACnetLSO_AllowedOpPasses LSO for an allowlisted
 // operation forwards.
 func TestGateBACnetLSO_AllowedOpPasses(t *testing.T) {
 	lso := []bwrite.AllowedLSOOperation{{Operation: bwire.LSOOpUnsilence}}
@@ -250,7 +250,7 @@ func TestGateBACnetLSO_AllowedOpPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_SilenceRefused — silence (1) MUST refuse
+// TestGateBACnetLSO_SilenceRefused silence (1) MUST refuse
 // when only unsilence is allowed. This is the canonical
 // life-safety invariant: an attacker cannot silence a fire
 // alarm panel.
@@ -275,7 +275,7 @@ func TestGateBACnetLSO_SilenceRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_AllSilenceVariantsRefused — silence,
+// TestGateBACnetLSO_AllSilenceVariantsRefused silence,
 // silence-audible, silence-visual all refuse when the policy
 // is recovery-only (unsilence-family allowed).
 func TestGateBACnetLSO_AllSilenceVariantsRefused(t *testing.T) {
@@ -305,7 +305,7 @@ func TestGateBACnetLSO_AllSilenceVariantsRefused(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_EmptyAllowlistBypasses — empty
+// TestGateBACnetLSO_EmptyAllowlistBypasses empty
 // AllowedLSOOperations list bypasses the per-op gate (svc 27
 // still passes service-only).
 func TestGateBACnetLSO_EmptyAllowlistBypasses(t *testing.T) {
@@ -320,8 +320,8 @@ func TestGateBACnetLSO_EmptyAllowlistBypasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_ResetAndUnsilenceMix — operator allows
-// reset (4) + unsilence (7) — both pass; silence (1) refuses.
+// TestGateBACnetLSO_ResetAndUnsilenceMix operator allows
+// reset (4) + unsilence (7), both pass; silence (1) refuses.
 func TestGateBACnetLSO_ResetAndUnsilenceMix(t *testing.T) {
 	lso := []bwrite.AllowedLSOOperation{
 		{Operation: bwire.LSOOpReset},

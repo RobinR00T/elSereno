@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-modbus-proxy.sh — end-to-end demo of the Modbus/TCP write-gated
+# demo-modbus-proxy.sh, end-to-end demo of the Modbus/TCP write-gated
 # proxy, focused on the FC 8 (Diagnostics) per-sub-function gate.
 #
 # It builds the offensive binary + modbus-sim, creates a throwaway

@@ -79,7 +79,7 @@ func TestParseControllerDataReadShortFrameRejected(t *testing.T) {
 func TestParseControllerDataReadRejectsRequestICF(t *testing.T) {
 	t.Parallel()
 	frame := buildResp(0x33, "                    ", "                    ", "                    ")
-	frame[0] = 0x80 // request ICF — bit 6 cleared
+	frame[0] = 0x80 // request ICF, bit 6 cleared
 	_, err := wire.ParseControllerDataRead(frame, 0x33)
 	if !errors.Is(err, wire.ErrNotResponse) {
 		t.Fatalf("expected ErrNotResponse, got %v", err)
@@ -152,7 +152,7 @@ func TestIsResponseTrueOnly(t *testing.T) {
 // + MRC + SRC) with the response bit set and the supplied SID.
 func buildHeader(sid byte) []byte {
 	return []byte{
-		0xC0, 0x00, 0x02, // ICF / RSV / GCT — response bit set
+		0xC0, 0x00, 0x02, // ICF / RSV / GCT, response bit set
 		0x00, 0x01, 0x00, // DNA / DA1 / DA2
 		0x00, 0x00, 0x00, // SNA / SA1 / SA2
 		sid,

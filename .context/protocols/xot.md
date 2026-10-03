@@ -19,7 +19,7 @@ filled in when the plugin is implemented. See the project brief (sections
 - Secondary: TBD.
 
 ## Wire format (summary)
-TBD — implementation will include a dedicated `wire/` package under
+TBD, implementation will include a dedicated `wire/` package under
 `internal/protocols/xot/`.
 
 ## Fingerprint strategy

@@ -1,5 +1,5 @@
 ===============================================================
-                     ElSereno — Cheatsheet
+                     ElSereno, Cheatsheet
 ===============================================================
 Version  : v1.15.0 (loose-end closure cycle)
 Updated  : 2026-04-26
@@ -48,7 +48,7 @@ shodan search 'port:502 country:ES' --fields ip_str,port \
 # Censys JSON
 elsereno scan --input-file censys.json --input-type censys
 
-# FOFA / ZoomEye / ONYPHE (v1.8 + v1.9) — CLI wire-up desde v1.9
+# FOFA / ZoomEye / ONYPHE (v1.8 + v1.9), CLI wire-up desde v1.9
 # Pagination: v1.12+ acumula hasta 1000 hits cruzando páginas.
 elsereno scan --input fofa:'protocol="iax2"' \
   --api-creds-file ~/.elsereno/api-creds.yaml
@@ -57,7 +57,7 @@ elsereno scan --input zoomeye:'app:"Asterisk"' \
 elsereno scan --input onyphe:'category:datascan product:freepbx' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 
-# Shodan InternetDB (v1.12+) — sin API key, lookup-by-IP:
+# Shodan InternetDB (v1.12+), sin API key, lookup-by-IP:
 elsereno scan --input internetdb:8.8.8.8
 
 # InternetDB bulk lookup (v1.13+):
@@ -80,7 +80,7 @@ elsereno scan --input-file out.xml --input-type nmapxml
 # Plain list
 elsereno scan --input-file targets.txt --scope scope.yaml
 
-# discover --auto <CIDR> (v1.15+) — TCP-connect sweep + plugin
+# discover --auto <CIDR> (v1.15+), TCP-connect sweep + plugin
 # port mix; pipe-friendly:
 elsereno discover --auto 192.168.1.0/24 --format list \
   | elsereno scan --input list:-
@@ -91,7 +91,7 @@ elsereno scan --input-file t.txt \
   --syslog udp://siem:514 \
   --webhook-url https://hook --webhook-secret-file wh.pp
 
-# STIX 2.1 bundle (v1.15+) — feed MISP / OpenCTI / ThreatBus
+# STIX 2.1 bundle (v1.15+), feed MISP / OpenCTI / ThreatBus
 elsereno scan --input-file t.txt --output-format stix > findings.stix.json
 
 
@@ -157,14 +157,14 @@ GET /api/v1/scoring
 GET /api/v1/health
 GET /api/v1/openapi.yaml
 GET /api/v1/stream                       # SSE live (v1.1)
-GET /api/v1/findings?severity=high       # v1.2 — requires DB
+GET /api/v1/findings?severity=high       # v1.2, requires DB
 GET /api/v1/runs?limit=20                # v1.2
 GET /api/v1/triage                       # v1.2
 GET /healthz  /readyz                    # probes
 GET /admin/security                      # self-audit panel
 
 
--------- Postgres (opcional — panels findings/runs) -----------
+-------- Postgres (opcional, panels findings/runs) -----------
 
 # Helper script (recomendado):
 scripts/dev-db.sh up          # start + wait-healthy + migrate
@@ -208,7 +208,7 @@ Siempre requiere:
   5. `--vault-passphrase-file <path 0600>` (para derivar tokens)
 
 
--- Write dry-run (deriva token) — 5 plugins + modbus legacy ---
+-- Write dry-run (deriva token), 5 plugins + modbus legacy ---
 
 # SIP method allowlist + INVITE destination prefix (v1.9+)
 #                     + REGISTER AOR allowlist (v1.10+)
@@ -260,7 +260,7 @@ elsereno-offensive write opcua dry-run \
 # v1.12 walks every WriteValue (no más first-only); CallRequest
 # se autoriza solo cuando todos los (object, method) coinciden.
 
-# BACnet — los 9 servicios mutating cierran a wire-level con
+# BACnet, los 9 servicios mutating cierran a wire-level con
 # allowlists de granularidad natural (v1.13 chunks 7-13):
 #   svc 7  AtomicWriteFile           --awf-file N
 #   svc 8  AddListElement            --list-element type=N;instance=M;property=P
@@ -282,11 +282,11 @@ elsereno-offensive write bacnet dry-run \
   --vault-passphrase-file ~/.elsereno/dev.pp \
   --emit-allow-file /etc/elsereno/bacnet-gate.yaml
 # AllowedObjects (writes) y AllowedDeleteObjects (delete) son
-# listas SEPARADAS — un operador puede permitir writes a (2,99)
+# listas SEPARADAS, un operador puede permitir writes a (2,99)
 # sin permitir su deletion; tiene que añadir cada uno explícito.
 # Tuplas (ObjectType, ObjectInstance, PropertyID) parseadas vía
 # ASN.1 BER. WritePropertyMultiple (svc 16) y AddRemoveListElement
-# (svc 8/9) caminan cada tupla en el batch — fail-closed si UNA
+# (svc 8/9) caminan cada tupla en el batch, fail-closed si UNA
 # sola tupla está fuera. Refinamientos v1.16+ pendientes:
 # per-instance CreateObject (hoy per-type) + per-object LSO
 # (hoy per-operation).
@@ -295,14 +295,14 @@ elsereno-offensive write bacnet dry-run \
 elsereno-offensive write modbus dry-run \
   --target 10.0.0.5:502 --unit 1 --address 100 --value 1234
 
-# CWMP firmware pre-flight verifier (v1.13+) — side-fetch cada
+# CWMP firmware pre-flight verifier (v1.13+), side-fetch cada
 # URL en firmware: y verifica SHA-256 contra la allowlist.
 # Útil ANTES de abrir la ventana de cambios para detectar
 # firmware-swap. Exit 0 si todos coinciden, 1 si alguno no.
 elsereno-offensive write cwmp verify-firmware \
   --allow-file /etc/elsereno/cwmp-gate.yaml
 
-# CWMP RPC-name case-warning (v1.13+) — el dry-run avisa si una
+# CWMP RPC-name case-warning (v1.13+), el dry-run avisa si una
 # entrada --rpc difiere en case del nombre canónico TR-069 §A.4.
 # Ej: --rpc reboot → "warning: ... canonical Reboot ...".
 # El gate sigue siendo case-sensitive; la advertencia es UX.
@@ -328,7 +328,7 @@ elsereno-offensive write cwmp dry-run \
 # 9005 "Invalid parameter name" (per-path refusal), o 9001 con
 # header "firmware URL not in session allowlist" (Download).
 
-# CWMP TransferComplete observer (v1.15+) — cuando el CPE
+# CWMP TransferComplete observer (v1.15+), cuando el CPE
 # reporta TransferComplete post-firmware-push, el gate emite
 # una línea structured log a stderr:
 #   level=info msg=cwmp_transfer_complete target=… status=ok|fault
@@ -349,7 +349,7 @@ elsereno-offensive write modbus proxy-dry-run \
 # legacy flags ahora se materializan como writes: estructurado.
 
 
--------------- Proxy listen (v1.5+) — run the gate ------------
+-------------- Proxy listen (v1.5+), run the gate ------------
 
 # Usando el YAML generado arriba
 elsereno-offensive proxy listen \
@@ -426,7 +426,7 @@ elsereno audit verify-file
 elsereno audit show --last 10
 
 
----------------- Detection (blue team — alerts) ---------------
+---------------- Detection (blue team, alerts) ---------------
 
   Modbus FC 5/6/15/16/22/23 desde external  → CRITICAL
   S7 ROSCTR=0x01 + Fn 0x04 (STOP) from non-HMI → CRITICAL

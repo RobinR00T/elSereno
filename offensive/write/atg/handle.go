@@ -18,13 +18,13 @@ import (
 // `<SOH>I20100<CR>` style strings (SOH = 0x01, ETX = 0x03). The
 // second character is the command class:
 //
-//	I — information queries (read-only). Always allowed.
-//	V — volume / level writes (setpoint). Gated.
-//	S — set configuration. Gated.
-//	T — tank calibration. Gated.
-//	Z — reset / test. Gated.
+//	I information queries (read-only). Always allowed.
+//	V volume / level writes (setpoint). Gated.
+//	S set configuration. Gated.
+//	T tank calibration. Gated.
+//	Z reset / test. Gated.
 //
-// Refusal path: a Veeder-Root NAK reply — the protocol's standard
+// Refusal path: a Veeder-Root NAK reply, the protocol's standard
 // "command not understood" response is `<SOH>9999FF1B<CR><ETX>`
 // (header 9999 + error code FF1B + checksum trailer). We emit a
 // simplified but parseable variant.

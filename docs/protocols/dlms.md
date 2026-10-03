@@ -27,9 +27,9 @@ that frames the COSEM application-layer APDUs.
 DLMS Wrapper (8 bytes):
   Offset  Field       Size  Description
   0..1    Version     2     0x0001 BE
-  2..3    SourceWPort 2     BE — typically 0x0010 (Public Client)
-  4..5    DestWPort   2     BE — 0x0001 (Server Mgmt Logical Device)
-  6..7    Length      2     BE — APDU length
+  2..3    SourceWPort 2     BE, typically 0x0010 (Public Client)
+  4..5    DestWPort   2     BE, 0x0001 (Server Mgmt Logical Device)
+  6..7    Length      2     BE, APDU length
 
 APDU (BER-encoded COSEM AARQ/AARE):
   AARQ tag:                  0x60  (request)
@@ -49,15 +49,15 @@ rejected-permanent). Does NOT forward to upstream.
 ## Writes (`-tags offensive`)
 
 Deferred. DLMS/COSEM supports:
-- `GET-Request` (read attribute) — typically read-only but some
+- `GET-Request` (read attribute), typically read-only but some
   attributes are writeable.
-- `SET-Request` — write attribute on a COSEM object (e.g.,
+- `SET-Request`: write attribute on a COSEM object (e.g.,
   tariff schedule, push-setup destination, billing reset
   parameters).
-- `ACTION-Request` — invoke a COSEM method (e.g., disconnect
-  control object's `remote_disconnect()` — physically opens the
+- `ACTION-Request`: invoke a COSEM method (e.g., disconnect
+  control object's `remote_disconnect()`: physically opens the
   service breaker; `reset()` on billing periods).
-- `EventNotification-Request` — server-initiated push (less
+- `EventNotification-Request`: server-initiated push (less
   attack-relevant since it's read at the client end).
 
 A future offensive plugin would gate per-(class-id, instance,
@@ -75,7 +75,7 @@ crypto path. Triple-confirm + audit-chain emission per ADR-009.
   bridging DLMS to billing.
 - Impact: a writeable DLMS endpoint can manipulate billing
   registers (consumer fraud / utility loss), invoke
-  `remote_disconnect()` (cuts service to the consumer — DoS),
+  `remote_disconnect()` (cuts service to the consumer, DoS),
   rewrite tariff schedules (non-trivial billing manipulation),
   or change push-destination URLs (data exfiltration to attacker
   endpoint).
@@ -85,7 +85,7 @@ crypto path. Triple-confirm + audit-chain emission per ADR-009.
 - IEC 62056-46: DLMS Wrapper (Green Book §8.4).
 - IEC 62056-53: COSEM application layer.
 - IEC 62056-62: Interface classes catalogue.
-- DLMS UA "Coloured Books" — Blue Book + Green Book +
+- DLMS UA "Coloured Books", Blue Book + Green Book +
   White Book (registration required, public via DLMS UA).
 - Maxa Bondarenko + Friedrich "DLMS/COSEM security analysis"
   (S4x18, IEEE).

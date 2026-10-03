@@ -27,7 +27,7 @@ func (f *fakeDeriver) Derive(_ string, out []byte) error {
 	return nil
 }
 
-// TestModbusAllowlistHashWithGeneration_ZeroMatchesV12 — gen=0
+// TestModbusAllowlistHashWithGeneration_ZeroMatchesV12 gen=0
 // must equal AllowlistHash byte-for-byte.
 func TestModbusAllowlistHashWithGeneration_ZeroMatchesV12(t *testing.T) {
 	target := "plc.test:502"
@@ -39,7 +39,7 @@ func TestModbusAllowlistHashWithGeneration_ZeroMatchesV12(t *testing.T) {
 	}
 }
 
-// TestModbusAllowlistHashWithGeneration_NonZeroChangesHash —
+// TestModbusAllowlistHashWithGeneration_NonZeroChangesHash
 // bumping gen perturbs the hash.
 func TestModbusAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	target := "plc.test:502"
@@ -51,7 +51,7 @@ func TestModbusAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	}
 }
 
-// TestModbusGate_TokenGeneration_StaleTokenRejected — stale
+// TestModbusGate_TokenGeneration_StaleTokenRejected stale
 // token rejected when handler bumps gen.
 func TestModbusGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	target := "plc.test:502"
@@ -79,7 +79,7 @@ func TestModbusGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	}
 }
 
-// TestModbusGate_TokenGeneration_FreshTokenAccepted — fresh
+// TestModbusGate_TokenGeneration_FreshTokenAccepted fresh
 // gen-bumped token works.
 func TestModbusGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	target := "plc.test:502"
@@ -107,7 +107,7 @@ func TestModbusGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestModbusGate_TokenGeneration_DefaultPreservesOldTokens —
+// TestModbusGate_TokenGeneration_DefaultPreservesOldTokens
 // default gen=0 preserves v1.2 tokens.
 func TestModbusGate_TokenGeneration_DefaultPreservesOldTokens(t *testing.T) {
 	target := "plc.test:502"

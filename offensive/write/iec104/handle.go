@@ -34,17 +34,17 @@ type WriteGatedHandler struct {
 
 // IEC 60870-5-104 ASDU Type IDs (§7.3.1.1) relevant to the gate.
 const (
-	TypeIDSingleCommand      uint8 = 45  // C_SC_NA_1 — write single
+	TypeIDSingleCommand      uint8 = 45  // C_SC_NA_1, write single
 	TypeIDDoubleCommand      uint8 = 46  // C_DC_NA_1
 	TypeIDRegulatingStep     uint8 = 47  // C_RC_NA_1
-	TypeIDSetpointNormalised uint8 = 48  // C_SE_NA_1 — setpoint
+	TypeIDSetpointNormalised uint8 = 48  // C_SE_NA_1, setpoint
 	TypeIDSetpointScaled     uint8 = 49  // C_SE_NB_1
 	TypeIDSetpointShortFloat uint8 = 50  // C_SE_NC_1
 	TypeIDBitstringCommand   uint8 = 51  // C_BO_NA_1
-	TypeIDInterrogation      uint8 = 100 // C_IC_NA_1 — ask for full state
+	TypeIDInterrogation      uint8 = 100 // C_IC_NA_1, ask for full state
 	TypeIDCounterRequest     uint8 = 101 // C_CI_NA_1
-	TypeIDClockSync          uint8 = 103 // C_CS_NA_1 — write clock
-	TypeIDResetProcess       uint8 = 105 // C_RP_NA_1 — reset!
+	TypeIDClockSync          uint8 = 103 // C_CS_NA_1, write clock
+	TypeIDResetProcess       uint8 = 105 // C_RP_NA_1, reset!
 )
 
 // COT codes (§7.4) referenced in refusals.
@@ -178,7 +178,7 @@ func buildActNotSupp(asdu []byte) []byte {
 		ca0, ca1,
 	}
 	apdu := make([]byte, 0, wire.APCILen+len(body))
-	// #nosec G115 — body is a fixed 6-byte refusal; length fits uint8
+	// #nosec G115, body is a fixed 6-byte refusal; length fits uint8
 	apdu = append(apdu, wire.Start, uint8(4+len(body)))
 	apdu = append(apdu, 0x00, 0x00, 0x00, 0x00) // Control (I-format, seqs 0)
 	apdu = append(apdu, body...)

@@ -78,7 +78,7 @@ func entrypoint(args []string) int {
 		return 0
 	}
 	// Typed exit code from a subcommand. Print the error so the
-	// operator sees *why* — cobra's SilenceErrors:true suppresses
+	// operator sees *why*: cobra's SilenceErrors:true suppresses
 	// its own print, and most call sites of fail() don't print
 	// before returning, so without this the binary would exit
 	// silently on every typed-exit error path.
@@ -121,7 +121,7 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "elsereno",
 		Short: "ICS/OT legacy exposure auditor",
-		Long: "elsereno — ICS/OT and legacy-network exposure auditor.\n" +
+		Long: "elsereno, ICS/OT and legacy-network exposure auditor.\n" +
 			"Read LEGAL.md and run `elsereno legal` before first use.",
 		SilenceErrors:     true,
 		SilenceUsage:      true,

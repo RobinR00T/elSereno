@@ -15,7 +15,7 @@ import (
 	"local/elsereno/internal/core"
 )
 
-// newAuditServeCmd is `elsereno audit serve` — the cross-process
+// newAuditServeCmd is `elsereno audit serve`: the cross-process
 // audit-chain coordinator (v1.26 chunk 1). Listens on a Unix
 // domain socket; emitter processes (other elsereno verbs)
 // connect via audit.Client and fan-in entries through this

@@ -7,7 +7,7 @@ package sandbox
 // field and the seccomp_data.nr width).
 //
 // We avoid pulling in unix.SYS_* directly because those are
-// arch-local — the sandbox must know the x86_64 number even when
+// arch-local, the sandbox must know the x86_64 number even when
 // GOARCH=arm64 and vice versa (not used yet; arm64 table is an
 // independent constants block for future cross-arch scenarios).
 // Keeping the table explicit also makes ADR-042 reviewable by
@@ -66,7 +66,7 @@ type syscallNums struct {
 	Sendmmsg   uint32
 	Setsockopt uint32
 
-	// v1.26 chunk 2 — arg-filter targets.
+	// v1.26 chunk 2, arg-filter targets.
 	Openat uint32
 	// File-open hardening: open(2) is arg-filtered like openat;
 	// openat2(2) carries flags in a struct by pointer (not filterable
@@ -214,7 +214,7 @@ var syscallsARM64 = syscallNums{
 // arm64 generic) doesn't accidentally match nr=0 (which is read()
 // on many arches).
 func blockedSyscalls(p Profile, n syscallNums) []uint32 {
-	// Base blocklist — applies to every offensive profile.
+	// Base blocklist, applies to every offensive profile.
 	// Corresponds to ADR-042's "block" list for exploit.
 	base := []uint32{
 		n.Execve, n.Execveat,
@@ -230,7 +230,7 @@ func blockedSyscalls(p Profile, n syscallNums) []uint32 {
 		n.Setns,
 		n.Personality,
 	}
-	// Note: `clone` (plain) is NOT in base — the Go runtime uses
+	// Note: `clone` (plain) is NOT in base, the Go runtime uses
 	// CLONE_THREAD for every goroutine-backing OS thread. Blocking
 	// clone entirely would kill the process immediately.
 
@@ -271,7 +271,7 @@ func blockedSyscalls(p Profile, n syscallNums) []uint32 {
 	case ProfileScan:
 		// v2.32+: read-only scan subprocess. Network allowed
 		// (probes), destructive fs syscalls denied. Mirrors
-		// ProfileHarvest's set — scans should NEVER write to
+		// ProfileHarvest's set, scans should NEVER write to
 		// the local filesystem; findings flow back to the
 		// parent via stdout/audit chain.
 		extra = []uint32{

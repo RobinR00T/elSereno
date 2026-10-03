@@ -4,7 +4,7 @@ import "encoding/binary"
 
 // Category groups HART-IP message IDs for the proxy allow/deny
 // matrix (ADR-040). Session-management IDs (Initiate / Close /
-// Keepalive) are read-category — they do not touch process
+// Keepalive) are read-category, they do not touch process
 // variables. TokenPassPDU carries a HART command frame that can be
 // a read OR a write depending on the inner HART command; the
 // default treats it as Write and the offensive build substitutes a

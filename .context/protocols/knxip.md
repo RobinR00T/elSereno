@@ -18,9 +18,9 @@ v1.21 chunk 1 ships read-only fingerprint plus a fail-closed
 ProxyHandler (TCP framework can't relay UDP).
 
 ## Spec references
-- KNX Standard 03.08.02 (Core) — KNXnet/IP services.
-- KNX Standard 03.08.03 (Routing) — multicast routing.
-- KNX Standard 03.06.03 (EMI) — group addresses + DPT.
+- KNX Standard 03.08.02 (Core), KNXnet/IP services.
+- KNX Standard 03.08.03 (Routing), multicast routing.
+- KNX Standard 03.06.03 (EMI), group addresses + DPT.
 
 ## Wire format (summary)
 14-byte request, 60-byte success response. Frame layout in
@@ -36,7 +36,7 @@ KNX Medium values: 0x02=TP1 (twisted-pair, dominant), 0x04=PL110
 ## Fingerprint strategy
 One-shot probe over UDP. The friendly name string ("MDT IP
 Interface", "Gira Standard", "Jung KNX/IP", etc.) is the
-canonical signal — captured into the finding hash so dedup is
+canonical signal, captured into the finding hash so dedup is
 per-device-name. Sentinel-error classification surfaces in the
 note: short frame, bad header, wrong service type, length
 disagreement, missing device-info DIB.
@@ -47,7 +47,7 @@ disagreement, missing device-info DIB.
 
 ## Write / dial operations (offensive build tag)
 Deferred. KNXnet/IP supports CONNECT_REQUEST (0x0205),
-TUNNELLING_REQUEST (0x0420 — write group address values),
+TUNNELLING_REQUEST (0x0420, write group address values),
 DEVICE_CONFIGURATION_REQUEST (0x0310), ROUTING_INDICATION
 (0x0530 multicast). Each needs per-(group address, service type)
 allowlist gating. Triple-confirm + audit-chain emission per

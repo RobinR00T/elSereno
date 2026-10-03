@@ -1,12 +1,12 @@
 ---
 id: 030
-title: Modbus/TCP plugin — read-only default, FC-level write ban
+title: Modbus/TCP plugin, read-only default, FC-level write ban
 status: accepted
 date: 2026-04-19
 phase: F3
 ---
 
-# ADR-030: Modbus/TCP plugin — read-only default, FC-level write ban
+# ADR-030: Modbus/TCP plugin, read-only default, FC-level write ban
 
 ## Context
 Modbus/TCP has no authentication. Any client that can reach port
@@ -56,7 +56,7 @@ make the next mis-edited scope.yaml a safety event.
   above and `.context/protocols/modbus.md`).
 - The proxy emits IllegalFunction for blocked writes; a real PLC
   would return a transport-layer error for unknown FC. Using
-  IllegalFunction is correct per the spec — the client sees a
+  IllegalFunction is correct per the spec, the client sees a
   legitimate protocol response and can handle it without special
   casing.
 
@@ -69,4 +69,4 @@ make the next mis-edited scope.yaml a safety event.
 ## References
 - MODBUS Messaging on TCP/IP V1.0b, §5.
 - MODBUS Application Protocol Specification V1.1b3, §6.
-- `.context/protocols/modbus.md` — operator-facing notes.
+- `.context/protocols/modbus.md`: operator-facing notes.

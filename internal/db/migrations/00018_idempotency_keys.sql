@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v2.26 — multi-process Idempotency-Key cache.
+-- v2.26, multi-process Idempotency-Key cache.
 --
 -- v2.18 + v2.25 used a per-process in-memory map; a load-
 -- balanced multi-process serve loses replay semantics when

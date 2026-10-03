@@ -97,7 +97,7 @@ func TestLoadPassphraseFile_MissingPath(t *testing.T) {
 }
 
 func TestLoadPassphraseFile_OnlyOwnerExecPermittedAsWell(t *testing.T) {
-	// 0500 should pass (read for user, no read elsewhere) — tests
+	// 0500 should pass (read for user, no read elsewhere), tests
 	// the mask-out check is correct, not a loose == 0600.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "pp")

@@ -33,7 +33,7 @@ package wire
 //	0x2F   context 2, closing               value closes
 //	0x39…  context 3, primitive, length 1   Priority
 //
-// Returns (nil, false) on any parse error — caller fails closed.
+// Returns (nil, false) on any parse error, caller fails closed.
 //
 // Empty list (zero WriteAccessSpecifications) returns (nil,
 // false) so the gate refuses an "empty" WritePropertyMultiple
@@ -153,7 +153,7 @@ func parseInnerPropertyValue(b []byte) (int, uint32, bool) {
 
 // skipOptionalContextPrimitive consumes a primitive context tag
 // (1..3 bytes) when match(b[0]) is true. Returns 0 when the
-// tag is absent (legitimate — the field is OPTIONAL). Returns
+// tag is absent (legitimate, the field is OPTIONAL). Returns
 // (0, false) on a malformed length.
 func skipOptionalContextPrimitive(b []byte, match func(byte) bool) (int, bool) {
 	if len(b) == 0 || !match(b[0]) {
@@ -205,7 +205,7 @@ func skipOneTagBody(rest []byte, tag byte, depth *int) (int, bool) {
 	case 0x05:
 		// Extended length: next byte holds the count, unless
 		// the count itself is ≥ 254 (further-extended). Real
-		// WPM bodies never hit that path — we fail closed.
+		// WPM bodies never hit that path, we fail closed.
 		if len(rest) < 1 {
 			return 0, false
 		}

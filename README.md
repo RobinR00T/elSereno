@@ -36,19 +36,19 @@ able to open every portal in the neighbourhood.
 ## Quick install (signed release)
 
 Latest release: **[v1.15.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0)**
-— Loose-end closure cycle: CWMP TransferComplete observer +
+Loose-end closure cycle: CWMP TransferComplete observer +
 `elsereno discover --auto <CIDR>` + STIX 2.1 export sink +
 audit cross-process flock + SIGHUP reload-style exit. See
 [`.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md`](.context/snapshots/v1.15.0-cwmp-discover-stix-flock-sighup.md)
 for the per-chunk breakdown.
 
 Previous release: [v1.14.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.14.0)
-— IPv6 cross-cutting (new `internal/netutil` package + target
+IPv6 cross-cutting (new `internal/netutil` package + target
 canonicalisation across CLI parse boundaries + scope/dedupe
 IPv6 contract pinned).
 
 Previous release: [v1.13.0](https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0)
-— BACnet completion + CWMP polish (closes all 9 BACnet
+BACnet completion + CWMP polish (closes all 9 BACnet
 mutating services with wire-level per-target-or-state
 allowlists).
 
@@ -108,7 +108,7 @@ chain. Detail in [RELEASING.md](RELEASING.md).
 
 ### From source (dev workflow)
 
-**One-shot path** (recommended — installs deps + builds + brings up
+**One-shot path** (recommended, installs deps + builds + brings up
 DB + vault + serve in two commands):
 
 ```sh
@@ -116,8 +116,8 @@ scripts/bootstrap.sh   # first time only; checks + prompts to install missing de
 scripts/start.sh       # every time you want to work: Docker + DB + build + serve
 ```
 
-Full details — including all flags, env overrides, exit codes,
-the vault model, and a common-failures table — in
+Full details, including all flags, env overrides, exit codes,
+the vault model, and a common-failures table, in
 [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md).
 
 **Manual path** (if you prefer to control every step):
@@ -236,7 +236,7 @@ See `.context/protocols/` for per-protocol notes and
 - Alternative: environment variable `SHODAN_API_KEY`. Note: env vars are
   visible via `ps e` and `/proc/<pid>/environ` (PITF-032); prefer a 0600
   file for persistent use.
-- **Never** run `shodan init <KEY>` with the key as an argument — it leaks
+- **Never** run `shodan init <KEY>` with the key as an argument, it leaks
   to shell history and to `ps`.
 - InternetDB (free): `curl -s https://internetdb.shodan.io/1.2.3.4 | jq`.
 
@@ -326,7 +326,7 @@ elsereno scan --input censys --query "services.port: 502" --limit 500
 cat ips.txt | elsereno scan --input stdin --protocols xot,atmodem,modbus
 ```
 
-### API keys — prefer the vault
+### API keys, prefer the vault
 
 ```sh
 elsereno vault init
@@ -343,32 +343,32 @@ of these are set (ADR-026, PITF-032).
 
 **Para usuarios y operadores:**
 
-- [`docs/MANUAL.md`](docs/MANUAL.md) — manual completo end-to-end (CLI + dashboard + workflows + 22 secciones).
+- [`docs/MANUAL.md`](docs/MANUAL.md), manual completo end-to-end (CLI + dashboard + workflows + 22 secciones).
 - [`docs/exposure-auditing.md`](docs/exposure-auditing.md): guía de las probes de exposición read-only (S7, OPC UA, plaintext-check, creds-check) y su trazabilidad al NIST SP 800-82 r4.
-- [`docs/FAQ.md`](docs/FAQ.md) — preguntas frecuentes.
-- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) — recetas SIEM/observability.
-- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — runbooks operacionales (release, Dependabot, post-public-flip, troubleshooting CI, handoff).
-- [`docs/SECURITY.md`](docs/SECURITY.md) — modelo de seguridad + hardening checklist.
-- [`INSTALL.md`](INSTALL.md) — todos los métodos de instalación con verificación SBOM.
-- [`docs/manual/elsereno-manual.md`](docs/manual/elsereno-manual.md) — manual narrativo histórico de casos de uso.
-- [`docs/manual/cheatsheet.txt`](docs/manual/cheatsheet.txt) — cheatsheet de comandos.
-- [`docs/protocols/`](docs/protocols/) — engineering notes por protocolo.
+- [`docs/FAQ.md`](docs/FAQ.md), preguntas frecuentes.
+- [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md), recetas SIEM/observability.
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md), runbooks operacionales (release, Dependabot, post-public-flip, troubleshooting CI, handoff).
+- [`docs/SECURITY.md`](docs/SECURITY.md), modelo de seguridad + hardening checklist.
+- [`INSTALL.md`](INSTALL.md), todos los métodos de instalación con verificación SBOM.
+- [`docs/manual/elsereno-manual.md`](docs/manual/elsereno-manual.md), manual narrativo histórico de casos de uso.
+- [`docs/manual/cheatsheet.txt`](docs/manual/cheatsheet.txt), cheatsheet de comandos.
+- [`docs/protocols/`](docs/protocols/), engineering notes por protocolo.
 
 **Para desarrolladores y contribuidores:**
 
-- [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md) — clonar repo + bootstrap + dev workflow.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — diseño interno.
+- [`docs/DEV-SETUP.md`](docs/DEV-SETUP.md), clonar repo + bootstrap + dev workflow.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), diseño interno.
 - [`docs/parser-validation.md`](docs/parser-validation.md): estado de validación de cada parser de protocolo (real-capture byte a byte vs fixture); qué parsers están probados contra captura real y cuáles siguen asumidos.
-- [`docs/openapi.yaml`](docs/openapi.yaml) — spec de la HTTP API.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — cómo contribuir.
-- [`.github/SETTINGS.md`](.github/SETTINGS.md) — config esperada de GitHub repo (Code Scanning ON, approval policy, workflow permissions).
+- [`docs/openapi.yaml`](docs/openapi.yaml), spec de la HTTP API.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md), cómo contribuir.
+- [`.github/SETTINGS.md`](.github/SETTINGS.md), config esperada de GitHub repo (Code Scanning ON, approval policy, workflow permissions).
 
 **Compliance y legal:**
 
-- [`SECURITY.md`](SECURITY.md) — política de disclosure.
-- [`LEGAL.md`](LEGAL.md) — uso aceptable.
-- [`NON-GOALS.md`](NON-GOALS.md) — qué NO hace ElSereno (intencional).
+- [`SECURITY.md`](SECURITY.md), política de disclosure.
+- [`LEGAL.md`](LEGAL.md), uso aceptable.
+- [`NON-GOALS.md`](NON-GOALS.md), qué NO hace ElSereno (intencional).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT, see [`LICENSE`](LICENSE).

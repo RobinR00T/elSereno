@@ -2,7 +2,7 @@
 // messages the ElSereno PBX fingerprint needs. That subset is
 // tiny: a single OPTIONS request to "sip:server" and the
 // response header block that carries `User-Agent:` and
-// `Server:` fields — those two headers are where Asterisk /
+// `Server:` fields, those two headers are where Asterisk /
 // FreePBX / 3CX / Cisco UCM / Mitel / Avaya / Yeastar /
 // Grandstream / Fanvil / Yealink reveal themselves.
 //
@@ -24,7 +24,7 @@ import (
 
 // BuildOPTIONS crafts a minimal OPTIONS request. Following
 // RFC 3261 §13 the method MUST include Via, Max-Forwards,
-// From, To, Call-ID, CSeq, and Content-Length headers — most
+// From, To, Call-ID, CSeq, and Content-Length headers, most
 // SIP servers will 400 if any of these are missing, even for
 // OPTIONS.
 //
@@ -33,7 +33,7 @@ import (
 // per §8.1.1.7 (format "z9hG4bK" + random).
 func BuildOPTIONS(host, branch string) []byte {
 	var b strings.Builder
-	// Request-URI is "sip:host" — we're asking the server about
+	// Request-URI is "sip:host", we're asking the server about
 	// itself, not routing to an extension.
 	fmt.Fprintf(&b, "OPTIONS sip:%s SIP/2.0\r\n", host)
 	fmt.Fprintf(&b, "Via: SIP/2.0/UDP %s;branch=z9hG4bK%s\r\n", host, branch)
@@ -52,7 +52,7 @@ func BuildOPTIONS(host, branch string) []byte {
 // Response captures the status line + the two vendor-disclosing
 // headers of a SIP response.
 type Response struct {
-	// StatusLine is the full first line — e.g. "SIP/2.0 200 OK"
+	// StatusLine is the full first line, e.g. "SIP/2.0 200 OK"
 	// or "SIP/2.0 401 ...". Status phrase spelling follows
 	// RFC 3261 §21.4 which uses US-English; the misspell linter
 	// is disarmed per-line at the test file where the phrase
@@ -64,12 +64,12 @@ type Response struct {
 	// Reason is the status phrase after the code ("OK",
 	// "Forbidden", the auth-required phrase for 401, etc).
 	Reason string
-	// Server is the "Server:" header value — the canonical
+	// Server is the "Server:" header value, the canonical
 	// vendor-disclosing field. Asterisk returns "Asterisk PBX
 	// X.Y.Z"; Cisco "Cisco-SIPGateway/IOS-12.x"; 3CX "3CX
 	// Phone System".
 	Server string
-	// UserAgent is the "User-Agent:" header value — sometimes
+	// UserAgent is the "User-Agent:" header value, sometimes
 	// populated instead of Server in registrar-style responses.
 	UserAgent string
 	// Allow is the "Allow:" header (comma-separated methods).
@@ -106,7 +106,7 @@ func ParseResponse(r io.Reader) (Response, error) {
 			resp.Code = code
 		}
 	}
-	// Read headers via textproto — it handles folded lines, case-
+	// Read headers via textproto, it handles folded lines, case-
 	// insensitive keys, and stops cleanly at the blank line
 	// separator.
 	tp := textproto.NewReader(br)
@@ -139,7 +139,7 @@ func parsePositiveInt(s string) (int, error) {
 	return n, nil
 }
 
-// IsSIPStatus returns true when line starts with "SIP/2.0 " —
+// IsSIPStatus returns true when line starts with "SIP/2.0 ",
 // the cheapest way to tell a SIP response apart from noise
 // (HTTP, TLS records, telnet banners) in the probe path.
 func IsSIPStatus(line string) bool {

@@ -27,7 +27,7 @@ const DefaultBaseURL = "https://api.zoomeye.org"
 var ErrNoAPIKey = errors.New("zoomeye: no API key configured")
 
 // Client is a minimal ZoomEye REST client for the host-search
-// endpoint. Scope matches the Shodan / FOFA clients — (ip,
+// endpoint. Scope matches the Shodan / FOFA clients, (ip,
 // port) tuples only.
 type Client struct {
 	APIKey  string
@@ -128,7 +128,7 @@ func (c *Client) Search(ctx context.Context, query string, page int) ([]core.Tar
 	}
 	// ZoomEye accepts both `API-KEY: <k>` (personal key) and
 	// `Authorization: JWT <token>` (OAuth flow). We use the
-	// simpler personal-key header — operators who want JWT can
+	// simpler personal-key header, operators who want JWT can
 	// override via Client.HTTP.Transport.
 	req.Header.Set("API-KEY", c.APIKey)
 

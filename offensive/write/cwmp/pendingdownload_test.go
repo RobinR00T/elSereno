@@ -9,7 +9,7 @@ import (
 	cwmpwrite "local/elsereno/offensive/write/cwmp"
 )
 
-// TestExtractDownloadCommandKey_HappyPath — typical Download
+// TestExtractDownloadCommandKey_HappyPath typical Download
 // SOAP body with all fields → returns CommandKey verbatim.
 func TestExtractDownloadCommandKey_HappyPath(t *testing.T) {
 	body := []byte(`<?xml version="1.0" encoding="UTF-8"?>
@@ -29,7 +29,7 @@ func TestExtractDownloadCommandKey_HappyPath(t *testing.T) {
 	}
 }
 
-// TestExtractDownloadCommandKey_Missing — older or non-
+// TestExtractDownloadCommandKey_Missing older or non-
 // conformant ACS sends Download without CommandKey → returns "".
 func TestExtractDownloadCommandKey_Missing(t *testing.T) {
 	body := []byte(`<?xml version="1.0" encoding="UTF-8"?>
@@ -48,7 +48,7 @@ func TestExtractDownloadCommandKey_Missing(t *testing.T) {
 	}
 }
 
-// TestExtractDownloadCommandKey_NotADownload — a non-Download
+// TestExtractDownloadCommandKey_NotADownload a non-Download
 // SOAP body shouldn't pick up a CommandKey from a different RPC.
 // Tests the streaming decoder's "must be inside <Download>"
 // guard.
@@ -68,7 +68,7 @@ func TestExtractDownloadCommandKey_NotADownload(t *testing.T) {
 	}
 }
 
-// TestPendingDownloadCap_EvictsOldest — exercise the FIFO
+// TestPendingDownloadCap_EvictsOldest exercise the FIFO
 // eviction when PendingDownloadCap is reached. Uses the
 // exported test-only RecordDownload + ResolveDownload entry
 // points so we don't need a full proxy session.
@@ -106,7 +106,7 @@ func TestPendingDownloadCap_EvictsOldest(t *testing.T) {
 	}
 }
 
-// TestRecordDownload_DuplicateCommandKeyReplaces — when the
+// TestRecordDownload_DuplicateCommandKeyReplaces when the
 // operator re-uses a CommandKey within the same session (rare
 // but legal), the latest record replaces the prior one in
 // place; the FIFO order tracker doesn't double-count it.
@@ -122,8 +122,8 @@ func TestRecordDownload_DuplicateCommandKeyReplaces(t *testing.T) {
 	cwmpwrite.RecordDownloadForTest(h, body2)
 	cwmpwrite.RecordDownloadForTest(h, body3)
 
-	// Both keys should still be resolvable (no eviction — cap 2,
-	// two distinct keys — duplicate "k" replaced the slot, didn't
+	// Both keys should still be resolvable (no eviction, cap 2,
+	// two distinct keys, duplicate "k" replaced the slot, didn't
 	// double-fill).
 	gotK, ok := cwmpwrite.ResolveDownloadForTest(h, "k")
 	if !ok {
@@ -137,9 +137,9 @@ func TestRecordDownload_DuplicateCommandKeyReplaces(t *testing.T) {
 	}
 }
 
-// TestRecordDownload_SkipsEmptyCommandKey — a Download with no
+// TestRecordDownload_SkipsEmptyCommandKey a Download with no
 // CommandKey isn't recorded (we'd have nothing to correlate
-// later). The Download still forwards upstream — that's a
+// later). The Download still forwards upstream, that's a
 // separate path.
 func TestRecordDownload_SkipsEmptyCommandKey(t *testing.T) {
 	h := &cwmpwrite.WriteGatedHandler{Target: "acs.test:7547"}

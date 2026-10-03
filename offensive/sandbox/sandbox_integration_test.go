@@ -64,7 +64,7 @@ func TestLoad_ExploitBlocksPtrace(t *testing.T) {
 			_, _ = os.Stderr.WriteString("LOAD_ERR:" + err.Error())
 			os.Exit(3)
 		}
-		// Try ptrace — must return EPERM.
+		// Try ptrace, must return EPERM.
 		_, _, errno := unix.Syscall6(unix.SYS_PTRACE, uintptr(unix.PTRACE_TRACEME), 0, 0, 0, 0, 0)
 		if errors.Is(errno, unix.EPERM) {
 			os.Exit(0)

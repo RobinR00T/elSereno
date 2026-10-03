@@ -1,8 +1,8 @@
 // Package preview is the dependency-light input dispatcher
 // used by the web handler's /api/v1/inputs/preview endpoint
 // and by the cmd-side parseInput dispatcher (v1.36+). It
-// handles the 3 "no-credentials, no-network" input kinds —
-// list:FILE, nmap:FILE, stdin — and returns the parsed
+// handles the 3 "no-credentials, no-network" input kinds,
+// list:FILE, nmap:FILE, stdin, and returns the parsed
 // []core.Target.
 //
 // Provider kinds (shodan:, censys:, fofa:, zoomeye:,
@@ -55,7 +55,7 @@ type ErrUnsupportedKind struct {
 }
 
 func (e ErrUnsupportedKind) Error() string {
-	return fmt.Sprintf("preview: unsupported input kind %q (preview supports list:<path> | nmap:<path> | stdin only; provider kinds — shodan/censys/fofa/zoomeye/onyphe/internetdb — must run via the CLI scan verb)", e.Kind)
+	return fmt.Sprintf("preview: unsupported input kind %q (preview supports list:<path> | nmap:<path> | stdin only; provider kinds, shodan/censys/fofa/zoomeye/onyphe/internetdb, must run via the CLI scan verb)", e.Kind)
 }
 
 // Parse dispatches on Kind and returns the parsed targets.

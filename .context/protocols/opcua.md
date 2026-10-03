@@ -18,9 +18,9 @@ deployments. Offensive write plugin gates per-NodeId (numeric +
 String/GUID/ByteString) and per-CallMethod since v1.12.
 
 ## Spec references
-- IEC 62541 / OPC 10000-6 (UA Mappings — UA-TCP framing).
+- IEC 62541 / OPC 10000-6 (UA Mappings, UA-TCP framing).
 - OPC 10000-3 (Address Space Model).
-- OPC 10000-4 (Services — Read / Write / Call / Browse).
+- OPC 10000-4 (Services, Read / Write / Call / Browse).
 
 ## Wire format
 UA-TCP message types (4-byte ASCII MessageType + Reserved + 4-
@@ -35,7 +35,7 @@ byte LE MessageSize):
 The fingerprint probe sends a minimal HEL with proto version 0,
 1MB receive buffer, 1MB send buffer, max-message 16MB,
 max-chunks 5000. The server responds with ACK (positive ID) or
-ERR with a UA-status code (still a positive ID — the server
+ERR with a UA-status code (still a positive ID, the server
 spoke UA-TCP).
 
 ## Fingerprint strategy
@@ -50,7 +50,7 @@ v1.6+ landed full `offensive/write/opcua/gatedproxy.go`:
 - per-NodeId allowlist for WriteRequest (numeric NodeIds since
   v1.6, String/GUID/ByteString since v1.12).
 - per-CallMethod allowlist for CallRequest (gates the
-  `(ObjectId, MethodId)` tuple — methods can have arbitrary
+  `(ObjectId, MethodId)` tuple, methods can have arbitrary
   side effects, much higher blast radius than attribute
   writes).
 - v1.17 chunk-3 added token-generation cookie folding into the
@@ -80,7 +80,7 @@ Unified Automation OPC UA C++ DoS)}.
 ## Sentinel cases
 - ACK message: UA-TCP confirmed, capability lifts to 60.
 - ERR message with UA status code: UA-TCP confirmed (server
-  spoke the protocol but rejected our HEL — usually due to
+  spoke the protocol but rejected our HEL, usually due to
   endpoint-URL mismatch or buffer-size negotiation).
 - Non-UA-TCP response: capability stays 30.
 - Silent: no usable reply.

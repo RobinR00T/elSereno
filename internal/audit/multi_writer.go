@@ -8,7 +8,7 @@ import (
 
 // MultiWriter fan-outs Append to a list of Writers while keeping
 // the canonical chain consistent. The FIRST writer is the
-// "primary" — it computes the ID + PrevHash + EntryHash by
+// "primary", it computes the ID + PrevHash + EntryHash by
 // calling Append on itself (using its own chain state). Every
 // subsequent writer is a "mirror" that receives a pre-filled
 // Entry with those fields set; the mirror must persist the row
@@ -41,7 +41,7 @@ type MirrorWriter interface {
 // NewMultiWriter constructs a MultiWriter with `primary` as the
 // chain owner and `mirrors` as the fan-out targets. Returns an
 // error if primary is nil (mirrors alone can't bootstrap a
-// chain — they need the primary's IDs).
+// chain they need the primary's IDs).
 func NewMultiWriter(primary Writer, mirrors ...MirrorWriter) (*MultiWriter, error) {
 	if primary == nil {
 		return nil, errors.New("audit: MultiWriter requires a primary Writer")
@@ -52,7 +52,7 @@ func NewMultiWriter(primary Writer, mirrors ...MirrorWriter) (*MultiWriter, erro
 // Append implements Writer. The primary fills the Entry first;
 // if the primary errors, no mirror is called (the chain stays
 // consistent). If a mirror errors, the primary row is ALREADY
-// committed — we return a joined error so the caller sees which
+// committed we return a joined error so the caller sees which
 // mirror failed, but the audit chain on the primary is intact.
 func (m *MultiWriter) Append(ctx context.Context, e Entry) (Entry, error) {
 	filled, err := m.primary.Append(ctx, e)

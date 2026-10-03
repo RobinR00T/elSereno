@@ -107,7 +107,7 @@ var vendorRules = []vendorRule{
 	{"niagara", VendorTridium},
 	{"tridium", VendorTridium},
 
-	// Network gear adjacent to ICS — keep these AFTER vendor
+	// Network gear adjacent to ICS, keep these AFTER vendor
 	// rules so a Cisco IOS banner that references SIMATIC
 	// (e.g. on a Siemens RUGGEDCOM RX series IOS-XE box)
 	// matches Siemens first.

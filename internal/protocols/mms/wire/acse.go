@@ -23,7 +23,7 @@
 // `client_example_basic_io.c` running against a Conpot
 // honeypot and cross-checked with Wireshark MMS dissector
 // output. The bytes are deliberately verbose / not minified
-// — operator-readable comments line up to spec sections so a
+// operator-readable comments line up to spec sections so a
 // future contributor can refactor in stages without losing
 // the structure.
 
@@ -63,7 +63,7 @@ var ErrACSETooShort = errors.New("mms: ACSE response too short")
 // BuildACSEAssociateRequestMMS returns the bytes of an ISO
 // 8823 + 8327 + ACSE AARQ frame requesting the IEC 61850-8-1
 // application context. The bytes are the COTP DT *payload*
-// — caller wraps in a COTP DT header (LI=02, type=0xF0,
+// caller wraps in a COTP DT header (LI=02, type=0xF0,
 // TPDU-nr=0x80) + TPKT before sending.
 //
 // Frame layout (annotated bottom-up):
@@ -75,13 +75,13 @@ var ErrACSETooShort = errors.New("mms: ACSE response too short")
 //	    MMS Initiate-RequestPDU                 (proposedMaxServOutstanding…)
 //
 // The MMS Initiate-RequestPDU we ship is the minimum-viable
-// set of negotiation parameters — proposedMaxServOutstanding
+// set of negotiation parameters, proposedMaxServOutstanding
 // 5/5, proposedDataStructureNestingLevel 5, no service-
 // specific parameters. Real-world IEDs accept this and
 // respond with their own preferred values in the AARE.
 func BuildACSEAssociateRequestMMS() []byte {
 	// The OSI Session/Presentation/ACSE blob below is one
-	// monolithic hex sequence — hand-tracing through it
+	// monolithic hex sequence, hand-tracing through it
 	// reveals the layered structure, but as wire bytes it
 	// goes out as one TSDU.
 	//
@@ -100,7 +100,7 @@ func BuildACSEAssociateRequestMMS() []byte {
 		0x33, 0x02, 0x00, 0x01,
 		// Called Session Selector (PI 52)
 		0x34, 0x02, 0x00, 0x01,
-		// Session User Data (PI 193) — wraps the Presentation CP
+		// Session User Data (PI 193), wraps the Presentation CP
 		0xC1, 0x59,
 
 		// ──── ISO 8823 Presentation CP-PPDU ────────────────
@@ -125,7 +125,7 @@ func BuildACSEAssociateRequestMMS() []byte {
 		0x30, 0x10, 0x02, 0x01, 0x03,
 		0x06, 0x05, 0x28, 0xCA, 0x22, 0x02, 0x01,
 		0x30, 0x04, 0x06, 0x02, 0x51, 0x01,
-		// user-data [APPLICATION 0] — wraps the ACSE AARQ
+		// user-data [APPLICATION 0], wraps the ACSE AARQ
 		0x61, 0x1D,
 		0x30, 0x1B, 0x02, 0x01, 0x01,
 		0xA0, 0x16,
@@ -166,7 +166,7 @@ func BuildACSEAssociateRequestMMS() []byte {
 func ParseACSEAssociateResponseMMS(buf []byte) error {
 	// COTP DT header is 3 bytes: LI (1) + type (1) +
 	// TPDU-nr (1). The actual ACSE/Presentation/Session
-	// payload follows. We don't parse those layers — we
+	// payload follows. We don't parse those layers, we
 	// just scan the whole buffer for the OID.
 	if len(buf) < 3+len(MMSApplicationContextOID) {
 		return fmt.Errorf("%w: %d bytes", ErrACSETooShort, len(buf))

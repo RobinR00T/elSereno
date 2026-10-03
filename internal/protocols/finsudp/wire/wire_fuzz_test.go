@@ -36,7 +36,7 @@ func FuzzParseControllerDataRead(f *testing.F) {
 			return
 		}
 		// trimASCII's contract is "trim TRAILING NULs / spaces"
-		// — the last byte of every returned string must not be
+		// the last byte of every returned string must not be
 		// NUL or space. Embedded NULs / spaces are preserved
 		// intentionally so the parser can't silently splice
 		// adversarial input across a NUL boundary.

@@ -21,7 +21,7 @@ import (
 //	defer m.Close()
 //	res, err := m.Deliver(ctx, "+34911234567")
 //
-// The serial open is intentionally NOT inside this package —
+// The serial open is intentionally NOT inside this package,
 // `tarm/serial` or `go.bug.st/serial` pulls a non-trivial
 // dependency and the CLI already does device-open elsewhere.
 // For tests we pass a net.Pipe() pair.
@@ -61,7 +61,7 @@ type ATModem struct {
 // read operations (ATZ → OK, ATE0 → OK, ATDT → CONNECT) share
 // the same buffer. Creating a fresh reader per call would
 // discard any read-ahead bytes the previous call pulled but
-// hadn't consumed — a classic serial-port bug that deadlocks
+// hadn't consumed, a classic serial-port bug that deadlocks
 // the next read on a fully-drained underlying stream.
 func NewATModem(rw io.ReadWriter, devicePath string, dialTimeout time.Duration) *ATModem {
 	if dialTimeout <= 0 {
@@ -116,7 +116,7 @@ func (m *ATModem) Deliver(ctx context.Context, number string) (Result, error) {
 	default:
 		res.Disposition, res.Reason = classifyATResult(line)
 	}
-	// Always try to hang up cleanly. Ignore errors — we've
+	// Always try to hang up cleanly. Ignore errors, we've
 	// already classified the outcome.
 	m.hangup()
 	return res, nil
@@ -161,12 +161,12 @@ func (m *ATModem) writeAT(cmd string) error {
 }
 
 // hangup emits ATH0 best-effort. Deliberately returns no error
-// — even if the underlying write fails the call is over, the
+// even if the underlying write fails the call is over, the
 // modem's own inactivity timer will drop the line. Callers
 // who want to surface write errors should call writeAT("H0")
 // directly.
 func (m *ATModem) hangup() {
-	// Escape sequence — modems expect ~1s silence before +++.
+	// Escape sequence, modems expect ~1s silence before +++.
 	// We can't sleep that long in every Close, so send ATH0
 	// directly; if we were still in command mode (we set ";"
 	// on ATDT) this works. If in data mode the call is already
@@ -182,7 +182,7 @@ func (m *ATModem) hangup() {
 // The raw bufio.ReadString is not context-aware (it blocks on
 // the underlying conn's Read indefinitely) so we run the read
 // in a goroutine and race it against ctx.Done(). That makes the
-// context deadline authoritative — an unresponsive modem will
+// context deadline authoritative, an unresponsive modem will
 // hit the dialTimeout and the caller sees a typed error.
 func (m *ATModem) readUntilResult(ctx context.Context) (string, error) {
 	type lineOrErr struct {
@@ -277,7 +277,7 @@ func classifyATResult(line string) (Disposition, string) {
 		return DispositionFailed, "modem ERROR"
 	case line == "OK":
 		// Rare: modem reported OK without a preceding CONNECT.
-		// Treat as hangup — nothing connected.
+		// Treat as hangup, nothing connected.
 		return DispositionHangup, "OK without CONNECT"
 	}
 	return DispositionFailed, fmt.Sprintf("unknown result: %s", line)

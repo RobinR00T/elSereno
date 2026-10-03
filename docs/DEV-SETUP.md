@@ -59,7 +59,7 @@ recommended or release-only.
 
 ---
 
-## `scripts/bootstrap.sh` — dependency installer
+## `scripts/bootstrap.sh`: dependency installer
 
 `bootstrap.sh` walks the table above and, for each missing
 tool, asks whether to install it via the host package manager.
@@ -95,31 +95,31 @@ and skipped. Safe to wire into a CI step or a Makefile target.
 `bootstrap.sh` calls `sudo apt-get install ...` / `sudo dnf ...`
 on Linux when the host PM requires it. macOS Homebrew does not
 need `sudo`. Tools installed via `go install` end up in
-`$GOBIN` (default `$HOME/go/bin`) — make sure that's on your
+`$GOBIN` (default `$HOME/go/bin`), make sure that's on your
 `PATH`.
 
 ---
 
-## `scripts/start.sh` — full dev stack bring-up
+## `scripts/start.sh`: full dev stack bring-up
 
 `start.sh` is the everyday command. It orchestrates:
 
-1. **Pre-flight** — Docker daemon responsive, repo root looks
+1. **Pre-flight**: Docker daemon responsive, repo root looks
    right, `go` + `docker` present.
-2. **`scripts/dev-db.sh up`** — Postgres 16 in a container on
+2. **`scripts/dev-db.sh up`**: Postgres 16 in a container on
    `127.0.0.1:5433`, then `elsereno db migrate up` to apply every
    embedded migration (currently `00001` → `00012`).
-3. **Build elsereno** — if any `.go` file under `cmd/` or
+3. **Build elsereno**: if any `.go` file under `cmd/` or
    `internal/` is newer than `./elsereno`, rebuild
    (`go build -trimpath -o ./elsereno ./cmd/elsereno`) and copy
    to `bin/elsereno` for the dev-db helper.
-4. **Vault** — if `~/.elsereno/dev.pp` (the dev passphrase file)
+4. **Vault**: if `~/.elsereno/dev.pp` (the dev passphrase file)
    is missing, offer to create one with `openssl rand`. If the
    vault itself is not yet initialised, offer to run `elsereno
    vault init`.
-5. **Load `DATABASE_URL`** — sources `~/.elsereno/dev-db.env`
+5. **Load `DATABASE_URL`**: sources `~/.elsereno/dev-db.env`
    that `scripts/dev-db.sh` writes.
-6. **Start serve** — `./elsereno serve --scan-store=db
+6. **Start serve**: `./elsereno serve --scan-store=db
    --vault-passphrase-file ~/.elsereno/dev.pp`.
 
 ### Modes
@@ -170,7 +170,7 @@ scripts/dev-db.sh reset
 
 ---
 
-## `scripts/dev-db.sh` — Postgres lifecycle (existing)
+## `scripts/dev-db.sh`: Postgres lifecycle (existing)
 
 Predates `start.sh` and remains the authoritative way to bring
 up just the database without the binary:
@@ -190,7 +190,7 @@ started by default; bring it up with:
 ```bash
 docker compose -f docker-compose.dev.yml up -d adminer
 open http://127.0.0.1:8080
-# System: PostgreSQL · Server: db · User: elsereno · DB: elsereno · (no password — dev trust auth)
+# System: PostgreSQL · Server: db · User: elsereno · DB: elsereno · (no password, dev trust auth)
 ```
 
 ---
@@ -205,7 +205,7 @@ open http://127.0.0.1:8080
   passphrase file on disk.
 * If you lose `dev.pp`, `rm -rf ~/.elsereno/vault.db` (or
   whichever path your vault lives at) and re-run `start.sh` to
-  re-init from scratch — only the dev secrets are lost.
+  re-init from scratch, only the dev secrets are lost.
 
 ### Why a dev passphrase file is OK (and why prod is different)
 
@@ -224,7 +224,7 @@ The release flow is documented separately in
 methods) and `.context/protocols/release.md`. Short version:
 
 ```bash
-git tag -s vX.Y.Z -m "vX.Y.Z — <one-line summary>"
+git tag -s vX.Y.Z -m "vX.Y.Z, <one-line summary>"
 git push origin main
 git push origin vX.Y.Z
 GITHUB_TOKEN=$(gh auth token) \
@@ -247,7 +247,7 @@ is restored.
 |---|---|---|
 | `Docker daemon not responding` | Docker Desktop closed / `dockerd` not running | Start Docker Desktop or `sudo systemctl start docker` |
 | `dev-db.sh: line N: /Users/Jane/AI projects/...: No such file or directory` | Outdated `dev-db.sh` (pre-`e007f13`) doesn't handle paths with spaces | Update repo: `git pull` and re-run |
-| Migrations report `migrations applied` but `\dt` shows no new tables | Binary is **stale** — embedded migrations don't include the recent ones | `scripts/start.sh` rebuilds automatically; otherwise: `go build -o elsereno ./cmd/elsereno && ./elsereno db migrate up` |
+| Migrations report `migrations applied` but `\dt` shows no new tables | Binary is **stale**: embedded migrations don't include the recent ones | `scripts/start.sh` rebuilds automatically; otherwise: `go build -o elsereno ./cmd/elsereno && ./elsereno db migrate up` |
 | `serve` exits with `vault not initialised` | First-run; vault state missing | `./elsereno vault init --passphrase-file ~/.elsereno/dev.pp` |
 | `gh auth status` shows token invalid after running hygiene flow | Bootstrap PAT was revoked; `gh` had it cached | `gh auth login -h github.com` (web flow recommended) |
 | `goreleaser` fails with `GITHUB_REPOSITORY` template error | Env not set (only exists inside GitHub Actions) | Prepend `GITHUB_REPOSITORY=RobinR00T/elSereno` to the command |
@@ -281,11 +281,11 @@ elSereno/
 
 ## Further reading
 
-* [`INSTALL.md`](../INSTALL.md) — for production install of the
+* [`INSTALL.md`](../INSTALL.md), for production install of the
   released binary (deb/rpm/apk/OCI/tarball).
-* [`README.md`](../README.md) — feature overview + 30-second
+* [`README.md`](../README.md), feature overview + 30-second
   Quickstart.
-* `.context/STATE.md` — current cycle state (internal).
-* `.context/protocols/*.md` — per-area engineering notes.
-* `.context/pitfalls.md` — anti-patterns catalogue (read before
+* `.context/STATE.md`: current cycle state (internal).
+* `.context/protocols/*.md`: per-area engineering notes.
+* `.context/pitfalls.md`: anti-patterns catalogue (read before
   modifying production code).

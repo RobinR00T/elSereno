@@ -29,7 +29,7 @@
 //     method matches but the path does not → 403 Forbidden.
 //     Both carry a `Content-Length: 0` body and `Connection: close`.
 //   - CONNECT (for TLS tunnelling via a forward proxy) is
-//     explicitly refused — the gate can't inspect tunnelled traffic
+//     explicitly refused, the gate can't inspect tunnelled traffic
 //     and the operator should configure the upstream directly when
 //     they need TLS.
 //
@@ -188,7 +188,7 @@ type WriteGatedHandler struct {
 	// the gate is timestamped + direction-tagged + persisted.
 	// Wrapping happens BEFORE the bufio.NewReader / http.ReadRequest
 	// chain, so per-(method, path) allowlist routing is captured
-	// intact. Nil disables recording — the gate behaves exactly
+	// intact. Nil disables recording, the gate behaves exactly
 	// as it did pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -301,7 +301,7 @@ func (h *WriteGatedHandler) handleOne(ctx context.Context, req *http.Request, cl
 type refusal struct {
 	code   int    // 405 or 403
 	reason string // log-friendly reason
-	allow  string // "GET, HEAD, …" — only populated on 405
+	allow  string // "GET, HEAD, …", only populated on 405
 }
 
 // gate makes the per-request policy decision. Returns (true, _)
@@ -328,7 +328,7 @@ func (h *WriteGatedHandler) gate(req *http.Request) (bool, refusal) {
 			allow:  h.allowedMethodsList(),
 		}
 	}
-	// Method is allowed in principle — check the path.
+	// Method is allowed in principle, check the path.
 	for _, a := range h.Allowed {
 		if strings.ToUpper(strings.TrimSpace(a.Method)) == method &&
 			strings.TrimSpace(a.Path) == req.URL.Path {
@@ -378,7 +378,7 @@ func writeRefusal(w io.Writer, r refusal) error {
 	case http.StatusForbidden:
 		b.WriteString("HTTP/1.1 403 Forbidden\r\n") //nolint:misspell // RFC 7235 canonical spelling
 	default:
-		// Defensive — never reached.
+		// Defensive never reached.
 		b.WriteString("HTTP/1.1 500 Internal Server Error\r\n")
 	}
 	b.WriteString("Server: ElSereno proxy (gated, offensive)\r\n")

@@ -15,7 +15,7 @@ import (
 
 // Findings returns the `GET /api/v1/findings` handler. Requires
 // a repo.Querier (usually a *pgxpool.Pool). Returns 503 when
-// querier is nil — the dashboard can still render skeleton
+// querier is nil, the dashboard can still render skeleton
 // panels in that case.
 //
 // Query params:
@@ -55,7 +55,7 @@ func Findings(q repo.Querier) http.Handler {
 //
 // Content-Disposition is set so curl-default-stdout AND browser
 // "Save Link As" both produce a sensibly-named file. Filename
-// includes the wall-clock UTC for traceability — operators
+// includes the wall-clock UTC for traceability, operators
 // often grab multiple snapshots during a single change window.
 func writeFindingsCSV(w http.ResponseWriter, rows []repo.Finding) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -106,7 +106,7 @@ func canonFactorsCSVField(factors map[string]int) string {
 // v1.18 chunk 2: operators running weekly scans see what
 // changed between two runs without grepping JSON. Required
 // query params: `old=<run_id>` + `new=<run_id>`. Match across
-// runs is by (target_id, protocol) — the same exposure
+// runs is by (target_id, protocol), the same exposure
 // rediscovered on the next scan is "persisting" even though
 // its DB row gets a fresh UUID.
 //
@@ -175,7 +175,7 @@ func Triage(q repo.Querier) http.Handler {
 
 // parseFindingsQuery extracts FindingsQuery fields from URL
 // values. Invalid ints silently default to zero (which
-// translates to "no filter") rather than returning 400 — the
+// translates to "no filter") rather than returning 400, the
 // dashboard is the primary consumer and we'd rather render a
 // partial page than a red error box.
 func parseFindingsQuery(v url.Values) repo.FindingsQuery {

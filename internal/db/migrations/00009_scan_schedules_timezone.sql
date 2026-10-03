@@ -1,14 +1,14 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.75 — adds the timezone column for cron-based schedules.
+-- v1.75, adds the timezone column for cron-based schedules.
 -- Empty (default '') means UTC, matching v1.73/v1.74 cron
 -- evaluation behaviour. Operators set IANA names like
 -- 'America/New_York' or 'Europe/Madrid' so cron expressions
 -- evaluate against local wall-clock time.
 --
 -- Pre-v1.75 cron schedules: timezone defaults to '' which
--- decodes Go-side as time.UTC — same behaviour as before.
+-- decodes Go-side as time.UTC, same behaviour as before.
 -- No data migration needed.
 --
 -- Validation lives in the Go layer (time.LoadLocation): we

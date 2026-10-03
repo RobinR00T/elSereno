@@ -14,7 +14,7 @@
 // This package implements ONLY a 32-byte canonical hello frame
 // + a banner / marker classifier on the response. The full
 // PCWorx service-request layer (variable read / write / runtime
-// control) is out of scope for v1.25 — the fingerprint is
+// control) is out of scope for v1.25, the fingerprint is
 // sufficient.
 //
 // No service-request frames are issued; v1.25 is read-only by
@@ -29,8 +29,8 @@ import (
 // PCWorx canonical hello layout (32 bytes):
 //
 //	Offset  Field            Size  Description
-//	0..3    Magic            4     0x01 0x01 0x00 0x1C — "PCWorx hello v1"
-//	4..11   IdentifyToken    8     "IBETH01\0" — interface-board
+//	0..3    Magic            4     0x01 0x01 0x00 0x1C, "PCWorx hello v1"
+//	4..11   IdentifyToken    8     "IBETH01\0", interface-board
 //	                                identifier required by the firmware
 //	                                to accept the hello.
 //	12..31  Reserved zeros   20    pad to 32 bytes.
@@ -97,7 +97,7 @@ func BuildHello() []byte {
 	out := make([]byte, HelloLen)
 	copy(out[0:4], PCWorxHelloPrefix)
 	copy(out[4:12], PCWorxIdentifyToken)
-	// out[12..31] stay zero — the canonical pad.
+	// out[12..31] stay zero, the canonical pad.
 	return out
 }
 

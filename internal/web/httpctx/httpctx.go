@@ -23,7 +23,7 @@ func WithCSPNonce(ctx context.Context, nonce string) context.Context {
 
 // CSPNonce returns the nonce previously installed by
 // WithCSPNonce, or "" if none. Handlers that omit the nonce simply
-// won't be able to run inline scripts/styles — exactly the safe
+// won't be able to run inline scripts/styles, exactly the safe
 // default behaviour we want.
 func CSPNonce(ctx context.Context) string {
 	v, _ := ctx.Value(cspNonceKey{}).(string)

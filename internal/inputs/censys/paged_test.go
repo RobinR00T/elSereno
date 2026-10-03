@@ -12,7 +12,7 @@ import (
 	"local/elsereno/internal/inputs/censys"
 )
 
-// TestSearchPaged_FollowsCursor — Censys uses cursor pagination.
+// TestSearchPaged_FollowsCursor Censys uses cursor pagination.
 // Server returns 100 hits + "next" cursor; client follows it for
 // up to 3 hops, then "next":"" terminates.
 func TestSearchPaged_FollowsCursor(t *testing.T) {
@@ -71,7 +71,7 @@ func TestSearchPaged_FollowsCursor(t *testing.T) {
 	}
 }
 
-// TestSearchPaged_StopsAtTotalLimit — totalLimit=150 caps at 150
+// TestSearchPaged_StopsAtTotalLimit totalLimit=150 caps at 150
 // even when more cursor pages remain.
 func TestSearchPaged_StopsAtTotalLimit(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// v2.37+ — range-spec syntax for wardialing batch.
+// v2.37+, range-spec syntax for wardialing batch.
 //
 // Operators want to type one expression and have it expand to a
 // sequence of numbers. Two forms supported:
@@ -41,18 +41,18 @@ const MaxRangeSize = 10_000
 // ErrRangeMalformed is the catch-all for bad range syntax.
 var ErrRangeMalformed = errors.New("dial: range spec malformed")
 
-// ErrRangePrefixMismatch — endpoints don't share a common non-
+// ErrRangePrefixMismatch endpoints don't share a common non-
 // numeric prefix.
 var ErrRangePrefixMismatch = errors.New("dial: range endpoints have different prefixes")
 
-// ErrRangeSuffixLength — endpoints' numeric tails are different
+// ErrRangeSuffixLength endpoints' numeric tails are different
 // lengths (would not preserve leading-zero alignment).
 var ErrRangeSuffixLength = errors.New("dial: range endpoints have suffixes of different lengths")
 
-// ErrRangeReversed — end < start.
+// ErrRangeReversed end < start.
 var ErrRangeReversed = errors.New("dial: range end is before start")
 
-// ErrRangeTooLarge — expansion would exceed MaxRangeSize.
+// ErrRangeTooLarge expansion would exceed MaxRangeSize.
 var ErrRangeTooLarge = errors.New("dial: range expansion exceeds MaxRangeSize")
 
 // rangeRE captures `<start>..<end>`. The `\.\.` separator must

@@ -31,7 +31,7 @@ type Plugin struct {
 }
 
 // Default returns a Plugin with sensible timeouts. SLMP TCP
-// handshakes are unannounced — no banner, no negotiation — so a
+// handshakes are unannounced, no banner, no negotiation, so a
 // single round-trip is enough to fingerprint.
 func Default() *Plugin {
 	return &Plugin{DialTimeout: 5 * time.Second, IOTimeout: 3 * time.Second}
@@ -51,7 +51,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 // Probe implements core.Protocol. Sends a single READ CPU MODEL
 // NAME 3E request, parses the reply, and folds the controller
 // model into the finding hash. No memory-area read or write is
-// performed — the default build is read-only by design.
+// performed the default build is read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
 	d := net.Dialer{Timeout: p.DialTimeout}
@@ -69,7 +69,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	buf := make([]byte, 256)
 	n, err := io.ReadFull(conn, buf[:wire.HeaderLenResponse+2])
 	if err != nil {
-		// Couldn't even read the header — treat as no usable
+		// Couldn't even read the header, treat as no usable
 		// reply rather than a hard probe failure.
 		return buildFinding(target, "no usable reply", false), nil
 	}
@@ -126,7 +126,7 @@ type writeBanHandler struct{}
 func (writeBanHandler) Handle(ctx context.Context, client, _ io.ReadWriter) error {
 	// Read the first frame's header to learn the declared length;
 	// then drain the body and reply with a refusal end code. We
-	// do not forward to upstream — defence-in-depth: the
+	// do not forward to upstream, defence-in-depth: the
 	// classifier could be bypassed by a malformed length, so we
 	// fail-closed for every request in the default build.
 	hdr := make([]byte, wire.HeaderLenRequest)
@@ -206,7 +206,7 @@ func buildFinding(target core.Target, note string, isSLMP bool) *core.Finding {
 		"auth_state":    95, // SLMP has no native authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure: 10 (v2.33+, bumped from 6) — Mitsubishi
+		// cve_exposure: 10 (v2.33+, bumped from 6), Mitsubishi
 		// MELSEC + SLMP-speaking GOT HMIs have a wide CVE
 		// catalogue across iQ-R, iQ-F, Q-series, FX-series.
 		// Anchors:

@@ -1,4 +1,4 @@
-# ElSereno — security model
+# ElSereno, security model
 
 Resumen del modelo de seguridad para el operador de SOC,
 auditor de compliance, o threat-modeller que necesita
@@ -93,7 +93,7 @@ Garantías de boundary:
   credenciales.
 
 Cambiar la passphrase **requiere desbloquear con la antigua**.
-No hay rotation walk-through automatizado en v1.88 — se
+No hay rotation walk-through automatizado en v1.88, se
 hace via `backup create` → `vault init` con passphrase nueva
 → `creds store` re-importing una a una. **Item vNext.**
 
@@ -108,7 +108,7 @@ hace via `backup create` → `vault init` con passphrase nueva
 | `creds store`    | sí                 | `creds_store` event              |
 | `creds rotate`   | sí                 | `creds_rotate` event             |
 | `creds show --reveal` | sí            | `creds_show_reveal` event        |
-| `creds list` / `show` (no reveal) | sí | (no audit — sólo metadata)     |
+| `creds list` / `show` (no reveal) | sí | (no audit, sólo metadata)     |
 | `creds purge`    | sí                 | `creds_purge` event              |
 
 ---
@@ -146,9 +146,9 @@ entry N:
 
 - **Disponibilidad** del archivo (rm sería detectado por
   `verify`, no impedido).
-- **Read-once semantics** — un atacante con read access ve
+- **Read-once semantics**: un atacante con read access ve
   todo el histórico.
-- **Forward-secrecy** — capturar la master key permite
+- **Forward-secrecy**: capturar la master key permite
   fabricar entries falsificadas hacia adelante (pero no
   retroactivas sin recomputar toda la chain).
 
@@ -244,7 +244,7 @@ exec.SafeCommand{
 `SafeCommand` inyecta el separador `--` **automáticamente**
 entre flags y positional. Esto previene la clase de bugs
 "primer positional empieza por `-` y se interpreta como
-flag" — el equivalente a SQL injection para shell.
+flag", el equivalente a SQL injection para shell.
 
 `SafeCommand.Run()` NO usa `sh -c`. Va directo a
 `syscall.Execve` (`os/exec`) con un argv array. Imposible
@@ -290,7 +290,7 @@ WARN: ELSERENO_VAULT_PASSPHRASE detected in environment.
       Prefer --vault-passphrase-file (0600). See PITF-032.
 ```
 
-(En CI/cron sin TTY el warning no aparece — esos
+(En CI/cron sin TTY el warning no aparece, esos
 contextos son los aceptables.)
 
 ---
@@ -429,7 +429,7 @@ dígitos están **bloqueados duro** en el binario (evita
 4. Sin scope cargado, todos los targets pasan
    (intencional para uso ad-hoc).
 
-Findings de targets fuera de scope **NO** se emiten — el
+Findings de targets fuera de scope **NO** se emiten, el
 finding tiene `scope_state: denied` y no aparece en
 findings.ndjson (los logs sí registran el rechazo).
 
@@ -448,7 +448,7 @@ Build offensive permite un perfil seccomp BPF que niega:
 - `ptrace`, `process_vm_*` (anti-debug).
 - `clone3` con flags raros.
 - syscalls de raw socket / packet sockets (salvo en flujos
-  raw-packet explícitos para PROFINET L2 — vNext).
+  raw-packet explícitos para PROFINET L2, vNext).
 
 ### macOS: sandbox_init(3) (v1.50+)
 
@@ -568,10 +568,10 @@ Por favor:
 
 ## Más documentación
 
-- [`MANUAL.md`](MANUAL.md) — referencia general del binario.
-- [`INSTALL.md`](../INSTALL.md) — instalación detallada.
-- [`INTEGRATIONS.md`](INTEGRATIONS.md) — recetas SIEM/observ.
-- `.context/decisions/*.md` — ADRs (Architecture Decision
+- [`MANUAL.md`](MANUAL.md), referencia general del binario.
+- [`INSTALL.md`](../INSTALL.md), instalación detallada.
+- [`INTEGRATIONS.md`](INTEGRATIONS.md), recetas SIEM/observ.
+- `.context/decisions/*.md`: ADRs (Architecture Decision
   Records).
-- `.context/pitfalls.md` — catálogo de anti-patrones.
-- `.context/threat-model/` — threat-model documents.
+- `.context/pitfalls.md`: catálogo de anti-patrones.
+- `.context/threat-model/`: threat-model documents.

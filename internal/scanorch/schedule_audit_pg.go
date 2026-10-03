@@ -13,7 +13,7 @@ import (
 // ScheduleAuditStore. v1.84+. Schema lives in migration
 // 00011_scan_schedule_audit.sql. The CHECK constraint on
 // event_type mirrors ValidScheduleAuditEventTypes (defence
-// in depth — both Go-side validation + SQL CHECK reject
+// in depth, both Go-side validation + SQL CHECK reject
 // invalid values).
 type DBScheduleAuditStore struct {
 	q Querier
@@ -156,7 +156,7 @@ type txQuerier interface {
 // PruneWithLock (v1.90+) wraps PruneWithOverrides in a single
 // transaction guarded by `pg_try_advisory_xact_lock(key)`.
 // Acquired-lock + clean prune = (count, true, nil).
-// Lock-already-held = (0, false, nil) — NOT an error.
+// Lock-already-held = (0, false, nil), NOT an error.
 //
 // Type-asserts the Querier to obtain transactional support. A
 // fake Querier (unit tests) lacks BeginTx → falls back to
@@ -176,7 +176,7 @@ func (s *DBScheduleAuditStore) PruneWithLock(ctx context.Context, key int64, glo
 		return 0, false, fmt.Errorf("scanorch: prune begin tx: %w", err)
 	}
 	// Rollback is idempotent + a no-op once Commit succeeded
-	// — safe to defer unconditionally.
+	// safe to defer unconditionally.
 	defer func() { _ = tx.Rollback(ctx) }()
 	var acquired bool
 	if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock($1)", key).Scan(&acquired); err != nil {
@@ -202,7 +202,7 @@ func (s *DBScheduleAuditStore) PruneWithLock(ctx context.Context, key int64, glo
 
 // sortStrings is a tiny string-slice sort (avoid pulling in the
 // sort package for one call site). N is the number of schedules
-// with retention overrides — typically <50, often <10.
+// with retention overrides, typically <50, often <10.
 func sortStrings(s []string) {
 	for i := 1; i < len(s); i++ {
 		v := s[i]

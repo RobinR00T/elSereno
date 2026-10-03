@@ -68,7 +68,7 @@ func TestParseLongStatus_ModelOnly(t *testing.T) {
 func TestParseLongStatus_NoMarker(t *testing.T) {
 	frame := make([]byte, wire.MailboxLen)
 	frame[0] = wire.TypeResponse
-	// Random non-printable bytes — no marker anywhere.
+	// Random non-printable bytes, no marker anywhere.
 	for i := 1; i < len(frame); i++ {
 		frame[i] = byte(i & 0x7F)
 	}
@@ -89,7 +89,7 @@ func TestParseLongStatus_ShortBuffer(t *testing.T) {
 }
 
 func TestParseLongStatus_ICCodeAndFirmware(t *testing.T) {
-	// IC695 (RX3i) family — firmware tag right after the model.
+	// IC695 (RX3i) family, firmware tag right after the model.
 	frame := make([]byte, wire.MailboxLen)
 	frame[0] = wire.TypeResponse
 	copy(frame[18:], []byte("\x00\x00IC695CPE330\x00V9.30"))

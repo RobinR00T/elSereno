@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-dnp3-proxy.sh — end-to-end demo of the DNP3 write-gated proxy,
+# demo-dnp3-proxy.sh, end-to-end demo of the DNP3 write-gated proxy,
 # focused on the poster's thesis: Select/Operate move breakers and no
 # frame says who you are, so the gate scopes control by CROB
 # (point-index + control-code), refuses broadcast, and pins the

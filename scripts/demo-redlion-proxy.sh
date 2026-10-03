@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-redlion-proxy.sh — end-to-end demo of the Red Lion Crimson v3
+# demo-redlion-proxy.sh, end-to-end demo of the Red Lion Crimson v3
 # write-gated proxy against the bundled redlion-sim, with no real
 # Crimson panel.
 #

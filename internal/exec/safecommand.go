@@ -38,7 +38,7 @@ type BypassEvent struct {
 }
 
 // BypassAuditor receives a BypassEvent whenever the path allowlist is
-// bypassed. Returning an error aborts the spawn — the bypass never
+// bypassed. Returning an error aborts the spawn, the bypass never
 // runs on a broken audit chain.
 type BypassAuditor interface {
 	RecordBypass(ev BypassEvent) error
@@ -75,7 +75,7 @@ type CommandSpec struct {
 
 	// AllowAnyPath, when true, lets SafeCommand resolve Name outside
 	// AllowedPaths. This is the `--no-allowlist` escape hatch and is
-	// gated by a mandatory BypassAuditor — SafeCommand refuses the
+	// gated by a mandatory BypassAuditor, SafeCommand refuses the
 	// spawn when AllowAnyPath is true AND BypassAuditor is nil OR
 	// the auditor's RecordBypass returns an error.
 	AllowAnyPath bool

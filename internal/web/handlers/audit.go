@@ -66,7 +66,7 @@ func AuditCadence(q repo.Querier) http.Handler {
 
 // parseAuditQuery extracts AuditQuery fields from URL values.
 // Invalid ints / timestamps silently default to zero (which
-// translates to "no filter") rather than returning 400 — same
+// translates to "no filter") rather than returning 400, same
 // convention as parseFindingsQuery.
 func parseAuditQuery(v url.Values) repo.AuditQuery {
 	q := repo.AuditQuery{

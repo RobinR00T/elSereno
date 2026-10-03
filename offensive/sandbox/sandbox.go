@@ -8,20 +8,20 @@ type Profile string
 
 // Profile values.
 const (
-	// ProfileExploit — for CVE exploit subprocesses. Network allowed,
+	// ProfileExploit for CVE exploit subprocesses. Network allowed,
 	// file writes heavily restricted.
 	ProfileExploit Profile = "exploit"
-	// ProfileHarvest — for credential-harvest helpers. DNS allowed,
+	// ProfileHarvest for credential-harvest helpers. DNS allowed,
 	// file writes denied.
 	ProfileHarvest Profile = "harvest"
-	// ProfileDial — for dial subprocesses. TTY ioctls allowed,
+	// ProfileDial for dial subprocesses. TTY ioctls allowed,
 	// network socket calls denied.
 	ProfileDial Profile = "dial"
-	// ProfileScan (v2.32+) — for read-only scan subprocesses
+	// ProfileScan (v2.32+), for read-only scan subprocesses
 	// (default-build scanners). Network read+write allowed for
 	// probing; file writes blocked entirely; process-exec
 	// blocked so a compromised target can't pivot. Defence
-	// in depth — the default scan path is already "safe" but
+	// in depth, the default scan path is already "safe" but
 	// dropping unused capabilities tightens the blast radius.
 	ProfileScan Profile = "scan"
 )
@@ -29,7 +29,7 @@ const (
 // Profiles (v2.61+) returns the canonical list of recognised
 // profile values in declaration order. Tests and operator
 // tooling that need to iterate every profile should source from
-// here rather than hand-listing — historically v2.32 added
+// here rather than hand-listing, historically v2.32 added
 // ProfileScan but the v1.50 darwin tests kept iterating the
 // original 3-element slice and silently missed it for 9 cycles.
 // Single source of truth: this function. Valid() delegates here

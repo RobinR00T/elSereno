@@ -88,7 +88,7 @@ shodan:
 	}
 }
 
-// readTargetsFromProvider end-to-end errors — each provider
+// readTargetsFromProvider end-to-end errors, each provider
 // surfaces "missing <field>" when the creds block is incomplete.
 
 func TestReadTargetsFromProvider_ErrNoCreds(t *testing.T) {

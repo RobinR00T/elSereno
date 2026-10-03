@@ -166,7 +166,7 @@ func DefaultVaultPath() (string, error) {
 var ErrFileExists = errors.New("creds: vault file already exists")
 
 // InitToFile is the composed "init + persist" primitive. It returns
-// ErrFileExists if the path already exists (PITF-021 — never silently
+// ErrFileExists if the path already exists (PITF-021, never silently
 // overwrite critical state). Callers opt in to overwrite via a wrapper.
 func (v *Vault) InitToFile(ctx context.Context, passphrase []byte, path string) error {
 	if _, err := os.Stat(path); err == nil {

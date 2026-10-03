@@ -14,19 +14,19 @@ import (
 // Errors returned by Validate. Callers use errors.Is so the audit
 // layer can map to the right denied_reason.
 var (
-	// ErrEmpty — number is empty or non-digit-only.
+	// ErrEmpty number is empty or non-digit-only.
 	ErrEmpty = errors.New("dial: empty or non-digit number")
-	// ErrShortNumber — the UNBYPASSABLE ≤3-digit hard block fired
+	// ErrShortNumber the UNBYPASSABLE ≤3-digit hard block fired
 	// (ADR-041 gate 1). This includes emergency services (112, 911,
 	// 999, 062) and premium short codes.
 	ErrShortNumber = errors.New("dial: ≤3-digit numbers are hard-blocked")
-	// ErrBlockedByScope — scope.yaml's blocked_numbers matched.
+	// ErrBlockedByScope scope.yaml's blocked_numbers matched.
 	ErrBlockedByScope = errors.New("dial: blocked by scope")
 )
 
 // Normalise takes operator input (with spaces, dashes, leading + or
 // 00, parens) and returns a digits-only string. Country-code prefixes
-// are preserved — the operator's intent is auditable.
+// are preserved, the operator's intent is auditable.
 //
 // Examples:
 //

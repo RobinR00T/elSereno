@@ -66,7 +66,7 @@ func TestProxyReplay_RendersHeaderAndChunks(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_DirFilter — `--dir client` skips upstream
+// TestProxyReplay_DirFilter `--dir client` skips upstream
 // chunks. We can't easily get bidirectional chunks without
 // running the full proxy, so this test asserts the parser:
 // the formatter is symmetrical, so testing one direction is
@@ -251,7 +251,7 @@ func TestProxyReplay_TimeWindow_FiltersOutput(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_BadSinceUsageError — operator typo on
+// TestProxyReplay_BadSinceUsageError operator typo on
 // --since produces EX_USAGE (64) with a friendly message
 // pointing at the expected format.
 func TestProxyReplay_BadSinceUsageError(t *testing.T) {
@@ -379,7 +379,7 @@ func TestProxyReplay_LimitTruncates(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_LimitZeroIsNoCap — the default flag
+// TestProxyReplay_LimitZeroIsNoCap the default flag
 // value 0 disables the cap; all matching chunks emit.
 func TestProxyReplay_LimitZeroIsNoCap(t *testing.T) {
 	dir := t.TempDir()
@@ -412,7 +412,7 @@ func TestProxyReplay_LimitZeroIsNoCap(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_TailEmitsLastN — v1.47: --tail N
+// TestProxyReplay_TailEmitsLastN v1.47: --tail N
 // emits the LAST N matching chunks. Distinguishes from
 // --limit by writing 5 chunks with distinct payloads
 // then asserting the tail is the last 3.
@@ -463,7 +463,7 @@ func TestProxyReplay_TailEmitsLastN(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_TailLargerThanCapture — when N > total
+// TestProxyReplay_TailLargerThanCapture when N > total
 // matching chunks, --tail emits all of them in arrival
 // order (no padding, no error).
 func TestProxyReplay_TailLargerThanCapture(t *testing.T) {
@@ -498,7 +498,7 @@ func TestProxyReplay_TailLargerThanCapture(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_StatsSummary — v1.48: --stats prints
+// TestProxyReplay_StatsSummary v1.48: --stats prints
 // per-direction chunks/bytes + time range. We write 3
 // c→u chunks and assert the summary lines.
 func TestProxyReplay_StatsSummary(t *testing.T) {
@@ -550,7 +550,7 @@ func TestProxyReplay_StatsSummary(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_StatsEmpty — when filters match nothing,
+// TestProxyReplay_StatsEmpty when filters match nothing,
 // stats reports zero counts + a "no matching chunks" hint
 // instead of a bogus time range.
 func TestProxyReplay_StatsEmpty(t *testing.T) {
@@ -587,7 +587,7 @@ func TestProxyReplay_StatsEmpty(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_StatsMutexFlags — --stats with --limit /
+// TestProxyReplay_StatsMutexFlags --stats with --limit /
 // --tail / --json is operator confusion; reject each pair.
 func TestProxyReplay_StatsMutexFlags(t *testing.T) {
 	dir := t.TempDir()
@@ -629,7 +629,7 @@ func TestProxyReplay_StatsMutexFlags(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_TailWithLimitRejected — both flags
+// TestProxyReplay_TailWithLimitRejected both flags
 // together is operator confusion; reject explicitly.
 func TestProxyReplay_TailWithLimitRejected(t *testing.T) {
 	dir := t.TempDir()
@@ -656,7 +656,7 @@ func TestProxyReplay_TailWithLimitRejected(t *testing.T) {
 	}
 }
 
-// TestProxyReplay_LimitAfterFilters — pin that --limit
+// TestProxyReplay_LimitAfterFilters pin that --limit
 // counts chunks that PASS --dir / --since / --until, not
 // raw events. Operator picking the first 2 client→upstream
 // writes in a window gets exactly 2.

@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
--- v1.60 — scan-job orchestration persistent storage.
+-- v1.60, scan-job orchestration persistent storage.
 -- Backs internal/scanorch.Store via the new
 -- internal/scanorch/store_pg.go implementation. The shape
 -- mirrors scanorch.Job + the SubmitRequest fields. State is

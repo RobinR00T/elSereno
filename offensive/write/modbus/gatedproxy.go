@@ -169,7 +169,7 @@ func AllowlistHashWithGeneration(target string, allowed []AllowedWrite, generati
 	if generation == 0 {
 		return AllowlistHash(target, allowed)
 	}
-	// Recompute from scratch + add the generation block — keeps
+	// Recompute from scratch + add the generation block, keeps
 	// the inner-block layout identical to AllowlistHash so
 	// generation=0 / generation>0 hashes share the same lower
 	// bytes verbatim (just with the extra trailer).
@@ -306,7 +306,7 @@ func SessionMutationWithDiag(target string, allowed []AllowedWrite, generation u
 // WriteGatedHandler is the offensive replacement for the default
 // write-ban proxy. Construction requires triple-confirm authorised
 // session context (Deriver, Auditor, and the session-level Confirm
-// struct). The handler does NOT re-authorise per frame — it checks
+// struct). The handler does NOT re-authorise per frame, it checks
 // the frame against the authorised allowlist and refuses anything
 // outside it.
 type WriteGatedHandler struct {
@@ -344,7 +344,7 @@ type WriteGatedHandler struct {
 	// + direction-tagged + persisted. Wrapping happens BEFORE the
 	// frame parser reads from client, so wire-aware gating
 	// (allowed-fc routing, refusals) is captured intact. Nil
-	// disables recording — the gate behaves exactly as it did
+	// disables recording, the gate behaves exactly as it did
 	// pre-v1.30.
 	Recorder *replay.Recorder
 

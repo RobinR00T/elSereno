@@ -134,7 +134,7 @@ func NewServer(opts Options) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
-	// v2.60: /metrics exposes the Prometheus expo. Optional —
+	// v2.60: /metrics exposes the Prometheus expo. Optional,
 	// when MetricsHandler is nil the route stays unbound (404
 	// in default deployments that don't run Prometheus).
 	if opts.MetricsHandler != nil {
@@ -217,7 +217,7 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	// ADR-022 shape: /readyz returns 200 with a JSON status
 	// when the server is ready to take traffic, 503 when a
 	// critical dependency is down. "Critical" in v1.2 is the
-	// DB pool IF configured — an unconfigured pool is NOT a
+	// DB pool IF configured, an unconfigured pool is NOT a
 	// failure (the file-backed audit + SSE still work).
 	//
 	// Audit readiness is reported separately: if the Querier is

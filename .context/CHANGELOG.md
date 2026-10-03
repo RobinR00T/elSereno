@@ -77,7 +77,7 @@ One-liner per significant change to `.context/` or the codebase.
   split-magic write-gate bypass. CI lint/sec/context back to green.
   See PITF-053/054, STATE.md, and the root CHANGELOG.
 
-- 2026-05-19 — v2.62 (chunk 1) — **`elsereno sandbox`
+- 2026-05-19, v2.62 (chunk 1), **`elsereno sandbox`
   CLI verb tree (list + introspect).** Surfaces the
   v2.61 `SchemeFor()` accessor to operators. `list`
   prints the 4 profile names in declaration order;
@@ -94,13 +94,13 @@ One-liner per significant change to `.context/` or the codebase.
   row. Snapshot:
   `.context/snapshots/v2.62.0-sandbox-cli-verb.md`.
 
-- 2026-05-18 — v2.61 (chunk 1) — **sandbox profile
+- 2026-05-18, v2.61 (chunk 1), **sandbox profile
   introspection + ProfileScan test-gap closure.**
   New `Profiles()` enumeration helper in
   `offensive/sandbox/sandbox.go` becomes the single
   source of truth; `Valid()` delegates. v1.50 darwin
   tests now iterate Profiles() (previously hand-listed
-  3 of 4 — silently missed ProfileScan for 29 cycles).
+  3 of 4, silently missed ProfileScan for 29 cycles).
   New `SchemeFor(p Profile) (string, bool)` on the
   darwin+cgo build exposes the .sb Scheme string for
   introspection (`elsereno sandbox introspect` verb is
@@ -112,7 +112,7 @@ One-liner per significant change to `.context/` or the codebase.
   ProfileScan shape). Snapshot:
   `.context/snapshots/v2.61.0-sandbox-introspection.md`.
 
-- 2026-05-18 — v2.60 (chunk 1) — **`/metrics`
+- 2026-05-18, v2.60 (chunk 1), **`/metrics`
   endpoint + pool collector registration.** Mounts
   the Prometheus expo at `GET /metrics` when
   `Options.MetricsHandler` is set. cmd_serve builds
@@ -124,7 +124,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.60.0-metrics-endpoint.md`.
 
-- 2026-05-18 — v2.59 (chunk 1) — **cmd_serve OIDC
+- 2026-05-18, v2.59 (chunk 1), **cmd_serve OIDC
   Verifier wiring.** Closes v2.38 + v2.40 + v2.43 +
   v2.48 carryover end-to-end. `buildWebOptions`
   calls `auth.NewVerifier(...)` when
@@ -135,7 +135,7 @@ One-liner per significant change to `.context/` or the codebase.
   so operators see the mode at a glance. Snapshot:
   `.context/snapshots/v2.59.0-cmd-serve-oidc-wiring.md`.
 
-- 2026-05-18 — v2.58 (chunk 1) — **cmd_serve
+- 2026-05-18, v2.58 (chunk 1), **cmd_serve
   PoolStat adapter.** Closes v2.52 + v2.55
   carryover. New `web.Options.PoolStatter` field;
   `cmd_serve` builds a `pgxpoolStatter` shim that
@@ -146,7 +146,7 @@ One-liner per significant change to `.context/` or the codebase.
   db-mode deployments. Snapshot:
   `.context/snapshots/v2.58.0-cmd-serve-pool-stat-wiring.md`.
 
-- 2026-05-18 — v2.57 (chunk 1) — **OpenAPI
+- 2026-05-18, v2.57 (chunk 1), **OpenAPI
   top-level examples.** Schema components gain
   `example:` blocks for ScanSchedule, Job, and
   CreateScheduleRequest so Swagger UI / Stoplight /
@@ -155,7 +155,7 @@ One-liner per significant change to `.context/` or the codebase.
   regenerated: 774→851 lines. Snapshot:
   `.context/snapshots/v2.57.0-openapi-examples.md`.
 
-- 2026-05-18 — v2.56 (chunk 1) — **cmd_tui
+- 2026-05-18, v2.56 (chunk 1), **cmd_tui
   ReplayControl wiring.** Closes v2.53 carryover.
   pickFeed (replay branch) constructs a
   `feeds.NewReplayControl(rate)` + sets it on both
@@ -165,7 +165,7 @@ One-liner per significant change to `.context/` or the codebase.
   documents the bindings. Snapshot:
   `.context/snapshots/v2.56.0-cmd-tui-replay-wiring.md`.
 
-- 2026-05-18 — v2.55 (chunk 1) — **Prometheus
+- 2026-05-18, v2.55 (chunk 1), **Prometheus
   pool-stats collector.** New `telemetry.PoolCollector`
   implements prometheus.Collector with 7 counters +
   5 gauges under `elsereno_pool_*`. Lazy scrape (no
@@ -176,7 +176,7 @@ One-liner per significant change to `.context/` or the codebase.
   wiring deferred. Snapshot:
   `.context/snapshots/v2.55.0-prometheus-pool-collector.md`.
 
-- 2026-05-17 — v2.54 (chunk 1) — **OpenAPI doc
+- 2026-05-17, v2.54 (chunk 1), **OpenAPI doc
   for v2.10/v2.11/v2.45/v2.49/v2.52 endpoints.**
   Backfills the spec for /clones (depth=N), /stats/
   timeseries (bucket+days), /runs (since/until +
@@ -188,7 +188,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.54.0-openapi-doc-expansion.md`.
 
-- 2026-05-17 — v2.53 (chunk 1) — **TUI replay
+- 2026-05-17, v2.53 (chunk 1), **TUI replay
   pause + rate keybindings.** space=pause/resume,
   `[`=halve rate, `]`=double rate. New
   `feeds.ReplayControl` shared-pointer struct +
@@ -199,7 +199,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.53.0-tui-replay-control.md`.
 
-- 2026-05-17 — v2.52 (chunk 1) — **pgxpool health
+- 2026-05-17, v2.52 (chunk 1), **pgxpool health
   endpoint.** New `GET /api/v1/health/pool` exposes
   pgxpool runtime stats (acquire_count,
   acquire_duration, idle/max/total_conns, etc.) so
@@ -210,7 +210,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.52.0-pool-health-endpoint.md`.
 
-- 2026-05-17 — v2.51 (chunk 1) — **TUI replay
+- 2026-05-17, v2.51 (chunk 1), **TUI replay
   status progress.** New `tui.ReplayStatusMsg`
   emitted by `feeds.Replay` every N lines (default
   100; configurable via `StatusEvery`). Update
@@ -219,7 +219,7 @@ One-liner per significant change to `.context/` or the codebase.
   captures. +2 tests. Snapshot:
   `.context/snapshots/v2.51.0-tui-replay-status.md`.
 
-- 2026-05-17 — v2.50 (chunk 1) — **Dashboard theme
+- 2026-05-17, v2.50 (chunk 1), **Dashboard theme
   toggle.** Header gets a 3-state cycle button:
   auto (🌓, OS-following) → light (☀️) → dark (🌙).
   Choice persists in localStorage. New
@@ -228,7 +228,7 @@ One-liner per significant change to `.context/` or the codebase.
   prefers-color-scheme @media rules. Snapshot:
   `.context/snapshots/v2.50.0-dashboard-theme-toggle.md`.
 
-- 2026-05-17 — v2.49 (chunk 1) — **Schedule export
+- 2026-05-17, v2.49 (chunk 1), **Schedule export
   to iCalendar (.ics).** 4th format for
   /schedules/export: `?format=ics` returns a
   VCALENDAR per RFC 5545. Interval cadence → RRULE
@@ -238,7 +238,7 @@ One-liner per significant change to `.context/` or the codebase.
   escaping. +2 tests. Snapshot:
   `.context/snapshots/v2.49.0-export-ics.md`.
 
-- 2026-05-17 — v2.48 (chunk 1) — **OIDC binding
+- 2026-05-17, v2.48 (chunk 1), **OIDC binding
   extended to /scans + /audit + /findings.** Builds
   on v2.40 (which covered /schedules/* only). 12 more
   routes role-bound: reads→viewer (findings, runs,
@@ -251,7 +251,7 @@ One-liner per significant change to `.context/` or the codebase.
   probes). Snapshot:
   `.context/snapshots/v2.48.0-oidc-scans-audit-binding.md`.
 
-- 2026-05-17 — v2.47 (chunk 1) — **GE-SRTP
+- 2026-05-17, v2.47 (chunk 1), **GE-SRTP
   service-0x21 follow-up.** Closes long-deferred
   carryover. 8 new family prefixes (EFM3530,
   RX3iCPE/CPL, VersaPro, S90Micro, PAC9000,
@@ -263,7 +263,7 @@ One-liner per significant change to `.context/` or the codebase.
   still no physical-device validation. Snapshot:
   `.context/snapshots/v2.47.0-gesrtp-service-0x21-followup.md`.
 
-- 2026-05-17 — v2.46 (chunk 1) — **Sparkline
+- 2026-05-17, v2.46 (chunk 1), **Sparkline
   bucket click → drill into /runs.** Closes v2.22
   carryover. Bucket rects get cursor:pointer +
   onclick → opens runs view filtered to that
@@ -273,7 +273,7 @@ One-liner per significant change to `.context/` or the codebase.
   runs view auto-clears filter. Snapshot:
   `.context/snapshots/v2.46.0-sparkline-drill-down.md`.
 
-- 2026-05-17 — v2.45 (chunk 1) — **/runs
+- 2026-05-17, v2.45 (chunk 1), **/runs
   ?since= / ?until= time-window filter.** New
   `Store.ListByScheduleRange` (Memory + PG +
   BroadcastingStore). Handler dispatches to
@@ -283,7 +283,7 @@ One-liner per significant change to `.context/` or the codebase.
   tests. Snapshot:
   `.context/snapshots/v2.45.0-runs-time-window.md`.
 
-- 2026-05-17 — v2.44 (chunk 1) — **Dashboard
+- 2026-05-17, v2.44 (chunk 1), **Dashboard
   clones view + depth control.** Upgrades the v2.14
   minimal panel with v2.23 `?depth=N` chain
   traversal. Depth input (1..10, default 3) +
@@ -292,7 +292,7 @@ One-liner per significant change to `.context/` or the codebase.
   reloadClones for the depth input. Snapshot:
   `.context/snapshots/v2.44.0-dashboard-clones-depth.md`.
 
-- 2026-05-17 — v2.43 (chunk 1) — **auth.oidc koanf
+- 2026-05-17, v2.43 (chunk 1), **auth.oidc koanf
   config stanza.** New AuthConfig + OIDCConfig
   declared. YAML: `auth.oidc.{issuer, audience,
   jwks_url, clock_skew}`. Footgun-safe
@@ -303,7 +303,7 @@ One-liner per significant change to `.context/` or the codebase.
   tests. Snapshot:
   `.context/snapshots/v2.43.0-auth-oidc-config.md`.
 
-- 2026-05-17 — v2.42 (chunk 1) — **PROFINET vendor
+- 2026-05-17, v2.42 (chunk 1), **PROFINET vendor
   + device-id resolution table.** 20 vendors curated
   (Siemens, Phoenix Contact, Hilscher, Pilz,
   Schneider, ABB, Rockwell, WAGO, Beckhoff, B&R,
@@ -315,7 +315,7 @@ One-liner per significant change to `.context/` or the codebase.
   fields. +7 tests. Snapshot:
   `.context/snapshots/v2.42.0-profinet-vendor-table.md`.
 
-- 2026-05-17 — v2.41 (chunk 1) — **PROFINET CLI
+- 2026-05-17, v2.41 (chunk 1), **PROFINET CLI
   decode + encode verb.** Closes v2.39 carryover.
   `elsereno profinet decode --hex|--file [--strip-l2 N]
   [--json]` + `encode-identify --xid 0xN`. Tolerant hex
@@ -323,7 +323,7 @@ One-liner per significant change to `.context/` or the codebase.
   via round-trip encode → decode. Snapshot:
   `.context/snapshots/v2.41.0-profinet-cli.md`.
 
-- 2026-05-17 — v2.40 (chunk 1) — **Per-route OIDC
+- 2026-05-17, v2.40 (chunk 1), **Per-route OIDC
   RequireRole binding.** Wires the v2.38 auth package
   into every /api/v1/schedules/* route via a
   declarative (pattern → min-role) table. Reads →
@@ -334,7 +334,7 @@ One-liner per significant change to `.context/` or the codebase.
   identity over X-Operator header. Snapshot:
   `.context/snapshots/v2.40.0-oidc-route-binding.md`.
 
-- 2026-05-17 — v2.39 (chunk 1) — **PROFINET DCP
+- 2026-05-17, v2.39 (chunk 1), **PROFINET DCP
   wire codec.** New `internal/protocols/profinet/`
   pure-stdlib encoder + decoder for IEC 61784-2 DCP
   frames (Discovery and Configuration Protocol).
@@ -344,13 +344,13 @@ One-liner per significant change to `.context/` or the codebase.
   NameOfStation / VendorID / DeviceID / DeviceRole /
   IP-config / OEMDeviceID. Constants for FrameID,
   Service, Option, Suboption (Device + IP). Defensive
-  read-only — Set / FactoryReset NOT generated. L2
+  read-only, Set / FactoryReset NOT generated. L2
   live capture deferred to vNext (gopacket+root).
   Closes last deferred roadmap item. +5 tests.
   Snapshot:
   `.context/snapshots/v2.39.0-profinet-dcp-codec.md`.
 
-- 2026-05-17 — v2.38 (chunk 1) — **OIDC + roles
+- 2026-05-17, v2.38 (chunk 1), **OIDC + roles
   auth package.** New `internal/web/auth/`
   stdlib-only OIDC bearer-token validator. RS256/384/512
   + ES256/384/512 supported; `none` + HS* rejected.
@@ -363,7 +363,7 @@ One-liner per significant change to `.context/` or the codebase.
   deferred to v2.40+. Snapshot:
   `.context/snapshots/v2.38.0-oidc-roles-auth.md`.
 
-- 2026-05-16 — v2.37 (chunk 1) — **Wardialing batch
+- 2026-05-16, v2.37 (chunk 1), **Wardialing batch
   orchestrator.** Closes deferred roadmap item #1
   (grande). New `offensive/dial/range.go` (range
   expansion `555-0100..555-0199` → 100 numbers; caps
@@ -377,7 +377,7 @@ One-liner per significant change to `.context/` or the codebase.
   wardial). Snapshot:
   `.context/snapshots/v2.37.0-wardialing-batch.md`.
 
-- 2026-05-16 — v2.36 (chunk 1) — **MMS vendor
+- 2026-05-16, v2.36 (chunk 1), **MMS vendor
   hint + LD enumeration.** Extends the v1.51 mms
   plugin past ACSE association into the actual
   service layer. New `wire/mms_services.go` with
@@ -392,7 +392,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.36.0-mms-vendor-ld.md`.
 
-- 2026-05-16 — v2.35 (chunk 1) — **OPC UA HTTPS
+- 2026-05-16, v2.35 (chunk 1), **OPC UA HTTPS
   fingerprint plugin.** New `opcuahttps` default-build
   plugin probes the Part 6 HTTPS binding on 4843. TLS
   dial + POST /discovery + classify response headers
@@ -403,7 +403,7 @@ One-liner per significant change to `.context/` or the codebase.
   roadmap item #3 (medio-grande). +5 tests. Snapshot:
   `.context/snapshots/v2.35.0-opcua-https.md`.
 
-- 2026-05-16 — v2.34 (chunk 1) — **Windows
+- 2026-05-16, v2.34 (chunk 1), **Windows
   cross-compile target.** Default + mini builds now
   ship `windows/amd64` and `windows/arm64`. Offensive
   stays unix-only (SIGUSR1 + libsandbox). Split
@@ -415,7 +415,7 @@ One-liner per significant change to `.context/` or the codebase.
   goos lists add windows. Snapshot:
   `.context/snapshots/v2.34.0-windows-cross-compile.md`.
 
-- 2026-05-16 — v2.33 (chunk 1) — **cve_exposure
+- 2026-05-16, v2.33 (chunk 1), **cve_exposure
   expansion (6 plugins).** Bumps the long-deferred
   placeholders for finsudp (5→9), slmp (6→10),
   gesrtp (5→8), knxip (6→11), mbustcp (4→6), dlms
@@ -424,7 +424,7 @@ One-liner per significant change to `.context/` or the codebase.
   harden" carryover. Snapshot:
   `.context/snapshots/v2.33.0-cve-exposure-expansion.md`.
 
-- 2026-05-16 — v2.32 (chunk 1) — **ProfileScan
+- 2026-05-16, v2.32 (chunk 1), **ProfileScan
   for read-only scan subprocesses.** Adds a 4th
   sandbox profile alongside Exploit/Harvest/Dial.
   macOS .sb scheme denies file-write* + process-exec
@@ -434,7 +434,7 @@ One-liner per significant change to `.context/` or the codebase.
   path. Snapshot:
   `.context/snapshots/v2.32.0-sandbox-profile-scan.md`.
 
-- 2026-05-16 — v2.31 (chunk 1) — **TUI
+- 2026-05-16, v2.31 (chunk 1), **TUI
   findings-pane polish.** Header now shows total
   finding count + cursor position
   ("Findings (N · cursor on M):"). Severity column
@@ -442,7 +442,7 @@ One-liner per significant change to `.context/` or the codebase.
   severityColor() helper. Snapshot:
   `.context/snapshots/v2.31.0-tui-polish.md`.
 
-- 2026-05-16 — v2.30 (chunk 1) — **GE-SRTP
+- 2026-05-16, v2.30 (chunk 1), **GE-SRTP
   family-prefix expansion.** Adds 8 new model-family
   prefixes to ExtractModelHint: VersaMax-M,
   CIMPLICITY, IS220, IS215, MarkVIe, Series-One,
@@ -453,7 +453,7 @@ One-liner per significant change to `.context/` or the codebase.
   test. Snapshot:
   `.context/snapshots/v2.30.0-gesrtp-prefixes.md`.
 
-- 2026-05-16 — v2.29 (chunk 1) — **fetchWithETag
+- 2026-05-16, v2.29 (chunk 1), **fetchWithETag
   on /audit + /runs views.** openAuditView +
   fetchRunsPage now use the v2.15 helper. 304 →
   no-op (stale table stays correct). 503 →
@@ -462,7 +462,7 @@ One-liner per significant change to `.context/` or the codebase.
   dashboard-ETag carryover. Snapshot:
   `.context/snapshots/v2.29.0-etag-audit-runs.md`.
 
-- 2026-05-16 — v2.28 (chunk 1) — **Dashboard
+- 2026-05-16, v2.28 (chunk 1), **Dashboard
   rename-tag form.** Consumes v2.16 bulk-rename
   endpoint. `from` + `to` inputs (HTML5 pattern
   validation) + inline status. On success: inputs
@@ -470,7 +470,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.28.0-rename-tag-form.md`.
 
-- 2026-05-16 — v2.27 (chunk 1) — **Right-click
+- 2026-05-16, v2.27 (chunk 1), **Right-click
   tag-chip exclude.** Third tag-filter gesture
   complementing v2.6 click + v2.19 Shift+Click.
   Right-click toggles membership AND switches op
@@ -480,7 +480,7 @@ One-liner per significant change to `.context/` or the codebase.
   all three gestures. Snapshot:
   `.context/snapshots/v2.27.0-right-click-exclude.md`.
 
-- 2026-05-16 — v2.26 (chunk 1) — **PG-backed
+- 2026-05-16, v2.26 (chunk 1), **PG-backed
   Idempotency cache.** Migration 00018:
   `idempotency_keys` table. New
   `IdempotencyStore` interface; v2.18 in-memory +
@@ -492,7 +492,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.26.0-pg-idempotency.md`.
 
-- 2026-05-16 — v2.25 (chunk 1) — **Idempotency-Key
+- 2026-05-16, v2.25 (chunk 1), **Idempotency-Key
   on /clone + bulk.** New `withIdempotencyKey(h)`
   middleware wrapper reuses the v2.18 cache.
   Buffers body, looks up, replays cached 2xx on hit,
@@ -502,7 +502,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.25.0-idempotency-clone-bulk.md`.
 
-- 2026-05-16 — v2.24 (chunk 1) — **localStorage
+- 2026-05-16, v2.24 (chunk 1), **localStorage
   ETag cache.** v2.15 in-memory map persisted under
   `elsereno:etag-cache:v1`. Hydrate on script load,
   re-write on every 200. Quota / disabled-storage
@@ -511,7 +511,7 @@ One-liner per significant change to `.context/` or the codebase.
   escape hatch. Snapshot:
   `.context/snapshots/v2.24.0-localstorage-etag.md`.
 
-- 2026-05-16 — v2.23 (chunk 1) — **Recursive
+- 2026-05-16, v2.23 (chunk 1), **Recursive
   clone-chain ?depth=N.** New
   `ListClonesOfDeep(ctx, id, depth)` on the
   ScheduleStore interface (Memory = BFS; PG =
@@ -522,7 +522,7 @@ One-liner per significant change to `.context/` or the codebase.
   depth=1. +2 tests. Snapshot:
   `.context/snapshots/v2.23.0-recursive-clone-chain.md`.
 
-- 2026-05-15 — v2.22 (chunk 1) — **Sparkline
+- 2026-05-15, v2.22 (chunk 1), **Sparkline
   bucket tooltips.** v2.13 sparkline only carried
   per-polyline series-max tooltips. v2.22 adds
   invisible per-bucket hit-target rects so hovering
@@ -530,7 +530,7 @@ One-liner per significant change to `.context/` or the codebase.
   (bucket-start + runs/failed/findings). Snapshot:
   `.context/snapshots/v2.22.0-sparkline-bucket-tooltips.md`.
 
-- 2026-05-15 — v2.21 (chunk 1) — **Real PG
+- 2026-05-15, v2.21 (chunk 1), **Real PG
   WithTx.** Closes v2.20 implementation carryover.
   DBScheduleStore.WithTx now type-asserts the
   Querier to v1.90's txQuerier (BeginTx) +
@@ -539,7 +539,7 @@ One-liner per significant change to `.context/` or the codebase.
   semantics). +1 test. Snapshot:
   `.context/snapshots/v2.21.0-pg-withtx.md`.
 
-- 2026-05-15 — v2.20 (chunk 1) — **?atomic=tx
+- 2026-05-15, v2.20 (chunk 1), **?atomic=tx
   with Store.WithTx wrapper.** Closes v2.12 carryover
   (tx atomicity). New `ScheduleStore.WithTx(ctx, fn)`
   interface method. Memory + DB stores pass-through;
@@ -552,7 +552,7 @@ One-liner per significant change to `.context/` or the codebase.
   +2 tests. Snapshot:
   `.context/snapshots/v2.20.0-import-atomic-tx.md`.
 
-- 2026-05-15 — v2.19 (chunk 1) — **Multi-select
+- 2026-05-15, v2.19 (chunk 1), **Multi-select
   Shift+Click on tag chips.** Plain click → set as
   sole filter; Shift+Click → toggle membership. New
   op:`AND|OR|NOT IN` dropdown next to the tag cloud.
@@ -561,7 +561,7 @@ One-liner per significant change to `.context/` or the codebase.
   dashboard carryover. Snapshot:
   `.context/snapshots/v2.19.0-multiselect-tag-chips.md`.
 
-- 2026-05-15 — v2.18 (chunk 1) — **Idempotency-Key
+- 2026-05-15, v2.18 (chunk 1), **Idempotency-Key
   on /import.** New `idempotencyCache` (in-memory,
   TTL=1h, maxSize=256, LRU eviction, SHA-256 body
   fingerprint). Handler protocol: first call processes
@@ -572,7 +572,7 @@ One-liner per significant change to `.context/` or the codebase.
   Closes v2.12 carryover. +2 tests. Snapshot:
   `.context/snapshots/v2.18.0-idempotency-key.md`.
 
-- 2026-05-15 — v2.17 (chunk 1) — **NOT operator on
+- 2026-05-15, v2.17 (chunk 1), **NOT operator on
   tag filter.** New `?op=not_in` excludes schedules
   that carry any of the listed tags. New constant
   `scanorch.TagOpNotIn`. Memory: matchesTags third
@@ -582,7 +582,7 @@ One-liner per significant change to `.context/` or the codebase.
   v2.9 carryover. +2 tests. Snapshot:
   `.context/snapshots/v2.17.0-tag-not-in.md`.
 
-- 2026-05-15 — v2.16 (chunk 1) — **Bulk tag-rename
+- 2026-05-15, v2.16 (chunk 1), **Bulk tag-rename
   endpoint.** New `POST /schedules/tags/rename`
   with `{from, to}` body. New `Store.RenameTag`
   method (Memory + PG via ARRAY_REPLACE + array_agg
@@ -593,7 +593,7 @@ One-liner per significant change to `.context/` or the codebase.
   route declarations. +3 tests. Snapshot:
   `.context/snapshots/v2.16.0-bulk-tag-rename.md`.
 
-- 2026-05-15 — v2.15 (chunk 1) — **Dashboard
+- 2026-05-15, v2.15 (chunk 1), **Dashboard
   If-None-Match plumbing.** Module-level etagCache
   map + fetchWithETag helper. Wired into
   refreshScheduleTagCloud (30s poll); 304 path
@@ -605,14 +605,14 @@ One-liner per significant change to `.context/` or the codebase.
   parser. Snapshot:
   `.context/snapshots/v2.15.0-dashboard-etag-plumbing.md`.
 
-- 2026-05-15 — v2.14 (chunk 1) — **Dashboard
+- 2026-05-15, v2.14 (chunk 1), **Dashboard
   clones view.** New "Clones" button per schedule
   row opens an inline panel showing clones (Name /
   Created / State / Tags / Edit-into). Closes v2.10
   carryover. Snapshot:
   `.context/snapshots/v2.14.0-dashboard-clones-view.md`.
 
-- 2026-05-14 — v2.13 (chunk 1) — **Dashboard
+- 2026-05-14, v2.13 (chunk 1), **Dashboard
   sparkline widget.** New "Sparkline" button per
   schedule row opens an inline 3-series SVG widget
   consuming /stats/timeseries. Series:
@@ -622,7 +622,7 @@ One-liner per significant change to `.context/` or the codebase.
   re-fetch live. Closes v2.11 carryover. Snapshot:
   `.context/snapshots/v2.13.0-sparkline-widget.md`.
 
-- 2026-05-14 — v2.12 (chunk 1) — **Atomic import
+- 2026-05-14, v2.12 (chunk 1), **Atomic import
   preflight.** New `?atomic=true` on
   `POST /schedules/import` runs a validation-only
   pass first; any row that would fail → 400 with
@@ -635,7 +635,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.12.0-atomic-import.md`.
 
-- 2026-05-13 — v2.11 (chunk 1) — **Time-bucketed
+- 2026-05-13, v2.11 (chunk 1), **Time-bucketed
   stats endpoint.** New
   `GET /schedules/{id}/stats/timeseries?bucket=hour|day|week&days=N`.
   Memory variant pre-fills empty buckets; PG uses
@@ -646,7 +646,7 @@ One-liner per significant change to `.context/` or the codebase.
   +2 tests. Snapshot:
   `.context/snapshots/v2.11.0-stats-timeseries.md`.
 
-- 2026-05-13 — v2.10 (chunk 1) — **source_schedule_id
+- 2026-05-13, v2.10 (chunk 1), **source_schedule_id
   provenance column.** Migration 00017 adds NULL-able
   FK to scan_schedules + partial index. ScanSchedule
   gains SourceScheduleID. New Store methods
@@ -659,7 +659,7 @@ One-liner per significant change to `.context/` or the codebase.
   tests. Snapshot:
   `.context/snapshots/v2.10.0-source-schedule-id.md`.
 
-- 2026-05-13 — v2.9 (chunk 1) — **Multi-tag AND/OR
+- 2026-05-13, v2.9 (chunk 1), **Multi-tag AND/OR
   filter on /schedules.** Repeated `?tag=a&tag=b&op=`
   (and|or, default and). New `Store.ListByTags`
   method; v2.4 `ListByTag` becomes thin wrapper. PG
@@ -668,7 +668,7 @@ One-liner per significant change to `.context/` or the codebase.
   carryover. +3 tests. Snapshot:
   `.context/snapshots/v2.9.0-multi-tag-filter.md`.
 
-- 2026-05-13 — v2.8 (chunk 1) — **Schedule CLI
+- 2026-05-13, v2.8 (chunk 1), **Schedule CLI
   mutating verbs.** Adds `enable`, `disable`,
   `clone --name N`, `import <file>
   [--on-conflict ...]`, `pause-all`, `resume-all`.
@@ -679,7 +679,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v2.8.0-schedule-cli-mutating.md`.
 
-- 2026-05-13 — v2.7 (chunk 1) — **ETag /
+- 2026-05-13, v2.7 (chunk 1), **ETag /
   If-None-Match support.** New `writeJSONWithETag`
   helper computes SHA-256 of the response body,
   emits ETag header, honors `If-None-Match` → 304.
@@ -689,7 +689,7 @@ One-liner per significant change to `.context/` or the codebase.
   fields would defeat cache). +1 unit test. Snapshot:
   `.context/snapshots/v2.7.0-etag-support.md`.
 
-- 2026-05-13 — v2.6 (chunk 1) — **Dashboard tag UI.**
+- 2026-05-13, v2.6 (chunk 1), **Dashboard tag UI.**
   Schedules table gains "Tags" column with clickable
   chips (toggle the global tag filter). Tag-cloud
   widget above the table shows `<tag> (<count>)`
@@ -698,7 +698,7 @@ One-liner per significant change to `.context/` or the codebase.
   v2.4 + v2.5 dashboard carryover. Snapshot:
   `.context/snapshots/v2.6.0-dashboard-tag-ui.md`.
 
-- 2026-05-13 — v2.5 (chunk 1) — **Schedule
+- 2026-05-13, v2.5 (chunk 1), **Schedule
   tag-counts aggregate.** New
   `GET /api/v1/schedules/tags` returns
   `[{tag, count}]` sorted count DESC, tag ASC. New
@@ -710,7 +710,7 @@ One-liner per significant change to `.context/` or the codebase.
   tests + OpenAPI entry. Snapshot:
   `.context/snapshots/v2.5.0-schedule-tag-counts.md`.
 
-- 2026-05-13 — v2.4 (chunk 1) — **Schedule
+- 2026-05-13, v2.4 (chunk 1), **Schedule
   tags/labels.** Migration 00016 adds `tags TEXT[]`
   + GIN index. ScanSchedule + Create + Update accept
   tags (1..10 per schedule, 1..32 chars,
@@ -723,7 +723,7 @@ One-liner per significant change to `.context/` or the codebase.
   with pattern + maxItems. +3 unit tests. Snapshot:
   `.context/snapshots/v2.4.0-schedule-tags.md`.
 
-- 2026-05-13 — v2.3 (chunk 1) — **`elsereno
+- 2026-05-13, v2.3 (chunk 1), **`elsereno
   schedule` CLI verbs.** Read-only subset (list/get/
   delete/stats/export) over the local serve HTTP API.
   Persistent flags `--url` + `--token` with fallbacks
@@ -733,7 +733,7 @@ One-liner per significant change to `.context/` or the codebase.
   the existing root flag. Snapshot:
   `.context/snapshots/v2.3.0-schedule-cli.md`.
 
-- 2026-05-13 — v2.2 (chunk 1) — **Per-schedule
+- 2026-05-13, v2.2 (chunk 1), **Per-schedule
   run-stats aggregate endpoint.** New
   `GET /api/v1/schedules/{id}/stats?days=N` returns
   total_runs + per-state counters + success_rate +
@@ -746,7 +746,7 @@ One-liner per significant change to `.context/` or the codebase.
   entry. Snapshot:
   `.context/snapshots/v2.2.0-schedule-stats.md`.
 
-- 2026-05-13 — v2.1 (chunk 1) — **cloned_from audit
+- 2026-05-13, v2.1 (chunk 1), **cloned_from audit
   event.** Migration 00015 extends scan_schedule_audit
   CHECK enum with `cloned_from`. cloneSchedule
   signature gains audit param; on success writes one
@@ -758,7 +758,7 @@ One-liner per significant change to `.context/` or the codebase.
   v1.93 carryover. Snapshot:
   `.context/snapshots/v2.1.0-cloned-from-audit.md`.
 
-- 2026-05-13 — v2.0 (chunk 1) — **Cursor pagination
+- 2026-05-13, v2.0 (chunk 1), **Cursor pagination
   on /schedules/{id}/runs.** Response shape changed
   (BREAKING) from `data: Job[]` to
   `data: {items: Job[], next_before?: rfc3339}`.
@@ -770,7 +770,7 @@ One-liner per significant change to `.context/` or the codebase.
   +2 unit tests. Closes v1.92 carryover. Snapshot:
   `.context/snapshots/v2.0.0-runs-cursor-pagination.md`.
 
-- 2026-05-12 — v1.99 (chunk 1) — **Schedule import
+- 2026-05-12, v1.99 (chunk 1), **Schedule import
   endpoint.** New `POST /api/v1/schedules/import` accepts
   NDJSON (line-delimited) OR JSON array of ScanSchedule.
   Query `on_conflict=skip|overwrite|rename` (default skip).
@@ -780,7 +780,7 @@ One-liner per significant change to `.context/` or the codebase.
   +5 unit tests + OpenAPI entry. Snapshot:
   `.context/snapshots/v1.99.0-schedule-import.md`.
 
-- 2026-05-12 — v1.98 (chunk 1) — **OpenAPI strict
+- 2026-05-12, v1.98 (chunk 1), **OpenAPI strict
   schemas.** Operation gains `RequestBody *RequestBody`
   field; renderOperation emits requestBody.content schema
   ref. New component schemas: SubmitRequest,
@@ -792,7 +792,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.98.0-openapi-strict-schemas.md`.
 
-- 2026-05-12 — v1.97 (chunk 1) — **Schedules
+- 2026-05-12, v1.97 (chunk 1), **Schedules
   export (CSV/NDJSON/JSON).** New
   `GET /api/v1/schedules/export?format=csv|ndjson|json`.
   CSV is 10-column flat (id, name, cadence, enabled,
@@ -804,7 +804,7 @@ One-liner per significant change to `.context/` or the codebase.
   unit tests. Snapshot:
   `.context/snapshots/v1.97.0-schedules-export.md`.
 
-- 2026-05-12 — v1.96 (chunk 1) — **OpenAPI
+- 2026-05-12, v1.96 (chunk 1), **OpenAPI
   coverage for 13 schedule endpoints.** Added
   spec entries for /schedules, /{id}, /preview,
   /{id}/enable, /{id}/disable, /{id}/clone,
@@ -815,7 +815,7 @@ One-liner per significant change to `.context/` or the codebase.
   (172 → 397 lines). Snapshot:
   `.context/snapshots/v1.96.0-openapi-schedule-coverage.md`.
 
-- 2026-05-12 — v1.95 (chunk 1) — **Bulk
+- 2026-05-12, v1.95 (chunk 1), **Bulk
   pause/resume schedules.** New endpoints
   `POST /api/v1/schedules/bulk/{enable|disable}`.
   Affects only schedules whose state actually changes
@@ -827,7 +827,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.95.0-bulk-pause-resume.md`.
 
-- 2026-05-12 — v1.94 (chunk 1) — **Pruner tick
+- 2026-05-12, v1.94 (chunk 1), **Pruner tick
   duration histogram.** New
   `elsereno_audit_pruner_tick_duration_seconds`
   histogram with buckets sized for [1ms, 60s].
@@ -838,7 +838,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.94.0-pruner-tick-histogram.md`.
 
-- 2026-05-12 — v1.93 (chunk 1) — **Schedule clone
+- 2026-05-12, v1.93 (chunk 1), **Schedule clone
   endpoint.** New `POST /api/v1/schedules/{id}/clone`
   with optional override body (name, cadence,
   audit_retention_days). Default name is
@@ -849,7 +849,7 @@ One-liner per significant change to `.context/` or the codebase.
   +3 unit tests. Snapshot:
   `.context/snapshots/v1.93.0-schedule-clone.md`.
 
-- 2026-05-12 — v1.92 (chunk 1) — **Schedule run
+- 2026-05-12, v1.92 (chunk 1), **Schedule run
   history.** Migration 00014 adds NULL-able
   `triggered_by_schedule_id` to scan_jobs +
   partial index. Job struct gains
@@ -863,7 +863,7 @@ One-liner per significant change to `.context/` or the codebase.
   unit tests. Snapshot:
   `.context/snapshots/v1.92.0-schedule-run-history.md`.
 
-- 2026-05-12 — v1.91 (chunk 1) — **Pruner Prometheus
+- 2026-05-12, v1.91 (chunk 1), **Pruner Prometheus
   metrics.** New labelled counter
   `elsereno_audit_pruner_runs_total{result=acquired|
   skipped_lock|error}` + cumulative
@@ -874,7 +874,7 @@ One-liner per significant change to `.context/` or the codebase.
   funlen. +1 unit test. Snapshot:
   `.context/snapshots/v1.91.0-pruner-metrics.md`.
 
-- 2026-05-12 — v1.90 (chunk 1) — **Advisory-locked
+- 2026-05-12, v1.90 (chunk 1), **Advisory-locked
   audit pruner.** New optional interface
   `AdvisoryLockedAuditStore` with method `PruneWithLock`
   (PG-only impl); `AuditPruner` type-asserts +
@@ -890,7 +890,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.90.0-advisory-lock-pruner.md`.
 
-- 2026-05-12 — v1.89 (chunk 1) — **Deleted badge +
+- 2026-05-12, v1.89 (chunk 1), **Deleted badge +
   per-schedule audit retention overrides.** Migration
   00013 adds NULL-able `audit_retention_days` column on
   `scan_schedules`. New `PruneWithOverrides` audit-store
@@ -903,7 +903,7 @@ One-liner per significant change to `.context/` or the codebase.
   unit tests. Snapshot:
   `.context/snapshots/v1.89.0-deleted-badge-retention-overrides.md`.
 
-- 2026-05-12 — Linter side-quest — Pre-existing
+- 2026-05-12, Linter side-quest, Pre-existing
   Linux-only lint issues in `offensive/sandbox/*`
   silenced via `.golangci.yml` excludes (revive
   underscores per syscall.h convention, dupl
@@ -911,7 +911,7 @@ One-liner per significant change to `.context/` or the codebase.
   test re-exec). No code mutation; surfaced when
   audit.yml CI started exercising Linux runners.
 
-- 2026-05-12 — Audit infrastructure — **Proactive
+- 2026-05-12, Audit infrastructure, **Proactive
   audit validator + CI gate** (`scripts/audit.sh` +
   `.github/workflows/audit.yml`). 13 check categories;
   3 modes (quick/full/ci). Catches schema regressions,
@@ -919,13 +919,13 @@ One-liner per significant change to `.context/` or the codebase.
   CVEs, lint/test/sec/vuln in one command. Weekly
   cron Monday 06:00 UTC for post-merge stdlib CVEs.
 
-- 2026-05-12 — Test fix — `TestPublish_PublishedAtSet`
+- 2026-05-12, Test fix, `TestPublish_PublishedAtSet`
   truncated comparison bounds to microsecond
   precision (matches `Publish`'s
   `Truncate(time.Microsecond)`); Linux CI flaky-fail
   surfaced the precision bug.
 
-- 2026-05-11 — v1.88 (chunk 1) — **Expanded audit
+- 2026-05-11, v1.88 (chunk 1), **Expanded audit
   event types.** Migration 00012 adds `delete`,
   `set_enabled_true`, `set_enabled_false` to the
   CHECK enumeration; drops `schedule_id` NOT NULL;
@@ -933,10 +933,10 @@ One-liner per significant change to `.context/` or the codebase.
   survive schedule deletion. Go enum mirrors.
   deleteSchedule + setScheduleEnabled now write audit
   rows (best-effort; X-Schedule-Audit-Warning on
-  failure — v1.84 pattern). 4 REST tests. Snapshot:
+  failure, v1.84 pattern). 4 REST tests. Snapshot:
   `.context/snapshots/v1.88.0-expanded-audit-events.md`.
 
-- 2026-05-11 — v1.87 (chunk 1) — **Background audit
+- 2026-05-11, v1.87 (chunk 1), **Background audit
   pruner.** New AuditPruner struct in
   internal/scanorch/audit_pruner.go (Run + Tick +
   OnPrune/OnError callbacks + sentinels). New
@@ -947,7 +947,7 @@ One-liner per significant change to `.context/` or the codebase.
   tests. Snapshot:
   `.context/snapshots/v1.87.0-background-audit-pruner.md`.
 
-- 2026-05-11 — v1.86 (chunk 1) — **Audit retention
+- 2026-05-11, v1.86 (chunk 1), **Audit retention
   pruning.** ScheduleAuditStore.PruneOlderThan added
   on interface + Memory + DB impls. New REST endpoint
   DELETE /api/v1/schedules/audit?before=<rfc3339>
@@ -956,19 +956,19 @@ One-liner per significant change to `.context/` or the codebase.
   global (cross-schedule). 3 unit + 4 REST. Snapshot:
   `.context/snapshots/v1.86.0-audit-retention.md`.
 
-- 2026-05-11 — v1.85 (chunk 1) — **Dashboard audit
+- 2026-05-11, v1.85 (chunk 1), **Dashboard audit
   history view.** Per-schedule "History" button +
   audit-history panel below the schedules table.
   openAuditView fetches /api/v1/schedules/{id}/audit
   + renders a table (When / Who / Event / Changes).
   computeAuditEventDiff parses payload_before +
   payload_after and lists changed editable fields.
-  503 surfaces "audit log unavailable — run with
+  503 surfaces "audit log unavailable, run with
   --scan-store=db". No Go changes. 8 dashboard
   markers. Snapshot:
   `.context/snapshots/v1.85.0-audit-history-view.md`.
 
-- 2026-05-11 — v1.84 (chunk 1) — **Force-overwrite
+- 2026-05-11, v1.84 (chunk 1), **Force-overwrite
   audit log.** New ScheduleAuditStore interface +
   Memory/DB implementations. PUT carrying
   `X-Schedule-Force-Overwrite: true` with audit store
@@ -985,7 +985,7 @@ One-liner per significant change to `.context/` or the codebase.
   to audit_log statements. 5 unit + 5 REST. Snapshot:
   `.context/snapshots/v1.84.0-force-overwrite-audit.md`.
 
-- 2026-05-11 — v1.83 (chunk 1) — **Cherry-pick
+- 2026-05-11, v1.83 (chunk 1), **Cherry-pick
   merge view.** Each diff row in the v1.81 merge
   view gains a pair of radio buttons (mine | server,
   default mine). New "Apply selected (per-field)"
@@ -997,7 +997,7 @@ One-liner per significant change to `.context/` or the codebase.
   changes. 4 dashboard markers. Snapshot:
   `.context/snapshots/v1.83.0-cherry-pick-merge.md`.
 
-- 2026-05-10 — v1.82 (chunk 1) — **AbortController
+- 2026-05-10, v1.82 (chunk 1), **AbortController
   on /preview.** previewAbortController cancels
   in-flight /preview requests when a newer
   previewNextFire fires. AbortError is silently
@@ -1006,7 +1006,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.82.0-abort-controller.md`.
 
-- 2026-05-10 — v1.81 (chunk 1) — **412 merge-view
+- 2026-05-10, v1.81 (chunk 1), **412 merge-view
   UI.** Dashboard JS+HTML. On 412 from PUT, the
   dashboard fetches fresh server state, diffs the
   six editable fields (name, template.input,
@@ -1018,7 +1018,7 @@ One-liner per significant change to `.context/` or the codebase.
   changes. 8 dashboard markers. Snapshot:
   `.context/snapshots/v1.81.0-merge-view.md`.
 
-- 2026-05-10 — v1.80 (chunk 1) — **Live preview
+- 2026-05-10, v1.80 (chunk 1), **Live preview
   with debounce.** Dashboard JS attaches input +
   change listeners to schedule-cadence-mode /
   schedule-interval / schedule-cron /
@@ -1029,7 +1029,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.80.0-live-preview.md`.
 
-- 2026-05-10 — v1.79 (chunk 1) — **Multi-fire
+- 2026-05-10, v1.79 (chunk 1), **Multi-fire
   preview.** ScanSchedule.NextFires(now, count) +
   PreviewNextFires(req, now, count). /preview
   endpoint gains `?count=N` query param (default 1,
@@ -1041,7 +1041,7 @@ One-liner per significant change to `.context/` or the codebase.
   markers. Snapshot:
   `.context/snapshots/v1.79.0-multi-fire-preview.md`.
 
-- 2026-05-10 — v1.78 (chunk 1) — **Optimistic
+- 2026-05-10, v1.78 (chunk 1), **Optimistic
   locking on schedule edits.** ScanSchedule.UpdatedAt
   (set on Create, bumped on Update). UpdateScheduleRequest.
   IfMatch (*time.Time, JSON-skipped). ErrSchedulePrecondition-
@@ -1054,7 +1054,7 @@ One-liner per significant change to `.context/` or the codebase.
   dashboard markers. Snapshot:
   `.context/snapshots/v1.78.0-optimistic-locking.md`.
 
-- 2026-05-10 — v1.77 (chunk 1) — **Dashboard
+- 2026-05-10, v1.77 (chunk 1), **Dashboard
   next-fire preview.** ScanSchedule.NextFireAt
   (computed at read time). NextFire(now) method
   shared by read paths + preview. PreviewNextFire
@@ -1067,10 +1067,10 @@ One-liner per significant change to `.context/` or the codebase.
   5 REST + 5 dashboard markers. Snapshot:
   `.context/snapshots/v1.77.0-next-fire-preview.md`.
 
-- 2026-05-10 — v1.76 (chunk 1) — **Named cron
+- 2026-05-10, v1.76 (chunk 1), **Named cron
   shortcuts.** Vixie-style @yearly / @annually,
   @monthly, @weekly, @daily / @midnight, @hourly.
-  ParseCron pre-processes — if input starts with
+  ParseCron pre-processes, if input starts with
   `@`, case-folded token is looked up + replaced
   by the 5-field form. c.Raw() preserves operator
   input. @reboot intentionally NOT supported.
@@ -1078,7 +1078,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.76.0-cron-shortcuts.md`.
 
-- 2026-05-10 — v1.75 (chunk 1) — **Per-schedule
+- 2026-05-10, v1.75 (chunk 1), **Per-schedule
   timezone for cron.** ScanSchedule.Timezone (IANA
   name) + validation via time.LoadLocation +
   ErrScheduleInvalidTimezone (400). cronIsDue
@@ -1091,7 +1091,7 @@ One-liner per significant change to `.context/` or the codebase.
   markers. Snapshot:
   `.context/snapshots/v1.75.0-schedule-timezone.md`.
 
-- 2026-05-09 — v1.74 (chunk 1) — **Schedule edit
+- 2026-05-09, v1.74 (chunk 1), **Schedule edit
   path.** ScheduleStore.Update + PUT /schedules/{id}
   + dashboard edit-mode toggle (Create ↔ Update).
   Identity-preserving fields (ID, CreatedAt,
@@ -1101,14 +1101,14 @@ One-liner per significant change to `.context/` or the codebase.
   4 dashboard markers. Snapshot:
   `.context/snapshots/v1.74.0-schedule-edit.md`.
 
-- 2026-05-09 — v1.73 (chunk 1) — **Cron expressions
+- 2026-05-09, v1.73 (chunk 1), **Cron expressions
   as alternative cadence.** Custom 5-field parser
   (asterisk/N/comma/range/step). Migration 00008 +
   CHECK XOR. Dashboard cadence-mode dropdown.
   19 new tests. Snapshot:
   `.context/snapshots/v1.73.0-cron-expressions.md`.
 
-- 2026-05-08 — v1.72 (chunk 1) — **Dashboard
+- 2026-05-08, v1.72 (chunk 1), **Dashboard
   Scheduled-scans panel.** CRUD + Enable/Disable +
   Delete via fetch() against /api/v1/schedules.
   humanInterval renders 60→"1m", 3600→"1h", etc.
@@ -1117,14 +1117,14 @@ One-liner per significant change to `.context/` or the codebase.
   11 new dashboard markers. Snapshot:
   `.context/snapshots/v1.72.0-schedule-ui.md`.
 
-- 2026-05-08 — v1.71 (chunk 1) — **DB-backed
+- 2026-05-08, v1.71 (chunk 1), **DB-backed
   scheduled scans.** Migration 00007 + DBScheduleStore.
   Closes v1.70 honest-scope gap. cmd_serve picks the
   store based on --scan-store mode. 12 new tests.
   Snapshot:
   `.context/snapshots/v1.71.0-schedules-db.md`.
 
-- 2026-05-08 — v1.70 (chunk 1) — **Scheduled scans
+- 2026-05-08, v1.70 (chunk 1), **Scheduled scans
   (interval-based, in-memory).** Saved Job
   templates that fire on a clamp-[60s, 7d]
   interval. Scheduler goroutine ticks every 30s.
@@ -1132,27 +1132,27 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.70.0-scheduled-scans.md`.
 
-- 2026-05-08 — v1.69 (chunk 1) — **Bulk scan-submit
+- 2026-05-08, v1.69 (chunk 1), **Bulk scan-submit
   endpoint + dashboard panel.** POST /scans/bulk with
   capped-200 inputs; partial-failure response. Textarea
   UI shares plugin + port with single-submit form.
   5 new tests. Snapshot:
   `.context/snapshots/v1.69.0-bulk-submit.md`.
 
-- 2026-05-08 — v1.68 (chunk 1) — **Plugin-list
+- 2026-05-08, v1.68 (chunk 1), **Plugin-list
   autocomplete on the scan-submit form.** Native
   <datalist> populated from /api/v1/plugins on page
   boot. Discoverability win; multi-token after a
   comma deferred. 4 new test markers. Snapshot:
   `.context/snapshots/v1.68.0-plugin-autocomplete.md`.
 
-- 2026-05-06 — v1.67 (chunk 1) — **DBStore persistence
+- 2026-05-06, v1.67 (chunk 1), **DBStore persistence
   for findings_by_plugin.** Migration 00006 adds JSONB
   column. Closes v1.66 honest-scope gap. 4 new tests.
   Snapshot:
   `.context/snapshots/v1.67.0-findings-by-plugin-db.md`.
 
-- 2026-05-06 — v1.66 (chunk 1) — **Per-plugin findings
+- 2026-05-06, v1.66 (chunk 1), **Per-plugin findings
   breakdown.** Job.FindingsByPlugin map; SSE payloads
   carry it; dashboard tooltip on the Findings cell.
   Breaking API on JobRunner.Run (3 returns now).
@@ -1160,16 +1160,16 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.66.0-findings-by-plugin.md`.
 
-- 2026-05-06 — v1.65 (chunk 1) — **scan_stats_progress
+- 2026-05-06, v1.65 (chunk 1), **scan_stats_progress
   SSE event with per-job throttle.** Mid-scan
-  progress visibility — dashboard counters tick live.
+  progress visibility, dashboard counters tick live.
   JobRunner gains a ProgressReporter param (breaking
   API). 500ms throttle with identical-snapshot
   suppression + Forget on terminal transitions. 11
   new tests. Snapshot:
   `.context/snapshots/v1.65.0-scan-stats-progress.md`.
 
-- 2026-05-06 — v1.64 (chunk 1) — **Multi-plugin per
+- 2026-05-06, v1.64 (chunk 1), **Multi-plugin per
   scan Job.** Relaxes the v1.61 single-plugin contract.
   Empty Plugins → all registered. Per-target dispatch
   via DefaultPort match. Stats now probe-attempts
@@ -1178,7 +1178,7 @@ One-liner per significant change to `.context/` or the codebase.
   11 net new tests. Snapshot:
   `.context/snapshots/v1.64.0-multi-plugin-per-job.md`.
 
-- 2026-05-06 — v1.63 (chunk 1) — **scan_state_change
+- 2026-05-06, v1.63 (chunk 1), **scan_state_change
   SSE event + BroadcastingStore decorator.** Drops
   perceived dashboard transition latency from ~2s
   (v1.62 polling) to ~10ms (SSE). Same wrapper
@@ -1186,7 +1186,7 @@ One-liner per significant change to `.context/` or the codebase.
   queued→running→completed. 8 tests. Snapshot:
   `.context/snapshots/v1.63.0-scan-sse-event.md`.
 
-- 2026-05-06 — v1.62 (chunk 1) — **Dashboard scan-jobs
+- 2026-05-06, v1.62 (chunk 1), **Dashboard scan-jobs
   panel.** Trigger-from-button UI on top of v1.58-61.
   Submit form + jobs table (newest-first, top 20) +
   per-row Cancel + two-tier polling (2s active /
@@ -1195,7 +1195,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.62.0-dashboard-scan-panel.md`.
 
-- 2026-05-05 — v1.61 (chunk 1) — **Real scan runner +
+- 2026-05-05, v1.61 (chunk 1), **Real scan runner +
   serve --scan-store flag.** Connects v1.58/59/60 to
   the existing scanner + plugin registry. Single-
   plugin contract; multi-plugin deferred. INSTALL.md
@@ -1203,14 +1203,14 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.61.0-scan-runner-serve-flag.md`.
 
-- 2026-05-05 — v1.60 (chunk 1) — **Postgres-backed
+- 2026-05-05, v1.60 (chunk 1), **Postgres-backed
   scan-job Store.** Migration 00005_scan_jobs.sql +
   DBStore with atomic UPDATE-RETURNING transitions.
   CHECK-constrained state enum keeps SQL + Go in
   sync. 11 tests. Snapshot:
   `.context/snapshots/v1.60.0-scan-store-postgres.md`.
 
-- 2026-05-05 — v1.59 (chunk 1) — **Scan-job Worker +
+- 2026-05-05, v1.59 (chunk 1), **Scan-job Worker +
   JobRunner + Pool + Cancel endpoint.** Builds on the
   v1.58 shell with the execution machinery (claim,
   panic-recover, terminate). Pool with bounded
@@ -1218,7 +1218,7 @@ One-liner per significant change to `.context/` or the codebase.
   /api/v1/scans/{id}/cancel. 18 tests. Snapshot:
   `.context/snapshots/v1.59.0-scan-worker-pool-cancel.md`.
 
-- 2026-05-05 — v1.58 (chunk 1) — **Dashboard scan-
+- 2026-05-05, v1.58 (chunk 1), **Dashboard scan-
   orchestration shell.** Closes v1.32+ F. New
   internal/scanorch/ package + REST endpoints under
   /api/v1/scans/. State machine (queued/running/
@@ -1227,20 +1227,20 @@ One-liner per significant change to `.context/` or the codebase.
   19 tests. Snapshot:
   `.context/snapshots/v1.58.0-dashboard-scan-orchestration-shell.md`.
 
-- 2026-05-05 — v1.57 (chunk 1) — **DLMS/COSEM offensive
+- 2026-05-05, v1.57 (chunk 1), **DLMS/COSEM offensive
   write-gated proxy on TCP/4059.** Closes v1.32+ D3.
   Three-tier gate (APDU tag + per-(class, OBIS,
   member) + match strictness). Closes the legacy-ICS
   D-trio offensive write paths. 28 tests. Snapshot:
   `.context/snapshots/v1.57.0-dlms-offensive-write.md`.
 
-- 2026-05-05 — v1.56 (chunk 1) — **M-Bus offensive
+- 2026-05-05, v1.56 (chunk 1), **M-Bus offensive
   write-gated proxy on TCP/10001.** Closes v1.32+ D2.
   Two-tier gate (control field + per-(CI, Address)
   tuple). 25 tests. Snapshot:
   `.context/snapshots/v1.56.0-mbus-offensive-write.md`.
 
-- 2026-05-05 — v1.55 (chunk 1) — **KNX offensive write-
+- 2026-05-05, v1.55 (chunk 1), **KNX offensive write-
   gated proxy on UDP/3671.** Closes v1.32+ D1.
   Three-tier gate (service-type / APCI / group-address)
   with mask semantics. Plus a v1.21 service-type
@@ -1248,14 +1248,14 @@ One-liner per significant change to `.context/` or the codebase.
   per KNX Standard). 24 tests. Snapshot:
   `.context/snapshots/v1.55.0-knx-offensive-write.md`.
 
-- 2026-05-05 — v1.54 (chunk 1) — **Beckhoff TwinCAT ADS
+- 2026-05-05, v1.54 (chunk 1), **Beckhoff TwinCAT ADS
   fingerprint plugin (TCP/48898).** Closes v1.32+ C.
   AMS/TCP framing + AMS routing header +
   ReadDeviceInfo. Plugin count 28 → 29. 8 tests.
   Snapshot:
   `.context/snapshots/v1.54.0-twincat-fingerprint.md`.
 
-- 2026-05-05 — v1.53 (chunk 1) — **enip per-(class,
+- 2026-05-05, v1.53 (chunk 1), **enip per-(class,
   instance, attribute) gating for SendRRData /
   SendUnitData.** Closes v1.32+ B. CIP MR EPATH parser +
   AllowedAttribute (3 match strictnesses) +
@@ -1263,7 +1263,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.53.0-enip-per-attribute-gating.md`.
 
-- 2026-05-05 — v1.52 (chunk 1) — **s7 per-(area, db,
+- 2026-05-05, v1.52 (chunk 1), **s7 per-(area, db,
   byte-address) gating for FuncWriteVar.** Closes the
   v1.32+ A carryover. Wire parser + AllowedWriteItem
   + AllowlistHash per-item dimension (separator 0xF1).
@@ -1271,14 +1271,14 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.52.0-s7-per-address-gating.md`.
 
-- 2026-05-05 — v1.51 (chunk 1) — **MMS ACSE
+- 2026-05-05, v1.51 (chunk 1), **MMS ACSE
   A-ASSOCIATE-REQUEST.** Closes the v1.32+ E carryover.
   Hand-coded static OSI/Presentation/ACSE AARQ + OID-
   pattern AARE scan. MMS plugin confidence ~0.8 → ~0.95
   for IEC 61850-8-1 IEDs. 6 new tests. Snapshot:
   `.context/snapshots/v1.51.0-mms-acse-association.md`.
 
-- 2026-05-05 — v1.50 (chunk 1) — **macOS `sandbox_init(3)`
+- 2026-05-05, v1.50 (chunk 1), **macOS `sandbox_init(3)`
   cgo-gated.** Closes the long-standing G carryover
   ("macOS sandbox via cgo break"). Opt-in:
   `make build-offensive-darwin-sandboxed`. Default
@@ -1287,7 +1287,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.50.0-macos-sandbox-init.md`.
 
-- 2026-05-05 — v1.49 (chunk 1) — **Linux distribution
+- 2026-05-05, v1.49 (chunk 1), **Linux distribution
   packaging.** deb/rpm/apk via nfpm (3 variants × 3
   formats × 2 archs = 18 packages per release).
   Hardened systemd units for serve + audit serve.
@@ -1298,21 +1298,21 @@ One-liner per significant change to `.context/` or the codebase.
   platform-specific docs. Snapshot:
   `.context/snapshots/v1.49.0-linux-distribution-packaging.md`.
 
-- 2026-05-05 — v1.48 (chunk 1) — **`proxy replay
+- 2026-05-05, v1.48 (chunk 1), **`proxy replay
   --stats`** summary mode: per-direction chunk count +
   total bytes + time range. No per-chunk lines. Mutually
   exclusive with --limit/--tail/--json. validateMutex-
   Flags consolidator. 3 tests. Snapshot:
   `.context/snapshots/v1.48.0-proxy-replay-stats.md`.
 
-- 2026-05-05 — v1.47 (chunk 1) — **`proxy replay
+- 2026-05-05, v1.47 (chunk 1), **`proxy replay
   --tail N`** symmetric counterpart to --limit; emits
   last N matching chunks via ring buffer (memory caps
   at N regardless of capture size). --limit / --tail
   mutually exclusive at parse time. 3 tests. Snapshot:
   `.context/snapshots/v1.47.0-proxy-replay-tail.md`.
 
-- 2026-05-05 — v1.46 (chunk 1) — **`proxy replay
+- 2026-05-05, v1.46 (chunk 1), **`proxy replay
   --limit N`** caps output at N matching chunks. Applied
   AFTER --dir/--since/--until filters. errReplay-
   LimitReached sentinel ends the file walker early.
@@ -1320,7 +1320,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.46.0-proxy-replay-limit.md`.
 
-- 2026-05-05 — v1.45 (chunk 1) — **`proxy replay --json`**
+- 2026-05-05, v1.45 (chunk 1), **`proxy replay --json`**
   machine-readable output. One ChunkEvent per line, no
   header preamble. Composes with v1.44 filters. Side fix:
   dispatcher now skips DirHeader (was producing a phantom
@@ -1328,19 +1328,19 @@ One-liner per significant change to `.context/` or the codebase.
   tests + 1 adjusted. Snapshot:
   `.context/snapshots/v1.45.0-proxy-replay-json.md`.
 
-- 2026-05-05 — v1.44 (chunk 1) — **`proxy replay
+- 2026-05-05, v1.44 (chunk 1), **`proxy replay
   --since/--until`** time-window forensics. RFC3339Nano
   bounds, inclusive, optional either-side. timeWindow
   short-circuits to true on no-flags so the cost is zero
   for the common case. 4 tests. Snapshot:
   `.context/snapshots/v1.44.0-proxy-replay-time-window.md`.
 
-- 2026-05-05 — v1.43 (chunk 1) — **`tui --rate N`** for
+- 2026-05-05, v1.43 (chunk 1), **`tui --rate N`** for
   slow-motion playback. Plumbs the existing Rate field via
   a CLI flag. 3 tests. Snapshot:
   `.context/snapshots/v1.43.0-tui-rate-flag.md`.
 
-- 2026-05-04 — v1.42 (chunk 1) — **replay/record round-trip
+- 2026-05-04, v1.42 (chunk 1), **replay/record round-trip
   closed.** `feeds.Replay` now reads both `ndjson:v1`
   (legacy scan-output) AND the v1.41
   `elsereno-tui-record/v1` schemas. Workflow:
@@ -1350,29 +1350,29 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.42.0-replay-record-roundtrip.md`.
 
-- 2026-05-04 — v1.41 (chunk 1) — **`tui --record
+- 2026-05-04, v1.41 (chunk 1), **`tui --record
   FILE.ndjson`.** Symmetric counterpart to v1.29-chunk-3's
   --replay. Tees every model-bound tea.Msg onto an NDJSON
-  file (`elsereno-tui-record/v1` schema). Best-effort —
+  file (`elsereno-tui-record/v1` schema). Best-effort, 
   encode errors silenced so the TUI doesn't die for an
   unwritable file. Adds `RunOpts` + `RunWithOpts` (Run
   preserved as back-compat shim). 8 tests. Snapshot:
   `.context/snapshots/v1.41.0-tui-record-session.md`.
 
-- 2026-05-04 — v1.40 (chunk 1) — **`plugins ports` reverse
+- 2026-05-04, v1.40 (chunk 1), **`plugins ports` reverse
   index.** Maps port → [plugins] for "which plugin claims
   502?" lookups. Plain-text default + --json. Pin'd
   shared-port colocation (mms + s7 on 102) in tests.
   4 tests. Snapshot:
   `.context/snapshots/v1.40.0-plugins-ports-reverse-index.md`.
 
-- 2026-05-04 — v1.39 (chunk 1) — **`discover --hosts <file>`.**
+- 2026-05-04, v1.39 (chunk 1), **`discover --hosts <file>`.**
   Natural counterpart to v1.15-chunk-2's `--auto <CIDR>`.
   Accepts one IP per line, comments + blanks + host:port-
   strip + IPv6 support, --max-hosts cap. 7 tests. Snapshot:
   `.context/snapshots/v1.39.0-discover-hosts-list.md`.
 
-- 2026-05-04 — v1.38 (chunk 1) — **`fingerprint capture`
+- 2026-05-04, v1.38 (chunk 1), **`fingerprint capture`
   verb.** Natural companion to v1.37's `validate --file`:
   opens a localhost TCP listener, accepts one connection,
   drains the bytes, writes 0600. Operators capture in one
@@ -1381,7 +1381,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.38.0-fingerprint-capture-verb.md`.
 
-- 2026-05-04 — v1.37 (chunk 1) — **Fingerprint validation
+- 2026-05-04, v1.37 (chunk 1), **Fingerprint validation
   CLI verb.** Closes the v1.28-chunks-1+2 carryover. New
   `elsereno fingerprint validate --plugin <name>
   (--file|--hex)` verb spins up a localhost responder that
@@ -1391,10 +1391,10 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.37.0-fingerprint-validate-verb.md`.
 
-- 2026-05-04 — v1.36 (chunk 1) — **Dashboard --input
+- 2026-05-04, v1.36 (chunk 1), **Dashboard --input
   parity (preview endpoint).** Closes the v1.31 carryover.
   New `GET /api/v1/inputs/preview` endpoint backed by the
-  new `internal/inputs/preview` package. Read-only —
+  new `internal/inputs/preview` package. Read-only, 
   verifies a list:/nmap:/stdin file from inside the
   dashboard before triggering a CLI scan against it.
   Provider kinds excluded (need creds + rate-limit tuning
@@ -1402,7 +1402,7 @@ One-liner per significant change to `.context/` or the codebase.
   OpenAPI spec regeneration. Snapshot:
   `.context/snapshots/v1.36.0-dashboard-input-preview.md`.
 
-- 2026-05-04 — v1.35 (chunk 1) — **proxy listen --plugin
+- 2026-05-04, v1.35 (chunk 1), **proxy listen --plugin
   pcworx|mms|enip|s7 + recording.** Closes the v1.30
   carryover. Wires the 4 legacy-ICS plugins (which already
   had Recorder fields from v1.28 chunk 3 / v1.30 chunk 1)
@@ -1413,7 +1413,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.35.0-proxy-listen-legacy-ics.md`.
 
-- 2026-05-03 — v1.34 (chunk 1) — **Tree-wide gosec marker
+- 2026-05-03, v1.34 (chunk 1), **Tree-wide gosec marker
   hygiene.** Completes the b611f5c migration: 76 `//nolint:
   gosec` directives across 49 files in internal/**,
   offensive/** swapped to `// #nosec G<NNN>` native form.
@@ -1424,7 +1424,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.34.0-tree-wide-gosec-hygiene.md`.
 
-- 2026-05-03 — v1.33 (chunk 1) — **teatest program-level
+- 2026-05-03, v1.33 (chunk 1), **teatest program-level
   integration tests for TUI runner.** Closes the v1.30+v1.31
   carryover. `internal/tui/program_test.go` drives the
   bubbletea program through `teatest`; 10 cases cover
@@ -1436,17 +1436,17 @@ One-liner per significant change to `.context/` or the codebase.
   unchanged. Snapshot:
   `.context/snapshots/v1.33.0-teatest-tui-integration.md`.
 
-- 2026-05-03 — v1.32 (chunk 1) — **cmd/elsereno gosec marker
+- 2026-05-03, v1.32 (chunk 1), **cmd/elsereno gosec marker
   hygiene.** Swaps 10 remaining `//nolint:gosec` directives
   to `// #nosec G<NNN>` native form (PITF-030 / b611f5c
   convention). Composite case in cmd_doctor.go split. Wider
   tree (~65 markers across internal/protocols/**, offensive/**,
-  internal/audit/**) intentionally untouched — coexists with
+  internal/audit/**) intentionally untouched, coexists with
   convention since b611f5c, `make sec` exit 0 throughout.
   Snapshot:
   `.context/snapshots/v1.32.0-cmd-gosec-marker-hygiene.md`.
 
-- 2026-05-03 — v1.31 (chunk 1) — **TUI `--input` parity with
+- 2026-05-03, v1.31 (chunk 1), **TUI `--input` parity with
   batch `scan`.** Closes the v1.30-chunk-3 carryover. The 7
   input kinds the batch verb supports (nmap:, stdin, shodan:,
   censys:, fofa:, zoomeye:, onyphe:, internetdb:) are now
@@ -1457,7 +1457,7 @@ One-liner per significant change to `.context/` or the codebase.
   mirroring `scan`. 7 dispatcher tests. Snapshot:
   `.context/snapshots/v1.31.0-tui-input-parity.md`.
 
-- 2026-05-02 — v1.30 (chunks 1-4) — **Record-replay wire-up to
+- 2026-05-02, v1.30 (chunks 1-4), **Record-replay wire-up to
   9 wire-aware gates + TUI scan launcher + audit filter.**
   Closes the v1.28-chunk-3 deferral by extending the optional
   `Recorder *replay.Recorder` field from the 2 session-level
@@ -1471,7 +1471,7 @@ One-liner per significant change to `.context/` or the codebase.
   Snapshot:
   `.context/snapshots/v1.30.0-record-wireup-tui-launcher-filter.md`.
 
-- 2026-05-01 — v1.29 (chunks 1-6) — **TUI verb (`elsereno tui`) +
+- 2026-05-01, v1.29 (chunks 1-6), **TUI verb (`elsereno tui`) +
   mini build variant.** Bubbletea Model/View/Update + 4-pane
   layout (findings / triage / audit / scan); 4 modes via
   flags (interactive / replay / feed / watch). Mini variant
@@ -1480,7 +1480,7 @@ One-liner per significant change to `.context/` or the codebase.
   key bindings + wire formats + build-tag matrix). 44 unit
   tests across `internal/tui/` + `internal/tui/feeds/`.
 
-- 2026-04-29 — v1.24 (chunk 2) — **Engineering notes for the
+- 2026-04-29, v1.24 (chunk 2), **Engineering notes for the
   5 missing plugins in `.context/protocols/`.** Plugin coverage
   in the engineering-notes directory was 20 of 25 after v1.22
   (cwmp / opcua / sip / iax2 / pbxhttp had no notes despite
@@ -1496,17 +1496,17 @@ One-liner per significant change to `.context/` or the codebase.
   generation cookie). All 25 plugins now have engineering
   notes.
 
-- 2026-04-29 — v1.24 (chunk 1) — **CVE-exposure expansion to
+- 2026-04-29, v1.24 (chunk 1), **CVE-exposure expansion to
   7 more plugins.** Closes the cve_exposure non-zero coverage
   gap on the remaining ICS + PBX plugins (was 9 of 25 after
   v1.23; is now 16 of 25). New values:
   - s7: 14 (CVE-2014-2249 stack overflow + CVE-2016-4785
     auth bypass + CVE-2018-13815 PLC crash + Stuxnet-era
-    CVE-2010-2772 — broadest CVE surface in the ICS plugin
+    CVE-2010-2772, broadest CVE surface in the ICS plugin
     set, reflects Siemens PLC market share).
   - fox: 13 (CVE-2012-3024 Niagara hardcoded creds,
     CVE-2015-2916 directory traversal, CVE-2017-16744 Niagara
-    AX — Tridium dominates large-scale BMS).
+    AX, Tridium dominates large-scale BMS).
   - sip: 12 (Asterisk SIP CVE-2009-1207 + decades of
     follow-ups, Cisco SPA + UC CVE-2017-3881, FreeSWITCH
     CVE-2021-33611, 3CX CVE-2023-29059 supply-chain).
@@ -1519,14 +1519,14 @@ One-liner per significant change to `.context/` or the codebase.
     3263 + CVE-2009-3727 + CVE-2014-9374).
   - modbus: 9 (CVE-2015-1015 Schneider Modicon DoS, CVE-
     2017-9853 M340/M580 stack, CVE-2018-7240 Premium /
-    Quantum, CVE-2021-22779 auth bypass — vendor stacks atop
+    Quantum, CVE-2021-22779 auth bypass, vendor stacks atop
     the auth-free protocol).
   Combined v1.22 + v1.23 + v1.24: 16 of 25 plugins now
   publish a non-zero cve_exposure score (was 0 at v1.21).
   Remaining plugins without cve_exposure: atmodem, banner
-  (meta), xot — all have either no notable CVEs or n/a.
+  (meta), xot, all have either no notable CVEs or n/a.
 
-- 2026-04-29 — v1.23 (chunk 2) — **Banner dictionary
+- 2026-04-29, v1.23 (chunk 2), **Banner dictionary
   expansion: 21 new vendor patterns.** Vendor count climbs
   from 9 (v1.0 baseline) to 30 across three categories:
   industrial controller / HMI / RTU vendors (Siemens
@@ -1541,22 +1541,22 @@ One-liner per significant change to `.context/` or the codebase.
   dedicated test asserting that a banner referencing both
   SIMATIC and Cisco IOS matches Siemens first (most-specific
   rule wins). 24 new test cases bring the banner-dictionary
-  test count from 8 to 32 — every new vendor has at least
+  test count from 8 to 32, every new vendor has at least
   one exemplar banner string.
 
-- 2026-04-29 — v1.23 (chunk 1) — **CVE-exposure factor
+- 2026-04-29, v1.23 (chunk 1), **CVE-exposure factor
   expansion for 7 plugins.** Set non-zero cve_exposure values
   on plugins with well-documented CVE families (previously all
   zero except codesys=10 + redlion=5 from v1.22). New values
   with rationale:
   - cwmp: 15 (CVE-2014-9222 Misfortune Cookie / RomPager +
-    TR-064 NewNTPServer command-injection family — broad legacy
+    TR-064 NewNTPServer command-injection family, broad legacy
     CPE exposure on the same port 7547 ACS endpoint).
   - dnp3: 12 (CVE-2013-2825 CRC bypass + CVE-2013-2829 TCP
     frame stack overflow + CVE-2014-5410 Triangle MicroWorks
     DNP3 implementation flaws).
   - iec104: 10 (CVE-2015-7906 SIPROTEC + CVE-2017-12089 SICAM
-    PAS + CVE-2019-13548 SICAM PAS — substation automation
+    PAS + CVE-2019-13548 SICAM PAS, substation automation
     family). Pushes scoring into highest severity bucket on
     positive ID since impact_class is already 90.
   - bacnet: 8 (CVE-2018-10628 BAS auth bypass + CVE-2019-12480
@@ -1567,23 +1567,23 @@ One-liner per significant change to `.context/` or the codebase.
   - hartip: 7 (CVE-2014-7494 Honeywell XYR + CVE-2015-7905
     Yokogawa STARDOM + CVE-2019-9869 Phoenix Contact HART-IP).
   - atg: 6 (CVE-2017-14432/14433 Veeder-Root TLS-450 +
-    CVE-2018-5443 — gas-station-tank-gauge family).
+    CVE-2018-5443, gas-station-tank-gauge family).
   Each value cites specific CVEs in code comments so future
   maintainers can validate. cve_exposure remains weighted at
   0.10 in `scoreFor`. No behaviour changes beyond scoring.
   All affected plugin tests still pass; `make ci` green.
 
-- 2026-04-29 — v1.22 (chunk 4) — **Fuzz coverage for v1.20 +
+- 2026-04-29, v1.22 (chunk 4), **Fuzz coverage for v1.20 +
   v1.21 + v1.22 wire packages + finsudp trimASCII fix.** Added
   Fuzz* targets to all 8 new wire packages: finsudp, slmp,
   gesrtp, knxip, mbustcp, dlms, codesys, redlion. Each has a
   parser fuzz (asserts no panic + per-package contract on
   success) and a builder fuzz (asserts frame-length stability
   across input). Doubles the in-tree Fuzz* target count from
-  6 to 14 — every from-scratch wire parser shipped since v1.20
+  6 to 14, every from-scratch wire parser shipped since v1.20
   is now under fuzz.
 
-  **Fuzz found a real bug** in finsudp's `trimASCII` —
+  **Fuzz found a real bug** in finsudp's `trimASCII`: 
   exact duplicate of the slmp bug fixed in v1.21 chunk 2 but
   shipped earlier (v1.20 chunk 1) and missed at the time.
   trimASCII used the order-dependent two-call form
@@ -1592,10 +1592,10 @@ One-liner per significant change to `.context/` or the codebase.
   ` `. Fixed with the single-pass cutset
   `strings.TrimRight(string(b), "\x00 ")`. Regression seed
   preserved at testdata/fuzz/FuzzParseControllerDataRead/.
-  No public release ever shipped the buggy v1.20 finsudp —
+  No public release ever shipped the buggy v1.20 finsudp, 
   v1.20 cycle is closed on `main` with tag pending operator.
 
-- 2026-04-29 — v1.22 (chunk 3) — **Red Lion Crimson / RLN
+- 2026-04-29, v1.22 (chunk 3), **Red Lion Crimson / RLN
   fingerprint plugin on TCP/789.** Banner-substring fingerprint
   for Red Lion's G3 / G3 Kadet / Graphite / FlexEdge / DA-50N
   HMI families and the post-2010-acquisition Sixnet RTU line.
@@ -1613,7 +1613,7 @@ One-liner per significant change to `.context/` or the codebase.
   protocol plugins now register in the default build (24 → 25);
   6 wire tests + 7 plugin tests; `make ci` green.
 
-- 2026-04-28 — v1.22 (chunk 2) — **CoDeSys V3 TCP fingerprint
+- 2026-04-28, v1.22 (chunk 2), **CoDeSys V3 TCP fingerprint
   plugin on TCP/1217.** Continues the legacy-ICS roll-out from
   v1.20 + v1.21. Sends the 4-byte BlockDriver magic hello
   (0xCD 0xCD 0xCD 0xCD) and classifies the response by either
@@ -1621,33 +1621,33 @@ One-liner per significant change to `.context/` or the codebase.
   CODESYS / 3S-Smart / 3S-CoDeSys / CmpHostname / CmpAppBP /
   CmpRuntime). Reverse-engineered from libcodesys-py +
   codesys-rs + ICS-CERT advisory captures (ICSA-12-242-01 /
-  19-080-01 / 21-014-04). Fail-closed proxy — proprietary
+  19-080-01 / 21-014-04). Fail-closed proxy, proprietary
   Layer-3/4/7 APDU stack out of scope for chunk 2. Score
   factors{protocol_risk:80, exposure:75, auth_state:85,
   capability:30→70 on CoDeSys reply, impact_class:75,
   cve_exposure:10}. **First plugin to set cve_exposure
-  non-zero** — reflects the well-known CVE family. 24 protocol
+  non-zero**: reflects the well-known CVE family. 24 protocol
   plugins now register in the default build (23 → 24); 6 wire
   tests + 7 plugin tests; `make ci` green.
 
-- 2026-04-28 — v1.22 (chunk 1) — **CI hygiene: fuzz-flake retry
+- 2026-04-28, v1.22 (chunk 1), **CI hygiene: fuzz-flake retry
   + explicit timeout in `scripts/run-fuzz.sh`.** Closes a
   pre-existing intermittent failure where `xot/wire
   FuzzParseHeader` and `render FuzzSafeBytes` would report
   "context deadline exceeded" at the end of their fuzztime
-  budget on macOS — Go's fuzz worker scheduling occasionally
+  budget on macOS, Go's fuzz worker scheduling occasionally
   races GC / GOMAXPROCS pressure and reports a deadline even
   though no real fuzz crash occurred. Two fixes: (1) explicit
   `-timeout` 4× the fuzz duration (capped at 60s minimum),
   giving Go's per-test default 10m headroom no chance to fight
   short fuzz budgets; (2) up to MAX_ATTEMPTS=3 retries per
   target when the failure pattern is "context deadline
-  exceeded" specifically — genuine fuzz failures (panic / fail
+  exceeded" specifically, genuine fuzz failures (panic / fail
   line not matching the deadline pattern) short-circuit the
   retry loop. Smoke-test pass on all 6 Fuzz* targets with both
   5s and 30s budgets.
 
-- 2026-04-28 — v1.21 (chunk 4) — **GE-SRTP model-hint extraction
+- 2026-04-28, v1.21 (chunk 4), **GE-SRTP model-hint extraction
   refinement.** Refines the v1.20 chunk 3 connection-init-only
   fingerprint by scanning the 56-byte mailbox response payload
   for embedded GE PLC family strings (PACSystems / IC693 / IC695
@@ -1657,7 +1657,7 @@ One-liner per significant change to `.context/` or the codebase.
   underscore) starting on uppercase boundaries; rejects runs
   shorter than 5 chars and runs without a canonical-prefix
   match. Plugin's `buildFinding` now takes a `modelHint string`
-  parameter — when non-empty, capability lifts from 70 to 75 (so
+  parameter, when non-empty, capability lifts from 70 to 75 (so
   gesrtp now matches finsudp / slmp on positive-id capability,
   with a graceful 70-floor when no hint is recoverable). 7 new
   wire tests cover all canonical prefixes, no-match cases (nil /
@@ -1667,14 +1667,14 @@ One-liner per significant change to `.context/` or the codebase.
   IC695CPE330 hint at offset 16. `make ci` green; no API
   changes; no migration.
 
-- 2026-04-28 — v1.21 (chunk 3) — **DLMS/COSEM TCP fingerprint
+- 2026-04-28, v1.21 (chunk 3), **DLMS/COSEM TCP fingerprint
   plugin on TCP/4059.** Third chunk of v1.21. Sends a 37-byte
   DLMS-wrapper-framed AARQ probe (8-byte wrapper + 29-byte
   canonical minimal AARQ APDU referencing OID 2.16.756.5.8.1.1
   LN-no-ciphering) per IEC 62056-46 §8.4 + IEC 62056-53.
   Classifies by wrapper version (0x0001) + AARE tag (0x61).
   Wrapper-only responses also count as positive identification
-  (the server speaks DLMS-wrapper but rejected our AARQ —
+  (the server speaks DLMS-wrapper but rejected our AARQ, 
   common with HLS-locked deployments). ProxyHandler is
   wire-layer write-ban: reads the wrapper header + APDU body,
   replies with a 16-byte wrapper-framed AARE (0xA2 0x03 0x02
@@ -1685,7 +1685,7 @@ One-liner per significant change to `.context/` or the codebase.
   register in the default build (22 → 23); 7 wire tests + 9
   plugin tests; `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-28 — v1.21 (chunk 2) — **M-Bus over TCP fingerprint
+- 2026-04-28, v1.21 (chunk 2), **M-Bus over TCP fingerprint
   plugin on TCP/10001.** Second chunk of v1.21. Sends a 5-byte
   REQ_UD2 short frame to broadcast primary address 0xFE per
   EN 13757-3 §5.2 and folds the parsed manufacturer code +
@@ -1696,7 +1696,7 @@ One-liner per significant change to `.context/` or the codebase.
   extraction + M-Bus 16-bit-packed-3-letter manufacturer-code
   decoder (canonical ABB / KAM / ELS / SEN families).
   ProxyHandler is wire-layer write-ban: reads the request and
-  replies with a single-byte ACK (0xE5) — matches the protocol's
+  replies with a single-byte ACK (0xE5), matches the protocol's
   own link-layer ACK idiom, the closest "request denied" surface
   M-Bus has. Score factors{protocol_risk:70, exposure:70,
   auth_state:90, capability:30→70 on M-Bus reply, impact_class:60,
@@ -1704,7 +1704,7 @@ One-liner per significant change to `.context/` or the codebase.
   default build (21 → 22); 11 wire tests + 9 plugin tests;
   `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-28 — v1.21 (chunk 1) — **KNXnet/IP UDP fingerprint
+- 2026-04-28, v1.21 (chunk 1), **KNXnet/IP UDP fingerprint
   plugin on UDP/3671.** First chunk of the v1.21 cycle (continuing
   the legacy ICS fingerprint roll-out from v1.20).
   `internal/protocols/knxip/wire/` carries the from-scratch
@@ -1720,7 +1720,7 @@ One-liner per significant change to `.context/` or the codebase.
   21 protocol plugins now register in the default build (20 → 21);
   9 wire tests + 7 plugin tests; `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-28 — v1.20 (chunk 3) — **GE-SRTP TCP fingerprint plugin
+- 2026-04-28, v1.20 (chunk 3), **GE-SRTP TCP fingerprint plugin
   on TCP/18245.** Third of three legacy-ICS fingerprint plugins
   scheduled for v1.20. `internal/protocols/gesrtp/wire/` carries
   the 56-byte CONNECTION INIT mailbox builder + ClassifyResponse
@@ -1729,7 +1729,7 @@ One-liner per significant change to `.context/` or the codebase.
   byte 0 = 0x02, reads exactly 56 bytes, classifies by the
   response type byte (0x03 = response). Public protocol
   documentation is sparse so deeper service-code probing (CPU
-  model identification via service 0x21) is deferred — the plugin
+  model identification via service 0x21) is deferred, the plugin
   captures "56-byte SRTP mailbox came back" as the fingerprint
   signal and surfaces shape errors via classifyParseError ("short
   SRTP frame (N bytes)" / "SRTP response type byte not 0x03").
@@ -1739,12 +1739,12 @@ One-liner per significant change to `.context/` or the codebase.
   Score factors{protocol_risk:80, exposure:75, auth_state:95,
   capability:30→70 on SRTP reply (slightly lower than finsudp/slmp
   because the connection-init classifier doesn't decode the
-  response payload — operators get less actionable detail), impact_
+  response payload, operators get less actionable detail), impact_
   class:75, cve_exposure:0}. 20 protocol plugins now register in
   the default build (19 → 20); 6 wire tests + 7 plugin tests;
   `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-28 — v1.20 (chunk 2) — **MELSEC SLMP TCP fingerprint
+- 2026-04-28, v1.20 (chunk 2), **MELSEC SLMP TCP fingerprint
   plugin on TCP/5007.** Second of three legacy-ICS fingerprint
   plugins scheduled for v1.20. `internal/protocols/slmp/wire/` carries
   the from-scratch READ CPU MODEL NAME (command 0x0101, subcommand
@@ -1764,7 +1764,7 @@ One-liner per significant change to `.context/` or the codebase.
   plugins now register in the default build (18 → 19); 9 wire tests
   + 11 plugin tests; `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-28 — v1.20 (chunk 1) — **Omron FINS UDP fingerprint plugin
+- 2026-04-28, v1.20 (chunk 1), **Omron FINS UDP fingerprint plugin
   on UDP/9600.** First of three legacy-ICS fingerprint plugins
   scheduled for v1.20. `internal/protocols/finsudp/wire/` carries
   the from-scratch CONTROLLER DATA READ (MRC=0x05, SRC=0x01) request
@@ -1774,36 +1774,36 @@ One-liner per significant change to `.context/` or the codebase.
   layer dials UDP, fresh non-zero SID via `crypto/rand`, classifies
   parse errors into operator-facing notes (short FINS frame / SID
   echo mismatch / FINS end-code non-zero / not-a-response).
-  ProxyHandler is fail-closed (TCP framework can't relay UDP) — a
+  ProxyHandler is fail-closed (TCP framework can't relay UDP), a
   dedicated UDP relay arrives with the future offensive write
   plugin. Score factors{protocol_risk:80, exposure:80, auth_state:95,
   capability:30→75 on FINS reply, impact_class:75, cve_exposure:0}.
   18 protocol plugins now register in the default build; 17 wire
   tests + 11 plugin tests; `make ci` green, 0 lint, 0 sec.
 
-- 2026-04-19 — F0 — Scaffolding initialised. Context system populated with
+- 2026-04-19, F0, Scaffolding initialised. Context system populated with
   36 PITFs, 26 ADRs, templates, and per-topic canonical docs. Repository
   tree created per section 6 of the project brief.
-- 2026-04-19 — F0 — **Closed.** `make ci` green end-to-end on operator's
+- 2026-04-19, F0, **Closed.** `make ci` green end-to-end on operator's
   machine: golangci-lint v2 (0 issues), build × 3 variants, race + cover,
   fuzz smoke (2 targets: SafeBytes, SafeCommand flag validator), sec
   (gosec 0, govulncheck 0, trivy 0, go-licenses 0, gitleaks 0),
   context-check. .golangci.yml ported to v2 config format;
   .gitleaks.toml tightened so empty .env.example placeholders no longer
   trigger (regression guard for PITF-010).
-- 2026-04-19 — F1 (chunk 1) — cobra rewires cmd/elsereno with a real
+- 2026-04-19, F1 (chunk 1), cobra rewires cmd/elsereno with a real
   verb tree (version/doctor/legal/plugins/config/scoring) and typed
   stubs for the rest. Koanf loader with struct-tag walker rejects
   unknown YAML keys via ErrUnknownConfigField. Zerolog logger +
   Redact(key, value) with entropy heuristic (>4.5 bits/byte) and a
-  UUID v1–v5 exemption (PITF-004). pgx pool enforces
+  UUID v1-v5 exemption (PITF-004). pgx pool enforces
   database.tls_required per ADR-021. Goose migration runner wired to
   embedded SQL (stdlib bridge pending chunk 2). Inputs: list, stdin,
   nmapxml. Outputs: NDJSON (ndjson:v1) and CSV (csv:v1). Scoring engine
   v1 with embedded defaults/weights.yaml (ADR-006). Doctor checks go
   runtime, platform, CAP_NET_RAW / root, nmap presence, IPv6, and disk.
   `make ci` green again.
-- 2026-04-19 — F1 (chunk 2) — vault (AES-GCM + Argon2id + HKDF +
+- 2026-04-19, F1 (chunk 2), vault (AES-GCM + Argon2id + HKDF +
   memguard) with unlock-once, Lock zeroisation, Init refuses silent
   re-init; goose migrations runnable via pgx stdlib bridge
   (OpenDBFromPool); Prometheus metrics (findings_total,
@@ -1815,7 +1815,7 @@ One-liner per significant change to `.context/` or the codebase.
   exponential backoff+jitter retries; triage grouping
   (quick_win/strategic/routine); HTML output (html:v1); Shodan REST
   client. `make ci` green. F1 snapshot written.
-- 2026-04-19 — F1 (chunk 3) — **F1 closed.** CLI wiring for
+- 2026-04-19, F1 (chunk 3), **F1 closed.** CLI wiring for
   vault/creds/db/audit/serve/scan/explain/why/triage/lint/fmt. File-
   backed vault at ~/.elsereno/vault.v1.bin. Real JCS audit
   canonicalisation. Scanner CircuitBreaker + TemporalDedupe (5 min).
@@ -1823,7 +1823,7 @@ One-liner per significant change to `.context/` or the codebase.
   Retention with keep-if-referenced. Web server scaffold with full
   timeouts + CSRF HKDF. banner plugin (first real Protocol).
   Integration test scaffold.
-- 2026-04-19 — F2 — **F2 closed.** XOT (RFC 1613) and AT-modem
+- 2026-04-19, F2, **F2 closed.** XOT (RFC 1613) and AT-modem
   plugins land: from-scratch wire parsers (header + X.25 PTI
   classifier for XOT; line-oriented state machine for AT with
   CR/LF tolerance, 64 KiB ceiling, +CME/+CMS error codes, CONNECT
@@ -1835,8 +1835,8 @@ One-liner per significant change to `.context/` or the codebase.
   AT+CMGS, AT+CMGW, AT+CMSS, AT+CMGD, AT+CFUN, AT+CPWROFF, +++).
   ADR-027, ADR-028. `make ci` green end-to-end (seven fuzz targets,
   ~4 min wall-clock). F2 snapshot written. Repo is at the brief's
-  F2 milestone — ready for `git push` to a private GitHub remote.
-- 2026-04-19 — F3 — **F3 closed.** Proxy framework under
+  F2 milestone, ready for `git push` to a private GitHub remote.
+- 2026-04-19, F3, **F3 closed.** Proxy framework under
   `internal/proxy` (TCP listener, Accept loop, IdleTimeout-driven
   deadlines, graceful ctx-cancel shutdown, `Hook` interface with
   optional rewrite semantics, LoggingHook over SafeBytes). Modbus/TCP
@@ -1844,15 +1844,15 @@ One-liner per significant change to `.context/` or the codebase.
   exception helper + FC 43/14 Device ID decoder + 3 fuzz targets),
   Probe (FC 1 + opportunistic FC 43/14 vendor strings), and proxy
   that short-circuits every CategoryWrite / non-14 MEI / unknown FC
-  with IllegalFunction — upstream never sees a write. Modbus
+  with IllegalFunction, upstream never sees a write. Modbus
   simulator (`simulators/modbus/`) on Go, plus a pymodbus runtime
   pointer. Chaos helpers under `test/chaos/` (RandomDropReader,
-  LatencyReader, FlipBitsWriter, EarlyCloser — build tag `chaos`).
+  LatencyReader, FlipBitsWriter, EarlyCloser, build tag `chaos`).
   ADR-029, ADR-030. Integration test
   `test/integration/modbus_integration_test.go` end-to-end through
   the framework. `make ci` green (ten fuzz targets, ~9 min wall-clock
   with trivy DB refresh).
-- 2026-04-19 — F4 — **F4 closed.** Eight new ICS plugins land in one
+- 2026-04-19, F4, **F4 closed.** Eight new ICS plugins land in one
   pass, all with from-scratch wire parsers + probe + fuzz target +
   ADR + protocol doc:
   s7 (TPKT/COTP port 102), enip (EtherNet/IP CIP ListIdentity port
@@ -1872,7 +1872,7 @@ One-liner per significant change to `.context/` or the codebase.
   corpus entry retained as regression guard. `make ci` green (18
   fuzz targets). REPL bindings + Bearer-auth on /api/v1 + full
   dashboard UI land in F4 chunk 2 / F5.
-- 2026-04-19 — F5 — **Closed.** Offensive build behind `-tags offensive`.
+- 2026-04-19, F5, **Closed.** Offensive build behind `-tags offensive`.
   ADR-039 triple-confirm wrapper (build tag + --accept-writes +
   --confirm-target + HMAC-SHA256 token via HKDF
   `info="elsereno/offensive/confirm/v1"`). ADR-040 per-plugin proxy
@@ -1892,7 +1892,7 @@ One-liner per significant change to `.context/` or the codebase.
   `make ci` green on both build variants. CLI wiring for
   `elsereno write|exploit|harvest|dial` lands with the DB-backed
   audit writer in F6.
-- 2026-04-20 — F6 — **Closed.** Reporting + release. Five new output
+- 2026-04-20, F6, **Closed.** Reporting + release. Five new output
   sinks: CEF 0.1 + RFC 5424 syslog + JIRA Cloud REST v3 + GitHub
   Issues REST + generic HMAC-signed webhook. HTML report polish
   (dark-mode, per-protocol sections with count/max/avg, top-5
@@ -1910,7 +1910,7 @@ One-liner per significant change to `.context/` or the codebase.
   8 binaries × SBOM × SHA-256 checksums. F7 open carry-overs:
   dockers_v2 migration, offensive network delivery, seccomp-bpf
   filter sequences, SSE + findings/triage/runs DB panels.
-- 2026-04-20 — F7 — **Closed.** Hardening + 1.0. Dockers_v2 migration +
+- 2026-04-20, F7, **Closed.** Hardening + 1.0. Dockers_v2 migration +
   nightly per-target fuzz matrix. Regression benchmarks with benchstat
   CI comment. OpenTelemetry tracing scaffold + scanner spans. 6 STRIDE
   threat-model docs under `.context/threat-model/` (vault-audit, web,
@@ -1926,7 +1926,7 @@ One-liner per significant change to `.context/` or the codebase.
   gate` + RELEASING.md 1.0 section. `SUPPLY-CHAIN.md` documents SLSA
   mapping + dep policy + SBOM diff recipe + secrets rotation table.
   Feature-complete for v1.0.0; tag is an operator task.
-- 2026-04-20 — **Release v1.0.0** pushed to private repo
+- 2026-04-20, **Release v1.0.0** pushed to private repo
   RobinR00T/elSereno. 12 release assets: 5 archives (darwin/linux
   × amd64/arm64 + sqlite linux-amd64) + 6 CycloneDX SBOMs +
   cosign-signed checksums. Tag signed with GPG
@@ -1934,22 +1934,22 @@ One-liner per significant change to `.context/` or the codebase.
   missing (v2.0.0 generator finaliser bug; v1.0.1 fixes via
   v2.1.0), cosign `.sig` without `.bundle` (v1.0.1 adds bundle),
   GHCR image disabled (v1.1 carry-over).
-- 2026-04-21 — **Release v1.0.1 polish** queued on main: cosign
+- 2026-04-21, **Release v1.0.1 polish** queued on main: cosign
   `--bundle`, SLSA generator bumped v2.0.0 → v2.1.0, pandoc
   pinned to upstream 3.9.0.2 .deb for determinism, README
   badges + signed-install recipe. Source code unchanged; config
   + docs only.
-- 2026-04-21 — **v1.0.1** released. checksums.txt.bundle
+- 2026-04-21, **v1.0.1** released. checksums.txt.bundle
   shipped; end-to-end cosign-verify-blob confirmed. SLSA
   `final` step still fails upstream (wrapped non-blocking in
   release.yml); `.intoto.jsonl` not on release yet.
-- 2026-04-21 — **v1.1 chunks 1-3** landed on main: per-plugin
+- 2026-04-21, **v1.1 chunks 1-3** landed on main: per-plugin
   offensive WriteGatedHandler (modbus/s7/enip full + 6 session
   primitives), file-backed audit writer + confirm adapter,
   network delivery wiring for `write modbus send` / `exploit
   run` / `audit verify-file`. 4 chunks pending: SSE + DB
   panels, GHCR image, BPF filters, OPC UA, wardialing batch.
-- 2026-04-21 — **v1.1 chunk 4 (SSE half)** landed on main: new
+- 2026-04-21, **v1.1 chunk 4 (SSE half)** landed on main: new
   `internal/web/stream` package with channel-per-subscriber
   Broadcaster (slow-subscriber-dropped fan-out), `/api/v1/stream`
   SSE handler with retry + keepalive, dashboard live-feed panel
@@ -1959,7 +1959,7 @@ One-liner per significant change to `.context/` or the codebase.
   `docs/openapi.yaml` snapshot include `/api/v1/stream`. DB
   tables + findings/triage/runs panels carry over into v1.2
   alongside the DB-backed audit Writer.
-- 2026-04-21 — **v1.1 chunk 5 (GHCR docker image)** landed on
+- 2026-04-21, **v1.1 chunk 5 (GHCR docker image)** landed on
   main: `.goreleaser.yml` `dockers_v2` block with `sbom: true`
   (CycloneDX attestation) + `--attest=type=provenance,mode=max`,
   multi-arch (linux/amd64 + linux/arm64) under
@@ -1970,7 +1970,7 @@ One-liner per significant change to `.context/` or the codebase.
   `Dockerfile` + `Dockerfile.sqlite` pin Go 1.25.4 (matching
   go.mod) on Alpine 3.22 / Debian bookworm. README + RELEASING
   documented with pull + cosign-verify recipes.
-- 2026-04-21 — **v1.1 chunk 6 (seccomp-bpf sandbox)** landed on
+- 2026-04-21, **v1.1 chunk 6 (seccomp-bpf sandbox)** landed on
   main: `offensive/sandbox/bpf_linux.go` compiles per-profile
   denylist BPF programs (prologue: LD arch / JEQ / LD nr;
   body: one JEQ per blocked syscall; tail: RET ALLOW / RET
@@ -1986,9 +1986,9 @@ One-liner per significant change to `.context/` or the codebase.
   the profile before any network I/O. Integration tests under
   the `sandbox_integration` build tag fork a child + verify
   ptrace (exploit) and socket (dial) return EPERM on native
-  Linux. Legacy top-level `migrations/` dir removed — the
+  Linux. Legacy top-level `migrations/` dir removed, the
   `internal/db/migrations/` embed is the single source of truth.
-- 2026-04-21 — **v1.1 chunk 7 (OPC UA plugin)** landed on main:
+- 2026-04-21, **v1.1 chunk 7 (OPC UA plugin)** landed on main:
   `internal/protocols/opcua/wire/` parses + encodes UA-TCP Part 6
   Hello/Acknowledge/Error frames; `internal/protocols/opcua/`
   registers the plugin on port 4840. Probe sends a minimal HEL
@@ -2000,20 +2000,20 @@ One-liner per significant change to `.context/` or the codebase.
   v1.2 once the SecureChannel + Session + Write surface is
   modelled (too large for v1.1). E2E verified against the
   simulator: probe → ua-ack → severity=high score=66.
-- 2026-04-22 — **v1.2 extra: `audit.SyncFromFile` helper**
+- 2026-04-22, **v1.2 extra: `audit.SyncFromFile` helper**
   bootstraps a fresh DB (DBMirror / FileMirror) from an
-  existing JSONL audit chain — typical use case is an operator
+  existing JSONL audit chain, typical use case is an operator
   who ran v1.0→v1.1 with just the FileWriter, spins up a
   Postgres in v1.2, and wants the history migrated without
   losing chain continuity. The helper walks the file,
   re-validates every prev_hash + entry_hash (detects silent
   tamper), skips IDs already in the target (via an operator-
-  supplied `ExistingIDFunc` — `DBExistingID(conn)` is the
+  supplied `ExistingIDFunc`-`DBExistingID(conn)` is the
   pgx-backed default), then calls MirrorWriter.Mirror
   verbatim. Returns the count of imported entries + a typed
   error on any chain discrepancy. 3 unit tests cover the
   happy path, idempotent re-import, and tamper detection.
-- 2026-04-26 — **v1.15 chunk 5 landed.** SIGHUP reload-style
+- 2026-04-26, **v1.15 chunk 5 landed.** SIGHUP reload-style
   graceful exit on `proxy listen`. The constraint that
   prompted the design choice: each per-session
   confirm-token is computed from the operator-supplied
@@ -2035,12 +2035,12 @@ One-liner per significant change to `.context/` or the codebase.
   restart" section. 1 new test
   (TestErrReloadRequested_Sentinel) pins the typed-sentinel
   contract for the SIGHUP-exit error.
-- 2026-04-26 — **v1.15 chunk 4 landed.** Audit chain cross-
+- 2026-04-26, **v1.15 chunk 4 landed.** Audit chain cross-
   process merge. The race that prompted the chunk: two
   ElSereno processes (e.g. `serve` + `proxy listen` on the
   same operator workstation) both opening
   `~/.elsereno/audit.jsonl` and appending concurrently
-  could produce two entries claiming the same prev_hash —
+  could produce two entries claiming the same prev_hash, 
   the chain invariant breaks the moment the operator runs
   `audit verify-file`. Fix: an exclusive `unix.Flock(LOCK_EX)`
   guards the `Append`/`appendVerbatim` read-then-write
@@ -2057,9 +2057,9 @@ One-liner per significant change to `.context/` or the codebase.
   across two FileWriters, asserts strictly increasing IDs +
   chain invariant + both actors represented),
   TestFlock_AppendVerbatimAlsoLocked (5 sequential appends
-  through the public path proves unlock fires correctly —
+  through the public path proves unlock fires correctly, 
   we'd deadlock on the second call without it).
-- 2026-04-26 — **v1.15 chunk 3 landed.** STIX 2.1 export sink.
+- 2026-04-26, **v1.15 chunk 3 landed.** STIX 2.1 export sink.
   Findings can now flow into MISP / OpenCTI / ThreatBus / any
   STIX 2.1 consumer via `elsereno scan --output-format stix`.
   Each finding maps to three STIX objects bundled together:
@@ -2069,7 +2069,7 @@ One-liner per significant change to `.context/` or the codebase.
   network-traffic SCO). Wire format: JSON per STIX 2.1 §10
   with 2-space indent. Deterministic UUIDv5 IDs keyed on the
   finding ID + ElSereno-private namespace UUID
-  (`0a8b1d4e-3f6c-5a7d-9e2f-7c1b3d4e5f60`) — re-running a
+  (`0a8b1d4e-3f6c-5a7d-9e2f-7c1b3d4e5f60`), re-running a
   scan over the same fixture produces byte-identical inner
   objects (the bundle ID itself is timestamp-bound, so the
   outer envelope differs by run, but the inner SCOs/SDOs are
@@ -2077,7 +2077,7 @@ One-liner per significant change to `.context/` or the codebase.
   protocol selection: BACnet + IAX2 → "udp", everything else
   → "tcp" (the application-layer protocol is appended in the
   protocols array). Empty addr (caller couldn't resolve)
-  emits 2 objects instead of 3 — net-traffic SCO + observed-
+  emits 2 objects instead of 3, net-traffic SCO + observed-
   data SDO without dst_ref. 9 new tests:
   TestWriteFinding_BundleEmitsThreeObjects (3 objects per
   finding), TestWriteFinding_IPv4AddrSCO + TestWriteFinding_IPv6AddrSCO
@@ -2089,7 +2089,7 @@ One-liner per significant change to `.context/` or the codebase.
   TestWriteFinding_EmptyAddrSkipsAddrSCO (graceful fallback),
   TestWriteFinding_RequiresID (empty Finding.ID errors),
   TestWriteFinding_BundleSpecVersion (2.1 conformance pin).
-- 2026-04-26 — **v1.15 chunk 2 landed.** `elsereno discover
+- 2026-04-26, **v1.15 chunk 2 landed.** `elsereno discover
   --auto <CIDR>` TCP-connect sweep. Operator-UX win:
   point-and-shoot scanning. The sweep iterates the CIDR,
   probes the well-known port of every registered plugin
@@ -2103,7 +2103,7 @@ One-liner per significant change to `.context/` or the codebase.
   Bounded by `--max-hosts` (default 256, /24-sized) so a
   bare `--auto 10.0.0.0/8` doesn't accidentally fire 16 M
   connects. CIDR expansion goes through `netip.ParsePrefix`
-  + `Prefix.Masked()` + iterative `Addr.Next()` — IPv4 and
+  + `Prefix.Masked()` + iterative `Addr.Next()`: IPv4 and
   IPv6 prefixes both work (chunk-4-of-v1.14 contract). Port-
   registry collisions (e.g. future IEC 61850 MMS sharing 102
   with S7) emit ALL claiming plugins in `protocol_hints`.
@@ -2112,7 +2112,7 @@ One-liner per significant change to `.context/` or the codebase.
   lists all, no-match returns nil), sweep e2e (responding
   port detected, dead port ignored), output format
   (ndjson, list, bad format errors).
-- 2026-04-26 — **v1.15 chunk 1 landed.** CWMP TransferComplete
+- 2026-04-26, **v1.15 chunk 1 landed.** CWMP TransferComplete
   observer. Closes the loose-end from v1.12 chunk 10's
   firmware-pinning work: the operator pins
   `{URL, SHA256}` on Download authorisation, but the gate
@@ -2133,7 +2133,7 @@ One-liner per significant change to `.context/` or the codebase.
   start=… complete=…`. New `TransferCompleteFields` struct
   with `IsSuccess()` helper (FaultCode == "0"). Wire parser
   uses streaming xml.Decoder pattern shared with
-  extractDownloadURL + extractParameterNames — no full SOAP
+  extractDownloadURL + extractParameterNames, no full SOAP
   tree materialisation. The library
   `internetdb.Client`-style separation is preserved: the
   CWMP gate doesn't make HTTP calls or compute SHA-256 itself
@@ -2148,14 +2148,14 @@ One-liner per significant change to `.context/` or the codebase.
   (Inform/Kicked/Fault don't trigger observer),
   TestObserveTransferComplete_NilObserverNoOps (regression
   guard for nil-check), TestObserveTransferComplete_MissingCommandKey
-  (older CPEs send empty/missing CommandKey — gate
+  (older CPEs send empty/missing CommandKey, gate
   tolerates), TestTransferCompleteFields_IsSuccess (pinned
   semantics: exactly "0" → success).
-- 2026-04-26 — **v1.14 chunk 4 landed.** IPv6 coverage tests
+- 2026-04-26, **v1.14 chunk 4 landed.** IPv6 coverage tests
   for scope + dedupe paths. Audit-only chunk: confirms the
   existing `netip.Addr` + `Unmap()` infrastructure correctly
   handles IPv6 across the scope-gate and target-deduplication
-  layers. No code change needed — the infrastructure was
+  layers. No code change needed, the infrastructure was
   already correct; chunk 4 pins the contract via tests so a
   future refactor can't silently break the v6 path.
   - `internal/scope/scope_ipv6_test.go` (5 tests):
@@ -2163,7 +2163,7 @@ One-liner per significant change to `.context/` or the codebase.
     `TestCheck_IPv6_LoopbackHostPrefix` (::1/128 host-prefix
     match), `TestCheck_IPv6_OutOfRange` (link-local
     fe80::/10 out-of-scope), `TestCheck_IPv4MappedIPv6_MatchesV4Range`
-    (`::ffff:192.168.1.5` matches v4 CIDR via `.Unmap()` — the
+    (`::ffff:192.168.1.5` matches v4 CIDR via `.Unmap()`: the
     canonical safety invariant: scope cannot be bypassed by
     using the v4-mapped form), `TestCheck_IPv4Target_DoesNotMatchIPv6Range`
     (no cross-family leakage).
@@ -2173,14 +2173,14 @@ One-liner per significant change to `.context/` or the codebase.
     `TestDedupe_IPv6FormsCollapse` (longform/shortform both
     canonicalise via `netip.Addr` storage),
     `TestDedupe_IPv6vsIPv4DistinctTargets` (`::1` and
-    `127.0.0.1` stay separate — different address families),
+    `127.0.0.1` stay separate, different address families),
     `TestDedupe_DifferentPortsKept` (same IPv6 + different
     ports stay separate).
-- 2026-04-26 — **v1.14 chunk 3 landed.** `scan --input
+- 2026-04-26, **v1.14 chunk 3 landed.** `scan --input
   internetdb:` IPv6 fixes. Two real bugs: (a) the dispatcher
-  in `cmd_scan.go` had no case for `internetdb:` — the CLI
+  in `cmd_scan.go` had no case for `internetdb:`: the CLI
   accepted the prefix but `readTargets` errored as "unknown
-  input kind" (regression introduced in v1.13 chunk 1 —
+  input kind" (regression introduced in v1.13 chunk 1, 
   `readInternetDBTargets` was wired through
   `readTargetsFromProvider` but the dispatcher case was
   forgotten); (b) even when dispatched, `netip.ParseAddr`
@@ -2191,18 +2191,18 @@ One-liner per significant change to `.context/` or the codebase.
   bracket convention operators already use for `--target` /
   `--listen`). Applied to single-IP form
   (`internetdb:<ip>`), file-bulk
-  (`internetdb:file:<path>` — bracketed lines tolerated), and
+  (`internetdb:file:<path>`: bracketed lines tolerated), and
   stdin-bulk (`internetdb:-`). The `cmd_scan.go` dispatcher's
   "unknown input kind" error now mentions `internetdb:<ip>`
   in the list of valid prefixes. 14 new tests:
   TestStripIPv6Brackets (10 input shapes incl. unmatched-
   bracket pass-through), TestReadInternetDBTargets_BracketedIPv6
-  (httptest-driven IPv6 round-trip — verifies the upstream
+  (httptest-driven IPv6 round-trip, verifies the upstream
   receives the canonical bare-literal path
   `/2001:db8::1`), TestReadTargets_InternetDBDispatchWired
   (regression guard: dispatcher must NOT return "unknown
   input kind" for `internetdb:` prefix).
-- 2026-04-26 — **v1.14 chunk 2 landed.** Target
+- 2026-04-26, **v1.14 chunk 2 landed.** Target
   canonicalisation across proxy listen + every dry-run
   command. The operator UX hazard: write
   `[0:0:0:0:0:0:0:1]:7547` in dry-run, write `[::1]:7547`
@@ -2212,13 +2212,13 @@ One-liner per significant change to `.context/` or the codebase.
   strings via the chunk-1 `netutil.CanonicalHostPort`. RFC
   5952-canonical IPv6 forms (longform → short, lowercase
   hex) make every equivalent input collapse to the same
-  string — hash + token match downstream. New helper
+  string, hash + token match downstream. New helper
   `canonicaliseTarget` in `cmd_write_gates_offensive.go`.
   Wire-up: `runProxyListen` (target / listen / confirmTarget
   after loadAllowFile + validate); 6 dry-run RunE handlers
   (sip / iax2 / pbxhttp / modbus / opcua / cwmp);
   `runBACnetDryRun`. Backwards-compat: IPv4 forms unchanged,
-  already-canonical IPv6 forms unchanged — only operators
+  already-canonical IPv6 forms unchanged, only operators
   using IPv6 longform / uppercase need to re-mint tokens.
   9 new tests: `TestCanonicaliseTarget_IPv6FormsConverge`
   (longform/shortform/uppercase variants → same canonical
@@ -2226,7 +2226,7 @@ One-liner per significant change to `.context/` or the codebase.
   (localhost / hostnames pass through), per-plugin hash-
   equivalence regressions for BACnet / OPC UA / SIP / IAX2 /
   pbxhttp / CWMP.
-- 2026-04-26 — **v1.14 chunk 1 landed.** IPv6 foundation —
+- 2026-04-26, **v1.14 chunk 1 landed.** IPv6 foundation, 
   the v1.14 cycle opens with the operator-requested
   cross-cutting IPv6 work (2026-04-25). New
   `internal/netutil` package with `IsLoopbackHostPort` +
@@ -2238,39 +2238,39 @@ One-liner per significant change to `.context/` or the codebase.
   `netip.ParseAddrPort` + `Addr.IsLoopback()`, which handle
   every spec-conformant variant per RFC 1122 (IPv4) + RFC 5952
   (IPv6). `CanonicalHostPort` normalises IPv6 longform → short,
-  lowercase hex, etc. — useful when the rest of the cycle adds
+  lowercase hex, etc., useful when the rest of the cycle adds
   IP-allowlist deduplication. 18 unit tests cover IPv4
   loopback (127.0.0.1, 127.0.0.5, 127.255.255.255), IPv6
   shortform (`[::1]:port`), longform
   (`[0:0:0:0:0:0:0:1]:port`), zone-scoped (`[::1%lo0]:port`),
-  hostname (`localhost:port`), unspecified (`[::]:port` —
+  hostname (`localhost:port`), unspecified (`[::]:port`: 
   NOT loopback), and various non-loopback / malformed
   rejection cases.
-- 2026-04-26 — **v1.13.0 PUBLISHED on GitHub Releases**
+- 2026-04-26, **v1.13.0 PUBLISHED on GitHub Releases**
   (https://github.com/RobinR00T/elSereno/releases/tag/v1.13.0).
   9 assets (4 archives + 4 CycloneDX SBOMs + checksums.txt).
   Tag GPG-signed with `ACE3B86BACACE7D6`. Free-tier flow
   (goreleaser local + `gh release create`). Cycle-close
   commit `eb6f383`; v1.13.0-released memory commit `8f4b220`.
-- 2026-04-26 — **v1.13 chunk 13 landed.** BACnet
+- 2026-04-26, **v1.13 chunk 13 landed.** BACnet
   Add/RemoveListElement (svc 8/9) per-(object, property)
-  allowlist. **CLOSES every BACnet mutating service** — all
+  allowlist. **CLOSES every BACnet mutating service**: all
   9 (svc 7/8/9/10/11/15/16/17/20/27) now have wire-level
   per-target-or-state allowlists. AddListElement and
   RemoveListElement share the SAME request shape per ASHRAE
-  135 §15.1 + §15.2 — `[0] objectIdentifier`, `[1]
+  135 §15.1 + §15.2, `[0] objectIdentifier`, `[1]
   propertyIdentifier`, `[2] propertyArrayIndex` (optional),
   `[3] listOfElements`. The first two fields are exactly the
   WriteProperty prefix, so the gate reuses
   `wire.ParseWriteProperty` to extract the (type, instance,
-  property) target — no separate parser needed. The same
+  property) target, no separate parser needed. The same
   `AllowedListElements` list applies to BOTH services; an
   operator wanting different policy for add vs remove must
   omit one from `--service-choice`. **Separate from
-  AllowedObjects** (svc 15/16 WriteProperty) — property
+  AllowedObjects** (svc 15/16 WriteProperty), property
   writes don't auto-grant list-mutations. Common targets:
-  NotificationClass#N.recipient_list (102) — adding an
-  unauthorised pager; Schedule#N.exception_schedule (38) —
+  NotificationClass#N.recipient_list (102), adding an
+  unauthorised pager; Schedule#N.exception_schedule (38), 
   appending a date-window override; access-zone occupant
   lists. New CLI flag `--list-element type=N;instance=M;
   property=P` (repeatable); YAML field `list_elements:`
@@ -2282,38 +2282,38 @@ One-liner per significant change to `.context/` or the codebase.
   `Allowlists` bundle gains a `ListElements` field;
   `parseAllowlists` adds the list-element dispatch step.
   `objectListGatesAllow` was split into
-  `propertyTupleGatesAllow` (svc 8/9/15/16 — share the
+  `propertyTupleGatesAllow` (svc 8/9/15/16, share the
   WriteProperty wire prefix) + `objectIdentityGatesAllow`
-  (svc 7/10/11 — object-identity-only, no property
+  (svc 7/10/11, object-identity-only, no property
   dimension) for gocyclo. `buildAllowFileBACnet` now takes a
   `buildAllowFileBACnetInputs` struct (was 9 positional args)
   for readability. Extracted shared helpers
   `formatBACnetTupleList` + `bacnetTuple` +
   `canonAllowFileBACnetTuples` so chunk-7
   (canonBACnetObjects) and chunk-13 (canonBACnetListElements)
-  share the parse/sort/format body — eliminates 4 dupl
+  share the parse/sort/format body, eliminates 4 dupl
   warnings. 9 new tests (4 hash ladder + 5 e2e covering both
   add and remove paths + the canonical "AllowedObjects entry
   doesn't auto-grant list-mutation" separation invariant).
-- 2026-04-26 — **v1.13 chunk 12 landed.** BACnet
+- 2026-04-26, **v1.13 chunk 12 landed.** BACnet
   AtomicWriteFile (svc 7) per-File-instance allowlist.
   Closes the file-overwrite surface: AtomicWriteFile is what
   operators use to replace firmware blobs, configuration
-  files, and log files on the device — the same RPC that's
+  files, and log files on the device, the same RPC that's
   the typical vehicle for malicious firmware swaps. The
   fileIdentifier in the request MUST be a File object
   (ObjectType=10 per ASHRAE 135 §15.8); the parser fails
   closed on any other ObjectType. The operator allowlists
   specific File instance numbers; the access specifier
   (stream vs record + byte offsets) is intentionally
-  ignored at gate level — per-byte-range scoping has no
+  ignored at gate level, per-byte-range scoping has no
   operational use case in production. Typical pattern: when
   File#1 is firmware and File#5 is a rotating log, allow
   `--awf-file 5` to permit log writes + REFUSE firmware
   overwrites. New CLI flag `--awf-file N` (22-bit
   instance, repeatable); YAML field `awf_files:` (uint32
   list). Wire parser at `internal/protocols/bacnet/wire/
-  atomicwritefile.go` — note that fileIdentifier in this
+  atomicwritefile.go`: note that fileIdentifier in this
   service uses APPLICATION tag 12 (`0xC4`) NOT the
   context-tagged 0x0C form used elsewhere. New
   `AllowlistHashWithAWF` (separator 0xF9) extends the
@@ -2331,7 +2331,7 @@ One-liner per significant change to `.context/` or the codebase.
   large instance + 4 e2e covering the canonical "firmware
   refused, log allowed" safety invariant + non-File-type
   fail-closed at the gate level).
-- 2026-04-26 — **v1.13 chunk 11 landed.** BACnet
+- 2026-04-26, **v1.13 chunk 11 landed.** BACnet
   LifeSafetyOperation (svc 27) per-operation allowlist.
   Closes the most safety-critical BACnet service: silencing
   a fire-alarm panel during an active incident can be lethal.
@@ -2370,7 +2370,7 @@ One-liner per significant change to `.context/` or the codebase.
   unsilence is allowed" safety invariant + an "all silence
   variants refuse under recovery-only policy" sweep + a
   "reset+unsilence mix passes" composition test).
-- 2026-04-25 — **v1.13 chunk 10 landed.** BACnet
+- 2026-04-25, **v1.13 chunk 10 landed.** BACnet
   DeviceCommunicationControl (svc 17) per-state allowlist.
   The 3-value ASHRAE 135 §16.1 enableDisable enum has a clear
   asymmetry: 0 enable is the SAFE recovery direction (undoes
@@ -2402,7 +2402,7 @@ One-liner per significant change to `.context/` or the codebase.
   length-2 forms + 5 e2e covering the canonical "disable
   REFUSED when only enable is allowed" + the subtler
   disableInitiation refusal).
-- 2026-04-25 — **v1.13 chunk 9 landed.** BACnet
+- 2026-04-25, **v1.13 chunk 9 landed.** BACnet
   ReinitializeDevice (svc 20) per-state allowlist. The 8-value
   ASHRAE 135 §16.4 reinitializedStateOfDevice enum has very
   different blast radii: 0 coldstart wipes runtime state, 1
@@ -2414,7 +2414,7 @@ One-liner per significant change to `.context/` or the codebase.
   (0..7, repeatable); YAML field `reinit_states:` (uint8 list).
   Wire parser at `internal/protocols/bacnet/wire/reinitialize
   device.go` reads the single primitive context-tag-0 length-1
-  enum byte (`0x09 NN`) — the optional [1] password
+  enum byte (`0x09 NN`), the optional [1] password
   CharacterString is ignored at gate level (between operator
   and device password policy). New `AllowlistHashWithReinit
   States` (separator 0xFC) extends the v1.13-chunk-8 ladder;
@@ -2430,26 +2430,26 @@ One-liner per significant change to `.context/` or the codebase.
   (4 hash ladder + 4 wire parser including out-of-range fail-
   closed + 5 e2e covering the canonical "coldstart refused
   when only activate-changes is allowed" safety invariant).
-- 2026-04-25 — **v1.13 chunk 8 landed.** BACnet CreateObject
+- 2026-04-25, **v1.13 chunk 8 landed.** BACnet CreateObject
   (svc 10) per-type allowlist. Natural sequel to chunks 3 + 7
   in the BACnet sequence: chunk 3 closed WPM (svc 16), chunk 7
   closed DeleteObject (svc 11), chunk 8 closes the third
   destructive service. New CLI flag `--create-object-type N`
   (numeric BACnetObjectType, repeatable); YAML field
-  `create_object_types:` (`{type}` only — no instance dimension).
+  `create_object_types:` (`{type}` only, no instance dimension).
   Wire parser at `internal/protocols/bacnet/wire/createobject.go`
   walks the BACnet ASN.1 BER form: 0x0E (open ctx tag 0
   constructed) + one of {0x09 1B / 0x0A 2B objectType, 0x1C 4B
   objectIdentifier} + 0x0F (close). The gate matches by type
-  ONLY — even when the operator uses the [1] objectIdentifier
+  ONLY, even when the operator uses the [1] objectIdentifier
   CHOICE form (which encodes a specific instance), the
   instance is ignored at gate level. The typical BAS use-case
-  is "allow creating new Schedule (type 17) objects" — type-
+  is "allow creating new Schedule (type 17) objects", type-
   level allowlist matches naturally. New
   `AllowlistHashWithCreateObjects` (separator 0xFD) extends the
   v1.13 chunk-7 ladder; backwards-compat ladder degrades
   through chunks 7/12-chunk-7/v1.4. **Separate list from both
-  AllowedObjects and AllowedDeleteObjects** — property writes
+  AllowedObjects and AllowedDeleteObjects**: property writes
   don't auto-grant creation, deletion privileges don't auto-
   grant creation. 13 tests (4 hash ladder + 6 wire parser + 5
   e2e gate including a "AllowedObjects entry doesn't auto-grant
@@ -2459,7 +2459,7 @@ One-liner per significant change to `.context/` or the codebase.
   under funlen; canonAllowFileBACnetCreateTypes extracted from
   buildAllowFileBACnet; applyBACnetAllowFile extracted from
   loadAllowFile.
-- 2026-04-25 — **v1.13 chunk 7 landed.** BACnet DeleteObject
+- 2026-04-25, **v1.13 chunk 7 landed.** BACnet DeleteObject
   (svc 11) per-target allowlist. Separate `AllowedDeleteObjects
   []{ObjectType, ObjectInstance}` list (kept distinct from the
   property-level `AllowedObjects` from v1.12 chunk 7 + v1.13
@@ -2475,39 +2475,39 @@ One-liner per significant change to `.context/` or the codebase.
   v1.12/v1.4 hashes when each successive dimension is empty.
   `--delete-object` flag, YAML `delete_objects:` field, 11
   tests. Commit `934c4f7`.
-- 2026-04-25 — **v1.13 chunk 6 landed.** Triage `utility` bucket
+- 2026-04-25, **v1.13 chunk 6 landed.** Triage `utility` bucket
   added as the 4th priority bucket (quick_win → strategic →
   utility → routine). Heuristic: severity ∈ {info, low} AND
   (Protocol ∈ {banner, atmodem} OR impact_class < 20).
   Captures findings that expose useful fingerprint info but
-  aren't direct nails — old SSH banners, HTTP-HEAD with
+  aren't direct nails, old SSH banners, HTTP-HEAD with
   `Server: nginx/1.10`, AT modem chatter. `BucketUtility` const
   + `Summary.Utility []core.Finding`. `cmd/elsereno/cmd_explain.go`
   mirrors the heuristic locally + emits a `utility:` count
   line. `routine` items move down to `utility` when the
   heuristic fires; `quick_win` / `strategic` are never
   reclassified. Commit `20f6215`.
-- 2026-04-25 — **v1.13 chunk 5 landed.** CWMP-over-TLS
+- 2026-04-25, **v1.13 chunk 5 landed.** CWMP-over-TLS
   operator recipe (docs only). Three front-proxy patterns
   documented in `docs/protocols/cwmp.md`: nginx (`stream`
   module), HAProxy (`mode tcp`), Caddy (`layer4` plugin).
   Each terminates TLS on port 7548 and forwards plaintext to
   ElSereno's CWMP gate on 7547. The gate itself stays
-  agnostic — TLS termination is the front-proxy's
+  agnostic, TLS termination is the front-proxy's
   responsibility. Snapshot also covers the cert-rotation
   workflow + the operator-side cert-pinning recipe with curl.
   Commit `861aa8d`.
-- 2026-04-25 — **v1.13 chunk 4 landed.** CWMP RPC-name
+- 2026-04-25, **v1.13 chunk 4 landed.** CWMP RPC-name
   case-warning in dry-run. TR-069 §A.4 declares RPC names
   case-sensitive. `emitCWMPRPCCaseWarnings` walks the
   user-supplied `--rpc <Name>` list against
   `canonicalCWMPRPCNames` (24 entries: 14 read-only +
   protocol-flow + 10 write-capable) and emits
-  `WARN: --rpc "FactoryReset" — did you mean "factoryReset"?`
+  `WARN: --rpc "FactoryReset", did you mean "factoryReset"?`
   for case-mismatches. The gate itself is unchanged (still
   case-sensitive); the warning is operator UX. Commit
   `861aa8d`.
-- 2026-04-25 — **v1.13 chunk 3 landed.** BACnet
+- 2026-04-25, **v1.13 chunk 3 landed.** BACnet
   WritePropertyMultiple (svc 16) per-object gate. WPM has a
   nested SEQUENCE-OF-WriteAccessSpecification structure where
   each spec contains an ObjectIdentifier + listOfPropertyValues.
@@ -2517,54 +2517,54 @@ One-liner per significant change to `.context/` or the codebase.
   `skipUntilDepthZero`/`skipOneTagBody` helpers (any-depth
   constructed children + extended-length forms 0..4 inline +
   5 extended). `readInnerPropertyID` uses context tag 0
-  (0x09/0x0A/0x0B) — different from WriteProperty's tag 1.
+  (0x09/0x0A/0x0B), different from WriteProperty's tag 1.
   Any single forbidden tuple in the listOfWriteAccessSpecifications
   refuses the WHOLE WPM batch (fail-closed multi-target gate
   analogous to the OPC UA WriteRequest walker). 10 tests.
   Commit `38dedff`.
-- 2026-04-25 — **v1.13 chunk 2 landed.** CWMP firmware
+- 2026-04-25, **v1.13 chunk 2 landed.** CWMP firmware
   pre-flight verifier. New CLI verb
   `elsereno-offensive write cwmp verify-firmware
   --firmware url=…;sha256=…` resolves the URL via HTTP HEAD
   → GET, computes SHA-256 over the body, and compares against
   the operator-supplied pin. Output: `OK` / `MISMATCH` /
   `UNREACHABLE`. Useful before the operator pastes a
-  firmware allowlist into `proxy listen` — catches typos /
+  firmware allowlist into `proxy listen`: catches typos /
   stale pins / supply-chain swaps. Constants
   `firmwareStatusOK`/`Mismatch`/`Unreachable` (goconst fix).
   6 tests. Commit `781ee50`.
-- 2026-04-25 — **v1.13 chunk 1 landed.** InternetDB bulk
+- 2026-04-25, **v1.13 chunk 1 landed.** InternetDB bulk
   lookup. v1.12 chunk 9 shipped single-IP lookups; this
   ships the bulk forms `internetdb:file:<path>` (one IP per
   line) and `internetdb:-` (stdin). `readInternetDBTargets`
   dispatches the three shapes (single / file / stdin);
   `lookupAllInternetDB` rate-limits at the upstream's ~10 rps.
   3 tests. Commit `781ee50`.
-- 2026-04-25 — **doc hygiene chunk C** landed. TODO.md
+- 2026-04-25, **doc hygiene chunk C** landed. TODO.md
   trimmed 203 → 65 lines (closed-checklist tone removed,
   brief delivery table added). TODO-vNext.md restructured
   with a `## ✅ Shipped during v1.3-v1.12` archive section
   + active items. ROADMAP.md gained "Shipped highlights
   post-v1.1" condensed lineup. New `man/src/man1/elsereno.1.md`
-  (197 lines) — first man1 page covering default + offensive
+  (197 lines), first man1 page covering default + offensive
   command sets, write-gate flag summaries, global flags,
   files, exit codes. `scripts/gen-manpages.sh` loop now
   `for section in 1 5 7` (was 5 7); dropped dead cobra/doc
   branch. 5 new per-protocol pages under `docs/protocols/`
   (sip, iax2, pbxhttp, cwmp, opcua). Commit `c581a62`.
-- 2026-04-25 — **make sec ratchet fix.** Standalone gosec
+- 2026-04-25, **make sec ratchet fix.** Standalone gosec
   doesn't honour `//nolint:gosec` (golangci-lint convention);
   it only honours native `// #nosec G<NNN>` annotations.
   Swapped 18 markers across the codebase so `make sec` exits
   0. Commit `b611f5c`.
-- 2026-04-25 — **v1.12.0 closed.** Ten-chunk cycle landed.
+- 2026-04-25, **v1.12.0 closed.** Ten-chunk cycle landed.
   Theme: gates tightening + input pagination. Each existing
   write-gated proxy gets a finer dimension; each existing
   attack-surface input client paginates; one new no-key
   provider (internetdb) joins the lineup; CWMP `Download`
   gets per-firmware-URL allowlisting. 100 new tests cycle-
   wide. Hash ladders preserve all prior tokens (operators
-  who skip the new fields keep their v1.4–v1.11 confirm-
+  who skip the new fields keep their v1.4-v1.11 confirm-
   tokens). 7 offensive write-gated proxies (unchanged), 6
   attack-surface input providers (up from 5). See
   `.context/snapshots/v1.12.0-gates-tightening-and-inputs.md`
@@ -2572,9 +2572,9 @@ One-liner per significant change to `.context/` or the codebase.
   2 `0c34382`, chunk 3 `b4bd4dd`, chunk 4 `c3cafd1`, chunk 5
   `0325999`, chunk 6 `9b2c4f5`, chunk 7 `196e647`, chunk 8
   `8c61ff5`, chunk 9 `afb4eb3`, chunk 10 `9761eba`.
-- 2026-04-25 — **v1.12 chunk 10 landed.** CWMP firmware-URL +
+- 2026-04-25, **v1.12 chunk 10 landed.** CWMP firmware-URL +
   SHA-256 allowlist for the `Download` RPC. Closes the firmware-
-  push attack surface — a misconfigured ACS can push firmware
+  push attack surface, a misconfigured ACS can push firmware
   to millions of devices, so per-image scoping is the natural
   v1.11→v1.12 tightening. Library:
   `AllowedFirmware{URL, SHA256}` + `canonicaliseFirmwareURL`
@@ -2584,7 +2584,7 @@ One-liner per significant change to `.context/` or the codebase.
   param-paths; each entry is length-prefixed URL + length-
   prefixed SHA256) + `SessionMutationWithFirmware`. Hash
   ladder: empty firmware → chunk-1 hash; empty firmware AND
-  empty paths → v1.11 hash. SHA256 is operator metadata only —
+  empty paths → v1.11 hash. SHA256 is operator metadata only, 
   TR-069's Download RPC doesn't carry it (the CPE reports it
   later via TransferComplete); the gate enforces URL only.
   Handler `AllowedFirmware` field + `firmwareGateActive(rpc)` +
@@ -2605,7 +2605,7 @@ One-liner per significant change to `.context/` or the codebase.
   (allowed-passes, forbidden-refuses-9001, empty-bypasses,
   canonicalisation-matches), YAML round-trip × 1. 0 lint
   issues.
-- 2026-04-25 — **v1.12 chunk 9 landed.** Shodan InternetDB
+- 2026-04-25, **v1.12 chunk 9 landed.** Shodan InternetDB
   (`internetdb.shodan.io`) wired as the 6th attack-surface
   input provider. Free + no API key required (the upstream is
   rate-limited to ~10 rps; the client defaults to 5 rps).
@@ -2617,13 +2617,13 @@ One-liner per significant change to `.context/` or the codebase.
   "no data" UX). Invalid-IP input fails with `ErrInvalidIP`.
   Dispatcher in `cmd_scan_apicreds.go` bypasses the creds-
   file check for this provider (the only no-key one). Single-
-  IP only — bulk lookup (file or stdin) is a v1.13+ follow-up.
+  IP only, bulk lookup (file or stdin) is a v1.13+ follow-up.
   5 new tests: happy path, 404-is-empty, invalid-IP rejected,
   500 surfaces as error, invalid ports dropped silently.
-  Provider count: 6 — shodan / censys / fofa / zoomeye /
+  Provider count: 6, shodan / censys / fofa / zoomeye /
   onyphe / internetdb. 0 lint issues.
-- 2026-04-25 — **v1.12 chunk 8 landed.** Input pagination across
-  all 5 providers — closes the v1.10 "page 1 only" carry-over
+- 2026-04-25, **v1.12 chunk 8 landed.** Input pagination across
+  all 5 providers, closes the v1.10 "page 1 only" carry-over
   noted in 4 of the 5 client comments. New `SearchPaged(ctx,
   query, totalLimit)` method on each client. Per-provider:
   - Shodan: `?page=N` parameter; `searchPage` shared helper
@@ -2643,14 +2643,14 @@ One-liner per significant change to `.context/` or the codebase.
   ZoomEye × 2 (accumulates, stops-on-empty), ONYPHE × 1
   (multi-page accumulation), FOFA × 1 (page increment),
   Censys × 2 (cursor follow, totalLimit cap). 0 lint issues.
-- 2026-04-25 — **v1.12 chunk 7 landed.** BACnet per-object
+- 2026-04-25, **v1.12 chunk 7 landed.** BACnet per-object
   WriteProperty allowlist via ASN.1 BER parsing. Closes the
   v1.4 chunk 6 "service-choice only" carry-over for the most
   common BACnet write surface. New wire parser
   `ParseWriteProperty(apdu)` walks context tag 0 (ObjectId, 4
   bytes packed: 10-bit type + 22-bit instance) + tag 1
   (PropertyId, 1..3 bytes); ignores remaining tags (array index,
-  value, priority) — gate decision needs only (type, instance,
+  value, priority), gate decision needs only (type, instance,
   property). New library types `AllowedObject{ObjectType
   uint16, ObjectInstance uint32, PropertyID uint32}` +
   `AllowlistHashWithObjects` (0xFF separator below the v1.4
@@ -2660,7 +2660,7 @@ One-liner per significant change to `.context/` or the codebase.
   Handler `AllowedObjects` + `writePropertyObjectAllowed`
   per-frame check that fires only on confirmed-service 15;
   other mutating services (10/11/16/17/20/27/8/9/7) bypass the
-  per-object gate (their request shapes differ — v1.13+ work).
+  per-object gate (their request shapes differ, v1.13+ work).
   Refusal is the existing security-error Abort-PDU. CLI:
   `write bacnet dry-run --object type=N;instance=M;property=P`
   (repeatable) + `proxy listen --object` + YAML `objects:` with
@@ -2670,7 +2670,7 @@ One-liner per significant change to `.context/` or the codebase.
   truncated / wrong tag), E2E gate × 4 (allowed-passes /
   forbidden-property-refuses / forbidden-type-refuses /
   empty-list-bypasses), YAML round-trip × 1. 0 lint issues.
-- 2026-04-24 — **v1.12 chunk 6 landed.** OPC UA per-CallMethod
+- 2026-04-24, **v1.12 chunk 6 landed.** OPC UA per-CallMethod
   allowlist. Complements v1.12 chunk 3 (per-WriteValue NodeId)
   with the other mutating service surface: CallRequest invokes
   a Method on an Object; this gate scopes it to specific
@@ -2696,16 +2696,16 @@ One-liner per significant change to `.context/` or the codebase.
   walker × 4, E2E gate × 3 (allowed pass / one-forbidden
   refuse / string-NodeId match), YAML round-trip × 1.
   0 lint issues.
-- 2026-04-24 — **v1.12 chunk 5 landed.** SIP From-header domain
-  allowlist — the identity-spoof complement to v1.10 chunk 1's
+- 2026-04-24, **v1.12 chunk 5 landed.** SIP From-header domain
+  allowlist, the identity-spoof complement to v1.10 chunk 1's
   REGISTER AOR gate and v1.9 chunk 5's INVITE prefix gate.
   Library: `AllowedFromDomain{Domain}` + `AllowlistHashWithFromDomains`
   (0xFD separator layered on top of 0xFE AOR + 0xFF prefix) +
   `SessionMutationWithFromDomains`. Ladder preserved: empty
   fromDomains collapses to v1.10; empty+empty → v1.9; empty×3 →
-  v1.4. `canonicaliseFromDomain` extracts the host part —
+  v1.4. `canonicaliseFromDomain` extracts the host part, 
   accepts bare host, `@host`, `sip:user@host`, bracketed
-  `<sips:user@host;tag=…>` — lowercases, strips params.
+  `<sips:user@host;tag=…>`: lowercases, strips params.
   Handler: `AllowedFromDomains` field checked in `checkSubGates`
   for every gated method (INVITE / REGISTER / MESSAGE /
   SUBSCRIBE / NOTIFY / REFER / PUBLISH / UPDATE / INFO).
@@ -2725,13 +2725,13 @@ One-liner per significant change to `.context/` or the codebase.
   INVITE passes, forbidden INVITE 403, OPTIONS bypasses,
   REGISTER also gated), YAML round-trip × 2 (case-
   normalisation + omit-when-empty). 0 lint issues.
-- 2026-04-24 — **v1.12 chunk 4 landed.** Modbus structured
+- 2026-04-24, **v1.12 chunk 4 landed.** Modbus structured
   `writes:` YAML closes the v1.9 chunk 2 carry-over. New YAML
   struct `proxyModbusWrite{Unit, FC, Start, End}` alongside the
   legacy `functions:` list; loader merges both into one
   `[]AllowedWrite`. CLI gains `--write unit=N;fc=M;start=A;end=B`
   (repeatable, validating: fc required; unit/start/end default
-  to 0 = any). Emit-allow-file guard lifted — legacy
+  to 0 = any). Emit-allow-file guard lifted, legacy
   `--function + --unit + --address-*` combinations now
   materialise as a `writes:` entry per FC so the gate tightening
   survives round-trip (previously refused with "not compatible"
@@ -2740,10 +2740,10 @@ One-liner per significant change to `.context/` or the codebase.
   gocyclo. 7 new tests: parser valid × 4 input shapes, parser
   invalid × 8 rejection cases, tight-gate round-trip, structured-
   write flag output, structured-write round-trip, hash-stable
-  round-trip. Library hash unchanged — the existing
+  round-trip. Library hash unchanged, the existing
   `AllowlistHash` already sorted by (unit, FC, start, end), so
   operators who only used `functions:` keep their v1.9 tokens.
-- 2026-04-24 — **v1.12 chunk 3 landed.** OPC UA String / GUID /
+- 2026-04-24, **v1.12 chunk 3 landed.** OPC UA String / GUID /
   ByteString NodeID encodings reach the per-node gate. Rich
   wire parser: `NodeIDValue{Namespace, Kind, Numeric, String,
   GUID, Bytes}` with `.Canonical()` returning `ns=N;{i,s,g,b}=…`.
@@ -2755,7 +2755,7 @@ One-liner per significant change to `.context/` or the codebase.
   wire values against the numeric list and canonical strings
   (uppercase hex for GUID / ByteString) against the canonical
   list. `AllowlistHashWithRichNodeIDs` extends the hash ladder
-  with a 0xFD separator + length-prefixed canonical entries —
+  with a 0xFD separator + length-prefixed canonical entries, 
   empty canonical list collapses to the v1.6 hash, empty both
   collapses to v1.2. CLI `--node-id` accepts
   `ns=N;{s=STR,g=HEX,b=HEX}`: GUID tolerates dashes and
@@ -2768,15 +2768,15 @@ One-liner per significant change to `.context/` or the codebase.
   encodings. 0 lint issues after helper extractions
   (walkWriteRequestArrayPrefix, splitNodeIDTokens,
   buildParsedNodeID, applyOPCUAAllowFile).
-- 2026-04-24 — **v1.12 chunk 2 landed.** OPC UA multi-node
+- 2026-04-24, **v1.12 chunk 2 landed.** OPC UA multi-node
   walk (`WriteRequestAllNodes`). Numeric encoding only; fails
   closed on any unparseable WriteValue.
-- 2026-04-24 — **v1.12 chunk 1 landed.** CWMP per-parameter-
+- 2026-04-24, **v1.12 chunk 1 landed.** CWMP per-parameter-
   path allowlist (`AllowedParameterPath{Prefix}` +
   `AllowlistHashWithParameterPaths` + SOAP Fault 9005 refusal).
-- 2026-04-24 — **v1.11.0 closed.** Single-chunk cycle: CWMP
+- 2026-04-24, **v1.11.0 closed.** Single-chunk cycle: CWMP
   offensive proxy (SOAP RPC allowlist). Completes the TR-069
-  story — v1.4 chunk 5 shipped the fingerprint, this chunk
+  story, v1.4 chunk 5 shipped the fingerprint, this chunk
   ships the matching offensive gate. 7 offensive write-gated
   proxies in the default build (up from 6). `AllowedRPC{Name}`
   + `WriteGatedHandler.Allowed` + `AllowlistHash` +
@@ -2784,16 +2784,16 @@ One-liner per significant change to `.context/` or the codebase.
   namespace prefix, case preserved per TR-069 §A.4).
   `alwaysSafeRPCs` set (14: GetParameter*, Inform,
   TransferComplete, Kicked, Fault, +Response variants).
-  `extractRPCName` via streaming `xml.Decoder` — finds first
+  `extractRPCName` via streaming `xml.Decoder`: finds first
   `StartElement` under `<*:Body>`, handles `soap:`/`soap-env:`
   /`soapenv:` prefix variants. Refusal is HTTP 200 OK + SOAP
   Fault body FaultCode 9001 "Request denied" (TR-069 Annex A)
   + X-Elsereno-Gate-Reason header. 20 tests (13 library + 3
   YAML + 4 CLI). Snapshot:
   `.context/snapshots/v1.11.0-cwmp-offensive.md`.
-- 2026-04-24 — **v1.10.0 closed.** Single-chunk cycle: SIP
+- 2026-04-24, **v1.10.0 closed.** Single-chunk cycle: SIP
   REGISTER AOR allowlist (anti-registration-hijack). Twin of
-  v1.9 chunk 5's INVITE prefix gate — where that one controls
+  v1.9 chunk 5's INVITE prefix gate, where that one controls
   WHERE calls can go, this controls WHO can register a
   binding. `AllowedAOR{AOR}` + `AllowlistHashWithAORs` +
   `SessionMutationWithAORs` + `canonicaliseAOR` (strips scheme
@@ -2807,7 +2807,7 @@ One-liner per significant change to `.context/` or the codebase.
   ladder: empty aors → v1.9; empty aors AND empty prefixes →
   v1.4. 15 tests (10 library + 5 YAML round-trip). Snapshot:
   `.context/snapshots/v1.10.0-sip-aor.md`.
-- 2026-04-24 — **v1.9.0 closed.** Five-chunk cycle. Chunk 1
+- 2026-04-24, **v1.9.0 closed.** Five-chunk cycle. Chunk 1
   closes the v1.6 per-NodeId → YAML round-trip gap (the
   `--allow-file` emitter + loader now persist `node_ids:`
   structurally). Chunk 2 adds `write modbus proxy-dry-run`,
@@ -2826,7 +2826,7 @@ One-liner per significant change to `.context/` or the codebase.
   v1.4-v1.8 hashes and tokens. Snapshot at
   `.context/snapshots/v1.9.0-roundtrip-inputs-toll.md`.
   v1.9.0 tag signed locally.
-- 2026-04-24 — **v1.9 chunk 5 (SIP INVITE To-URI prefix
+- 2026-04-24, **v1.9 chunk 5 (SIP INVITE To-URI prefix
   allowlist)** landed on main. Opt-in
   `WriteGatedHandler.AllowedToURIPrefixes` field. Hash is
   backwards-compat: empty prefix list returns the v1.4
@@ -2835,32 +2835,32 @@ One-liner per significant change to `.context/` or the codebase.
   display-name quoting, uri-params suffix); match against
   sorted prefixes. Refusal: `SIP/2.0 403 Forbidden` with
   `X-Elsereno-Gate-Reason:` header. REGISTER + other methods
-  unaffected — prefix list gates INVITE only. CLI:
+  unaffected, prefix list gates INVITE only. CLI:
   `write sip dry-run --to-prefix +34`,
   `proxy listen --to-prefix +34`, YAML `to_prefixes:`.
   7 tests.
-- 2026-04-24 — **v1.9 chunk 4 (ONYPHE input)** landed on
+- 2026-04-24, **v1.9 chunk 4 (ONYPHE input)** landed on
   main. 5th provider alongside Shodan/Censys/FOFA/ZoomEye.
   Bearer auth via `Authorization: bearer <key>` header (RFC
-  6750). Query embedded in URL PATH (not query string) —
+  6750). Query embedded in URL PATH (not query string), 
   `url.PathEscape` encodes. In-body error flag. 5 tests.
-- 2026-04-24 — **v1.9 chunk 3 (input CLI wire-up)** landed
+- 2026-04-24, **v1.9 chunk 3 (input CLI wire-up)** landed
   on main. `scan --input shodan:<q>|censys:<q>|fofa:<q>|
   zoomeye:<q>` with `--api-creds-file <path.yaml>`. 0600
   perm enforcement at load. KnownFields strict. 1 rps per
   provider. 11 tests.
-- 2026-04-24 — **v1.9 chunk 2 (Modbus proxy-session
+- 2026-04-24, **v1.9 chunk 2 (Modbus proxy-session
   dry-run)** landed on main. New subcommand `write modbus
   proxy-dry-run`. --function (repeatable) + optional --unit
   + --address-from/--address-to. --emit-allow-file guard
   against YAML schema limitation. 6 tests.
-- 2026-04-24 — **v1.9 chunk 1 (OPC UA NodeID YAML round-
+- 2026-04-24, **v1.9 chunk 1 (OPC UA NodeID YAML round-
   trip)** landed on main. proxyAllowFile gains NodeIDs
   field with yaml `node_ids:`. buildOPCUAHandler wires
   opts.nodeIDs → AllowedNodeIDs. buildAllowFileOPCUA
   serialises sorted NodeIDs. Existing v1.6 tests still
   pass. 4 new tests for round-trip.
-- 2026-04-23 — **v1.8.0 PUBLISHED on GitHub Releases** as the
+- 2026-04-23, **v1.8.0 PUBLISHED on GitHub Releases** as the
   first community release. Artefacts (4 platform tarballs + 4
   CycloneDX SBOMs + checksums.txt) built locally with
   goreleaser and uploaded via `gh release upload` after all
@@ -2871,14 +2871,14 @@ One-liner per significant change to `.context/` or the codebase.
   nightly) gated to `workflow_dispatch:` only to stop
   accumulating billing failures. Verification flow is now
   **GPG-signed tag** (`git tag -v v1.8.0`, key
-  ACE3B86BACACE7D6 — Daniel Solís Agea) + SHA-256 checksums
+  ACE3B86BACACE7D6, Daniel Solís Agea) + SHA-256 checksums
   + CycloneDX SBOMs. RELEASING.md rewritten to document the
   new flow with the legacy CI-based flow preserved at the
   bottom. Docs pass: elsereno-manual.md + .docx + cheatsheet
   + README all refreshed with 17-plugin table, proxy listen
   examples, `--allow-file` / `--emit-allow-file` usage, and
   FOFA/ZoomEye inputs (library-level).
-- 2026-04-23 — **v1.8.0 closed.** Two-chunk cycle, operator-
+- 2026-04-23, **v1.8.0 closed.** Two-chunk cycle, operator-
   requested. Chunk 1 ships the FOFA (fofa.info) input client
   with email+key auth and qbase64 query encoding. Chunk 2
   ships the ZoomEye (zoomeye.org) input client with `API-KEY`
@@ -2887,56 +2887,56 @@ One-liner per significant change to `.context/` or the codebase.
   10 new tests across the two packages. Snapshot at
   `.context/snapshots/v1.8.0-fofa-zoomeye-inputs.md`. v1.8.0
   tag signed locally.
-- 2026-04-23 — **v1.8 chunk 2 (zoomeye input)** landed on main.
+- 2026-04-23, **v1.8 chunk 2 (zoomeye input)** landed on main.
   `API-KEY` HTTP header auth (credentials don't leak via URL
   logs). 1-based paging. Envelope has top-level `ip` +
   nested `portinfo.port`. Rows with unparseable IP/port
   dropped silently. 5 tests including header-auth assertion +
   402 Payment Required path (free-tier credit exhaustion).
-- 2026-04-23 — **v1.8 chunk 1 (fofa input)** landed on main.
+- 2026-04-23, **v1.8 chunk 1 (fofa input)** landed on main.
   FOFA needs both email + API key (unlike Shodan's single
   key). Query base64-encoded per FOFA's `qbase64` convention.
   Requests `fields=host,ip,port` for stable row shape.
   `ErrNoCredentials` + `ErrAPIError` sentinels so callers
   distinguish auth/quota/bad-query from transport errors.
   5 tests including qbase64-round-trip assertion.
-- 2026-04-23 — **v1.1.0 → v1.7.0 pushed to origin/main.**
+- 2026-04-23, **v1.1.0 → v1.7.0 pushed to origin/main.**
   Operator restored PAT + ran `git push origin main` (41
   commits) + `git push origin v1.1.0 v1.2.0 v1.3.0 v1.4.0
   v1.5.0 v1.6.0 v1.7.0` (7 tags). 7 release workflows ran
   in parallel on GitHub Actions (goreleaser + cosign + GHCR
   + SBOM + SLSA attestation per tag).
-- 2026-04-23 — **v1.7.0 closed.** Two UX chunks:
+- 2026-04-23, **v1.7.0 closed.** Two UX chunks:
   chunk 1 added `write dry-run --emit-allow-file` to close the
   YAML round-trip introduced in v1.6 chunk 1. Chunk 2 added
-  `write opcua dry-run` + `write bacnet dry-run` subcommands —
+  `write opcua dry-run` + `write bacnet dry-run` subcommands, 
   OPC UA honours the v1.6 per-NodeId extension via `--node-id
   ns=N;i=M`. The write command surface is now symmetric across
   the five proxy-session-capable plugins (sip / iax2 / pbxhttp
   / opcua / bacnet). Modbus proxy-session dry-run is a v1.8+
   carry-over. Snapshot at `.context/snapshots/v1.7.0-yaml-
   round-trip.md`. v1.7.0 tag signed locally.
-- 2026-04-23 — **v1.7 chunk 2 (write opcua/bacnet dry-run)**
+- 2026-04-23, **v1.7 chunk 2 (write opcua/bacnet dry-run)**
   landed on main. `newWriteOPCUADryRunCmd` honours `--service
   <TypeID>` + optional `--node-id ns=N;i=M` for the v1.6 per-
   NodeId gate. `newWriteBACnetDryRunCmd` takes `--service-
   choice <N>`. Both emit the YAML allow-file via the v1.7
   chunk 1 emitter. `parseNodeIDFlag` + `canonUintList` +
   `canonNodeIDs` shared helpers. 7 new tests.
-- 2026-04-23 — **v1.7 chunk 1 (write dry-run --emit-allow-
+- 2026-04-23, **v1.7 chunk 1 (write dry-run --emit-allow-
   file)** landed on main. `emitAllowFile(cmd, path, af)` with
   stdout vs file routing (0600 perms on file). `omitempty`
   YAML tags on proxyAllowFile so dry-runs don't emit empty
   per-plugin fields. 10 tests including a full emit → load →
   recover round-trip.
-- 2026-04-23 — **TODO** note: FOFA (fofa.info) + ZoomEye
+- 2026-04-23, **TODO** note: FOFA (fofa.info) + ZoomEye
   (zoomeye.org) input integrations are operator-requested.
   Tracked in `TODO-vNext.md` under "Inputs + integraciones"
   alongside the existing ONYPHE / STIX 2.1 ideas.
-- 2026-04-23 — **v1.6.0 closed.** Two chunks:
+- 2026-04-23, **v1.6.0 closed.** Two chunks:
   chunk 1 added `--allow-file` YAML loader for `elsereno proxy
   listen` (single-file config instead of long flag lists).
-  Chunk 2 added opt-in OPC UA per-NodeId allowlist — extends
+  Chunk 2 added opt-in OPC UA per-NodeId allowlist, extends
   the v1.2 service-TypeID write gate with `AllowedNodeIDs`.
   Backwards-compatible: when the NodeID list is empty, the
   hash equals the v1.2 `AllowlistHash` so existing operator
@@ -2945,7 +2945,7 @@ One-liner per significant change to `.context/` or the codebase.
   variants are v1.7+. Snapshot at
   `.context/snapshots/v1.6.0-allowfile-and-nodeid.md`. v1.6.0
   tag signed locally.
-- 2026-04-23 — **v1.6 chunk 2 (OPC UA per-NodeId)** landed on
+- 2026-04-23, **v1.6 chunk 2 (OPC UA per-NodeId)** landed on
   main. New `internal/protocols/opcua/wire/writerequest.go`
   parses the UA RequestHeader + NodesToWrite array to extract
   the first WriteValue's NodeId for TwoByte / FourByte /
@@ -2960,7 +2960,7 @@ One-liner per significant change to `.context/` or the codebase.
   8 tests including 3 end-to-end gate tests (allowed NodeID
   forwards / blocked NodeID returns ServiceFault / empty
   allowlist falls back to v1.2 behaviour).
-- 2026-04-23 — **v1.6 chunk 1 (--allow-file YAML)** landed on
+- 2026-04-23, **v1.6 chunk 1 (--allow-file YAML)** landed on
   main. `elsereno proxy listen --allow-file <path.yaml>` reads
   the plugin + target + allowlist from a YAML file using
   `yaml.NewDecoder.KnownFields(true)` so typos fail noisily.
@@ -2969,7 +2969,7 @@ One-liner per significant change to `.context/` or the codebase.
   `services:` for opcua, `service_choices:` for bacnet.
   Operator-supplied command-line flags act as defaults. 10
   tests (one happy-path per plugin + 4 error paths).
-- 2026-04-23 — **v1.5.0 closed.** `elsereno proxy listen` CLI
+- 2026-04-23, **v1.5.0 closed.** `elsereno proxy listen` CLI
   shipped. Two chunks: chunk 1 promoted the proxy stub to a
   real command supporting sip / iax2 / pbxhttp (with per-plugin
   `--method` / `--subclass` / `--allow` allowlist flags); chunk
@@ -2981,15 +2981,15 @@ One-liner per significant change to `.context/` or the codebase.
   write-gated proxies now runnable inline. v1.5.0 tag signed
   locally. Snapshot at
   `.context/snapshots/v1.5.0-proxy-listen.md`.
-- 2026-04-23 — **v1.5 chunk 2 (proxy listen for modbus/opcua/
+- 2026-04-23, **v1.5 chunk 2 (proxy listen for modbus/opcua/
   bacnet + E2E)** landed on main. Extends chunk 1's sip/iax2/
   pbxhttp support to the three remaining gated plugins with
   numeric allowlist flags (range-validated uint8/uint16). Adds
-  TestProxyListen_E2E_SIP — first full-stack test covering
+  TestProxyListen_E2E_SIP, first full-stack test covering
   framework + handler + triple-confirm + filtering composed
   together. Splits buildGatedHandler into per-plugin
   constructors to keep gocyclo complexity ≤ 15.
-- 2026-04-23 — **v1.5 chunk 1 (proxy listen)** landed on main.
+- 2026-04-23, **v1.5 chunk 1 (proxy listen)** landed on main.
   Promotes the cmd_stubs.go "proxy" command to a real offensive-
   build implementation: `elsereno proxy listen --plugin
   {sip|iax2|pbxhttp} --target h:p --listen L ...` authorises
@@ -2998,7 +2998,7 @@ One-liner per significant change to `.context/` or the codebase.
   SIGINT/SIGTERM. replaceProxyStubWithOffensiveCmd walks the
   root command and replaces the EX_TEMPFAIL stub without
   touching the default build.
-- 2026-04-23 — **v1.4.0 closed.** Offensive PBX write-gate
+- 2026-04-23, **v1.4.0 closed.** Offensive PBX write-gate
   cycle shipped: SIP method-allowlist gate (chunk 1), pbxhttp
   (method, path)-allowlist gate (chunk 2), IAX2 subclass-
   allowlist UDP gate (chunk 3), CLI dry-run wiring for all
@@ -3009,7 +3009,7 @@ One-liner per significant change to `.context/` or the codebase.
   bacnet). Snapshot at
   `.context/snapshots/v1.4.0-offensive-pbx-and-cwmp.md`.
   v1.4.0 tag signed locally.
-- 2026-04-23 — **v1.4 chunk 6 (BACnet UDP write-gate)** landed
+- 2026-04-23, **v1.4 chunk 6 (BACnet UDP write-gate)** landed
   on main. `internal/protocols/bacnet/wire/service.go` ships
   ASHRAE 135 APDU classification (APDUType enum +
   ConfirmedService choices + IsMutatingConfirmedService
@@ -3022,7 +3022,7 @@ One-liner per significant change to `.context/` or the codebase.
   ReinitializeDevice / DeviceCommControl / LifeSafetyOperation;
   refuses via BVLC-wrapped Abort-PDU with reason 5 (security-
   error). 14 tests.
-- 2026-04-23 — **v1.4 chunk 5 (cwmp plugin)** landed on main.
+- 2026-04-23, **v1.4 chunk 5 (cwmp plugin)** landed on main.
   TR-069 / CWMP ACS fingerprint on 7547/tcp. 15 ACS vendor
   identifiers (GenieACS, FreeACS, Axiros, Nokia Altiplano,
   Huawei FusionHome, Broadcom BroadWorks, Cisco Prime, ADB,
@@ -3031,7 +3031,7 @@ One-liner per significant change to `.context/` or the codebase.
   isCWMPLikely heuristic fires on 401-with-acs-realm or
   SOAP-with-cwmp body even without vendor match. Default-build
   plugin count: 16 → 17. 15 tests.
-- 2026-04-23 — **v1.4 chunk 4 (CLI dry-run for gated proxies)**
+- 2026-04-23, **v1.4 chunk 4 (CLI dry-run for gated proxies)**
   landed on main. Three new cobra subcommands under `elsereno
   write`: `sip dry-run --method`, `iax2 dry-run --subclass`,
   `pbxhttp dry-run --allow METHOD:/path`. Each prints the
@@ -3040,21 +3040,21 @@ One-liner per significant change to `.context/` or the codebase.
   token via confirm.ExpectedToken. 11 tests cover parseAllowEntry,
   iaxSubclassByName, canonMethods, cobra-driven shape checks,
   and --target-required behaviour.
-- 2026-04-23 — **v1.4 chunk 3 (iax2 write-gate)** landed on main.
+- 2026-04-23, **v1.4 chunk 3 (iax2 write-gate)** landed on main.
   UDP per-datagram subclass allowlist. Mini-frames (audio) +
-  non-IAX frames (Voice/DTMF/Video) ALWAYS pass — media
+  non-IAX frames (Voice/DTMF/Video) ALWAYS pass, media
   unconditional. Gated IAX subclasses: NEW / REGREQ / AUTHREP /
   ACCEPT. Refusal: HANGUP full-frame addressed to the client's
   SrcCallNum (the universal IAX call-teardown signal). 14 tests
   with net.Pipe UDP-semantics preserve-per-Write boundaries.
-- 2026-04-23 — **v1.4 chunk 2 (pbxhttp write-gate)** landed on
+- 2026-04-23, **v1.4 chunk 2 (pbxhttp write-gate)** landed on
   main. HTTP (method, path) allowlist via net/http's server
   parser. Read-only methods (GET/HEAD/OPTIONS) always pass;
   CONNECT always refused. Two-stage refusal: 405 when the
   method isn't in the allowlist, 403 when method matches but
   the path doesn't. 14 tests; bodyclose pitfall caught + fixed
   with a statusResp{Code, Header} snapshot helper.
-- 2026-04-23 — **v1.4 chunk 1 (sip write-gate)** landed on main.
+- 2026-04-23, **v1.4 chunk 1 (sip write-gate)** landed on main.
   Per-request method allowlist via net/textproto request-line
   parser. Always-safe set (OPTIONS/ACK/BYE/CANCEL/PRACK) passes
   unconditionally; gated methods (INVITE, REGISTER, MESSAGE,
@@ -3062,7 +3062,7 @@ One-liner per significant change to `.context/` or the codebase.
   explicit allowlist. Refusal: canonical SIP/2.0 405 Method
   Not Allowed with an Allow: header listing all permitted
   methods. 13 tests; gocyclo drove the Handle + handleOne split.
-- 2026-04-22 — **v1.3.0 closed.** PBX-discovery cycle shipped:
+- 2026-04-22, **v1.3.0 closed.** PBX-discovery cycle shipped:
   SIP + IAX2 + pbxhttp plugins (chunks 1a/1b/1c), 15 PBX brand
   fingerprints across the three, 16 plugins in the default
   build (up from 13 at v1.2.0). Snapshot at
@@ -3074,7 +3074,7 @@ One-liner per significant change to `.context/` or the codebase.
   IAX2 silent-UDP, HTTP 403); mini-frame length-sanity guard
   against HTTP-shaped bytes falsely confirming binary UDP
   protocols. v1.3.0 tag signed locally.
-- 2026-04-22 — **v1.3 chunk 1c (pbxhttp plugin)** landed on main.
+- 2026-04-22, **v1.3 chunk 1c (pbxhttp plugin)** landed on main.
   HTTP(S) PBX admin-UI fingerprint on port 443 (also 80 / 8080
   / 8088 / 5001 / 8443 / 411 via Scheme override). 15 known
   PBX platforms identified via response Server / title / body:
@@ -3083,7 +3083,7 @@ One-liner per significant change to `.context/` or the codebase.
   Mitel (+ ShoreTel + MiCollab), Grandstream (+ UCM6 + GXP +
   GXW), Fanvil, Yealink (+ SIP-T), Asterisk HTTP Manager,
   Switchvox, Elastix, FreeSWITCH. InsecureSkipVerify defaulted
-  true — PBX default installs universally ship self-signed
+  true, PBX default installs universally ship self-signed
   certs; fingerprinting use-case outweighs MITM risk (gosec
   waiver documented in code). PBX-likely heuristic: unmatched
   brand but body mentions pbx / phone system / sip server /
@@ -3091,7 +3091,7 @@ One-liner per significant change to `.context/` or the codebase.
   still surfaces. 21 tests; 15-vendor IdentifyVendor table;
   5-tier VendorRisk table. Offensive write-gated variant is a
   v1.4 candidate.
-- 2026-04-22 — **v1.3 chunk 1b (IAX2 plugin)** landed on main.
+- 2026-04-22, **v1.3 chunk 1b (IAX2 plugin)** landed on main.
   Asterisk's native binary UDP protocol on port 4569.
   `internal/protocols/iax2/wire/` is a minimal RFC 5456 full-
   frame parser (12-byte header, FrameType + IAXSubclass enums,
@@ -3103,7 +3103,7 @@ One-liner per significant change to `.context/` or the codebase.
   remote dialogue table doesn't grow. Mini-frame-length-
   mismatch guard prevents HTTP bytes (byte[0]=0x48 → high bit
   0 → looks like a mini-frame) from falsely confirming IAX2.
-- 2026-04-22 — **v1.3 chunk 1a (SIP plugin)** landed on main.
+- 2026-04-22, **v1.3 chunk 1a (SIP plugin)** landed on main.
   OPTIONS probe on port 5060 UDP+TCP identifies 15 known PBX
   brands from the Server / User-Agent response header:
   Asterisk, FreePBX, 3CX, Cisco UCM, Cisco SIP Gateway, Mitel,
@@ -3113,10 +3113,10 @@ One-liner per significant change to `.context/` or the codebase.
   unknown 70). capability=60 once SIP confirmed; auth_state
   drops to 50 on a 401 response. DenyAll proxy emits a SIP
   403 Forbidden. Offensive write-gated variant v1.4.
-- 2026-04-22 — **v1.2 chunk 5 (SLSA .intoto.jsonl fix)** landed
+- 2026-04-22, **v1.2 chunk 5 (SLSA .intoto.jsonl fix)** landed
   on main. Dropped the `slsa-framework/slsa-github-generator`
   reusable workflow (upstream exit-27 bug, tracked since
-  v2.0.0 and still unfixed in v2.1.0 — issue 2610). Replaced
+  v2.0.0 and still unfixed in v2.1.0, issue 2610). Replaced
   with GitHub's native `actions/attest-build-provenance@v2`:
   the release workflow now attests every `dist/elsereno_*.tar.gz`
   + `checksums.txt` with a SLSA v1.0 predicate signed via
@@ -3129,16 +3129,16 @@ One-liner per significant change to `.context/` or the codebase.
   stage is also gone (no longer needed). SUPPLY-CHAIN.md +
   `.goreleaser.yml` footer + `scripts/release-smoke.sh` all
   updated with the new verify recipe.
-- 2026-04-22 — **v1.2 chunk 4 (dial backends)** landed on main.
+- 2026-04-22, **v1.2 chunk 4 (dial backends)** landed on main.
   New package `offensive/dial/backend` with the `Backend`
   interface (`Name` / `Deliver(ctx, normalised) → Result` /
   `Close`) + shared `Disposition` enum (preview, delivered,
   no-answer, busy, hangup, failed). Two concrete backends
   ship:
-    * `Mock` — records intent, returns preview by default,
+    * `Mock`: records intent, returns preview by default,
       scripted prefix-match dispositions for tests. Safe for
       CI + dry-runs.
-    * `ATModem` — drives a Hayes-compatible modem over any
+    * `ATModem`: drives a Hayes-compatible modem over any
       io.ReadWriter. Wire sequence ATZ → ATE0 → ATDT<num>; →
       classify terminal result (CONNECT / NO ANSWER / BUSY /
       NO CARRIER / NO DIAL TONE / ERROR / timeout) → ATH0.
@@ -3147,7 +3147,7 @@ One-liner per significant change to `.context/` or the codebase.
       hanging indefinitely. Shared bufio.Reader across the
       sequence prevents the classic "fresh reader discards
       read-ahead bytes" serial bug. No direct serial-fd
-      open — callers pass the opened port so tests use
+      open, callers pass the opened port so tests use
       net.Pipe.
   7 unit tests + 1 tri-phase modem simulator: each Hayes
   result code mapped to the right disposition, timeout path
@@ -3156,7 +3156,7 @@ One-liner per significant change to `.context/` or the codebase.
   the seccomp dial profile blocks socket() in the parent.
   The `dial batch` CLI wiring to call Deliver on allowed
   numbers ships in the v1.2 close commit.
-- 2026-04-22 — **v1.2 chunk 3 (protocol Handle loops)** landed
+- 2026-04-22, **v1.2 chunk 3 (protocol Handle loops)** landed
   on main: full wire-level `Handle` loops + protocol-native
   refusal frames for 5 TCP protocols that previously had only
   session primitives. Each handler parses the wire framing,
@@ -3182,7 +3182,7 @@ One-liner per significant change to `.context/` or the codebase.
   the generic TCP proxy doesn't apply; full BACnet relay lands
   in v1.3 with a dedicated UDP relay. 24+ unit tests total
   across the 5 packages exercising forward/refuse paths.
-- 2026-04-22 — **v1.2 chunk 2 (OPC UA write gating)** landed
+- 2026-04-22, **v1.2 chunk 2 (OPC UA write gating)** landed
   on main. Extends `internal/protocols/opcua/wire/` with
   service-layer parsing: OPN/MSG/CLO header types,
   `ServiceTypeID` that decodes the TypeID from a MSG body's
@@ -3201,9 +3201,9 @@ One-liner per significant change to `.context/` or the codebase.
   Read passes, Write refused on empty allowlist, Write allowed
   on match, Call treated like Write), Handle precondition.
   Full UA binary encoding of WriteValue / CallMethodRequest
-  (per-NodeId allowlisting) is a v1.3 carry-over — the v1.2
+  (per-NodeId allowlisting) is a v1.3 carry-over, the v1.2
   gate is at TypeID granularity.
-- 2026-04-21 — **v1.2 chunk 1 (DB-backed panels)** landed on
+- 2026-04-21, **v1.2 chunk 1 (DB-backed panels)** landed on
   main. Three layers:
   1. `internal/audit.DBWriter` persists audit entries to
      Postgres with the same chain invariant as `FileWriter`.
@@ -3219,8 +3219,8 @@ One-liner per significant change to `.context/` or the codebase.
      counts), `Triage` (per-severity tally). Every function
      takes a narrow `Querier` interface so unit tests use an
      in-memory fake instead of a live Postgres.
-  3. Three new HTTP handlers — `GET /api/v1/findings`,
-     `/runs`, `/triage` — rendered through `handlers.APIV1`'s
+  3. Three new HTTP handlers, `GET /api/v1/findings`,
+     `/runs`, `/triage`: rendered through `handlers.APIV1`'s
      new optional-deps bundle. Unwired endpoints return 503,
      the dashboard renders "backend unavailable" in that
      case. `serve` opens an optional pool when
@@ -3230,7 +3230,7 @@ One-liner per significant change to `.context/` or the codebase.
      findings table, runs table) fetch on page load +
      every relevant SSE signal (finding / run_start /
      run_end), debounced 500 ms.
-- 2026-04-21 — **v1.1 chunk 8 (Wardialing batch)** landed on
+- 2026-04-21, **v1.1 chunk 8 (Wardialing batch)** landed on
   main: `offensive/dial/batch.go` classifies a list of numbers
   against the ADR-041 dial guard (normalise → ≤3-digit hard
   block → scope.blocked_numbers) and appends one
@@ -3244,13 +3244,13 @@ One-liner per significant change to `.context/` or the codebase.
   VoIP delivery lands with v1.2's modem / VoIP backends. E2E
   verified: 5-number input → 3 allow / 2 short, audit chain
   verified with `audit verify-file`.
-- 2026-04-26 — **v1.15.0 PUBLISHED on GitHub Releases**
+- 2026-04-26, **v1.15.0 PUBLISHED on GitHub Releases**
   (https://github.com/RobinR00T/elSereno/releases/tag/v1.15.0).
   9 assets (4 archives + 4 CycloneDX SBOMs + checksums.txt).
   Tag GPG-signed with `ACE3B86BACACE7D6`. Free-tier flow
   (goreleaser local + `gh release create`). Cycle-close
   commit `51572f2`; v1.15.0-released memory commit `27422dd`.
-- 2026-04-26 — **ROADMAP.md drift purge.** Post-v1.15.0
+- 2026-04-26, **ROADMAP.md drift purge.** Post-v1.15.0
   hygiene pass: deleted obsolete `🔴 v1.0.1 release-surface
   polish (queued)` section + its legend entry; deleted
   `v1.13/v1.14 cycle closed (tag pending)` per-chunk lists
@@ -3264,25 +3264,25 @@ One-liner per significant change to `.context/` or the codebase.
   operator" → "Released on GitHub". Rewrote bottom priority
   matrix from "next 90 days" to "v1.16+ horizon": dropped
   `Cut v1.0.1` + the v1.1 P1/P2 rows (DB writer, SSE,
-  WriteGatedHandler, GHCR, seccomp, OPC UA — all shipped);
+  WriteGatedHandler, GHCR, seccomp, OPC UA, all shipped);
   dropped P3 STIX 2.1 export (shipped); added P0 operator
   rows (revoke bootstrap PAT, restore GH Actions billing).
   Net: `-107 / +34` lines on ROADMAP.md. context-check ok.
-- 2026-04-26 — **TODO-vNext.md + protocols/bacnet.md drift
+- 2026-04-26, **TODO-vNext.md + protocols/bacnet.md drift
   purge.** Second hygiene pass: rewrote `TODO-vNext.md`
   end-to-end. Last-refresh 2026-04-25 (post-v1.12) →
-  2026-04-26 (post-v1.15). `## ✅ Shipped during v1.3–v1.12`
-  → `v1.3–v1.15` with 9 new entries (BACnet svc 7/8/9/10/17/
+  2026-04-26 (post-v1.15). `## ✅ Shipped during v1.3-v1.12`
+  → `v1.3-v1.15` with 9 new entries (BACnet svc 7/8/9/10/17/
   20/27 closures, IPv6 cross-cutting, CWMP TransferComplete
   observer-half, `discover --auto <CIDR>`, STIX 2.1, audit
   flock, SIGHUP supervisor variant). Section `🎯 High-leverage
-  — siguiente ciclo (v1.13)` (4 items, all shipped) → `(v1.16)`
+siguiente ciclo (v1.13)` (4 items, all shipped) → `(v1.16)`
   (3 items: CWMP SHA-256 mismatch audit, BACnet per-instance
   Create + per-object LSO refinements, in-process allow-file
   reload as alternative to v1.15 chunk-5 supervisor pattern).
   Removed shipped items from "Herramientas operativas"
   (discover, triage utility, SIGHUP), "Supply-chain"
-  (audit cross-process merge — replaced with optional
+  (audit cross-process merge, replaced with optional
   `audit serve` daemon UDS as v1.16+), and "Plataforma"
   (STIX 2.1). Updated Windows-support note to reference v1.15
   chunk-4's `flock_windows.go` stub. Also bumped
@@ -3291,7 +3291,7 @@ One-liner per significant change to `.context/` or the codebase.
   lifesafetyoperation.go`, `cmd/elsereno/cmd_proxy_allowfile_
   offensive.go`) from "v1.14+ if asked" → "v1.16+ if asked".
   Builds (default + offensive) green; context-check ok.
-- 2026-04-26 — **v1.16 chunk 1 landed.** CWMP TransferComplete
+- 2026-04-26, **v1.16 chunk 1 landed.** CWMP TransferComplete
   authorisation cross-reference (`33284c8`). Closes the v1.15
   chunk-1 observer half by correlating CPE → ACS
   TransferComplete envelopes with the prior Download
@@ -3306,7 +3306,7 @@ One-liner per significant change to `.context/` or the codebase.
   Authorisation). 9 new tests across
   `transfercomplete_test.go` (E2E flows) +
   `pendingdownload_test.go` (unit tests).
-- 2026-04-26 — **v1.16 chunk 2 landed.** BACnet per-(type,
+- 2026-04-26, **v1.16 chunk 2 landed.** BACnet per-(type,
   instance) CreateObject scoping refinement (`83a4b69`).
   Refines the v1.13 chunk-8 per-type list with a parallel
   per-(type, instance) list for the [1] objectIdentifier
@@ -3324,7 +3324,7 @@ One-liner per significant change to `.context/` or the codebase.
   --create-object-instance parsing (with named constants
   `bacnetKeyType` / `bacnetKeyInstance`). 9 new tests
   (`createobjectinstance_test.go`).
-- 2026-04-26 — **v1.16 chunk 3 landed.** BACnet
+- 2026-04-26, **v1.16 chunk 3 landed.** BACnet
   per-(operation, type, instance) LifeSafetyOperation
   scoping refinement (`ed98c71`). Refines the v1.13 chunk-11
   per-operation list with a per-target list for the optional
@@ -3342,8 +3342,8 @@ One-liner per significant change to `.context/` or the codebase.
   keep it under funlen. 9 new tests (`lsotarget_test.go`)
   including the "HOSTILE silence attempted on Reset-only
   target" case.
-- 2026-04-27 — **v1.16 chunk 4 landed.** BACnet
-  token-generation cookie (`c3256da`) — foundation for
+- 2026-04-27, **v1.16 chunk 4 landed.** BACnet
+  token-generation cookie (`c3256da`), foundation for
   in-process allow-file reload. New optional `Generation
   uint32` field on `bacnet.Allowlists` + `TokenGeneration
   uint32` on `bacnet.WriteGatedHandler` folds into the
@@ -3365,7 +3365,7 @@ One-liner per significant change to `.context/` or the codebase.
   Cross-protocol parity (sip / iax2 / pbxhttp / modbus /
   opcua / cwmp gaining the field) follows incrementally if
   operators ask.
-- 2026-04-27 — **v1.17 chunk 1 landed.** CWMP token-generation
+- 2026-04-27, **v1.17 chunk 1 landed.** CWMP token-generation
   cookie + shared `--token-generation` flag promoted to the
   session-flag registrar (`ed868af`). Separator 0xFC (below
   0xFD firmware, 0xFE paths) at the top of the CWMP hash
@@ -3373,14 +3373,14 @@ One-liner per significant change to `.context/` or the codebase.
   `cwmp.WriteGatedHandler`. Refactor: shared
   `parseBACnetTypeInstance` helper (drops 40+ lines of
   duplication). 7 new tests (`tokengeneration_test.go`).
-- 2026-04-27 — **v1.17 chunk 2 landed.** SIP token-generation
+- 2026-04-27, **v1.17 chunk 2 landed.** SIP token-generation
   cookie (`59ff0a2`). Separator 0xFC (below 0xFD fromDomains).
   `buildAllowFileSIP` signature gains trailing
   `tokenGeneration uint32`; 5 existing call sites updated.
   7 new tests.
-- 2026-04-27 — **v1.17 chunk 3 landed.** Token-generation
+- 2026-04-27, **v1.17 chunk 3 landed.** Token-generation
   cookie roll-out across remaining 4 plugins (modbus / iax2
-  / pbxhttp / opcua). Completes cross-protocol parity — every
+  / pbxhttp / opcua). Completes cross-protocol parity, every
   offensive write-gated proxy now carries the
   `--token-generation N` cookie surface. Separators 0xFC for
   modbus/iax2/pbxhttp; 0xFB for opcua (below the 0xFC
@@ -3394,7 +3394,7 @@ One-liner per significant change to `.context/` or the codebase.
   `canonAllowFileOPCUACallMethods` +
   `canonAllowFileOPCUANodeIDs` for gocyclo. 20 new tests
   across 4 test files.
-- 2026-04-27 — **v1.17 chunk 4 landed.** SIGUSR1 in-process
+- 2026-04-27, **v1.17 chunk 4 landed.** SIGUSR1 in-process
   allow-file reload + atomic swap. New `reloadableHandler`
   (atomic.Pointer wrapper), `--reload-allow-file` flag
   (requires --allow-file), sidecar `<allow-file>.token`
@@ -3407,22 +3407,22 @@ One-liner per significant change to `.context/` or the codebase.
   wrapper delegation, atomic-swap semantics, sidecar-token
   mode enforcement, validation, fresh-opts immutability, and
   pass-through for non-reload runs.
-- 2026-04-27 — **v1.17 chunk 5 landed.** `proxy_allowlist_
+- 2026-04-27, **v1.17 chunk 5 landed.** `proxy_allowlist_
   reload` audit event (`02fef1e`) + migration `00003_*`.
   Every SIGUSR1 reload firing emits a row with status
   (`ok`/`failed`), plugin, target, allow_file, old/new
   hash-prefix, token_generation, and reason (on failure).
-  Audit emit is best-effort — a failed audit-chain write
+  Audit emit is best-effort, a failed audit-chain write
   doesn't block the swap. The internal/audit/events_test.go
   migration-sync test picks up the new event automatically.
   2 new tests (defensive nil-writer no-op + hash-prefix
   stability).
-- 2026-04-27 — **v1.17 cycle closed on `main`** (5 chunks,
+- 2026-04-27, **v1.17 cycle closed on `main`** (5 chunks,
   tag pending operator decision). Snapshot:
   `.context/snapshots/v1.17.0-token-generation-and-in-process-reload.md`.
   v1.16 cycle also closed (4 chunks); v1.15.0 still the
   latest published release.
-- 2026-04-27 — **v1.18 chunk 1 landed.** Dashboard CSV export
+- 2026-04-27, **v1.18 chunk 1 landed.** Dashboard CSV export
   from UI (`cc157d4`). New `?format=csv` query param on
   `GET /api/v1/findings` returns RFC-4180 CSV with
   Content-Disposition attachment + filename
@@ -3433,7 +3433,7 @@ One-liner per significant change to `.context/` or the codebase.
   panel gains a "Download CSV (top 500)" link. Backwards
   compat: no format param → JSON envelope (v1.2). 3 new
   tests.
-- 2026-04-27 — **v1.18 chunk 2 landed.** Dashboard diff
+- 2026-04-27, **v1.18 chunk 2 landed.** Dashboard diff
   between runs (`1225312`). New
   `GET /api/v1/findings/diff?old=&new=` returns categorised
   envelope with three buckets (`new` / `resolved` /
@@ -3442,12 +3442,12 @@ One-liner per significant change to `.context/` or the codebase.
   Dashboard gains "Diff between runs" panel with two-input
   form + per-bucket result tables. 9 new tests (6 in repo
   unit + 4 in HTTP handler).
-- 2026-04-27 — **v1.18 cycle closed on `main`** (2 chunks,
+- 2026-04-27, **v1.18 cycle closed on `main`** (2 chunks,
   tag pending operator decision). Snapshot:
   `.context/snapshots/v1.18.0-dashboard-csv-export-and-run-diff.md`.
   v1.17 + v1.16 cycles also closed; v1.15.0 still the latest
   published release.
-- 2026-04-28 — **v1.19 chunk 1 landed.** Audit log API
+- 2026-04-28, **v1.19 chunk 1 landed.** Audit log API
   endpoint + dashboard panel. New
   `GET /api/v1/audit?event_type=&actor=&occurred_after=&
   limit=` returns the newest 50 (clamped [1, 500]) audit
@@ -3460,14 +3460,14 @@ One-liner per significant change to `.context/` or the codebase.
   `tombstoned=true`. Dashboard gains "Audit feed" panel with
   event_type dropdown + actor filter + payload-excerpt
   rendering (`[redacted]` for tombstoned). 6 new tests.
-- 2026-04-28 — **v1.19 chunk 2 landed.** Reload cadence
+- 2026-04-28, **v1.19 chunk 2 landed.** Reload cadence
   dashboard panel (`d2ebb0f`). Surfaces v1.17-chunk-5
   `proxy_allowlist_reload` audit rows as a per-day text-
   based bar chart (last 7 days). Pure dashboard; reuses
   chunk-1's `/api/v1/audit/cadence` endpoint. No new tests
   (chunk-1's TestAuditCadence_HappyPath already covers the
   underlying contract).
-- 2026-04-28 — **v1.19 chunk 3 landed.** CWMP
+- 2026-04-28, **v1.19 chunk 3 landed.** CWMP
   TransferComplete async firmware re-fetch. Closes the
   v1.16-chunk-1 loose end. Opt-in via
   `--verify-firmware-on-complete` (default off) +
@@ -3482,7 +3482,7 @@ One-liner per significant change to `.context/` or the codebase.
   `fetchFirmwareSHA256` from v1.13 chunk 2. 9 new tests
   covering classifier + observer-skip cases + opt-in/opt-
   out switch.
-- 2026-04-28 — **v1.19 cycle closed on `main`** (3 chunks,
+- 2026-04-28, **v1.19 cycle closed on `main`** (3 chunks,
   tag pending operator decision). Snapshot:
   `.context/snapshots/v1.19.0-observability-completion.md`.
   v1.16 / v1.17 / v1.18 cycles also closed; v1.15.0 still

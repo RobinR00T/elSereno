@@ -46,7 +46,7 @@ const (
 const HeaderSize = 8
 
 // MaxMessageSize bounds what we'll allocate for a single UA TCP
-// message. Anything larger is treated as malformed — it protects
+// message. Anything larger is treated as malformed, it protects
 // the scanner against a hostile server advertising a 4 GiB frame.
 const MaxMessageSize = 1 << 20 // 1 MiB
 
@@ -74,7 +74,7 @@ type Header struct {
 
 // ParseHeader decodes the 8-byte prefix and validates the chunk
 // byte + length ceiling. It does NOT require the full message to
-// be present — callers probe for the header first, then read the
+// be present, callers probe for the header first, then read the
 // remaining Length-HeaderSize bytes.
 func ParseHeader(b []byte) (Header, error) {
 	if len(b) < HeaderSize {
@@ -128,7 +128,7 @@ func EncodeHello(h Hello) []byte {
 	// OPC UA strings are length-prefixed i32; -1 (0xFFFFFFFF)
 	// signals null. We always have a value so just emit the
 	// byte length.
-	binary.LittleEndian.PutUint32(body[20:24], uint32(len(urlBytes))) // #nosec G115 — EndpointURL length bounded by caller's input
+	binary.LittleEndian.PutUint32(body[20:24], uint32(len(urlBytes))) // #nosec G115, EndpointURL length bounded by caller's input
 	copy(body[24:], urlBytes)
 	return wrap(MessageHello, body)
 }
@@ -179,7 +179,7 @@ func ParseError(body []byte) (Error, error) {
 		return Error{}, fmt.Errorf("opcua/wire: short ERR body: %d bytes", len(body))
 	}
 	code := binary.LittleEndian.Uint32(body[0:4])
-	lenField := int32(binary.LittleEndian.Uint32(body[4:8])) // #nosec G115 — UA wire format uses signed i32 here
+	lenField := int32(binary.LittleEndian.Uint32(body[4:8])) // #nosec G115, UA wire format uses signed i32 here
 	if lenField <= 0 {
 		return Error{Code: code}, nil
 	}
@@ -195,7 +195,7 @@ func wrap(t MessageType, body []byte) []byte {
 	out := make([]byte, HeaderSize+len(body))
 	copy(out[0:3], string(t))
 	out[3] = byte(ChunkFinal)
-	binary.LittleEndian.PutUint32(out[4:8], uint32(HeaderSize+len(body))) // #nosec G115 — body length bounded by caller
+	binary.LittleEndian.PutUint32(out[4:8], uint32(HeaderSize+len(body))) // #nosec G115, body length bounded by caller
 	copy(out[HeaderSize:], body)
 	return out
 }
@@ -209,25 +209,25 @@ func wrap(t MessageType, body []byte) []byte {
 // 1-byte namespace + 2-byte identifier LE). Some stacks use
 // TwoByteNodeId for small identifiers; the handler accepts both.
 const (
-	// TypeIDOpenSecureChannelRequest — OPC-UA Part 4 §7.1.
+	// TypeIDOpenSecureChannelRequest OPC-UA Part 4 §7.1.
 	TypeIDOpenSecureChannelRequest uint16 = 446
-	// TypeIDCloseSecureChannelRequest — Part 4 §7.2.
+	// TypeIDCloseSecureChannelRequest Part 4 §7.2.
 	TypeIDCloseSecureChannelRequest uint16 = 452
-	// TypeIDCreateSessionRequest — Part 4 §7.3.
+	// TypeIDCreateSessionRequest Part 4 §7.3.
 	TypeIDCreateSessionRequest uint16 = 461
-	// TypeIDActivateSessionRequest — Part 4 §7.5.
+	// TypeIDActivateSessionRequest Part 4 §7.5.
 	TypeIDActivateSessionRequest uint16 = 467
-	// TypeIDCloseSessionRequest — Part 4 §7.6.
+	// TypeIDCloseSessionRequest Part 4 §7.6.
 	TypeIDCloseSessionRequest uint16 = 473
-	// TypeIDReadRequest — Part 4 §10.2.
+	// TypeIDReadRequest Part 4 §10.2.
 	TypeIDReadRequest uint16 = 631
-	// TypeIDWriteRequest — Part 4 §10.4. THE BIG ONE.
+	// TypeIDWriteRequest Part 4 §10.4. THE BIG ONE.
 	TypeIDWriteRequest uint16 = 673
-	// TypeIDCallRequest — Part 4 §11.2. Method invocation can
+	// TypeIDCallRequest Part 4 §11.2. Method invocation can
 	// mutate server state as aggressively as Write, so the
 	// gate treats it the same.
 	TypeIDCallRequest uint16 = 704
-	// TypeIDBrowseRequest — Part 4 §8.2.
+	// TypeIDBrowseRequest Part 4 §8.2.
 	TypeIDBrowseRequest uint16 = 527
 )
 
@@ -255,8 +255,8 @@ var ErrShortMSG = errors.New("opcua/wire: short MSG body")
 // ServiceTypeID decodes the service-request TypeId from the
 // beginning of a MSG chunk body. A MSG body layout is:
 //
-//	[0..3]   SecureChannelId (u32)                          — caller can stash
-//	[4..7]   TokenId (u32)                                  — caller can stash
+//	[0..3]   SecureChannelId (u32), caller can stash
+//	[4..7]   TokenId (u32), caller can stash
 //	[8..11]  SequenceNumber (u32)
 //	[12..15] RequestId (u32)
 //	[16..]   ExpandedNodeId (NodeId encoding + payload)
@@ -265,7 +265,7 @@ var ErrShortMSG = errors.New("opcua/wire: short MSG body")
 // For OPN the security header is different (AsymmetricAlgorithm
 // SecurityHeader with policy URI + certs) so this helper does
 // NOT apply; MSG bodies only. Returns (0, false) when the TypeId
-// encoding is not a FourByte or TwoByte numeric — those are the
+// encoding is not a FourByte or TwoByte numeric, those are the
 // only forms service requests use.
 func ServiceTypeID(msgBody []byte) (uint16, bool) {
 	if len(msgBody) < 17 {

@@ -1,12 +1,12 @@
 ---
 id: 033
-title: BACnet/IP plugin — read-only probe + fingerprint
+title: BACnet/IP plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-033: BACnet/IP plugin — read-only probe + fingerprint
+# ADR-033: BACnet/IP plugin, read-only probe + fingerprint
 
 ## Context
 BACnet/IP is an ICS/OT protocol commonly exposed on port 47808/udp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

@@ -51,7 +51,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 // Probe implements core.Protocol. Sends a single CONTROLLER DATA
 // READ datagram, parses the reply, and folds the controller model
 // into the finding hash. No memory-area read or write is performed
-// — the default build is read-only by design.
+// the default build is read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
 	d := net.Dialer{Timeout: p.DialTimeout}
@@ -164,7 +164,7 @@ func buildFinding(target core.Target, note string, isFINS bool) *core.Finding {
 		"auth_state":    95, // FINS has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs control real machinery
-		// cve_exposure: 9 (v2.33+, bumped from 5) — multi-year
+		// cve_exposure: 9 (v2.33+, bumped from 5), multi-year
 		// Omron CVE catalogue covers auth-bypass + DoS + memory
 		// disclosure across NJ/NX/CJ2/CS1/CP families. Anchors:
 		//   CVE-2019-13533 (NJ/NX auth bypass).

@@ -1,12 +1,12 @@
 ---
 id: 026
-title: Env vars with secrets — warn, don't ban
+title: Env vars with secrets, warn, don't ban
 status: accepted
 date: 2026-04-19
 phase: F0
 ---
 
-# ADR-026: Env vars with secrets — warn, don't ban
+# ADR-026: Env vars with secrets, warn, don't ban
 
 ## Context
 `ELSERENO_VAULT_PASSPHRASE`, `SHODAN_API_KEY`, `CENSYS_API_ID`,

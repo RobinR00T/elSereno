@@ -12,7 +12,7 @@ import (
 	"local/elsereno/internal/inputs/internetdb"
 )
 
-// TestLookup_HappyPath — happy path: server returns 200 with a
+// TestLookup_HappyPath happy path: server returns 200 with a
 // list of ports; client returns one Target per port.
 func TestLookup_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,7 @@ func TestLookup_HappyPath(t *testing.T) {
 	}
 }
 
-// TestLookup_NotFoundIsEmpty — 404 from upstream maps to (nil,
+// TestLookup_NotFoundIsEmpty 404 from upstream maps to (nil,
 // nil), letting the CLI render "no data" cleanly without an
 // error.
 func TestLookup_NotFoundIsEmpty(t *testing.T) {
@@ -69,7 +69,7 @@ func TestLookup_NotFoundIsEmpty(t *testing.T) {
 	}
 }
 
-// TestLookup_InvalidIPRejected — non-IP input fails fast with
+// TestLookup_InvalidIPRejected non-IP input fails fast with
 // ErrInvalidIP. (InternetDB only accepts IPs, not hostnames or
 // CIDRs.)
 func TestLookup_InvalidIPRejected(t *testing.T) {
@@ -80,7 +80,7 @@ func TestLookup_InvalidIPRejected(t *testing.T) {
 	}
 }
 
-// TestLookup_ServerErrorSurfaces — a 500 response is an error.
+// TestLookup_ServerErrorSurfaces a 500 response is an error.
 func TestLookup_ServerErrorSurfaces(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -96,7 +96,7 @@ func TestLookup_ServerErrorSurfaces(t *testing.T) {
 	}
 }
 
-// TestLookup_DropsInvalidPorts — port 0 / >65535 are dropped
+// TestLookup_DropsInvalidPorts port 0 / >65535 are dropped
 // silently rather than crashing the caller.
 func TestLookup_DropsInvalidPorts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

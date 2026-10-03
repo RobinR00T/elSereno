@@ -11,17 +11,17 @@ import (
 // (FuncWriteVar = 0x05) request. v1.52 chunk 1.
 //
 // Each WriteVar request can target multiple variables in
-// one request — the parameter area carries an item list
+// one request, the parameter area carries an item list
 // (count byte + N × 12-byte items in the most common
 // "S7ANY" syntax). The gate uses this to refuse a
 // WriteVar that targets ANY address outside the operator's
 // per-(area, db, addr) allowlist.
 //
 // Fields:
-//   - Area      — S7 area code (0x81=I, 0x82=Q, 0x83=M,
+//   - Area, S7 area code (0x81=I, 0x82=Q, 0x83=M,
 //     0x84=DB, 0x85=DI, 0x86=L, 0x87=V).
-//   - DB        — DB number (0 for non-DB areas).
-//   - ByteAddr  — byte offset within the area, computed
+//   - DB, DB number (0 for non-DB areas).
+//   - ByteAddr, byte offset within the area, computed
 //     from the 24-bit bit-address field as
 //     bit_addr >> 3. For byte/word/dword
 //     access the source bit_offset is 0,
@@ -29,9 +29,9 @@ import (
 //     bit access the gate matches on the
 //     containing byte (operator-grain control
 //     on bit positions is intentionally not
-//     exposed — operators allowlist DBs and
+//     exposed operators allowlist DBs and
 //     byte ranges, not individual bits).
-//   - Length    — element count from the item header,
+//   - Length, element count from the item header,
 //     scaled by transport size to give a
 //     byte length. Useful for range overlap
 //     checks: an item that says "16 bytes
@@ -47,7 +47,7 @@ type WriteItem struct {
 
 // Sentinel errors for WriteVar parsing failures. Callers
 // (the offensive gate) treat any of these as "refuse the
-// frame" — a malformed WriteVar request shouldn't be
+// frame", a malformed WriteVar request shouldn't be
 // allowed through even if the operator's allowlist
 // happens to cover what we managed to parse.
 var (
@@ -63,7 +63,7 @@ var (
 	ErrWriteVarShortItem = errors.New("s7: WriteVar item truncated")
 	// ErrWriteVarUnknownSyntax means an item uses a
 	// syntax id we don't parse. We support only S7ANY
-	// (0x10) — DB-symbolic / NCK / Drives addressing
+	// (0x10), DB-symbolic / NCK / Drives addressing
 	// would need separate parsers and aren't common in
 	// production gating contexts.
 	ErrWriteVarUnknownSyntax = errors.New("s7: WriteVar item uses unsupported syntax id")
@@ -85,11 +85,11 @@ const itemHeaderS7ANYLen = 12
 // the byte-width per element. Used to compute the item's
 // total byte length from the count field. Unknown
 // transport sizes default to 1 (single-byte) which gates
-// conservatively — the operator's allowlist must cover
+// conservatively the operator's allowlist must cover
 // the start address regardless of element width.
 func transportSizeBytes(t uint8) uint32 {
 	switch t {
-	case 0x01: // BIT — packed 1 bit per element; gating uses byte granularity
+	case 0x01: // BIT, packed 1 bit per element; gating uses byte granularity
 		return 1
 	case 0x02, 0x03: // BYTE, CHAR
 		return 1
@@ -108,7 +108,7 @@ func transportSizeBytes(t uint8) uint32 {
 
 // ParseWriteVarItems extracts the WriteItem list from an
 // S7 PDU's parameter area. `s7PDU` is the bytes starting
-// at the protocol-id byte (0x32) — i.e. the inner PDU
+// at the protocol-id byte (0x32), i.e. the inner PDU
 // returned by the gate's innerPDU helper.
 //
 // Returns the extracted items + nil on success. Any
@@ -140,7 +140,7 @@ func ParseWriteVarItems(s7PDU []byte) ([]WriteItem, error) {
 		if cursor+itemHeaderS7ANYLen > len(s7PDU) {
 			return items, fmt.Errorf("%w: item %d truncated", ErrWriteVarShortItem, i)
 		}
-		// Spec byte (0x12) and length (0x0A) — we don't
+		// Spec byte (0x12) and length (0x0A), we don't
 		// strictly validate them; some vendor stacks
 		// extend the item header. We do require the
 		// syntax-id byte to be S7ANY.

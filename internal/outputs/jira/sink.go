@@ -1,6 +1,6 @@
 // Package jira posts each Finding as an issue into a JIRA project
 // via the Cloud REST v3 API. Auth is HTTP Basic with
-// email:api_token (per the JIRA Cloud policy) — callers hold the
+// email:api_token (per the JIRA Cloud policy), callers hold the
 // token in the vault and pass the bytes at Send time.
 package jira
 
@@ -112,7 +112,7 @@ func (s *Sink) Send(ctx context.Context, f core.Finding, addr string) (string, e
 }
 
 // buildPayload constructs the JIRA v3 issue JSON. The description
-// uses the Atlassian Document Format (ADF) with a single paragraph —
+// uses the Atlassian Document Format (ADF) with a single paragraph,
 // a minimum-viable format that avoids pulling in a large ADF builder
 // while still rendering correctly in the JIRA UI.
 func (s *Sink) buildPayload(f core.Finding, addr string) map[string]any {

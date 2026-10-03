@@ -189,7 +189,7 @@ func buildCommandNotImplementedResponse(req wire.Header, reqBody []byte) []byte 
 	out[2] = wire.IDTokenPassPDU
 	out[3] = 0x00
 	binary.BigEndian.PutUint16(out[4:6], req.Sequence)
-	// #nosec G115 — length ≤ 64 bytes by construction
+	// #nosec G115, length ≤ 64 bytes by construction
 	binary.BigEndian.PutUint16(out[6:8], uint16(wire.HeaderLen+len(hartBody)))
 	copy(out[wire.HeaderLen:], hartBody)
 	return out

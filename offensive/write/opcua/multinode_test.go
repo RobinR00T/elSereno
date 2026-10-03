@@ -81,7 +81,7 @@ func wrapMultiMSG(body []byte) []byte {
 // driveMultiNodeSession authorises a handler with the given
 // service + per-NodeId allowlists and returns (client, upstream
 // recorder). Reads on the recorder go through the safeBuffer
-// mutex — direct .buf access would race the io.Copy goroutine.
+// mutex direct .buf access would race the io.Copy goroutine.
 func driveMultiNodeSession(t *testing.T, svcs []opwrite.AllowedService, nodeIDs []opwrite.AllowedNodeID) (net.Conn, *safeBuffer) {
 	t.Helper()
 	target := "plc.test:4840"
@@ -184,7 +184,7 @@ func TestWriteRequestAllNodes_TruncatedFails(t *testing.T) {
 
 // ---- Gate E2E: multi-node refusal ---------------------------
 
-// TestGateMultiNode_AllAllowed — every WriteValue's NodeId is
+// TestGateMultiNode_AllAllowed every WriteValue's NodeId is
 // in the allowlist → forward.
 func TestGateMultiNode_AllAllowed(t *testing.T) {
 	svcs := []opwrite.AllowedService{{TypeID: wire.TypeIDWriteRequest}}
@@ -213,7 +213,7 @@ func TestGateMultiNode_AllAllowed(t *testing.T) {
 	}
 }
 
-// TestGateMultiNode_OneUnknownRefuses — even ONE NodeId outside
+// TestGateMultiNode_OneUnknownRefuses even ONE NodeId outside
 // the allowlist refuses the WHOLE request. This is the v1.6-
 // carry-over bug fix: the old gate only checked the FIRST
 // WriteValue, letting a multi-node batch slip the 2nd/Nth past.
@@ -247,7 +247,7 @@ func TestGateMultiNode_OneUnknownRefuses(t *testing.T) {
 	}
 }
 
-// TestGateMultiNode_DuplicateNodesPass — the same NodeId twice
+// TestGateMultiNode_DuplicateNodesPass the same NodeId twice
 // in one request is fine as long as both are in the allowlist.
 func TestGateMultiNode_DuplicateNodesPass(t *testing.T) {
 	svcs := []opwrite.AllowedService{{TypeID: wire.TypeIDWriteRequest}}

@@ -74,7 +74,7 @@ func TailAudit(ctx context.Context, b *Broadcaster, path string, pollInterval ti
 			line, err := reader.ReadBytes('\n')
 			if len(line) > 0 {
 				if line[len(line)-1] != '\n' {
-					// Partial line — writer hasn't flushed the
+					// Partial line, writer hasn't flushed the
 					// trailing newline yet. Stash and retry later.
 					partial = append(partial, line...)
 					break

@@ -78,7 +78,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	sum := sha256.Sum256(raw)
 
 	factors := map[string]int{
-		"protocol_risk": 5, // low — banner is read-only.
+		"protocol_risk": 5, // low, banner is read-only.
 		"exposure":      50,
 		"auth_state":    50,
 		"capability":    10,
@@ -104,7 +104,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("banner: no REPL; use `elsereno scan` or a protocol-specific plugin")
 }
 
-// ProxyHandler returns nil — banner has no proxy mode.
+// ProxyHandler returns nil, banner has no proxy mode.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return nil }
 
 // Evidence captures the sanitised banner for attaching to the finding.

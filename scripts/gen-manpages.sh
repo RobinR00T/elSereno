@@ -21,7 +21,7 @@ if ! command -v pandoc >/dev/null 2>&1; then
   exit 1
 fi
 
-# man1 / man5 / man7 — pandoc from sources.
+# man1 / man5 / man7, pandoc from sources.
 # Source files are named `<name>.<section>.md` (e.g.
 # elsereno-scope.5.md). Output drops `.md` and keeps the name
 # so the result is `<name>.<section>`. An earlier version

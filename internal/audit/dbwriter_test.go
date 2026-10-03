@@ -194,7 +194,7 @@ func TestDBWriter_GenesisAndChain(t *testing.T) {
 // Append must chain from the seeded row's entry_hash.
 func TestDBWriter_ResumesFromExistingRow(t *testing.T) {
 	conn := newFakeConn()
-	// Pre-seed a row — simulate a prior process's append.
+	// Pre-seed a row, simulate a prior process's append.
 	seed := audit.Entry{
 		ID:        17,
 		EventType: audit.EventGenesis,

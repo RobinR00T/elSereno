@@ -118,14 +118,14 @@ OPN / CLO) always pass.
 Three layers, each opt-in. Writes are gated at the TypeID +
 the per-NodeId + (for CallRequest) per-(object, method) tuple.
 
-### Service TypeID — v1.2
+### Service TypeID, v1.2
 
 ```
 --service 673        # WriteRequest
 --service 704        # CallRequest
 ```
 
-### Per-NodeId — v1.6 + v1.12 chunk 3
+### Per-NodeId, v1.6 + v1.12 chunk 3
 
 For `WriteRequest 673`: every `WriteValue.NodeId` in the request
 batch must match the allowlist (v1.12 chunk 2 walks the entire
@@ -141,7 +141,7 @@ batch must match the allowlist (v1.12 chunk 2 walks the entire
 GUID accepts dashed input (`6b29fc40-ca47-1067-b31d-00dd010662da`)
 and normalises to uppercase. ByteString must be even-length hex.
 
-### Per-CallMethod — v1.12 chunk 6
+### Per-CallMethod, v1.12 chunk 6
 
 For `CallRequest 704`: every `(ObjectId, MethodId)` pair in the
 `MethodsToCall` array must be in the allowlist. Both NodeIds are

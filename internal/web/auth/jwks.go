@@ -37,7 +37,7 @@ type JWKSCache struct {
 	loadedAt time.Time
 }
 
-// DefaultJWKSCacheTTL is 15 minutes — a balance between key-
+// DefaultJWKSCacheTTL is 15 minutes, a balance between key-
 // rotation freshness + not hammering the IdP's JWKS endpoint.
 const DefaultJWKSCacheTTL = 15 * time.Minute
 
@@ -68,7 +68,7 @@ func (c *JWKSCache) Keys(ctx context.Context) (map[string]any, error) {
 	return c.refresh(ctx)
 }
 
-// Refresh forces an immediate fetch — useful when a JWT
+// Refresh forces an immediate fetch, useful when a JWT
 // validation fails with ErrJWTUnknownKey (IdP may have rotated
 // keys mid-cache-window).
 func (c *JWKSCache) Refresh(ctx context.Context) (map[string]any, error) {
@@ -78,7 +78,7 @@ func (c *JWKSCache) Refresh(ctx context.Context) (map[string]any, error) {
 func (c *JWKSCache) refresh(ctx context.Context) (map[string]any, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// Double-check after lock — another goroutine may have
+	// Double-check after lock, another goroutine may have
 	// refreshed while we waited.
 	if c.keys != nil && time.Since(c.loadedAt) < c.TTL {
 		return c.keys, nil

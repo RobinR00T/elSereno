@@ -22,7 +22,7 @@ import (
 const DefaultBaseURL = "https://fofa.info"
 
 // ErrNoCredentials is returned when either Email or APIKey is
-// empty. FOFA requires both — email identifies the account,
+// empty. FOFA requires both, email identifies the account,
 // APIKey authenticates. The CLI surfaces this with a hint
 // pointing at `elsereno creds store fofa`.
 var ErrNoCredentials = errors.New("fofa: no email / API key configured")
@@ -183,7 +183,7 @@ func (c *Client) searchPage(ctx context.Context, query string, page, size int) (
 
 // mapResults converts FOFA rows to core.Target values. Each row
 // is `[host, ip, port]`. Rows whose IP or port fails to parse
-// are skipped (not an error — FOFA returns IPv6 / hostname
+// are skipped (not an error, FOFA returns IPv6 / hostname
 // variants we haven't taught the core to deal with yet).
 func mapResults(rows [][]string) []core.Target {
 	out := make([]core.Target, 0, len(rows))

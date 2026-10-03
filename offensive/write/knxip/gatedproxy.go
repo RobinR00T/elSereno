@@ -19,7 +19,7 @@
 //
 // KNX-specific gating tiers:
 //
-//  1. **Service-type level** — refuse any KNXnet/IP service the
+//  1. **Service-type level**: refuse any KNXnet/IP service the
 //     operator hasn't allowed. Always-safe set: SEARCH_REQUEST
 //     (0x0201), DESCRIPTION_REQUEST (0x0204),
 //     CONNECTIONSTATE_REQUEST (0x0207), DISCONNECT_REQUEST
@@ -29,12 +29,12 @@
 //     DEVICE_CONFIGURATION_REQUEST (0x0310).
 //
 //  2. **APCI level** (TUNNELLING_REQUEST + ROUTING_INDICATION
-//     only) — refuse any cEMI L_Data whose APCI isn't allowed.
+//     only), refuse any cEMI L_Data whose APCI isn't allowed.
 //     APCIGroupValueRead/Response are read-only and always pass.
 //     APCIGroupValueWrite, APCIIndividualAddressWrite,
 //     APCIMemoryWrite, APCIRestart all require explicit allow.
 //
-//  3. **Group-address level** (write APCIs only) — refuse any
+//  3. **Group-address level** (write APCIs only), refuse any
 //     L_Data whose destination group address falls outside the
 //     allowed (GroupAddr & GroupMask) ranges. Operator can
 //     allowlist a single GA (mask 0xFFFF), a sub-group (mask
@@ -102,7 +102,7 @@ func (a AllowedGroup) Matches(dest uint16) bool {
 
 // alwaysSafeServiceTypes: KNXnet/IP services that pass without
 // explicit allowlist entries. These cover discovery, fingerprint,
-// keep-alive, session-teardown, ack, and diag flow-control —
+// keep-alive, session-teardown, ack, and diag flow-control,
 // nothing here mutates state.
 var alwaysSafeServiceTypes = map[uint16]struct{}{
 	wire.ServiceTypeSearchRequest:           {},
@@ -162,7 +162,7 @@ func AllowlistHash(target string, services []AllowedService, apcis []AllowedAPCI
 	return out
 }
 
-// Hash separators picked from the 0xE0+ range — high enough not
+// Hash separators picked from the 0xE0+ range, high enough not
 // to collide with any KNX service code (max 0x05xx) or APCI top-
 // 4-bit code (max 0x3C0).
 const (
@@ -297,7 +297,7 @@ func (h *WriteGatedHandler) Authorise(ctx context.Context) error {
 // hasn't been called (or returned an error) yet.
 var ErrSessionNotAuthorised = errors.New("knxip: write-gated proxy requires Authorise() first")
 
-// maxDatagramSize caps a single KNX UDP read at 1500 bytes —
+// maxDatagramSize caps a single KNX UDP read at 1500 bytes,
 // KNXnet/IP frames live within Ethernet MTU; multicast routing
 // frames carry a single cEMI L_Data that's at most ~250 bytes.
 const maxDatagramSize = 1500
@@ -355,7 +355,7 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer) error 
 func (h *WriteGatedHandler) routeFrame(frame []byte, upstream io.Writer) error {
 	st, err := wire.ServiceType(frame)
 	if err != nil {
-		// Too short to be a valid KNXnet/IP frame — drop silently.
+		// Too short to be a valid KNXnet/IP frame, drop silently.
 		// nilerr exemption: silent drop is the deliberate refusal
 		// path; surfacing wire.ErrServiceTypeMissing would tear the
 		// session down on every short datagram, which a misbehaving
@@ -367,7 +367,7 @@ func (h *WriteGatedHandler) routeFrame(frame []byte, upstream io.Writer) error {
 		return werr
 	}
 	if !h.serviceAllowed(st) {
-		// Service-type not in operator's allowlist — silent drop.
+		// Service-type not in operator's allowlist, silent drop.
 		return nil
 	}
 	// Tunnelling/routing services need APCI + group-address
@@ -400,7 +400,7 @@ func (h *WriteGatedHandler) serviceAllowed(st uint16) bool {
 
 // tunnellingAllowed parses the inner cEMI L_Data and decides
 // whether the (APCI, dest-group-address) pair is permitted.
-// Unparseable cEMI bodies refuse — the gate doesn't allow what
+// Unparseable cEMI bodies refuse, the gate doesn't allow what
 // it can't classify.
 func (h *WriteGatedHandler) tunnellingAllowed(frame []byte) bool {
 	cemi, err := wire.ParseTunnellingCEMI(frame)
@@ -411,7 +411,7 @@ func (h *WriteGatedHandler) tunnellingAllowed(frame []byte) bool {
 }
 
 // routingAllowed extracts the cEMI from a ROUTING_INDICATION
-// (which has NO connection-header — cEMI starts at offset 6
+// (which has NO connection-header, cEMI starts at offset 6
 // directly) and applies the same APCI + GA gate.
 func (h *WriteGatedHandler) routingAllowed(frame []byte) bool {
 	if len(frame) < int(wire.HeaderLen) {

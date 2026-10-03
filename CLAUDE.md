@@ -4,7 +4,7 @@
 1. `.context/_quickref.md` (always)
 2. `.context/STATE.md` (always)
 3. `.context/conventions.md` (always)
-4. `.context/pitfalls.md` (always — anti-patterns catalogue)
+4. `.context/pitfalls.md` (always, anti-patterns catalogue)
 5. Only `.context/protocols/<relevant>.md` for the protocol in scope.
 6. Only `.context/decisions/<relevant>.md` if a design choice is involved.
 
@@ -21,7 +21,7 @@
 2. Update the specific `.context/protocols/<name>.md` or `.context/decisions/<id>.md`.
 3. Add one-line entry to `.context/CHANGELOG.md`.
 4. If a new anti-pattern was discovered, add entry to `.context/pitfalls.md` using `templates/pitfall.md` format.
-5. **Update `INSTALL.md` if the change affects:** install/upgrade/uninstall flow, per-platform feature matrix (Linux vs macOS), build variants (default/offensive/mini), systemd unit, packaging (deb/rpm/apk/OCI), or any CLI verb visible at install-doc level. If unchanged, the close-commit message must say "INSTALL.md unchanged" — silent platform drift is the failure mode this rule prevents (v1.49 standing directive).
+5. **Update `INSTALL.md` if the change affects:** install/upgrade/uninstall flow, per-platform feature matrix (Linux vs macOS), build variants (default/offensive/mini), systemd unit, packaging (deb/rpm/apk/OCI), or any CLI verb visible at install-doc level. If unchanged, the close-commit message must say "INSTALL.md unchanged", silent platform drift is the failure mode this rule prevents (v1.49 standing directive).
 6. **Build BOTH macOS + Linux artefacts** (`goreleaser release --snapshot --skip=publish,docker` covers both via the matrix in `.goreleaser.yml`). Verify the Linux binary stays statically linked (`file dist/elsereno_*_linux_amd64` should say "statically linked"; `go tool nm` should NOT show libc.so symbols).
 7. Run `make context-check`.
 8. Run `make ci`.

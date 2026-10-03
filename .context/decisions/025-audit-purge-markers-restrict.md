@@ -12,7 +12,7 @@ phase: F0
 `audit_purge_markers` carries the `audit_entry_id` of the corresponding
 `purge_event` entry in `audit_log`. If that entry were hard-deleted by
 `audit compact`, the marker would point at a non-existent row
-(FK violation or orphan — PITF-033).
+(FK violation or orphan, PITF-033).
 
 ## Decision
 - Declare the FK as `ON DELETE RESTRICT`.
@@ -31,7 +31,7 @@ phase: F0
 
 ### Negative / trade-offs
 - A future change to `compact` that relaxes the exclusion rule would hit
-  the RESTRICT and fail loudly — exactly what we want.
+  the RESTRICT and fail loudly, exactly what we want.
 
 ## Alternatives considered
 - `ON DELETE SET NULL`: loses the pointer silently.

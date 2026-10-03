@@ -69,7 +69,7 @@ const (
 
 	// SECCOMP_FILTER_FLAG_TSYNC synchronises the filter across
 	// every thread in the caller's thread-group. Without it the
-	// filter only covers the calling thread — which defeats the
+	// filter only covers the calling thread, which defeats the
 	// purpose inside a Go program, where the runtime freely
 	// schedules goroutines across OS threads. With TSYNC the
 	// kernel refuses to install the filter if ANY peer thread
@@ -196,7 +196,7 @@ func installFilter(prog []unix.SockFilter) error {
 	// extends the filter to every thread in the thread-group so
 	// Go's goroutine scheduler doesn't hop a sensitive goroutine
 	// onto an unfiltered OS thread. The syscall NR varies per
-	// arch — defined in seccomp_<arch>.go.
+	// arch defined in seccomp_<arch>.go.
 	_, _, errno := unix.Syscall(
 		seccompSyscallNumber,
 		uintptr(seccompSetModeFilter),

@@ -23,17 +23,17 @@
 //   - Full-frame control messages are classified by FrameType +
 //     Subclass. The gate always-passes:
 //     FrameType != IAX (DTMF / Voice / Video / Text / Image /
-//     HTML / CNG / Null — these are media or presentation,
+//     HTML / CNG / Null, these are media or presentation,
 //     never state-changing at the control layer).
 //     IAX subclass in the always-safe set: HANGUP, ACK,
 //     LAGRQ, LAGRP, INVAL, PING, PONG, REGAUTH, REGACK,
-//     REGREJ, REGREL — call teardown, transaction ack,
+//     REGREJ, REGREL, call teardown, transaction ack,
 //     latency measurement, registration server-side flow.
 //   - Gated IAX subclasses (require operator allowlist):
-//     NEW      — call setup. Toll fraud risk.
-//     REGREQ   — registration. Binding hijack.
-//     AUTHREP  — auth reply. Credential submission.
-//     ACCEPT   — accept incoming call (rare from a client,
+//     NEW call setup. Toll fraud risk.
+//     REGREQ registration. Binding hijack.
+//     AUTHREP auth reply. Credential submission.
+//     ACCEPT accept incoming call (rare from a client,
 //     included for completeness).
 //   - Refusal path: reply with a HANGUP full-frame addressed to
 //     the client's source-call number. IAX2 has no standard
@@ -41,8 +41,8 @@
 //     call-teardown signal; real clients interpret it as "the
 //     server dropped the call" and exit the dialogue cleanly.
 //   - Response path (upstream→client) is a straight io.Copy. The
-//     upstream can send anything back — AUTHREQ, ACCEPT, HANGUP,
-//     audio mini-frames — and operators always want to see it.
+//     upstream can send anything back, AUTHREQ, ACCEPT, HANGUP,
+//     audio mini-frames, and operators always want to see it.
 //
 // Out of scope for v1.4 chunk 3 (slated for v1.5+): IE-level
 // allowlisting (e.g. allow NEW but only to specific
@@ -185,7 +185,7 @@ type WriteGatedHandler struct {
 	// timestamped + direction-tagged + persisted. Wrapping
 	// happens BEFORE the forward goroutine reads from client,
 	// so per-datagram allowlist routing is captured intact. Nil
-	// disables recording — the gate behaves exactly as it did
+	// disables recording, the gate behaves exactly as it did
 	// pre-v1.30.
 	Recorder *replay.Recorder
 
@@ -314,7 +314,7 @@ func (h *WriteGatedHandler) isAllowed(sub wire.IAXSubclass) bool {
 //
 // We set:
 //
-//	Src = the request's Dst (0 for NEW — the callee's assigned
+//	Src = the request's Dst (0 for NEW, the callee's assigned
 //	      number hasn't been issued yet)
 //	Dst = the request's Src (mirrored; the client knows this
 //	      number)
@@ -327,7 +327,7 @@ func (h *WriteGatedHandler) writeHangupRefusal(w io.Writer, req wire.Header) err
 	// PBX); mirror the request's Dst, which is what the client
 	// proposed / knows.
 	binary.BigEndian.PutUint16(buf[0:2], 0x8000|(req.DstCallNum&0x7FFF))
-	// DstCallNum: the client's Src — so the client routes the
+	// DstCallNum: the client's Src, so the client routes the
 	// HANGUP to its pending call.
 	binary.BigEndian.PutUint16(buf[2:4], req.SrcCallNum&0x7FFF)
 	binary.BigEndian.PutUint32(buf[4:8], req.Timestamp)

@@ -43,7 +43,7 @@ func TestParseInput_ListFile(t *testing.T) {
 	}
 }
 
-// TestParseInput_ListMissingFile — surfaces the underlying
+// TestParseInput_ListMissingFile surfaces the underlying
 // os.Open error wrapped with the file path.
 func TestParseInput_ListMissingFile(t *testing.T) {
 	_, err := parseInput(context.Background(), inputParseOpts{
@@ -54,7 +54,7 @@ func TestParseInput_ListMissingFile(t *testing.T) {
 	}
 }
 
-// TestParseInput_UnknownKind — operator typo bypasses every
+// TestParseInput_UnknownKind operator typo bypasses every
 // branch + reaches the default.
 func TestParseInput_UnknownKind(t *testing.T) {
 	_, err := parseInput(context.Background(), inputParseOpts{InputKind: "bogus"})
@@ -63,7 +63,7 @@ func TestParseInput_UnknownKind(t *testing.T) {
 	}
 }
 
-// TestParseInput_NmapMissingFile — same shape as list, distinct
+// TestParseInput_NmapMissingFile same shape as list, distinct
 // branch in the dispatcher.
 func TestParseInput_NmapMissingFile(t *testing.T) {
 	_, err := parseInput(context.Background(), inputParseOpts{
@@ -102,7 +102,7 @@ func TestParseInput_NmapMinimalXML(t *testing.T) {
 	}
 }
 
-// TestParseInput_StdinDefaultsToOsStdin — when Stdin is nil we
+// TestParseInput_StdinDefaultsToOsStdin when Stdin is nil we
 // fall back to os.Stdin. We can't easily test the actual fallback
 // without redirecting the process's stdin; we just call with a
 // cancelled context so the parser doesn't block on a real TTY.

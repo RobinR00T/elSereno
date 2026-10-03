@@ -1,7 +1,7 @@
 # XOT (X.25 over TCP, port 1998)
 
 XOT (RFC 1613) carries classic X.25 packets inside a 4-byte TCP
-envelope. Remnant from the 1990s — still deployed as the
+envelope. Remnant from the 1990s, still deployed as the
 communications layer for legacy SCADA gateways, financial transport,
 and airline reservation systems. Finding a live XOT responder in
 2026 is a strong signal that the target has legacy infrastructure
@@ -13,13 +13,13 @@ worth auditing carefully.
 - Send an X.25 Call Request packet wrapped in the 4-byte XOT header
   (Version 0x0000 + Length big-endian).
 - Parse the response's X.25 PTI (Packet Type Identifier):
-  - `0x0B` Call Accepted — a live X.25 endpoint exists.
-  - `0x13` Clear Request — reachable but rejecting the SVC.
-  - Silent close — not XOT.
+  - `0x0B` Call Accepted, a live X.25 endpoint exists.
+  - `0x13` Clear Request, reachable but rejecting the SVC.
+  - Silent close, not XOT.
 
 ## Proxy policy (default build)
 
-Pass-through with filtering — the proxy reads each 4-byte XOT
+Pass-through with filtering, the proxy reads each 4-byte XOT
 header, validates Version=0 and Length ≤ 4096, and forwards valid
 frames. Frames outside spec are dropped without closing the session.
 

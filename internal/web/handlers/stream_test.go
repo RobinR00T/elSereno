@@ -67,7 +67,7 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 		t.Fatalf("Publish ID = %d", id)
 	}
 
-	// Read until we see the data: line — the framing is
+	// Read until we see the data: line, the framing is
 	// "event:", "id:", "data:" in order (the retry: hint precedes them
 	// and is ignored). Deadline sits inside the request context.
 	deadline := time.Now().Add(45 * time.Second)
@@ -86,11 +86,11 @@ func TestStream_EmitsSSEFramedEvent(t *testing.T) {
 			sawData = true
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("sse framing timeout — event=%v id=%v data=%v", sawEvent, sawID, sawData)
+			t.Fatalf("sse framing timeout, event=%v id=%v data=%v", sawEvent, sawID, sawData)
 		}
 	}
 	if !sawEvent || !sawID {
-		t.Fatalf("missing SSE fields — event=%v id=%v data=%v", sawEvent, sawID, sawData)
+		t.Fatalf("missing SSE fields, event=%v id=%v data=%v", sawEvent, sawID, sawData)
 	}
 }
 
@@ -119,8 +119,8 @@ func TestStream_ClientCancelReleasesSubscription(t *testing.T) {
 
 	// The handler emits the retry: hint BEFORE it calls Subscribe(), so
 	// observing retry: does not prove the subscription exists yet. Poll
-	// the broadcaster's subscriber count directly — that is the state
-	// under test — instead of racing on the hint's arrival (the old 1s
+	// the broadcaster's subscriber count directly, that is the state
+	// under test, instead of racing on the hint's arrival (the old 1s
 	// drainUntil race is what made this test flaky under runner load).
 	subDeadline := time.Now().Add(30 * time.Second)
 	for b.Len() == 0 {

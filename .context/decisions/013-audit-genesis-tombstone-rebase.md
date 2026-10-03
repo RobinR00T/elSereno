@@ -1,12 +1,12 @@
 ---
 id: 013
-title: Audit log — genesis, tombstone purge, and chain rebase
+title: Audit log, genesis, tombstone purge, and chain rebase
 status: accepted
 date: 2026-04-19
 phase: F0
 ---
 
-# ADR-013: Audit log — genesis, tombstone purge, and chain rebase
+# ADR-013: Audit log, genesis, tombstone purge, and chain rebase
 
 ## Context
 An append-only auditable log needs a well-defined start point, a way to

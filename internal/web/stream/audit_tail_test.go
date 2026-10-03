@@ -85,7 +85,7 @@ func TestTailAudit_PublishesOnlyNewEntries(t *testing.T) {
 	case ev := <-ch:
 		t.Fatalf("unexpected extra event: %+v", ev)
 	case <-time.After(150 * time.Millisecond):
-		// OK — no more events.
+		// OK no more events.
 	}
 }
 

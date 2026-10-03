@@ -123,7 +123,7 @@ func TestMemoryScheduleAuditStore_ListBySchedule_Empty(t *testing.T) {
 func TestMemoryScheduleAuditStore_PruneOlderThan_Happy(t *testing.T) {
 	s := scanorch.NewMemoryScheduleAuditStore()
 	// Append 5 events. Memory store stamps OccurredAt = now
-	// on each Append — we sleep 1ms between calls to ensure
+	// on each Append, we sleep 1ms between calls to ensure
 	// distinct timestamps (microsecond truncation otherwise
 	// risks collisions on fast hardware).
 	for i := 0; i < 5; i++ {

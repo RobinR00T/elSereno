@@ -123,7 +123,7 @@ func driveSession(t *testing.T, services []knxwrite.AllowedService, apcis []knxw
 // buildTunnellingFrame: TUNNELLING_REQUEST + cEMI L_Data with the
 // supplied destination + APCI. Mirrors the wire-package test
 // helper. Always builds a group-addressed frame (Address Type
-// bit set) — KNX writes are overwhelmingly group-addressed in
+// bit set), KNX writes are overwhelmingly group-addressed in
 // practice, and the per-(GA, APCI) gating only fires on group
 // frames.
 func buildTunnellingFrame(dst uint16, apciTopNibble byte, data byte) []byte {
@@ -160,7 +160,7 @@ func buildConnectRequest() []byte {
 
 // waitForOneFrame polls until the recorder has at least one
 // datagram or the deadline expires. The "n" was always 1 across
-// every callsite — collapsed to a single-purpose helper.
+// every callsite, collapsed to a single-purpose helper.
 func waitForOneFrame(t *testing.T, r *datagramRecorder) [][]byte {
 	t.Helper()
 	deadline := time.Now().Add(500 * time.Millisecond)
@@ -206,7 +206,7 @@ func TestAllowlistHash_DifferentDimensions(t *testing.T) {
 }
 
 // TestAllowlistHash_BackcompatEmptyDimensions keeps the v1.55
-// hash stable when only the service dimension is configured —
+// hash stable when only the service dimension is configured,
 // future cycles can extend without breaking pre-v1.55 tokens IF
 // they preserve the same separator pattern.
 func TestAllowlistHash_BackcompatEmptyDimensions(t *testing.T) {
@@ -350,7 +350,7 @@ func TestTunnellingWriteAllowedAPCIOutOfGroup(t *testing.T) {
 	apcis := []knxwrite.AllowedAPCI{{APCI: wire.APCIGroupValueWrite}}
 	groups := []knxwrite.AllowedGroup{{GroupAddr: 0x0800, GroupMask: 0xFF00}} // 1/0/*
 	clientIn, rec := driveSession(t, services, apcis, groups)
-	frame := buildTunnellingFrame(0x1003, 0x8, 0x1) // 2/0/3 — outside
+	frame := buildTunnellingFrame(0x1003, 0x8, 0x1) // 2/0/3, outside
 	if _, err := clientIn.Write(frame); err != nil {
 		t.Fatal(err)
 	}
@@ -452,7 +452,7 @@ func TestForwardErrorPropagates(t *testing.T) {
 	select {
 	case err := <-done:
 		// EOF was folded to nil; any other error is acceptable
-		// (pipe closed) — we just want to confirm the handler
+		// (pipe closed), we just want to confirm the handler
 		// returned within the deadline.
 		_ = err
 	case <-time.After(500 * time.Millisecond):

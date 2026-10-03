@@ -1,12 +1,12 @@
 ---
 id: 029
-title: Proxy framework — TCP listener with per-frame hook chain
+title: Proxy framework, TCP listener with per-frame hook chain
 status: accepted
 date: 2026-04-19
 phase: F3
 ---
 
-# ADR-029: Proxy framework — TCP listener with per-frame hook chain
+# ADR-029: Proxy framework, TCP listener with per-frame hook chain
 
 ## Context
 Several F2/F3/F4 protocols (XOT pass-through, Modbus read-only, the
@@ -60,8 +60,8 @@ The UDP variant arrives when the first UDP-only protocol needs it
 - **Embed the proxy inside every plugin**: duplicates work, and the
   F4 plugins would re-invent the same Accept + dial + idle logic.
 - **Use `net.ListenConfig` + inline `io.Copy`**: what we had in F2
-  for XOT and atmodem — fine for two plugins, fragile at 9.
+  for XOT and atmodem, fine for two plugins, fragile at 9.
 
 ## References
 - `internal/proxy/framework.go` and `logger.go`.
-- `.context/protocols/modbus.md` — the first plugin that sits on top.
+- `.context/protocols/modbus.md`: the first plugin that sits on top.

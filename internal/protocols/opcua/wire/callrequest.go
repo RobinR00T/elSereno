@@ -5,7 +5,7 @@ import (
 )
 
 // CallMethod is one parsed CallMethodRequest from a CallRequest
-// MSG body. Both ObjectID and MethodID are rich NodeIDValues —
+// MSG body. Both ObjectID and MethodID are rich NodeIDValues,
 // operators can allowlist them in canonical-string form, same
 // shape as v1.12 chunk 3 for WriteRequest NodeIds.
 type CallMethod struct {
@@ -55,7 +55,7 @@ func CallRequestAllMethods(msgBody []byte) (methods []CallMethod, ok bool) {
 //	InputArguments Variant[]
 //
 // Returns (method, bytesConsumed, true) on success; (_, 0,
-// false) on any parse error — caller fails closed.
+// false) on any parse error, caller fails closed.
 func parseCallMethodRequest(b []byte) (CallMethod, int, bool) {
 	off := 0
 	obj, consumed, ok := parseNodeIDRich(b[off:])
@@ -81,14 +81,14 @@ func parseCallMethodRequest(b []byte) (CallMethod, int, bool) {
 // Variants each walked via skipVariant. Returns bytes consumed
 // or (0, false) on any parse error.
 //
-// Arbitrary cap 65536 arguments — same cap used inside
+// Arbitrary cap 65536 arguments, same cap used inside
 // skipVariant for array-element counts. Anything larger is
 // either a bug or an attack.
 func skipVariantArray(b []byte) (int, bool) {
 	if len(b) < 4 {
 		return 0, false
 	}
-	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115 — -1 null sentinel intentional
+	n := int32(binary.LittleEndian.Uint32(b[:4])) // #nosec G115, -1 null sentinel intentional
 	if n < 0 {
 		return 4, true
 	}

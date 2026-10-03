@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release-smoke.sh — post-push release verification for an
+# release-smoke.sh, post-push release verification for an
 # ElSereno tag. Run after `git push origin <tag>` succeeds and
 # the release workflow has uploaded the archives + GHCR image.
 #
@@ -74,7 +74,7 @@ if cosign download sbom "$IMAGE" > "$SBOM" 2>/dev/null; then
         note "SBOM downloaded but no components parsed (format mismatch?)"
     fi
 else
-    note "cosign download sbom returned no SBOM — expected for images without sbom: true"
+    note "cosign download sbom returned no SBOM, expected for images without sbom: true"
 fi
 
 echo
@@ -101,7 +101,7 @@ echo "== SLSA build provenance (v1.2+) =="
 # (all arches × OS) is exercised by gh attestation verify's
 # default subject scan.
 if command -v gh >/dev/null 2>&1; then
-    # Grab any archive we downloaded — cheapest probe.
+    # Grab any archive we downloaded, cheapest probe.
     curl -fLo "$WORK/probe.tar.gz" \
         "$RELEASE_BASE/elsereno_${TAG#v}_linux_amd64.tar.gz" 2>/dev/null || true
     if [ -f "$WORK/probe.tar.gz" ]; then
@@ -112,7 +112,7 @@ if command -v gh >/dev/null 2>&1; then
         fi
     fi
 else
-    note "gh CLI not installed — skipping SLSA attestation verify"
+    note "gh CLI not installed, skipping SLSA attestation verify"
 fi
 
 echo

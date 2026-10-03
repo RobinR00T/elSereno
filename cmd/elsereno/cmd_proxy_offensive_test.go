@@ -26,7 +26,7 @@ import (
 // ---- buildGatedHandler plugin dispatch ------------------------
 
 func TestBuildGatedHandler_SIP(t *testing.T) {
-	// runtime nil is fine — buildGatedHandler only reads
+	// runtime nil is fine, buildGatedHandler only reads
 	// rt.Vault + rt.Auditor when the handler is actually
 	// invoked.
 	opts := proxyListenOpts{
@@ -72,7 +72,7 @@ func TestBuildGatedHandler_IAX2(t *testing.T) {
 }
 
 func TestBuildGatedHandler_IAX2UnknownSubclass(t *testing.T) {
-	// Unknown subclass should bubble up an error — better UX than
+	// Unknown subclass should bubble up an error, better UX than
 	// silently accepting an always-safe subclass as "authorised".
 	opts := proxyListenOpts{
 		plugin:     "iax2",
@@ -289,7 +289,7 @@ func TestProxyListen_E2E_SIP(t *testing.T) {
 	}()
 
 	// Gated handler: allow OPTIONS only (OPTIONS is always-safe
-	// so even an empty allowlist would let it through — the
+	// so even an empty allowlist would let it through, the
 	// real test is the INVITE refusal).
 	h := &sipwrite.WriteGatedHandler{
 		Target:  originLn.Addr().String(),
@@ -331,7 +331,7 @@ func TestProxyListen_E2E_SIP(t *testing.T) {
 		t.Fatal("proxy listener never bound")
 	}
 
-	// Client — connect to the proxy, send OPTIONS then INVITE.
+	// Client connect to the proxy, send OPTIONS then INVITE.
 	dialer := &net.Dialer{Timeout: 2 * time.Second}
 	client, err := dialer.DialContext(ctx, "tcp", srv.Addr().String())
 	if err != nil {

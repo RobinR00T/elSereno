@@ -14,7 +14,7 @@ import (
 // F5; WritePropertyMultiple and TimeSynchronization follow in F6.
 type Op string
 
-// #nosec G101 -- false positive — op labels
+// #nosec G101 -- false positive, op labels
 const (
 	// OpWriteProperty is BACnet Confirmed service 0x0F.
 	OpWriteProperty Op = "write_property"
@@ -43,7 +43,7 @@ type Request struct {
 	PropertyID uint16
 	// Value is the pre-encoded application tag bytes (application
 	// tag + value). The caller is responsible for encoding BACnet's
-	// primitive tags — tooling lives in internal/protocols/bacnet
+	// primitive tags, tooling lives in internal/protocols/bacnet
 	// in F6.
 	Value []byte
 }

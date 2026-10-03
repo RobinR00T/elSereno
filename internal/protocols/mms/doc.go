@@ -31,10 +31,10 @@
 //
 // Higher-confidence MMS detection (full ACSE A-ASSOCIATE-REQUEST
 // with the IEC 61850-8-1 application-context name OID
-// 1.0.9506.2.3) is a future tightening — the COTP-layer disambig
+// 1.0.9506.2.3) is a future tightening, the COTP-layer disambig
 // is sufficient for fingerprinting.
 //
-// CVE history (cve_exposure: 9) — IEC 61850 MMS implementations
+// CVE history (cve_exposure: 9), IEC 61850 MMS implementations
 // have a recurring CVE record across vendors:
 //
 //   - CVE-2018-13802 (Siemens SIPROTEC 4 / DIGSI 4 OSI stack DoS).

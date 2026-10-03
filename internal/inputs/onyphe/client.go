@@ -26,7 +26,7 @@ const DefaultBaseURL = "https://www.onyphe.io"
 var ErrNoAPIKey = errors.New("onyphe: no API key configured")
 
 // Client is a minimal ONYPHE REST client for the search API.
-// Same shape as shodan / censys / fofa / zoomeye clients —
+// Same shape as shodan / censys / fofa / zoomeye clients,
 // returns (ip, port) tuples only.
 type Client struct {
 	APIKey  string
@@ -56,7 +56,7 @@ func New(apiKey string, ratePerSec int) (*Client, error) {
 
 // SearchMatch is the subset of `results[]` fields the scanner
 // needs. ONYPHE returns dozens of fields per match (asn,
-// country, os, tls, etc.) — the client intentionally parses
+// country, os, tls, etc.), the client intentionally parses
 // only ip + port to keep the surface tight.
 //
 // The `port` field is returned as a string by ONYPHE (even
@@ -103,7 +103,7 @@ func (c *Client) SearchPaged(ctx context.Context, query string, totalLimit int) 
 
 // Search calls /api/v2/search/<query> and returns up to one
 // page of parsed matches. `query` is ONYPHE Query Language
-// (OQL) — e.g. `category:datascan product:freepbx`.
+// (OQL), e.g. `category:datascan product:freepbx`.
 //
 // ONYPHE embeds the query in the URL path (not a query
 // parameter), which means operators should URL-encode
@@ -157,7 +157,7 @@ func (c *Client) Search(ctx context.Context, query string, page int) ([]core.Tar
 }
 
 // mapResults converts ONYPHE match rows to core.Target values.
-// Unparseable IPs or ports are dropped silently — ONYPHE
+// Unparseable IPs or ports are dropped silently, ONYPHE
 // returns "hostname" rows + port = "N/A" for incomplete scans
 // that aren't useful for our downstream probes.
 func mapResults(matches []SearchMatch) []core.Target {

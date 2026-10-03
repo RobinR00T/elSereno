@@ -108,7 +108,7 @@ func Stream(b *stream.Broadcaster) http.Handler {
 // writeSSEEvent encodes one event as three SSE lines followed by a
 // blank line (the SSE framing separator). Payload is assumed to be
 // a single JSON object already; callers must not embed raw
-// newlines — our publishers always JSON-encode first.
+// newlines our publishers always JSON-encode first.
 func writeSSEEvent(w http.ResponseWriter, ev stream.Event) error {
 	// The kind → `event:` mapping lets EventSource clients filter
 	// per-topic with `es.addEventListener("finding", …)` while
@@ -121,7 +121,7 @@ func writeSSEEvent(w http.ResponseWriter, ev stream.Event) error {
 		return err
 	}
 	// Payload is already JSON; wrap it once. An empty payload is
-	// still valid — we emit `data: {}` so the parser gets an
+	// still valid, we emit `data: {}` so the parser gets an
 	// object rather than choking on blank content.
 	payload := ev.Payload
 	if len(payload) == 0 {

@@ -60,9 +60,9 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 
 // Probe drives a short fingerprinting conversation. It sends:
 //
-//	AT         — any AT-speaker answers OK/ERROR.
-//	ATI        — Hayes-style identify (banner).
-//	AT+CGMI    — GSM extended identify (manufacturer).
+//	AT any AT-speaker answers OK/ERROR.
+//	ATI Hayes-style identify (banner).
+//	AT+CGMI, GSM extended identify (manufacturer).
 //
 // Classification lives in wire.Detect.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {

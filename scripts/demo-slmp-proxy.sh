@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo-slmp-proxy.sh — end-to-end demo of the SLMP write-gated proxy
+# demo-slmp-proxy.sh, end-to-end demo of the SLMP write-gated proxy
 # against the bundled slmp-sim, with no real Mitsubishi PLC.
 #
 # It builds the offensive binary + slmp-sim, creates a throwaway vault

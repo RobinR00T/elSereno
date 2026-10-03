@@ -11,7 +11,7 @@ import (
 	"local/elsereno/internal/web/httpctx"
 )
 
-// Security returns the `/admin/security` handler — the pentest /
+// Security returns the `/admin/security` handler, the pentest /
 // self-audit panel. Every control ElSereno relies on shows here
 // with its in-process state + a pointer to the code + threat-model
 // doc that enforces it.
@@ -56,7 +56,7 @@ type securityModel struct {
 func securityData() securityModel {
 	offensiveOn := anyOffensive(core.RegisteredPlugins())
 	return securityModel{
-		Title:       "ElSereno — security self-audit",
+		Title:       "ElSereno, security self-audit",
 		GeneratedAt: time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
 		Controls:    buildControls(offensiveOn),
 		Build:       buildLabel(offensiveOn),
@@ -104,15 +104,15 @@ func buildControls(offensiveOn bool) []securityControl {
 		{Name: "Offensive build tag",
 			Status: ternary(offensiveOn, "warn", "ok"),
 			Detail: ternary(offensiveOn,
-				"Offensive plugins ARE registered — triple confirm + scope + dial-guard actively gate writes",
-				"Default build — no offensive code path is reachable",
+				"Offensive plugins ARE registered, triple confirm + scope + dial-guard actively gate writes",
+				"Default build, no offensive code path is reachable",
 			),
 			Code: "offensive/confirm/confirm.go", ADR: "ADR-039"},
 		{Name: "seccomp-bpf sandbox",
 			Status: ternary(runtime.GOOS == "linux", "ok", "warn"),
 			Detail: ternary(runtime.GOOS == "linux",
 				"PR_SET_NO_NEW_PRIVS installed for offensive subprocesses; BPF filter sequences ship post-1.0",
-				"Non-Linux host — sandbox gracefully degrades to log-and-continue (ADR-042)",
+				"Non-Linux host, sandbox gracefully degrades to log-and-continue (ADR-042)",
 			),
 			Code: "offensive/sandbox/sandbox_linux.go", ADR: "ADR-042"},
 		{Name: "Canary webhook", Status: "info",
@@ -258,7 +258,7 @@ const securityHTML = `<!doctype html>
 </section>
 
 <footer>
-  ElSereno — ICS/OT exposure auditor · self-audit for authorised use only.
+  ElSereno, ICS/OT exposure auditor · self-audit for authorised use only.
 </footer>
 </body>
 </html>

@@ -134,7 +134,7 @@ func TestEmitAllowFile_RoundTripSIP(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripSIPWithPrefixes — v1.9 chunk 5
+// TestEmitAllowFile_RoundTripSIPWithPrefixes v1.9 chunk 5
 // sanity check that to_prefixes: survives emit → load.
 func TestEmitAllowFile_RoundTripSIPWithPrefixes(t *testing.T) {
 	dir := t.TempDir()
@@ -157,7 +157,7 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixes(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripSIPWithAORs — v1.10 chunk 1 closes
+// TestEmitAllowFile_RoundTripSIPWithAORs v1.10 chunk 1 closes
 // the REGISTER AOR allowlist round-trip: emit writes aors:,
 // load materialises opts.aors back on the proxyListenOpts side.
 func TestEmitAllowFile_RoundTripSIPWithAORs(t *testing.T) {
@@ -193,7 +193,7 @@ func TestEmitAllowFile_RoundTripSIPWithAORs(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs — both
+// TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs both
 // v1.9 and v1.10 fields active at the same time; YAML contains
 // both keys, both survive the round-trip.
 func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
@@ -224,7 +224,7 @@ func TestEmitAllowFile_RoundTripSIPWithPrefixesAndAORs(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripCWMPWithFirmware — v1.12 chunk 10
+// TestEmitAllowFile_RoundTripCWMPWithFirmware v1.12 chunk 10
 // per-image firmware allowlist round-trips through `firmware:`
 // YAML.
 func TestEmitAllowFile_RoundTripCWMPWithFirmware(t *testing.T) {
@@ -258,7 +258,7 @@ func TestEmitAllowFile_RoundTripCWMPWithFirmware(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripBACnetWithObjects — v1.12 chunk 7
+// TestEmitAllowFile_RoundTripBACnetWithObjects v1.12 chunk 7
 // per-object WriteProperty allowlist round-trips through the
 // `objects:` YAML field.
 func TestEmitAllowFile_RoundTripBACnetWithObjects(t *testing.T) {
@@ -296,7 +296,7 @@ func TestEmitAllowFile_RoundTripBACnetWithObjects(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripOPCUAWithCallMethods — v1.12 chunk 6
+// TestEmitAllowFile_RoundTripOPCUAWithCallMethods v1.12 chunk 6
 // per-CallMethod allowlist round-trips through call_methods: YAML.
 func TestEmitAllowFile_RoundTripOPCUAWithCallMethods(t *testing.T) {
 	dir := t.TempDir()
@@ -334,7 +334,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithCallMethods(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripSIPWithFromDomains — v1.12 chunk 5
+// TestEmitAllowFile_RoundTripSIPWithFromDomains v1.12 chunk 5
 // closes the From-domain round-trip: emit writes `from_domains:`,
 // load materialises opts.fromDomains on the proxyListenOpts side.
 func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
@@ -342,7 +342,7 @@ func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
 	path := filepath.Join(dir, "allow.yaml")
 	var buf bytes.Buffer
 	cmd := helperCmd(&buf)
-	// Mixed-case on purpose — emitter lowercases.
+	// Mixed-case on purpose, emitter lowercases.
 	fromDomains := []string{"VoIP.Example.com", "internal.pbx"}
 	af := buildAllowFileSIP("pbx:5060", []string{"INVITE", "REGISTER"}, nil, nil, fromDomains, 0)
 	if err := emitAllowFile(cmd, path, af); err != nil {
@@ -364,7 +364,7 @@ func TestEmitAllowFile_RoundTripSIPWithFromDomains(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty — YAML doesn't
+// TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty YAML doesn't
 // emit the `from_domains:` key when the list is empty (preserves
 // backwards-compat with v1.10 files).
 func TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty(t *testing.T) {
@@ -380,7 +380,7 @@ func TestEmitAllowFile_SIPOmitsFromDomainsWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_SIPOmitsAORsWhenEmpty — YAML doesn't emit
+// TestEmitAllowFile_SIPOmitsAORsWhenEmpty YAML doesn't emit
 // the `aors:` key when list is nil (keeps backwards compat with
 // v1.9 files).
 func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
@@ -399,7 +399,7 @@ func TestEmitAllowFile_SIPOmitsAORsWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripCWMP — v1.11 chunk 1: RPCs
+// TestEmitAllowFile_RoundTripCWMP v1.11 chunk 1: RPCs
 // survive emit → load, sorted + prefix-stripped.
 func TestEmitAllowFile_RoundTripCWMP(t *testing.T) {
 	dir := t.TempDir()
@@ -452,7 +452,7 @@ func TestEmitAllowFile_CWMPOmitsRPCsWhenEmpty(t *testing.T) {
 	}
 }
 
-// TestLoadAllowFile_CWMPWithRPCs — direct load test: YAML with
+// TestLoadAllowFile_CWMPWithRPCs direct load test: YAML with
 // rpcs: is recognised by KnownFields(true).
 func TestLoadAllowFile_CWMPWithRPCs(t *testing.T) {
 	p := writeTempYAML(t, `
@@ -475,7 +475,7 @@ rpcs:
 	}
 }
 
-// TestLoadAllowFile_SIPWithAORs — direct load test: YAML with
+// TestLoadAllowFile_SIPWithAORs direct load test: YAML with
 // aors: is recognised by the unmarshal; `KnownFields(true)`
 // doesn't reject it.
 func TestLoadAllowFile_SIPWithAORs(t *testing.T) {
@@ -520,7 +520,7 @@ func TestEmitAllowFile_RoundTripPBXHTTP(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripOPCUAWithNodeIDs — closes the v1.6
+// TestEmitAllowFile_RoundTripOPCUAWithNodeIDs closes the v1.6
 // → v1.9 gap: the emitted YAML contains `node_ids:` entries and
 // loadAllowFile materialises them back onto
 // proxyListenOpts.nodeIDs in CLI-friendly `ns=N;i=M` form.
@@ -560,7 +560,7 @@ func TestEmitAllowFile_RoundTripOPCUAWithNodeIDs(t *testing.T) {
 	}
 }
 
-// TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs — v1.12
+// TestEmitAllowFile_RoundTripOPCUAWithCanonicalNodeIDs v1.12
 // chunk 3 extends node_ids with the `canonical:` YAML field for
 // String / Guid / ByteString encodings. Round-trip keeps the
 // canonical form verbatim so the operator's token stays stable.

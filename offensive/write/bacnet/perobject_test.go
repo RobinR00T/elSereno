@@ -178,7 +178,7 @@ func drivePerObjectSession(t *testing.T, svcs []bwrite.AllowedService, objs []bw
 
 // buildWritePropertyFrame builds a full BVLC + NPDU + APDU
 // frame carrying a WriteProperty confirmed-request. The
-// invoke-id is fixed at 1 — tests don't multiplex pending
+// invoke-id is fixed at 1, tests don't multiplex pending
 // requests.
 func buildWritePropertyFrame(objType uint16, objInst uint32, propID uint32) []byte {
 	service := buildWritePropertyServiceBody(objType, objInst, propID)
@@ -192,7 +192,7 @@ func buildWritePropertyFrame(objType uint16, objInst uint32, propID uint32) []by
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetPerObject_AllowedPasses — WriteProperty to an
+// TestGateBACnetPerObject_AllowedPasses WriteProperty to an
 // allowlisted (type, instance, property) tuple forwards.
 func TestGateBACnetPerObject_AllowedPasses(t *testing.T) {
 	svcs := []bwrite.AllowedService{{ServiceChoice: 15}}
@@ -210,7 +210,7 @@ func TestGateBACnetPerObject_AllowedPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetPerObject_ForbiddenRefuses — WriteProperty to a
+// TestGateBACnetPerObject_ForbiddenRefuses WriteProperty to a
 // non-allowlisted tuple gets an Abort-PDU refusal.
 func TestGateBACnetPerObject_ForbiddenRefuses(t *testing.T) {
 	svcs := []bwrite.AllowedService{{ServiceChoice: 15}}
@@ -239,7 +239,7 @@ func TestGateBACnetPerObject_ForbiddenRefuses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetPerObject_ForbiddenType — different ObjectType
+// TestGateBACnetPerObject_ForbiddenType different ObjectType
 // (not just property).
 func TestGateBACnetPerObject_ForbiddenType(t *testing.T) {
 	svcs := []bwrite.AllowedService{{ServiceChoice: 15}}
@@ -263,7 +263,7 @@ func TestGateBACnetPerObject_ForbiddenType(t *testing.T) {
 	}
 }
 
-// TestGateBACnetPerObject_EmptyAllowlistBypasses — with an empty
+// TestGateBACnetPerObject_EmptyAllowlistBypasses with an empty
 // AllowedObjects list, WriteProperty falls back to the v1.4
 // service-only gate and passes freely.
 func TestGateBACnetPerObject_EmptyAllowlistBypasses(t *testing.T) {
@@ -276,6 +276,6 @@ func TestGateBACnetPerObject_EmptyAllowlistBypasses(t *testing.T) {
 
 	frames := waitForFramesOne(t, upstream)
 	if len(frames) == 0 {
-		t.Fatal("upstream saw nothing — empty allowlist should bypass per-object check")
+		t.Fatal("upstream saw nothing, empty allowlist should bypass per-object check")
 	}
 }

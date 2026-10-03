@@ -151,7 +151,7 @@ func TestReplay_StatusDisabled(t *testing.T) {
 	}
 }
 
-// TestReplayMalformedLineSkipped — a bad JSON line becomes an
+// TestReplayMalformedLineSkipped a bad JSON line becomes an
 // AuditMsg ("skipped malformed line N: …") instead of aborting.
 func TestReplayMalformedLineSkipped(t *testing.T) {
 	src := strings.NewReader(strings.Join([]string{
@@ -182,7 +182,7 @@ func TestReplayMalformedLineSkipped(t *testing.T) {
 	}
 }
 
-// TestReplayWrongSchemaSkipped — a record with the wrong schema
+// TestReplayWrongSchemaSkipped a record with the wrong schema
 // is skipped + reported, not silently coerced.
 func TestReplayWrongSchemaSkipped(t *testing.T) {
 	src := strings.NewReader(`{"schema":"ndjson:v0","run_id":"x","target_id":"y","address":"a","port":1,"protocol":"p","severity":"low","score":1,"factors":{},"created_at":""}`)
@@ -200,7 +200,7 @@ func TestReplayWrongSchemaSkipped(t *testing.T) {
 	}
 }
 
-// TestReplayContextCancel — long replay terminates promptly when
+// TestReplayContextCancel long replay terminates promptly when
 // the context is cancelled. Uses Rate to slow playback so the
 // cancellation loop has lines to skip.
 func TestReplayContextCancel(t *testing.T) {
@@ -222,7 +222,7 @@ func TestReplayContextCancel(t *testing.T) {
 	}
 }
 
-// TestReplayEmptyPath — Run rejects an empty path.
+// TestReplayEmptyPath Run rejects an empty path.
 func TestReplayEmptyPath(t *testing.T) {
 	r := Replay{}
 	err := r.Run(context.Background(), func(tea.Msg) {})
@@ -231,7 +231,7 @@ func TestReplayEmptyPath(t *testing.T) {
 	}
 }
 
-// TestReplayMissingFile — Run reports the I/O error.
+// TestReplayMissingFile Run reports the I/O error.
 func TestReplayMissingFile(t *testing.T) {
 	r := Replay{Path: filepath.Join(t.TempDir(), "nonexistent.ndjson")}
 	err := r.Run(context.Background(), func(tea.Msg) {})
@@ -240,7 +240,7 @@ func TestReplayMissingFile(t *testing.T) {
 	}
 }
 
-// TestReplayName — the human-readable identifier includes the path.
+// TestReplayName the human-readable identifier includes the path.
 func TestReplayName(t *testing.T) {
 	r := Replay{Path: "/tmp/x.ndjson"}
 	if got := r.Name(); got != "replay /tmp/x.ndjson" {
@@ -248,7 +248,7 @@ func TestReplayName(t *testing.T) {
 	}
 }
 
-// TestReplayPacing — a Rate >0 introduces a per-line delay that's
+// TestReplayPacing a Rate >0 introduces a per-line delay that's
 // observable via wallclock. Loose check (5x slack) so this test
 // stays stable on CI runners.
 func TestReplayPacing(t *testing.T) {
@@ -265,7 +265,7 @@ func TestReplayPacing(t *testing.T) {
 	}
 	elapsed := time.Since(start)
 	// 3 lines × 20 ms = 60 ms minimum (a final pace tick fires
-	// after the last emit). Bound only the lower edge — CI
+	// after the last emit). Bound only the lower edge, CI
 	// schedulers can stretch the upper.
 	if elapsed < 40*time.Millisecond {
 		t.Errorf("pacing: elapsed=%v, want ≥40ms", elapsed)

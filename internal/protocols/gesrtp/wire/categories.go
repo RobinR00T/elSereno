@@ -18,7 +18,7 @@ import "io"
 //
 // NOTE: the fingerprint plugin's ServiceLongStatus (0x21) is labelled
 // "Read PLC Long Status" from the nmap/metasploit lineage, but this
-// dissector labels 0x21 as CHANGE_PRIV (change CPU privilege level) —
+// dissector labels 0x21 as CHANGE_PRIV (change CPU privilege level),
 // a control operation, not a read. The gate resolves the conflict
 // safely: 0x21 is NOT in the read set, so it is refused unless the
 // operator explicitly allowlists it.

@@ -83,7 +83,7 @@ var ErrWorkerNoRunner = errors.New("scanorch: worker requires a JobRunner")
 // or concurrently via independent goroutines each calling
 // Process for a different job ID).
 //
-// Worker is intentionally simple — it doesn't pull from a
+// Worker is intentionally simple, it doesn't pull from a
 // queue or schedule work. The orchestration boundary above
 // it (the dashboard, or a future scheduler) calls Process
 // with a specific job ID. This separation lets the Worker
@@ -103,7 +103,7 @@ type Worker struct {
 	PanicHandler func(jobID string, panicValue interface{})
 	// OnProgress, if non-nil, is invoked with mid-run Stats +
 	// per-plugin findings breakdown from the Runner. The
-	// Worker does NOT throttle — it's the listener's
+	// Worker does NOT throttle, it's the listener's
 	// responsibility (cmd_serve wires a time-based throttle
 	// here). Nil → no-op reporter passed to Runner.Run.
 	OnProgress func(jobID string, stats Stats, byPlugin map[string]int)
@@ -112,7 +112,7 @@ type Worker struct {
 // Process dispatches the job with the given ID. The worker:
 //
 //  1. Transitions queued → running (refuses if the job isn't
-//     queued — protects against double-claims when multiple
+//     queued protects against double-claims when multiple
 //     workers race for the same job).
 //  2. Calls Runner.Run with a context derived from ctx.
 //  3. On nil error: transitions running → completed with
@@ -123,7 +123,7 @@ type Worker struct {
 //     cancelled (the operator-initiated cancellation path).
 //
 // Returns the final Job state plus any orchestration error
-// (NOT the runner's error — that's recorded on the Job and
+// (NOT the runner's error, that's recorded on the Job and
 // returned to nil at this level since the state transition
 // succeeded).
 func (w *Worker) Process(ctx context.Context, jobID string) (Job, error) {
@@ -163,7 +163,7 @@ func (w *Worker) runWithRecover(ctx context.Context, job Job) (stats Stats, byPl
 
 // makeProgressReporter returns a ProgressReporter that forwards
 // to OnProgress if set, else a no-op. The Worker does NOT
-// throttle — that's the listener's responsibility.
+// throttle that's the listener's responsibility.
 func (w *Worker) makeProgressReporter(jobID string) ProgressReporter {
 	if w.OnProgress == nil {
 		return func(Stats, map[string]int) {}
@@ -183,12 +183,12 @@ func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, byPlu
 	switch {
 	case ctxErr != nil:
 		to = StateCancelled
-		// Don't carry stats or error — cancellation is operator-
+		// Don't carry stats or error, cancellation is operator-
 		// driven and the partial state isn't meaningful.
 	case runErr != nil:
 		to = StateFailed
 		fields.Error = runErr.Error()
-		// Final stats still useful — operator can see how far
+		// Final stats still useful, operator can see how far
 		// the scan got before failing.
 		fields.Stats = &stats
 		fields.FindingsByPlugin = byPlugin
@@ -201,24 +201,24 @@ func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, byPlu
 	// transition: if the original ctx was cancelled, we still
 	// need to record the cancellation in the store. Bound the
 	// fallback to a short timeout so a wedged store can't hang
-	// the worker forever. Detached deliberately — the parent
+	// the worker forever. Detached deliberately, the parent
 	// ctx may be cancelled (that's why we're transitioning to
 	// cancelled in the first place).
 	storeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	//nolint:contextcheck // deliberate detach — see comment above
+	//nolint:contextcheck // deliberate detach, see comment above
 	final, err := w.Store.Transition(storeCtx, jobID, to, fields)
 	if err != nil {
 		return Job{}, fmt.Errorf("scanorch: terminal transition %s → %s: %w", jobID, to, err)
 	}
-	_ = ctx // ctx unused after this point — kept in signature for symmetry
+	_ = ctx // ctx unused after this point, kept in signature for symmetry
 	return final, nil
 }
 
 // ProcessAll claims and processes every queued job in the
 // store, sequentially. Returns the count of jobs processed and
 // the first orchestration error encountered (if any). A runner
-// error doesn't stop the loop — it's recorded on the
+// error doesn't stop the loop, it's recorded on the
 // individual job and the worker moves on.
 //
 // Useful for the simple "drain the queue once" scheduling

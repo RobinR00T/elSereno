@@ -1,6 +1,6 @@
 package main
 
-// v2.3+ — `elsereno schedule` CLI verb.
+// v2.3+, `elsereno schedule` CLI verb.
 //
 // Hits the local serve over HTTP rather than embedding the
 // schedule store directly. Reasons:
@@ -99,7 +99,7 @@ func resolveScheduleOpts(cmd *cobra.Command) scheduleClientOpts {
 
 // readTokenFile reads ~/.elsereno/token if it exists + mode is
 // 0600. Returns empty string on any error (the caller falls back
-// to no auth — the dashboard ignores Bearer when auth-mode is
+// to no auth, the dashboard ignores Bearer when auth-mode is
 // off).
 func readTokenFile() string {
 	home, err := os.UserHomeDir()
@@ -112,13 +112,13 @@ func readTokenFile() string {
 		return ""
 	}
 	if info.Mode().Perm()&0o077 != 0 {
-		// Refuse to use a world/group-readable token file —
+		// Refuse to use a world/group-readable token file,
 		// matches the SECURITY.md guideline against token
 		// leaks via file modes.
 		_, _ = fmt.Fprintf(os.Stderr, "elsereno schedule: ~/.elsereno/token has loose mode %o; skipping\n", info.Mode().Perm())
 		return ""
 	}
-	body, err := os.ReadFile(path) // #nosec G304 — fixed path under operator's HOME.
+	body, err := os.ReadFile(path) // #nosec G304, fixed path under operator's HOME.
 	if err != nil {
 		return ""
 	}
@@ -136,7 +136,7 @@ func httpDo(opts scheduleClientOpts, method, path string) ([]byte, error) {
 // httpDoWithBody (v2.8+) is the JSON-body-aware variant. When
 // `body` is non-nil, content-type is set to `application/json`
 // (override via the contentType arg for non-JSON imports). The
-// body is sent verbatim — the caller marshals.
+// body is sent verbatim, the caller marshals.
 func httpDoWithBody(opts scheduleClientOpts, method, path string, body []byte, contentType string) ([]byte, error) {
 	var reqBody io.Reader = http.NoBody
 	if len(body) > 0 {
@@ -260,7 +260,7 @@ func (s scheduleListRow) cadence() string {
 
 func (s scheduleListRow) lastFired() string {
 	if s.LastFiredAt.IsZero() {
-		return "—"
+		return "-"
 	}
 	return s.LastFiredAt.UTC().Format(time.RFC3339)
 }
@@ -548,7 +548,7 @@ func newScheduleImportCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts := resolveScheduleOpts(cmd)
-			data, err := os.ReadFile(args[0]) // #nosec G304 — CLI takes operator-supplied path.
+			data, err := os.ReadFile(args[0]) // #nosec G304, CLI takes operator-supplied path.
 			if err != nil {
 				return fmt.Errorf("read import file: %w", err)
 			}

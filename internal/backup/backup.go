@@ -45,12 +45,12 @@ const (
 var (
 	// ErrBadMagic signals the input is not an ElSereno backup.
 	ErrBadMagic = errors.New("backup: bad magic (not an ElSereno backup)")
-	// ErrUnsupportedVersion — the envelope uses a version this
+	// ErrUnsupportedVersion the envelope uses a version this
 	// binary does not support.
 	ErrUnsupportedVersion = errors.New("backup: unsupported envelope version")
-	// ErrTruncated — the archive ended mid-field.
+	// ErrTruncated the archive ended mid-field.
 	ErrTruncated = errors.New("backup: archive truncated")
-	// ErrTampered — AEAD verification failed (bit-flip, wrong key).
+	// ErrTampered AEAD verification failed (bit-flip, wrong key).
 	ErrTampered = errors.New("backup: tamper or wrong key")
 )
 

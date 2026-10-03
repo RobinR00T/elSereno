@@ -2,7 +2,7 @@ package profinet
 
 import "fmt"
 
-// v2.42+ — PROFINET vendor / device-ID resolution table.
+// v2.42+, PROFINET vendor / device-ID resolution table.
 //
 // The DCP Identify response carries:
 //   - VendorID (uint16): assigned by Profinet International (PI).
@@ -11,8 +11,8 @@ import "fmt"
 // Operators inventorying a segment want human names instead
 // of raw 0x002A. This file ships a curated table of the
 // vendors + device families we've observed in real
-// deployments. Not exhaustive — PI's GSDML registry has
-// thousands of entries — but covers >90% of typical
+// deployments. Not exhaustive, PI's GSDML registry has
+// thousands of entries, but covers >90% of typical
 // substation / factory-automation fleets.
 //
 // Source of truth = the PI member directory + the GSDML XML

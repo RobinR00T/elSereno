@@ -16,7 +16,7 @@ systems in residential + commercial buildings; KNXnet/IP gateways
   per-device-name. KNX Medium decodes as: 0x02=TP1, 0x04=PL110,
   0x10=RF, 0x20=IP.
 
-KNXnet/IP is **UDP** — the usual TCP proxy framework does not
+KNXnet/IP is **UDP**: the usual TCP proxy framework does not
 apply.
 
 ## Wire layout (DESCRIPTION_REQUEST/RESPONSE)
@@ -29,13 +29,13 @@ KNXnet/IP header (6 bytes):
   2..3    ServiceType       0x0204 (req) / 0x0205 (resp), BE
   4..5    TotalLength       BE
 
-Request body (8 bytes — control HPAI):
+Request body (8 bytes, control HPAI):
   6       HPAILen           0x08
   7       HPAIProtocol      0x01 (UDP)
   8..11   IPv4 address      0.0.0.0
   12..13  Port              0
 
-Response body (54 bytes — Device Hardware DIB):
+Response body (54 bytes, Device Hardware DIB):
   6       DIB length        0x36
   7       DIB type          0x01 (Device Hardware)
   8       KNX Medium
@@ -59,11 +59,11 @@ offensive write plugin (CONNECT/TUNNELLING_REQUEST gating).
 
 Deferred. KNXnet/IP write services include:
 - `0x0205` CONNECT_REQUEST (open tunnelling channel)
-- `0x0420` TUNNELLING_REQUEST (write group address values —
+- `0x0420` TUNNELLING_REQUEST (write group address values, 
   light switches, valve actuators, blind motors)
 - `0x0310` DEVICE_CONFIGURATION_REQUEST (read/write KNX
   property values on the device's interface object)
-- `0x0530` ROUTING_INDICATION (multicast write — KNXnet/IP
+- `0x0530` ROUTING_INDICATION (multicast write, KNXnet/IP
   routing mode)
 
 A future offensive plugin would gate per-(group address,
@@ -81,16 +81,16 @@ would need to support both.
   commercial buildings.
 - Compatible HMIs (Gira, Jung, MDT, ABB, Siemens N148/22, Berker).
 - Impact: a writeable KNX endpoint can drive any actuator on the
-  KNX bus — turn off building lighting, open all windows, force
+  KNX bus, turn off building lighting, open all windows, force
   HVAC into dehumidify mode, override fire-door electromagnetic
   locks. KNX is BAS-adjacent to life safety (smoke evacuation
   control, elevator emergency mode).
 
 ## Public references
 
-- KNX Standard 03.08.02 (Core) — KNXnet/IP services.
-- KNX Standard 03.08.03 (Routing) — multicast routing details.
-- KNX Standard 03.06.03 (External Message Interface) — group
+- KNX Standard 03.08.02 (Core), KNXnet/IP services.
+- KNX Standard 03.08.03 (Routing), multicast routing details.
+- KNX Standard 03.06.03 (External Message Interface), group
   addresses + DPT (Datapoint Type) catalogue.
 - ICS-CERT and ICSA advisories on KNXnet/IP devices lacking auth
   (multiple, 2014-onwards).

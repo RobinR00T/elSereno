@@ -10,7 +10,7 @@ import (
 )
 
 // TestNewModel pins the Mode + the rolling-window defaults. The
-// caps (200 findings, 100 audit events) are public contract — a
+// caps (200 findings, 100 audit events) are public contract, a
 // bump here means a doc update.
 func TestNewModel(t *testing.T) {
 	m := NewModel(ModeReplay)
@@ -27,7 +27,7 @@ func TestNewModel(t *testing.T) {
 		t.Errorf("FocusedPane = %v, want PaneFindings", m.FocusedPane)
 	}
 	if m.Now == nil {
-		t.Errorf("Now is nil — should default to time.Now")
+		t.Errorf("Now is nil, should default to time.Now")
 	}
 	// Init must return a nil cmd; feeds drive the loop, not a tick.
 	if cmd := m.Init(); cmd != nil {
@@ -104,7 +104,7 @@ func TestCycleFocus(t *testing.T) {
 }
 
 // TestMoveCursorClamps ensures j/k can't drive Cursor past the
-// last finding nor below 0 — the View would index out of range.
+// last finding nor below 0, the View would index out of range.
 func TestMoveCursorClamps(t *testing.T) {
 	m := NewModel(ModeInteractive)
 	m = m.AddFinding(core.Finding{Score: 50})

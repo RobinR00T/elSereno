@@ -147,7 +147,7 @@ type proxyBACnetObject struct {
 }
 
 // proxyBACnetDeleteObject is the YAML form of an
-// AllowedDeleteObject (v1.13 chunk 7). Two fields only —
+// AllowedDeleteObject (v1.13 chunk 7). Two fields only,
 // PropertyID doesn't apply to object-level deletion.
 //
 // Example:
@@ -191,7 +191,7 @@ type proxyBACnetListElement struct {
 }
 
 // proxyBACnetCreateObject is the YAML form of an
-// AllowedCreateObject (v1.13 chunk 8). One field — Type only.
+// AllowedCreateObject (v1.13 chunk 8). One field, Type only.
 // Instance is intentionally absent: the most common
 // CreateObject form has the device pick the instance, and the
 // typical BAS use-case is "operator may create objects of
@@ -205,8 +205,8 @@ type proxyBACnetListElement struct {
 //
 // When the [1] objectIdentifier choice form encodes an instance,
 // the v1.13 gate still matches by type only (instance is ignored).
-// v1.16+ adds a parallel `create_object_instances:` list — see
-// proxyBACnetCreateObjectInstance — for per-(type, instance)
+// v1.16+ adds a parallel `create_object_instances:` list, see
+// proxyBACnetCreateObjectInstance for per-(type, instance)
 // scoping when the ACS uses CHOICE [1].
 type proxyBACnetCreateObject struct {
 	Type uint16 `yaml:"type"`
@@ -262,7 +262,7 @@ type proxyBACnetLSOTarget struct {
 // proxyCallMethod is the YAML-structured form of an OPC UA
 // AllowedCallMethod for per-session CallRequest gating (v1.12+).
 // Both fields are canonical-string NodeIds (ns=N;i=M | s= |
-// g= | b=). Emitted + loaded verbatim — the loader pushes them
+// g= | b=). Emitted + loaded verbatim, the loader pushes them
 // back as `--call-method object=…;method=…` strings on
 // proxyListenOpts.
 //
@@ -306,36 +306,36 @@ type proxyAllowFile struct {
 
 	// Per-plugin allowlist fields (only the one matching Plugin
 	// is consulted). `omitempty` keeps the emitted YAML focused
-	// on the fields relevant to this plugin — a sip dry-run's
+	// on the fields relevant to this plugin, a sip dry-run's
 	// emit-allow-file shouldn't drop empty `subclasses: []` or
 	// `functions: []` keys into the file.
 	Methods               []string                          `yaml:"methods,omitempty"`                 // sip
-	ToPrefixes            []string                          `yaml:"to_prefixes,omitempty"`             // sip (v1.9+) — INVITE destination allowlist
-	AORs                  []string                          `yaml:"aors,omitempty"`                    // sip (v1.10+) — REGISTER AOR allowlist
-	FromDomains           []string                          `yaml:"from_domains,omitempty"`            // sip (v1.12+) — From-header domain allowlist
+	ToPrefixes            []string                          `yaml:"to_prefixes,omitempty"`             // sip (v1.9+), INVITE destination allowlist
+	AORs                  []string                          `yaml:"aors,omitempty"`                    // sip (v1.10+), REGISTER AOR allowlist
+	FromDomains           []string                          `yaml:"from_domains,omitempty"`            // sip (v1.12+), From-header domain allowlist
 	Subclasses            []string                          `yaml:"subclasses,omitempty"`              // iax2
 	Allow                 []string                          `yaml:"allow,omitempty"`                   // pbxhttp
 	Functions             []uint                            `yaml:"functions,omitempty"`               // modbus (legacy: FC-only, any unit/addr)
 	Writes                []proxyModbusWrite                `yaml:"writes,omitempty"`                  // modbus (v1.12+: structured unit+fc+start+end)
-	DiagSubfunctions      []uint16                          `yaml:"diag_subfunctions,omitempty"`       // modbus — mutating FC 8 Diagnostics sub-functions the operator authorised (read/counter sub-functions never listed)
+	DiagSubfunctions      []uint16                          `yaml:"diag_subfunctions,omitempty"`       // modbus, mutating FC 8 Diagnostics sub-functions the operator authorised (read/counter sub-functions never listed)
 	Services              []uint                            `yaml:"services,omitempty"`                // opcua
 	NodeIDs               []proxyNodeID                     `yaml:"node_ids,omitempty"`                // opcua (v1.9+)
-	CallMethods           []proxyCallMethod                 `yaml:"call_methods,omitempty"`            // opcua (v1.12+) — per-CallMethod (object,method) pairs
+	CallMethods           []proxyCallMethod                 `yaml:"call_methods,omitempty"`            // opcua (v1.12+), per-CallMethod (object,method) pairs
 	ServiceChoices        []uint                            `yaml:"service_choices,omitempty"`         // bacnet
-	Objects               []proxyBACnetObject               `yaml:"objects,omitempty"`                 // bacnet (v1.12+) — per-object WriteProperty allowlist
-	DeleteObjects         []proxyBACnetDeleteObject         `yaml:"delete_objects,omitempty"`          // bacnet (v1.13+) — per-target DeleteObject allowlist
-	CreateObjectTypes     []proxyBACnetCreateObject         `yaml:"create_object_types,omitempty"`     // bacnet (v1.13+) — per-type CreateObject allowlist
-	CreateObjectInstances []proxyBACnetCreateObjectInstance `yaml:"create_object_instances,omitempty"` // bacnet (v1.16+) — per-(type, instance) CreateObject allowlist
-	ReinitStates          []uint8                           `yaml:"reinit_states,omitempty"`           // bacnet (v1.13+) — per-state ReinitializeDevice allowlist
-	DCCStates             []uint8                           `yaml:"dcc_states,omitempty"`              // bacnet (v1.13+) — per-state DeviceCommControl allowlist
-	LSOOps                []uint8                           `yaml:"lso_ops,omitempty"`                 // bacnet (v1.13+) — per-operation LifeSafetyOperation allowlist
-	LSOTargets            []proxyBACnetLSOTarget            `yaml:"lso_targets,omitempty"`             // bacnet (v1.16+) — per-(operation, type, instance) LifeSafetyOperation allowlist
-	TokenGeneration       uint32                            `yaml:"token_generation,omitempty"`        // bacnet (v1.16+) — token-generation cookie; bump on allow-file edit to invalidate stale tokens
-	AWFFiles              []uint32                          `yaml:"awf_files,omitempty"`               // bacnet (v1.13+) — per-File-instance AtomicWriteFile allowlist
-	ListElements          []proxyBACnetListElement          `yaml:"list_elements,omitempty"`           // bacnet (v1.13+) — per-(object, property) Add/RemoveListElement allowlist
-	RPCs                  []string                          `yaml:"rpcs,omitempty"`                    // cwmp (v1.11+) — SOAP RPC allowlist
-	ParamPrefixes         []string                          `yaml:"param_prefixes,omitempty"`          // cwmp (v1.12+) — parameter-path allowlist for Set* RPCs
-	Firmware              []proxyCWMPFirmware               `yaml:"firmware,omitempty"`                // cwmp (v1.12+) — per-image allowlist for Download
+	Objects               []proxyBACnetObject               `yaml:"objects,omitempty"`                 // bacnet (v1.12+), per-object WriteProperty allowlist
+	DeleteObjects         []proxyBACnetDeleteObject         `yaml:"delete_objects,omitempty"`          // bacnet (v1.13+), per-target DeleteObject allowlist
+	CreateObjectTypes     []proxyBACnetCreateObject         `yaml:"create_object_types,omitempty"`     // bacnet (v1.13+), per-type CreateObject allowlist
+	CreateObjectInstances []proxyBACnetCreateObjectInstance `yaml:"create_object_instances,omitempty"` // bacnet (v1.16+), per-(type, instance) CreateObject allowlist
+	ReinitStates          []uint8                           `yaml:"reinit_states,omitempty"`           // bacnet (v1.13+), per-state ReinitializeDevice allowlist
+	DCCStates             []uint8                           `yaml:"dcc_states,omitempty"`              // bacnet (v1.13+), per-state DeviceCommControl allowlist
+	LSOOps                []uint8                           `yaml:"lso_ops,omitempty"`                 // bacnet (v1.13+), per-operation LifeSafetyOperation allowlist
+	LSOTargets            []proxyBACnetLSOTarget            `yaml:"lso_targets,omitempty"`             // bacnet (v1.16+), per-(operation, type, instance) LifeSafetyOperation allowlist
+	TokenGeneration       uint32                            `yaml:"token_generation,omitempty"`        // bacnet (v1.16+), token-generation cookie; bump on allow-file edit to invalidate stale tokens
+	AWFFiles              []uint32                          `yaml:"awf_files,omitempty"`               // bacnet (v1.13+), per-File-instance AtomicWriteFile allowlist
+	ListElements          []proxyBACnetListElement          `yaml:"list_elements,omitempty"`           // bacnet (v1.13+), per-(object, property) Add/RemoveListElement allowlist
+	RPCs                  []string                          `yaml:"rpcs,omitempty"`                    // cwmp (v1.11+), SOAP RPC allowlist
+	ParamPrefixes         []string                          `yaml:"param_prefixes,omitempty"`          // cwmp (v1.12+), parameter-path allowlist for Set* RPCs
+	Firmware              []proxyCWMPFirmware               `yaml:"firmware,omitempty"`                // cwmp (v1.12+), per-image allowlist for Download
 }
 
 // loadAllowFile reads + parses an allow-file and merges its

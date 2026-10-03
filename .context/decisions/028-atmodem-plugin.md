@@ -1,19 +1,19 @@
 ---
 id: 028
-title: atmodem plugin — Hayes / GSM / EN 81-28, read-only default
+title: atmodem plugin, Hayes / GSM / EN 81-28, read-only default
 status: accepted
 date: 2026-04-19
 phase: F2
 ---
 
-# ADR-028: atmodem plugin — Hayes / GSM / EN 81-28, read-only default
+# ADR-028: atmodem plugin, Hayes / GSM / EN 81-28, read-only default
 
 ## Context
 AT-over-TCP modems are pervasive in OT: serial-to-IP gateways, lift
 interphones (EN 81-28), remote telemetry on legacy pumps / ATGs, and
 GSM bridges on ICS maintenance lines. Exposure is high-risk because
 the write side of the AT command set can make real phone calls, send
-SMS, disable the radio, dump the phonebook, and surface IMSI/IMEI —
+SMS, disable the radio, dump the phonebook, and surface IMSI/IMEI, 
 all with legal, physical, and GDPR consequences.
 
 The brief scopes dial / SMS / phonebook-dump / at-raw to the offensive
@@ -75,8 +75,8 @@ read-only.
   distinctions that `scan` + `explain` need.
 
 ## References
-- 3GPP TS 27.005 / 27.007 — GSM AT command set.
+- 3GPP TS 27.005 / 27.007, GSM AT command set.
 - Hayes Standard AT Command Set (1981).
-- EN 81-28:2018 — Remote alarm on passenger and goods passenger lifts.
-- `.context/protocols/atmodem.md` — operator-facing notes.
-- LEGAL.md — GDPR considerations for IMSI/IMEI/phonebook data.
+- EN 81-28:2018, Remote alarm on passenger and goods passenger lifts.
+- `.context/protocols/atmodem.md`: operator-facing notes.
+- LEGAL.md, GDPR considerations for IMSI/IMEI/phonebook data.

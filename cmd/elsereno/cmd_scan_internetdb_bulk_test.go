@@ -80,7 +80,7 @@ func TestReadInternetDBTargets_FileBulk(t *testing.T) {
 	}
 }
 
-// TestReadInternetDBIPListFromReader_DropsBlanksAndComments — UI-
+// TestReadInternetDBIPListFromReader_DropsBlanksAndComments UI-
 // niceness coverage: comments + blank lines + whitespace are
 // all handled.
 func TestReadInternetDBIPListFromReader_DropsBlanksAndComments(t *testing.T) {
@@ -97,7 +97,7 @@ func TestReadInternetDBIPListFromReader_DropsBlanksAndComments(t *testing.T) {
 	}
 }
 
-// TestReadInternetDBIPListFromReader_EmptyFails — fully empty
+// TestReadInternetDBIPListFromReader_EmptyFails fully empty
 // input (only blanks/comments) errors out so operators don't
 // silently no-op the bulk lookup.
 func TestReadInternetDBIPListFromReader_EmptyFails(t *testing.T) {

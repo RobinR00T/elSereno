@@ -12,7 +12,7 @@ import (
 // long-lived goroutine per Scheduler instance; cmd_serve
 // spawns one when --scan-store != off.
 //
-// Tick interval is 30s by default (clamped [10s, 5min]) — fast
+// Tick interval is 30s by default (clamped [10s, 5min]), fast
 // enough that an "every 60s" schedule fires on its expected
 // cadence with at most a 30s slip, slow enough that a quiet
 // store doesn't burn CPU.
@@ -31,7 +31,7 @@ type Scheduler struct {
 	OnFire func(scheduleID string, job Job)
 	// OnFireError (optional) is invoked when a Submit fails
 	// during a fire attempt. The Scheduler doesn't retry
-	// internally — the next tick re-evaluates the schedule.
+	// internally the next tick re-evaluates the schedule.
 	OnFireError func(scheduleID string, err error)
 }
 
@@ -49,7 +49,7 @@ var (
 // store each tick. Returns ctx.Err() on exit.
 //
 // Concurrency: the Scheduler runs SEQUENTIALLY through
-// schedules per tick — no parallel goroutine per fire. A slow
+// schedules per tick, no parallel goroutine per fire. A slow
 // Submit (e.g. DBStore lock contention) delays subsequent
 // fires by the round-trip time but doesn't break ordering or
 // exceed the worker pool. For deployments that need parallel
@@ -101,7 +101,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 // fire submits a Job from the schedule's template and stamps
 // LastFiredAt. Stamps before the Submit lands so a Submit
 // failure doesn't leave the schedule in a "fire on every
-// tick" loop — the operator's next tick computes the right
+// tick" loop, the operator's next tick computes the right
 // "due" check from the new timestamp. (A failure that needs
 // a retry is the operator's call to make manually; tight
 // retry loops in the scheduler are a footgun.)
@@ -110,7 +110,7 @@ func (s *Scheduler) fire(ctx context.Context, sched ScanSchedule, now time.Time)
 		if s.OnFireError != nil {
 			s.OnFireError(sched.ID, fmt.Errorf("scheduler: mark-fired: %w", err))
 		}
-		// Don't proceed to Submit — if we can't track the
+		// Don't proceed to Submit, if we can't track the
 		// firing, we'd loop on the next tick.
 		return
 	}
@@ -142,5 +142,5 @@ func (s *Scheduler) Tick(ctx context.Context) {
 // FUTURE: a single-shot "fire all due schedules now" CLI verb
 // could expose Tick directly; an advisory-lock wrapper around
 // MarkFired would let multiple `serve` instances race safely
-// against a shared DB-backed ScheduleStore. Both deferred —
+// against a shared DB-backed ScheduleStore. Both deferred,
 // the in-memory v1.70 store is single-process by design.

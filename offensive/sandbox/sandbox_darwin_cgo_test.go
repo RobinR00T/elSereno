@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestDarwinProfileSchemesPresent — every defined Profile
+// TestDarwinProfileSchemesPresent every defined Profile
 // must map to a non-empty .sb Scheme string. A missing
 // entry would silently yield Availability.Available=false
 // at runtime; this test catches it at build time.
@@ -16,7 +16,7 @@ import (
 // slice. v2.32 added ProfileScan but this test (and its
 // sibling distinct-schemes test) kept the v1.50 hard-coded
 // 3-element list and silently skipped ProfileScan for 9
-// cycles — that's exactly the regression Profiles() is
+// cycles that's exactly the regression Profiles() is
 // designed to eliminate.
 func TestDarwinProfileSchemesPresent(t *testing.T) {
 	for _, p := range Profiles() {
@@ -34,7 +34,7 @@ func TestDarwinProfileSchemesPresent(t *testing.T) {
 	}
 }
 
-// TestDarwinLoadInvalidProfile — Load with an unknown
+// TestDarwinLoadInvalidProfile Load with an unknown
 // profile errors at the input check before touching
 // sandbox_init.
 func TestDarwinLoadInvalidProfile(t *testing.T) {
@@ -47,7 +47,7 @@ func TestDarwinLoadInvalidProfile(t *testing.T) {
 	}
 }
 
-// TestDarwinAllProfilesHaveDistinctSchemes — sanity-check
+// TestDarwinAllProfilesHaveDistinctSchemes sanity-check
 // that we didn't copy-paste exploit.sb to harvest/dial/scan.
 // A regression where every profile had the same scheme
 // would silently neuter the per-profile guarantees.
@@ -84,7 +84,7 @@ func TestDarwinAllProfilesHaveDistinctSchemes(t *testing.T) {
 	if !strings.Contains(dial, "(deny network*)") {
 		t.Errorf("dial profile missing (deny network*)")
 	}
-	// v2.61+: scan profile shape — network probes ON, but
+	// v2.61+: scan profile shape, network probes ON, but
 	// no file writes (scanner shouldn't touch disk; parent
 	// serialises findings via the audit chain).
 	if !strings.Contains(scan, "(allow network*)") {
@@ -95,7 +95,7 @@ func TestDarwinAllProfilesHaveDistinctSchemes(t *testing.T) {
 	}
 }
 
-// TestDarwinSchemeFor (v2.61+) — SchemeFor returns the live
+// TestDarwinSchemeFor (v2.61+), SchemeFor returns the live
 // scheme for every recognised profile and ("", false) for
 // unknown values. This is the introspection accessor that
 // the `sandbox introspect` verb (vNext) and audit-tooling

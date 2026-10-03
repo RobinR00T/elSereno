@@ -66,7 +66,7 @@ func TestMultiWriter_PrimaryFilePlusDBMirror(t *testing.T) {
 
 // TestMultiWriter_PrimaryDBPlusFileMirror exercises the
 // opposite pairing: DB is primary, file is mirror. Same
-// invariant — both sinks agree on IDs + hashes.
+// invariant both sinks agree on IDs + hashes.
 func TestMultiWriter_PrimaryDBPlusFileMirror(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "audit.jsonl")
@@ -102,7 +102,7 @@ func TestMultiWriter_PrimaryDBPlusFileMirror(t *testing.T) {
 }
 
 // TestMultiWriter_PrimaryErrorHaltsFanout checks that when the
-// primary fails, no mirror is touched — we don't want a mirror
+// primary fails, no mirror is touched, we don't want a mirror
 // to hold a row the primary doesn't have (would make the
 // dashboard show a "ghost" row).
 func TestMultiWriter_PrimaryErrorHaltsFanout(t *testing.T) {

@@ -1,6 +1,6 @@
 //go:build !mini
 
-// Package tui implements `elsereno tui` — the interactive
+// Package tui implements `elsereno tui`: the interactive
 // terminal UI for the ElSereno scanner. Built on
 // charmbracelet/bubbletea + bubbles + lipgloss.
 //
@@ -26,7 +26,7 @@
 //     --output-format ndjson | elsereno tui --feed -`.
 //   - **watch**: `elsereno tui --watch http://host:8787/api/v1/stream
 //     --bearer TOKEN`. Read-only consumer of the dashboard's SSE
-//     broadcaster — useful for SOC operators watching from a
+//     broadcaster useful for SOC operators watching from a
 //     secondary terminal while another runs scans.
 //
 // All four modes use the same bubbletea Model. Switching is a

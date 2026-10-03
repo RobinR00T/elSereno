@@ -40,7 +40,7 @@ classify by:
 v1.4+ landed full `offensive/write/pbxhttp/gatedproxy.go`:
 - per-(method, path) allowlist. Gates GET / POST against an
   exact path tuple (e.g.,
-  `(GET, /admin/config.php)` only — not the whole
+  `(GET, /admin/config.php)` only, not the whole
   `/admin/*` tree).
 - v1.17 chunk-3: token-generation cookie (separator 0xFC).
 
@@ -61,7 +61,7 @@ auth_state:60, capability:30→50 on pbx-likely, impact_class:
 40→75 on pbx-likely, **cve_exposure:11** (FreePBX RCE family
 CVE-2014-7235 admin shell injection + CVE-2019-19006 +
 CVE-2020-25822, Asterisk Manager web CVE-2017-9358, 3CX
-CVE-2023-29059, Mitel MiCollab CVE-2024-41713 — web admin
+CVE-2023-29059, Mitel MiCollab CVE-2024-41713, web admin
 UIs are a direct RCE path into call infrastructure)}.
 
 ## Sentinel cases

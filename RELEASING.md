@@ -5,12 +5,12 @@ Assumes you are a maintainer with access to the signing keys.
 
 Two flows are documented here:
 
-- **Free-tier local-build flow** (default since v1.8.0) — all
+- **Free-tier local-build flow** (default since v1.8.0), all
   artefacts are produced locally with `goreleaser` and uploaded
   to GitHub Releases via `gh release upload`. No GitHub Actions
   minutes consumed. Verification: GPG-signed tag + SHA-256
   checksums + CycloneDX SBOMs.
-- **CI-based flow (legacy, v1.0.x)** — originally used until
+- **CI-based flow (legacy, v1.0.x)**: originally used until
   v1.0.1 (pushed releases on every tag). Kept at the bottom of
   this document for operators with Actions billing active who
   want cosign keyless signatures + SLSA v1.0 attestations +
@@ -22,7 +22,7 @@ Install the local build tools on your workstation:
 
 ```sh
 brew install goreleaser syft            # build + SBOM
-# cosign is optional — only needed for CI-based flow below
+# cosign is optional, only needed for CI-based flow below
 ```
 
 Minimum versions verified: goreleaser 2.15.3, syft 1.42.4.
@@ -55,7 +55,7 @@ Every release tag is GPG-signed with the maintainer key
 verify with `git tag -v <tag>`.
 
 ```sh
-git tag -s v1.8.0 -m "ElSereno v1.8.0 — <one-line summary>"
+git tag -s v1.8.0 -m "ElSereno v1.8.0, <one-line summary>"
 git push origin v1.8.0
 ```
 
@@ -83,14 +83,14 @@ Produces under `dist/`:
 - 1 `checksums.txt` with SHA-256 over every other file.
 
 Skipped:
-- `publish` — we'll upload manually via `gh` below.
-- `sign` — cosign keyless needs GitHub Actions OIDC; not
+- `publish`: we'll upload manually via `gh` below.
+- `sign`: cosign keyless needs GitHub Actions OIDC; not
   available in local builds.
-- `docker` — GHCR push needs Actions auth + buildx + QEMU for
+- `docker`: GHCR push needs Actions auth + buildx + QEMU for
   cross-arch. Operators can build images locally if desired:
   `docker buildx build --platform linux/amd64,linux/arm64
   -t local/elsereno:<ver> .`.
-- `validate` — skip strict worktree-clean check (we just did
+- `validate`: skip strict worktree-clean check (we just did
   `git checkout` on a tag, which goreleaser flags as
   detached HEAD).
 
@@ -99,7 +99,7 @@ Skipped:
 Write release notes to `/tmp/release-notes-vX.Y.Z.md`. Template:
 
 ```md
-# ElSereno vX.Y.Z — <one-line theme>
+# ElSereno vX.Y.Z, <one-line theme>
 
 <2-3 sentences summary>
 
@@ -118,7 +118,7 @@ Write release notes to `/tmp/release-notes-vX.Y.Z.md`. Template:
 - SBOM inspection with jq
 
 ## Supply-chain note
-<transparency paragraph — which artefacts come with which
+<transparency paragraph, which artefacts come with which
 signatures, what is missing vs CI-based flow>
 ```
 
@@ -130,7 +130,7 @@ gh release create vX.Y.Z \
     dist/*.cyclonedx.json \
     dist/checksums.txt \
     --repo RobinR00T/elSereno \
-    --title "vX.Y.Z — <title>" \
+    --title "vX.Y.Z, <title>" \
     --notes-file /tmp/release-notes-vX.Y.Z.md
 ```
 
@@ -165,7 +165,7 @@ rm ~/.elsereno/gh-token 2>/dev/null || true
 
 Before v1.8.0 releases were produced by `.github/workflows/
 release.yml` on every `v*` tag push. Operators with active
-GitHub Actions billing can still use this flow — it adds:
+GitHub Actions billing can still use this flow, it adds:
 
 - **Cosign keyless** signatures on `checksums.txt` (both
   `.bundle` and legacy `.sig`).
@@ -181,7 +181,7 @@ it doesn't run on tag push automatically. To re-enable:
 2. Edit `.github/workflows/release.yml`: replace the
    `on: workflow_dispatch` block with the original
    `on: push: tags: ["v*"]` preserved in the header comment.
-3. Push a new tag — the workflow runs goreleaser with publish +
+3. Push a new tag, the workflow runs goreleaser with publish +
    sign + docker enabled, uploads all artefacts + signatures.
 
 Or run manually on an existing tag:
@@ -236,7 +236,7 @@ If a release has to be pulled:
 
 1. `gh release delete vX.Y.Z --yes --repo RobinR00T/elSereno`
    to remove the release entry.
-2. Tags are NOT usually deleted (they're signed — operators
+2. Tags are NOT usually deleted (they're signed, operators
    might have pinned). If the bug is shipping-blocker, ship
    `vX.Y.(Z+1)` instead of retracting.
 3. If a `vX.Y.Z` docker image was published to GHCR, delete

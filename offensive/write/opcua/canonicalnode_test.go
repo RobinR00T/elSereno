@@ -71,7 +71,7 @@ func TestAllowlistHashWithRichNodeIDs_OrderInsensitive(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithRichNodeIDs_LengthPrefixPreventsCollision —
+// TestAllowlistHashWithRichNodeIDs_LengthPrefixPreventsCollision
 // canonical strings are length-prefixed in the hash so two lists
 // whose concatenation would be byte-identical still produce
 // different hashes. Guards against "ns=1;s=A" + "B" colliding
@@ -278,7 +278,7 @@ func TestGateRichNode_GuidAllowlistPass(t *testing.T) {
 	}
 }
 
-// TestGateRichNode_MixedBatchOneForbiddenRefuses — v1.12 chunk 3
+// TestGateRichNode_MixedBatchOneForbiddenRefuses v1.12 chunk 3
 // covers the String/Guid/ByteString encodings but still enforces
 // the multi-node fail-closed semantics from chunk 2: a batch
 // with any forbidden NodeId is fully refused.
@@ -310,14 +310,14 @@ func TestGateRichNode_MixedBatchOneForbiddenRefuses(t *testing.T) {
 	}
 }
 
-// TestGateRichNode_NumericWireDoesNotAcceptCanonicalEntry — when
+// TestGateRichNode_NumericWireDoesNotAcceptCanonicalEntry when
 // the operator allowlists "ns=2;i=42" via the canonical list,
 // a numeric-wire WriteValue for the same logical NodeID must
 // STILL match. Confirms the richNodeIDAllowed matcher falls
 // back to comparing .Canonical() against the canonical list.
 func TestGateRichNode_NumericWireMatchesCanonicalEntry(t *testing.T) {
 	svcs := []opwrite.AllowedService{{TypeID: wire.TypeIDWriteRequest}}
-	// ONLY canonical allowlist — no numeric entries.
+	// ONLY canonical allowlist, no numeric entries.
 	canon := []opwrite.AllowedCanonicalNodeID{"ns=2;i=42"}
 	client, upstreamBuf := driveRichNodeSession(t, svcs, nil, canon)
 

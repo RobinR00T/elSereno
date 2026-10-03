@@ -13,7 +13,7 @@ import (
 // (1.3.6.1.2.1.1.1.0) using each Credential.Community; a valid
 // GetResponse with error-status == 0 signals the community is
 // correct. The prober emits and parses the minimum ASN.1-BER bytes
-// needed for this one OID — no third-party SNMP library.
+// needed for this one OID, no third-party SNMP library.
 type SNMPProber struct {
 	DialTimeout time.Duration
 	IOTimeout   time.Duration
@@ -76,8 +76,8 @@ func (s *SNMPProber) attempt(ctx context.Context, target, community string) (boo
 
 // BuildSNMPGetSysDescr encodes an SNMPv2c GetRequest for
 // 1.3.6.1.2.1.1.1.0 (sysDescr.0) with the given community and
-// request id. The byte layout is hand-crafted — no third-party ASN.1
-// library — because this is the only OID the harvester ever sends.
+// request id. The byte layout is hand-crafted, no third-party ASN.1
+// library because this is the only OID the harvester ever sends.
 func BuildSNMPGetSysDescr(community string, requestID uint32) []byte {
 	// VarBind: SEQ { OID 1.3.6.1.2.1.1.1.0, NULL }
 	oidBytes := []byte{0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x01, 0x00}
@@ -146,7 +146,7 @@ func ParseSNMPGetResponse(pkt []byte, wantCommunity string) (bool, string, error
 		return false, "", err
 	}
 	if pduBody == nil {
-		// Community mismatch — parse succeeded but wrong key.
+		// Community mismatch, parse succeeded but wrong key.
 		return false, "", nil
 	}
 	return readFirstVarBind(pduBody)

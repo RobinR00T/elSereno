@@ -40,7 +40,7 @@ import (
 //	POST   /api/v1/schedules/tags/rename      bulk tag rename (v2.16+)
 //	DELETE /api/v1/schedules/audit?before=…   prune retention (v1.86+)
 //
-// A nil store yields 503 — same degraded-deps pattern as the
+// A nil store yields 503, same degraded-deps pattern as the
 // other scan-orch endpoints.
 //
 // v1.84+: the audit store is optional. When non-nil, force-
@@ -142,18 +142,18 @@ func schedulesActiveMux(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 //	?format=csv    → text/csv with a header row.
 //	?format=ndjson → application/x-ndjson, one schedule per line.
 //	?format=json   → application/json (default; matches /schedules).
-//	?format=ics    → text/calendar; iCalendar (RFC 5545) — schedule
+//	?format=ics    → text/calendar; iCalendar (RFC 5545), schedule
 //	                 fires render as VEVENT entries with RRULE per
 //	                 cadence. Operators import the .ics into their
 //	                 SOC team calendar.
 //
-// CSV is intentionally lossy — only top-level fields. NDJSON is
+// CSV is intentionally lossy, only top-level fields. NDJSON is
 // the canonical round-trip format: pipe through
 // `cat | jq -s '.' | curl -XPOST ... /schedules` is the
 // restore recipe (one POST per line; out of scope for this
 // endpoint to do server-side).
 //
-// ICS is a one-way view — operators don't re-import calendars
+// ICS is a one-way view, operators don't re-import calendars
 // back into elsereno.
 //
 // Content-Disposition is set to `attachment; filename=...`
@@ -189,7 +189,7 @@ func exportSchedules(store scanorch.ScheduleStore) http.Handler {
 //   - interval (1..7d) → RRULE:FREQ=DAILY;INTERVAL=N or
 //     FREQ=HOURLY;INTERVAL=N (best-fit; sub-hour intervals
 //     stay HOURLY rounding up to keep iCalendar consumers
-//     happy — most calendar apps don't render finer than
+//     happy most calendar apps don't render finer than
 //     hourly).
 //   - cron → emitted as a comment in DESCRIPTION; calendar
 //     clients display cron expressions as opaque text since
@@ -361,7 +361,7 @@ func writeSchedulesCSV(w http.ResponseWriter, schedules []scanorch.ScanSchedule)
 }
 
 // writeSchedulesNDJSON emits one canonical JSON object per
-// line. Round-trippable through Create — the operator pipe
+// line. Round-trippable through Create, the operator pipe
 // `... | jq -c '.' | xargs -I {} curl -XPOST -d '{}' /schedules`
 // is the restore recipe. Includes the same fields the API
 // returns on GET /schedules (with sensitive fields not stripped
@@ -381,7 +381,7 @@ func writeSchedulesNDJSON(w http.ResponseWriter, schedules []scanorch.ScanSchedu
 // schedule's Enabled state to the target value + writes one
 // audit event per affected schedule (best-effort, v1.84
 // pattern). Returns the count of schedules affected (NOT
-// total — only those whose state actually changed).
+// total only those whose state actually changed).
 //
 // Designed for planned-maintenance workflows: operator does
 // "bulk/disable" before a DB migration, runs the migration,
@@ -391,7 +391,7 @@ func writeSchedulesNDJSON(w http.ResponseWriter, schedules []scanorch.ScanSchedu
 //
 // Pause-then-pause is a no-op for already-disabled schedules
 // (no audit row written); same for enable-then-enable. This
-// keeps the audit log meaningful — only state transitions
+// keeps the audit log meaningful, only state transitions
 // show up.
 func bulkSetEnabled(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore, enabled bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +409,7 @@ func bulkSetEnabled(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditSt
 			}
 			before := s
 			if err := store.SetEnabled(r.Context(), s.ID, enabled); err != nil {
-				// Keep going — bulk op is best-effort. Operator
+				// Keep going, bulk op is best-effort. Operator
 				// can read the response count + diff against
 				// List to see which schedules didn't flip.
 				continue
@@ -499,7 +499,7 @@ func cloneSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditSto
 			return
 		}
 		// Body is optional; an empty body decodes cleanly to
-		// the zero-value struct. EOF on Decode also fine —
+		// the zero-value struct. EOF on Decode also fine,
 		// just means "no body".
 		var override CloneScheduleRequest
 		if r.ContentLength > 0 {
@@ -574,7 +574,7 @@ func buildCloneRequest(source scanorch.ScanSchedule, override CloneScheduleReque
 		AuditRetentionDays: source.AuditRetentionDays,
 	}
 	// Cadence override: when the operator specifies a cadence
-	// in the body, that wins. The cadence-XOR rule applies —
+	// in the body, that wins. The cadence-XOR rule applies,
 	// they must specify exactly one of interval/cron if
 	// overriding either. Empty body fields = use source's
 	// cadence as-is.
@@ -595,7 +595,7 @@ func buildCloneRequest(source scanorch.ScanSchedule, override CloneScheduleReque
 //
 // The schedule must exist (404 otherwise). 503 when the scan
 // store is nil (memory-only deployments that disabled the
-// scan store). Empty list is a valid response — a schedule
+// scan store). Empty list is a valid response, a schedule
 // that hasn't fired yet returns [].
 //
 // v2.0+: optional ?before=<rfc3339> cursor for keyset
@@ -634,7 +634,7 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 		}
 		// v2.45+: optional ?since= / ?until= window filter.
 		// Mutually-exclusive with ?before= (cursor pagination)
-		// — operators wanting both filter + pagination should
+		// operators wanting both filter + pagination should
 		// page within the window using the same cursor semantics
 		// (a future cycle can add that; for now, since/until
 		// supersede before when set).
@@ -657,7 +657,7 @@ func listScheduleRuns(store scanorch.ScheduleStore, scanStore scanorch.Store) ht
 			return
 		}
 		payload := buildRunsResponse(jobs, limit)
-		// v2.7: ETag — runs are append-only at the head of
+		// v2.7: ETag, runs are append-only at the head of
 		// the list; old pages are stable.
 		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: payload})
 	})
@@ -972,7 +972,7 @@ func buildRunsResponse(jobs []scanorch.Job, limit int) map[string]any {
 
 // withNextFire (v1.77+) populates s.NextFireAt before
 // serializing a single schedule. The store leaves it at zero
-// because it's a derived value — the REST layer is the right
+// because it's a derived value, the REST layer is the right
 // place to compute "next fire" because that's where the
 // "now" reference is meaningful.
 func withNextFire(s scanorch.ScanSchedule, now time.Time) scanorch.ScanSchedule {
@@ -994,7 +994,7 @@ func withNextFireSlice(s []scanorch.ScanSchedule, now time.Time) []scanorch.Scan
 // not-found case which is handled separately.
 //
 // v1.77+: extracted from createSchedule + previewSchedule to
-// satisfy the dupl linter — the Create/Update/Preview paths
+// satisfy the dupl linter, the Create/Update/Preview paths
 // all map the same set of sentinels to 400.
 func writeScheduleValidationError(w http.ResponseWriter, err error) {
 	switch {
@@ -1106,7 +1106,7 @@ func getSchedule(store scanorch.ScheduleStore) http.Handler {
 // updateSchedule (v1.74+) handles PUT /schedules/{id}. Body
 // is JSON UpdateScheduleRequest; response is the updated
 // schedule. Same validation surface as createSchedule
-// (name + template + cadence) — error mapping reuses the
+// (name + template + cadence), error mapping reuses the
 // same sentinels.
 //
 // v1.78+: an `If-Match` header (RFC3339 timestamp) enforces
@@ -1124,7 +1124,7 @@ func getSchedule(store scanorch.ScheduleStore) http.Handler {
 // applies the update, and writes a force_overwrite audit
 // event with before/after JSON snapshots. Lets a downstream
 // operator audit who overrode whom. The header is honored
-// regardless of audit-store presence — the only difference
+// regardless of audit-store presence, the only difference
 // is whether the event gets persisted.
 func updateSchedule(store scanorch.ScheduleStore, audit scanorch.ScheduleAuditStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1198,7 +1198,7 @@ func writeUpdateScheduleError(w http.ResponseWriter, err error) {
 	case errors.Is(err, scanorch.ErrScheduleNotFound):
 		http.Error(w, "schedules: not found", http.StatusNotFound)
 	case errors.Is(err, scanorch.ErrSchedulePreconditionFailed):
-		http.Error(w, "schedules: precondition failed (schedule was modified — refresh and retry)", http.StatusPreconditionFailed)
+		http.Error(w, "schedules: precondition failed (schedule was modified, refresh and retry)", http.StatusPreconditionFailed)
 	default:
 		writeScheduleValidationError(w, err)
 	}
@@ -1226,7 +1226,7 @@ func recordForceOverwriteAudit(ctx context.Context, audit scanorch.ScheduleAudit
 // events older than the cutoff. Returns the deleted-row
 // count.
 //
-// ?before=… is required (no implicit default — operators
+// ?before=… is required (no implicit default, operators
 // must opt into a cutoff explicitly). RFC3339 with
 // optional fractional seconds.
 //
@@ -1299,7 +1299,7 @@ func listScheduleAudit(store scanorch.ScheduleStore, audit scanorch.ScheduleAudi
 			http.Error(w, "schedules: audit list: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// v2.7: ETag — audit events are immutable past
+		// v2.7: ETag, audit events are immutable past
 		// records; new appends invalidate the hash but
 		// otherwise polls return 304.
 		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: events})
@@ -1431,7 +1431,7 @@ func setScheduleEnabled(store scanorch.ScheduleStore, audit scanorch.ScheduleAud
 // predicted next fire time so operators can see what their
 // cadence will produce before committing the schedule.
 //
-// The preview is store-independent — it doesn't touch the
+// The preview is store-independent, it doesn't touch the
 // ScheduleStore. Validation surface mirrors createSchedule
 // (same sentinels for cadence + cron + timezone errors).
 //
@@ -1463,7 +1463,7 @@ func previewSchedule() http.Handler {
 		}
 		// next_fire_at is the first element (back-compat with
 		// v1.77/v1.78 single-fire callers). next_fires is the
-		// full list — empty when the schedule won't fire.
+		// full list, empty when the schedule won't fire.
 		var nextFireAt time.Time
 		if len(fires) > 0 {
 			nextFireAt = fires[0]
@@ -1509,7 +1509,7 @@ func listScheduleTags(store scanorch.ScheduleStore) http.Handler {
 		if counts == nil {
 			counts = []scanorch.TagCount{}
 		}
-		// v2.7: ETag — tag-counts is low-churn (tags rarely
+		// v2.7: ETag, tag-counts is low-churn (tags rarely
 		// change), heavy-poll (dashboard widget refreshes
 		// every 30s). 304 path saves bandwidth.
 		writeJSONWithETag(w, r, scanResponse{Schema: "api:v1", Data: counts})
@@ -1544,7 +1544,7 @@ type ScheduleImportResult struct {
 //	overwrite  → Update the existing in-place; outcome="overwritten".
 //	rename     → append " (imported)" to name; Create; outcome="renamed".
 //
-// Server generates fresh IDs in every case — operators
+// Server generates fresh IDs in every case, operators
 // importing from another deployment shouldn't have to coordinate
 // IDs. UpdatedAt + CreatedAt are stamped fresh on Create;
 // LastFiredAt is dropped (the import isn't a fire).
@@ -1587,7 +1587,7 @@ func importSchedules(store scanorch.ScheduleStore) http.Handler {
 			http.Error(w, "schedules: list for import: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// v2.12/v2.20: preflight runs OUTSIDE any tx — pure
+		// v2.12/v2.20: preflight runs OUTSIDE any tx, pure
 		// validation. If it fails, no writes happen regardless
 		// of atomic mode.
 		if atomicMode == atomicModePreflight || atomicMode == atomicModeTx {
@@ -1736,7 +1736,7 @@ func writeJSONAndCache(w http.ResponseWriter, r *http.Request, idemKey string, r
 
 // preflightImport (v2.12+) validates every row without touching
 // the store. Returns a slice of per-row errors (empty when all
-// rows pass). Doesn't mutate `existing` — actual writes happen
+// rows pass). Doesn't mutate `existing`: actual writes happen
 // in the second pass after preflight passes.
 //
 // What's validated:
@@ -1750,10 +1750,10 @@ func writeJSONAndCache(w http.ResponseWriter, r *http.Request, idemKey string, r
 //   - DB-level transient errors at Create time.
 //   - on_conflict=overwrite uses Update which might fail for
 //     reasons not preflight-detectable (e.g. precondition
-//     failures — though we pass nil IfMatch).
+//     failures though we pass nil IfMatch).
 //
 // Operators wanting end-to-end atomicity should use the
-// future ?atomic=tx mode (deferred — requires Store-level
+// future ?atomic=tx mode (deferred, requires Store-level
 // transaction support).
 type importPreflightError struct {
 	Index   int    `json:"index"`

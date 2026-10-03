@@ -75,7 +75,7 @@ func TestInteractive_HappyPath(t *testing.T) {
 		t.Errorf("last msg = %v, want ScanProgressMsg{Total: 0}", last)
 	}
 
-	// Count FindingMsgs — must equal target count.
+	// Count FindingMsgs, must equal target count.
 	var findings int
 	for _, m := range d.msgs {
 		if _, ok := m.(tui.FindingMsg); ok {
@@ -87,7 +87,7 @@ func TestInteractive_HappyPath(t *testing.T) {
 	}
 }
 
-// TestInteractive_EmptyTargets — no targets → emits an audit
+// TestInteractive_EmptyTargets no targets → emits an audit
 // line + returns nil. The TUI shows the panel but explains why
 // nothing's happening.
 func TestInteractive_EmptyTargets(t *testing.T) {
@@ -107,7 +107,7 @@ func TestInteractive_EmptyTargets(t *testing.T) {
 	}
 }
 
-// TestInteractive_ProbeErrorBecomesAudit — a probe that returns
+// TestInteractive_ProbeErrorBecomesAudit a probe that returns
 // an error should fold to an AuditMsg (warn-and-continue), not
 // abort the feed. Mirrors batch scan's behaviour.
 func TestInteractive_ProbeErrorBecomesAudit(t *testing.T) {
@@ -135,7 +135,7 @@ func TestInteractive_ProbeErrorBecomesAudit(t *testing.T) {
 	}
 }
 
-// TestInteractive_ContextCancel — cancellation propagates so
+// TestInteractive_ContextCancel cancellation propagates so
 // the feed terminates promptly. The scanner respects ctx but
 // we still verify the feed returns the cancellation error
 // rather than swallowing it.
@@ -168,7 +168,7 @@ func TestInteractive_ContextCancel(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
-	// We can't reliably assert calls<total — the scanner queues
+	// We can't reliably assert calls<total, the scanner queues
 	// all probes immediately and they only return after their
 	// 200ms sleep observes the cancelled ctx. The contract is:
 	// Run() returns ctx.Err() promptly, which is what we
@@ -179,7 +179,7 @@ func TestInteractive_ContextCancel(t *testing.T) {
 	}
 }
 
-// TestInteractive_Name — the human-readable name embeds the
+// TestInteractive_Name the human-readable name embeds the
 // target count so error reports say "interactive (12 targets)".
 func TestInteractive_Name(t *testing.T) {
 	feed := Interactive{Targets: make([]core.Target, 7)}

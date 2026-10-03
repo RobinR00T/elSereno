@@ -51,7 +51,7 @@ func TestWardial_RangeExpand(t *testing.T) {
 }
 
 // TestWardial_ConcurrentWorkers: 50 numbers through 4 workers
-// — all classified, order preserved by index.
+// all classified, order preserved by index.
 func TestWardial_ConcurrentWorkers(t *testing.T) {
 	w := openWardial(t)
 	w.Workers = 4
@@ -106,7 +106,7 @@ func TestWardial_CheckpointResume(t *testing.T) {
 	}
 
 	// Confirm checkpoint has 3 lines.
-	data, err := os.ReadFile(ckpt) // #nosec G304 — test fixture.
+	data, err := os.ReadFile(ckpt) // #nosec G304, test fixture.
 	if err != nil {
 		t.Fatalf("read checkpoint: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestWardial_CheckpointResume(t *testing.T) {
 		t.Errorf("checkpoint lines = %d, want 3 (%v)", len(lines), lines)
 	}
 
-	// Second run: same range, same checkpoint — should skip
+	// Second run: same range, same checkpoint, should skip
 	// all 3.
 	r2, err := w.Run(context.Background(), "555-0000..555-0002", nil)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestWardial_NoWriter(t *testing.T) {
 func TestWardial_WorkersClamp(t *testing.T) {
 	w := openWardial(t)
 	w.Workers = 999 // way over MaxWorkers
-	// Should still classify normally — the clamp happens
+	// Should still classify normally, the clamp happens
 	// silently inside Run.
 	_, err := w.Run(context.Background(), "555-0000..555-0003", nil)
 	if err != nil {

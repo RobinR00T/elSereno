@@ -26,7 +26,7 @@ verifiers compute the same hash. JSON has no canonical form by default.
 - Explicit field list removes a large class of silent divergence.
 
 ### Negative / trade-offs
-- JCS is a small, relatively new library — tracked under PITF-011.
+- JCS is a small, relatively new library, tracked under PITF-011.
 
 ## Alternatives considered
 - Custom canonicalisation: reinventing JCS is a recipe for bugs.

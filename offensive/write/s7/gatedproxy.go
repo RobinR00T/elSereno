@@ -32,14 +32,14 @@ type AllowedFunction struct {
 //     ByteAddr+Length-1]) range falls inside at least
 //     one AllowedWriteItem.
 //
-// Multi-item WriteVars are gated as a unit — one
+// Multi-item WriteVars are gated as a unit, one
 // disallowed item refuses the whole frame. This matches
 // the operator's mental model: the WriteVar is one
 // transaction, and partial allow would be confusing.
 //
 // Other write-class FCs (PLCStop, RequestDownload,
 // DownloadBlock, etc.) are NOT constrained by AllowedWriteItems
-// — those don't carry an item list. Their gate stays at the
+// those don't carry an item list. Their gate stays at the
 // FuncCode level via AllowedFunction.
 //
 // Empty list → v1.27 behaviour: WriteVar passes if
@@ -200,7 +200,7 @@ type WriteGatedHandler struct {
 	// timestamped + direction-tagged + persisted. Wrapping
 	// happens BEFORE the TPKT/COTP parser reads, so wire-aware
 	// allowlist routing is captured intact. Nil disables
-	// recording — the gate behaves exactly as it did pre-v1.30.
+	// recording the gate behaves exactly as it did pre-v1.30.
 	Recorder *replay.Recorder
 
 	authorised bool
@@ -315,7 +315,7 @@ func (h *WriteGatedHandler) fcAllowed(fc s7wire.FunctionCode) bool {
 // writeItemsAllowed parses the WriteVar item list from the inner
 // S7 PDU and returns true iff EVERY item fits within at least one
 // AllowedWriteItem entry. A parse failure (malformed PDU,
-// truncated item, unsupported syntax) is treated as refuse —
+// truncated item, unsupported syntax) is treated as refuse,
 // the gate doesn't allow what it can't fully classify.
 func (h *WriteGatedHandler) writeItemsAllowed(inner []byte) bool {
 	items, err := s7wire.ParseWriteVarItems(inner)

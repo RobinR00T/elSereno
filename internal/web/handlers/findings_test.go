@@ -56,7 +56,7 @@ func (r *findingsRows) Values() ([]any, error)                       { return ni
 func (r *findingsRows) Next() bool                                   { r.i++; return r.i <= len(r.rows) }
 
 // Scan populates dst from a canned row shape. The test fake
-// intentionally panics on a type mismatch — the fake is wired
+// intentionally panics on a type mismatch, the fake is wired
 // by the handler's parameterised SQL, so a wrong dst type means
 // the handler changed and the fake needs an update.
 //
@@ -89,7 +89,7 @@ func (r *findingsRows) Scan(dst ...any) error {
 	return nil
 }
 
-// TestFindings_NilQuerierReturns503 — the dashboard must be
+// TestFindings_NilQuerierReturns503 the dashboard must be
 // able to render even when the DB isn't configured; the API
 // endpoint signals that with a 503 + a clear body.
 func TestFindings_NilQuerierReturns503(t *testing.T) {
@@ -129,7 +129,7 @@ func TestFindings_HappyPath(t *testing.T) {
 	}
 }
 
-// TestFindings_CSVFormat — v1.18 chunk 1: the CSV format
+// TestFindings_CSVFormat v1.18 chunk 1: the CSV format
 // emits text/csv with a download disposition + RFC-4180 body.
 func TestFindings_CSVFormat(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}
@@ -160,14 +160,14 @@ func TestFindings_CSVFormat(t *testing.T) {
 	if !strings.Contains(lines[1], "f1,r1,t1,modbus,high,77,2026-04-21T00:00:00Z") {
 		t.Errorf("CSV data row = %q; want canned f1/r1/t1/modbus/high/77/2026-04-21 row", lines[1])
 	}
-	// Factors are rendered as name=value;... — canned factors
+	// Factors are rendered as name=value;..., canned factors
 	// has only `exposure=80`.
 	if !strings.Contains(lines[1], "exposure=80") {
 		t.Errorf("CSV factors column missing exposure=80: %q", lines[1])
 	}
 }
 
-// TestFindings_CSVCaseInsensitive — `format=CSV` (any case)
+// TestFindings_CSVCaseInsensitive `format=CSV` (any case)
 // also triggers CSV.
 func TestFindings_CSVCaseInsensitive(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}
@@ -181,7 +181,7 @@ func TestFindings_CSVCaseInsensitive(t *testing.T) {
 	}
 }
 
-// TestFindings_NoFormatDefaultsToJSON — backwards-compat: no
+// TestFindings_NoFormatDefaultsToJSON backwards-compat: no
 // format param keeps the v1.2 JSON envelope.
 func TestFindings_NoFormatDefaultsToJSON(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}
@@ -207,7 +207,7 @@ func TestFindings_QueryErrorReturns500(t *testing.T) {
 	}
 }
 
-// TestFindingsDiff_NilQuerierReturns503 — same dashboard
+// TestFindingsDiff_NilQuerierReturns503 same dashboard
 // resilience contract as Findings: no DB → 503.
 func TestFindingsDiff_NilQuerierReturns503(t *testing.T) {
 	h := handlers.APIV1(handlers.APIV1Deps{})
@@ -221,7 +221,7 @@ func TestFindingsDiff_NilQuerierReturns503(t *testing.T) {
 	}
 }
 
-// TestFindingsDiff_RequiresBothRunIDs — missing old= or new=
+// TestFindingsDiff_RequiresBothRunIDs missing old= or new=
 // returns 400 with a usage hint.
 func TestFindingsDiff_RequiresBothRunIDs(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}
@@ -240,7 +240,7 @@ func TestFindingsDiff_RequiresBothRunIDs(t *testing.T) {
 	}
 }
 
-// TestFindingsDiff_RejectsSameRunID — old == new is a usage
+// TestFindingsDiff_RejectsSameRunID old == new is a usage
 // error (the diff would be trivially empty, which is more
 // likely an operator typo than intentional).
 func TestFindingsDiff_RejectsSameRunID(t *testing.T) {
@@ -259,7 +259,7 @@ func TestFindingsDiff_RejectsSameRunID(t *testing.T) {
 	}
 }
 
-// TestFindingsDiff_HappyPath — both runs populated, returns
+// TestFindingsDiff_HappyPath both runs populated, returns
 // the categorised envelope.
 func TestFindingsDiff_HappyPath(t *testing.T) {
 	fq := &findingsFake{rows: []any{1}}

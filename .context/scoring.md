@@ -41,7 +41,7 @@ validates that weights sum to 1.0 ± 1e-9.
 - **exposure**: `internet` / `private` / `loopback`; degraded for scoped
   targets.
 - **auth_state**: `none` / `default` / `credentials_present` /
-  `authenticated_fail` — derived per protocol.
+  `authenticated_fail`: derived per protocol.
 - **capability**: what the target permits (read-only vs write vs admin).
 - **impact_class**: safety of disruption (SIS / lift alarm / HVAC …).
 - **cve_exposure**: weighted known-CVE presence; capped to avoid single-CVE

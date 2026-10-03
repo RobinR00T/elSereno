@@ -45,7 +45,7 @@ const (
 	ConfirmedSvcReadPropertyMultiple     ConfirmedService = 14
 	ConfirmedSvcWriteProperty            ConfirmedService = 15 // GATED
 	ConfirmedSvcWritePropertyMultiple    ConfirmedService = 16 // GATED
-	ConfirmedSvcDeviceCommControl        ConfirmedService = 17 // GATED (very dangerous — can silence a device)
+	ConfirmedSvcDeviceCommControl        ConfirmedService = 17 // GATED (very dangerous, can silence a device)
 	ConfirmedSvcConfirmedPrivateTransfer ConfirmedService = 18
 	ConfirmedSvcConfirmedTextMessage     ConfirmedService = 19
 	ConfirmedSvcReinitializeDevice       ConfirmedService = 20 // GATED (coldstart / warmstart)
@@ -107,7 +107,7 @@ func IsMutatingConfirmedService(s ConfirmedService) bool {
 // Unconfirmed-request (ASHRAE 135 §20.1.3):
 //
 //	byte 0:  type<<4
-//	byte 1:  service-choice (NOT a ConfirmedService — different
+//	byte 1:  service-choice (NOT a ConfirmedService, different
 //	         enum; we don't gate unconfirmed)
 func ParseAPDUHeader(apdu []byte) (typ APDUType, service ConfirmedService, hasService bool, err error) {
 	if len(apdu) < 1 {

@@ -14,7 +14,7 @@ import (
 	sipwrite "local/elsereno/offensive/write/sip"
 )
 
-// TestCanonicaliseTarget_IPv6FormsConverge — the canonical
+// TestCanonicaliseTarget_IPv6FormsConverge the canonical
 // safety invariant of v1.14 chunk 2: longform / shortform /
 // uppercase IPv6 host:port literals all map to the same string.
 // An operator who writes `[0:0:0:0:0:0:0:1]:7547` in dry-run
@@ -64,7 +64,7 @@ func TestCanonicaliseTarget_IPv6FormsConverge(t *testing.T) {
 	}
 }
 
-// TestCanonicaliseTarget_HostnameUnchanged — hostname forms pass
+// TestCanonicaliseTarget_HostnameUnchanged hostname forms pass
 // through unchanged (no DNS resolution at parse time).
 func TestCanonicaliseTarget_HostnameUnchanged(t *testing.T) {
 	cases := []string{
@@ -82,7 +82,7 @@ func TestCanonicaliseTarget_HostnameUnchanged(t *testing.T) {
 	}
 }
 
-// TestCanonicaliseTarget_EmptyUnchanged — empty input returns
+// TestCanonicaliseTarget_EmptyUnchanged empty input returns
 // empty (validation happens elsewhere).
 func TestCanonicaliseTarget_EmptyUnchanged(t *testing.T) {
 	if got := canonicaliseTarget(""); got != "" {

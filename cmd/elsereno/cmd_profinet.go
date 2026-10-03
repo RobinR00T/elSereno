@@ -142,7 +142,7 @@ func decodeHexLoose(s string) ([]byte, error) {
 	return hex.DecodeString(clean)
 }
 
-// readFile loads a binary capture from disk. #nosec G304 —
+// readFile loads a binary capture from disk. #nosec G304,
 // operator-supplied path by design.
 func readFile(path string) ([]byte, error) {
 	f, err := os.Open(path) // #nosec G304
@@ -269,11 +269,11 @@ func profinetServiceTypeName(t uint8) string {
 	}
 }
 
-// orDash returns "—" when s is empty so output stays
+// orDash returns "-" when s is empty so output stays
 // visually aligned for both known + unknown vendors.
 func orDash(s string) string {
 	if s == "" {
-		return "—"
+		return "-"
 	}
 	return s
 }

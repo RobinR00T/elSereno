@@ -752,7 +752,7 @@ const overviewHTML = `<!doctype html>
       <form id="audit-filter" onsubmit="return refreshAudit(event);" style="margin: 0.5em 0;">
         <label>event_type:
           <select id="audit-event-type">
-            <option value="">— any —</option>
+            <option value="">- any -</option>
             <option value="vault_unlock">vault_unlock</option>
             <option value="vault_lock">vault_lock</option>
             <option value="serve_start">serve_start</option>
@@ -1017,7 +1017,7 @@ const overviewHTML = `<!doctype html>
       body.innerHTML = rows.map(function (r) {
         return '<tr>' +
           '<td>' + escText(r.status) + '</td>' +
-          '<td>' + escText(r.operator || "—") + '</td>' +
+          '<td>' + escText(r.operator || "-") + '</td>' +
           '<td>' + escText(new Date(r.started_at).toLocaleString()) + '</td>' +
           '<td>' + escText(r.findings) + '</td>' +
           '<td class="rid"><code>' + escText((r.id || "").slice(0, 8)) + '</code></td>' +
@@ -1172,7 +1172,7 @@ const overviewHTML = `<!doctype html>
       }
       var rows = res.data || [];
       if (rows.length === 0) {
-        body.innerHTML = '<tr class="empty"><td colspan="8">no jobs yet — submit one above</td></tr>';
+        body.innerHTML = '<tr class="empty"><td colspan="8">no jobs yet, submit one above</td></tr>';
         scheduleScansPoll(10000);
         return;
       }
@@ -1180,7 +1180,7 @@ const overviewHTML = `<!doctype html>
       body.innerHTML = rows.map(function (j) {
         var state = j.state || "?";
         if (state === "queued" || state === "running") anyActive = true;
-        var plugins = (j.plugins || []).join(",") || "—";
+        var plugins = (j.plugins || []).join(",") || "-";
         var stats = j.stats || {};
         var statsCell = (stats.targets_seen || 0) + "/" + (stats.targets_scanned || 0) +
           " · " + (stats.findings_count || 0) + " findings";
@@ -1198,11 +1198,11 @@ const overviewHTML = `<!doctype html>
           action = '<button type="button" data-job-id="' + escAttr(j.id) +
             '" onclick="cancelScan(this.dataset.jobId)">Cancel</button>';
         } else {
-          action = '<span class="sub">' + escText(j.error ? "err" : "—") + '</span>';
+          action = '<span class="sub">' + escText(j.error ? "err" : "-") + '</span>';
         }
         return '<tr data-scan-id="' + escAttr(j.id || "") + '">' +
           '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
-          '<td>' + escText(j.operator || "—") + '</td>' +
+          '<td>' + escText(j.operator || "-") + '</td>' +
           '<td><code>' + escText(plugins) + '</code></td>' +
           '<td><code>' + escText(j.input || "") + '</code></td>' +
           '<td data-scan-stats' + statsAttrs + '>' + escText(statsCell) + '</td>' +
@@ -1384,13 +1384,13 @@ const overviewHTML = `<!doctype html>
           var emptyMsg = scheduleTagFilterSet.length > 0
             ? 'no schedules match filter [' + scheduleTagFilterSet.join(",") +
               '] op=' + scheduleTagFilterOp
-            : "no schedules — create one above";
+            : "no schedules, create one above";
           body.innerHTML = '<tr class="empty"><td colspan="9">' + emptyMsg + '</td></tr>';
           scheduleSchedulesPoll(30000);
           return;
         }
         body.innerHTML = rows.map(function (s) {
-          var plugins = (s.template && s.template.plugins || []).join(",") || "—";
+          var plugins = (s.template && s.template.plugins || []).join(",") || "-";
           // v1.73: cron-based schedules show the raw cron
           // expression in the Interval column rather than a
           // human duration. v1.75: append the timezone if
@@ -1412,10 +1412,10 @@ const overviewHTML = `<!doctype html>
           // schedule won't fire (disabled / invalid cron).
           // For schedules that ARE enabled, render the local-
           // clock string + a "(overdue)" suffix when the
-          // predicted fire is already in the past — operators
+          // predicted fire is already in the past, operators
           // see at a glance which schedules will trigger on
           // the next tick.
-          var nextFire = "—";
+          var nextFire = "-";
           if (s.next_fire_at) {
             var nextDate = new Date(s.next_fire_at);
             nextFire = nextDate.toLocaleString();
@@ -1427,7 +1427,7 @@ const overviewHTML = `<!doctype html>
           var toggleAction = s.enabled ? "disable" : "enable";
           // v1.85: per-row "History" button opens the audit
           // view for this schedule. 503 (audit nil) surfaces
-          // "audit unavailable" inside the panel — the button
+          // "audit unavailable" inside the panel, the button
           // is always rendered so memory-mode operators see a
           // consistent UI.
           var action =
@@ -1453,11 +1453,11 @@ const overviewHTML = `<!doctype html>
             '" onclick="cloneSchedule(this.dataset.schedId)">Clone</button>' +
             ' <button type="button" data-sched-id="' + escAttr(s.id) +
             '" onclick="deleteSchedule(this.dataset.schedId)">Delete</button>';
-          // v2.6: tag chips per row. Empty array → "—".
+          // v2.6: tag chips per row. Empty array → "-".
           // Each chip is clickable: sets the global filter
           // to that tag (operator drills into "show me only
           // 'prod' schedules" by clicking the chip).
-          var tagsHTML = "—";
+          var tagsHTML = "-";
           if (Array.isArray(s.tags) && s.tags.length > 0) {
             tagsHTML = s.tags.map(function (t) {
               // v2.27: same context-menu plumbing on row chips.
@@ -1493,13 +1493,13 @@ const overviewHTML = `<!doctype html>
   // 60 → "1m", 3600 → "1h", 86400 → "1d", and so on. Keeps
   // the table column narrow.
   function humanInterval(secs) {
-    if (!secs) return "—";
+    if (!secs) return "-";
     if (secs % 86400 === 0) return (secs / 86400) + "d";
     if (secs % 3600 === 0) return (secs / 3600) + "h";
     if (secs % 60 === 0) return (secs / 60) + "m";
     return secs + "s";
   }
-  // v1.73: cadence-mode toggle. interval ↔ cron — only one
+  // v1.73: cadence-mode toggle. interval ↔ cron, only one
   // form field is visible + submitted. The backend rejects
   // both-set; the UI prevents that by hiding the inactive
   // input.
@@ -1575,7 +1575,7 @@ const overviewHTML = `<!doctype html>
       editingScheduleID = s.id || "";
       // v1.78: capture updated_at for the optimistic-locking
       // precondition. Empty string means "skip" (e.g. server
-      // didn't send it — back-compat).
+      // didn't send it, back-compat).
       editingScheduleUpdatedAt = s.updated_at || "";
       // Scroll the form into view + focus the name field so
       // the operator can immediately start editing.
@@ -1728,7 +1728,7 @@ const overviewHTML = `<!doctype html>
     return false;
   }
   // v1.81: merge-view state. pendingMergePayload is the
-  // operator's last submitted body — captured at submit time
+  // operator's last submitted body, captured at submit time
   // so we can both diff it against the freshly-fetched
   // server state AND re-submit it (without If-Match) if the
   // operator chooses Force Overwrite.
@@ -1736,7 +1736,7 @@ const overviewHTML = `<!doctype html>
   function enterMergeView(id) {
     var mergeView = document.getElementById("schedule-merge-view");
     var status = document.getElementById("schedule-submit-status");
-    if (status) status.textContent = "concurrent edit detected — see merge view";
+    if (status) status.textContent = "concurrent edit detected, see merge view";
     if (!mergeView) return;
     // Fetch the fresh server state to diff against.
     fetch("/api/v1/schedules/" + encodeURIComponent(id), {
@@ -1754,11 +1754,11 @@ const overviewHTML = `<!doctype html>
       var list = document.getElementById("schedule-merge-diff");
       if (list) {
         if (!diff.length) {
-          list.innerHTML = '<li>(no field-level diffs — likely a race on updated_at alone)</li>';
+          list.innerHTML = '<li>(no field-level diffs, likely a race on updated_at alone)</li>';
         } else {
           // v1.83: each row has radio buttons for per-field
           // cherry-pick. Default selection is "mine" (the
-          // operator's edits) — matches v1.81 Force-overwrite
+          // operator's edits), matches v1.81 Force-overwrite
           // semantics if the operator just clicks Apply.
           list.innerHTML = diff.map(function (d, i) {
             var rowName = "merge-row-" + i;
@@ -1779,13 +1779,13 @@ const overviewHTML = `<!doctype html>
   // pending payload to the server's fresh state, returning
   // [{field, mine, server}] for each visible difference.
   // Empty result means the only conflict was on
-  // updated_at — common when a concurrent SetEnabled raced
+  // updated_at common when a concurrent SetEnabled raced
   // the operator's edit (SetEnabled doesn't bump updated_at
   // in v1.78+ but other "soft" writes might in the future).
   function computeScheduleDiff(mine, server) {
     var out = [];
     function strify(v) {
-      if (v === null || v === undefined) return "—";
+      if (v === null || v === undefined) return "-";
       if (Array.isArray(v)) return v.join(",");
       return String(v);
     }
@@ -1819,7 +1819,7 @@ const overviewHTML = `<!doctype html>
     window.scheduleMergeServer = null;
   }
   // forceOverwriteSchedule (v1.81): re-submit the operator's
-  // pending payload WITHOUT If-Match — last-write-wins. Used
+  // pending payload WITHOUT If-Match, last-write-wins. Used
   // when the operator has reviewed the diff and decided
   // their version should prevail.
   function forceOverwriteSchedule() {
@@ -1883,14 +1883,14 @@ const overviewHTML = `<!doctype html>
       var field = rows[i].getAttribute("data-field");
       var checked = rows[i].querySelector('input[type="radio"]:checked');
       if (!checked || checked.value !== "server") continue;
-      // Operator picked server for this field — copy from
+      // Operator picked server for this field, copy from
       // server.
       applyServerField(merged, field, server);
     }
     if (status) status.textContent = "applying merge…";
     var headers = {"Content-Type": "application/json"};
     if (editingScheduleUpdatedAt) {
-      // v1.83: still send If-Match — a third concurrent
+      // v1.83: still send If-Match, a third concurrent
       // edit re-opens the merge flow.
       headers["If-Match"] = editingScheduleUpdatedAt;
     }
@@ -1938,7 +1938,7 @@ const overviewHTML = `<!doctype html>
         break;
       case "interval_seconds":
         merged.interval_seconds = server.interval_seconds;
-        // If picking server interval, drop cron — cadence
+        // If picking server interval, drop cron, cadence
         // XOR must hold.
         if (server.interval_seconds) merged.cron_expr = "";
         break;
@@ -1957,7 +1957,7 @@ const overviewHTML = `<!doctype html>
   // diff between payload_before and payload_after.
   //
   // 503 (audit store nil) surfaces "audit log unavailable"
-  // inside the panel — the button is always rendered so
+  // inside the panel, the button is always rendered so
   // memory-mode operators see a consistent UI.
   function openAuditView(id, displayName) {
     var view = document.getElementById("schedule-audit-view");
@@ -1970,7 +1970,7 @@ const overviewHTML = `<!doctype html>
     body.innerHTML = '<tr class="empty"><td colspan="4">loading…</td></tr>';
     view.style.display = "";
     view.scrollIntoView({block: "nearest"});
-    // v2.29: ETag-aware fetch. 304 short-circuits — current
+    // v2.29: ETag-aware fetch. 304 short-circuits, current
     // body is already correct, no re-render needed.
     fetchWithETag("/api/v1/schedules/" + encodeURIComponent(id) + "/audit").then(function (resp) {
       if (resp.notModified) {
@@ -1983,10 +1983,10 @@ const overviewHTML = `<!doctype html>
         return;
       }
       body.innerHTML = events.map(function (e) {
-        var when = e.occurred_at ? new Date(e.occurred_at).toLocaleString() : "—";
+        var when = e.occurred_at ? new Date(e.occurred_at).toLocaleString() : "-";
         // v1.89: dedicated "Deleted" badge for event_type='delete'.
         // v2.1: similar "Cloned from" badge for event_type='cloned_from'.
-        // These special-case events have non-diff semantics —
+        // These special-case events have non-diff semantics, 
         // rendering as field-by-field changes obscures intent.
         var diffHTML;
         var eventBadgeHTML;
@@ -2002,8 +2002,8 @@ const overviewHTML = `<!doctype html>
           var preDelete = parsePayload(e.payload_before);
           if (preDelete) {
             diffHTML = '<span class="sub">pre-delete snapshot:</span> ' +
-              '<code>' + escText(preDelete.name || "—") + '</code>' +
-              ' / input=<code>' + escText((preDelete.template || {}).input || "—") + '</code>';
+              '<code>' + escText(preDelete.name || "-") + '</code>' +
+              ' / input=<code>' + escText((preDelete.template || {}).input || "-") + '</code>';
           } else {
             diffHTML = '<span class="sub">(no pre-delete snapshot)</span>';
           }
@@ -2012,13 +2012,13 @@ const overviewHTML = `<!doctype html>
           var src = parsePayload(e.payload_before);
           if (src) {
             diffHTML = '<span class="sub">source:</span> ' +
-              '<code>' + escText(src.name || "—") + '</code>' +
-              ' (id=<code>' + escText(src.id || "—") + '</code>)';
+              '<code>' + escText(src.name || "-") + '</code>' +
+              ' (id=<code>' + escText(src.id || "-") + '</code>)';
           } else {
             diffHTML = '<span class="sub">(no source snapshot)</span>';
           }
         } else {
-          eventBadgeHTML = '<code>' + escText(e.event_type || "—") + '</code>';
+          eventBadgeHTML = '<code>' + escText(e.event_type || "-") + '</code>';
           var diff = computeAuditEventDiff(e);
           if (!diff.length) {
             diffHTML = '<span class="sub">(no field-level changes)</span>';
@@ -2032,14 +2032,14 @@ const overviewHTML = `<!doctype html>
         }
         return '<tr>' +
           '<td>' + escText(when) + '</td>' +
-          '<td>' + escText(e.operator || "—") + '</td>' +
+          '<td>' + escText(e.operator || "-") + '</td>' +
           '<td>' + eventBadgeHTML + '</td>' +
           '<td>' + diffHTML + '</td>' +
           '</tr>';
       }).join("");
     }).catch(function (err) {
       if (err && err.status === 503) {
-        body.innerHTML = '<tr class="empty"><td colspan="4">audit log unavailable — run with --scan-store=db to enable</td></tr>';
+        body.innerHTML = '<tr class="empty"><td colspan="4">audit log unavailable, run with --scan-store=db to enable</td></tr>';
         return;
       }
       body.innerHTML = '<tr class="empty"><td colspan="4">audit fetch failed: ' + escText(err.message) + '</td></tr>';
@@ -2068,8 +2068,8 @@ const overviewHTML = `<!doctype html>
       // v2.46: surface active sparkline-drilled filter so
       // operators know why they see a narrow result set.
       if (runsFilterSince || runsFilterUntil) {
-        sub += " · filtered " + (runsFilterSince || "—") +
-          " → " + (runsFilterUntil || "—") +
+        sub += " · filtered " + (runsFilterSince || "-") +
+          " → " + (runsFilterUntil || "-") +
           ' <button type="button" onclick="clearRunsFilter()" style="font-size:0.85em;">clear filter</button>';
         subtitle.innerHTML = sub;
       } else {
@@ -2091,7 +2091,7 @@ const overviewHTML = `<!doctype html>
     if (before) url += "&before=" + encodeURIComponent(before);
     // v2.46: when drillSparklineBucket stashed a filter window,
     // append it to the URL. since/until supersede the before
-    // cursor (server-side) — pagination within the window is
+    // cursor (server-side), pagination within the window is
     // a future cycle (v2.45 honest scope).
     if (runsFilterSince) url += "&since=" + encodeURIComponent(runsFilterSince);
     if (runsFilterUntil) url += "&until=" + encodeURIComponent(runsFilterUntil);
@@ -2109,14 +2109,14 @@ const overviewHTML = `<!doctype html>
         return;
       }
       var rowsHTML = jobs.map(function (j) {
-        var when = j.created_at ? new Date(j.created_at).toLocaleString() : "—";
-        var state = j.state || "—";
+        var when = j.created_at ? new Date(j.created_at).toLocaleString() : "-";
+        var state = j.state || "-";
         var findings = (j.stats && j.stats.findings_count) || 0;
         var targets = (j.stats && (j.stats.targets_scanned || 0) + "/" + (j.stats.targets_seen || 0)) || "0/0";
         return '<tr>' +
           '<td>' + escText(when) + '</td>' +
           '<td><code class="state-' + escAttr(state) + '">' + escText(state) + '</code></td>' +
-          '<td><code>' + escText(j.id || "—") + '</code></td>' +
+          '<td><code>' + escText(j.id || "-") + '</code></td>' +
           '<td>' + escText(String(findings)) + '</td>' +
           '<td>' + escText(targets) + '</td>' +
           '</tr>';
@@ -2131,7 +2131,7 @@ const overviewHTML = `<!doctype html>
       if (moreBtn) moreBtn.style.display = runsState.cursor ? "" : "none";
     }).catch(function (err) {
       if (err && err.status === 503) {
-        body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable — run with --scan-store=db to enable persistence</td></tr>';
+        body.innerHTML = '<tr class="empty"><td colspan="5">scan store unavailable, run with --scan-store=db to enable persistence</td></tr>';
         return;
       }
       body.innerHTML = '<tr class="empty"><td colspan="5">runs fetch failed: ' + escText(err.message) + '</td></tr>';
@@ -2203,12 +2203,12 @@ const overviewHTML = `<!doctype html>
           var d = (s.clone_depth || 1);
           // Indent name proportional to depth for visual chain.
           var indent = (d > 1) ? Array(d).join("· ") : "";
-          var created = s.created_at ? new Date(s.created_at).toLocaleString() : "—";
+          var created = s.created_at ? new Date(s.created_at).toLocaleString() : "-";
           return '<tr>' +
             '<td>' + d + '</td>' +
             '<td>' + escText(indent) + escText(s.name || "") + '</td>' +
             '<td><code>' + escText((s.id || "").slice(0, 12)) + '…</code></td>' +
-            '<td>' + escText(s.operator || "—") + '</td>' +
+            '<td>' + escText(s.operator || "-") + '</td>' +
             '<td>' + escText(created) + '</td>' +
             '</tr>';
         }).join("");
@@ -2360,7 +2360,7 @@ const overviewHTML = `<!doctype html>
     // hovering shows the per-bucket tooltip; clicking opens
     // /runs?since=&until= filtered to that bucket's window.
     // The bucket grain (hour/day/week) drives the until-since
-    // delta — Runs view shows everything that fired within
+    // delta Runs view shows everything that fired within
     // that window.
     var hitRects = [];
     var bucketWidth = n > 1 ? ((w - 2 * pad) / (n - 1)) : (w - 2 * pad);
@@ -2378,7 +2378,7 @@ const overviewHTML = `<!doctype html>
       if (rx + rw > w) rw = w - rx;
       var b = series[i];
       var when = b.bucket_start ? new Date(b.bucket_start).toLocaleString() : "(?)";
-      var tip = when + " — runs:" + (b.total_runs || 0) +
+      var tip = when + ", runs:" + (b.total_runs || 0) +
         " failed:" + (b.failed || 0) +
         " findings:" + (b.total_findings || 0) +
         " · click to drill";
@@ -2414,7 +2414,7 @@ const overviewHTML = `<!doctype html>
   // computeAuditEventDiff: parse payload_before + payload_after
   // and produce a list of {field, before, after} for each
   // editable field that changed. Reuses the v1.81 strify
-  // semantics (arrays joined on "," / null/undefined → "—").
+  // semantics (arrays joined on "," / null/undefined → "-").
   function computeAuditEventDiff(ev) {
     function parse(raw) {
       if (raw == null) return {};
@@ -2426,7 +2426,7 @@ const overviewHTML = `<!doctype html>
     var before = parse(ev.payload_before);
     var after = parse(ev.payload_after);
     function strify(v) {
-      if (v === null || v === undefined) return "—";
+      if (v === null || v === undefined) return "-";
       if (Array.isArray(v)) return v.join(",");
       return String(v);
     }
@@ -2522,7 +2522,7 @@ const overviewHTML = `<!doctype html>
         var when = new Date(fires[0]);
         var label = "next fire: " + when.toLocaleString() + tzSuffix;
         if (when.getTime() < Date.now()) {
-          label += " — overdue (will fire on next tick)";
+          label += ", overdue (will fire on next tick)";
         }
         preview.textContent = label;
         return;
@@ -2534,7 +2534,7 @@ const overviewHTML = `<!doctype html>
         var w = new Date(fires[i]);
         var line = w.toLocaleString();
         if (w.getTime() < Date.now()) {
-          line += " — overdue";
+          line += ", overdue";
         }
         html += '<li>' + escText(line) + '</li>';
       }
@@ -2542,7 +2542,7 @@ const overviewHTML = `<!doctype html>
       preview.innerHTML = html;
     }).catch(function (e) {
       // v1.82: AbortError is expected when a newer call
-      // cancels this one. Stay silent — the newer fetch's
+      // cancels this one. Stay silent, the newer fetch's
       // result will overwrite the panel.
       if (e && (e.name === "AbortError" || (e.message || "").indexOf("abort") !== -1)) return;
       preview.textContent = "preview error: " + e.message;
@@ -2581,9 +2581,9 @@ const overviewHTML = `<!doctype html>
   // In-memory mirror of the etag store. localStorage is the
   // source of truth across page refreshes; the in-memory
   // map avoids JSON.parse on every fetch.
-  // (Note: avoid backticks in JS comments — Go raw-string
+  // (Note: avoid backticks in JS comments, Go raw-string
   // literal.)
-  // v2.50: theme cycle — auto → light → dark → auto.
+  // v2.50: theme cycle, auto → light → dark → auto.
   // Persisted in localStorage. Applied at page boot below.
   var THEME_STORAGE_KEY = "elsereno:theme:v1";
   var THEME_ORDER = ["auto", "light", "dark"];
@@ -2611,7 +2611,7 @@ const overviewHTML = `<!doctype html>
     var next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
     try {
       if (window.localStorage) window.localStorage.setItem(THEME_STORAGE_KEY, next);
-    } catch (e) { /* quota / private-mode — ignore */ }
+    } catch (e) { /* quota / private-mode, ignore */ }
     applyTheme(next);
   }
   // Apply persisted theme at first script execution (no
@@ -2632,7 +2632,7 @@ const overviewHTML = `<!doctype html>
     }
   })();
   // persistEtagCache writes the in-memory map back to
-  // localStorage. Quota / DOM errors are swallowed — the
+  // localStorage. Quota / DOM errors are swallowed, the
   // ETag cache is purely an optimisation, not a correctness
   // requirement.
   function persistEtagCache() {
@@ -2640,7 +2640,7 @@ const overviewHTML = `<!doctype html>
       if (window.localStorage) {
         window.localStorage.setItem(ETAG_STORAGE_KEY, JSON.stringify(etagCache));
       }
-    } catch (e) { /* quota / private-mode / disabled — ignore */ }
+    } catch (e) { /* quota / private-mode / disabled, ignore */ }
   }
   // fetchWithETag wraps window.fetch to add If-None-Match
   // automatically + update the cache on 200. On 304, the
@@ -2747,7 +2747,7 @@ const overviewHTML = `<!doctype html>
     var clearBtn = document.getElementById("schedule-tag-cloud-clear");
     if (clearBtn) clearBtn.style.display = scheduleTagFilterSet.length > 0 ? "" : "none";
   }
-  // setScheduleTagFilter (v2.6) and v2.19 — Shift+Click
+  // setScheduleTagFilter (v2.6) and v2.19, Shift+Click
   // adds/removes from the multi-select set; plain click
   // becomes "set as sole filter" (replaces the set).
   // v2.27: forceOp arg lets context-menu (right-click)
@@ -2867,7 +2867,7 @@ const overviewHTML = `<!doctype html>
       var n = (d.affected != null) ? d.affected : "?";
       var fa = d.failed_audits || 0;
       if (status) {
-        var msg = label + " done — " + n + " schedule(s) flipped";
+        var msg = label + " done, " + n + " schedule(s) flipped";
         if (fa > 0) msg += " (" + fa + " audit row(s) failed)";
         status.textContent = msg;
       }
@@ -2984,7 +2984,7 @@ const overviewHTML = `<!doctype html>
           return '<option value="' + name + '" label="' + label + '"></option>';
         }).join("");
       })
-      .catch(function () { /* silent — empty datalist is OK */ });
+      .catch(function () { /* silent, empty datalist is OK */ });
   }
   loadPluginDatalist();
 
@@ -3039,7 +3039,7 @@ const overviewHTML = `<!doctype html>
   // the dashboard reflects state without waiting for the next
   // poll tick. The polling timer still runs as a safety net for
   // transitions the SSE stream missed (e.g., reconnect gap),
-  // just at the slower 10s "idle" cadence — renderScans()
+  // just at the slower 10s "idle" cadence, renderScans()
   // upgrades it back to 2s if it sees an active row.
   es.addEventListener("scan_state_change", function () {
     renderScans();
@@ -3047,7 +3047,7 @@ const overviewHTML = `<!doctype html>
 
   // v1.65: scan_stats_progress events deliver mid-run Stats
   // snapshots. We update the affected row's Targets/Findings
-  // cell in place rather than re-rendering the whole table —
+  // cell in place rather than re-rendering the whole table, 
   // each event might fire 2/sec per running job and the table
   // re-render is much heavier than a single innerHTML swap.
   es.addEventListener("scan_stats_progress", function (ev) {

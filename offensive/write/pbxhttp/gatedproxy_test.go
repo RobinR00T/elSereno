@@ -370,7 +370,7 @@ func TestPOST_Blocked405WhenMethodNotAllowlisted(t *testing.T) {
 
 func TestCONNECT_AlwaysRefused(t *testing.T) {
 	client, srv := driveSession(t, []pwrite.AllowedWrite{
-		{Method: "CONNECT", Path: "/upstream:443"}, // ignored — CONNECT always refused
+		{Method: "CONNECT", Path: "/upstream:443"}, // ignored, CONNECT always refused
 	})
 	_, _ = io.WriteString(client,
 		"CONNECT upstream:443 HTTP/1.1\r\nHost: upstream:443\r\n\r\n")
@@ -390,7 +390,7 @@ func TestMultipleRequestsInStream(t *testing.T) {
 	client, srv := driveSession(t, []pwrite.AllowedWrite{
 		{Method: "POST", Path: "/admin/config.php"},
 	})
-	// First request: GET (allowed). Second: DELETE (blocked —
+	// First request: GET (allowed). Second: DELETE (blocked,
 	// method not allowlisted, so 405).
 	stream := "GET /index.html HTTP/1.1\r\nHost: pbx.test\r\n\r\n" +
 		"DELETE /admin/config.php HTTP/1.1\r\nHost: pbx.test\r\nContent-Length: 0\r\n\r\n"
@@ -413,7 +413,7 @@ func TestMultipleRequestsInStream(t *testing.T) {
 
 func TestMalformedRequestIsAnError(t *testing.T) {
 	client, _ := driveSession(t, nil)
-	// Not a valid HTTP/1.1 request — no path separator after
+	// Not a valid HTTP/1.1 request, no path separator after
 	// method.
 	_, _ = io.WriteString(client, "NOTAMETHOD_NOR_URI\r\n\r\n")
 	// Handler should close the connection; client read returns

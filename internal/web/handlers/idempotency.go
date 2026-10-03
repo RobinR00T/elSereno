@@ -222,7 +222,7 @@ func withIdempotencyKey(h http.Handler) http.Handler {
 			status:         http.StatusOK,
 		}
 		h.ServeHTTP(rec, r)
-		// Only cache 2xx responses — replaying a 4xx/5xx is
+		// Only cache 2xx responses, replaying a 4xx/5xx is
 		// surprising and rarely useful. Store under the same
 		// operator+route-scoped key tryReplayIdempotency looks up
 		// under, or the entry would never be found.

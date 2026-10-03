@@ -40,7 +40,7 @@ macOS has no equivalent and is out of scope for the sandbox.
   `LEGAL.md` / `SECURITY.md`.
 
 ## Alternatives considered
-- No sandbox: declined — offensive paths are high-risk.
+- No sandbox: declined, offensive paths are high-risk.
 - Linux-only binary: too drastic; macOS is a first-class dev platform.
 
 ## References

@@ -36,7 +36,7 @@ import (
 //   - TargetsSeen: len(parsed targets). The shape of the input
 //     the operator submitted.
 //   - TargetsScanned: count of (target, plugin) **probe
-//     attempts** — events drained from scanner.Run output.
+//     attempts**: events drained from scanner.Run output.
 //     A target probed by 3 plugins counts as 3.
 //   - FindingsCount: total findings produced.
 //
@@ -120,7 +120,7 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	return stats, state.snapshotByPlugin(), nil
 }
 
-// runState carries the per-Run mutable state — the shared
+// runState carries the per-Run mutable state, the shared
 // counters + per-plugin findings map. Extracted to keep
 // defaultScanRunner.Run under the funlen 60-line ceiling.
 type runState struct {
@@ -234,7 +234,7 @@ func filterByPort(targets []core.Target, plugin core.Plugin) []core.Target {
 // findingsCount. perPlugin tracks this single plugin's
 // findings (v1.66+). After every event, emit() is called so
 // the listener gets a fresh Stats snapshot. Listeners are
-// responsible for throttling — the runner fires unconditionally
+// responsible for throttling, the runner fires unconditionally
 // (matches the v1.65 ProgressReporter contract).
 func drainPluginRun(findings <-chan core.Finding, errs <-chan error, findingsCount, targetsScanned, perPlugin *atomic.Int64, emit func()) {
 	for findings != nil || errs != nil {

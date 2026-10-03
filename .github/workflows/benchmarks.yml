@@ -43,7 +43,7 @@ jobs:
           rc=$?
           cat regression.out
           echo "exit=$rc" >> "$GITHUB_OUTPUT"
-          # Soft-fail while the baseline is young — enable strict
+          # Soft-fail while the baseline is young, enable strict
           # mode by setting BENCH_STRICT=1 at the workflow level.
           if [ "${BENCH_STRICT:-0}" = "1" ] && [ "$rc" != "0" ]; then
             exit "$rc"

@@ -92,7 +92,7 @@ func TestNewServer_RemovesStaleSocket(t *testing.T) {
 	defer func() { _ = srv.Close() }()
 
 	// File should now be a socket, not the stale text file. Attempt
-	// to read its contents — a Unix socket returns "permission denied"
+	// to read its contents, a Unix socket returns "permission denied"
 	// or "operation not supported" depending on platform; the key is
 	// that the file is no longer 0600 plain text.
 	info, err := os.Stat(socketPath)
@@ -187,7 +187,7 @@ func TestClient_ChainOrderUnderConcurrentClients(t *testing.T) {
 		t.Errorf("client Append: %v", err)
 	}
 
-	// Collect IDs — they should be a contiguous range starting at 1
+	// Collect IDs, they should be a contiguous range starting at 1
 	// (genesis), strictly monotonic, no duplicates.
 	ids := map[int64]bool{}
 	for r := range results {

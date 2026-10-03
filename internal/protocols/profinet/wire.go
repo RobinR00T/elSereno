@@ -14,15 +14,15 @@ const (
 	EtherTypePROFINET uint16 = 0x8892
 
 	// MulticastIdentify is the dst MAC for DCP Identify
-	// requests — all PROFINET devices on the segment listen.
+	// requests all PROFINET devices on the segment listen.
 	MulticastIdentify = "01:0e:cf:00:00:00"
 
 	// FrameIDIdentifyRequest is the DCP frame ID for a unicast
 	// or multicast Identify request.
 	FrameIDIdentifyRequest uint16 = 0xFEFE
-	// FrameIDIdentifyResponse — devices' replies.
+	// FrameIDIdentifyResponse devices' replies.
 	FrameIDIdentifyResponse uint16 = 0xFEFF
-	// FrameIDHello — DCP Hello (used during boot announcement).
+	// FrameIDHello DCP Hello (used during boot announcement).
 	FrameIDHello uint16 = 0xFEFC
 )
 

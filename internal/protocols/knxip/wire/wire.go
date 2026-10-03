@@ -1,10 +1,10 @@
 // Package wire implements the minimum subset of KNXnet/IP needed
 // for read-only fingerprinting on UDP/3671. The on-wire layout is
-// from the KNX Standard 03.08.02 (Core) — KNXnet/IP services
+// from the KNX Standard 03.08.02 (Core), KNXnet/IP services
 // CONNECT, DESCRIPTION, SEARCH, DEVICE MANAGEMENT.
 //
 // This package implements ONLY the request builder + response
-// parser for **DESCRIPTION_REQUEST** (service type 0x0203) — the
+// parser for **DESCRIPTION_REQUEST** (service type 0x0203), the
 // canonical "describe yourself" query. The DESCRIPTION_RESPONSE
 // (0x0204) carries a Device Hardware DIB (device info block) +
 // Supported Service Families DIB; the device hardware DIB has
@@ -38,7 +38,7 @@ const (
 
 	// ServiceTypeDescriptionRequest is the "describe yourself"
 	// request (0x0203). Per KNX Standard 03.08.02 §4.1 (corrected
-	// in v1.55 — v1.21 chunk 1 had this mis-set to 0x0204 which
+	// in v1.55, v1.21 chunk 1 had this mis-set to 0x0204 which
 	// would have failed against real KNX hardware).
 	ServiceTypeDescriptionRequest uint16 = 0x0203
 	// ServiceTypeDescriptionResponse is the matching response
@@ -111,7 +111,7 @@ type DeviceInfo struct {
 // BuildDescriptionRequest crafts the 14-byte UDP datagram that
 // asks a KNXnet/IP server to describe itself. The control HPAI
 // uses 0.0.0.0:0 ("anonymous endpoint") which is the canonical
-// shape for unsolicited probes — the server responds to the
+// shape for unsolicited probes, the server responds to the
 // source address of the inbound datagram.
 //
 // Frame breakdown:

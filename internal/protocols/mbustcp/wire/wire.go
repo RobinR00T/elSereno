@@ -6,7 +6,7 @@
 // and TCP/2055 also seen.
 //
 // This package implements ONLY the request builder + response
-// parser for **REQ_UD2** (request user data class 2) — the
+// parser for **REQ_UD2** (request user data class 2), the
 // canonical "give me a measurement frame" query. The RSP_UD
 // long-frame response carries the BCD ID + 3-letter manufacturer
 // code + medium byte + version, which together fingerprint the
@@ -77,7 +77,7 @@ var (
 	// match the byte at position N+1.
 	ErrChecksumMismatch = errors.New("mbustcp: checksum mismatch")
 	// ErrNotVarDataResponse means the CI byte is not 0x72
-	// (variable data response) — we only fingerprint that shape.
+	// (variable data response), we only fingerprint that shape.
 	ErrNotVarDataResponse = errors.New("mbustcp: CI is not 0x72 (variable data response)")
 )
 
@@ -123,7 +123,7 @@ func BuildREQUD2(address byte) []byte {
 // ParseRSPUD validates a RSP_UD response and extracts the
 // MeterInfo header. On any structural error the appropriate
 // sentinel from this package is returned. Single-byte ACK
-// (0xE5) responses return ErrShortFrame — the caller should
+// (0xE5) responses return ErrShortFrame, the caller should
 // classify those before calling Parse.
 //
 // Wire shape (success):

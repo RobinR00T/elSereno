@@ -1,4 +1,4 @@
-# elsereno serve — HTTP dashboard + /api/v1 daemon.
+# elsereno serve, HTTP dashboard + /api/v1 daemon.
 #
 # Default-build only (the mini variant has serve as a stub).
 # This unit is shipped by the elsereno deb/rpm packages and
@@ -10,11 +10,11 @@
 # Pre-flight (all of these must pass before the unit will start):
 #
 #   1.  /etc/elsereno/elsereno.yaml exists with a valid `web:`
-#       section (listen, csrf_key, etc.) — see the package's
+#       section (listen, csrf_key, etc.), see the package's
 #       sample at /usr/share/doc/elsereno/elsereno.yaml.sample.
 #   2.  Vault initialised + unlocked. The unit reads the
 #       passphrase from a 0600 file (default
-#       /etc/elsereno/vault.passphrase) — operators MUST own +
+#       /etc/elsereno/vault.passphrase), operators MUST own +
 #       chmod that file before enabling the unit. Permission
 #       enforcement happens inside the binary (PITF-032).
 #   3.  Postgres is reachable on $DATABASE_URL (set via the
@@ -41,7 +41,7 @@
 #     package; no capabilities required.
 
 [Unit]
-Description=ElSereno ICS/OT exposure auditor — dashboard + /api/v1
+Description=ElSereno ICS/OT exposure auditor, dashboard + /api/v1
 Documentation=https://github.com/RobinR00T/elSereno
 After=network-online.target postgresql.service
 Wants=network-online.target
@@ -56,7 +56,7 @@ RestartSec=5s
 TimeoutStopSec=30s
 KillSignal=SIGTERM
 
-# Vault passphrase plumbing — operator chmods this 0600 +
+# Vault passphrase plumbing, operator chmods this 0600 +
 # overrides via a drop-in if their layout differs.
 Environment=ELSERENO_VAULT_PASSPHRASE_FILE=/etc/elsereno/vault.passphrase
 EnvironmentFile=-/etc/elsereno/elsereno.env
@@ -84,7 +84,7 @@ RestrictRealtime=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
 
-# Capabilities — none required
+# Capabilities, none required
 CapabilityBoundingSet=
 AmbientCapabilities=
 

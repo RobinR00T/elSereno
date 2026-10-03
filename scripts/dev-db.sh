@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-db.sh — one-shot bring-up of the development Postgres
+# dev-db.sh, one-shot bring-up of the development Postgres
 # (docker-compose.dev.yml) + migration apply.
 #
 # Usage:
@@ -69,7 +69,7 @@ wait_healthy() {
 }
 
 apply_migrations() {
-    # Use an array so each token quotes independently — `$ROOT` may
+    # Use an array so each token quotes independently, `$ROOT` may
     # contain spaces (e.g. "/Users/Daniel/AI projects/elsereno"),
     # and an unquoted `$bin` string would word-split on those spaces
     # and try to exec the path's first chunk as a command. (Found
@@ -80,14 +80,14 @@ apply_migrations() {
     if [ -x "$bin" ]; then
         cmd=("$bin")
     else
-        note "bin/elsereno not built — running via go run"
+        note "bin/elsereno not built, running via go run"
         cmd=(go run "${ROOT}/cmd/elsereno")
     fi
     pushd "$ROOT" >/dev/null
     if DATABASE_URL="$DATABASE_URL" "${cmd[@]}" db migrate up 2>&1 | tail -3; then
         pass "migrations applied"
     else
-        fail "migrations failed — see output above"
+        fail "migrations failed, see output above"
     fi
     popd >/dev/null
 }
@@ -119,7 +119,7 @@ cmd_down() {
 cmd_reset() {
     require_deps
     pushd "$ROOT" >/dev/null
-    note "wiping volume — you will LOSE all data in the dev db"
+    note "wiping volume, you will LOSE all data in the dev db"
     docker compose -f "$COMPOSE" down -v
     docker compose -f "$COMPOSE" up -d db
     popd >/dev/null
@@ -137,13 +137,13 @@ cmd_status() {
     if docker exec elsereno-db-1 pg_isready -U "$DB_USER" -d "$DB_NAME" 2>/dev/null; then
         pass "pg_isready green on ${DB_HOST}:${DB_PORT}"
     else
-        note "pg_isready red — not running or unreachable"
+        note "pg_isready red, not running or unreachable"
     fi
     echo
     if [ -f "$ENV_FILE" ]; then
         note "env file: $ENV_FILE"
     else
-        note "env file missing — run 'scripts/dev-db.sh up' to create it"
+        note "env file missing, run 'scripts/dev-db.sh up' to create it"
     fi
 }
 

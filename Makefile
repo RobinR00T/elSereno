@@ -20,7 +20,7 @@ build-offensive:
 	CGO_ENABLED=0 GOFLAGS=-mod=readonly go build -trimpath -buildvcs=false \
 	  -tags offensive -ldflags="$(LDFLAGS)" -o bin/elsereno-offensive ./cmd/elsereno
 
-# v1.50 — opt-in macOS sandbox build. Enables CGO so
+# v1.50, opt-in macOS sandbox build. Enables CGO so
 # offensive/sandbox/sandbox_darwin_cgo.go lights up and
 # the harvest / dial / exploit subprocesses get
 # sandbox_init(3) enforcement. Trade-off: the binary is
@@ -88,7 +88,7 @@ bench-baseline:
 # (go install golang.org/x/perf/cmd/benchstat@latest).
 bench-regression:
 	@mkdir -p benchmarks
-	@[ -f benchmarks/baseline.txt ] || (echo "missing benchmarks/baseline.txt — run 'make bench-baseline'"; exit 1)
+	@[ -f benchmarks/baseline.txt ] || (echo "missing benchmarks/baseline.txt, run 'make bench-baseline'"; exit 1)
 	go test -bench=. -benchmem -run=^$$ -count=3 -benchtime=500ms ./... \
 		| tee benchmarks/current.txt
 	benchstat benchmarks/baseline.txt benchmarks/current.txt

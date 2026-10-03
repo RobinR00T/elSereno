@@ -12,7 +12,7 @@
 // can trust: the reference Wireshark dissector (fridgebuyer/
 // codesys3-dissector) locates L3, L4 and L7 by scanning for byte
 // magics, not by reading lengths. Parsing L3/L4 ourselves would mean a
-// length we might misread — a classifier bypass. So this handler does
+// length we might misread, a classifier bypass. So this handler does
 // NOT parse the transport. It buffers the reassembled client->server
 // stream and, via internal/protocols/codesys/wire.ScanL7, locates
 // EVERY L7 service header (protocol_id magic 0x55cd / 0x7557) and
@@ -20,8 +20,8 @@
 // while every located command is a read or an explicitly allowlisted
 // write; any unknown command, non-allowlisted write, or truncated L7
 // header at EOF refuses the session (fail-closed: the connection is
-// dropped). This is deliberately conservative — it can refuse an
-// exotic-but-benign frame — but it cannot be desynchronised into
+// dropped). This is deliberately conservative, it can refuse an
+// exotic-but-benign frame, but it cannot be desynchronised into
 // forwarding a hidden write: a real write header must carry the magic
 // to be parsed by the PLC, so it is always located and classified.
 package codesys
@@ -181,8 +181,8 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream io.Writer) error 
 				// Drop the forwarded+scanned prefix and keep only the
 				// held tail (an in-flight partial L7 header plus <8
 				// trailing bytes). This keeps every ScanL7 O(tail), not
-				// O(whole session) — otherwise a client dribbling bytes
-				// would drive a quadratic re-scan (DoS) — and lets a
+				// O(whole session), otherwise a client dribbling bytes
+				// would drive a quadratic re-scan (DoS), and lets a
 				// legitimate long session exceed maxBuffer of *forwarded*
 				// data without being refused. safeLen never splits a
 				// magic, so no located header is lost.

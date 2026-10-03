@@ -72,7 +72,7 @@ func TestPoolHealth_NoPool(t *testing.T) {
 }
 
 func TestPoolHealth_StatNil(t *testing.T) {
-	// PoolStatter returns nil from Stat() — still 503.
+	// PoolStatter returns nil from Stat(), still 503.
 	stub := &stubPoolStatter{stat: nil}
 	deps := handlers.APIV1Deps{PoolStatter: stub}
 	router := handlers.APIV1(deps)

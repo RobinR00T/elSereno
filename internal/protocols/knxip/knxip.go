@@ -49,7 +49,7 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 // Probe implements core.Protocol. Sends a single
 // DESCRIPTION_REQUEST datagram and folds the parsed friendly
 // name + KNX medium into the finding hash. No tunnelling, device
-// management, or routing service is performed — the default
+// management, or routing service is performed, the default
 // build is read-only by design.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
@@ -133,12 +133,12 @@ func sanitizeName(s string) string {
 
 func buildFinding(target core.Target, note string, isKNX bool) *core.Finding {
 	factors := map[string]int{
-		"protocol_risk": 75, // KNX is BAS — HVAC + lighting + access control + life-safety adjacent
+		"protocol_risk": 75, // KNX is BAS, HVAC + lighting + access control + life-safety adjacent
 		"exposure":      75,
 		"auth_state":    90, // KNX/IP unicast has no native auth in 3671 mode (KNXnet/IP Secure is a 2018+ optional layer)
 		"capability":    30,
 		"impact_class":  70, // BAS impact: HVAC, lighting, blinds, access control
-		// cve_exposure: 11 (v2.33+, bumped from 6) — KNX/IP
+		// cve_exposure: 11 (v2.33+, bumped from 6), KNX/IP
 		// has a sustained CVE stream across Gira, JUNG, MDT,
 		// ABB i-bus, Schneider, Siemens GAMMA. Anchors:
 		//   CVE-2018-15795 (KNX weak password).

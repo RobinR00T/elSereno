@@ -28,7 +28,7 @@ import (
 //     `mismatch` / `unreachable`.
 //
 // Catches firmware swaps on the source server (supply-chain
-// attack) that would otherwise pass undetected — TR-069 doesn't
+// attack) that would otherwise pass undetected, TR-069 doesn't
 // carry the SHA-256 in TransferComplete, so the CPE-side report
 // alone can't surface this class of attack.
 //

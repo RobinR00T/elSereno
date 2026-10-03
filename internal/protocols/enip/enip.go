@@ -79,7 +79,7 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 
 // ProxyHandler returns the default ENIP proxy, which refuses
 // SendRRData / SendUnitData (the envelopes carrying CIP service
-// requests — and therefore the vector for writes) with an
+// requests and therefore the vector for writes) with an
 // encapsulation reply status=0x0001 ("Invalid or unsupported
 // command"). Listing and session-management commands forward as-is.
 // The offensive build substitutes a CIP-service-aware handler that

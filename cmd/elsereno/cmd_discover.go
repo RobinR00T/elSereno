@@ -94,7 +94,7 @@ func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel 
 	}
 	ports := registeredPluginPorts()
 	if len(ports) == 0 {
-		return fail(core.ExitSoftware, errors.New("no plugins registered — link with the protocol packages"))
+		return fail(core.ExitSoftware, errors.New("no plugins registered, link with the protocol packages"))
 	}
 	var (
 		hosts []netip.Addr
@@ -136,11 +136,11 @@ func loadDiscoverHostsFile(path string, maxHosts int) ([]netip.Addr, error) {
 		if i := strings.IndexByte(raw, '#'); i >= 0 {
 			raw = strings.TrimSpace(raw[:i])
 		}
-		// Tolerate operator pasting host:port — we only need
+		// Tolerate operator pasting host:port, we only need
 		// the host half here (discover supplies its own port
 		// list).
 		if i := strings.LastIndexByte(raw, ':'); i >= 0 && !strings.Contains(raw, "::") {
-			// IPv4 host:port — strip the port.
+			// IPv4 host:port, strip the port.
 			raw = raw[:i]
 		}
 		addr, err := netip.ParseAddr(raw)
@@ -163,7 +163,7 @@ func loadDiscoverHostsFile(path string, maxHosts int) ([]netip.Addr, error) {
 
 // discoverHit is one responsive (host, port) pair plus the
 // plugin name(s) that claim the port. Multiple plugins can
-// share a port (rare but legal — e.g. IEC 61850 MMS shares
+// share a port (rare but legal, e.g. IEC 61850 MMS shares
 // port 102 with S7); operators see all candidates.
 type discoverHit struct {
 	Address       string   `json:"address"`
@@ -208,7 +208,7 @@ func registeredPluginPorts() []pluginPort {
 // expandCIDR parses cidr and returns the addresses inside it,
 // bounded by maxHosts. For prefixes with the network bit
 // (host-zero) and broadcast bit (host-all-ones), we still emit
-// them — the TCP-connect probe quickly fails for non-routable
+// them the TCP-connect probe quickly fails for non-routable
 // addresses, and trimming them is more error-prone than just
 // trying. Honours both IPv4 and IPv6 prefixes.
 func expandCIDR(cidr string, maxHosts int) ([]netip.Addr, error) {
@@ -254,7 +254,7 @@ func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel
 			dialer := &net.Dialer{Timeout: dialTimeout}
 			for j := range jobs {
 				start := time.Now()
-				// #nosec G115 — j.port comes from registeredPluginPorts which validates against core.Port (uint16 range).
+				// #nosec G115, j.port comes from registeredPluginPorts which validates against core.Port (uint16 range).
 				addrPort := netip.AddrPortFrom(j.addr, uint16(j.port))
 				conn, err := dialer.DialContext(ctx, "tcp", addrPort.String())
 				if err != nil {
@@ -321,7 +321,7 @@ func emitDiscoverResults(stdout, stderr io.Writer, hits []discoverHit, format st
 	switch format {
 	case "list":
 		for _, h := range hits {
-			// #nosec G115 — h.Port comes from a discoverHit produced by sweep, where port was already validated against the registry's uint16 range.
+			// #nosec G115, h.Port comes from a discoverHit produced by sweep, where port was already validated against the registry's uint16 range.
 			ap := netip.AddrPortFrom(netip.MustParseAddr(h.Address), uint16(h.Port))
 			if _, err := fmt.Fprintln(stdout, ap.String()); err != nil {
 				return err

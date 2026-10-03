@@ -18,7 +18,7 @@ token-budget: 2500
 - Every package has `doc.go`.
 - Typed values (`core.Port`, `core.Severity`, `core.Confidence`).
 - Type assertions checked (forcetypeassert).
-- Subprocess only via `internal/exec.SafeCommand(ctx, CommandSpec)` — deterministic `--` separator.
+- Subprocess only via `internal/exec.SafeCommand(ctx, CommandSpec)`: deterministic `--` separator.
 - Signal handling via `signal.NotifyContext`. Exit 128+signum (SIGINT=130, SIGTERM=143).
 
 ## Testing

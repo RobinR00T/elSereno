@@ -78,7 +78,7 @@ func TestParseIdentifyResponse_Siemens(t *testing.T) {
 	if nameLen > 0xFFFF {
 		t.Fatalf("station name too long for uint16: %d", nameLen)
 	}
-	nameBlk = append(nameBlk, byte(nameLen>>8), byte(nameLen&0xFF)) // #nosec G115 — bounded above.
+	nameBlk = append(nameBlk, byte(nameLen>>8), byte(nameLen&0xFF)) // #nosec G115, bounded above.
 	nameBlk = append(nameBlk, 0x00, 0x00)                           // BlockInfo
 	nameBlk = append(nameBlk, station...)
 	blocks = append(blocks, nameBlk...)
@@ -117,7 +117,7 @@ func TestParseIdentifyResponse_Siemens(t *testing.T) {
 	if len(blocks) > 0xFFFF {
 		t.Fatalf("block too large for uint16 length: %d", len(blocks))
 	}
-	binary.BigEndian.PutUint16(hdr[10:12], uint16(len(blocks))) // #nosec G115 — bounded above.
+	binary.BigEndian.PutUint16(hdr[10:12], uint16(len(blocks))) // #nosec G115, bounded above.
 	// Use single-slice append + grow pattern so gocritic's
 	// appendAssign rule (which fires on `frame := append(hdr, ...)`
 	// because frame is a *new* slice) doesn't complain.

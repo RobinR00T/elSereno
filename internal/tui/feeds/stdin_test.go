@@ -12,7 +12,7 @@ import (
 	"local/elsereno/internal/tui"
 )
 
-// TestStdinHappyPath drives a 2-line capture through Stdin —
+// TestStdinHappyPath drives a 2-line capture through Stdin,
 // confirms the Reader plumbing matches Replay's file path.
 func TestStdinHappyPath(t *testing.T) {
 	src := strings.NewReader(strings.Join([]string{
@@ -33,7 +33,7 @@ func TestStdinHappyPath(t *testing.T) {
 	}
 }
 
-// TestStdinEOFTerminatesCleanly — when the producer closes the
+// TestStdinEOFTerminatesCleanly when the producer closes the
 // pipe, Run returns nil so the runner reports a clean closure
 // (no "feed closed with error: …" line).
 func TestStdinEOFTerminatesCleanly(t *testing.T) {
@@ -66,7 +66,7 @@ func TestStdinDefaultsToOsStdin(t *testing.T) {
 	}
 }
 
-// TestStdinName — distinct from Replay's identifier so error
+// TestStdinName distinct from Replay's identifier so error
 // reports clearly distinguish the two modes.
 func TestStdinName(t *testing.T) {
 	if got := (Stdin{}).Name(); got != "feed stdin" {
@@ -74,7 +74,7 @@ func TestStdinName(t *testing.T) {
 	}
 }
 
-// TestStdinIgnoresEmptyLines — pipelines often have stray empty
+// TestStdinIgnoresEmptyLines pipelines often have stray empty
 // lines (trailing newlines, conditional jq output). Confirm
 // they're skipped silently rather than triggering parse errors.
 func TestStdinIgnoresEmptyLines(t *testing.T) {
@@ -93,7 +93,7 @@ func TestStdinIgnoresEmptyLines(t *testing.T) {
 	}
 }
 
-// TestStdinPipeIsConsumedSequentially — drives io.Pipe so the
+// TestStdinPipeIsConsumedSequentially drives io.Pipe so the
 // reader half blocks on the writer. Confirms Stdin doesn't
 // pre-buffer and waits for live input arrival, which is the
 // whole point of feed mode.
@@ -122,7 +122,7 @@ func TestStdinPipeIsConsumedSequentially(t *testing.T) {
 	}
 }
 
-// TestStdinPipeCancelStops — cancellation interrupts a stalled
+// TestStdinPipeCancelStops cancellation interrupts a stalled
 // pipe read on the next line. Bounded wait so the test fails
 // fast if the cancellation path regresses.
 func TestStdinPipeCancelStops(t *testing.T) {
@@ -157,7 +157,7 @@ func TestStdinPipeCancelStops(t *testing.T) {
 
 	// done should fire shortly. Without an explicit timeout a
 	// regression in the cancellation guard would hang the test
-	// runner — fail fast instead.
+	// runner fail fast instead.
 	select {
 	case <-done:
 		// Either context.Canceled wrapping or io.EOF after pipe

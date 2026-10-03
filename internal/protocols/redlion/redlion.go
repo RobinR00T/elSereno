@@ -107,7 +107,7 @@ func (p *Plugin) ProxyHandler() core.ProxyHandler { return &failClosed{} }
 type failClosed struct{}
 
 func (failClosed) Handle(_ context.Context, _ io.ReadWriter, _ io.ReadWriter) error {
-	return fmt.Errorf("redlion: TCP proxy framework requires an RLN-aware classifier; v1.22 chunk 3 is fingerprint-only — a relay arrives with the future offensive plugin")
+	return fmt.Errorf("redlion: TCP proxy framework requires an RLN-aware classifier; v1.22 chunk 3 is fingerprint-only, a relay arrives with the future offensive plugin")
 }
 
 func classifyParseError(err error) string {

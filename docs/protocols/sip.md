@@ -28,7 +28,7 @@ SUBSCRIBE / NOTIFY / REFER / PUBLISH / UPDATE / INFO) returns:
 ## Offensive write-gate
 
 Four allowlists, each opt-in. Empty list disables that layer.
-Hash ladder degrades cleanly so v1.4–v1.11 confirm-tokens
+Hash ladder degrades cleanly so v1.4-v1.11 confirm-tokens
 remain valid for operators who skip the new layers.
 
 | Layer | Flag | Applies to | Match | Since |
@@ -58,7 +58,7 @@ elsereno-offensive write sip dry-run \
 ```
 
 The allow-file round-trips lossless through `proxy listen
---allow-file <path>` — the YAML carries `methods:`,
+--allow-file <path>`: the YAML carries `methods:`,
 `to_prefixes:`, `aors:`, `from_domains:`.
 
 ## See also

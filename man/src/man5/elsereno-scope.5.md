@@ -4,14 +4,14 @@
 
 # NAME
 
-**scope.yaml** — authorised scope file for *elsereno*(1)
+**scope.yaml**: authorised scope file for *elsereno*(1)
 
 # DESCRIPTION
 
 A *scope.yaml* file defines the authorised ranges, ports, protocols, web
 binds, dialling blacklist, and optional canary for an engagement.
 
-A scope file is **optional** — when absent, ElSereno requires an explicit
+A scope file is **optional**: when absent, ElSereno requires an explicit
 acceptable-use acknowledgement at every active command.
 
 # FORMAT

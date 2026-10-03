@@ -1,4 +1,4 @@
-# elsereno audit serve — centralised single-writer audit
+# elsereno audit serve, centralised single-writer audit
 # daemon over Unix domain socket.
 #
 # Pairs with the v1.26 chunk-1 audit daemon. Replaces the
@@ -8,7 +8,7 @@
 # the sole writer to the audit hash chain.
 #
 # Enable on a SOC host that fans audit events from many
-# operator boxes — usually colocated with serve. Single-
+# operator boxes, usually colocated with serve. Single-
 # host operators don't need this; the in-process flock
 # from v1.15 covers them.
 
@@ -41,7 +41,7 @@ ProtectHome=true
 ReadOnlyPaths=/etc/elsereno
 ReadWritePaths=/var/log/elsereno /var/lib/elsereno
 
-# Process / namespace hardening — same baseline as serve.
+# Process / namespace hardening, same baseline as serve.
 NoNewPrivileges=true
 RestrictSUIDSGID=true
 PrivateDevices=true

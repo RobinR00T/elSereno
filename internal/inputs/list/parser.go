@@ -100,7 +100,7 @@ func parseLine(raw string, defaultPort core.Port) (core.Target, error) {
 		return core.Target{Address: addr, Port: p}, nil
 	}
 
-	// AddrPort form — handles IPv4:port and unbracketed IPv4.
+	// AddrPort form, handles IPv4:port and unbracketed IPv4.
 	if ap, err := netip.ParseAddrPort(raw); err == nil {
 		port, pErr := core.NewPort(int(ap.Port()))
 		if pErr != nil {

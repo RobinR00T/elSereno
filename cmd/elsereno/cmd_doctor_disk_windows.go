@@ -12,7 +12,7 @@ import (
 // GetDiskFreeSpaceExW (Windows).
 //
 // We avoid pulling in golang.org/x/sys/windows by calling
-// kernel32.dll directly through syscall.LazyDLL — keeps the
+// kernel32.dll directly through syscall.LazyDLL, keeps the
 // Windows mini build dependency-light.
 //
 // pattern for one-shot Windows API calls without x/sys.

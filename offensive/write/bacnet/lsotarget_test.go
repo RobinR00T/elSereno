@@ -17,7 +17,7 @@ import (
 
 // ---- Hash ladder: per-(op, type, instance) variant degrades --
 
-// TestAllowlistHashWithLSOTargets_EmptyMatchesV16Chunk2 — the
+// TestAllowlistHashWithLSOTargets_EmptyMatchesV16Chunk2 the
 // v1.16 chunk-3 hash with empty LSOTargets must equal the v1.16
 // chunk-2 hash. Backwards-compat ladder step 1.
 func TestAllowlistHashWithLSOTargets_EmptyMatchesV16Chunk2(t *testing.T) {
@@ -35,7 +35,7 @@ func TestAllowlistHashWithLSOTargets_EmptyMatchesV16Chunk2(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithLSOTargets_NonEmptyChangesHash — adding
+// TestAllowlistHashWithLSOTargets_NonEmptyChangesHash adding
 // a per-target entry must perturb the hash.
 func TestAllowlistHashWithLSOTargets_NonEmptyChangesHash(t *testing.T) {
 	target := "bms.test:47808"
@@ -54,7 +54,7 @@ func TestAllowlistHashWithLSOTargets_NonEmptyChangesHash(t *testing.T) {
 	}
 }
 
-// TestAllowlistHashWithLSOTargets_OrderInsensitive — hash is
+// TestAllowlistHashWithLSOTargets_OrderInsensitive hash is
 // stable across different CLI input orders.
 func TestAllowlistHashWithLSOTargets_OrderInsensitive(t *testing.T) {
 	target := "bms.test:47808"
@@ -85,16 +85,16 @@ func TestAllowlistHashWithLSOTargets_OrderInsensitive(t *testing.T) {
 // existing buildLifeSafetyOperationBody helper but adds the [3]
 // field.
 //
-//nolint:unparam // tests in this file converge on type=21 (LifeSafetyPoint) by domain — the parameter is kept for clarity at call sites + potential future tests on other LSO-bearing types.
+//nolint:unparam // tests in this file converge on type=21 (LifeSafetyPoint) by domain, the parameter is kept for clarity at call sites + potential future tests on other LSO-bearing types.
 func buildLSOWithTarget(op uint8, objType uint16, objInst uint32) []byte {
-	// [0] requestingProcessIdentifier — ASN.1 BER context-0 length-1
+	// [0] requestingProcessIdentifier, ASN.1 BER context-0 length-1
 	body := []byte{0x09, 0x01}
-	// [1] requestingSource — ASN.1 BER context-1 length-1 (single byte)
+	// [1] requestingSource, ASN.1 BER context-1 length-1 (single byte)
 	body = append(body, 0x19, byte('A'))
-	// [2] request — ENUMERATED, length 1
+	// [2] request, ENUMERATED, length 1
 	body = append(body, 0x29, op)
-	// [3] objectIdentifier — context 3, primitive, length 4 packed
-	// #nosec G115 -- test-bounded — type fits in 10 bits, instance in 22.
+	// [3] objectIdentifier, context 3, primitive, length 4 packed
+	// #nosec G115 -- test-bounded, type fits in 10 bits, instance in 22.
 	packed := (uint32(objType) << 22) | (objInst & 0x3FFFFF)
 	var u32 [4]byte
 	binary.BigEndian.PutUint32(u32[:], packed)
@@ -143,7 +143,7 @@ func TestParseLifeSafetyOperationWithTarget_NoTarget(t *testing.T) {
 	}
 }
 
-// TestParseLifeSafetyOperation_BackwardsCompat — the older
+// TestParseLifeSafetyOperation_BackwardsCompat the older
 // thin-wrapper Parse function must still work for callers that
 // don't care about the target.
 func TestParseLifeSafetyOperation_BackwardsCompat(t *testing.T) {
@@ -218,7 +218,7 @@ func buildLSOFrameFromBody(body []byte) []byte {
 	return buildBACnetFrame(apdu)
 }
 
-// TestGateBACnetLSO_PerTargetExactPasses — operator declares
+// TestGateBACnetLSO_PerTargetExactPasses operator declares
 // (op=Unsilence, type=21, instance=3); ACS sends matching
 // request → forwards.
 func TestGateBACnetLSO_PerTargetExactPasses(t *testing.T) {
@@ -233,7 +233,7 @@ func TestGateBACnetLSO_PerTargetExactPasses(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_PerTargetDifferentInstanceRefuses — same
+// TestGateBACnetLSO_PerTargetDifferentInstanceRefuses same
 // op + type but different instance → refused.
 func TestGateBACnetLSO_PerTargetDifferentInstanceRefuses(t *testing.T) {
 	targets := []bwrite.AllowedLSOTarget{{Operation: bwire.LSOOpUnsilence, ObjectType: 21, ObjectInstance: 3}}
@@ -257,7 +257,7 @@ func TestGateBACnetLSO_PerTargetDifferentInstanceRefuses(t *testing.T) {
 }
 
 // TestGateBACnetLSO_PerTarget_DeviceWideRefusesWhenOnlyTargetsSet
-// — operator opted into per-target scoping (only LSOTargets, no
+// operator opted into per-target scoping (only LSOTargets, no
 // LSOOperations); device-wide LSO (no [3]) → refused.
 func TestGateBACnetLSO_PerTarget_DeviceWideRefusesWhenOnlyTargetsSet(t *testing.T) {
 	targets := []bwrite.AllowedLSOTarget{{Operation: bwire.LSOOpUnsilence, ObjectType: 21, ObjectInstance: 3}}
@@ -277,14 +277,14 @@ func TestGateBACnetLSO_PerTarget_DeviceWideRefusesWhenOnlyTargetsSet(t *testing.
 	}
 }
 
-// TestGateBACnetLSO_PerTargetFallbackToOpList — operator mixes
+// TestGateBACnetLSO_PerTargetFallbackToOpList operator mixes
 // both lists. Device-wide LSO falls back to per-op list.
 func TestGateBACnetLSO_PerTargetFallbackToOpList(t *testing.T) {
 	ops := []bwrite.AllowedLSOOperation{{Operation: bwire.LSOOpUnsilence}}
 	targets := []bwrite.AllowedLSOTarget{{Operation: bwire.LSOOpReset, ObjectType: 21, ObjectInstance: 3}}
 	client, upstream := driveLSOTargetSession(t, ops, targets)
 
-	// Device-wide unsilence — per-op list passes.
+	// Device-wide unsilence, per-op list passes.
 	frame := buildLSOFrameFromBody(buildLSOWithoutTarget(bwire.LSOOpUnsilence))
 	_, _ = client.Write(frame)
 	frames := waitForFramesOne(t, upstream)
@@ -293,13 +293,13 @@ func TestGateBACnetLSO_PerTargetFallbackToOpList(t *testing.T) {
 	}
 }
 
-// TestGateBACnetLSO_PerTarget_OpMismatchRefuses — per-target
+// TestGateBACnetLSO_PerTarget_OpMismatchRefuses per-target
 // list has (Reset, 21, 3) but ACS sends (Silence, 21, 3) →
 // refused (op mismatch).
 func TestGateBACnetLSO_PerTarget_OpMismatchRefuses(t *testing.T) {
 	targets := []bwrite.AllowedLSOTarget{{Operation: bwire.LSOOpReset, ObjectType: 21, ObjectInstance: 3}}
 	client, upstream := driveLSOTargetSession(t, nil, targets)
-	frame := buildLSOFrameFromBody(buildLSOWithTarget(bwire.LSOOpSilence, 21, 3)) // wrong op (and HOSTILE — silencing)
+	frame := buildLSOFrameFromBody(buildLSOWithTarget(bwire.LSOOpSilence, 21, 3)) // wrong op (and HOSTILE, silencing)
 	_, _ = client.Write(frame)
 
 	_ = client.SetReadDeadline(time.Now().Add(500 * time.Millisecond))

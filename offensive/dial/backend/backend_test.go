@@ -81,7 +81,7 @@ type modemSim struct {
 }
 
 // run answers OK to ATZ/ATE0 and dtResponse to ATDT. On ATH0
-// it closes the peer instead of replying — the real handler's
+// it closes the peer instead of replying, the real handler's
 // hangup() doesn't wait for an OK and a net.Pipe sim that tries
 // to write one deadlocks against the test-goroutine's shutdown
 // sequence.
@@ -103,7 +103,7 @@ func (s *modemSim) run(peer net.Conn) {
 		case startsWith(line, "ATZ"), startsWith(line, "ATE0"):
 			reply("OK")
 		case startsWith(line, "ATH0"):
-			return // close — hangup() doesn't wait
+			return // close, hangup() doesn't wait
 		}
 	}
 }
@@ -193,7 +193,7 @@ func TestATModem_TimeoutMapsToFailed(t *testing.T) {
 				startsWith(line, "ATE0"):
 				_, _ = server.Write([]byte("OK\r\n"))
 			case startsWith(line, "ATH0"):
-				return // close on hangup — client doesn't wait for OK
+				return // close on hangup, client doesn't wait for OK
 				// ATDT deliberately unmatched → timeout in readUntilResult
 			}
 		}

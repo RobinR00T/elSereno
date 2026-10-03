@@ -73,7 +73,7 @@ func loadAPICreds(path string) (apiCreds, error) {
 		return out, fmt.Errorf("--api-creds-file %s: permissions %o must be 0600 (chmod 600 %s)",
 			path, info.Mode().Perm(), path)
 	}
-	raw, err := os.ReadFile(path) // #nosec G304 — path is operator-supplied; 0600 check above prevents world-readable leaks.
+	raw, err := os.ReadFile(path) // #nosec G304, path is operator-supplied; 0600 check above prevents world-readable leaks.
 	if err != nil {
 		return out, fmt.Errorf("--api-creds-file %s: %w", path, err)
 	}
@@ -89,8 +89,8 @@ func loadAPICreds(path string) (apiCreds, error) {
 // provider input (e.g. --input shodan:…) but omits
 // --api-creds-file. Caller surfaces the remediation hint.
 //
-// internetdb is excluded from this check — it requires no API
-// key — so its readInternetDBTargets path bypasses creds load.
+// internetdb is excluded from this check, it requires no API
+// key so its readInternetDBTargets path bypasses creds load.
 var errAPICredsNotSet = errors.New("--api-creds-file is required for provider inputs (shodan:, censys:, fofa:, zoomeye:, onyphe:)")
 
 // readTargetsFromProvider dispatches `<provider>:<query>` to
@@ -104,7 +104,7 @@ func readTargetsFromProvider(ctx context.Context, provider, query, credsFile str
 	if query == "" {
 		return nil, fmt.Errorf("--input %s: query is empty (form: --input %s:<query>)", provider, provider)
 	}
-	// internetdb is the only no-key provider — bypass the
+	// internetdb is the only no-key provider, bypass the
 	// credentials file entirely.
 	if provider == "internetdb" {
 		return readInternetDBTargets(ctx, query)
@@ -174,7 +174,7 @@ func readInternetDBTargets(ctx context.Context, query string) ([]core.Target, er
 }
 
 // lookupAllInternetDB iterates the IP list with rate-limited
-// per-IP lookups. Errors on a single IP surface immediately —
+// per-IP lookups. Errors on a single IP surface immediately,
 // operators usually want to know the rate limit hit them.
 //
 // Each IP is passed through stripIPv6Brackets so operators
@@ -196,7 +196,7 @@ func lookupAllInternetDB(ctx context.Context, c *internetdb.Client, ips []string
 
 // stripIPv6Brackets returns s without leading "[" + trailing "]"
 // when both are present. The brackets aren't part of the IPv6
-// literal per RFC 5952 — they're a host:port-string convention
+// literal per RFC 5952, they're a host:port-string convention
 // to disambiguate the address from the trailing port. Operators
 // who type `[2001:db8::1]` for `--input internetdb:` (mirroring
 // the bracket convention they use for `--target`) get the
@@ -216,7 +216,7 @@ func readInternetDBIPListFromFile(path string) ([]string, error) {
 	if path == "" {
 		return nil, errors.New("internetdb file: path is empty (form: internetdb:file:<path>)")
 	}
-	f, err := os.Open(path) // #nosec G304 — operator-supplied IP-list path
+	f, err := os.Open(path) // #nosec G304, operator-supplied IP-list path
 	if err != nil {
 		return nil, fmt.Errorf("internetdb file %q: %w", path, err)
 	}
@@ -252,7 +252,7 @@ func readInternetDBIPListFromReader(r io.Reader) ([]string, error) {
 // keeps free-tier quota usage sane (each provider returns ~100/
 // page, so 1000 hits = ~10 paginated requests). Operators
 // wanting more raise the cap via the (future) --max-results
-// flag — out of scope for chunk 8.
+// flag out of scope for chunk 8.
 const providerTotalLimit = 1000
 
 func readShodanTargets(ctx context.Context, creds apiCreds, query string) ([]core.Target, error) {

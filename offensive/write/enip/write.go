@@ -15,7 +15,7 @@ import (
 // Op enumerates the CIP write operations.
 type Op string
 
-// #nosec G101 -- false positive — op labels
+// #nosec G101 -- false positive, op labels
 const (
 	// OpSetAttributeSingle is CIP service 0x10 Set Attribute Single.
 	OpSetAttributeSingle Op = "set_attribute_single"

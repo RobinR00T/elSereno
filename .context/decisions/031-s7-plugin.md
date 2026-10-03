@@ -1,12 +1,12 @@
 ---
 id: 031
-title: Siemens S7comm (TPKT/COTP) plugin — read-only probe + fingerprint
+title: Siemens S7comm (TPKT/COTP) plugin, read-only probe + fingerprint
 status: accepted
 date: 2026-04-19
 phase: F4
 ---
 
-# ADR-031: Siemens S7comm (TPKT/COTP) plugin — read-only probe + fingerprint
+# ADR-031: Siemens S7comm (TPKT/COTP) plugin, read-only probe + fingerprint
 
 ## Context
 Siemens S7comm (TPKT/COTP) is an ICS/OT protocol commonly exposed on port 102/tcp.
@@ -31,7 +31,7 @@ any stateful session the caller has to tear down.
   review parity.
 
 ### Negative / trade-offs
-- Deep-parse of reply bodies is deferred — we record presence +
+- Deep-parse of reply bodies is deferred, we record presence +
   first-level classification, not full protocol semantics.
 
 ## Alternatives considered

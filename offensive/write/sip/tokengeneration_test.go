@@ -13,7 +13,7 @@ import (
 
 // ---- Hash ladder: token-generation cookie degrades --------
 
-// TestSIPAllowlistHashWithGeneration_ZeroMatchesV12Chunk5 — the
+// TestSIPAllowlistHashWithGeneration_ZeroMatchesV12Chunk5 the
 // v1.17 chunk-2 hash with generation=0 must equal the v1.12
 // chunk-5 (FromDomains) hash. Backwards-compat ladder step 1:
 // every v1.4 → v1.12-chunk-5 confirm-token still validates
@@ -32,7 +32,7 @@ func TestSIPAllowlistHashWithGeneration_ZeroMatchesV12Chunk5(t *testing.T) {
 	}
 }
 
-// TestSIPAllowlistHashWithGeneration_NonZeroChangesHash —
+// TestSIPAllowlistHashWithGeneration_NonZeroChangesHash
 // bumping the generation must perturb the hash.
 func TestSIPAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	target := "pbx.test:5060"
@@ -44,7 +44,7 @@ func TestSIPAllowlistHashWithGeneration_NonZeroChangesHash(t *testing.T) {
 	}
 }
 
-// TestSIPAllowlistHashWithGeneration_DifferentGenerationsDiffer —
+// TestSIPAllowlistHashWithGeneration_DifferentGenerationsDiffer
 // every distinct generation produces a distinct hash.
 func TestSIPAllowlistHashWithGeneration_DifferentGenerationsDiffer(t *testing.T) {
 	target := "pbx.test:5060"
@@ -60,7 +60,7 @@ func TestSIPAllowlistHashWithGeneration_DifferentGenerationsDiffer(t *testing.T)
 	}
 }
 
-// TestSIPAllowlistHashWithGeneration_StableForSameGeneration —
+// TestSIPAllowlistHashWithGeneration_StableForSameGeneration
 // the hash is deterministic.
 func TestSIPAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
 	target := "pbx.test:5060"
@@ -74,7 +74,7 @@ func TestSIPAllowlistHashWithGeneration_StableForSameGeneration(t *testing.T) {
 
 // ---- E2E gate: TokenGeneration flowed through Authorise ------
 
-// TestSIPGate_TokenGeneration_StaleTokenRejected — operator
+// TestSIPGate_TokenGeneration_StaleTokenRejected operator
 // originally minted a token at gen=0; bumps allow-file + gen;
 // the bumped session refuses the old token.
 func TestSIPGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
@@ -104,7 +104,7 @@ func TestSIPGate_TokenGeneration_StaleTokenRejected(t *testing.T) {
 	}
 }
 
-// TestSIPGate_TokenGeneration_FreshTokenAccepted — operator
+// TestSIPGate_TokenGeneration_FreshTokenAccepted operator
 // bumps the generation AND mints a new token; Authorise OK.
 func TestSIPGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	target := "pbx.test:5060"
@@ -133,7 +133,7 @@ func TestSIPGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestSIPGate_TokenGeneration_DefaultPreservesOldTokens —
+// TestSIPGate_TokenGeneration_DefaultPreservesOldTokens
 // when operator does NOT bump, v1.4 → v1.12 tokens minted via
 // chunk-5 helpers continue to validate.
 func TestSIPGate_TokenGeneration_DefaultPreservesOldTokens(t *testing.T) {

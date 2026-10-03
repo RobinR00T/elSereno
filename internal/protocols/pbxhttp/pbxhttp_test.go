@@ -16,7 +16,7 @@ import (
 )
 
 // probeAgainst spins up an httptest server (plain HTTP for
-// simplicity — TLS is covered separately) and returns the
+// simplicity TLS is covered separately) and returns the
 // finding produced by Default().Probe against it.
 func probeAgainst(t *testing.T, handler http.Handler) *core.Finding {
 	t.Helper()

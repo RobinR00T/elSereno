@@ -333,7 +333,7 @@ const reportTemplate = `<!doctype html>
 </section>
 {{end}}
 
-<footer>ElSereno — ICS/OT exposure auditor · Report regenerated on demand from the run's findings table.</footer>
+<footer>ElSereno, ICS/OT exposure auditor · Report regenerated on demand from the run's findings table.</footer>
 </body>
 </html>
 `

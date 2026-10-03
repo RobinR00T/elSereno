@@ -1,12 +1,12 @@
 ---
 id: 014
-title: Web auth — Bearer for /api/v1, cookie+CSRF for HTML
+title: Web auth, Bearer for /api/v1, cookie+CSRF for HTML
 status: accepted
 date: 2026-04-19
 phase: F0
 ---
 
-# ADR-014: Web auth — Bearer for `/api/v1`, cookie + CSRF for HTML
+# ADR-014: Web auth, Bearer for `/api/v1`, cookie + CSRF for HTML
 
 ## Context
 The web surface serves two consumers: automation scripts hitting

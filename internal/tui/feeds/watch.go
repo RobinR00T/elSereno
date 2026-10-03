@@ -38,14 +38,14 @@ import (
 //
 // Reconnects automatically on transient I/O errors (default
 // retry 3s, matching the server's `retry:` hint). Auth failures
-// (401/403) terminate the feed — the operator needs a fresh
+// (401/403) terminate the feed, the operator needs a fresh
 // token, not another retry.
 type Watch struct {
 	// URL is the SSE endpoint, e.g. "https://host/api/v1/stream".
 	// Required.
 	URL string
 	// Bearer is the Authorization token. Required for any
-	// non-loopback URL — `serve` rejects unauthenticated stream
+	// non-loopback URL, `serve` rejects unauthenticated stream
 	// connections (per ADR-009).
 	Bearer string
 	// Client lets tests inject a mock transport. nil → DefaultClient.
@@ -83,7 +83,7 @@ func (w Watch) Run(ctx context.Context, emit func(tea.Msg)) error {
 		if err == nil {
 			return nil // server closed the stream cleanly
 		}
-		// Auth failures are terminal — we'd loop forever otherwise.
+		// Auth failures are terminal, we'd loop forever otherwise.
 		var ae authError
 		if errors.As(err, &ae) {
 			return err
@@ -169,7 +169,7 @@ func decodeSSE(ctx context.Context, body io.Reader, emit func(tea.Msg)) error {
 		if !ok {
 			continue
 		}
-		// SSE allows a single space after the colon — strip it.
+		// SSE allows a single space after the colon, strip it.
 		value = strings.TrimPrefix(value, " ")
 		switch key {
 		case "event":
@@ -177,7 +177,7 @@ func decodeSSE(ctx context.Context, body io.Reader, emit func(tea.Msg)) error {
 		case "data":
 			// Multi-line data fields concat with newline per the
 			// SSE spec. Most ElSereno events are single-line JSON
-			// so this rarely matters — but the spec is the spec.
+			// so this rarely matters, but the spec is the spec.
 			if len(ev.data) > 0 {
 				ev.data = append(ev.data, '\n')
 			}
@@ -260,7 +260,7 @@ func dispatchSSE(ev sseEvent, emit func(tea.Msg)) {
 }
 
 // authError flags an HTTP 401/403 so the retry loop short-
-// circuits — looping forever on a bad token is just noise.
+// circuits looping forever on a bad token is just noise.
 type authError struct {
 	Status int
 }

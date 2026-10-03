@@ -23,7 +23,7 @@ surfaces is a known hazard (PITF-030, PITF-022).
 
 ## Consequences
 ### Positive
-- A single file — the migration — defines the allowed set.
+- A single file, the migration, defines the allowed set.
 - Silent drift becomes a hard CI failure via the mirror-check test.
 
 ### Negative / trade-offs

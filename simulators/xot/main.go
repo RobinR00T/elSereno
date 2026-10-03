@@ -1,6 +1,6 @@
 // Command xot-sim is a minimal XOT (RFC 1613) responder for the
 // integration suite. It accepts TCP connections on --listen, reads a
-// single Call Request, and replies with a configurable response —
+// single Call Request, and replies with a configurable response,
 // either a Clear Indication with cause/diag, a Call Accepted, or
 // silence.
 //

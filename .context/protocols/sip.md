@@ -19,9 +19,9 @@ write plugin gates per-method, INVITE prefix, REGISTER AOR,
 From-domain since v1.12.
 
 ## Spec references
-- RFC 3261 (SIP — Session Initiation Protocol).
+- RFC 3261 (SIP, Session Initiation Protocol).
 - RFC 3327 / RFC 3581 / RFC 4566 (extensions).
-- RFC 4475 (SIP torture tests — used for fuzz-corpus seeds).
+- RFC 4475 (SIP torture tests, used for fuzz-corpus seeds).
 
 ## Wire format
 Text-based request-response (HTTP-like). Default port 5060

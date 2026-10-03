@@ -62,7 +62,7 @@ func TestClassify_BannerPhoenix(t *testing.T) {
 }
 
 func TestClassify_BannerProConOS(t *testing.T) {
-	// Some ILC firmwares report ProConOS as the runtime name —
+	// Some ILC firmwares report ProConOS as the runtime name,
 	// PCWorx and ProConOS share a kernel from KW-Software in
 	// many ILC releases. Confirm the banner list catches both.
 	resp := append([]byte{0x11, 0x22, 0x33, 0x44}, []byte("ProConOS V5.0.0.40")...)

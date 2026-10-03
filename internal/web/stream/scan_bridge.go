@@ -165,7 +165,7 @@ func (s *BroadcastingStore) Transition(ctx context.Context, id string, to scanor
 
 // AttachProgressThrottle wires the throttle so the
 // BroadcastingStore can Forget per-job state on terminal
-// transitions. Optional — if nil, the throttle's per-job map
+// transitions. Optional, if nil, the throttle's per-job map
 // just grows until the operator restarts serve. Wiring keeps
 // the map bounded.
 func (s *BroadcastingStore) AttachProgressThrottle(t *ScanProgressThrottle) {
@@ -177,7 +177,7 @@ var _ scanorch.Store = (*BroadcastingStore)(nil)
 
 // scanProgressWirePayload is the dashboard-facing projection
 // of a mid-scan Stats snapshot. Smaller than the full
-// scan_state_change payload — only the fields a renderer needs
+// scan_state_change payload, only the fields a renderer needs
 // to update an in-flight row's counters.
 type scanProgressWirePayload struct {
 	ID               string         `json:"id"`
@@ -210,7 +210,7 @@ func PublishScanProgress(b *Broadcaster, jobID string, s scanorch.Stats, byPlugi
 //
 //   - Per-job last-emit timestamp + minimum interval (default
 //     500ms). Two snapshots arriving within the interval
-//     collapse — only the latest is held; the deferred-flush
+//     collapse only the latest is held; the deferred-flush
 //     timer eventually emits it.
 //   - Per-job last-emitted Stats: a snapshot identical to the
 //     last emitted is dropped (no spurious "still 33 / 100"
@@ -250,7 +250,7 @@ func NewScanProgressThrottle(b *Broadcaster, min time.Duration) *ScanProgressThr
 // minInterval; identical snapshots are dropped.
 //
 // v1.66+: byPlugin (per-plugin findings) travels alongside
-// stats. Identical-snapshot suppression compares stats only —
+// stats. Identical-snapshot suppression compares stats only,
 // the byPlugin map MAY change without changing aggregate
 // FindingsCount (e.g., findings drift between plugins as
 // per-plugin counters are first populated). For dashboard
@@ -308,7 +308,7 @@ func (t *ScanProgressThrottle) Flush() {
 }
 
 // Forget releases the per-job throttle state. Workers should
-// call this when a job reaches a terminal state — otherwise the
+// call this when a job reaches a terminal state, otherwise the
 // per-job map grows unbounded over a long-running serve.
 func (t *ScanProgressThrottle) Forget(jobID string) {
 	if t == nil {

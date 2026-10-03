@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const legalBanner = `ElSereno — acceptable use policy
+const legalBanner = `ElSereno, acceptable use policy
 
 By running this binary you acknowledge:
 

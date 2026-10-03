@@ -1,5 +1,5 @@
 // Package fofa is the FOFA (fofa.info) attack-surface input.
-// Mirrors the Shodan client layout — fetches hits from FOFA's
+// Mirrors the Shodan client layout, fetches hits from FOFA's
 // Search API and decodes them into core.Target values that the
 // scanner can deduplicate + probe.
 //

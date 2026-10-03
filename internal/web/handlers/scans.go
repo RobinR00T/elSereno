@@ -56,7 +56,7 @@ type bulkSubmitRequest struct {
 // bulkSubmitResponse is the response body. Submitted carries
 // the queued Jobs in the same order as Inputs. Errors carries
 // per-input error messages for entries that failed (typically
-// empty Inputs strings — Submit's only validation). The
+// empty Inputs strings, Submit's only validation). The
 // response always 200s if the request was syntactically valid;
 // individual failures don't fail the batch.
 type bulkSubmitResponse struct {
@@ -71,7 +71,7 @@ type bulkErrorItem struct {
 }
 
 // bulkLimit caps the number of inputs per call. Operators with
-// thousands of /24s should batch in pages of 200 — protects the
+// thousands of /24s should batch in pages of 200, protects the
 // dashboard from a single-request DoS that holds the goroutine
 // pool.
 const bulkLimit = 200
@@ -234,7 +234,7 @@ func parseLimit(raw string) int {
 //  2. X-Operator header (v1.58 dev-mode + back-compat).
 //  3. "" (anonymous; audit row carries "anonymous" upstream).
 //
-// When OIDC enforcement is enabled, (1) always wins — the
+// When OIDC enforcement is enabled, (1) always wins, the
 // header can't impersonate a token-bound identity.
 func operatorFromRequest(r *http.Request) string {
 	if op := auth.OperatorFromContext(r.Context()); op != "" {

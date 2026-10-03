@@ -15,7 +15,7 @@ import (
 // tests. Mirrors the inline string used in gatedproxy_test.go.
 const testDeriverKey = "test-key-32-byte-long--------"
 
-// TestOPCUAAllowlistHashWithGeneration_ZeroMatchesV12Chunk6 —
+// TestOPCUAAllowlistHashWithGeneration_ZeroMatchesV12Chunk6
 // gen=0 must equal AllowlistHashWithCallMethods byte-for-byte.
 func TestOPCUAAllowlistHashWithGeneration_ZeroMatchesV12Chunk6(t *testing.T) {
 	target := "plc.test:4840"
@@ -92,7 +92,7 @@ func TestOPCUAGate_TokenGeneration_FreshTokenAccepted(t *testing.T) {
 	}
 }
 
-// TestOPCUAGate_TokenGeneration_DefaultPreservesOldTokens —
+// TestOPCUAGate_TokenGeneration_DefaultPreservesOldTokens
 // chunk-6 token validates with default gen=0.
 func TestOPCUAGate_TokenGeneration_DefaultPreservesOldTokens(t *testing.T) {
 	target := "plc.test:4840"

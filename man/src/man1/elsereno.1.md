@@ -4,7 +4,7 @@
 
 # NAME
 
-**elsereno** — ICS/OT and legacy-network exposure auditor
+**elsereno**: ICS/OT and legacy-network exposure auditor
 
 # SYNOPSIS
 
@@ -26,7 +26,7 @@ TR-069 CWMP). Two binaries ship from the same module:
 :   `-tags offensive` build. Adds **dial**, **exploit**,
     **harvest**, **proxy listen** (write-gated), and **write**
     subcommands. Every mutating call clears the
-    triple-confirm wrapper (ADR-039) — `--accept-writes`,
+    triple-confirm wrapper (ADR-039), `--accept-writes`,
     `--confirm-target`, `--confirm-token`.
 
 # COMMANDS
@@ -227,7 +227,7 @@ The seven write-gated proxies all share the `--allow-file
 :   killed by a signal (e.g. SIGINT → **130**, SIGTERM → **143**).
 
 `75`
-:   *EX_TEMPFAIL* — only emitted by `proxy listen` (offensive
+:   *EX_TEMPFAIL*: only emitted by `proxy listen` (offensive
     build) on SIGHUP. Distinguishable from a real crash via
     systemd's `RestartPreventExitStatus=`; supervisor restarts
     with the new allowlist + freshly minted confirm-token

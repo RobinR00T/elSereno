@@ -2,12 +2,12 @@
 // KW-Software ProConOS runtime protocol on TCP/20547.
 //
 // ProConOS is the runtime kernel that ships on numerous PLC
-// brands — Phoenix Contact ILC (which also speaks the higher-
+// brands Phoenix Contact ILC (which also speaks the higher-
 // level PCWorx layer on TCP/1962, see internal/protocols/pcworx),
 // Berghof, IPC2u, ABB / B&R / Lenze re-skins, and a long tail
 // of OEM rebrands.
 //
-// **HONEST SCOPE NOTE — best-effort, needs validation**: public
+// **HONEST SCOPE NOTE, best-effort, needs validation**: public
 // references to the ProConOS handshake conflict. The plugin
 // implements the variant that matches the Wireshark dissector
 // in master + the metasploit auxiliary scanner module
@@ -21,15 +21,15 @@
 // Wireshark capture} is available, operators should treat
 // positive identifications as **confidence ≈ 0.7** rather than
 // the ≈ 0.95 the v1.20-v1.25 fingerprint plugins produce. The
-// plugin's scoring reflects this — `protocol_risk` defaults to
+// plugin's scoring reflects this, `protocol_risk` defaults to
 // 75 (vs 80 for codesys) and `capability` ceiling is 60 (vs
 // 75 for codesys / pcworx).
 //
-// CVE history (cve_exposure: 7) — the KW-Software runtime
+// CVE history (cve_exposure: 7), the KW-Software runtime
 // ecosystem inherits much of the Phoenix Contact ILC family's
 // CVE record:
 //
-//   - ICSA-15-160-01 (PCWorx auth bypass + RCE — also affects
+//   - ICSA-15-160-01 (PCWorx auth bypass + RCE, also affects
 //     ProConOS-only Berghof + Lenze deployments).
 //   - ICSA-17-201-01 (PCWorx + ProConOS variable-write
 //     privilege escalation).

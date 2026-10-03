@@ -4,7 +4,7 @@ date: 2026-04-19
 token-budget: 1000
 ---
 
-# Phase F0 snapshot — Scaffolding
+# Phase F0 snapshot, Scaffolding
 
 ## Shipped
 
@@ -80,7 +80,7 @@ None beyond the initial PITF-001..036 already captured in the brief.
   pandoc, sqlcipher. `.golangci.yml` had to be rewritten for v2 config
   schema (v1 format was rejected). `.gitleaks.toml` tightened so the
   empty-value placeholders in `.env.example` no longer self-match
-  (regression guard for PITF-010 — rule required `\S+` after `=`; paths
+  (regression guard for PITF-010, rule required `\S+` after `=`; paths
   allowlist also skips the file).
 - Cobra is not wired: F0 uses a hand-rolled dispatcher. Cobra replaces it
   in F1 together with `cobra/doc`-generated man1 pages.

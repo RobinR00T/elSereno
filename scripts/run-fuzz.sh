@@ -5,7 +5,7 @@
 #   - We pass an explicit `-timeout` 4× larger than the fuzz duration so
 #     Go's per-test 10m default doesn't fight short fuzz budgets.
 #   - We retry each fuzz invocation up to MAX_ATTEMPTS times when it
-#     fails with "context deadline exceeded" — Go's fuzz worker
+#     fails with "context deadline exceeded", Go's fuzz worker
 #     scheduling on macOS occasionally races GC and reports a deadline
 #     even though no real fuzz crash occurred. Retries are NOT applied
 #     to genuine fuzz failures (a real `--- FAIL:` panic / fail line
@@ -40,7 +40,7 @@ run_fuzz_with_retry() {
   local target="$2"
   local attempt=1
   while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
-    echo ">>> fuzz $pkg $target ($DURATION) — attempt $attempt/$MAX_ATTEMPTS"
+    echo ">>> fuzz $pkg $target ($DURATION), attempt $attempt/$MAX_ATTEMPTS"
     set +e
     # -tags offensive is the superset build: it compiles both the
     # default packages and the offensive-only ones (e.g. offensive/
@@ -55,7 +55,7 @@ run_fuzz_with_retry() {
     fi
     # Genuine fuzz failure: a `--- FAIL:` line that's NOT
     # "context deadline exceeded" means real coverage / panic.
-    # Treat that as terminal — no retry.
+    # Treat that as terminal, no retry.
     if echo "$output" | grep -qE '^--- FAIL:' && \
        ! echo "$output" | grep -qE 'context deadline exceeded'; then
       return "$rc"
@@ -85,5 +85,5 @@ done < <(
 )
 
 if [ "$any" -eq 0 ]; then
-  echo "no Fuzz* targets discovered — nothing to run"
+  echo "no Fuzz* targets discovered, nothing to run"
 fi

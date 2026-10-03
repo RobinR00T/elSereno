@@ -62,7 +62,7 @@ type Model struct {
 	ModeName Mode
 
 	// Findings is the rolling window of recent findings. Capped
-	// at MaxFindings (default 200) — older entries are dropped
+	// at MaxFindings (default 200), older entries are dropped
 	// rather than scrolled, so the panel stays responsive on
 	// long-running scans. Operators wanting the full history
 	// query the dashboard / DB.
@@ -154,7 +154,7 @@ func NewModel(mode Mode) Model {
 }
 
 // Init implements tea.Model. The TUI itself doesn't subscribe to
-// tickers from Init — feed goroutines drive the state via
+// tickers from Init, feed goroutines drive the state via
 // outboundMessages (FindingMsg, AuditMsg, ScanProgressMsg, etc.).
 // The runner wires the channel; see runner.go.
 func (m Model) Init() tea.Cmd { return nil }

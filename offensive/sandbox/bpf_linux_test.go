@@ -74,7 +74,7 @@ func TestFilterProgram_Exploit(t *testing.T) {
 	_, nums, _ := archFor(runtime.GOARCH)
 	want := len(blockedSyscalls(ProfileExploit, nums))
 	if want == 0 {
-		t.Fatal("exploit profile produced empty blocklist — ADR-042 violation")
+		t.Fatal("exploit profile produced empty blocklist, ADR-042 violation")
 	}
 	assertFilterShape(t, prog, want)
 }
@@ -112,7 +112,7 @@ func TestFilterProgram_DialAddsNetworkOpeners(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("dial profile must block SYS_connect (nr=%d) — ADR-042 dial profile", connect)
+		t.Fatalf("dial profile must block SYS_connect (nr=%d), ADR-042 dial profile", connect)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestBlockedSyscalls_DedupesAndDropsZeros(t *testing.T) {
 		}
 	}
 	if sawZero {
-		t.Fatal("filter contains syscall nr=0 — would accidentally block read()")
+		t.Fatal("filter contains syscall nr=0, would accidentally block read()")
 	}
 	for v, n := range seen {
 		if n > 1 {

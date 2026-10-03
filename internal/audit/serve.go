@@ -24,7 +24,7 @@ import (
 //
 //   - flock serialises but every emitter takes the lock + reads
 //     the tail to resume the chain on every Append. With N
-//     emitters, that's N tail-reads per N appends — fine for
+//     emitters, that's N tail-reads per N appends, fine for
 //     2-3 processes but wastes I/O at SOC scale.
 //   - The daemon holds the FileWriter once, computes prev_hash
 //     in memory for every append, and writes once. Emitters
@@ -69,7 +69,7 @@ type Response struct {
 // Any existing socket file at the path is removed first so
 // crashes don't leave stale sockets behind that block restart.
 //
-// The returned Server is not yet Serve'ing — call Serve(ctx) to
+// The returned Server is not yet Serve'ing, call Serve(ctx) to
 // accept connections.
 func NewServer(w Writer, socketPath string) (*Server, error) {
 	if w == nil {
@@ -91,7 +91,7 @@ func NewServer(w Writer, socketPath string) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("audit: NewServer: listen %s: %w", socketPath, err)
 	}
-	// Tighten socket file mode — net.Listen leaves it at 0775 typically.
+	// Tighten socket file mode, net.Listen leaves it at 0775 typically.
 	if err := os.Chmod(socketPath, 0o600); err != nil {
 		_ = ln.Close()
 		return nil, fmt.Errorf("audit: NewServer: chmod %s: %w", socketPath, err)
@@ -164,7 +164,7 @@ func isClosedListenerErr(err error) bool {
 
 // handle drives a single connection: read a Request, Append it
 // via the wrapped Writer, write a Response. On EOF / read error
-// the connection is closed silently — clients can reconnect.
+// the connection is closed silently, clients can reconnect.
 func (s *Server) handle(ctx context.Context, c net.Conn) {
 	defer func() { _ = c.Close() }()
 	dec := json.NewDecoder(bufio.NewReader(c))
@@ -199,7 +199,7 @@ type Client struct {
 }
 
 // DialClient connects to a Server at socketPath. The connection
-// is opened lazily — DialClient just records the path; the
+// is opened lazily, DialClient just records the path; the
 // first Append establishes the socket. This keeps short-lived
 // processes that may never need to write audit entries
 // (`elsereno doctor`, `version`, etc.) from tripping a missing-
