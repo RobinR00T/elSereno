@@ -140,10 +140,12 @@ func buildFinding(target core.Target, isDNP3 bool) *core.Finding {
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  90, // electric grid
-		// cve_exposure 12: CVE-2013-2825 (CRC bypass), CVE-
-		// 2013-2829 (TCP frame stack overflow), CVE-2014-5410
-		// (Triangle MicroWorks DNP3 implementation flaws),
-		// well-documented family across multiple vendor stacks.
+		// cve_exposure 12: DNP3 has a well-documented DoS CVE family
+		// across multiple vendor stacks (web-verified): CVE-2013-2825
+		// (Elecsys Director Gateway DNP3 DoS), CVE-2013-2829
+		// (MatrikonOPC DNP3 OPC Server infinite loop) and CVE-2014-5410
+		// (Rockwell MicroLogix 1400 DNP3 DoS). The previous comment
+		// labelled these as "Triangle MicroWorks"; corrected, PITF-070.
 		"cve_exposure": 12,
 	}
 	if isDNP3 {

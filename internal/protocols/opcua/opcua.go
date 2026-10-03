@@ -217,11 +217,12 @@ func buildFinding(target core.Target, note string, uaTCP bool, detail, extra str
 		"auth_state":    60, // anonymous HEL is always allowed
 		"capability":    30, // probe-only; write gating is v1.2
 		"impact_class":  85, // PLC control plane
-		// cve_exposure 8: CVE-2017-12069 (Siemens OPC UA stack
-		// auth bypass), CVE-2019-10936 (open62541 cert
-		// validation), CVE-2022-29862 (Unified Automation OPC
-		// UA C++ DoS), modest but well-documented across the
-		// OPC UA stack landscape.
+		// cve_exposure 8: the OPC UA stack landscape has a documented CVE
+		// surface (OPC Foundation UA .NET sample-code XXE CVE-2017-12069;
+		// OPC UA .NET Standard Stack DoS CVE-2022-29862). Qualitative
+		// baseline: specific ids beyond those are not asserted; the
+		// previous list mis-attributed CVE-2019-10936 (a Siemens PROFINET
+		// UDP DoS) to open62541; see PITF-070.
 		"cve_exposure": 8,
 	}
 	if uaTCP {

@@ -142,7 +142,11 @@ func buildFinding(target core.Target, note string, isTwinCAT bool) *core.Finding
 		"auth_state":    85, // TC3 supports authentication but many fielded systems run open
 		"capability":    30,
 		"impact_class":  75,
-		"cve_exposure":  10, // CVE-2020-12525, CVE-2022-23166, CVE-2023-37452 etc.
+		// cve_exposure 10: Beckhoff TwinCAT (ADS) has a real CVE surface
+		// (ADS DoS / read-access violations), but the specific ids once
+		// listed here could not be web-verified in the 2026-10-03 audit;
+		// qualitative baseline, see PITF-070.
+		"cve_exposure": 10,
 	}
 	if isTwinCAT {
 		factors["capability"] = 70

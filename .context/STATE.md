@@ -28,7 +28,7 @@ CoDeSys magic 0xCDCDCDCD wrong (real 0xE8170100), deferred, no probe frame (PITF
 **2026-10-03 CVE enrichment** (increments 1-4) + repo em-dash cleanup (4b09ca6,
 740 files, 0 dashes): `internal/cve` maps a family to curated REAL web-verified
 CVEs. S7 MLFB; ENIP 1756-EN2x -> CVE-2025-7353; PC WORX ProConOS; FINS Omron by
-model (NJ/NX -> CVE-2022-31206 9.8; CJ/CS/CP -> CVE-2019-18269/45790). Fixed wrong CVEs in enip/pcworx/finsudp comments.
+model (NJ/NX -> CVE-2022-31206 9.8; CJ/CS/CP -> CVE-2019-18269/45790). Fixed wrong CVEs in enip/pcworx/finsudp comments. Baseline-comment audit (PITF-070): SIX fabricated ids purged (knxip/slmp/dlms/gesrtp/mbustcp + pbxhttp CVE-2020-25822, NVD totalResults=0); the 13 suspected comments verified id-by-id vs NVD REST API; mis-attributions de-specified (iec104/bacnet/opcua/sip/fox/iax2/atg/hartip/twincat), only s7/dnp3/cwmp clean at source.
 
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol

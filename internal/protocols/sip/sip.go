@@ -157,12 +157,12 @@ func buildFinding(target core.Target, resp wire.Response, isSIP bool, vendor Ven
 		"auth_state":    60, // OPTIONS often bypasses auth; 401 on REGISTER is the real gate
 		"capability":    30,
 		"impact_class":  75, // toll fraud + call hijack
-		// cve_exposure 12: enormous Asterisk SIP CVE family
-		// (CVE-2009-1207 + decades of follow-ups), Cisco SPA
-		// + UC family (CVE-2017-3881), FreeSWITCH (CVE-2021-
-		// 33611), 3CX SIP (CVE-2023-29059 supply-chain).
-		// Strong toll-fraud monetisation incentive amplifies
-		// real-world exploit pressure.
+		// cve_exposure 12: SIP / PBX stacks have an enormous CVE family
+		// (Asterisk, FreeSWITCH, Cisco UC, 3CX), and strong toll-fraud
+		// monetisation amplifies real-world exploit pressure. Qualitative
+		// baseline: specific ids are not asserted here; the previous list
+		// mis-attributed CVE-2017-3881 (a Cisco IOS Smart Install RCE,
+		// not SIP) to the "Cisco SPA / UC" family; see PITF-070.
 		"cve_exposure": 12,
 	}
 	if isSIP {

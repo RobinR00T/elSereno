@@ -100,12 +100,13 @@ func buildFinding(target core.Target, note string, isFox bool) *core.Finding {
 		"auth_state":    75,
 		"capability":    30,
 		"impact_class":  80,
-		// cve_exposure 13: CVE-2012-3024 (Niagara hardcoded
-		// dev creds, high-impact authentication bypass),
-		// CVE-2015-2916 (Niagara directory traversal),
-		// CVE-2017-16744 (Niagara AX), Tridium dominates
-		// large-scale BMS deployments so even modest CVE
-		// counts hit a wide install base.
+		// cve_exposure 13: Tridium Niagara dominates large-scale BMS, so
+		// even modest CVE counts hit a wide install base. Web-verified
+		// examples: CVE-2012-3024 (Niagara AX predictable session
+		// IDs/keys, auth bypass by brute force) and CVE-2017-16744
+		// (Niagara AX / N4 path traversal). The previous comment also
+		// listed CVE-2015-2916, which is real but belongs to Securifi
+		// Almond (a CSRF), not Niagara; dropped, see PITF-070.
 		"cve_exposure": 13,
 	}
 	if isFox {

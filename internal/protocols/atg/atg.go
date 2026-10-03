@@ -167,11 +167,16 @@ func buildFinding(target core.Target, note string, isATG bool) *core.Finding {
 		"auth_state":    95, // ATG has no auth
 		"capability":    30,
 		"impact_class":  60, // fuel dispensing impact
-		// cve_exposure 6: CVE-2017-14432 (Veeder-Root TLS-450
-		// authentication bypass), CVE-2017-14433 (TLS-450
-		// information disclosure), CVE-2018-5443, known
-		// gas-station-tank-gauge family. Lower than DNP3/CWMP
-		// because the affected device population is smaller.
+		// cve_exposure 6: qualitative, and lower than DNP3/CWMP
+		// because the fielded device population is smaller. The
+		// real risk is that the TLS command protocol has no
+		// authentication at all (captured in auth_state 95), and
+		// Veeder-Root consoles do carry RCE CVEs, e.g. the 2025
+		// TLS4B command-injection advisory (CISA ICSA-25-296-03,
+		// CVE-2025-58428). The ids once listed here
+		// (CVE-2017-14432/14433, CVE-2018-5443) were
+		// mis-attributed: those are Moxa EDR-810 and Advantech
+		// WebAccess, not Veeder-Root; see PITF-070.
 		"cve_exposure": 6,
 	}
 	if isATG {

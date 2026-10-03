@@ -142,12 +142,14 @@ func buildFinding(target core.Target, note string, isOK bool) *core.Finding {
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  90,
-		// cve_exposure 10: CVE-2015-7906 (Siemens SIPROTEC IEC
-		// 104 stack), CVE-2017-12089 (Siemens SICAM PAS), CVE-
-		// 2019-13548 (Siemens SICAM PAS), well-documented
-		// substation-automation family. impact_class is already
-		// 90 so the additional cve_exposure pushes scoring into
-		// the highest severity bucket on positive ID.
+		// cve_exposure 10: IEC 60870-5-104 is a substation-automation
+		// protocol with a documented DoS / auth CVE history (Siemens
+		// SIPROTEC / SICAM and others). Qualitative baseline: specific
+		// ids are not asserted here. The previous list mis-attributed
+		// two non-IEC104 ids to Siemens SICAM (CVE-2017-12089 is a
+		// Rockwell MicroLogix 1400 DoS; CVE-2019-13548 is a CODESYS
+		// BeagleBone web-server bug); see PITF-070. impact_class is
+		// already 90, so this still pushes scoring into the top bucket.
 		"cve_exposure": 10,
 	}
 	if isOK {

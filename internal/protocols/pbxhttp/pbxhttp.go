@@ -240,12 +240,19 @@ func buildFinding(target core.Target, statusCode int, vendor Vendor, title, body
 		"auth_state":    60, // unknown, most PBX logins challenge but allow OPTIONS to pass
 		"capability":    30,
 		"impact_class":  40, // HTTP alone isn't a full PBX, scoring bumps on vendor match
-		// cve_exposure 11: FreePBX RCE family (CVE-2014-7235
-		// admin shell injection + CVE-2019-19006 + CVE-2020-
-		// 25822), Asterisk Manager web (CVE-2017-9358), 3CX
-		// (CVE-2023-29059), Mitel MiCollab (CVE-2024-41713).
-		// Web admin UIs are a direct RCE path into call
-		// infrastructure.
+		// cve_exposure 11: web admin UIs are a direct RCE/bypass
+		// path into call infrastructure. Web-verified examples:
+		// CVE-2014-7235 (FreePBX ARI shell injection),
+		// CVE-2019-19006 (FreePBX auth bypass, CISA KEV) and
+		// CVE-2024-41713 (Mitel MiCollab unauth path traversal,
+		// CISA KEV). The previous list also carried ids that are
+		// real but out of this plugin's scope or mis-attributed:
+		// CVE-2017-9358 is an Asterisk SCCP/skinny DoS (not the
+		// Manager web UI), CVE-2023-29059 is the 3CX desktop
+		// supply-chain compromise (not a server web-admin RCE),
+		// and one further id in the previous list does not exist
+		// in NVD at all (fabricated; recorded in PITF-070). See
+		// PITF-070.
 		"cve_exposure": 11,
 	}
 	note := "non-pbx-http"

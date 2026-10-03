@@ -194,12 +194,14 @@ func buildFinding(target core.Target, note string, isConfirm bool) *core.Finding
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  80, // S7 PLCs drive safety-adjacent processes
-		// cve_exposure 14: CVE-2014-2249 (S7-300 stack
-		// overflow), CVE-2016-4785 (S7-1500 auth bypass),
-		// CVE-2018-13815 (S7-300 PLC crash), and the
-		// Stuxnet-era family (CVE-2010-2772), broadest CVE
-		// surface in the ICS plugin set, reflecting Siemens
-		// PLC market share + documented exploit history.
+		// cve_exposure 14: Siemens S7 has the broadest CVE surface in
+		// the ICS plugin set. Web-verified S7 examples: CVE-2014-2249
+		// (S7-1200 / S7-1500 CSRF, CVSS v2 5.8) and CVE-2018-13815
+		// (S7-1200 / S7-1500 connection-pool exhaustion DoS, CVSS 7.5).
+		// Reflects Siemens market share and the documented S7comm
+		// exploit history (incl. the Stuxnet era). Previous comment
+		// mis-attributed these (and two non-S7 ids) from memory; see
+		// PITF-070.
 		"cve_exposure": 14,
 	}
 	if isConfirm {

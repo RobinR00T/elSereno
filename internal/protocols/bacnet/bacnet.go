@@ -100,10 +100,13 @@ func buildFinding(target core.Target, note string, isIAm bool) *core.Finding {
 		"auth_state":    85,
 		"capability":    30,
 		"impact_class":  70, // BACnet drives HVAC; BMS / life safety adjacent
-		// cve_exposure 8: CVE-2018-10628 (BAS auth bypass),
-		// CVE-2019-12480 (Wago I/O System BACnet stack), CVE-
-		// 2020-12511 (Schneider U.motion Builder BACnet),
-		// modest but well-documented across BAS vendors.
+		// cve_exposure 8: BAS protocols have a modest but documented CVE
+		// surface across vendors (e.g. CVE-2019-12480, a DoS in the
+		// open-source BACnet Protocol Stack). Qualitative baseline:
+		// specific ids beyond that are not asserted here; the previous
+		// list mis-attributed two ids that are real but not BACnet
+		// (CVE-2018-10628 is AVEVA InTouch; CVE-2020-12511 is a
+		// Pepperl+Fuchs IO-Link CSRF); see PITF-070.
 		"cve_exposure": 8,
 	}
 	if isIAm {
