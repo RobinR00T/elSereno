@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GOOSE parser validated against a real capture:** the IEC 61850-8-1
+  GOOSE dissector (`goose.Dissect`) is now cross-checked byte for byte
+  against a real GE F650 relay heartbeat frame (w3h/icsmaster
+  `GOOSE.pcap`): EtherType demux, the reserved APPID/Length header and the
+  BER-TLV APDU fields (gocbRef / timeAllowedToLive / datSet / goID / stNum
+  / sqNum / confRev / numDatSetEntries) all decode correctly. No bug found;
+  the parser was previously exercised only by hand-built fixtures. The SV
+  (Sampled Values) path remains fixture-only. See
+  `docs/parser-validation.md`.
 - **Weak-TLS posture check in `plaintext-check` (NIST SP 800-82 r4 Table
   16):** when a service negotiates TLS, the check now also confirms whether
   it still accepts the deprecated TLS 1.0 / 1.1 versions (each with a

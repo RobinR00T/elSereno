@@ -36,6 +36,7 @@ of a real (or reference-stack) device.
 | MMS ACSE associate-response accept (`mms/wire`) | w3h/icsmaster `iec61850_read.pcap` | correct |
 | GE-SRTP connection-init (`gesrtp/wire`) | Shodan device signature (automayt `GE-SRTP/Notes.txt`) + Collin Matthews' tested GE_SRTP impl | **BUG: probe sent 0x02 / expected 0x03 (the operation message) instead of the all-zero init that replies 0x01 (PITF-067)** |
 | IAX2 full-frame header + NEW (`iax2/wire`) | Wireshark SampleCaptures `IAX2_incoming_call` (a real incoming NEW) | correct (F-bit, 15-bit call-number masks, BE timestamp, FrameType/Subclass offsets, and the sent-NEW shape all match the real frame; the single-packet capture carries no reply, so ACCEPT/AUTHREQ/REJECT subclass constants stay spec-grounded) |
+| GOOSE IECGoosePdu (`goose`, IEC 61850-8-1, EtherType 0x88B8) | w3h/icsmaster `pcap/IEC61850/GOOSE/GOOSE.pcap` (a real GE F650 relay heartbeat) | correct (EtherType demux, the reserved APPID/Length header, and the BER-TLV APDU fields gocbRef / timeAllowedToLive / datSet / goID / stNum / sqNum / confRev / numDatSetEntries all decode byte for byte; the SV / Sampled-Values path is still fixture-only) |
 
 ## Still fixture-only or spec-grounded
 
