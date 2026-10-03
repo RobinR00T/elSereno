@@ -39,6 +39,7 @@ of a real (or reference-stack) device.
 | GOOSE IECGoosePdu (`goose`, IEC 61850-8-1, EtherType 0x88B8) | w3h/icsmaster `pcap/IEC61850/GOOSE/GOOSE.pcap` (a real GE F650 relay heartbeat) | correct (EtherType demux, the reserved APPID/Length header, and the BER-TLV APDU fields gocbRef / timeAllowedToLive / datSet / goID / stNum / sqNum / confRev / numDatSetEntries all decode byte for byte; the SV / Sampled-Values path is still fixture-only) |
 | PROFINET DCP Identify response (`profinet`, EtherType 0x8892) | w3h/icsmaster `pcap/profinet/ChangeIPUsingDCP.pcap` (a real DCP Identify response, station "X208-BORD") | correct (DCP RT header, the TLV block walk, and the flattened Identify fields NameOfStation / VendorID / DeviceID / DeviceRole / IP / Subnet / Gateway all decode byte for byte) |
 | TwinCAT ADS ReadDeviceInfo (`twincat/wire`, TCP/48898) | w3h/icsmaster `pcap/beckoff/beckoffiplinktc3.pcapng` (a real TwinCAT 2 runtime, "PLC Server" v2.11.2103) | correct (AMS/TCP framing, the AMS routing header with command id + response flag + data length, and the payload error / version triple / 16-byte device name all decode byte for byte; confirms the name is 16 bytes, not 24) |
+| Niagara Fox banner classifier (`fox`, TCP/1911) | w3h/icsmaster `pcap/fox/fox_info.pcap` (a real Tridium Niagara station hello) | correct (the probe classifies the real "fox a 0 -1 fox hello" + {fox.version=...} server banner as Fox; banner-substring detection, no binary frame parser) |
 
 ## Still fixture-only or spec-grounded
 

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Niagara Fox banner classifier validated against a real capture:** the
+  Fox probe now has a real-capture test (w3h/icsmaster `fox_info.pcap`): it
+  classifies a real Tridium Niagara station's "fox a 0 -1 fox hello" +
+  {fox.version=...} server banner as Fox. See `docs/parser-validation.md`.
 - **TwinCAT ADS parser validated against a real capture:** the ADS
   ReadDeviceInfo parser (`twincat/wire.ParseDeviceInfo`) is now
   cross-checked byte for byte against a real TwinCAT 2 runtime response
