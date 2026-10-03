@@ -16,9 +16,16 @@
 > opcuahttps`); trazabilidad SP 800-82 r4 en todas las salidas menos CSV;
 > CVE enrichment por familia (S7, ENIP, PC WORX, FINS) en `internal/cve`;
 > limpieza de em-dash en todo el repo.
-> **Sigue abierto de verdad:** la cola de la campaña de validación contra
-> captura real (SLMP, GE-SRTP, IEC104, MMS), bloqueada por fuente de
-> captura pública (ver la nota de captura abajo).
+> **Sigue abierto de verdad:** solo SLMP y GE-SRTP. IEC104 y MMS YA están
+> validados contra captura real (`iec104/wire/realcap_test.go` vs ITI
+> IEC104_SQ.pcapng; `mms/wire/realcap_test.go` vs w3h/icsmaster
+> iec61850_read.pcap). Verificado el 3-10-2026: no hay captura pública
+> utilizable para SLMP ni GE-SRTP. SLMP no está en automayt/ICS-pcap; la
+> carpeta GE-SRTP de automayt es solo un `Notes.txt` con la firma Shodan de
+> 56 bytes, y su byte 0 = 0x01 NO casa con el modelo request/response
+> (0x02/0x03) del parser (`gesrtp/wire/wire.go`), así que hace falta un pcap
+> real del intercambio antes de validar o tocar ese parser. Discrepancia a
+> resolver, no un bug que tocar a ciegas.
 
 ## NIST SP 800-82 Rev. 4 (30-9-2026): detecciones que pide el draft
 
@@ -52,8 +59,10 @@ System Use" como un campo `SystemVersion`; eliminado, validado contra un CP1L
 real. La campaña cubre ya Modbus (FC43 + framing), OPC UA (Browse/Read), ENIP
 (ListIdentity), BACnet (BVLC/I-Am/WriteProperty), DNP3 (link header) y FINS
 (controller data): **2 bugs, ambos del patrón fixture-fabricado** (FC43 + FINS).
-Pendiente: SLMP y GE-SRTP (captura ITI es puntero LFS de 130 B; falta fuente),
-IEC104 (parser simple), MMS.
+IEC104 y MMS cerrados con realcap (ver el header). Pendiente solo SLMP y
+GE-SRTP: sin captura pública utilizable al 3-10-2026 (automayt no tiene SLMP;
+su GE-SRTP es solo un Notes.txt con la firma Shodan, byte 0 = 0x01, que no casa
+con el modelo 0x02/0x03 del parser). Hace falta un pcap real del intercambio.
 
 ## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
 
