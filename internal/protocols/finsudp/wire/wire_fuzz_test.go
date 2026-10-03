@@ -40,7 +40,7 @@ func FuzzParseControllerDataRead(f *testing.F) {
 		// NUL or space. Embedded NULs / spaces are preserved
 		// intentionally so the parser can't silently splice
 		// adversarial input across a NUL boundary.
-		for _, s := range []string{cd.Model, cd.InternalCode, cd.SystemVersion} {
+		for _, s := range []string{cd.Model, cd.InternalCode} {
 			if s == "" {
 				continue
 			}

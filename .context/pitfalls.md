@@ -353,5 +353,12 @@ Y recuerda: el job `context` exige `.context/STATE.md` <= 250 líneas (recorta e
 **Cómo se cazó**: captura real `modbus_example.pcap` (CISA cisagov/icsnpp-modbus, pkt 94): `2b0e01 83 00 00 03` + 3 objetos ("Zeek Modbus Test" / "Protocol Parsing is fun!" / "1.2.3.6"). Fix: cabecera a 7 bytes, `numberOfObjects=pdu[6]`, objetos en `off=7`; test reescrito con los bytes reales.
 **Ver**: `internal/protocols/modbus/wire/mbap.go` (`DeviceIDObjects`), `internal/protocols/modbus/wire/wire_test.go`, 2-10-2026.
 
+## PITF-065: Segundo caso del mismo patrón (fixture fabricado) en Omron FINS
+**Síntoma**: `finsudp.ParseControllerDataRead` leía bytes 54..73 como un campo `SystemVersion`, con un fixture de test que ponía ahí un string plausible ("1.04 SYS"). Contra una respuesta real (Omron CP1L-EL20DR-D, 3-10-2026) ese rango resultó ser el área **reservada "For System Use"** (Omron W421 §5.4 y el analizador Spicy de CISA: Model 20, Controller Version 20, For System Use 40 reservados): un dispositivo real devolvía basura en `SystemVersion`.
+**Causa raíz**: idéntica a PITF-064. El fixture se fabricó al layout equivocado del parser, así que se validaban mutuamente. Es el **segundo** caso en la misma campaña, lo que confirma que es un patrón del repo, no una anécdota: varios parsers de respuesta se escribieron sobre fixtures crafteados y nunca contra captura real.
+**Fix**: eliminado el campo `SystemVersion` (no existe tercera versión; 54..93 es reservado). `Model` e `InternalCode` (Controller Version) se mantienen, validados contra el CP1L real. El probe solo surfaceaba `Model`, así que la basura no llegaba al finding, pero el parser público estaba mal.
+**Regla (refuerza PITF-064)**: cuando un parser de respuesta tenga un campo que "a veces viene vacío / es opcional / solo en CPUs nuevos", sospechar: suele ser un área reservada malinterpretada. Verificar el rango contra el spec Y una captura real antes de darle nombre semántico.
+**Ver**: `internal/protocols/finsudp/wire/wire.go`, `.../realcap_test.go`, 3-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

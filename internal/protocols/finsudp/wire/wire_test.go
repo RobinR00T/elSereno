@@ -35,7 +35,9 @@ func TestBuildControllerDataReadSIDIsParameter(t *testing.T) {
 
 func TestParseControllerDataReadFullFrame(t *testing.T) {
 	t.Parallel()
-	frame := buildResp(0x11, "CJ2M-CPU33          ", "V1.04 OMRON CO.     ", "1.04 SYS            ")
+	// The third 20-byte field is the reserved "For System Use" area, not a
+	// version; it must not be surfaced (PITF-065).
+	frame := buildResp(0x11, "CJ2M-CPU33          ", "V1.04 OMRON CO.     ", "\x00\x00reserved-sysuse\x00\x00\x00")
 	cd, err := wire.ParseControllerDataRead(frame, 0x11)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -45,9 +47,6 @@ func TestParseControllerDataReadFullFrame(t *testing.T) {
 	}
 	if cd.InternalCode != "V1.04 OMRON CO." {
 		t.Fatalf("InternalCode: got %q", cd.InternalCode)
-	}
-	if cd.SystemVersion != "1.04 SYS" {
-		t.Fatalf("SystemVersion: got %q", cd.SystemVersion)
 	}
 }
 
@@ -64,9 +63,6 @@ func TestParseControllerDataReadTruncatedAccepted(t *testing.T) {
 	}
 	if cd.InternalCode != "V1.10" {
 		t.Fatalf("InternalCode: got %q", cd.InternalCode)
-	}
-	if cd.SystemVersion != "" {
-		t.Fatalf("SystemVersion should be empty: got %q", cd.SystemVersion)
 	}
 }
 

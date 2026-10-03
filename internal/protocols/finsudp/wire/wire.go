@@ -85,9 +85,8 @@ func BuildControllerDataRead(sid byte) []byte {
 // All string fields are NUL-trimmed + space-trimmed ASCII
 // (FINS pads short fields with 0x20 / 0x00).
 type ControllerData struct {
-	Model         string // 20 bytes: e.g. "CJ2M-CPU33", "NJ501-1500"
-	InternalCode  string // 20 bytes: vendor-internal version string
-	SystemVersion string // 20 bytes: optional
+	Model        string // 20 bytes: e.g. "CJ2M-CPU33", "CP1L-EL20DR-D"
+	InternalCode string // 20 bytes: Controller Version (ASCII, may pack two sub-versions)
 }
 
 // Sentinel errors so callers can distinguish parser-failure
@@ -125,12 +124,19 @@ var (
 //	10      MRC (0x05)    1
 //	11      SRC (0x01)    1
 //	12..13  end code      2  — 0x0000 = success
-//	14..33  Model         20 — ASCII, padded with 0x20
-//	34..53  internal code 20 — ASCII, padded
-//	54..73  system ver    20 — ASCII, padded (newer CPUs)
+//	14..33  Model              20 — ASCII, padded with 0x20/0x00
+//	34..53  Controller Version 20 — ASCII, padded
+//	54..93  For System Use     40 — RESERVED (not a version); then
+//	                                program/IOM/DM sizes
 //
-// Some CPUs return the truncated form (no system version) at
-// 54 bytes total; we accept short forms gracefully.
+// Validated byte for byte against a real Omron CP1L-EL20DR-D response
+// (CISA cisagov/icsnpp-omron-fins omron_test.pcap). An earlier version
+// read bytes 54..73 as a "SystemVersion" string; per Omron W421 §5.4
+// (and the CISA Spicy analyzer) that range is the reserved "For System
+// Use" area, so a real device yielded garbage there. A fabricated test
+// fixture had masked it with a plausible "1.04 SYS" string. PITF-065.
+// Some CPUs return the truncated form (Model + Version only, 54 bytes);
+// we accept short forms gracefully.
 func ParseControllerDataRead(buf []byte, wantSID byte) (ControllerData, error) {
 	const minLen = HeaderLen + 4 // header + MRC + SRC + end-code
 	if len(buf) < minLen {
@@ -155,9 +161,8 @@ func ParseControllerDataRead(buf []byte, wantSID byte) (ControllerData, error) {
 	if len(buf) >= 34+20 {
 		cd.InternalCode = trimASCII(buf[34 : 34+20])
 	}
-	if len(buf) >= 54+20 {
-		cd.SystemVersion = trimASCII(buf[54 : 54+20])
-	}
+	// Bytes 54..93 are the reserved "For System Use" area, not a version;
+	// deliberately not parsed (see the layout note above, PITF-065).
 	return cd, nil
 }
 

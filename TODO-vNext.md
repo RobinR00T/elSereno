@@ -38,11 +38,14 @@ code"): devolvía 0 objetos para todo dispositivo real. Arreglado + test con los
 bytes reales (PITF-064). **ENIP ListIdentity 0x63 DESBLOQUEADO (3-10):** la
 captura `enip_cip_example.pcap` (CISA cisagov/icsnpp-enip) sí tiene una reply
 0x63 real (módulo Allen-Bradley 1756-ENBT/A); `ParseListIdentity` la parsea
-correcta (sin bug), validado byte a byte. La campaña de validación-contra-
-captura cubre ya Modbus (FC43 + framing), OPC UA (Browse/Read), ENIP
-(ListIdentity), BACnet (BVLC/I-Am/WriteProperty) y DNP3 (link header); solo el
-FC43 escondía bug. Pendiente si se quiere seguir: IEC104, S7 (ya validado),
-y los de identidad raros (FINS/SLMP/GE-SRTP) si aparece captura.
+correcta (sin bug), validado byte a byte. **Omron FINS (3-10): 2º bug del
+patrón** (PITF-065): `ParseControllerDataRead` leía el área reservada "For
+System Use" como un campo `SystemVersion`; eliminado, validado contra un CP1L
+real. La campaña cubre ya Modbus (FC43 + framing), OPC UA (Browse/Read), ENIP
+(ListIdentity), BACnet (BVLC/I-Am/WriteProperty), DNP3 (link header) y FINS
+(controller data): **2 bugs, ambos del patrón fixture-fabricado** (FC43 + FINS).
+Pendiente: SLMP y GE-SRTP (captura ITI es puntero LFS de 130 B; falta fuente),
+IEC104 (parser simple), MMS.
 
 ## [RESUELTO 2-10-2026] Plugins opt-in vs "Plugins vacío = todo"
 
