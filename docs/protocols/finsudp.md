@@ -98,6 +98,30 @@ Out of scope for this cycle: per-address narrowing within an
 allowed Memory Area Write (the FINS analogue of the knxip
 group-address tier).
 
+## CVE enrichment (model-driven)
+
+The Controller Data Read model string names the Omron family by its
+prefix, so the finding raises its `cve_exposure` factor and records the
+CVE ids in its note (`internal/cve`, `cve.ForFINS`). The families carry
+different, web-verified advisories and are kept apart to avoid
+over-attribution:
+
+- **NJ / NX / NY / PMAC** (SYSMAC Nx): CVE-2022-31206 (downloaded logic
+  not cryptographically authenticated, RCE, CVSS 9.8) and CVE-2022-34151
+  (hard-coded credentials, CVSS 9.4; the Omron component abused by
+  PIPEDREAM/BADOMEN).
+- **CJ / CS** (classic): CVE-2019-18269 (unrestricted externally
+  accessible lock, auth bypass, CVSS 8.6) and CVE-2022-45790 (FINS
+  memory password with no brute-force rate limit, CVSS 7.5).
+- **CP** (CP1L / CP1H / CP1E): CVE-2022-45790 only. CVE-2019-18269 lists
+  CS/CJ only, so it is deliberately not attributed to CP (the validated
+  real capture was a CP1L-EL20DR-D).
+
+The match is **family-level, not firmware-confirmed** (e.g.
+CVE-2022-31206 affects SYSMAC Nx below a fixed firmware the model string
+does not reveal): pair it with the Omron advisory. An empty or
+unrecognised model keeps the baseline rather than claiming a CVE.
+
 ## Scope
 
 - OMRON CPUs (CJ1/CJ2/CS1/CP1/NJ/NX series) on factory floors,

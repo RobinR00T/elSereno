@@ -73,8 +73,8 @@ func TestBuildFindingFactors(t *testing.T) {
 		Address: netip.MustParseAddr("203.0.113.7"),
 		Port:    9600,
 	}
-	cdYes := buildFinding(target, "FINS model=CJ2M-CPU33", true)
-	cdNo := buildFinding(target, "no reply", false)
+	cdYes := buildFinding(target, "FINS model=CJ2M-CPU33", true, "CJ2M-CPU33")
+	cdNo := buildFinding(target, "no reply", false, "")
 	if cdYes.Factors["capability"] <= cdNo.Factors["capability"] {
 		t.Fatalf("capability should jump when FINS responds: yes=%d no=%d",
 			cdYes.Factors["capability"], cdNo.Factors["capability"])
@@ -84,6 +84,25 @@ func TestBuildFindingFactors(t *testing.T) {
 	}
 	if cdYes.Protocol != Name {
 		t.Fatalf("Protocol: got %q", cdYes.Protocol)
+	}
+	// CVE enrichment by family. CJ2M is classic CJ/CS: Score([8.6,7.5]) = 55;
+	// an unconfirmed probe keeps the baseline 9.
+	if cdYes.Factors["cve_exposure"] != 55 {
+		t.Fatalf("CJ2M cve_exposure: got %d want 55", cdYes.Factors["cve_exposure"])
+	}
+	if cdNo.Factors["cve_exposure"] != 9 {
+		t.Fatalf("no-reply cve_exposure: got %d want baseline 9", cdNo.Factors["cve_exposure"])
+	}
+	// SYSMAC Nx -> Score([9.8,9.4]) = 70.
+	nx := buildFinding(target, "FINS model=NX102-9000", true, "NX102-9000")
+	if nx.Factors["cve_exposure"] != 70 {
+		t.Fatalf("NX102 cve_exposure: got %d want 70", nx.Factors["cve_exposure"])
+	}
+	// The validated real device (CP1L) maps to CVE-2022-45790 only (not the
+	// CS/CJ-only CVE-2019-18269): Score([7.5]) = 45.
+	cp := buildFinding(target, "FINS model=CP1L-EL20DR-D", true, "CP1L-EL20DR-D")
+	if cp.Factors["cve_exposure"] != 45 {
+		t.Fatalf("CP1L cve_exposure: got %d want 45", cp.Factors["cve_exposure"])
 	}
 }
 

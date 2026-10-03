@@ -80,6 +80,42 @@ func TestForPCWorx(t *testing.T) {
 	}
 }
 
+func TestForFINS(t *testing.T) {
+	// SYSMAC Nx family (the validated real device is classic, but Nx models
+	// map to the critical logic-auth + hardcoded-cred CVEs).
+	for _, m := range []string{"NX102-9000", "NJ501-1300", "NY512-1300", "PMAC-001"} {
+		recs := ForFINS(m)
+		if len(recs) == 0 || recs[0].ID != "CVE-2022-31206" {
+			t.Errorf("ForFINS(%q) = %+v, want CVE-2022-31206 first", m, recs)
+		}
+	}
+	// Classic CJ/CS carry the lock + brute-force CVEs.
+	if got := ForFINS("CJ2M-CPU33"); len(got) != 2 || got[0].ID != "CVE-2019-18269" {
+		t.Errorf("CJ2M = %+v, want CVE-2019-18269 first", got)
+	}
+	if got := ForFINS("CS1G-CPU42H"); len(got) != 2 {
+		t.Errorf("CS1G = %+v, want 2 CVEs", got)
+	}
+	// CP series (the validated capture was a CP1L): only the brute-force CVE,
+	// NOT CVE-2019-18269 (which lists only CS/CJ): no over-attribution.
+	cp := ForFINS("CP1L-EL20DR-D")
+	if len(cp) != 1 || cp[0].ID != "CVE-2022-45790" {
+		t.Fatalf("CP1L = %+v, want only CVE-2022-45790", cp)
+	}
+	for _, r := range cp {
+		if r.ID == "CVE-2019-18269" {
+			t.Error("CP must not be attributed CVE-2019-18269 (CS/CJ only)")
+		}
+	}
+	// Empty / unknown: no claim.
+	if got := ForFINS(""); got != nil {
+		t.Errorf("empty model = %+v, want nil", got)
+	}
+	if got := ForFINS("WIDGET-9000"); got != nil {
+		t.Errorf("unknown model = %+v, want nil", got)
+	}
+}
+
 func TestScore(t *testing.T) {
 	if Score(nil) != 0 {
 		t.Error("no records must score 0")

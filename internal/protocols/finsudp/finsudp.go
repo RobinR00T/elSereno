@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/protocols/finsudp/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -73,20 +74,20 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	buf := make([]byte, 1500)
 	n, err := conn.Read(buf)
 	if err != nil {
-		return buildFinding(target, "no reply", false), nil
+		return buildFinding(target, "no reply", false, ""), nil
 	}
 	if !wire.IsResponse(buf[:n]) {
-		return buildFinding(target, fmt.Sprintf("non-FINS response (%d bytes)", n), false), nil
+		return buildFinding(target, fmt.Sprintf("non-FINS response (%d bytes)", n), false, ""), nil
 	}
 	cd, perr := wire.ParseControllerDataRead(buf[:n], sid)
 	if perr != nil {
-		return buildFinding(target, classifyParseError(perr, n), false), nil
+		return buildFinding(target, classifyParseError(perr, n), false, ""), nil
 	}
 	note := "FINS controller-data"
 	if cd.Model != "" {
 		note = "FINS model=" + sanitizeModel(cd.Model)
 	}
-	return buildFinding(target, note, true), nil
+	return buildFinding(target, note, true, cd.Model), nil
 }
 
 // REPL stub; the generic REPL framework lands later. Operators who
@@ -157,28 +158,32 @@ func newSID() (byte, error) {
 	return 1, nil
 }
 
-func buildFinding(target core.Target, note string, isFINS bool) *core.Finding {
+func buildFinding(target core.Target, note string, isFINS bool, model string) *core.Finding {
 	factors := map[string]int{
 		"protocol_risk": 80, // legacy ICS, no auth, write services on same port
 		"exposure":      80,
 		"auth_state":    95, // FINS has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs control real machinery
-		// cve_exposure: 9 (v2.33+, bumped from 5), multi-year
-		// Omron CVE catalogue covers auth-bypass + DoS + memory
-		// disclosure across NJ/NX/CJ2/CS1/CP families. Anchors:
-		//   CVE-2019-13533 (NJ/NX auth bypass).
-		//   CVE-2019-18259 (CJ2M/NJ501/CS1H FINS-related).
-		//   CVE-2020-6986 (CJ-series stack DoS via crafted FINS).
-		//   CVE-2022-31204 (NX102/NX1P2 improper authentication).
-		//   CVE-2022-26419 (CJ/CS multiple PLC denial-of-service).
-		//   CVE-2022-25955 (Omron CX-Programmer FINS memory leak).
-		//   CVE-2024-25309 (Omron CJ2M memory-write RCE).
-		//   CVE-2025-19154 (FINS routing-table overflow; ICS-CERT).
+		// cve_exposure 9: conservative baseline for the Omron FINS family,
+		// which has a multi-year history of auth-bypass, DoS and RCE
+		// advisories across the NJ/NX and CJ/CS/CP lines. When the model
+		// string names a family, cve.ForFINS below raises it with
+		// web-verified CVEs (NJ/NX: CVE-2022-31206 9.8 + CVE-2022-34151 9.4;
+		// CJ/CS: CVE-2019-18269 8.6 + CVE-2022-45790 7.5; CP: CVE-2022-45790).
 		"cve_exposure": 9,
 	}
 	if isFINS {
 		factors["capability"] = 75
+		// CVE enrichment: the FINS model prefix names the Omron family, which
+		// carries web-verified CVEs (family-level, not firmware-confirmed).
+		// Record the ids in the note so the enriched finding keys distinctly.
+		if recs := cve.ForFINS(model); len(recs) > 0 {
+			if s := cve.Score(recs); s > factors["cve_exposure"] {
+				factors["cve_exposure"] = s
+			}
+			note += " cve=" + strings.Join(cve.IDs(recs), ",")
+		}
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{

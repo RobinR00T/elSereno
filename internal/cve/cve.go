@@ -177,3 +177,46 @@ func ForPCWorx(confirmed bool) []Record {
 	}
 	return pcworxProConOS
 }
+
+// Curated Omron CVEs, by controller family. The FINS Controller Data Read
+// returns a model string whose prefix names the family (e.g. "CJ2M-CPU33",
+// "CP1L-EL20DR-D", "NX102-9000"), so the match is prefix-exact. The two
+// families carry different advisories, so they are kept apart rather than
+// over-attributing one family's CVE to the other.
+var (
+	// SYSMAC Nx machine-automation controllers (NJ / NX / NY / PMAC).
+	omronSysmacNx = []Record{
+		{ID: "CVE-2022-31206", CVSS: 9.8, Affects: "Omron SYSMAC NJ / NX / NY / PMAC: downloaded logic not cryptographically authenticated (RCE)"},
+		{ID: "CVE-2022-34151", CVSS: 9.4, Affects: "Omron NJ / NX-series + Sysmac Studio: hard-coded credentials (PIPEDREAM/BADOMEN)"},
+	}
+	// Classic CJ / CS series.
+	omronCJCS = []Record{
+		{ID: "CVE-2019-18269", CVSS: 8.6, Affects: "Omron CS / CJ: unrestricted externally accessible lock (auth bypass)"},
+		{ID: "CVE-2022-45790", CVSS: 7.5, Affects: "Omron CJ / CS / CP: FINS memory password has no brute-force rate limit"},
+	}
+	// Classic CP series (CP1L / CP1H / CP1E). CVE-2019-18269 lists only CS/CJ,
+	// so it is deliberately NOT attributed here.
+	omronCP = []Record{
+		{ID: "CVE-2022-45790", CVSS: 7.5, Affects: "Omron CJ / CS / CP: FINS memory password has no brute-force rate limit"},
+	}
+)
+
+// ForFINS returns curated Omron CVEs for the family named by the FINS model
+// string's prefix. The match is FAMILY-level and not firmware-confirmed (e.g.
+// CVE-2022-31206 affects SYSMAC Nx below a fixed firmware the model string does
+// not reveal), so pair it with the Omron advisory. An empty or unrecognised
+// model returns nil rather than a guessed match.
+func ForFINS(model string) []Record {
+	m := strings.ToUpper(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(m, "NX") || strings.HasPrefix(m, "NJ") ||
+		strings.HasPrefix(m, "NY") || strings.HasPrefix(m, "PMAC"):
+		return omronSysmacNx
+	case strings.HasPrefix(m, "CJ") || strings.HasPrefix(m, "CS"):
+		return omronCJCS
+	case strings.HasPrefix(m, "CP"):
+		return omronCP
+	default:
+		return nil
+	}
+}

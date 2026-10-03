@@ -25,10 +25,10 @@ PITF-064) + Omron FINS SystemVersion reading reserved bytes (PITF-065); both
 fixed. Re-grounded (correct): Modbus framing, OPC UA Browse/Read (caveat
 lifted), ENIP ListIdentity (was blocked), BACnet, DNP3, FINS. Fixtures hide bugs.
 
-**2026-10-03 CVE enrichment** (increments 1-3) + repo em-dash cleanup (4b09ca6,
-740 files, 0 dashes left): `internal/cve` maps a family to curated REAL
-web-verified CVEs. S7 MLFB -> CVE-2020-15782; ENIP 1756-EN2x -> CVE-2025-7353
-(9.8); PC WORX ProConOS -> CVE-2022-31800 (9.8) + CVE-2014-9195. Fixed wrong CVEs in enip/pcworx comments. FINS pending.
+**2026-10-03 CVE enrichment** (increments 1-4) + repo em-dash cleanup (4b09ca6,
+740 files, 0 dashes): `internal/cve` maps a family to curated REAL web-verified
+CVEs. S7 MLFB; ENIP 1756-EN2x -> CVE-2025-7353; PC WORX ProConOS; FINS Omron by
+model (NJ/NX -> CVE-2022-31206 9.8; CJ/CS/CP -> CVE-2019-18269/45790). Fixed wrong CVEs in enip/pcworx/finsudp comments.
 
 **2026-10-01/02 standards traceability** (SP 800-82 r4 IPD): all output
 surfaces except CSV (stable csv:v1 contract), keyed by protocol
