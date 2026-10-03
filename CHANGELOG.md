@@ -252,6 +252,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Test coverage raised on four plugin packages** that were effectively
+  untested: `atg` 2.6% -> 79.5% (banner classifier, scoring, and the
+  write-ban proxy that only forwards `I`-family read commands), `fox`
+  4.8% -> 97.6%, `bacnet` 0% -> 45.5%, `twincat` 0% -> 56.2% (Metadata,
+  scoring, parse-error classification). Tests only; no behaviour change.
 - **Dependencies (major):** `actions/checkout` 4 to 7, `actions/setup-go`
   5 to 7, `gitleaks/gitleaks-action` 2 to 3.
 - **CI/CD reactivated:** the ci / release / supply-chain / nightly /
