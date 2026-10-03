@@ -26,6 +26,8 @@ of a real (or reference-stack) device.
 | DNP3 link header (`dnp3/wire`) | CISA `icsnpp-dnp3` | correct |
 | IEC 60870-5-104 APCI (`iec104/wire`) | ITI `IEC104_SQ.pcapng` (real I-format frame) | correct |
 | PC Worx classifier (`pcworx/wire`) | reidmefirst/PC-PCAP (Phoenix Contact ILC 191 ETH 2TX, TCP/1962) | correct (banner "ILC 191 ETH 2TX" matched) |
+| MQTT CONNACK (`mqtt/wire`) | pradeesi/MQTT-Wireshark-Capture | correct (anonymous CONNECT accepted) |
+| SIP response (`sip/wire`) | goffinet/sip_captures (IPP VoIP device) | correct (code / reason / Server / Allow) |
 | HART-IP header (`hartip/wire`) | CISA `icsnpp-hart-ip` | correct |
 | Omron FINS controller data (`finsudp/wire`) | CISA `icsnpp-omron-fins` (Omron CP1L-EL20DR-D) | **BUG: phantom SystemVersion read reserved bytes (PITF-065)** |
 | MMS ACSE associate-response accept (`mms/wire`) | w3h/icsmaster `iec61850_read.pcap` | correct |
@@ -46,7 +48,8 @@ bug, and the first place to look when one is reported.
 | MMS vendor-finding path (`mms/wire` `ExtractMMSVendorHint`) | the reachable MMS captures carry no curated vendor marker; only the no-marker path is exercised on real bytes |
 | DLMS/COSEM (`dlms/wire`) | a public sample exists (bearxiong99/wireshark-dlms) but it is the **HDLC** variant (frames start `0x7e`); elSereno fingerprints DLMS over the TCP wrapper (IEC 62056-47, version `0x0001`) on 4059, which that capture does not carry. Correct for its scope, but no matching real capture |
 | ProConOS runtime (`proconos/wire`, TCP/20547) | the one public "ProConOS" capture (reidmefirst/PC-PCAP) is actually PC Worx engineering traffic on 1962 (validated above as pcworx), not the 20547 runtime protocol. No runtime capture |
-| CoDeSys, Red Lion, TwinCat, ATG, CWMP, SIP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
+| ATG (Veeder-Root) | no real capture: only honeypots (GasPot, LowOctane) emulate the I20100 response, which is a fixture, not a real device |
+| CoDeSys, Red Lion, TwinCat, CWMP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
 
 ## Method
 
