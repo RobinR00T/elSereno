@@ -82,6 +82,16 @@ corregidos (GE-SRTP PITF-067, ProConOS PITF-069), 1 documentado y aplazado
 referencia. Queda pendiente solo la captura byte-a-byte de SLMP (sin fuente) y el
 frame de sonda de CoDeSys (necesita captura del 1217).
 
+**CVE enrichment por FC43 de Modbus (Schneider Modicon): aplazado (3-10-2026).**
+FC43 Read Device ID es raramente soportado por PLCs (la mayoria devuelve
+excepcion 01) y el formato de los strings vendor/product de Modicon no esta
+verificado contra captura real (la captura FC43 validada era un dispositivo Zeek
+de test, no Schneider), asi que keyear CVEs ahi seria adivinar (PITF-064). De
+paso se corrigio el comentario base de `modbus.go`, que atribuia a Schneider dos
+CVEs equivocadas: CVE-2017-9853 es de SMA Solar (inversor), y CVE-2015-1015 no
+existe para Modicon. Quedan las dos verificadas (CVE-2021-22779 ModiPwn 9.8,
+CVE-2018-7240 Quantum 8.8).
+
 Los parsers de protocolos estándar y bien documentados (Modbus, S7, OPC UA, ENIP,
 BACnet, DNP3, HART-IP, FINS, MMS, IEC104, MQTT, SIP, DLMS) ya se validaron contra
 captura real en la campaña y quedan fuera de esta auditoría de "sonda propietaria".

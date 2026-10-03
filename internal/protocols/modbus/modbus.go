@@ -255,12 +255,22 @@ func buildFinding(target core.Target, note, vendor, product, revision string) *c
 		"auth_state":    90, // Modbus has no native auth.
 		"capability":    60, // read-confirmed devices surface state.
 		"impact_class":  70,
-		// cve_exposure 9: CVE-2015-1015 (Schneider Modicon DoS),
-		// CVE-2017-9853 (Schneider M340 / M580 stack), CVE-
-		// 2018-7240 (Schneider Modicon Premium / Quantum),
-		// CVE-2021-22779 (Schneider Modbus auth-bypass).
-		// Modbus protocol itself is auth-free; CVEs here track
-		// vendor-stack issues atop the protocol.
+		// cve_exposure 9: a conservative baseline for the Modbus
+		// family. Modbus itself is auth-free; the real CVEs track
+		// vendor stacks atop it. Two web-verified flagship Schneider
+		// Modicon examples: CVE-2021-22779 (ModiPwn, M340/M580 UMAS
+		// auth bypass by Modbus spoofing, CVSS 9.8, CISA
+		// ICSA-21-194-02) and CVE-2018-7240 (Modicon Quantum 140CPU
+		// FTP firmware upload, CVSS 8.8).
+		//
+		// NO device-specific CVE enrichment here (unlike s7/enip/
+		// finsudp): FC43 Read Device ID is rarely supported by PLCs
+		// (most return exception 01), and the Schneider Modicon
+		// vendor/product string format is unverified against a real
+		// capture (the validated FC43 capture was a Zeek test
+		// device). Keying CVEs off assumed FC43 strings would be a
+		// guess (PITF-064), so it is deferred until a real Modicon
+		// FC43 capture is available.
 		"cve_exposure": 9,
 	}
 	score := scoring.ScoreDefault(factors)
