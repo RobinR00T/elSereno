@@ -815,6 +815,37 @@ elsereno api spec > openapi.yaml
 | `help`    | listo     | Ayuda sobre cualquier comando.                                    |
 | `completion` | listo  | Genera shell completions (bash/zsh/fish).                         |
 
+### 7.1 Probes de exposición profunda (read-only) y trazabilidad
+
+Más allá del fingerprint, estos comandos confirman la exposición en el
+hilo. Todo es read-only salvo `creds-check`, que vive en el build
+offensive y exige `--confirm-authorized` (uso autorizado).
+
+```sh
+# S7: nivel de protección + identidad/firmware en un handshake
+elsereno s7 probe            --target plc:102 --json
+elsereno s7 probe-protection --target plc:102
+elsereno s7 probe-identity   --target plc:102
+# OPC UA: ¿abre sesión anónima? ¿qué puede escribir el anónimo?
+elsereno opcua probe-anon  --target plc:4840 --json
+elsereno opcua probe-write --target plc:4840 --max-nodes 500
+# Transporte en claro: ¿el servicio negocia TLS?
+elsereno plaintext-check --target plc:502 --json
+# Findings puntuados opt-in (DefaultPort 0: NO en el scan/discover por defecto):
+elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
+elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
+# Credenciales por defecto (build offensive, USO AUTORIZADO):
+elsereno-offensive creds-check http --target https://hmi.internal --confirm-authorized
+# Catálogo de trazabilidad al estándar:
+elsereno standards --protocol opcua-exposure --json
+```
+
+Cada finding lleva la vulnerabilidad del NIST SP 800-82 r4 que evidencia,
+en todas las salidas (ndjson, informe HTML, GitHub/Jira, CEF, syslog,
+STIX, webhook). Guía completa: [`exposure-auditing.md`](exposure-auditing.md);
+estado de validación de cada parser contra captura real:
+[`parser-validation.md`](parser-validation.md).
+
 ---
 
 ## 8. El dashboard web
@@ -1944,6 +1975,13 @@ mantenedor (`ACE3B86BACACE7D6`).
 - [`docs/openapi.yaml`](openapi.yaml) — spec de la API.
 - [`docs/protocols/`](protocols/) — engineering notes por
   protocolo.
+- [`docs/exposure-auditing.md`](exposure-auditing.md): guía de las
+  probes de exposición read-only (S7, OPC UA, plaintext-check,
+  creds-check) y su trazabilidad al NIST SP 800-82 r4.
+- [`docs/parser-validation.md`](parser-validation.md): estado de
+  validación de cada parser de protocolo (captura real vs fixture).
+- [`docs/standards/nist-sp800-82r4.md`](standards/nist-sp800-82r4.md):
+  mapeo de detecciones a vulnerabilidades del estándar.
 - [`docs/manual/elsereno-manual.md`](manual/elsereno-manual.md)
   — manual narrativo histórico (casos de uso con detalle).
 - `.context/` — internal context (state, decisions,

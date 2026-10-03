@@ -157,7 +157,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
 | **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) plus per-FC 8-sub-function diagnostics gate (Force Listen Only / Clear Counters default-deny); structured `writes:` / `diag_subfunctions:` YAML round-trip (v1.2/v1.12) |
-| S7comm          | 102                | probe + pass-through proxy |
+| S7comm          | 102                | probe + pass-through proxy · deep read-only exposure probe (`s7 probe`: SZL protection level + identity/firmware) and opt-in scored `s7-exposure` plugin |
 | EtherNet/IP     | 44818              | probe + pass-through proxy |
 | **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |
 | **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` + g41 analog-setpoint `(index, value-clamp)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
@@ -165,7 +165,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | HART-IP         | 5094               | session-initiate probe |
 | Niagara Fox     | 1911, 4911         | banner probe |
 | ATG Veeder-Root | 10001              | I20100 probe |
-| **OPC UA**      | 4840               | Hello probe · gated-write service-TypeID + per-NodeId (numeric + String/GUID/ByteString) + per-CallMethod `(ObjectId, MethodId)` (v1.2/v1.6/v1.12) |
+| **OPC UA**      | 4840               | Hello probe · deep read-only exposure probe (`opcua probe-anon` + `probe-write` writeable-tag walk) and opt-in scored `opcua-exposure` plugin · gated-write service-TypeID + per-NodeId (numeric + String/GUID/ByteString) + per-CallMethod `(ObjectId, MethodId)` (v1.2/v1.6/v1.12) |
 | XOT (X.25 / TCP) | 1998              | probe + pass-through proxy |
 | AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | probe + write-ban proxy |
 | **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy per-method + INVITE prefix + REGISTER AOR + From-domain (v1.4/v1.9/v1.10/v1.12) |

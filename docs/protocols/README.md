@@ -1,11 +1,17 @@
 # Protocol support
 
-ElSereno ships **25 protocol plugins** in the default build (as
-of v1.22.0, 2026-04-29). Every TCP-based plugin enforces a wire-
-layer write-ban in the default build; writes land only under
-`-tags offensive` and must clear the ADR-039 triple-confirm
-wrapper. **7 of the 25** carry write-gated proxies with per-
-object / per-path scoping (rows in **bold**).
+ElSereno ships **30 protocol plugins** in the default build (plus the
+`banner` fallback probe and two opt-in, read-only exposure plugins,
+`s7-exposure` and `opcua-exposure`, that stay out of the default sweep).
+Every TCP-based plugin enforces a wire-layer write-ban in the default
+build; writes land only under `-tags offensive` and must clear the
+ADR-039 triple-confirm wrapper. Several carry write-gated proxies with
+per-object / per-path scoping (rows in **bold**).
+
+See also [`../exposure-auditing.md`](../exposure-auditing.md) for the
+read-only deep-exposure probes and [`../parser-validation.md`](../parser-validation.md)
+for which protocol parsers are validated byte for byte against real
+captures (vs spec-grounded).
 
 | Protocol | Port(s) | Probe | Proxy default | Writes (offensive) |
 |----------|---------|-------|---------------|--------------------|

@@ -95,7 +95,7 @@ elsereno scan --input-file t.txt \
 elsereno scan --input-file t.txt --output-format stix > findings.stix.json
 
 
------------------ Protocol fingerprints (17) ------------------
+------------- Protocol fingerprints (30; core set) ------------
   modbus    502/tcp      FC 1/3 + Read-Device-ID
   s7        102/tcp      TPKT+COTP+ROSCTR 0x01
   enip      44818/tcp    ListIdentity (CIP UCMM)
@@ -113,6 +113,34 @@ elsereno scan --input-file t.txt --output-format stix > findings.stix.json
   pbxhttp   443/80/8088/5001  HTTP admin-UI, 15 brands (v1.3+)
   cwmp      7547/tcp     TR-069 ACS Inform → 15 ACS  (v1.4+)
   banner    *            generic TCP grab (fallback)
+  (+ knxip, mbustcp, dlms, codesys, redlion, pcworx, proconos,
+     twincat, slmp, gesrtp, finsudp, mms, opcuahttps)
+
+
+--------------- Deep exposure probes (read-only) --------------
+# S7: protection level + identity in one handshake
+elsereno s7 probe            --target plc:102 --json
+elsereno s7 probe-protection --target plc:102     # write-protection level 1/2/3
+elsereno s7 probe-identity   --target plc:102     # order number + firmware (CVE match)
+# OPC UA: does an anonymous session actually open / what is writeable
+elsereno opcua probe-anon  --target plc:4840 --json
+elsereno opcua probe-write --target plc:4840 --max-nodes 500
+# Cleartext transport: does the service negotiate TLS?
+elsereno plaintext-check --target plc:502 --json
+# Opt-in scored Findings (DefaultPort 0: NOT in default scan/discover):
+elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
+elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
+# Default credentials (offensive build; AUTHORIZED USE ONLY):
+elsereno-offensive creds-check http --target https://hmi.internal --confirm-authorized
+# Full guide: docs/exposure-auditing.md
+
+
+----------- Standards traceability (NIST SP 800-82 r4) --------
+elsereno standards                                # protocol → vuln catalog
+elsereno standards --protocol opcua-exposure --json
+# Findings carry the mapping in: ndjson, HTML report, GitHub/Jira
+# tickets, CEF (cs3), syslog SD, STIX external_references, webhook.
+# Map: internal/standards ; doc: docs/standards/nist-sp800-82r4.md
 
 
 --------------------- Scoring + triage ------------------------
