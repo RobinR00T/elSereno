@@ -3,9 +3,10 @@
 elSereno parses responses from untrusted network devices. A parser is only
 as trustworthy as what it was tested against: a unit test whose fixture was
 hand-built to the parser's own (possibly wrong) understanding of the wire
-validates nothing: it agrees with itself. Two real bugs in this codebase
-(Modbus FC43/14, Omron FINS) were hidden exactly that way until a real
-capture exposed them (PITF-064, PITF-065).
+validates nothing: it agrees with itself. Three real bugs in this codebase
+(Modbus FC43/14, Omron FINS, GE-SRTP) were hidden exactly that way until a
+real capture or a tested reference implementation exposed them (PITF-064,
+PITF-065, PITF-067); a fourth (CoDeSys) is confirmed and deferred (PITF-068).
 
 This table records, per response parser, whether it is validated **byte for
 byte against a real capture** or only against hand-built fixtures / the spec.
@@ -32,6 +33,7 @@ of a real (or reference-stack) device.
 | HART-IP header (`hartip/wire`) | CISA `icsnpp-hart-ip` | correct |
 | Omron FINS controller data (`finsudp/wire`) | CISA `icsnpp-omron-fins` (Omron CP1L-EL20DR-D) | **BUG: phantom SystemVersion read reserved bytes (PITF-065)** |
 | MMS ACSE associate-response accept (`mms/wire`) | w3h/icsmaster `iec61850_read.pcap` | correct |
+| GE-SRTP connection-init (`gesrtp/wire`) | Shodan device signature (automayt `GE-SRTP/Notes.txt`) + Collin Matthews' tested GE_SRTP impl | **BUG: probe sent 0x02 / expected 0x03 (the operation message) instead of the all-zero init that replies 0x01 (PITF-067)** |
 
 ## Still fixture-only or spec-grounded
 
@@ -42,14 +44,15 @@ bug, and the first place to look when one is reported.
 
 | Parser | Why not validated |
 |---|---|
-| SLMP / MELSEC Read CPU Model (`slmp/wire`) | no accessible pcap (ITI has none; only client libraries exist). Spec-reviewed 2026-10-03: the offsets (9-byte header, ResponseDataLength at [7:9], end code [9:11], 16-byte model [11:27], CPU type [27:29], declaredLen==20) match the MELSEC 3E READ CPU MODEL response: looks correct, still not capture-proven |
-| GE-SRTP model hint (`gesrtp/wire`) | ITI pcap is a 130-byte Git LFS pointer; no real bytes. `ExtractModelHint` is a heuristic printable-run scan (not offset-based), so lower FC43-style risk |
-| KNXnet/IP DescriptionResponse (`knxip/wire`) | no accessible pcap. Spec-reviewed 2026-10-03: header 6B + DIB at 6, friendly name [30:60], KNXMedium/Status/IndividualAddress offsets match the KNXnet/IP DESCRIPTION_RESPONSE DIB: looks correct, not capture-proven |
-| M-Bus/TCP RSP_UD (`mbustcp/wire`) | no accessible pcap. Spec-reviewed 2026-10-03: start/L/L/start framing, total = 6+L, checksum over C..user-data, and the fixed-data-header offsets (ID [7:11], manufacturer [11:13], version [13], medium [14]) match EN 13757-3: looks correct, not capture-proven |
+| SLMP / MELSEC Read CPU Model (`slmp/wire`) | no accessible pcap, but CROSS-CHECKED 2026-10-03 against the official Mitsubishi SLMP Reference Manual (SH080956ENG, command 0x0101 subcommand 0x0000) and pymcprotocol (`read_cputype()` also uses 0x0101). Offsets (9-byte header, ResponseDataLength [7:9], end code [9:11], 16-byte model [11:27], CPU type [27:29], declaredLen==20) match. Consistent with spec + reference impl, still not byte-capture-proven |
+| GE-SRTP model hint (`gesrtp/wire`) | the connection-init handshake is now validated (see the table above, PITF-067). `ExtractModelHint` itself is still only a heuristic printable-run scan (not offset-based), not capture-proven, but low FC43-style risk |
+| KNXnet/IP DescriptionResponse (`knxip/wire`) | no accessible pcap, but CROSS-CHECKED 2026-10-03 against the knx-go reference (vapourismo/knx-go `dib.go`): DIB_DEV_INFO field order Medium[8] / Status[9] / IndividualAddress[10:12] / Serial[6] / Multicast[4] / MAC[6] / FriendlyName[30:60] and DIB type 0x01 all match. Consistent with a reference impl, still not byte-capture-proven. (The earlier 0x0204 request bug was already fixed to 0x0203 in v1.55.) |
+| M-Bus/TCP RSP_UD (`mbustcp/wire`) | no accessible pcap, but CROSS-CHECKED 2026-10-03 against libmbus (rscada/libmbus `mbus_data_variable_header`): id_bcd[4] / manufacturer[2] / version / medium after C/A/CI place ID at [7:11], manufacturer [11:13], version [13], medium [14], matching the parser and EN 13757-3. Consistent with a reference impl, still not byte-capture-proven |
 | MMS vendor-finding path (`mms/wire` `ExtractMMSVendorHint`) | the reachable MMS captures carry no curated vendor marker; only the no-marker path is exercised on real bytes |
 | ProConOS runtime (`proconos/wire`, TCP/20547) | the one public "ProConOS" capture (reidmefirst/PC-PCAP) is actually PC Worx engineering traffic on 1962 (validated above as pcworx), not the 20547 runtime protocol. No runtime capture |
 | ATG (Veeder-Root) | no real capture: only honeypots (GasPot, LowOctane) emulate the I20100 response, which is a fixture, not a real device |
-| CoDeSys, Red Lion, TwinCat, CWMP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
+| CoDeSys BlockDriver magic (`codesys/wire`) | **SUSPECT (PITF-068, deferred): the 0xCDCDCDCD magic is unsourced and is the MSVC uninitialised-heap fill pattern; two sources (Tenable gateway PoC + Kaspersky ICS-CERT) put the real CODESYS block-driver magic at 0xE8170100 with an 8-byte header. Not fixed: the minimal probe frame that elicits a 1217 reply is unknown; the banner path still works** |
+| Red Lion, TwinCat, CWMP, IAX2, XOT, AT-modem | spec-grounded / dissector-grounded; no real capture pulled into a test yet |
 
 ## Method
 
