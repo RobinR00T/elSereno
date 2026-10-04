@@ -39,6 +39,7 @@ captures (vs spec-grounded).
 | M-Bus over TCP ([mbustcp.md](mbustcp.md)) | 10001 | REQ_UD2 to broadcast (0xFE) | wire write-ban (single-byte ACK 0xE5) | (vNext, SND_UD parameter writes / SET_BAUDRATE) |
 | DLMS/COSEM ([dlms.md](dlms.md)) | 4059 | wrapper-framed AARQ (LN-no-ciphering) | wire write-ban (wrapper-framed AARE rejected-permanent) | (vNext, SET-Request / ACTION-Request remote_disconnect) |
 | CoDeSys V3 ([codesys.md](codesys.md)) | 1217 | 4-byte BlockDriver magic + banner substring match | fail-closed (proprietary stack) | (vNext, Cmp* service-request gating) |
+| CoDeSys V3 active ([codesys.md](codesys.md)) | 1217 (opt-in) | channel-open PDU, confirm by Block-Driver reply (`--plugin codesys-active`, OptIn) | fail-closed | (read-only detection; opt-in, not in default sweep) |
 | Red Lion / RLN ([redlion.md](redlion.md)) | 789 | unsolicited banner read + 3-byte hello fallback + Crimson/Sixnet substring match | fail-closed (proprietary RLN TLV) | (vNext, RLN per-command + per-tag gating) |
 | Banner / dictionary ([banner.md](banner.md)) | many | TCP read, vendor match | read-only | n/a |
 

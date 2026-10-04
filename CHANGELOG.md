@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Opt-in active CoDeSys probe (`codesys-active`).** A new opt-in plugin
+  (DefaultPort 0 / OptIn, out of the default sweep) that sends the minimal
+  host-independent CoDeSys V3 channel-open PDU (`wire.BuildChannelOpen`) and
+  confirms a gateway by its Block-Driver-framed reply, closing the gap for
+  gateways that send no plaintext banner. Read-only detection: it opens a
+  channel to read the reply, issues no service request, and does not change the
+  default `codesys` plugin's banner + magic-recognition posture. The
+  channel-open frame (block driver + L3 datagram + L4 channel-open meta, all
+  addressing zeroed so it is host-independent) is ported byte for byte from the
+  Tenable CODESYS gateway V3 PoC and validated against that reference
+  (`wire/channel_test.go`, fixed client id); it is not yet exercised against a
+  live 1217 gateway, so the reply is classified by the capture-confirmed Block
+  Driver magic. Run with `--plugin codesys-active --target host:1217`. Resolves
+  the active-probe half of PITF-068. See `docs/protocols/codesys.md`.
 - **New plugin: MELSOFT fingerprint (TCP/5007), real-capture validated.** Adds
   `melsoft`, a read-only fingerprint for the Mitsubishi GX Works
   direct-connection protocol that natively answers on TCP/5007 (0x57 request /

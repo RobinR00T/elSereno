@@ -58,6 +58,31 @@ as opaque. Future offensive plugins would decode the layered
 "Layer-3 / Layer-4 / Layer-7" APDU stack to drive specific
 service requests.
 
+## Active probe (opt-in: `codesys-active`)
+
+The default `codesys` plugin is banner + magic-recognition only: a bare
+4-byte magic does not elicit a gateway reply, so a gateway that sends no
+plaintext banner is missed. The opt-in `codesys-active` plugin closes
+that gap by sending the minimal **channel-open PDU** the gateway does
+answer, then confirming CoDeSys by the Block-Driver-framed reply
+(`00 01 17 e8` magic). It is read-only: it opens a channel to read the
+reply and issues no service request that reads, writes, or changes
+controller state.
+
+It is kept out of the default read-only sweep (DefaultPort 0, OptIn), so
+a normal scan never opens a gateway channel. Run it explicitly:
+
+```sh
+elsereno fingerprint probe --plugin codesys-active --target plc:1217
+```
+
+The channel-open frame (block driver + L3 datagram + L4 channel-open
+meta, all addressing zeroed so it is host-independent) is ported byte for
+byte from the Tenable CODESYS gateway V3 PoC and validated against that
+reference (`wire/channel_test.go`, fixed client id). It has NOT been
+exercised against a live 1217 gateway, so the reply is classified by the
+capture-confirmed Block Driver magic rather than a presumed reply shape.
+
 ## Proxy policy (default build)
 
 Fail-closed. CoDeSys V3 is a proprietary tag-length-value

@@ -79,6 +79,10 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: mbustcp.Default().Metadata(), Factory: func() core.Protocol { return mbustcp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: dlms.Default().Metadata(), Factory: func() core.Protocol { return dlms.Default() }})
 	core.Register(core.Plugin{PluginMetadata: codesys.Default().Metadata(), Factory: func() core.Protocol { return codesys.Default() }})
+	// codesys-active: opt-in active probe (DefaultPort 0 / OptIn keeps it out
+	// of the default read-only sweep; sends the channel-open PDU only when
+	// named via --plugin codesys-active).
+	core.Register(core.Plugin{PluginMetadata: codesys.DefaultActive().Metadata(), Factory: func() core.Protocol { return codesys.DefaultActive() }})
 	core.Register(core.Plugin{PluginMetadata: redlion.Default().Metadata(), Factory: func() core.Protocol { return redlion.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pcworx.Default().Metadata(), Factory: func() core.Protocol { return pcworx.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mms.Default().Metadata(), Factory: func() core.Protocol { return mms.Default() }})

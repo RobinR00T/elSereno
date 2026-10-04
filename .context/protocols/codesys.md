@@ -51,6 +51,16 @@ greeting before the binary handshake (banner substring match).
   to 1024 bytes, classifies via Classify (BlockDriver magic OR
   banner substring).
 
+## Active probe (opt-in: codesys-active)
+- `codesys-active` (DefaultPort 0, OptIn): sends the channel-open
+  PDU (wire.BuildChannelOpen) that a gateway actually answers, and
+  confirms by the Block-Driver-framed reply. Read-only detection
+  (opens a channel to read the reply, no service request). Kept
+  out of the default sweep; run via `--plugin codesys-active`. The
+  frame is ported byte-for-byte from the Tenable PoC and validated
+  against it (wire/channel_test.go); not yet exercised vs a live
+  gateway, so the reply is classified by the magic (PITF-068).
+
 ## Write / dial operations (offensive build tag)
 Shipped (`offensive/write/codesys`, TCP/1217+11740). CoDeSys v3
 has no transport-layer length a gate can trust, so the handler
