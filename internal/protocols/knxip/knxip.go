@@ -138,16 +138,19 @@ func buildFinding(target core.Target, note string, isKNX bool) *core.Finding {
 		"auth_state":    90, // KNX/IP unicast has no native auth in 3671 mode (KNXnet/IP Secure is a 2018+ optional layer)
 		"capability":    30,
 		"impact_class":  70, // BAS impact: HVAC, lighting, blinds, access control
-		// cve_exposure 11: KNX/IP has a sustained CVE stream across
-		// BAS vendors (Gira, JUNG, MDT, ABB i-bus, Schneider, Siemens
-		// GAMMA): weak passwords, routing/search floods, gateway auth
-		// bypasses and unauthenticated firmware updates. This baseline
-		// is QUALITATIVE: specific CVE ids are not asserted here,
-		// because the previous list mixed a fabricated placeholder
-		// id (a "...-12345" sequence, removed) and a mis-attributed
-		// id (a Modicon ModiPwn Modbus CVE labelled as a KNX issue).
-		// Verified, device-keyed CVE data lives in internal/cve; KNX
-		// has no curated entry there yet. See PITF-070.
+		// cve_exposure 11: KNX/IP has a sustained real CVE stream (a
+		// 2026-10-04 NVD sweep for "KNX" returned 41 CVEs), but they are
+		// keyed to specific BAS gateway PRODUCTS (predominantly Schneider
+		// spaceLYnk / Wiser for KNX / U.motion, plus ETS and ise), not to
+		// generic KNXnet/IP: auth bypasses, SSRF, weak passwords,
+		// unauthenticated upload. This baseline stays QUALITATIVE because
+		// a KNXnet/IP responder does not reliably identify its
+		// vendor/product, so no specific id can be attributed without
+		// mis-attribution (the previous list mixed a fabricated
+		// "...-12345" placeholder and a mis-attributed Modicon ModiPwn
+		// Modbus CVE). Verified, device-keyed CVE data lives in
+		// internal/cve; KNX has no safely-attributable entry there yet.
+		// See PITF-070.
 		"cve_exposure": 11,
 	}
 	if isKNX {

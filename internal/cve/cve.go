@@ -220,3 +220,69 @@ func ForFINS(model string) []Record {
 		return nil
 	}
 }
+
+// Curated GE / Emerson PACSystems CVEs. GE-SRTP is GE's proprietary PLC
+// protocol; the GE-SRTP fingerprint reads a model hint that names the
+// controller family. These two advisories are the flagship network-exploitable
+// PACSystems RX3i CVEs: improper input validation and a remote halt-mode DoS.
+// They are scoped to the modern PACSystems RX3i / RXi / RSTi-EP line and
+// deliberately NOT attributed to the older Series 90-30 (IC693) / 90-70
+// (IC697) or VersaMax (IC200), which these advisories do not list.
+var gesrtpPACSystemsRX3i = []Record{
+	{ID: "CVE-2018-8867", CVSS: 7.5, Affects: "GE PACSystems RX3i (CPE305/310/330/400) / RSTi-EP CPE100 / RXi CPU320/CRU320: improper input validation"},
+	{ID: "CVE-2019-13524", CVSS: 7.5, Affects: "GE PACSystems RX3i (CPE100/115/302/305/310/330/400/410) / CRU320: crafted packets force halt-mode (DoS)"},
+}
+
+// ForGESRTP returns curated PACSystems CVEs for the GE PLC family named by a
+// GE-SRTP model hint. The match fires only for the modern PACSystems RX3i line
+// (model hint beginning "PACSystems", "RX3i", or the IC695 catalog prefix);
+// the older Series 90 / VersaMax families and an empty hint return nil rather
+// than a guessed match. FAMILY-level, not firmware-confirmed: pair with the GE
+// advisory for the device's firmware range.
+func ForGESRTP(modelHint string) []Record {
+	m := strings.ToUpper(strings.TrimSpace(modelHint))
+	switch {
+	case strings.HasPrefix(m, "PACSYSTEMS") ||
+		strings.HasPrefix(m, "RX3I") ||
+		strings.HasPrefix(m, "IC695"):
+		return gesrtpPACSystemsRX3i
+	default:
+		return nil
+	}
+}
+
+// Curated Mitsubishi MELSEC CVEs, by controller series. SLMP is Mitsubishi's
+// protocol and the SLMP fingerprint reads the CPU model name, whose prefix
+// names the series: iQ-R CPUs are "R" + digit (e.g. R08CPU, R120SFCPU), iQ-F
+// CPUs are "FX5" (e.g. FX5U, FX5UC). The two series carry different advisories,
+// kept apart rather than over-attributing one series' CVE to the other.
+var (
+	// MELSEC iQ-R series CPU modules.
+	slmpIQR = []Record{
+		{ID: "CVE-2020-5668", CVSS: 7.5, Affects: "Mitsubishi MELSEC iQ-R series CPU modules: uncontrolled resource consumption (DoS)"},
+	}
+	// MELSEC iQ-F (FX5) series. CVE-2025-7731 is an SLMP-protocol issue
+	// (cleartext SLMP lets a remote attacker read credentials and read/write).
+	slmpIQF = []Record{
+		{ID: "CVE-2025-7731", CVSS: 7.5, Affects: "Mitsubishi MELSEC iQ-F CPU module: cleartext SLMP lets a remote attacker intercept credentials and read/write"},
+		{ID: "CVE-2024-8403", CVSS: 7.5, Affects: "Mitsubishi MELSEC iQ-F FX5-ENET / FX5-ENET/IP modules: improper input validation (Ethernet DoS)"},
+	}
+)
+
+// ForSLMP returns curated MELSEC CVEs for the series named by the SLMP CPU
+// model-name prefix: "FX5" -> iQ-F, "R" + digit -> iQ-R. Classic Q / L / legacy
+// FX models and an empty model return nil rather than a guessed match (no
+// network-exploitable flagship CVE for those was verified for this curated
+// set). FAMILY-level, not firmware-confirmed: pair with the Mitsubishi
+// advisory for the device's firmware range.
+func ForSLMP(model string) []Record {
+	m := strings.ToUpper(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(m, "FX5"):
+		return slmpIQF
+	case len(m) >= 2 && m[0] == 'R' && m[1] >= '0' && m[1] <= '9':
+		return slmpIQR
+	default:
+		return nil
+	}
+}

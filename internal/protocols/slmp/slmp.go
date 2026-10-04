@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/protocols/slmp/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -71,17 +72,17 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		// Couldn't even read the header, treat as no usable
 		// reply rather than a hard probe failure.
-		return buildFinding(target, "no usable reply", false), nil
+		return buildFinding(target, "no usable reply", false, ""), nil
 	}
 	if !wire.IsResponseFrame(buf[:n]) {
-		return buildFinding(target, fmt.Sprintf("non-SLMP response (%d bytes)", n), false), nil
+		return buildFinding(target, fmt.Sprintf("non-SLMP response (%d bytes)", n), false, ""), nil
 	}
 	// Read the rest based on the declared length. Cap the read
 	// at MaxResponseDataLength so a malicious peer can't trick
 	// the probe into a giant alloc.
 	declaredLen := int(buf[7]) | int(buf[8])<<8
 	if declaredLen > wire.MaxResponseDataLength {
-		return buildFinding(target, fmt.Sprintf("absurd SLMP length (%d)", declaredLen), false), nil
+		return buildFinding(target, fmt.Sprintf("absurd SLMP length (%d)", declaredLen), false, ""), nil
 	}
 	total := wire.HeaderLenResponse + declaredLen
 	if total > len(buf) {
@@ -90,17 +91,17 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		buf = bigger
 	}
 	if _, err := io.ReadFull(conn, buf[n:total]); err != nil {
-		return buildFinding(target, fmt.Sprintf("short SLMP body (declared %d)", declaredLen), false), nil
+		return buildFinding(target, fmt.Sprintf("short SLMP body (declared %d)", declaredLen), false, ""), nil
 	}
 	cpu, perr := wire.ParseReadCPUModelName(buf[:total])
 	if perr != nil {
-		return buildFinding(target, classifyParseError(perr), false), nil
+		return buildFinding(target, classifyParseError(perr), false, ""), nil
 	}
 	note := "SLMP CPU"
 	if cpu.Model != "" {
 		note = fmt.Sprintf("SLMP model=%s type=0x%04x", sanitizeModel(cpu.Model), cpu.CPUType)
 	}
-	return buildFinding(target, note, true), nil
+	return buildFinding(target, note, true, sanitizeModel(cpu.Model)), nil
 }
 
 // REPL stub; the generic REPL framework lands later. Operators who
@@ -199,24 +200,34 @@ func sanitizeModel(s string) string {
 	return b.String()
 }
 
-func buildFinding(target core.Target, note string, isSLMP bool) *core.Finding {
+func buildFinding(target core.Target, note string, isSLMP bool, model string) *core.Finding {
 	factors := map[string]int{
 		"protocol_risk": 80, // legacy ICS, no auth on default port
 		"exposure":      75,
 		"auth_state":    95, // SLMP has no native authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure 10: Mitsubishi MELSEC + SLMP-speaking GOT HMIs
-		// (iQ-R / iQ-F / Q / FX) have a wide CVE catalogue (DoS,
-		// unauthenticated write, auth bypass). Qualitative baseline:
-		// specific ids are not asserted here. The previous list was
-		// de-specified after it was found to contain a fabricated id
-		// (a non-existent 2025 placeholder); see PITF-070. Verified,
-		// device-keyed CVE data would live in internal/cve.
+		// cve_exposure 10: conservative baseline for the Mitsubishi MELSEC
+		// family. When the CPU model name prefix names the series,
+		// cve.ForSLMP below raises it with NVD-verified CVEs (iQ-F/FX5:
+		// CVE-2025-7731 7.5 cleartext-SLMP credential intercept +
+		// CVE-2024-8403 7.5 FX5-ENET DoS; iQ-R: CVE-2020-5668 7.5 DoS).
+		// Classic Q / L / legacy FX get the baseline only. The previous
+		// hard-coded list was de-specified after it was found to contain a
+		// fabricated 2025 placeholder id; see PITF-070.
 		"cve_exposure": 10,
 	}
 	if isSLMP {
 		factors["capability"] = 75
+		// CVE enrichment: the CPU model prefix names the MELSEC series, which
+		// carries NVD-verified CVEs (family-level, not firmware-confirmed).
+		// Record the ids in the note so the enriched finding keys distinctly.
+		if recs := cve.ForSLMP(model); len(recs) > 0 {
+			if s := cve.Score(recs); s > factors["cve_exposure"] {
+				factors["cve_exposure"] = s
+			}
+			note += " cve=" + strings.Join(cve.IDs(recs), ",")
+		}
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{

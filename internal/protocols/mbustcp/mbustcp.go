@@ -146,12 +146,18 @@ func buildFinding(target core.Target, note string, isMBus bool) *core.Finding {
 		"auth_state":    90, // M-Bus has no native authentication on the wire
 		"capability":    30,
 		"impact_class":  60, // billing accuracy + privacy of consumption data
-		// cve_exposure: 6 (v2.33+, bumped from 4), M-Bus CVE
-		// catalogue is thin but growing as more parsers ship.
-		// Qualitative baseline: specific CVE ids are not asserted
-		// here. The previous list was de-specified after the
-		// fabrication sweep found a non-existent 2025 id in it; see
-		// PITF-070.
+		// cve_exposure 6 (v2.33+, bumped from 4): the wired-M-Bus CVE
+		// catalogue is thin. A 2026-10-04 NVD sweep found that the real
+		// "M-Bus" CVEs are either WIRELESS M-Bus (Enbra EWM, Kaden
+		// PICOFLUX: a different RF transport, not this TCP/wired probe)
+		// or specific to a vendor GATEWAY'S web interface (the PiiGAB
+		// M-Bus 900S cluster: XSS/CSRF/command-injection in .php, plus
+		// plaintext/hard-coded creds), which an M-Bus frame does not let
+		// us attribute (the frame's manufacturer field is the METER's,
+		// not the gateway's). So no verified device CVE is attributed
+		// here; this stays a qualitative baseline. The previous id list
+		// was de-specified after the fabrication sweep found a
+		// non-existent 2025 id in it; see PITF-070.
 		"cve_exposure": 6,
 	}
 	if isMBus {

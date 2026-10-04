@@ -93,7 +93,11 @@ proxy idioms.
 
 ## Scoring contribution
 factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
-(75 on SLMP reply), impact_class:75, cve_exposure:0}. impact_class
+(75 on SLMP reply), impact_class:75, cve_exposure:10 baseline}.
+cve_exposure is raised by cve.ForSLMP when the CPU model name prefix
+names the series: iQ-F/FX5 -> CVE-2025-7731 + CVE-2024-8403, iQ-R
+("R" + digit) -> CVE-2020-5668 (all NVD-verified); classic Q / L /
+legacy FX get the baseline only. impact_class
 75 reflects factory-floor PLC blast radius (RUN/STOP, force-set on
 D / M / X / Y devices via Batch Write, error-log clearing).
 auth_state 95 because SLMP has no native authentication, the

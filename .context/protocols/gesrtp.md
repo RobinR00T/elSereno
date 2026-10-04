@@ -88,10 +88,13 @@ proxy idioms.
 ## Scoring contribution
 factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
 (70 on SRTP reply, **75 when a model hint is extracted**),
-impact_class:75, cve_exposure:0}. impact_class 75 reflects
-factory-floor + SCADA blast radius (RUN/STOP, write program block
-/ system memory). auth_state 95 because SRTP has no native
-authentication.
+impact_class:75, cve_exposure:8 baseline}. cve_exposure is raised
+by cve.ForGESRTP when the model hint names the modern PACSystems
+RX3i line (CVE-2018-8867 + CVE-2019-13524, NVD-verified); Series
+90-30/90-70 and VersaMax get the baseline only. impact_class 75
+reflects factory-floor + SCADA blast radius (RUN/STOP, write
+program block / system memory). auth_state 95 because SRTP has no
+native authentication.
 
 Capability lift breakdown:
 - 30: no SRTP reply.

@@ -17,6 +17,9 @@ func TestCuratedRecordsWellFormed(t *testing.T) {
 		ForFINS("NX102-9000"),        // Omron SYSMAC Nx
 		ForFINS("CJ2M-CPU33"),        // Omron CJ / CS
 		ForFINS("CP1L-EL20DR-D"),     // Omron CP
+		ForGESRTP("PACSystems_RX3i"), // GE PACSystems RX3i
+		ForSLMP("R08CPU"),            // Mitsubishi MELSEC iQ-R
+		ForSLMP("FX5U-32MT/ES"),      // Mitsubishi MELSEC iQ-F
 	}
 	seen := 0
 	for _, recs := range groups {
@@ -153,6 +156,46 @@ func TestForFINS(t *testing.T) {
 	}
 	if got := ForFINS("WIDGET-9000"); got != nil {
 		t.Errorf("unknown model = %+v, want nil", got)
+	}
+}
+
+func TestForGESRTP(t *testing.T) {
+	// The modern PACSystems RX3i line carries the two flagship network CVEs.
+	for _, m := range []string{"PACSystems_RX3i", "RX3i", "RX3iCPE100", "IC695CPU310"} {
+		recs := ForGESRTP(m)
+		if len(recs) != 2 || recs[0].ID != "CVE-2018-8867" || recs[1].ID != "CVE-2019-13524" {
+			t.Errorf("ForGESRTP(%q) = %+v, want CVE-2018-8867 + CVE-2019-13524", m, recs)
+		}
+	}
+	// Older Series 90-30 (IC693) / 90-70 (IC697) / VersaMax (IC200) are NOT in
+	// the affected list: no over-attribution.
+	for _, m := range []string{"IC693CPU374", "IC697CPU", "IC200", "MarkVIe", ""} {
+		if got := ForGESRTP(m); got != nil {
+			t.Errorf("ForGESRTP(%q) must be nil (not a PACSystems RX3i), got %+v", m, got)
+		}
+	}
+}
+
+func TestForSLMP(t *testing.T) {
+	// iQ-F (FX5) carries the cleartext-SLMP + FX5-ENET CVEs.
+	for _, m := range []string{"FX5U-32MT/ES", "FX5UC-32MT/D", "FX5UJ-24MT/ES"} {
+		recs := ForSLMP(m)
+		if len(recs) != 2 || recs[0].ID != "CVE-2025-7731" || recs[1].ID != "CVE-2024-8403" {
+			t.Errorf("ForSLMP(%q) = %+v, want CVE-2025-7731 + CVE-2024-8403", m, recs)
+		}
+	}
+	// iQ-R ("R" + digit) carries the DoS CVE.
+	for _, m := range []string{"R08CPU", "R120SFCPU", "R04ENCPU", "R16PCPU"} {
+		recs := ForSLMP(m)
+		if len(recs) != 1 || recs[0].ID != "CVE-2020-5668" {
+			t.Errorf("ForSLMP(%q) = %+v, want only CVE-2020-5668", m, recs)
+		}
+	}
+	// Classic Q / L / legacy FX and empty/unknown: no guessed match.
+	for _, m := range []string{"Q03UDVCPU", "L26CPU-BT", "FX3U-32M", "", "WIDGET"} {
+		if got := ForSLMP(m); got != nil {
+			t.Errorf("ForSLMP(%q) must be nil (not a curated series), got %+v", m, got)
+		}
 	}
 }
 

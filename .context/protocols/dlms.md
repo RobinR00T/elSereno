@@ -61,7 +61,12 @@ end-of-content byte. Does NOT forward to upstream.
 
 ## Scoring contribution
 factors{protocol_risk:75, exposure:70, auth_state:85, capability:30
-(70 on DLMS reply), impact_class:65, cve_exposure:0}.
+(70 on DLMS reply), impact_class:65, cve_exposure:6}.
+- cve_exposure 6 (corrected 2026-10-04 from an unsupported 12):
+  NVD indexes no device-level CVEs under DLMS/COSEM at the protocol
+  level, so no verified CVE is attributed; meter CVEs exist but are
+  vendor/product-keyed, which this protocol-only probe cannot
+  identify. See PITF-070.
 - protocol_risk 75: smart meters with kinetic effects (remote
   disconnect breaker), slightly above pure metering.
 - auth_state 85: DLMS supports HLS authentication but unauth

@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/cve"
 	"local/elsereno/internal/protocols/gesrtp/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -206,10 +208,12 @@ func buildFinding(target core.Target, note string, isSRTP bool, modelHint string
 		"auth_state":    95, // SRTP has no authentication
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
-		// cve_exposure 8: the GE-IP / Mark VIe / PACSystems CVE
-		// catalogue has matured (firmware download faults, auth
-		// bypass, hardcoded credentials). Qualitative baseline:
-		// specific ids are not asserted here. The previous list was
+		// cve_exposure 8: conservative baseline for the GE PLC family.
+		// When the model hint names the modern PACSystems RX3i line,
+		// cve.ForGESRTP below raises it with NVD-verified CVEs
+		// (CVE-2018-8867 7.5 improper input validation + CVE-2019-13524
+		// 7.5 remote halt-mode DoS). Older Series 90 / VersaMax families
+		// get the baseline only. The previous hard-coded list was
 		// de-specified after the fabrication sweep found a non-existent
 		// 2025 id in it; see PITF-070.
 		"cve_exposure": 8,
@@ -219,6 +223,17 @@ func buildFinding(target core.Target, note string, isSRTP bool, modelHint string
 		factors["capability"] = 75
 	case isSRTP:
 		factors["capability"] = 70
+	}
+	if isSRTP {
+		// CVE enrichment: the model hint names the GE family, which carries
+		// NVD-verified CVEs (family-level, not firmware-confirmed). Record
+		// the ids in the note so the enriched finding keys distinctly.
+		if recs := cve.ForGESRTP(modelHint); len(recs) > 0 {
+			if s := cve.Score(recs); s > factors["cve_exposure"] {
+				factors["cve_exposure"] = s
+			}
+			note += " cve=" + strings.Join(cve.IDs(recs), ",")
+		}
 	}
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{

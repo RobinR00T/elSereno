@@ -71,6 +71,14 @@ func TestBuildFindingFactors(t *testing.T) {
 	if cdHint.Factors["capability"] != 75 {
 		t.Fatalf("hint capability: got %d want 75", cdHint.Factors["capability"])
 	}
+	// CVE enrichment: a PACSystems RX3i hint lifts cve_exposure above the
+	// baseline (cve.ForGESRTP: CVE-2018-8867 + CVE-2019-13524), while the
+	// Series 90-30 (IC693) hint above does not (not in those advisories).
+	rx3i := buildFinding(target, "SRTP model=PACSystems_RX3i", true, "PACSystems_RX3i")
+	if rx3i.Factors["cve_exposure"] <= cdHint.Factors["cve_exposure"] {
+		t.Fatalf("RX3i cve_exposure should exceed the non-attributed baseline: rx3i=%d ic693=%d",
+			rx3i.Factors["cve_exposure"], cdHint.Factors["cve_exposure"])
+	}
 	if cdYes.Score == 0 {
 		t.Fatalf("score should be non-zero")
 	}

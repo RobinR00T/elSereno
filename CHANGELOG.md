@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CVE enrichment for GE-SRTP and SLMP (NVD-verified):** `internal/cve` gains
+  `ForGESRTP` and `ForSLMP`, wired into the `gesrtp` and `slmp` findings the
+  same way `ForFINS` is. When the probe reads a device model, a matching family
+  now raises `cve_exposure` from a qualitative baseline to a real-CVE score and
+  records the ids in the note. GE-SRTP: a PACSystems RX3i model hint maps to
+  CVE-2018-8867 (7.5, improper input validation) + CVE-2019-13524 (7.5, remote
+  halt-mode DoS); Series 90-30/90-70 and VersaMax are deliberately not
+  attributed. SLMP: an iQ-F/FX5 CPU maps to CVE-2025-7731 (7.5, cleartext SLMP
+  credential intercept) + CVE-2024-8403 (7.5, FX5-ENET DoS), an iQ-R ("R" +
+  digit) CPU to CVE-2020-5668 (7.5, DoS); classic Q/L/legacy FX get the
+  baseline only. Every id was verified one-by-one against the NVD REST API.
+  These are two of the six families whose fabricated ids were purged in
+  PITF-070; they were the two with real, attributable device CVEs. See
+  `docs/parser-validation.md` and PITF-070.
 - **M-Bus/TCP parser validated against a real meter frame:** `ParseRSPUD`
   is now cross-checked byte for byte against a real Itron/ACW CYBLE water
   meter RSP_UD telegram (from the rscada/libmbus test corpus): the
@@ -253,6 +267,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DLMS `cve_exposure` baseline corrected from an unsupported 12 to 6
+  (PITF-070):** the comment claimed DLMS/COSEM "has the deepest CVE catalogue
+  of the legacy-ICS trio" and carried the highest baseline of any plugin, but a
+  2026-10-04 NVD sweep found essentially no device-level CVEs indexed under
+  DLMS/COSEM at the protocol level (only a Wireshark dissector bug). Smart-meter
+  CVEs exist but are vendor/product-keyed, which this protocol-only fingerprint
+  cannot identify, so none is attributable. Baseline lowered to 6 (matching the
+  other thin-catalogue metering protocol, M-Bus) with an honest comment. The
+  `knxip` and `mbustcp` comments were also tightened to the NVD-verified reality
+  (KNX CVEs are vendor-product-specific; the real M-Bus CVEs are wireless-M-Bus
+  or vendor-gateway-web, not wired-protocol-attributable); their baselines are
+  unchanged.
 - **CoDeSys Block Driver recognition magic corrected to the real value
   (PITF-068):** `BlockDriverMagic` was `0xCD 0xCD 0xCD 0xCD`, the MSVC debug
   "uninitialised heap" fill pattern (almost certainly read off an

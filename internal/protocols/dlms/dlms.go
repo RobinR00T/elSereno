@@ -167,15 +167,22 @@ func buildFinding(target core.Target, note string, isDLMS bool) *core.Finding {
 		"auth_state":    85, // DLMS supports HLS authentication but unauth probes still respond
 		"capability":    30,
 		"impact_class":  65, // billing accuracy + privacy + remote disconnect of supply
-		// cve_exposure 12: DLMS/COSEM has the deepest CVE catalogue of
-		// the legacy-ICS trio (smart-meter scale, plus remote-
-		// disconnect breaker impact). Qualitative baseline: specific
-		// ids are not asserted here. The previous list was de-specified
-		// after it was found to contain a fabricated id (a 2025 id that
-		// actually belongs to an unrelated AWS tool, not DLMS) and a
-		// mis-attributed one (CVE-2020-15782 is the Siemens S7-1200 /
-		// S7-1500 memory bypass, not DLMS); see PITF-070.
-		"cve_exposure": 12,
+		// cve_exposure 6: DLMS/COSEM drives smart meters with real
+		// kinetic impact (remote disconnect/reconnect of supply, scored
+		// under impact_class), but NVD indexes essentially NO
+		// device-level CVEs under "DLMS"/"COSEM" at the protocol level
+		// (a 2026-10-04 NVD sweep returned only a Wireshark dissector
+		// bug). Smart-meter CVEs exist but are keyed to specific meter
+		// vendors/products, which this protocol-only fingerprint does
+		// not identify, so no verified device CVE can be attributed
+		// here. The earlier baseline of 12 and a "deepest CVE
+		// catalogue" claim were not supported by NVD and were corrected
+		// 2026-10-04. The previous id list was also de-specified after
+		// the fabrication sweep found a fabricated id (a 2025 id that
+		// belongs to an unrelated AWS tool) and a mis-attributed one
+		// (CVE-2020-15782 is the Siemens S7-1200/1500 bypass, not DLMS);
+		// see PITF-070.
+		"cve_exposure": 6,
 	}
 	if isDLMS {
 		factors["capability"] = 70

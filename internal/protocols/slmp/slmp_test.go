@@ -75,11 +75,18 @@ func TestBuildFindingFactors(t *testing.T) {
 		Address: netip.MustParseAddr("203.0.113.7"),
 		Port:    5007,
 	}
-	cdYes := buildFinding(target, "SLMP model=Q03UDVCPU type=0x4612", true)
-	cdNo := buildFinding(target, "no usable reply", false)
+	cdYes := buildFinding(target, "SLMP model=Q03UDVCPU type=0x4612", true, "Q03UDVCPU")
+	cdNo := buildFinding(target, "no usable reply", false, "")
 	if cdYes.Factors["capability"] <= cdNo.Factors["capability"] {
 		t.Fatalf("capability should jump when SLMP responds: yes=%d no=%d",
 			cdYes.Factors["capability"], cdNo.Factors["capability"])
+	}
+	// CVE enrichment: an iQ-F (FX5) model lifts cve_exposure above the
+	// classic-Q baseline via cve.ForSLMP (CVE-2025-7731 + CVE-2024-8403).
+	iqf := buildFinding(target, "SLMP model=FX5U-32MT/ES type=0x4614", true, "FX5U-32MT/ES")
+	if iqf.Factors["cve_exposure"] <= cdYes.Factors["cve_exposure"] {
+		t.Fatalf("iQ-F cve_exposure should exceed classic-Q baseline: iQ-F=%d Q=%d",
+			iqf.Factors["cve_exposure"], cdYes.Factors["cve_exposure"])
 	}
 	if cdYes.Score == 0 {
 		t.Fatalf("score should be non-zero")
