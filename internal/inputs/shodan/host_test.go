@@ -29,7 +29,7 @@ func TestHostParsesExposure(t *testing.T) {
 			"os": null,
 			"ports": [502, 44818],
 			"data": [
-				{"port":502,"transport":"tcp","product":"Modbus","timestamp":"2026-01-01T00:00:00","vulns":{"CVE-2020-1111":{},"CVE-2019-2222":{}}},
+				{"port":502,"transport":"tcp","product":"Modbus","timestamp":"2026-01-01T00:00:00","vulns":{"CVE-2021-22779":{},"CVE-2018-7240":{}}},
 				{"port":502,"transport":"tcp","product":"Modbus","timestamp":"2026-02-01T00:00:00"},
 				{"port":44818,"transport":"tcp","product":"EtherNet/IP"},
 				{"port":99999,"transport":"tcp"}
@@ -60,7 +60,7 @@ func TestHostParsesExposure(t *testing.T) {
 
 	// CVE union across services.
 	cves := info.CVEs()
-	if len(cves) != 2 || cves[0] != "CVE-2019-2222" || cves[1] != "CVE-2020-1111" {
+	if len(cves) != 2 || cves[0] != "CVE-2018-7240" || cves[1] != "CVE-2021-22779" {
 		t.Fatalf("unexpected CVEs: %v", cves)
 	}
 }

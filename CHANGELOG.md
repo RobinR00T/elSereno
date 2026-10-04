@@ -253,6 +253,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GE-SRTP fuzz target un-stuck from the pre-PITF-067 contract (CI red):**
+  `FuzzClassifyResponse` still asserted that the only `ClassifyResponse`
+  success path was a 56-byte buffer with byte 0 = 0x03, but PITF-067
+  changed `ClassifyResponse` to accept the real 0x01 init reply. CI's
+  30s fuzz re-discovered the mismatch and failed (`go test` without
+  `-fuzz` could not, since the crashing seed is not in the local corpus),
+  which had left the `ci` workflow red on main. The fuzz target now
+  asserts `wire.TypeInitResponse`, matching the code. Found by the
+  pre-commit audit.
+- **Shodan host test uses real CVE ids** (CVE-2018-7240, CVE-2021-22779)
+  instead of `CVE-2020-1111` / `CVE-2019-2222` placeholders, so a repo-wide
+  CVE grep returns only real ids (PITF-070 hygiene).
 - **TwinCAT ADS doc comment corrected to match the spec:** the
   `twincat/wire` package comment described the ReadDeviceInfo response
   device name as 24 bytes (payload 32). Per the Beckhoff ADS spec and

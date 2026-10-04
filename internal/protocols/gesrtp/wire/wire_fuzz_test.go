@@ -10,12 +10,13 @@ import (
 
 // FuzzClassifyResponse asserts that ClassifyResponse never panics
 // on arbitrary input and that the only success path is a 56-byte
-// (or longer) buffer with byte 0 = 0x03.
+// (or longer) buffer with byte 0 = 0x01 (TypeInitResponse, the
+// PLC's answer to the all-zero CONNECTION INIT frame; PITF-067).
 func FuzzClassifyResponse(f *testing.F) {
 	f.Add([]byte{})
 	f.Add(make([]byte, 56))
 	resp := make([]byte, 56)
-	resp[0] = 0x03
+	resp[0] = wire.TypeInitResponse
 	f.Add(resp)
 	f.Fuzz(func(t *testing.T, buf []byte) {
 		err := wire.ClassifyResponse(buf)
@@ -25,8 +26,8 @@ func FuzzClassifyResponse(f *testing.F) {
 		if len(buf) < 56 {
 			t.Fatalf("ClassifyResponse passed on len=%d (must be >=56)", len(buf))
 		}
-		if buf[0] != 0x03 {
-			t.Fatalf("ClassifyResponse passed with type byte 0x%02x (must be 0x03)", buf[0])
+		if buf[0] != wire.TypeInitResponse {
+			t.Fatalf("ClassifyResponse passed with type byte 0x%02x (must be 0x%02x)", buf[0], wire.TypeInitResponse)
 		}
 	})
 }
