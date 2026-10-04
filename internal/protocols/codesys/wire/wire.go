@@ -53,17 +53,21 @@ const (
 // WARNING (PITF-068, unresolved 2026-10-03): 0xCD 0xCD 0xCD 0xCD is
 // almost certainly WRONG. No source confirms it, and 0xCDCDCDCD is the
 // MSVC debug "uninitialised heap" fill pattern, so it was likely read
-// off an uninitialised buffer during reverse-engineering. Two
+// off an uninitialised buffer during reverse-engineering. THREE
 // independent sources put the real CODESYS block-driver magic at
 // 0xE8170100 (little-endian) with an 8-byte header (magic[4] +
 // size[4]): Tenable's gateway PoC (pack('<II', 0xe8170100, len), also
-// checked on recv) and the Kaspersky ICS-CERT CODESYS Runtime paper
+// checked on recv), the Kaspersky ICS-CERT CODESYS Runtime paper
 // (the PDU stack opens with the Block Driver layer; the runtime reads
-// 8 bytes and compares the first 4 with the magic constant). The fix
-// is deferred, not applied: a correct probe must send a valid PDU
-// (block driver + datagram + channel + services) that elicits a
-// gateway reply, and that minimal responding frame is not yet
-// confirmed against a capture. The banner path below still works.
+// 8 bytes and compares the first 4 with the magic constant), and a
+// real capture (cds3.pcapng, re-parsed on TCP/11740: every frame, both
+// directions, opens with 00 01 17 e8 = 0xe8170100). The magic is thus
+// confirmed; the fix is still deferred, not applied, because a correct
+// probe must send a valid PDU (block driver + datagram + channel +
+// services) that elicits a gateway reply, and the capture's first
+// client PDU embeds endpoint + session fields, so a host-independent
+// responding frame is not yet established. The banner path below still
+// works.
 var BlockDriverMagic = []byte{0xCD, 0xCD, 0xCD, 0xCD}
 
 // CoDeSysBannerSubstrings are CoDeSys server greeting / banner
