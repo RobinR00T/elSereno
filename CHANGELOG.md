@@ -309,12 +309,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Fuzz coverage added for three untrusted-input parsers that had none:**
+- **Fuzz coverage added for five untrusted-input parsers that had none:**
   PROFINET DCP (`FuzzDecodeDCP`), TwinCAT ADS ReadDeviceInfo
-  (`FuzzParseDeviceInfo`) and IAX2 full-frame header (`FuzzParseHeader`),
-  each seeded with the real capture that validates it and asserting the
-  parser never panics on arbitrary L2/UDP/TCP input. No crash found. These
-  now run in the CI fuzz smoke alongside the existing targets.
+  (`FuzzParseDeviceInfo`), IAX2 full-frame header (`FuzzParseHeader`), MQTT
+  packet reader incl. the remaining-length varint and CONNACK/SUBACK/PUBLISH
+  parsers (`FuzzReadPacket`), and the ProConOS response classifier
+  (`FuzzClassify`). Each asserts the parser never panics on arbitrary
+  L2/UDP/TCP input and is seeded with a real frame where one exists. No
+  crash found; they now run in the CI fuzz smoke alongside the existing
+  targets.
 - **Test coverage raised on four plugin packages** that were effectively
   untested: `atg` 2.6% -> 79.5% (banner classifier, scoring, and the
   write-ban proxy that only forwards `I`-family read commands), `fox`
