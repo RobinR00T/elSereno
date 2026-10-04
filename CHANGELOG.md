@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **New plugin: MELSOFT fingerprint (TCP/5007), real-capture validated.** Adds
+  `melsoft`, a read-only fingerprint for the Mitsubishi GX Works
+  direct-connection protocol that natively answers on TCP/5007 (0x57 request /
+  0xD7 response marker), distinct from the `slmp` plugin's MC 3E frames
+  (0x50/0xD0). `BuildGetCPUInfo` sends the fixed 41-byte get-CPU-info request;
+  the probe classifies the 0xD7 response and folds the 16-byte CPU model name
+  into the finding. Validated byte for byte against a real capture
+  (hi-KK/ICS-Protocol-identify, a real MELSEC Q-series CPU, model Q03UDECPU),
+  cross-checked with the plcscan `melsecq-discover.nse` shipped alongside it.
+  CVE enrichment reuses `cve.ForSLMP` (shared MELSEC-model map). Fail-closed
+  proxy; fingerprint-only. This also explains a latent gap: the existing `slmp`
+  plugin sends MC-3E frames on 5007, but 5007 natively speaks MELSOFT, so
+  `melsoft` is the correct fingerprint for that port. See
+  `docs/protocols/melsoft.md`.
 - **ProConOS fingerprint validated against a real capture:** the `proconos/wire`
   classifier now has a real-capture test (`hi-KK/ICS-Protocol-identify`
   `ProConOs协议识别.pcapng`, TCP/20547, a real ProConOS V4.2.0214 / QuickMix

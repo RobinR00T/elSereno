@@ -19,6 +19,7 @@ import (
 	"local/elsereno/internal/protocols/iec104"
 	"local/elsereno/internal/protocols/knxip"
 	"local/elsereno/internal/protocols/mbustcp"
+	"local/elsereno/internal/protocols/melsoft"
 	"local/elsereno/internal/protocols/mms"
 	"local/elsereno/internal/protocols/modbus"
 	"local/elsereno/internal/protocols/mqtt"
@@ -70,6 +71,9 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: finsudp.Default().Metadata(), Factory: func() core.Protocol { return finsudp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: slmp.Default().Metadata(), Factory: func() core.Protocol { return slmp.Default() }})
+	// melsoft: the GX Works direct-connection protocol that natively answers
+	// on TCP/5007 (0x57/0xD7 marker), distinct from slmp's MC 3E frames.
+	core.Register(core.Plugin{PluginMetadata: melsoft.Default().Metadata(), Factory: func() core.Protocol { return melsoft.Default() }})
 	core.Register(core.Plugin{PluginMetadata: gesrtp.Default().Metadata(), Factory: func() core.Protocol { return gesrtp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: knxip.Default().Metadata(), Factory: func() core.Protocol { return knxip.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mbustcp.Default().Metadata(), Factory: func() core.Protocol { return mbustcp.Default() }})

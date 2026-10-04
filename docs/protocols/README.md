@@ -33,6 +33,7 @@ captures (vs spec-grounded).
 | [**CWMP / TR-069**](cwmp.md) | 7547 | ACS Inform fingerprint | SOAP Fault 9001 "Request denied" | per-SOAP-RPC + per-parameter-path (v1.12) + per-firmware-URL for Download (v1.12) |
 | Omron FINS ([finsudp.md](finsudp.md)) | 9600/udp | CONTROLLER DATA READ (MRC=0x05 SRC=0x01) | fail-closed (TCP framework) | (vNext, memory writes / RUN-STOP) |
 | MELSEC SLMP ([slmp.md](slmp.md)) | 5007 | READ CPU MODEL NAME (cmd 0x0101 sub 0x0000) | wire write-ban (end code 0xC059) | (vNext, Batch Write / Remote RUN-STOP) |
+| MELSOFT ([melsoft.md](melsoft.md)) | 5007 | fixed get-CPU-info request (marker 0x57, embeds cmd 0x0101) | fail-closed (proprietary MELSOFT TLV) | (none; fingerprint-only) |
 | GE-SRTP ([gesrtp.md](gesrtp.md)) | 18245 | 56-byte CONNECTION INIT mailbox (type 0x02) | wire write-ban (mailbox response with status byte) | (vNext, write memory / RUN-STOP / program block transfer) |
 | KNXnet/IP ([knxip.md](knxip.md)) | 3671/udp | DESCRIPTION_REQUEST (svc 0x0204) | fail-closed (TCP framework) | (vNext, TUNNELLING_REQUEST / DEVICE_CONFIGURATION) |
 | M-Bus over TCP ([mbustcp.md](mbustcp.md)) | 10001 | REQ_UD2 to broadcast (0xFE) | wire write-ban (single-byte ACK 0xE5) | (vNext, SND_UD parameter writes / SET_BAUDRATE) |
