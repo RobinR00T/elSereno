@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ProConOS fingerprint validated against a real capture:** the `proconos/wire`
+  classifier now has a real-capture test (`hi-KK/ICS-Protocol-identify`
+  `ProConOs协议识别.pcapng`, TCP/20547, a real ProConOS V4.2.0214 / QuickMix
+  runtime). `BuildHello` equals the capture's client request byte for byte
+  (`cc01000b4002000047ee`), and `Classify` accepts the real 0xcc response via
+  both the signature and the ProConOS banner fallback. No bug; this confirms the
+  PITF-069 fix on real bytes and promotes ProConOS from spec/reference
+  cross-check to real-capture validated. The capture is cross-checked against the
+  DigitalBond Redpoint `proconos-info.nse` shipped in the same repo. (The repo's
+  "Mitsubishi Q" capture turned out to be the MELSOFT protocol on TCP/5007, not
+  SLMP 3E, so SLMP still has no public byte-capture.) See `docs/parser-validation.md`.
 - **CVE enrichment for GE-SRTP and SLMP (NVD-verified):** `internal/cve` gains
   `ForGESRTP` and `ForSLMP`, wired into the `gesrtp` and `slmp` findings the
   same way `ForFINS` is. When the probe reads a device model, a matching family
