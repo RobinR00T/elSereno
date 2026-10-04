@@ -109,7 +109,9 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 func TestProbeMagicEcho(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, func() []byte {
-		return []byte{0xCD, 0xCD, 0xCD, 0xCD, 0x00, 0x00, 0x00, 0x10}
+		// Real Block Driver frame: magic 00 01 17 e8 (0xE8170100 LE)
+		// + LE total length 0x10 (cds3.pcapng / Tenable PoC). PITF-068.
+		return []byte{0x00, 0x01, 0x17, 0xE8, 0x10, 0x00, 0x00, 0x00}
 	})
 	if f.Factors["capability"] != 70 {
 		t.Fatalf("capability: got %d want 70", f.Factors["capability"])

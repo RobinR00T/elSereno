@@ -1,6 +1,7 @@
 package wire_test
 
 import (
+	"bytes"
 	"testing"
 
 	"local/elsereno/internal/protocols/codesys/wire"
@@ -11,7 +12,8 @@ import (
 func FuzzClassify(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte("HTTP/1.1 200 OK"))
-	f.Add(append([]byte{0xCD, 0xCD, 0xCD, 0xCD}, []byte(" payload")...))
+	// Real Block Driver magic 00 01 17 e8 (0xE8170100 LE), PITF-068.
+	f.Add(append([]byte{0x00, 0x01, 0x17, 0xE8}, []byte(" payload")...))
 	f.Add([]byte("\x00\x00\x00 CoDeSys V3 SP19 \n"))
 	f.Fuzz(func(t *testing.T, buf []byte) {
 		note, err := wire.Classify(buf)
@@ -25,18 +27,14 @@ func FuzzClassify(f *testing.F) {
 }
 
 // FuzzBuildHelloStable asserts the hello is always exactly the
-// 4-byte BlockDriver magic.
+// 4-byte Block Driver magic (0xE8170100 LE: 00 01 17 e8).
 func FuzzBuildHelloStable(f *testing.F) {
 	f.Add(byte(0x00))
+	want := []byte{0x00, 0x01, 0x17, 0xE8}
 	f.Fuzz(func(t *testing.T, _ byte) {
 		got := wire.BuildHello()
-		if len(got) != 4 {
-			t.Fatalf("frame length: got %d want 4", len(got))
-		}
-		for i, b := range got {
-			if b != 0xCD {
-				t.Fatalf("byte %d: got 0x%02x want 0xCD", i, b)
-			}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("hello: got %x want %x", got, want)
 		}
 	})
 }

@@ -28,47 +28,52 @@ import (
 	"errors"
 )
 
-// CoDeSys V3 BlockDriver layout (reverse-engineered):
+// CoDeSys V3 Block Driver (CmpBlkDrvTcp) TCP framing, confirmed
+// against the Tenable gateway PoC (pack('<II', 0xe8170100, len)) and a
+// real capture (cds3.pcapng, every frame both directions opens with
+// 00 01 17 e8):
 //
-//	Offset  Field      Size  Description
-//	0..3    Magic      4     0xCD 0xCD 0xCD 0xCD, BlockDriver
-//	4..7    Length     4     LE: payload length (excludes header)
-//	8..11   Header     4     LE: protocol header (varies by version)
-//	12..15  Checksum   4     LE: header / payload checksum
-//	16+     Payload    …     APDU
+//	Offset  Field   Size  Description
+//	0..3    Magic   4     0xE8170100 (LE on the wire: 00 01 17 e8)
+//	4..7    Length  4     LE: total frame length, INCLUDING this header
+//	8+      PDU     …     datagram / channel / service layers (opaque here)
 //
-// We treat all bytes after the 4-byte magic as opaque for
-// fingerprinting purposes, the server's response is classified
-// either by its leading 4 bytes (BlockDriver magic echo) or by
-// embedded ASCII banner strings.
+// For the read-only fingerprint we treat everything after the 4-byte
+// magic as opaque: a response is identified either by its leading
+// 4 bytes (the Block Driver magic) or by embedded ASCII banner strings.
 const (
 	// BlockDriverMagicLen is the 4-byte BlockDriver magic
 	// prefix length.
 	BlockDriverMagicLen = 4
 )
 
-// BlockDriverMagic is the 4-byte prefix this fingerprint sends and
-// recognises.
+// BlockDriverMagic is the 4-byte Block Driver magic this fingerprint
+// recognises (and sends): 0xE8170100, little-endian on the wire, i.e.
+// 00 01 17 e8.
 //
-// WARNING (PITF-068, unresolved 2026-10-03): 0xCD 0xCD 0xCD 0xCD is
-// almost certainly WRONG. No source confirms it, and 0xCDCDCDCD is the
-// MSVC debug "uninitialised heap" fill pattern, so it was likely read
-// off an uninitialised buffer during reverse-engineering. THREE
-// independent sources put the real CODESYS block-driver magic at
-// 0xE8170100 (little-endian) with an 8-byte header (magic[4] +
-// size[4]): Tenable's gateway PoC (pack('<II', 0xe8170100, len), also
-// checked on recv), the Kaspersky ICS-CERT CODESYS Runtime paper
-// (the PDU stack opens with the Block Driver layer; the runtime reads
-// 8 bytes and compares the first 4 with the magic constant), and a
-// real capture (cds3.pcapng, re-parsed on TCP/11740: every frame, both
-// directions, opens with 00 01 17 e8 = 0xe8170100). The magic is thus
-// confirmed; the fix is still deferred, not applied, because a correct
-// probe must send a valid PDU (block driver + datagram + channel +
-// services) that elicits a gateway reply, and the capture's first
-// client PDU embeds endpoint + session fields, so a host-independent
-// responding frame is not yet established. The banner path below still
-// works.
-var BlockDriverMagic = []byte{0xCD, 0xCD, 0xCD, 0xCD}
+// HISTORY (PITF-068): earlier builds used 0xCD 0xCD 0xCD 0xCD, which is
+// the MSVC debug "uninitialised heap" fill pattern, almost certainly
+// read off an uninitialised buffer during reverse-engineering and never
+// a real CODESYS value. The correct magic is confirmed by three
+// independent sources: Tenable's gateway V3 PoC (pack('<II', 0xe8170100,
+// len) on send, `if magic != 0xe8170100` on recv), the Kaspersky
+// ICS-CERT CODESYS Runtime paper (the PDU stack opens with the Block
+// Driver layer; the runtime reads 8 bytes and compares the first 4 with
+// the magic constant), and a real capture (cds3.pcapng: every frame,
+// both directions, opens with 00 01 17 e8). The RECOGNITION value is now
+// corrected and validated against all three (Classify / IsBlockDriverFrame).
+//
+// STILL DEFERRED: a complete eliciting probe. BuildHello sends only the
+// 4-byte magic, which is not a full Block Driver frame (the gateway
+// expects magic + length + a datagram/channel-open) and on its own
+// elicits no reply. A valid channel-open PDU exists (the Tenable PoC
+// builds one) but is validated only against DWRCS.exe on 11743, while
+// the capture's first client PDU on 11740 embeds an endpoint IP, so no
+// host-independent probe for the canonical 1217 gateway is confirmed.
+// Shipping one changes the tool's active on-wire posture and is left as
+// a deliberate decision. In the default read-only build, identification
+// rests on the banner path below.
+var BlockDriverMagic = []byte{0x00, 0x01, 0x17, 0xE8}
 
 // CoDeSysBannerSubstrings are CoDeSys server greeting / banner
 // substrings. A response containing any of these is a positive
@@ -97,15 +102,15 @@ var (
 	ErrNotCoDeSys = errors.New("codesys: response is not a recognisable CoDeSys frame or banner")
 )
 
-// BuildHello returns the canonical 4-byte BlockDriver hello
-// (0xCD 0xCD 0xCD 0xCD). CoDeSys V3 servers reply with either:
+// BuildHello returns the 4-byte Block Driver magic (0xE8170100, LE on
+// the wire: 00 01 17 e8).
 //
-//   - a BlockDriver-framed response whose first 4 bytes echo
-//     the magic, or
-//   - a plain-text greeting that contains one of the
-//     CoDeSysBannerSubstrings.
-//
-// Both shapes are positive identifications.
+// This is the protocol's real magic prefix, NOT a complete eliciting
+// probe (see BlockDriverMagic / PITF-068): a bare magic is not a full
+// Block Driver frame, so a real gateway does not reply to it. In the
+// default read-only build the reliable signal is a plain-text greeting
+// containing one of the CoDeSysBannerSubstrings; a Block-Driver-framed
+// reply, if one is observed, is recognised by its leading magic.
 func BuildHello() []byte {
 	out := make([]byte, BlockDriverMagicLen)
 	copy(out, BlockDriverMagic)

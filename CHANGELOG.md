@@ -253,6 +253,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CoDeSys Block Driver recognition magic corrected to the real value
+  (PITF-068):** `BlockDriverMagic` was `0xCD 0xCD 0xCD 0xCD`, the MSVC debug
+  "uninitialised heap" fill pattern (almost certainly read off an
+  uninitialised buffer during reverse-engineering), so `Classify` /
+  `IsBlockDriverFrame` matched no real frame. It is now the real
+  `0xE8170100` (little-endian on the wire: `00 01 17 e8`), validated against
+  three independent sources re-verified for this change: Tenable's CODESYS
+  gateway V3 PoC (`pack('<II', 0xe8170100, len)` on send, `magic != 0xe8170100`
+  on recv), the Kaspersky ICS-CERT CODESYS Runtime paper, and a real capture
+  (`cds3.pcapng`, every frame both directions opens with `00 01 17 e8`). The
+  fixture-only tests that fed the fill pattern back to the parser were
+  replaced with tests built from the real capture bytes. A complete eliciting
+  probe stays deferred: `BuildHello` sends only the 4-byte magic (not a full
+  frame, so a real gateway does not reply), and no host-independent probe for
+  the canonical 1217 gateway is confirmed; the banner path is the
+  default-build signal. See `docs/parser-validation.md` and PITF-068.
 - **GE-SRTP fuzz target un-stuck from the pre-PITF-067 contract (CI red):**
   `FuzzClassifyResponse` still asserted that the only `ClassifyResponse`
   success path was a 56-byte buffer with byte 0 = 0x03, but PITF-067

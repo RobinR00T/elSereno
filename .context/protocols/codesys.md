@@ -1,7 +1,7 @@
 ---
 phase: v1.22
 status: implemented
-last-updated: 2026-04-28
+last-updated: 2026-10-04
 token-budget: 800
 protocol-name: codesys
 default-port: 1217/tcp
@@ -10,12 +10,19 @@ default-port: 1217/tcp
 # CoDeSys V3
 
 ## TL;DR
-ElSereno's `codesys` plugin sends a 4-byte BlockDriver magic
-hello (0xCD 0xCD 0xCD 0xCD) on TCP/1217 and classifies the
-response by either:
-- BlockDriver magic echo (response prefix matches the magic), or
+ElSereno's `codesys` plugin sends the 4-byte Block Driver magic
+(0xE8170100, LE on the wire: 00 01 17 e8) on TCP/1217 and
+classifies the response by either:
+- Block Driver magic echo (response prefix matches the magic), or
 - Canonical CoDeSys banner substring (CoDeSys / CODESYS /
   3S-Smart / 3S-CoDeSys / CmpHostname / CmpAppBP / CmpRuntime).
+
+The magic was corrected 2026-10-04 from the bogus 0xCDCDCDCD
+(MSVC uninitialised-heap fill) to the real value, validated
+against the Tenable gateway PoC, the Kaspersky ICS-CERT paper and
+a real capture (cds3.pcapng). A complete eliciting probe stays
+deferred (PITF-068): a bare magic is not a full frame, so the
+banner path is the default-build signal.
 
 v1.22 chunk 2 ships read-only fingerprint with a fail-closed
 proxy.
@@ -26,8 +33,10 @@ proxy.
 - Open-source clients: libcodesys-py, codesys-rs.
 
 ## Wire format (summary)
-4-byte BlockDriver magic `0xCD 0xCD 0xCD 0xCD` opens every
-CoDeSys V3 BlockDriver frame. Frame layout in
+4-byte Block Driver magic `0xE8170100` (LE on the wire:
+`00 01 17 e8`) opens every CoDeSys V3 Block Driver frame,
+followed by a 4-byte LE total length (includes the 8-byte
+header). Frame layout in
 `internal/protocols/codesys/wire/wire.go`. Deeper Layer-3 /
 Layer-4 / Layer-7 APDU stack is out of scope for v1.22 chunk 2.
 

@@ -10,19 +10,29 @@ some installations also expose 11740 (newer) or 1200 (V2 legacy).
 
 ## Probe
 
-> **WARNING (PITF-068, unresolved 2026-10-03):** the `0xCD 0xCD 0xCD 0xCD`
-> magic below is almost certainly WRONG. No source confirms it, and it is the
-> MSVC debug "uninitialised heap" fill pattern, so it was likely read off an
-> uninitialised buffer during reverse-engineering. Two independent sources
-> (Tenable's CODESYS gateway PoC and the Kaspersky ICS-CERT CODESYS Runtime
-> paper) put the real CODESYS block-driver magic at `0xE8170100` (little-endian)
-> with an 8-byte header (magic[4] + size[4]). The fix is deferred, not applied:
-> a correct probe must send a valid multi-layer PDU that elicits a gateway
-> reply, and that minimal responding frame is not yet confirmed against a
-> capture. The banner path still works. Note the legitimate `0x55cd` below is
-> the services-layer protocol id, a different field, not this magic.
+> **STATUS (PITF-068, magic corrected 2026-10-04):** the recognition magic is
+> now the real Block Driver value `0xE8170100` (little-endian on the wire:
+> `00 01 17 e8`). Earlier builds used `0xCD 0xCD 0xCD 0xCD`, the MSVC debug
+> "uninitialised heap" fill pattern, almost certainly read off an
+> uninitialised buffer during reverse-engineering. The correct value is
+> confirmed by three independent sources: Tenable's CODESYS gateway V3 PoC
+> (`pack('<II', 0xe8170100, len)` on send, `magic != 0xe8170100` on recv), the
+> Kaspersky ICS-CERT CODESYS Runtime paper, and a real capture (`cds3.pcapng`:
+> every frame, both directions, opens with `00 01 17 e8`).
+>
+> **Still deferred:** a complete eliciting probe. `BuildHello` sends only the
+> 4-byte magic, which is not a full frame, so a real gateway does not reply to
+> it; the Tenable channel-open PDU is validated only against DWRCS.exe on 11743,
+> and the capture's first client PDU on 11740 embeds an endpoint IP, so no
+> host-independent probe for the canonical 1217 gateway is confirmed, and
+> shipping one would change the tool's active on-wire posture. The banner path
+> is the default-build signal. Note the legitimate `0x55cd` below is the
+> services-layer protocol id, a different field, not this magic.
 
-- Send the 4-byte BlockDriver magic hello: `0xCD 0xCD 0xCD 0xCD`.
+- Send the 4-byte Block Driver magic (`0xE8170100`, LE on the wire
+  `00 01 17 e8`). This is the real magic prefix, not a complete eliciting
+  probe (see the status note above), so default-build identification rests on
+  the banner path.
 - Classify the response by either:
   - **BlockDriver magic echo**: the server's first 4 bytes
     match the magic, indicating a real CoDeSys V3
@@ -36,12 +46,10 @@ some installations also expose 11740 (newer) or 1200 (V2 legacy).
 ## Wire layout (BlockDriver)
 
 ```
-Offset  Field      Size  Description
-0..3    Magic      4     0xCD 0xCD 0xCD 0xCD
-4..7    Length     4     LE: payload length (excludes header)
-8..11   Header     4     LE: protocol header (varies by version)
-12..15  Checksum   4     LE: header / payload checksum
-16+     Payload    …     APDU (Layer-3 / Layer-4 / Layer-7)
+Offset  Field   Size  Description
+0..3    Magic   4     0xE8170100 (LE on the wire: 00 01 17 e8)
+4..7    Length  4     LE: total frame length, INCLUDING this 8-byte header
+8+      PDU     …     datagram / channel / service layers (Layer-3 / 4 / 7)
 ```
 
 The full CoDeSys V3 service-request layer is out of scope for
