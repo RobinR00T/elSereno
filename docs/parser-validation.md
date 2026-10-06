@@ -27,7 +27,7 @@ of a real (or reference-stack) device.
 | BACnet BVLC / I-Am / WriteProperty (`bacnet/wire`) | CISA `icsnpp-bacnet` | correct |
 | DNP3 link header (`dnp3/wire`) | CISA `icsnpp-dnp3` | correct |
 | IEC 60870-5-104 APCI (`iec104/wire`) | ITI `IEC104_SQ.pcapng` (real I-format frame) | correct |
-| PC Worx classifier (`pcworx/wire`) | reidmefirst/PC-PCAP (Phoenix Contact ILC 191 ETH 2TX, TCP/1962) | correct (banner "ILC 191 ETH 2TX" matched) |
+| PC Worx init + classifier (`pcworx/wire`) | reidmefirst/PC-PCAP (ILC 191 ETH 2TX, TCP/1962) + hi-KK/ICS-Protocol-identify `PCWorx协议识别.pcapng` (ILC 151 ETH) + nmap `pcworx-info.nse` | **BUG (PITF-072): the probe sent a made-up 32-byte hello (`01 01 00 1C IBETH01\0` + zeros) matching neither the NSE nor any capture, and accepted a reply starting with those same bytes ("prefix echo"): a reflected probe was confirmed while a real PLC's first reply (`81 01 00 14`, no banner) was not.** Fixed 2026-10-07: BuildHello is the NSE `init_comms`, byte-identical to the ILC 151 ETH client packet; Classify keys on the 0x81 response frame (all 25 0x81 replies across both captures carry their own big-endian length). The original banner match on the ILC 191 device-info reply still holds |
 | MQTT CONNACK (`mqtt/wire`) | pradeesi/MQTT-Wireshark-Capture | correct (anonymous CONNECT accepted) |
 | SIP response (`sip/wire`) | goffinet/sip_captures (IPP VoIP device) | correct (code / reason / Server / Allow) |
 | DLMS/COSEM TCP-wrapper AARE (`dlms/wire`) | zeus8497/dlms-analysis (TCP-wrapper variant) | correct (wrapper + AARE tag + length) |

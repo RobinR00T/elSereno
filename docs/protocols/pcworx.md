@@ -7,12 +7,20 @@ TCP/1962; it does not drive the deeper service-request layer.
 
 ## Probe
 
-- Send the PC WORX hello carrying the 8-byte interface-board identify
-  token `IBETH01\0` (`wire.BuildHello`).
-- Classify the reply (`wire.Classify`): a positive match is either the
-  PC WORX hello prefix echoed back, or a banner substring (`ILC `,
-  `Phoenix`) in printable ASCII. The ILC model string, when present,
-  rides in the banner.
+- Send the PC WORX session-init request (`wire.BuildHello`), byte for
+  byte the `init_comms` of nmap's `pcworx-info.nse`:
+  `01 01 00 1a 00 00 00 00 78 80 00 03 00 0c "IBETH01N0_M" 00`.
+- Classify the reply (`wire.Classify`): a positive match is a PC WORX
+  response frame (byte 0 `0x81`, the request's service byte, and a
+  big-endian length in bytes 2..3), or, as a fallback, a banner substring
+  (`ILC `, `Phoenix`, ...). A real PLC answers the init with
+  `81 01 00 14 ...` (20 bytes, no banner); the ILC model string only
+  arrives in a later device-info (`0x06`) reply, which this single-request
+  probe does not ask for.
+- A reply that merely reflects the probe is rejected (PITF-071).
+
+Validated against two real captures (an ILC 151 ETH and an ILC 191 ETH
+2TX) and the NSE; see PITF-072 for the earlier, wrong hello this replaced.
 
 Capability score jumps when the target returns a PC WORX reply. The
 probe is fingerprint-only and read-only: it sends one hello and reads

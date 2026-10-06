@@ -2,6 +2,7 @@ package pcworx
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net"
@@ -126,14 +127,27 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 	return f
 }
 
-func TestProbePrefixEcho(t *testing.T) {
+func TestProbeRealInitResponse(t *testing.T) {
 	t.Parallel()
-	f := probeAgainstResponder(t, func() []byte {
-		// 4-byte prefix echo + arbitrary payload.
-		return append(append([]byte{}, wire.PCWorxHelloPrefix...), 0x00, 0x00, 0x00, 0x10)
-	})
+	// The real ILC 151 ETH reply to the session init (PITF-072).
+	realReply, err := hex.DecodeString("81010014000000010000000000020000004c0000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := probeAgainstResponder(t, func() []byte { return realReply })
 	if f.Factors["capability"] != 70 {
 		t.Fatalf("capability: got %d want 70", f.Factors["capability"])
+	}
+}
+
+// TestProbeEchoIsNotPCWorx: a service that reflects the init request must
+// not be confirmed as PC Worx. The old "prefix echo" path did exactly that
+// (PITF-071 / PITF-072).
+func TestProbeEchoIsNotPCWorx(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, wire.BuildHello)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not PC Worx)", f.Factors["capability"])
 	}
 }
 

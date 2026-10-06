@@ -312,6 +312,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PC Worx probe now sends the real session init and recognises the real
+  reply (PITF-072).** The probe sent a made-up 32-byte hello
+  (`01 01 00 1C IBETH01\0` + zeros) that matches neither nmap's
+  `pcworx-info.nse` nor any capture, and its classifier accepted a reply that
+  merely started with those same four bytes ("prefix echo"). Against a real
+  PLC it therefore reported nothing (the first reply, `81 01 00 14 ...`, has
+  neither that prefix nor a banner), and against an echo service it reported a
+  confirmed device. `BuildHello` is now the NSE `init_comms`, byte-identical to
+  the client's first packet in a real ILC 151 ETH capture, and `Classify` keys
+  on the 0x81 response frame with its big-endian length (all 25 0x81 replies in
+  two real captures, ILC 151 ETH and ILC 191 ETH 2TX, carry it); banners stay
+  as a fallback and the probe also rejects reflections. Confirmed PC Worx
+  devices now actually reach the `cve.ForPCWorx` enrichment.
 - **Echo false positives fixed in six more plugins (PITF-071):** the
   echo-vs-silent sweep found the same class in older plugins, and `atg`,
   `dlms`, `dnp3`, `iax2`, `iec104` and `opcua` no longer report a reflecting

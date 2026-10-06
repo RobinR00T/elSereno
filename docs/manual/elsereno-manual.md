@@ -607,7 +607,7 @@ well-known:
 | mbustcp   | 10001/tcp    | M-Bus sobre TCP, REQ_UD2 / RSP_UD |
 | dlms      | 4059/tcp     | DLMS/COSEM AARQ (wrapper TCP) |
 | mms       | 102/tcp      | IEC 61850 MMS (ACSE associate) |
-| pcworx    | 1962/tcp     | Phoenix Contact PC Worx device-info |
+| pcworx    | 1962/tcp     | Phoenix Contact PC Worx init de sesión (respuesta 0x81) |
 | proconos  | 20547/tcp    | KW-Software ProConOS enumeración (firma 0xcc) |
 | codesys   | 1217/tcp     | CoDeSys V3 magic Block Driver + banner |
 | redlion   | 789/tcp      | Red Lion Crimson / RLN banner |

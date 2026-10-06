@@ -13,6 +13,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/cve"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/pcworx/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -66,7 +67,8 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	if _, err := conn.Write(wire.BuildHello()); err != nil {
+	hello := wire.BuildHello()
+	if _, err := conn.Write(hello); err != nil {
 		return nil, fmt.Errorf("pcworx: write: %w", err)
 	}
 
@@ -74,6 +76,11 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	n, err := conn.Read(buf)
 	if err != nil || n == 0 {
 		return buildFinding(target, "no usable reply", false), nil
+	}
+	// Defence in depth: the classifier no longer accepts request-shaped bytes,
+	// but a reply that is our own probe reflected is never a device (PITF-071).
+	if netutil.IsEcho(hello, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not PC Worx)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])
 	if cerr != nil {
