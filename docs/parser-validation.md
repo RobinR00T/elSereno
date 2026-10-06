@@ -72,3 +72,14 @@ exact response bytes, and those bytes are embedded in a Go test with
 attribution to the source. The capture files themselves are not vendored.
 The campaign that produced this table ran 2026-10-02/03; see the commit
 history and PITF-064 / PITF-065 in `.context/pitfalls.md`.
+
+A real reply is not enough on its own: a parser can classify real bytes
+correctly and still accept its own request. Since 2026-10-07 every
+registered plugin is also probed against a loopback echo server and a
+junk-reply server (`cmd/elsereno/echo_guard_test.go`), and the build fails
+if a reflected probe scores higher than junk (PITF-071). That check found
+ten plugins confirming their own reflected probe, one of them (`pcworx`)
+because its request was not the protocol's real one (PITF-072). It cannot
+catch a plugin whose capability ignores the reply (modbus), and plugins
+that error against a plain loopback server (HTTP/TLS, AT modem, MQTT, xot,
+the opt-in exposure probes) are skipped.

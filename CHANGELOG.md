@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Echo regression guard for every plugin (PITF-071).**
+  `cmd/elsereno/echo_guard_test.go` probes every registered plugin against a
+  loopback echo server and a junk-reply server (TCP and UDP on one port, all
+  probes in parallel, about 5 s) and fails the build if a reflected probe
+  scores a higher capability than junk. Mutation-checked (removing the atg or
+  dnp3 fix makes it fail) and stable across repeated runs in both builds and
+  under `-race`. Junk rather than silence is the reference, because several
+  plugins legitimately score "no reply" lower than "an unrecognised reply".
+  Limits: it cannot catch a plugin whose capability ignores the reply
+  (modbus), and it skips plugins that error against a plain loopback server.
 - **Opt-in active CoDeSys probe (`codesys-active`).** A new opt-in plugin
   (DefaultPort 0 / OptIn, out of the default sweep) that sends the minimal
   host-independent CoDeSys V3 channel-open PDU (`wire.BuildChannelOpen`) and
