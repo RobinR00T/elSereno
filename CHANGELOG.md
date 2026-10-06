@@ -324,6 +324,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **HART-IP session initiate now matches a real client byte for byte.** The
+  request asked for a zero inactivity timer, a value no reference client
+  sends; it now asks for 30000 ms like the real client in the CISA
+  `icsnpp-hart-ip` capture (the device answers with the timer it applies).
+  Detection did not depend on it (any HART-IP response counts), so this is
+  alignment, not a fix of a confirmed miss. The protocol page also said a
+  response needs a non-zero status; the code (rightly) accepts any status,
+  and the real device answers status 0.
 - **DLMS/COSEM probe: the AARQ now carries its mandatory last field
   (PITF-075).** The InitiateRequest inside our AARQ stopped after the
   conformance block and lacked `client-max-receive-pdu-size`, which the

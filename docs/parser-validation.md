@@ -34,7 +34,7 @@ of a real (or reference-stack) device.
 | MQTT CONNACK (`mqtt/wire`) | pradeesi/MQTT-Wireshark-Capture | correct (anonymous CONNECT accepted) |
 | SIP response (`sip/wire`) | goffinet/sip_captures (IPP VoIP device) | correct (code / reason / Server / Allow) |
 | DLMS/COSEM TCP-wrapper AARE + AARQ request (`dlms/wire`) | zeus8497/dlms-analysis (TCP-wrapper variant) + the Gurux DLMS client's public-client AARQ | AARE classifier correct (wrapper + AARE tag + length); **BUG in the request (PITF-075): the AARQ's InitiateRequest lacked its mandatory client-max-receive-pdu-size** (the real capture and Gurux both end it with `FF FF`). Fixed 2026-10-07: the APDU is now byte-identical to Gurux's and its InitiateRequest matches the capture's layout |
-| HART-IP header (`hartip/wire`) | CISA `icsnpp-hart-ip` | correct |
+| HART-IP header + session-initiate request (`hartip/wire`) | CISA `icsnpp-hart-ip` | correct. The request was checked too (2026-10-07): it matched the real client except for a zero inactivity timer, now 30000 ms like the capture, so it is byte-identical with the same sequence number |
 | Omron FINS controller data (`finsudp/wire`) | CISA `icsnpp-omron-fins` (Omron CP1L-EL20DR-D) | **BUG: phantom SystemVersion read reserved bytes (PITF-065)** |
 | MMS ACSE associate-response accept (`mms/wire`) | w3h/icsmaster `iec61850_read.pcap` | correct |
 | GE-SRTP connection-init (`gesrtp/wire`) | Shodan device signature (automayt `GE-SRTP/Notes.txt`) + Collin Matthews' tested GE_SRTP impl | **BUG: probe sent 0x02 / expected 0x03 (the operation message) instead of the all-zero init that replies 0x01 (PITF-067)** |

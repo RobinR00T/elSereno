@@ -1,15 +1,21 @@
 # HART-IP (port 5094)
 
-HART-IP (FCG TS20085) carries HART field-device traffic over TCP.
+HART-IP (FCG TS20085) carries HART field-device traffic over UDP
+and TCP on port 5094; the probe uses TCP.
 Deployed on plant-control networks for pressure / flow / level /
 temperature instrumentation gateways.
 
 ## Probe
 
 - Send a session-initiate request (8-byte HART-IP header with
-  MsgID 0x00 + 5-byte "Primary Master + Inactivity Close" body).
-- A response with MsgType 0x01 and a non-zero Status confirms
-  HART-IP presence.
+  MsgID 0x00 + 5-byte "Primary Master + Inactivity Close" body:
+  master type 1 and a 30000 ms timer). With the same sequence
+  number it is byte for byte the real client's request in the CISA
+  `icsnpp-hart-ip` capture (`01 00 00 00 00 02 00 0d 01 00 00 75 30`).
+- A HART-IP header with MsgType 0x01 (response) confirms HART-IP
+  presence, whatever the status: the real device in that capture
+  answers status 0 and the timer it applies (60000 ms). Our request
+  is MsgType 0x00, so a reflected copy of it is not a response.
 
 ## Proxy policy (default build)
 

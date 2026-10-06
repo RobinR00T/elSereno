@@ -42,3 +42,14 @@ func TestParseHeader_RealCapture(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildSessionInitiate_RealCapture validates the probe request, not
+// only the parser: with the capture's sequence number, the session
+// initiate we send is byte for byte the real client's (CISA
+// icsnpp-hart-ip hart-ip.pcap, identical over UDP and TCP).
+func TestBuildSessionInitiate_RealCapture(t *testing.T) {
+	const captured = "010000000002000d0100007530"
+	if got := hex.EncodeToString(wire.BuildSessionInitiate(2)); got != captured {
+		t.Fatalf("BuildSessionInitiate(2) = %s, want the captured client request %s", got, captured)
+	}
+}

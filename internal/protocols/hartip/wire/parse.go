@@ -65,9 +65,14 @@ func ParseHeader(b []byte) (Header, error) {
 }
 
 // BuildSessionInitiate returns a session-initiate request body
-// (header + 5-byte "PrimaryMaster + InactivityClose" payload).
+// (header + 5-byte "PrimaryMaster + InactivityClose" payload). The
+// payload is the one a real HART-IP client sends in the CISA
+// icsnpp-hart-ip capture, over both UDP and TCP: master type 1
+// (primary) and an inactivity close timer of 30000 ms (0x7530); the
+// device answers with the timer it actually applies (60000 there). A
+// zero timer, sent until 2026-10-07, appears in no reference.
 func BuildSessionInitiate(seq uint16) []byte {
-	payload := []byte{0x01, 0x00, 0x00, 0x00, 0x00}
+	payload := []byte{0x01, 0x00, 0x00, 0x75, 0x30}
 	out := make([]byte, HeaderLen+len(payload))
 	out[0] = Version
 	out[1] = MsgRequest
