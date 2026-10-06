@@ -150,7 +150,7 @@ named with `--plugin` (`s7-exposure`, `opcua-exposure`,
 `codesys-active`). Run `elsereno plugins list` for the authoritative
 list on your binary.
 Writes, exploits, credential harvest, dial, and the **write-gated
-proxies** (24 protocols) ship behind `-tags offensive` with the
+proxies** (18 protocols) ship behind `-tags offensive` with the
 ADR-039 triple-confirm wrapper. Each gate scopes traffic at
 multiple granularities: see the per-protocol details below. The
 legacy-ICS write-gates (finsudp, slmp, gesrtp, codesys, redlion)
@@ -160,8 +160,8 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
 | **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) plus per-FC 8-sub-function diagnostics gate (Force Listen Only / Clear Counters default-deny); structured `writes:` / `diag_subfunctions:` YAML round-trip (v1.2/v1.12) |
-| S7comm          | 102                | probe + pass-through proxy · deep read-only exposure probe (`s7 probe`: SZL protection level + identity/firmware) and opt-in scored `s7-exposure` plugin |
-| EtherNet/IP     | 44818              | probe + pass-through proxy |
+| **S7comm**      | 102                | probe + pass-through proxy · gated-write proxy per S7 function code in the offensive build (`--s7-fc`) · deep read-only exposure probe (`s7 probe`: SZL protection level + identity/firmware) and opt-in scored `s7-exposure` plugin |
+| **EtherNet/IP** | 44818              | probe + pass-through proxy · gated-write proxy per CIP encapsulation command, optionally per CIP object, in the offensive build (`--cip-command`, `--cip-attr`) |
 | **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |
 | **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` + g41 analog-setpoint `(index, value-clamp)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
 | IEC 60870-5-104 | 2404               | TESTFR probe |
@@ -187,7 +187,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
 
 The rows in **bold** carry write-gate proxies (this table is a
-representative selection; 24 protocols have write-gates in total,
+representative selection; 18 protocols have write-gates in total,
 and more probe-only plugins ship than are listed here). The PBX
 trio (SIP/IAX2/pbxhttp) landed in v1.3, CWMP in v1.4 (probe) +
 v1.11 (gate); the legacy-ICS gates (FINS/SLMP/GE-SRTP/CoDeSys/Red

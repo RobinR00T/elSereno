@@ -308,7 +308,7 @@ sólo está admitido para CI / cron con rationale documentado.
 | Variant       | Binary name           | Incluye                                                 | Excluye                          | Tamaño   |
 |---------------|-----------------------|---------------------------------------------------------|----------------------------------|----------|
 | **default**   | `elsereno`            | scan, discover, dashboard, TUI, 35 plugins read-only    | writes / dial / harvest          | ~23.2 MB |
-| **offensive** | `elsereno-offensive`  | todo lo anterior + 7 proxies write-gated + dial + SMS   | nada                             | ~23.9 MB |
+| **offensive** | `elsereno-offensive`  | todo lo anterior + 18 proxies write-gated + dial + SMS  | nada                             | ~23.9 MB |
 | **mini**      | `elsereno-mini`       | todo default menos `serve` / `api` / `tui`              | dashboard + OpenAPI + TUI        | ~21.5 MB |
 
 - **default** es lo que necesitas el 90 % del tiempo.
@@ -1402,8 +1402,12 @@ Lista del build default: **35 plugins** registrados, 32 en el barrido
 por defecto (`discover` / `scan`) más 3 sondas opt-in que solo corren
 nombradas con `--plugin` (`s7-exposure`, `opcua-exposure`,
 `codesys-active`). La fuente autoritativa es `elsereno plugins list`
-sobre tu binario. (La columna Status refleja el texto original de esta
-tabla; no se ha re-verificado plugin a plugin contra `offensive/write/`.)
+sobre tu binario. La columna Status sale del código: **RO + WG** son
+los 18 protocolos que `elsereno-offensive proxy listen --plugin` sabe
+servir con write-gate (verificado 2026-10-07 contra el despacho de
+`cmd/elsereno/cmd_proxy_offensive.go`). `offensive/write/` contiene además
+código gated para atg, dlms, fox, hartip, iec104, knxip y mbustcp que
+ningún comando conecta todavía; esos figuran como RO.
 
 | Plugin       | Puerto(s)         | Familia                                                               | Status   |
 |--------------|-------------------|-----------------------------------------------------------------------|----------|
@@ -1411,37 +1415,37 @@ tabla; no se ha re-verificado plugin a plugin contra `offensive/write/`.)
 | `atmodem`    | (modem)           | AT modem Hayes/GSM/EN 81-28                                           | RO       |
 | `bacnet`     | UDP/47808         | BACnet/IP (HVAC, edificios)                                            | RO + WG  |
 | `banner`     | (cualquiera)      | TCP banner grab (fallback)                                            | RO       |
-| `codesys`    | TCP/1217          | CoDeSys V3 (Wago/Beckhoff alt/Schneider M251/Eaton/Bosch Rexroth)     | RO       |
+| `codesys`    | TCP/1217          | CoDeSys V3 (Wago/Beckhoff alt/Schneider M251/Eaton/Bosch Rexroth)     | RO + WG  |
 | `codesys-active` | opt-in (TCP/1217) | CoDeSys V3: sonda activa channel-open, confirma por la respuesta Block Driver | RO (opt-in) |
 | `cwmp`       | TCP/7547          | TR-069 CWMP ACS (FreeACS, GenieACS, Nokia, etc.)                       | RO + WG  |
-| `dlms`       | TCP/4059          | DLMS/COSEM (IEC 62056-46 smart meters)                                 | RO + WG  |
-| `dnp3`       | TCP/20000         | DNP3 IEEE 1815 (power/water utility)                                  | RO       |
+| `dlms`       | TCP/4059          | DLMS/COSEM (IEC 62056-46 smart meters)                                 | RO       |
+| `dnp3`       | TCP/20000         | DNP3 IEEE 1815 (power/water utility)                                  | RO + WG  |
 | `enip`       | TCP/44818         | EtherNet/IP CIP (Rockwell, Allen-Bradley, Omron)                       | RO + WG  |
-| `finsudp`    | UDP/9600          | Omron FINS (CJ/CS/CP/NJ/NX)                                            | RO       |
+| `finsudp`    | UDP/9600          | Omron FINS (CJ/CS/CP/NJ/NX)                                            | RO + WG  |
 | `fox`        | TCP/1911 + 4911   | Niagara Fox (Tridium, edificios)                                       | RO       |
-| `gesrtp`     | TCP/18245         | GE-SRTP (GE Fanuc, Emerson PACSystems, Series 90)                      | RO       |
+| `gesrtp`     | TCP/18245         | GE-SRTP (GE Fanuc, Emerson PACSystems, Series 90)                      | RO + WG  |
 | `hartip`     | UDP/5094          | HART-IP (process instrumentation)                                      | RO       |
 | `iax2`       | UDP/4569          | Asterisk IAX2 (PBX)                                                   | RO + WG  |
 | `iec104`     | TCP/2404          | IEC 60870-5-104 (power SCADA)                                          | RO       |
-| `knxip`      | UDP/3671          | KNXnet/IP (BAS / edificios)                                            | RO + WG  |
-| `mbustcp`    | TCP/10001         | M-Bus over TCP (smart meters water/gas/heat)                          | RO + WG  |
-| `melsoft`    | TCP/5007          | Mitsubishi MELSOFT (GX Works, puerto de comunicación MELSOFT de la CPU) | RO |
-| `mms`        | TCP/102           | IEC 61850 MMS (substation protection)                                  | RO       |
+| `knxip`      | UDP/3671          | KNXnet/IP (BAS / edificios)                                            | RO       |
+| `mbustcp`    | TCP/10001         | M-Bus over TCP (smart meters water/gas/heat)                          | RO       |
+| `melsoft`    | TCP/5007          | Mitsubishi MELSOFT (GX Works, puerto de comunicación MELSOFT de la CPU) | RO       |
+| `mms`        | TCP/102           | IEC 61850 MMS (substation protection)                                  | RO + WG  |
 | `modbus`     | TCP/502           | Modbus/TCP (PLC + RTU industrial generalista)                          | RO + WG  |
 | `mqtt`       | TCP/1883 (8883 TLS) | MQTT broker (CONNECT anónimo, suscripción wildcard, Sparkplug B)    | RO       |
 | `opcua`      | TCP/4840          | OPC UA TCP                                                            | RO + WG  |
 | `opcua-exposure` | opt-in (TCP/4840) | OPC UA: sesión anónima + walk de tags escribibles               | RO (opt-in) |
 | `opcuahttps` | TCP/4843          | OPC UA HTTPS (binding Part 6): GetEndpoints + postura de seguridad    | RO + WG  |
 | `pbxhttp`    | TCP/443/80/8088   | HTTP admin pages PBX (FreePBX, 3CX, Yeastar, etc.)                     | RO + WG  |
-| `pcworx`     | TCP/1962          | Phoenix Contact PCWorx (ILC + AXC F + RFC)                             | RO       |
+| `pcworx`     | TCP/1962          | Phoenix Contact PCWorx (ILC + AXC F + RFC)                             | RO + WG  |
 | `proconos`   | TCP/20547         | KW-Software ProConOS                                                  | RO       |
-| `redlion`    | TCP/789           | Red Lion Crimson / RLN (HMIs/RTUs)                                     | RO       |
-| `s7`         | TCP/102           | Siemens S7comm                                                        | RO       |
+| `redlion`    | TCP/789           | Red Lion Crimson / RLN (HMIs/RTUs)                                     | RO + WG  |
+| `s7`         | TCP/102           | Siemens S7comm                                                        | RO + WG  |
 | `s7-exposure` | opt-in (TCP/102) | S7: nivel de protección + identidad vía SZL                          | RO (opt-in) |
 | `sip`        | UDP/5060          | SIP / PBX                                                             | RO + WG  |
-| `slmp`       | TCP/5007          | Mitsubishi MELSEC SLMP                                                | RO       |
+| `slmp`       | TCP/5007          | Mitsubishi MELSEC SLMP                                                | RO + WG  |
 | `twincat`    | TCP/48898         | Beckhoff TwinCAT ADS                                                  | RO       |
-| `xot`        | TCP/1998 / 5555   | X.25 over TCP (RFC 1613), legacy banking/airline                     | RO + WG  |
+| `xot`        | TCP/1998 / 5555   | X.25 over TCP (RFC 1613), legacy banking/airline                     | RO       |
 
 **Leyenda:** `RO` = read-only (default build); `WG` = write-gated
 proxy disponible en offensive build con triple-confirm.

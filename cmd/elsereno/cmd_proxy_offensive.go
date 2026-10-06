@@ -63,6 +63,16 @@ protocol-aware gate. Supported plugins (--plugin):
   bacnet   service-choice list  (--service-choice 15 [--service-choice 20 ...])
   finsudp  FINS command list    (--fins-command 0x01:0x02 [...])   UDP/9600
   slmp     SLMP command list    (--slmp-command 0x1401 [...])      TCP/5007
+  opcuahttps same allowlist as opcua (--service 673 [--node-id ...]) TCP/4843
+  cwmp     SOAP RPC list        (--rpc SetParameterValues [--param-prefix ...])
+  pcworx   session intent       (--intent "<free text>" [...])     TCP/1962
+  mms      session intent       (--intent "<free text>" [...])     TCP/102
+  enip     CIP command list     (--cip-command 0x0070 [--cip-attr class=N;instance=N;attr=N])
+  s7       S7 function codes    (--s7-fc 0x05 [...])                TCP/102
+  gesrtp   SRTP service codes   (--gesrtp-service 0x07 [...])       TCP/18245
+  codesys  L7 SERVICE:CMD list  (--codesys-command 0x02:0x10 [...]) TCP/1217
+  redlion  Crimson v3 opcodes   (--redlion-type 0x1300 [...])       TCP/789
+  dnp3     app-layer FC list    (--dnp3-app-fc 0x05 [--dnp3-control/-analog/-link ...]) TCP/20000
 
 Triple-confirm fences are required (the handler's Authorise()
 rejects otherwise):
@@ -91,7 +101,7 @@ config.`,
 // Extracted from newProxyListenCmd so the parent function stays
 // under funlen as we keep adding per-service dimensions.
 func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
-	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|opcuahttps|bacnet|cwmp|pcworx|mms|enip|s7|finsudp|slmp")
+	cmd.Flags().StringVar(&opts.plugin, "plugin", "", "protocol plugin: sip|iax2|pbxhttp|modbus|opcua|opcuahttps|bacnet|cwmp|pcworx|mms|enip|s7|finsudp|slmp|gesrtp|codesys|redlion|dnp3")
 	cmd.Flags().StringVar(&opts.target, "target", "", "upstream host:port")
 	cmd.Flags().StringVar(&opts.listen, "listen", "", "local bind address (e.g. 127.0.0.1:25060)")
 	registerProxyListenSIPFlags(cmd, opts)

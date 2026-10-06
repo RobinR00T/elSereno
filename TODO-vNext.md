@@ -30,7 +30,25 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
-## Hallazgo abierto (3-10-2026, alta prioridad): el magic de CoDeSys está mal
+## Abierto (7-10-2026, auditoría de código): dos decisiones pendientes
+
+- **7 paquetes de write-gate huérfanos.** `offensive/write/{atg,dlms,fox,
+  hartip,iec104,knxip,mbustcp}` contienen código de proxy gated, pero ningún
+  comando los importa: `proxy listen` solo despacha 18 protocolos. O se
+  conectan (con su allowlist, tests y demo, como los otros 18) o se borran.
+  Hasta entonces la doc los cuenta como RO.
+- **Puntuación de Modbus.** Sus factores son constantes (capability 60 haya o
+  no Modbus detrás), así que un PLC real, un eco o cualquier servicio en 502
+  dan la misma severidad. Opción: baseline 30 y subir con respuesta FC1 o
+  excepción válidas, como el resto de plugins. Cambiaría la severidad de todos
+  los findings de Modbus sin respuesta Modbus. Ver PITF-071.
+
+## [RESUELTO 4-10-2026] el magic de CoDeSys estaba mal
+
+Resuelto: el magic de reconocimiento es el real 0xE8170100 (validado contra la
+captura cds3.pcapng y el PoC de Tenable), y el probe activo channel-open se
+envía solo desde el plugin opt-in `codesys-active` (PITF-068). El 7-10 se
+añadió el rechazo del eco (PITF-071). Texto original del hallazgo, abajo.
 
 `codesys` (TCP/1217) usa `BlockDriverMagic = 0xCDCDCDCD`, que no respalda ninguna
 fuente y es el patrón de memoria no inicializada de MSVC debug. Dos fuentes

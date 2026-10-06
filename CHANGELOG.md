@@ -324,6 +324,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Write-gate docs and `proxy listen` help now match the code.** The proxy
+  command serves 18 protocols, but its `--plugin` help listed 14 (dnp3, gesrtp,
+  codesys and redlion missing) and its long help described only 8; both now
+  list all 18 with their real allowlist flags. The README said 24 protocols
+  have write-gates (now 18) and showed S7comm and EtherNet/IP as plain
+  pass-through, though both have gated proxies (now bold, with their flags).
+  The MANUAL said "7 proxies write-gated" and its Status column was wrong for 13
+  of 35 rows (four marked WG without a wired gate, nine wired gates marked RO);
+  it is now derived from the proxy dispatch. Found in passing: `offensive/write`
+  holds gated-proxy code for seven protocols (atg, dlms, fox, hartip, iec104,
+  knxip, mbustcp) that no command wires; left as an open decision in
+  `TODO-vNext.md`, which also still listed the CoDeSys magic as an open
+  high-priority finding (resolved on 2026-10-04; now marked so).
 - **Modbus no longer notes a reflected probe as "read-coils accepted"
   (PITF-071).** A Modbus reply repeats the request's function code, so a
   reflected Read Coils request parsed as a successful FC1 reply. When the reply
