@@ -20,10 +20,12 @@ import (
 // Name is the plugin identifier.
 const Name = "melsoft"
 
-// DefaultPort is the MELSOFT direct-connection TCP port. GX Works2 /
-// GX Works3 and the MELSOFT transparent gateway speak to a MELSEC CPU
-// here. SLMP (MC 3E) shares the same number when a device is
-// configured for it, but MELSOFT is what natively answers on 5007.
+// DefaultPort is the TCP port on which a MELSEC CPU's built-in Ethernet
+// port answers MELSOFT (GX Works2 / GX Works3 direct connection). Source:
+// the melsecq-discover NSE, a real Q03UDECPU capture and secondary
+// references, not yet the built-in-Ethernet manual. E71 Ethernet modules
+// use TCP/5002 for MELSOFT instead (E71 manual, Appendix 2); probe that
+// port explicitly with --target host:5002.
 const DefaultPort core.Port = 5007
 
 // Plugin implements core.Protocol over TCP.

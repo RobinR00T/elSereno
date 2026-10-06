@@ -2,11 +2,17 @@
 
 MELSOFT is the Mitsubishi Electric direct-connection protocol that GX
 Works2 / GX Works3 (and the MELSOFT transparent gateway) speak to a
-MELSEC CPU over Ethernet. It is what natively answers on TCP/5007, and
-it is **distinct from SLMP** (MC 3E): MELSOFT frames carry a 0x57
-(request) / 0xD7 (response) marker, where SLMP uses a 0x50/0xD0
-subheader. ElSereno ships both: `melsoft` for the native 5007 protocol
-and `slmp` for an MC-3E-configured endpoint.
+MELSEC CPU over Ethernet. It is **distinct from SLMP** (MC 3E): MELSOFT
+frames carry a 0x57 (request) / 0xD7 (response) marker, where SLMP uses
+a 0x50/0xD0 subheader. ElSereno ships both: `melsoft` for MELSOFT and
+`slmp` for an MC-3E-configured endpoint.
+
+**Ports, with their evidence level.** A CPU's built-in Ethernet port
+answers MELSOFT on TCP/5007: this rests on the melsecq-discover NSE, a
+real Q03UDECPU capture and secondary sources, not yet on Mitsubishi's
+built-in-Ethernet manual. Mitsubishi E71 Ethernet modules use TCP/5002
+for MELSOFT (E71 manual, Appendix 2: 5000 UDP auto-open, 5001 MELSOFT
+UDP, 5002 MELSOFT TCP); probe them with `--target host:5002`.
 
 ## Probe
 

@@ -14,16 +14,16 @@ ElSereno's `melsoft` plugin sends the fixed 41-byte MELSOFT
 get-CPU-info request (first byte 0x57) on TCP/5007 and classifies
 the reply by its 0xD7 response marker, folding the 16-byte ASCII
 CPU model name (offset 41) into the finding hash. Read-only,
-fail-closed proxy. Distinct from `slmp` (MC 3E, 0x50/0xD0): MELSOFT
-is what GX Works2/3 natively speak on 5007.
+fail-closed proxy. Distinct from `slmp` (MC 3E, 0x50/0xD0).
 
-## Why both melsoft and slmp on 5007
-Port 5007 natively answers MELSOFT (the GX Works direct-connect
-protocol). The `slmp` plugin sends MC-3E frames (subheader 0x50),
-which only answer when a device is explicitly configured for an
-SLMP-compatible connection. A real 5007 endpoint typically speaks
-MELSOFT, so this plugin is the correct fingerprint for that port;
-`slmp` stays for configured SLMP endpoints.
+## Why both melsoft and slmp on 5007 (evidence level)
+A CPU's built-in Ethernet port answers MELSOFT (GX Works direct
+connect) on TCP/5007: melsecq-discover NSE + a real Q03UDECPU capture
++ secondary sources, NOT yet the built-in-Ethernet manual. E71
+Ethernet modules use TCP/5002 for MELSOFT and UDP/5000 as the default
+auto-open (MC) port (E71 manual, Appendix 2, primary). SLMP runs on a
+user-configured port; slmp's 5007 default is unverified, so a 5007
+endpoint may answer MELSOFT and not MC 3E. Hence both plugins.
 
 ## Spec references
 - plcscan/DigitalBond melsecq-discover.nse (getcpuinfopack + 0xd7

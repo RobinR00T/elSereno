@@ -7,6 +7,9 @@
 //
 // MELSOFT is what GX Works2 / GX Works3 speak to a MELSEC CPU over
 // Ethernet; it is distinct from SLMP (MC 3E), which uses a 0x50/0xD0
-// subheader and is what the `slmp` plugin probes. MELSOFT is the
-// protocol that natively answers on TCP/5007.
+// subheader and is what the `slmp` plugin probes. A MELSEC CPU's built-in
+// Ethernet port answers MELSOFT on TCP/5007 (melsecq-discover NSE, a real
+// Q03UDECPU capture and secondary sources; not yet confirmed against the
+// built-in-Ethernet manual). E71 Ethernet modules use TCP/5002 for MELSOFT
+// (E71 manual, Appendix 2).
 package melsoft

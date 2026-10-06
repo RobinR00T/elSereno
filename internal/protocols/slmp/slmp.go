@@ -20,9 +20,11 @@ import (
 // Name is the plugin identifier.
 const Name = "slmp"
 
-// DefaultPort is the SLMP TCP well-known port (Mitsubishi Electric
-// iQ-R / iQ-F / Q- / L- / FX-series CPUs and many compatible HMIs
-// bind here).
+// DefaultPort is this plugin's default probe port. It is NOT a verified
+// SLMP well-known port: SLMP / MC runs on a port the engineer configures
+// (the E71 module manual lists UDP/5000 as its default auto-open port),
+// and 5007 is where a CPU's built-in Ethernet port answers MELSOFT (see
+// the melsoft plugin), so a 5007 endpoint may not answer an MC 3E frame.
 const DefaultPort core.Port = 5007
 
 // Plugin implements core.Protocol over TCP.

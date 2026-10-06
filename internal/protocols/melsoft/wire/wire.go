@@ -3,9 +3,9 @@
 // TCP/5007. MELSOFT is the direct-connection protocol that GX Works2
 // / GX Works3 (and the MELSOFT transparent gateway) speak to a MELSEC
 // CPU over Ethernet; it is distinct from SLMP (MC 3E, subheader
-// 0x50/0xD0 on a user-configured port): MELSOFT is what natively
-// answers on TCP/5007, and its frames use a 0x57 (request) / 0xD7
-// (response) marker.
+// 0x50/0xD0 on a user-configured port). A CPU's built-in Ethernet port
+// answers MELSOFT on TCP/5007 (E71 modules use TCP/5002), and its frames
+// use a 0x57 (request) / 0xD7 (response) marker.
 //
 // This package implements ONLY the fixed "get CPU info" request and
 // the response parser that extracts the 16-byte ASCII CPU model name.

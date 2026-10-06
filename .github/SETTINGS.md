@@ -96,7 +96,7 @@ only" would break almost every workflow.)
 | Dependabot version updates | ✅ ON (config in `.github/dependabot.yml`) | Weekly bumps |
 | Grouped security updates | ✅ ON | Reduces PR noise |
 | Code scanning (CodeQL) | ✅ ON | The `analyze (go)` check needs this |
-| CodeQL setup | ✅ "Default" | Auto-config for Go |
+| CodeQL setup | ✅ Advanced (`.github/workflows/codeql.yml`) | Default setup stays off: it conflicts with the workflow |
 | Secret scanning | ✅ ON | Detect committed secrets |
 | Secret scanning push protection | ✅ ON | Block secret push at git-push time |
 
@@ -173,9 +173,10 @@ gh api repos/RobinR00T/elSereno/actions/permissions
 # Workflow permissions
 gh api repos/RobinR00T/elSereno/actions/permissions/workflow
 
-# Code scanning
-gh api repos/RobinR00T/elSereno/code-scanning/default-setup \
-    --jq '.state'    # expected: configured
+# Code scanning (CodeQL advanced setup: expect a recent CodeQL analysis;
+# default-setup reports "not-configured" by design)
+gh api "repos/RobinR00T/elSereno/code-scanning/analyses?tool_name=CodeQL&per_page=1" \
+    --jq '.[0].created_at'    # expected: within the last 14 days
 
 # Vulnerability alerts
 gh api repos/RobinR00T/elSereno/vulnerability-alerts \

@@ -144,8 +144,11 @@ transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 
-The default build registers **30 fingerprint plugins** (run
-`elsereno plugins list` for the authoritative list on your binary).
+The default build registers **35 plugins**: 32 in the default
+`discover`/`scan` sweep plus 3 opt-in deep probes that only run when
+named with `--plugin` (`s7-exposure`, `opcua-exposure`,
+`codesys-active`). Run `elsereno plugins list` for the authoritative
+list on your binary.
 Writes, exploits, credential harvest, dial, and the **write-gated
 proxies** (24 protocols) ship behind `-tags offensive` with the
 ADR-039 triple-confirm wrapper. Each gate scopes traffic at
@@ -174,8 +177,9 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
 | **FINS**        | 9600/udp           | probe · gated UDP proxy per-(MRC, SRC) command + optional per-memory-area (Omron) |
 | **SLMP**        | 5007               | probe · gated proxy per-command-code + optional per-device-code (MELSEC) |
+| MELSOFT         | 5007               | probe only · GX Works direct-connection CPU-info read (Mitsubishi CPU built-in Ethernet port); real-capture validated |
 | **GE-SRTP**     | 18245              | probe · gated proxy per-service-request code (GE/Emerson PACSystems) |
-| **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan |
+| **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan · opt-in `codesys-active` channel-open probe |
 | **Red Lion CR3** | 789               | probe · gated proxy per-Type opcode (Crimson v3 HMIs) |
 | **OPC UA HTTPS** | 4843              | GetEndpoints POST · enumerates EndpointDescription list + security posture (a SecurityMode=None endpoint scores as higher exposure) · gated-write over the §7.4 binary binding (same service-TypeID + per-NodeId + per-CallMethod allowlist as OPC UA TCP; transport-scoped token) |
 | IEC 61850 GOOSE/SV | L2 (EtherType 0x88B8/0x88BA) | offline dissect + passive spoofing monitor: stNum jump/regression (the high-stNum override), simulation/test bit, ndsCom, confRev change, sqNum stall, SV smpCnt regression (`goose decode` / `goose monitor`) |

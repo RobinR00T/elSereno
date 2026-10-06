@@ -25,17 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the active-probe half of PITF-068. See `docs/protocols/codesys.md`.
 - **New plugin: MELSOFT fingerprint (TCP/5007), real-capture validated.** Adds
   `melsoft`, a read-only fingerprint for the Mitsubishi GX Works
-  direct-connection protocol that natively answers on TCP/5007 (0x57 request /
-  0xD7 response marker), distinct from the `slmp` plugin's MC 3E frames
+  direct-connection protocol, which a MELSEC CPU's built-in Ethernet port
+  answers on TCP/5007 (0x57 request / 0xD7 response marker; E71 modules use
+  TCP/5002), distinct from the `slmp` plugin's MC 3E frames
   (0x50/0xD0). `BuildGetCPUInfo` sends the fixed 41-byte get-CPU-info request;
   the probe classifies the 0xD7 response and folds the 16-byte CPU model name
   into the finding. Validated byte for byte against a real capture
   (hi-KK/ICS-Protocol-identify, a real MELSEC Q-series CPU, model Q03UDECPU),
   cross-checked with the plcscan `melsecq-discover.nse` shipped alongside it.
   CVE enrichment reuses `cve.ForSLMP` (shared MELSEC-model map). Fail-closed
-  proxy; fingerprint-only. This also explains a latent gap: the existing `slmp`
-  plugin sends MC-3E frames on 5007, but 5007 natively speaks MELSOFT, so
-  `melsoft` is the correct fingerprint for that port. See
+  proxy; fingerprint-only. It complements `slmp`, which sends MC-3E frames on
+  5007, where a built-in port answers MELSOFT. Evidence level: 5007 for the
+  built-in port rests on the NSE, the capture and secondary sources; 5002 for
+  E71 modules is from the E71 manual; SLMP's port is user-configured. See
   `docs/protocols/melsoft.md`.
 - **ProConOS fingerprint validated against a real capture:** the `proconos/wire`
   classifier now has a real-capture test (`hi-KK/ICS-Protocol-identify`
@@ -310,6 +312,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docs: plugin lists and counts now match the registry; port claims scoped
+  to their evidence.** README said 30 plugins, `docs/MANUAL.md` 28 (its table
+  had 29 rows) and the Spanish manual 17; the default build registers 35 (32 in
+  the sweep plus 3 opt-in probes). The MANUAL §16 table and the Spanish manual
+  list now match `elsereno plugins list` exactly (melsoft, codesys-active,
+  mqtt, opcuahttps, s7-exposure and opcua-exposure added to the MANUAL; 18
+  missing plugins added to the Spanish list). The MELSOFT/SLMP port statements
+  had been written as fact on thin evidence: they now say 5007 is MELSOFT on a
+  CPU's built-in Ethernet port (NSE, a real capture and secondary sources, not
+  yet the manual), E71 modules use 5002 (E71 manual, Appendix 2), and slmp's
+  5007 is not a verified SLMP port. Not re-verified: the MANUAL's Status column
+  (RO vs RO + WG) for older plugins, which looks stale for several.
+- **`scripts/audit.sh` Code Scanning check accepts the CodeQL advanced setup**
+  this repo actually runs (`.github/workflows/codeql.yml`). It only accepted
+  GitHub's default setup, which reports `not-configured` by design under
+  advanced setup, so it failed falsely; it now passes on default setup or a
+  CodeQL analysis in the last 14 days. `docs/OPERATIONS.md` and
+  `.github/SETTINGS.md` still described "CodeQL Default"; updated.
 - **Echo false positives in `codesys`, `codesys-active` and `proconos`
   (PITF-071):** each probe's classifying signature also appears in its own
   request (the CoDeSys Block Driver magic opens every frame in both directions;

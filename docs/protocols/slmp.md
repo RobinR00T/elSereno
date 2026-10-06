@@ -3,8 +3,12 @@
 SLMP (SeamLess Message Protocol) is the modern (2014+) Mitsubishi
 Electric replacement for MELSEC-A/3C/MC. It ships across the
 iQ-R, iQ-F, Q-, L-, and FX-series PLCs and many compatible HMIs
-and motion controllers. TCP/5007 is the default; UDP/5007 also
-exists but TCP is by far the most common Internet-exposed shape.
+and motion controllers. 5007 is this plugin's default probe port,
+but it is not a verified SLMP well-known port: SLMP / MC runs on a
+port the engineer configures (the E71 module manual lists UDP/5000 as
+its default auto-open port), and 5007 is where a CPU's built-in
+Ethernet port answers MELSOFT (see [melsoft.md](melsoft.md)), so a
+5007 endpoint may not answer an MC 3E frame.
 
 ## Probe
 

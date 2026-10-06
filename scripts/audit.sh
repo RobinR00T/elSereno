@@ -355,12 +355,23 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
             skip "Code Scanning check (CI default token lacks admin scope; run locally for full audit)"
             skip "Workflow permissions check (CI default token lacks admin scope)"
         else
-            # Code Scanning
+            # Code Scanning. Either GitHub's default setup, or the advanced
+            # setup this repo uses (codeql / osv-scanner / Scorecard workflows
+            # uploading SARIF): with advanced setup the default-setup endpoint
+            # reports "not-configured" by design, so also accept a recent
+            # analysis (last 14 days) as proof that scanning is live.
             CS=$(gh api "repos/$REPO_SLUG/code-scanning/default-setup" --jq '.state' 2>/dev/null || echo "")
             if [ "$CS" = "configured" ]; then
-                ok "Code Scanning: configured"
+                ok "Code Scanning: configured (default setup)"
             else
-                fail "Code Scanning state=\"${CS:-not-found}\" (expected: configured)"
+                CS_LAST=$(gh api "repos/$REPO_SLUG/code-scanning/analyses?tool_name=CodeQL&per_page=1" --jq '.[0].created_at // empty' 2>/dev/null || echo "")
+                CS_CUTOFF=$(date -u -v-14d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+                # ISO-8601 UTC timestamps compare correctly as strings.
+                if [ -n "$CS_LAST" ] && [ -n "$CS_CUTOFF" ] && [ "$CS_LAST" \> "$CS_CUTOFF" ]; then
+                    ok "Code Scanning: CodeQL advanced setup (last analysis $CS_LAST)"
+                else
+                    fail "Code Scanning: default setup \"${CS:-not-found}\" and no CodeQL analysis in the last 14 days (last: ${CS_LAST:-none})"
+                fi
             fi
 
             # Workflow permissions

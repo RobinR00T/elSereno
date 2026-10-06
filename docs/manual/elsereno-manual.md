@@ -572,10 +572,11 @@ El feed live tambén recibe:
 
 ## 3. Fingerprint por protocolo
 
-Cada plugin tiene una descripción + puerto well-known:
-
-**17 plugins en el build por defecto** (v1.8+). Cada uno tiene
-una descripción + puerto well-known:
+**35 plugins en el build por defecto**: 32 en el barrido normal más
+3 sondas opt-in que solo corren con `--plugin` (`s7-exposure`,
+`opcua-exposure`, `codesys-active`). La lista autoritativa es
+`elsereno plugins list`. Cada uno tiene una descripción + puerto
+well-known:
 
 | Plugin    | Puerto       | Lo que hace |
 |-----------|--------------|-------------|
@@ -596,6 +597,24 @@ una descripción + puerto well-known:
 | **pbxhttp** | 443 (+80/8080/8088/5001/…) | HTTP admin-UI fingerprint, 15 brands |
 | **cwmp**  | 7547/tcp     | TR-069 ACS Inform → 15 ACS vendor fingerprints |
 | banner    | 21/22/23/80  | TCP banner grab genérico (fallback) |
+| mqtt      | 1883/tcp (8883 TLS) | CONNECT anónimo + wildcard + Sparkplug B |
+| opcuahttps | 4843/tcp    | OPC UA HTTPS (Part 6): GetEndpoints + postura de seguridad |
+| finsudp   | 9600/udp     | Omron FINS Controller Data Read (modelo CJ/CS/CP/NJ/NX) |
+| slmp      | 5007/tcp     | MELSEC SLMP (MC 3E) Read CPU Model Name |
+| melsoft   | 5007/tcp     | Mitsubishi MELSOFT (GX Works) get-CPU-info, modelo de CPU |
+| gesrtp    | 18245/tcp    | GE-SRTP connection init + pista de modelo |
+| knxip     | 3671/udp     | KNXnet/IP DESCRIPTION_REQUEST |
+| mbustcp   | 10001/tcp    | M-Bus sobre TCP, REQ_UD2 / RSP_UD |
+| dlms      | 4059/tcp     | DLMS/COSEM AARQ (wrapper TCP) |
+| mms       | 102/tcp      | IEC 61850 MMS (ACSE associate) |
+| pcworx    | 1962/tcp     | Phoenix Contact PC Worx device-info |
+| proconos  | 20547/tcp    | KW-Software ProConOS enumeración (firma 0xcc) |
+| codesys   | 1217/tcp     | CoDeSys V3 magic Block Driver + banner |
+| redlion   | 789/tcp      | Red Lion Crimson / RLN banner |
+| twincat   | 48898/tcp    | Beckhoff TwinCAT ADS ReadDeviceInfo |
+| s7-exposure | opt-in (102/tcp) | S7 nivel de protección + identidad (SZL) |
+| opcua-exposure | opt-in (4840/tcp) | OPC UA sesión anónima + walk de tags escribibles |
+| codesys-active | opt-in (1217/tcp) | CoDeSys V3 channel-open, confirma por respuesta Block Driver |
 
 Los cuatro plugins en negrita se añadieron en v1.3 (PBX
 discovery) y v1.4 (CWMP / TR-069).

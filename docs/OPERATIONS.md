@@ -158,7 +158,7 @@ preserva todos los settings. Camina esta checklist.
 
 | Setting | Default post-flip | Lo que queremos |
 |---|---|---|
-| Code scanning | OFF | ✅ ON (CodeQL Default) |
+| Code scanning | OFF | ✅ ON (CodeQL **advanced setup** via `.github/workflows/codeql.yml`; default setup stays off, the two cannot coexist for Go) |
 | Secret scanning | depende del plan | ✅ ON con push protection |
 | Approval policy | "all external contributors" | "first-time GitHub users only" |
 | Vulnerability alerts | depende | ✅ ON |
@@ -166,9 +166,10 @@ preserva todos los settings. Camina esta checklist.
 ### Walk-through
 
 ```bash
-# 1. Code Scanning
-open "https://github.com/RobinR00T/elSereno/settings/security_analysis"
-#    → Code scanning → "Set up" → "Default" → Save
+# 1. Code Scanning: CodeQL runs as ADVANCED setup from
+#    .github/workflows/codeql.yml (it uploads SARIF on every push to main).
+#    Do NOT switch on "Default" setup: it conflicts with the workflow.
+#    Just confirm uploads are arriving (step 6).
 
 # 2. Approval policy
 open "https://github.com/RobinR00T/elSereno/settings/actions"
@@ -191,8 +192,8 @@ for n in $(gh pr list --state open --author 'app/dependabot' \
 done
 
 # 6. Verifica via API:
-gh api repos/RobinR00T/elSereno/code-scanning/default-setup --jq '.state'
-# → "configured"
+gh api "repos/RobinR00T/elSereno/code-scanning/analyses?tool_name=CodeQL&per_page=1" --jq '.[0].created_at'
+# → a recent timestamp (advanced setup; default-setup reports "not-configured" by design)
 
 gh api repos/RobinR00T/elSereno/actions/permissions/workflow \
     --jq '.default_workflow_permissions'
@@ -212,7 +213,7 @@ estructurado, ve a [`MANUAL.md §10`](MANUAL.md#10-troubleshooting).
 |---|---|---|
 | `lint` falla con "Go language version (go1.23) lower than targeted (1.25)" | golangci-lint binario stale | Workflow ya pin `v2.11.4` desde commit `<TBD>`. Verifica + bump si necesitas Go nuevo. |
 | `dependency review`: "Invalid license(s) in deny-licenses: Commons-Clause" | SPDX inválido en `.github/dependency-review-config.yml` | Borra el ID (no es SPDX real). Arreglado en `aeae4e3`. |
-| `analyze (go)`: "Code scanning is not enabled" | Code Scanning OFF en Settings | Settings → Security → Code scanning → Enable Default |
+| `analyze (go)`: "Code scanning is not enabled" | Code Scanning OFF en Settings | Settings → Security → Code scanning → enable it for the repo (keep CodeQL on the `codeql.yml` advanced setup, not Default) |
 | `sec`: gosec issues > 0 | Vulnerabilidades reales o markers nosec faltantes | `gosec ./...` local; añade `// #nosec G<NNN>` con rationale donde aplique |
 | `secrets`: gitleaks fail | Falsos positivos o secret real committed | Revisa SARIF; añade exclusiones en `.gitleaks.toml` si es FP |
 | Workflow runs reportan "no checks reported" | Approval policy bloquea | §3 |
@@ -363,7 +364,7 @@ scripts/audit.sh --ci
 | 10 | govulncheck | CVEs stdlib + deps |
 | 11 | `make context-check` | STATE.md size + invariants |
 | 12 | Last 3 tags GPG-signed | regresión de firma |
-| 13 | GitHub repo state | Code Scanning configured, workflow perms write |
+| 13 | GitHub repo state | Code Scanning live (default setup configured, or a CodeQL analysis in the last 14 days from the advanced-setup workflow), workflow perms write |
 
 ### Exit codes
 
