@@ -177,7 +177,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
 | **FINS**        | 9600/udp           | probe · gated UDP proxy per-(MRC, SRC) command + optional per-memory-area (Omron) |
 | **SLMP**        | 5007               | probe · gated proxy per-command-code + optional per-device-code (MELSEC) |
-| MELSOFT         | 5007               | probe only · GX Works direct-connection CPU-info read (Mitsubishi CPU built-in Ethernet port); real-capture validated |
+| MELSOFT         | 5007               | probe only · GX Works engineering protocol, CPU-info read on the MELSEC CPU's MELSOFT communication port; real-capture validated |
 | **GE-SRTP**     | 18245              | probe · gated proxy per-service-request code (GE/Emerson PACSystems) |
 | **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan · opt-in `codesys-active` channel-open probe |
 | **Red Lion CR3** | 789               | probe · gated proxy per-Type opcode (Crimson v3 HMIs) |

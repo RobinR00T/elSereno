@@ -20,12 +20,12 @@ import (
 // Name is the plugin identifier.
 const Name = "melsoft"
 
-// DefaultPort is the TCP port on which a MELSEC CPU's built-in Ethernet
-// port answers MELSOFT (GX Works2 / GX Works3 direct connection). Source:
-// the melsecq-discover NSE, a real Q03UDECPU capture and secondary
-// references, not yet the built-in-Ethernet manual. E71 Ethernet modules
-// use TCP/5002 for MELSOFT instead (E71 manual, Appendix 2); probe that
-// port explicitly with --target host:5002.
+// DefaultPort is the MELSOFT communication port (TCP/IP) of a QnUCPU
+// built-in Ethernet port, reserved by the system (Mitsubishi
+// SH(NA)-080811ENG, Appendix 2); iQ-R lists the same number (secondary:
+// the pymelsec README table). E71 Ethernet modules use TCP/5002 for MELSOFT
+// instead (LJ71E71 manual, Appendix 2); probe that port explicitly with
+// --target host:5002.
 const DefaultPort core.Port = 5007
 
 // Plugin implements core.Protocol over TCP.
@@ -44,7 +44,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "MELSOFT (GX Works direct-connection) read-only fingerprint on TCP/5007 (Mitsubishi MELSEC CPUs)",
+		Description: "MELSOFT (GX Works engineering protocol) read-only fingerprint on TCP/5007, the MELSEC CPU MELSOFT communication port",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -143,7 +143,7 @@ func buildFinding(target core.Target, note string, isMELSOFT bool, model string)
 	factors := map[string]int{
 		"protocol_risk": 80, // legacy ICS, no auth on the direct-connect port
 		"exposure":      75,
-		"auth_state":    95, // MELSOFT direct connection has no native auth
+		"auth_state":    95, // the MELSOFT communication port has no native auth
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
 		// cve_exposure 10: conservative baseline for the Mitsubishi

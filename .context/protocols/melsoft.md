@@ -7,7 +7,7 @@ protocol-name: melsoft
 default-port: 5007/tcp
 ---
 
-# MELSOFT (GX Works direct connection)
+# MELSOFT (GX Works engineering protocol, TCP/5007)
 
 ## TL;DR
 ElSereno's `melsoft` plugin sends the fixed 41-byte MELSOFT
@@ -17,19 +17,24 @@ CPU model name (offset 41) into the finding hash. Read-only,
 fail-closed proxy. Distinct from `slmp` (MC 3E, 0x50/0xD0).
 
 ## Why both melsoft and slmp on 5007 (evidence level)
-A CPU's built-in Ethernet port answers MELSOFT (GX Works direct
-connect) on TCP/5007: melsecq-discover NSE + a real Q03UDECPU capture
-+ secondary sources, NOT yet the built-in-Ethernet manual. E71
-Ethernet modules use TCP/5002 for MELSOFT and UDP/5000 as the default
-auto-open (MC) port (E71 manual, Appendix 2, primary). SLMP runs on a
-user-configured port; slmp's 5007 default is unverified, so a 5007
-endpoint may answer MELSOFT and not MC 3E. Hence both plugins.
+PRIMARY (verified 7-10-2026): on a QnUCPU built-in Ethernet port,
+TCP/5007 is the system-reserved "MELSOFT communication port (TCP/IP)"
+(SH(NA)-080811ENG, Appendix 2; 5006 = MELSOFT UDP, 5008 = "MELSOFT
+direct connection port"). iQ-R lists the same (secondary: pymelsec
+README table). E71 modules: TCP/5002 MELSOFT, UDP/5000 auto-open MC
+(LJ71E71 manual, Appendix 2, primary). NOT verified: whether the
+MELSOFT port also answers an MC 3E frame (the manual reserves it for
+MELSOFT, but the pymelsec MC client defaults to 5007). Hence both
+plugins on 5007.
 
 ## Spec references
 - plcscan/DigitalBond melsecq-discover.nse (getcpuinfopack + 0xd7
   response + CPU model at 1-based offset 42).
 - Real capture: hi-KK/ICS-Protocol-identify "Mitsubishi Q系列PLC
   CPU型号识别.pcapng" (TCP/5007, Q03UDECPU).
+- Mitsubishi SH(NA)-080811ENG (QnUCPU built-in Ethernet), Appendix 2:
+  5007 = "MELSOFT communication port (TCP/IP)", system-reserved.
+- Mitsubishi SH(NA)-081105ENG (MELSEC-L E71), Appendix 2: 5002 MELSOFT TCP.
 - Mitsubishi MELSEC iQ-R/iQ-F/Q/L CPU Module User's Manual.
 
 ## Wire format (summary)
@@ -64,7 +69,7 @@ default-build proxy refuses the session. No offensive write path.
 factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
 (75 on MELSOFT reply), impact_class:75, cve_exposure:10 baseline
 (raised by cve.ForSLMP on an iQ-F/iQ-R model)}. auth_state 95: the
-direct-connection port has no native authentication.
+MELSOFT communication port has no native authentication.
 
 ## Sentinel errors (wire package)
 - ErrShortFrame: response shorter than the 2-byte marker.

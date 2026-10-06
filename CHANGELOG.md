@@ -34,10 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Driver magic. Run with `--plugin codesys-active --target host:1217`. Resolves
   the active-probe half of PITF-068. See `docs/protocols/codesys.md`.
 - **New plugin: MELSOFT fingerprint (TCP/5007), real-capture validated.** Adds
-  `melsoft`, a read-only fingerprint for the Mitsubishi GX Works
-  direct-connection protocol, which a MELSEC CPU's built-in Ethernet port
-  answers on TCP/5007 (0x57 request / 0xD7 response marker; E71 modules use
-  TCP/5002), distinct from the `slmp` plugin's MC 3E frames
+  `melsoft`, a read-only fingerprint for MELSOFT, the Mitsubishi GX Works
+  engineering protocol, on TCP/5007, the system "MELSOFT communication port
+  (TCP/IP)" of a QnUCPU built-in Ethernet port (0x57 request / 0xD7 response
+  marker; E71 modules use TCP/5002), distinct from the `slmp` plugin's MC 3E
+  frames
   (0x50/0xD0). `BuildGetCPUInfo` sends the fixed 41-byte get-CPU-info request;
   the probe classifies the 0xD7 response and folds the 16-byte CPU model name
   into the finding. Validated byte for byte against a real capture
@@ -45,9 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cross-checked with the plcscan `melsecq-discover.nse` shipped alongside it.
   CVE enrichment reuses `cve.ForSLMP` (shared MELSEC-model map). Fail-closed
   proxy; fingerprint-only. It complements `slmp`, which sends MC-3E frames on
-  5007, where a built-in port answers MELSOFT. Evidence level: 5007 for the
-  built-in port rests on the NSE, the capture and secondary sources; 5002 for
-  E71 modules is from the E71 manual; SLMP's port is user-configured. See
+  5007, where a built-in port answers MELSOFT. Evidence: 5007 is confirmed in
+  Mitsubishi's QnUCPU built-in Ethernet manual (SH(NA)-080811ENG, Appendix 2);
+  5002 for E71 modules in the LJ71E71 manual; SLMP's port is user-configured.
+  See
   `docs/protocols/melsoft.md`.
 - **ProConOS fingerprint validated against a real capture:** the `proconos/wire`
   classifier now has a real-capture test (`hi-KK/ICS-Protocol-identify`
@@ -364,10 +366,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list now match `elsereno plugins list` exactly (melsoft, codesys-active,
   mqtt, opcuahttps, s7-exposure and opcua-exposure added to the MANUAL; 18
   missing plugins added to the Spanish list). The MELSOFT/SLMP port statements
-  had been written as fact on thin evidence: they now say 5007 is MELSOFT on a
-  CPU's built-in Ethernet port (NSE, a real capture and secondary sources, not
-  yet the manual), E71 modules use 5002 (E71 manual, Appendix 2), and slmp's
-  5007 is not a verified SLMP port. Not re-verified: the MANUAL's Status column
+  had been written as fact on thin evidence: they now state their source.
+  5007 is the QnUCPU built-in port's system "MELSOFT communication port
+  (TCP/IP)" (Mitsubishi SH(NA)-080811ENG, Appendix 2, read the same night;
+  5008 is the "MELSOFT direct connection port", so the earlier "direct
+  connection" label for 5007 was also corrected), E71 modules use 5002 (E71
+  manual, Appendix 2), and slmp's 5007 is not an SLMP port; whether the
+  MELSOFT port also answers MC 3E is unverified. Not re-verified: the MANUAL's
+  Status column
   (RO vs RO + WG) for older plugins, which looks stale for several.
 - **`scripts/audit.sh` Code Scanning check accepts the CodeQL advanced setup**
   this repo actually runs (`.github/workflows/codeql.yml`). It only accepted

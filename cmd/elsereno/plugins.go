@@ -71,9 +71,9 @@ func init() {
 	core.Register(core.Plugin{PluginMetadata: cwmp.Default().Metadata(), Factory: func() core.Protocol { return cwmp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: finsudp.Default().Metadata(), Factory: func() core.Protocol { return finsudp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: slmp.Default().Metadata(), Factory: func() core.Protocol { return slmp.Default() }})
-	// melsoft: the GX Works direct-connection protocol a CPU's built-in
-	// Ethernet port answers on TCP/5007 (0x57/0xD7 marker), distinct from
-	// slmp's MC 3E frames. Both default to 5007; the registry keys by name.
+	// melsoft: the GX Works engineering protocol on the MELSEC CPU's MELSOFT
+	// communication port, TCP/5007 (0x57/0xD7 marker), distinct from slmp's
+	// MC 3E frames. Both default to 5007; the registry keys by name.
 	core.Register(core.Plugin{PluginMetadata: melsoft.Default().Metadata(), Factory: func() core.Protocol { return melsoft.Default() }})
 	core.Register(core.Plugin{PluginMetadata: gesrtp.Default().Metadata(), Factory: func() core.Protocol { return gesrtp.Default() }})
 	core.Register(core.Plugin{PluginMetadata: knxip.Default().Metadata(), Factory: func() core.Protocol { return knxip.Default() }})

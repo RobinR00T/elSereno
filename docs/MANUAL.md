@@ -1425,7 +1425,7 @@ tabla; no se ha re-verificado plugin a plugin contra `offensive/write/`.)
 | `iec104`     | TCP/2404          | IEC 60870-5-104 (power SCADA)                                          | RO       |
 | `knxip`      | UDP/3671          | KNXnet/IP (BAS / edificios)                                            | RO + WG  |
 | `mbustcp`    | TCP/10001         | M-Bus over TCP (smart meters water/gas/heat)                          | RO + WG  |
-| `melsoft`    | TCP/5007          | Mitsubishi MELSOFT (GX Works, conexión directa al puerto Ethernet de la CPU) | RO |
+| `melsoft`    | TCP/5007          | Mitsubishi MELSOFT (GX Works, puerto de comunicación MELSOFT de la CPU) | RO |
 | `mms`        | TCP/102           | IEC 61850 MMS (substation protection)                                  | RO       |
 | `modbus`     | TCP/502           | Modbus/TCP (PLC + RTU industrial generalista)                          | RO + WG  |
 | `mqtt`       | TCP/1883 (8883 TLS) | MQTT broker (CONNECT anónimo, suscripción wildcard, Sparkplug B)    | RO       |

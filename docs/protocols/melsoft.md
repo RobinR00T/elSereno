@@ -1,18 +1,23 @@
 # MELSOFT (port 5007)
 
-MELSOFT is the Mitsubishi Electric direct-connection protocol that GX
+MELSOFT is the Mitsubishi Electric engineering protocol that GX
 Works2 / GX Works3 (and the MELSOFT transparent gateway) speak to a
 MELSEC CPU over Ethernet. It is **distinct from SLMP** (MC 3E): MELSOFT
 frames carry a 0x57 (request) / 0xD7 (response) marker, where SLMP uses
 a 0x50/0xD0 subheader. ElSereno ships both: `melsoft` for MELSOFT and
 `slmp` for an MC-3E-configured endpoint.
 
-**Ports, with their evidence level.** A CPU's built-in Ethernet port
-answers MELSOFT on TCP/5007: this rests on the melsecq-discover NSE, a
-real Q03UDECPU capture and secondary sources, not yet on Mitsubishi's
-built-in-Ethernet manual. Mitsubishi E71 Ethernet modules use TCP/5002
-for MELSOFT (E71 manual, Appendix 2: 5000 UDP auto-open, 5001 MELSOFT
-UDP, 5002 MELSOFT TCP); probe them with `--target host:5002`.
+**Ports, with their evidence level.** On a QnUCPU built-in Ethernet
+port, TCP/5007 is the system's "MELSOFT communication port (TCP/IP)":
+Mitsubishi's *QnUCPU User's Manual (Communication via Built-in Ethernet
+Port)*, SH(NA)-080811ENG, Appendix 2 ("Port Numbers Used by Built-in
+Ethernet Port QCPU"), which reserves 5006 (MELSOFT UDP), 5007 (MELSOFT
+TCP) and 5008 (the "MELSOFT direct connection port") for the system.
+iQ-R lists the same numbers (secondary source: the table in the pymelsec
+README). The real Q03UDECPU capture answered on 5007. Mitsubishi E71
+Ethernet modules use TCP/5002 for MELSOFT instead (LJ71E71 manual,
+Appendix 2: 5000 UDP auto-open, 5001 MELSOFT UDP, 5002 MELSOFT TCP);
+probe them with `--target host:5002`.
 
 ## Probe
 
@@ -70,8 +75,8 @@ bytes it cannot gate. No offensive write path ships for MELSOFT.
 
 ## Scope
 
-- Mitsubishi Electric MELSEC CPUs reachable on the GX Works
-  direct-connection port, common across automotive, packaging, food &
+- Mitsubishi Electric MELSEC CPUs reachable on their MELSOFT
+  communication port, common across automotive, packaging, food &
   beverage, and semiconductor plants.
 - Impact: an exposed MELSOFT endpoint is an unauthenticated
   engineering-access surface; this plugin only fingerprints it (read
@@ -82,6 +87,12 @@ bytes it cannot gate. No offensive write path ships for MELSOFT.
 - plcscan / DigitalBond `melsecq-discover.nse` (the de-facto MELSOFT
   CPU-info scanner; validates a 0xD7 response, reads the model at
   offset 42).
+- Mitsubishi Electric, *QnUCPU User's Manual (Communication via
+  Built-in Ethernet Port)*, SH(NA)-080811ENG, Appendix 2 "Port Numbers
+  Used by Built-in Ethernet Port QCPU" (5006/5007/5008 reserved for
+  MELSOFT).
+- Mitsubishi Electric, *MELSEC-L Ethernet Interface Module User's Manual
+  (Basic)*, SH(NA)-081105ENG, Appendix 2 (E71: 5000/5001/5002).
 - Mitsubishi Electric MELSEC iQ-R / iQ-F / Q / L Series CPU Module
   User's Manual.
 - ICS-CERT advisories on Mitsubishi MELSEC lacking authentication on

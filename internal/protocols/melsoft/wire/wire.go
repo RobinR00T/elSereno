@@ -1,11 +1,12 @@
 // Package wire implements the minimum subset of the Mitsubishi
 // Electric MELSOFT protocol needed for read-only fingerprinting on
-// TCP/5007. MELSOFT is the direct-connection protocol that GX Works2
-// / GX Works3 (and the MELSOFT transparent gateway) speak to a MELSEC
-// CPU over Ethernet; it is distinct from SLMP (MC 3E, subheader
-// 0x50/0xD0 on a user-configured port). A CPU's built-in Ethernet port
-// answers MELSOFT on TCP/5007 (E71 modules use TCP/5002), and its frames
-// use a 0x57 (request) / 0xD7 (response) marker.
+// TCP/5007. MELSOFT is the engineering protocol that GX Works2 / GX
+// Works3 (and the MELSOFT transparent gateway) speak to a MELSEC CPU over
+// Ethernet; it is distinct from SLMP (MC 3E, subheader 0x50/0xD0 on a
+// user-configured port). TCP/5007 is the QnUCPU built-in Ethernet port's
+// system "MELSOFT communication port (TCP/IP)" (SH(NA)-080811ENG,
+// Appendix 2; E71 modules use TCP/5002), and its frames use a 0x57
+// (request) / 0xD7 (response) marker.
 //
 // This package implements ONLY the fixed "get CPU info" request and
 // the response parser that extracts the 16-byte ASCII CPU model name.

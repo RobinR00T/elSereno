@@ -12,7 +12,7 @@ import (
 // TestRealCapture validates the MELSOFT fingerprint against a real
 // exchange, byte for byte from hi-KK/ICS-Protocol-identify
 // "Mitsubishi Q系列PLC CPU型号识别.pcapng" (TCP/5007, a real MELSEC
-// Q-series CPU answering GX Works direct-connection). The capture is
+// Q-series CPU answering on its MELSOFT communication port). The capture is
 // cross-checked against the plcscan/DigitalBond melsecq-discover.nse
 // shipped alongside it: the NSE sends exactly this getcpuinfopack and
 // validates a first response byte of 0xd7, reading the CPU model at
