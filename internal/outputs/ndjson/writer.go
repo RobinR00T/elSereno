@@ -48,8 +48,9 @@ func NewWriter(w io.Writer) *Writer {
 
 // WriteFinding serialises a single finding and appends a newline. The
 // encoder itself appends a newline after each object, so a single
-// Encode suffices.
-func (x *Writer) WriteFinding(f core.Finding, addr string) error {
+// Encode suffices. addr and port are the probed target's (a
+// core.Finding does not carry them), as in the csv and stix writers.
+func (x *Writer) WriteFinding(f core.Finding, addr string, port int) error {
 	if f.ID == "" {
 		return fmt.Errorf("ndjson: finding.ID is required")
 	}
@@ -58,7 +59,7 @@ func (x *Writer) WriteFinding(f core.Finding, addr string) error {
 		Run:       string(f.RunID),
 		Target:    string(f.TargetID),
 		Address:   addr,
-		Port:      0, // port lives on core.Target; populated by caller via subsequent call
+		Port:      port,
 		Protocol:  f.Protocol,
 		Severity:  string(f.Severity),
 		Score:     f.Score,

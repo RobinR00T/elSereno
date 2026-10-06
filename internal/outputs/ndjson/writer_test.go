@@ -24,7 +24,7 @@ func TestWriteFindingEmitsNDJSON(t *testing.T) {
 		CreatedAt: time.Date(2026, 4, 19, 10, 0, 0, 0, time.UTC),
 		Factors:   map[string]int{"protocol_risk": 80},
 	}
-	if err := w.WriteFinding(f, "10.0.0.1"); err != nil {
+	if err := w.WriteFinding(f, "10.0.0.1", 502); err != nil {
 		t.Fatalf("WriteFinding: %v", err)
 	}
 	out := buf.Bytes()
@@ -38,7 +38,7 @@ func TestWriteFindingEmitsNDJSON(t *testing.T) {
 	if r.Schema != ndjson.Contract {
 		t.Fatalf("schema = %q, want %q", r.Schema, ndjson.Contract)
 	}
-	if r.Score != 65 || r.Severity != "high" || r.Address != "10.0.0.1" {
+	if r.Score != 65 || r.Severity != "high" || r.Address != "10.0.0.1" || r.Port != 502 {
 		t.Fatalf("unexpected record: %+v", r)
 	}
 }
@@ -57,7 +57,7 @@ func TestWriteFindingIncludesStandards(t *testing.T) {
 	w := ndjson.NewWriter(&buf)
 	mb := base
 	mb.Protocol = "modbus"
-	if err := w.WriteFinding(mb, "10.0.0.1"); err != nil {
+	if err := w.WriteFinding(mb, "10.0.0.1", 502); err != nil {
 		t.Fatalf("WriteFinding: %v", err)
 	}
 	var r ndjson.Record
@@ -73,7 +73,7 @@ func TestWriteFindingIncludesStandards(t *testing.T) {
 	w = ndjson.NewWriter(&buf)
 	un := base
 	un.Protocol = "banner"
-	if err := w.WriteFinding(un, "10.0.0.1"); err != nil {
+	if err := w.WriteFinding(un, "10.0.0.1", 502); err != nil {
 		t.Fatalf("WriteFinding: %v", err)
 	}
 	if bytes.Contains(buf.Bytes(), []byte("standards")) {

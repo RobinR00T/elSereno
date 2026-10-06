@@ -36,7 +36,9 @@ for section in 1 5 7; do
       [ -e "$src" ] || continue
       base=$(basename "$src" .md)
       out="${out_dir}/${base}"
-      pandoc -s -t man "$src" -o "$out"
+      # markdown-smart: without it pandoc's smart typography turns a
+      # CLI flag such as --tls-cert into an en dash plus "tls-cert".
+      pandoc -s -f markdown-smart -t man "$src" -o "$out"
       echo "generated $out"
     done
   fi

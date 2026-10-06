@@ -52,9 +52,9 @@ func newDiscoverCmd() *cobra.Command {
 		Long: `discover --auto <CIDR> performs a TCP-connect sweep
 of the well-known ports of every registered ElSereno plugin
 across the supplied CIDR. Responsive (host, port) pairs are
-emitted to stdout as NDJSON; the operator pipes the output
-into ` + "`elsereno scan --input list:-`" + ` for protocol-aware
-fingerprinting on the responsive subset.
+emitted to stdout as NDJSON, or as host:port lines with
+--format list, which pipes into ` + "`elsereno scan --input list:-`" + `
+for protocol-aware fingerprinting on the responsive subset.
 
 discover --hosts <file> (v1.39+) sweeps the same plugin-port
 list against a fixed list of hosts (one IP per line, # for

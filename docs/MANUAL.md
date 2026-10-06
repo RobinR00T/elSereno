@@ -334,15 +334,27 @@ Convenciones para los ejemplos:
 ### 7.1 `scan`
 
 Escanea targets aplicando los plugins de protocolo
-correspondientes a cada puerto.
+correspondientes a cada puerto: cada plugin sondea los targets cuyo
+puerto es su puerto por defecto (`dnp3` el 20000, `modbus` el 502…),
+y `banner`, que no tiene puerto, sondea todos. Los plugins opt-in
+(`s7-exposure`, `opcua-exposure`, `codesys-active`) solo corren si se
+nombran en `--plugin`. Es el mismo reparto que usan los scans del
+dashboard. Cada finding sale con la dirección y el puerto del target.
+Para sondear un plugin en un puerto que no es el suyo, `fingerprint
+probe` (§ más abajo).
+
+Hasta el 7-10-2026 la CLI solo lanzaba `banner`, aunque esta sección
+ya prometía el reparto por protocolo, y la salida dejaba `address`
+vacío y `port` a 0.
 
 **Flags importantes:**
 
 | Flag                       | Por defecto    | Uso                                                                   |
 |----------------------------|----------------|-----------------------------------------------------------------------|
 | `--input KIND`             | (requerido)    | `list:FILE`, `nmap:FILE`, `stdin`, `shodan:Q`, `censys:Q`, `fofa:Q`, `zoomeye:Q`, `onyphe:Q`, `internetdb:IP_o_CIDR` |
-| `--output-format`          | `ndjson`       | `ndjson` o `csv`                                                       |
-| `--output-file`            | stdout         | path al fichero de salida (ndjson o csv)                              |
+| `--plugin NAME[,NAME]`     | (todos)        | solo esos plugins (repetible); cada uno sigue limitado a su puerto    |
+| `--output-format`          | `ndjson`       | `ndjson`, `csv` o `stix`                                              |
+| `--output FILE`            | `-` (stdout)   | path al fichero de salida                                             |
 | `--default-port N`         | (sin)          | si las líneas no traen `:port`, se aplica este                        |
 | `--max-concurrent N`       | (config)       | targets paralelos                                                     |
 | `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe                 |
@@ -366,14 +378,17 @@ elsereno scan --input nmap:nmap.xml > findings.ndjson
 # Usar Shodan como fuente de targets (necesita api-creds-file):
 cat > /tmp/api-creds.yaml <<EOF
 shodan:
-  api_key: "${SHODAN_API_KEY}"
+  key: "${SHODAN_API_KEY}"
 EOF
 chmod 0600 /tmp/api-creds.yaml
 elsereno scan --input shodan:'port:502 country:ES' --api-creds-file /tmp/api-creds.yaml \
     > findings.ndjson
 
 # CSV en lugar de NDJSON:
-elsereno scan --input list:targets.txt --output-format csv --output-file findings.csv
+elsereno scan --input list:targets.txt --output-format csv --output findings.csv
+
+# Solo DNP3 y Modbus (cada uno en su puerto):
+elsereno scan --input list:targets.txt --plugin dnp3,modbus
 
 # Stdin (encadenable):
 echo -e "10.0.0.1:502\n10.0.0.2:44818" | elsereno scan --input stdin > findings.ndjson
@@ -398,7 +413,7 @@ no fingerprint, el output suele encadenarse a `scan`.
 
 ```bash
 # Discover una /24 y luego scan sobre lo vivo:
-elsereno discover --auto 10.0.0.0/24 \
+elsereno discover --auto 10.0.0.0/24 --format list \
     | elsereno scan --input list:- > findings.ndjson
 
 # Discover sobre lista curada de hosts:
@@ -689,7 +704,8 @@ elsereno fingerprint validate --plugin modbus --bytes /tmp/modbus.bin
 
 # Probe en vivo de un solo target con un plugin concreto:
 elsereno fingerprint probe --plugin opcuahttps --target 10.0.0.5:4843 --json
-# (contrasta con `scan`, que es un barrido banner, y con `validate`, offline)
+# (contrasta con `scan`, que reparte cada target entre los plugins de su
+# puerto, y con `validate`, offline)
 ```
 
 ### 7.12 `triage`
@@ -903,7 +919,7 @@ elsereno scan --input list:targets.txt --default-port 502 \
 ### 9.2 Discover → scan automático sobre una /24
 
 ```bash
-elsereno discover --auto 10.0.0.0/24 \
+elsereno discover --auto 10.0.0.0/24 --format list \
     | elsereno scan --input list:- \
     > findings.ndjson
 ```
@@ -921,7 +937,7 @@ elsereno scan --input list:targets.txt --output-format csv > findings.csv
 # crontab -e
 0 */6 * * * /usr/local/bin/elsereno scan \
     --input list:/etc/elsereno/targets.txt \
-    --output-file /var/lib/elsereno/findings-$(date +\%Y\%m\%dT\%H).ndjson \
+    --output /var/lib/elsereno/findings-$(date +\%Y\%m\%dT\%H).ndjson \
     --no-progress
 ```
 

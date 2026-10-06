@@ -58,7 +58,8 @@ func newPluginsPortsCmd() *cobra.Command {
 grouped by port number. Useful when:
 
   - you see a port in a discovery sweep + want to know which
-    elsereno plugin to point at it via ` + "`scan --plugin <name>`" + ` or
+    elsereno plugin to point at it via ` + "`scan --plugin <name>`" + `,
+    ` + "`fingerprint probe --plugin <name>`" + ` (any port) or
     ` + "`fingerprint validate --plugin <name>`" + `,
   - you're scripting a pre-flight that filters captured
     NDJSON by port (some operators run elsereno in series

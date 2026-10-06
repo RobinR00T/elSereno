@@ -30,7 +30,7 @@ v1.13.0 (prev) closes every BACnet mutating service (svc 7/8/
 elsereno vault init                       # 1a vez
 elsereno vault unlock                     # cada arranque
 elsereno serve --addr 127.0.0.1:8787      # dashboard
-elsereno plugins list                     # 17 protocolos (v1.8)
+elsereno plugins list                     # 35 plugins (build default)
 
 # Non-interactive (CI / agent):
 umask 077; printf '%s' "$PP" > ~/.elsereno/dev.pp; chmod 0600 $_
@@ -38,18 +38,24 @@ elsereno serve --vault-passphrase-file ~/.elsereno/dev.pp
 
 
 --------------------- Scan: defensive -------------------------
+# Cada target va a los plugins cuyo puerto por defecto es el suyo
+# (banner a todos; opt-in solo si se nombran). Cada finding lleva
+# address + port del target. (Hasta el 7-10-2026 la CLI solo
+# lanzaba banner y dejaba address vacio.)
+
 # stdin
-echo 10.0.0.5:502 | elsereno scan --input stdin --protocol modbus
+echo 10.0.0.5:502 | elsereno scan --input stdin
+echo 10.0.0.5:502 | elsereno scan --input stdin --plugin modbus
 
-# Shodan pipe
-shodan search 'port:502 country:ES' --fields ip_str,port \
-  | elsereno scan --input stdin
+# Un plugin en un puerto que no es el suyo
+elsereno fingerprint probe --plugin dnp3 --target 10.0.0.9:20001
 
-# Censys JSON
-elsereno scan --input-file censys.json --input-type censys
-
-# FOFA / ZoomEye / ONYPHE (v1.8 + v1.9), CLI wire-up desde v1.9
-# Pagination: v1.12+ acumula hasta 1000 hits cruzando páginas.
+# Shodan / Censys / FOFA / ZoomEye / ONYPHE (api-creds 0600)
+# Pagination: v1.12+ acumula hasta 1000 hits cruzando paginas.
+elsereno scan --input shodan:'port:502 country:ES' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
+elsereno scan --input censys:'services.port: 502' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
 elsereno scan --input fofa:'protocol="iax2"' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 elsereno scan --input zoomeye:'app:"Asterisk"' \
@@ -63,7 +69,7 @@ elsereno scan --input internetdb:8.8.8.8
 # InternetDB bulk lookup (v1.13+):
 elsereno scan --input internetdb:file:./ips.txt
 echo "10.0.0.1" | elsereno scan --input internetdb:-
-# (uno por línea; #-comments y blank-lines saltadas)
+# (uno por linea; #-comments y blank-lines saltadas)
 
 # api-creds.yaml (obligatorio 0600):
 #   shodan:  {key: ...}
@@ -74,28 +80,26 @@ echo "10.0.0.1" | elsereno scan --input internetdb:-
 # (internetdb no necesita credenciales)
 
 # nmap XML
-nmap -sS -p 102,502,1911,2404,4569,4840,5060,7547 target -oX out.xml
-elsereno scan --input-file out.xml --input-type nmapxml
+nmap -sS -p 102,502,1911,2404,4569,4840,5060,7547,20000 target -oX out.xml
+elsereno scan --input nmap:out.xml
 
-# Plain list
-elsereno scan --input-file targets.txt --scope scope.yaml
+# Plain list (+ scope)
+elsereno scan --input list:targets.txt --scope scope.yaml
 
 # discover --auto <CIDR> (v1.15+), TCP-connect sweep + plugin
-# port mix; pipe-friendly:
+# port mix; pipe-friendly con --format list:
 elsereno discover --auto 192.168.1.0/24 --format list \
   | elsereno scan --input list:-
 
-# Outputs
-elsereno scan --input-file t.txt \
-  --out-ndjson f.ndjson --out-csv f.csv --out-html f.html \
-  --syslog udp://siem:514 \
-  --webhook-url https://hook --webhook-secret-file wh.pp
+# Outputs: ndjson (default) | csv | stix, a stdout o --output FILE
+elsereno scan --input list:t.txt --output f.ndjson
+elsereno scan --input list:t.txt --output-format csv --output f.csv
 
 # STIX 2.1 bundle (v1.15+), feed MISP / OpenCTI / ThreatBus
-elsereno scan --input-file t.txt --output-format stix > findings.stix.json
+elsereno scan --input list:t.txt --output-format stix > findings.stix.json
 
 
-------------- Protocol fingerprints (30; core set) ------------
+---- Protocol fingerprints (seleccion; plugins list da todos) ----
   modbus    502/tcp      FC 1/3 + Read-Device-ID
   s7        102/tcp      TPKT+COTP+ROSCTR 0x01
   enip      44818/tcp    ListIdentity (CIP UCMM)

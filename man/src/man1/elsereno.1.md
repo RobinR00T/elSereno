@@ -82,13 +82,13 @@ The default-build subcommand list is below. Run
 
 **plugins**
 :   Manage protocol plugins. **plugins list** prints the
-    compiled-in set (17 in the v1.15 default build).
+    compiled-in set (35 in the default build).
 
 **discover**
 :   `discover --auto <CIDR>` runs a TCP-connect sweep across
     the CIDR + the well-known port of every registered plugin.
     Pipe-friendly: `--format list` emits `host:port` lines for
-    `scan --input list:-` (v1.15+).
+    `scan --input list:-` (`list:-` reads stdin).
 
 **proxy**
 :   Protocol-aware interception proxy. **proxy listen** runs a
@@ -101,9 +101,14 @@ The default-build subcommand list is below. Run
     `stdin`, `shodan:`, `censys:`, `fofa:`, `zoomeye:`,
     `onyphe:`, `internetdb:`. The first 5 require
     `--api-creds-file <0600.yaml>`; **internetdb** is no-key.
-    `--output-format` accepts `ndjson`, `csv`, `html`, `cef`,
-    `syslog`, and `stix` (STIX 2.1 bundle for MISP / OpenCTI /
-    ThreatBus, v1.15+).
+    Each target goes to every plugin whose default port it is on
+    (**banner** probes every target; opt-in plugins run only when
+    named); `--plugin <name>[,<name>]` restricts the set. Each
+    finding carries the target's address and port.
+    `--output-format` accepts `ndjson`, `csv` and `stix` (STIX 2.1
+    bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
+    <file>` writes to a file instead of stdout. To probe one
+    plugin on another port, use **fingerprint probe**.
 
 **scoring**
 :   Inspect the scoring weights and severity thresholds.

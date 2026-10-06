@@ -395,8 +395,9 @@ shodan search --limit 500 --fields ip_str,port,product \
   'org:"ejemplo corp" port:502' > shodan-modbus.csv
 
 # Feed directo al scanner por stdin
-shodan search 'org:"ejemplo corp"' --fields ip_str,port | \
-  elsereno scan --input stdin --protocol auto --run-tag "shodan-initial"
+# (o sin el CLI de Shodan: la entrada shodan: de elsereno pagina sola)
+elsereno scan --input shodan:'org:"ejemplo corp"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
 ```
 
 #### 2.1.2 Inputs desde Censys
@@ -635,7 +636,7 @@ elsereno explain
 ### 3.2 Siemens S7 (102)
 
 ```sh
-elsereno scan --protocol s7 --input stdin <<< "10.0.0.6:102"
+elsereno scan --plugin s7 --input stdin <<< "10.0.0.6:102"
 
 # S7 responde con ID + firmware en la Setup Comm response.
 # ElSereno extrae device family + firmware → factor `cve_exposure`
@@ -645,7 +646,7 @@ elsereno scan --protocol s7 --input stdin <<< "10.0.0.6:102"
 ### 3.3 EtherNet/IP
 
 ```sh
-elsereno scan --protocol enip --input stdin <<< "10.0.0.7:44818"
+elsereno scan --plugin enip --input stdin <<< "10.0.0.7:44818"
 
 # ListIdentity saca VendorID, DeviceType, SerialNumber, ProductName.
 # Si el target es Rockwell / Omron / Allen-Bradley → `protocol_risk` alto.
@@ -658,7 +659,7 @@ elsereno scan --protocol enip --input stdin <<< "10.0.0.7:44818"
 ### 3.4 BACnet/IP (UDP)
 
 ```sh
-elsereno scan --protocol bacnet --input stdin <<< "10.0.0.8:47808"
+elsereno scan --plugin bacnet --input stdin <<< "10.0.0.8:47808"
 
 # Who-Is es broadcast UDP. El scanner aguanta ElayedResponseReady
 # I-Am del device y extrae DeviceObject instance.
@@ -667,7 +668,7 @@ elsereno scan --protocol bacnet --input stdin <<< "10.0.0.8:47808"
 ### 3.5 DNP3
 
 ```sh
-elsereno scan --protocol dnp3 --input stdin <<< "10.0.0.9:20000"
+elsereno scan --plugin dnp3 --input stdin <<< "10.0.0.9:20000"
 
 # El probe envía Request Link Status (solo capa de enlace) a las
 # direcciones 0..100, como el dnp3-info.nse de nmap; cuenta como DNP3
@@ -677,7 +678,7 @@ elsereno scan --protocol dnp3 --input stdin <<< "10.0.0.9:20000"
 ### 3.6 IEC 60870-5-104
 
 ```sh
-elsereno scan --protocol iec104 --input stdin <<< "10.0.0.10:2404"
+elsereno scan --plugin iec104 --input stdin <<< "10.0.0.10:2404"
 
 # STARTDT activate / TESTFR. El servidor responde con STARTDT
 # confirm si acepta comandos (power-grid RTUs típicamente).
@@ -686,7 +687,7 @@ elsereno scan --protocol iec104 --input stdin <<< "10.0.0.10:2404"
 ### 3.7 HART-IP
 
 ```sh
-elsereno scan --protocol hartip --input stdin <<< "10.0.0.11:5094"
+elsereno scan --plugin hartip --input stdin <<< "10.0.0.11:5094"
 
 # Session Initiate. Respuesta revela si el gateway HART-IP está
 # activo. El fingerprint no va más allá, las commands HART
@@ -696,7 +697,7 @@ elsereno scan --protocol hartip --input stdin <<< "10.0.0.11:5094"
 ### 3.8 Niagara Fox (BMS)
 
 ```sh
-elsereno scan --protocol fox --input stdin <<< "10.0.0.12:1911"
+elsereno scan --plugin fox --input stdin <<< "10.0.0.12:1911"
 
 # El server envía una línea "fox a 0 -1 fox hello\n{fox.version=4.11.0}"
 # en el connect. ElSereno captura eso como finding evidence.
@@ -705,7 +706,7 @@ elsereno scan --protocol fox --input stdin <<< "10.0.0.12:1911"
 ### 3.9 ATG Veeder-Root (surtidores)
 
 ```sh
-elsereno scan --protocol atg --input stdin <<< "10.0.0.13:10001"
+elsereno scan --plugin atg --input stdin <<< "10.0.0.13:10001"
 
 # <SOH>I20100<CR> pide "In-tank inventory". Respuesta TLS-350
 # comienza con "I20100\r\n" + data. Si el operador nunca
@@ -715,7 +716,7 @@ elsereno scan --protocol atg --input stdin <<< "10.0.0.13:10001"
 ### 3.10 OPC UA (v1.1+)
 
 ```sh
-elsereno scan --protocol opcua --input stdin <<< "10.0.0.14:4840"
+elsereno scan --plugin opcua --input stdin <<< "10.0.0.14:4840"
 
 # HEL con endpoint URL sintético. El server responde con:
 #  - ACK → UA confirmado
@@ -726,7 +727,7 @@ elsereno scan --protocol opcua --input stdin <<< "10.0.0.14:4840"
 ### 3.11 XOT (X.25 sobre TCP, RFC 1613)
 
 ```sh
-elsereno scan --protocol xot --input stdin <<< "10.0.0.15:1998"
+elsereno scan --plugin xot --input stdin <<< "10.0.0.15:1998"
 
 # CALL REQUEST. Respuesta CALL ACCEPTED → XOT vivo. Más allá,
 # ElSereno tiene un REPL (v1.2+) para send/clear/data manual.
@@ -736,24 +737,25 @@ elsereno scan --protocol xot --input stdin <<< "10.0.0.15:1998"
 
 ```sh
 # Probe TCP (muchos modem-banks exponen AT por telnet)
-elsereno scan --protocol atmodem --input stdin <<< "10.0.0.16:23"
+elsereno fingerprint probe --plugin atmodem --target 10.0.0.16:23
 
-# Serial local (con CAP_NET_RAW o similar)
-elsereno scan --protocol atmodem --input stdin <<< "/dev/ttyUSB0"
+# Serial local: no va por scan (los targets son host:port); el
+# acceso a un puerto serie es el backend de marcado del build
+# ofensivo (offensive/dial).
 ```
 
 ### 3.13 Banner genérico
 
 ```sh
 # Catch-all: puerto desconocido, snaga banner, aplica diccionario
-elsereno scan --protocol banner --input stdin <<< "10.0.0.20:2323"
+elsereno scan --plugin banner --input stdin <<< "10.0.0.20:2323"
 ```
 
 ### 3.14 SIP / PBX discovery (v1.3+)
 
 ```sh
 # OPTIONS probe a 5060 UDP (por defecto) o TCP
-elsereno scan --protocol sip --input stdin <<< "pbx.ejemplo.com:5060"
+elsereno scan --plugin sip --input stdin <<< "pbx.ejemplo.com:5060"
 
 # Identifica 15 marcas desde Server / User-Agent / Allow headers:
 #   Asterisk / FreePBX / 3CX / Cisco UCM / Cisco SIP Gateway /
@@ -773,7 +775,7 @@ elsereno scan --protocol sip --input stdin <<< "pbx.ejemplo.com:5060"
 
 ```sh
 # NEW frame → clasifica la respuesta por subclase
-elsereno scan --protocol iax2 --input stdin <<< "pbx.ejemplo.com:4569"
+elsereno scan --plugin iax2 --input stdin <<< "pbx.ejemplo.com:4569"
 
 # Subclases que confirman IAX2 (protocol_risk=90, Asterisk-
 # specific PBX disclosure):
@@ -793,7 +795,7 @@ elsereno scan --protocol iax2 --input stdin <<< "pbx.ejemplo.com:4569"
 
 ```sh
 # Probe a la admin web (HTTPS por defecto, self-signed tolerado)
-elsereno scan --protocol pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
+elsereno scan --plugin pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
 
 # También funciona contra puertos comunes de admin alternativos:
 #   80 / 8080 / 8088 / 5001 / 8443 / 411 (Avaya IP Office)
@@ -825,7 +827,7 @@ elsereno scan --protocol pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
 
 ```sh
 # ACS Inform probe a 7547/tcp
-elsereno scan --protocol cwmp --input stdin <<< "acs.ejemplo.com:7547"
+elsereno scan --plugin cwmp --input stdin <<< "acs.ejemplo.com:7547"
 
 # Reconoce 15 plataformas ACS (Auto-Configuration Servers):
 #   GenieACS (open source) / LibreACS / EasyCwmp / OpenACS /

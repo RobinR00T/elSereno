@@ -196,8 +196,9 @@ authoritative list on your binary.
 
 **Single-target live fingerprint**: `elsereno fingerprint probe
 --plugin <name> --target host:port [--json]` runs one plugin's
-live probe against one host:port (contrast `scan`, a banner sweep,
-and `fingerprint validate`, which classifies captured bytes
+live probe against one host:port, on any port (contrast `scan`,
+which hands each target to the plugins whose default port it is
+on, and `fingerprint validate`, which classifies captured bytes
 offline).
 
 **Attack-surface inputs** (7 providers, paginated since v1.12):
@@ -323,11 +324,25 @@ internally via `internal/exec.SafeCommand` with a typed `CommandSpec`
 ### Feeding ElSereno
 
 ```sh
-elsereno scan --input list:modbus.txt --protocols modbus
+elsereno scan --input list:modbus.txt --plugin modbus
 elsereno scan --input nmap:targets.xml
-elsereno scan --input shodan --query "port:502" --limit 500 --protocols modbus
-elsereno scan --input censys --query "services.port: 502" --limit 500
-cat ips.txt | elsereno scan --input stdin --protocols xot,atmodem,modbus
+elsereno scan --input shodan:'port:502' --plugin modbus \
+    --api-creds-file ~/.elsereno/api-creds.yaml
+elsereno scan --input censys:'services.port: 502' \
+    --api-creds-file ~/.elsereno/api-creds.yaml
+cat ips.txt | elsereno scan --input stdin --plugin xot,atmodem,modbus
+elsereno discover --auto 10.0.0.0/24 --format list | elsereno scan --input list:-
+```
+
+`scan` hands each target to every plugin whose default port it is on
+(banner probes all of them; opt-in plugins run only when named in
+`--plugin`) and writes each finding with the target's address and
+port. Until 2026-10-07 the CLI ran banner alone and left the address
+empty; dashboard scans already dispatched per port.
+
+```sh
+# one plugin on a non-default port:
+elsereno fingerprint probe --plugin dnp3 --target 10.0.0.9:20001
 ```
 
 ### API keys, prefer the vault

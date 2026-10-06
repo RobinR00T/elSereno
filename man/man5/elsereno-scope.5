@@ -2,15 +2,14 @@
 .\"
 .TH "ELSERENO\-SCOPE" "5" "2026\-04\-19" "ElSereno scope file" "File formats"
 .SH NAME
-\f[B]scope.yaml\f[R] \(em authorised scope file for
-\f[I]elsereno\f[R](1)
+\f[B]scope.yaml\f[R]: authorised scope file for \f[I]elsereno\f[R](1)
 .SH DESCRIPTION
 A \f[I]scope.yaml\f[R] file defines the authorised ranges, ports,
 protocols, web binds, dialling blacklist, and optional canary for an
 engagement.
 .PP
-A scope file is \f[B]optional\f[R] \(em when absent, ElSereno requires
-an explicit acceptable\-use acknowledgement at every active command.
+A scope file is \f[B]optional\f[R]: when absent, ElSereno requires an
+explicit acceptable\-use acknowledgement at every active command.
 .SH FORMAT
 .IP
 .EX
@@ -55,8 +54,8 @@ Same precedence as ports.
 .TP
 \f[B]binds.allow\f[R]
 Addresses the web server is allowed to bind to.
-Non\-loopback binds additionally require \f[B]\(entls\-cert\f[R],
-\f[B]\(entls\-key\f[R], and \f[B]\(eni\-know\-what\-im\-doing\f[R].
+Non\-loopback binds additionally require \f[B]\-\-tls\-cert\f[R],
+\f[B]\-\-tls\-key\f[R], and \f[B]\-\-i\-know\-what\-im\-doing\f[R].
 .TP
 \f[B]dial.blocked_numbers\f[R]
 Additional numbers blocked on offensive dialling.

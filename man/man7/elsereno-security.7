@@ -2,30 +2,31 @@
 .\"
 .TH "ELSERENO\-SECURITY" "7" "2026\-04\-26" "ElSereno security model" "Miscellaneous"
 .SH NAME
-\f[B]elsereno\-security\f[R] \(em threat model, controls, and flags
+\f[B]elsereno\-security\f[R]: threat model, controls, and flags
 .SH THREAT MODEL
 ElSereno is operated by a single authorised operator on a workstation or
 jump host.
 The primary adversaries are:
 .IP \(bu 2
-\f[B]Target\-controlled bytes\f[R] \(em responses from scanned hosts.
+\f[B]Target\-controlled bytes\f[R]: responses from scanned hosts.
 Mitigated by \f[I]render.SafeBytes\f[R] (bytes) and
 \f[I]telemetry.SafeField\f[R] (strings at the log boundary).
 .IP \(bu 2
-\f[B]Credential exfiltration\f[R] \(em shell history, argv, \f[B]ps
-e\f[R], \f[I]/proc//environ\f[R].
+\f[B]Credential exfiltration\f[R]: shell history, argv, \f[B]ps e\f[R],
+\f[I]/proc//environ\f[R].
 Never pass secrets on argv or via herestring.
 Env vars leak via \f[I]/proc\f[R]; use a 0600 file for persistent
 secrets or the encrypted vault (\f[I]elsereno creds store\f[R]).
 .IP \(bu 2
-\f[B]Audit tampering\f[R] \(em the audit log is a JCS hash chain with a
+\f[B]Audit tampering\f[R]: the audit log is a JCS hash chain with a
 genesis marker, tombstoning purge, and an auditable rebase on compact.
 Cross\-process safety: writers acquire \f[B]flock(LOCK_EX)\f[R] before
 Append / appendVerbatim and resume from the latest tail under the lock
-so two ElSereno processes (e.g.\ \f[B]serve\f[R] + \f[B]proxy
-listen\f[R]) cannot race the chain (Linux + macOS, v1.15+).
+so two ElSereno processes (e.g.
+\f[B]serve\f[R] + \f[B]proxy listen\f[R]) cannot race the chain (Linux +
+macOS, v1.15+).
 .IP \(bu 2
-\f[B]Supply\-chain\f[R] \(em reproducible builds (\f[B]\-trimpath\f[R],
+\f[B]Supply\-chain\f[R]: reproducible builds (\f[B]\-trimpath\f[R],
 \f[B]\-buildvcs=false\f[R]); free\-tier flow since v1.8 ships
 GPG\-signed tag (key \f[B]ACE3B86BACACE7D6\f[R]) + SHA\-256 + CycloneDX
 SBOM via \f[B]goreleaser local + gh release create\f[R];
@@ -37,7 +38,7 @@ Actions billing.
 \f[B]Subprocess\f[R]
 Only via \f[I]internal/exec.SafeCommand\f[R] with \f[I]CommandSpec{Name,
 Flags, Positional}\f[R].
-The \f[B]\(en\f[R] separator is always present.
+The \f[B]\-\-\f[R] separator is always present.
 .TP
 \f[B]Vault\f[R]
 AES\-GCM + Argon2id (\f[B]time=3, memory=64 MiB, threads=4\f[R]).
@@ -47,7 +48,7 @@ SIGINT / SIGTERM.
 .TP
 \f[B]CSRF\f[R]
 Key derived from the vault master key via HKDF\-SHA256 with
-\f[B]info=\(lqelsereno/csrf/v1\(rq\f[R].
+\f[B]info=\(dqelsereno/csrf/v1\(dq\f[R].
 \f[B]serve\f[R] requires the vault to be unlocked.
 .TP
 \f[B]Database TLS\f[R]
@@ -74,7 +75,7 @@ Tombstone purge preserves the chain; compact inserts a
 \f[B]\-tags offensive\f[R] (build)
 Enables writes, exploits, harvesting, and dialling.
 Writes require triple confirmation.
-Dialling additionally requires \f[B]\(endial\-allowed\f[R]; ≤ 3\-digit
+Dialling additionally requires \f[B]\-\-dial\-allowed\f[R]; ≤ 3\-digit
 numbers are hard\-blocked.
 .TP
 \f[B]ELSERENO_VAULT_PASSPHRASE\f[R] (env)

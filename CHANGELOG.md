@@ -324,6 +324,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`elsereno scan` now runs the protocol plugins, and every finding names
+  its target (PITF-076).** The CLI ran the banner probe alone: no protocol
+  plugin (modbus, dnp3, s7…) ever ran from `scan`, although the manual said
+  it applied each port's protocol plugins and dashboard scans already did.
+  Each target now goes to every non-opt-in plugin whose default port it is
+  on (banner to all of them), the same dispatch as dashboard scans; the new
+  repeatable `--plugin` flag narrows the set (opt-in plugins run only when
+  named; `fingerprint probe` covers non-default ports). Every NDJSON, CSV and
+  STIX record carried an empty address and port 0; they now carry the
+  target's. `--input list:-` reads stdin, so `discover --format list | scan
+  --input list:-` works (it tried to open a file named `-`).
+- **Docs: `scan` examples use real flags.** README, MANUAL, the Spanish
+  manual, the cheatsheet and the man page showed flags `scan` never had
+  (`--protocol`, `--protocols`, `--query`, `--limit`, `--output-file`,
+  `--input-file`, `--input-type`, `--out-ndjson`/`--out-csv`/`--out-html`,
+  `--syslog`, `--webhook-url`, `--run-tag`) and output formats it does not
+  produce (`html`, `cef`, `syslog`); the MANUAL's Shodan credentials example
+  used `api_key` where the loader expects `key`; the discover pipelines
+  lacked `--format list`. All corrected. The man page generator now runs
+  pandoc with `markdown-smart`, which turned flags such as `--tls-cert` into
+  an en dash in the generated pages; all pages regenerated.
 - **HART-IP session initiate now matches a real client byte for byte.** The
   request asked for a zero inactivity timer, a value no reference client
   sends; it now asks for 30000 ms like the real client in the CISA

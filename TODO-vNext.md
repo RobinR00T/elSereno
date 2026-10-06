@@ -30,7 +30,7 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
-## Abierto (7-10-2026, auditoría de código): dos decisiones pendientes
+## Abierto (7-10-2026, auditoría de código): decisiones pendientes
 
 - **7 paquetes de write-gate huérfanos.** `offensive/write/{atg,dlms,fox,
   hartip,iec104,knxip,mbustcp}` contienen código de proxy gated, pero ningún
@@ -42,6 +42,26 @@
   dan la misma severidad. Opción: baseline 30 y subir con respuesta FC1 o
   excepción válidas, como el resto de plugins. Cambiaría la severidad de todos
   los findings de Modbus sin respuesta Modbus. Ver PITF-071.
+- **Los scans del dashboard no guardan findings.** `defaultScanRunner`
+  (`cmd/elsereno/scan_runner.go`, `drainPluginRun`) cuenta los findings y los
+  descarta; `internal/bus` es solo un `doc.go` que describe un
+  "findings-persistence" que no existe, y nada escribe la tabla `findings` que
+  lee `/api/v1/findings`. Un scan lanzado desde el dashboard da estadísticas,
+  no resultados. Es diseño (esquema, run_id, target_id), no un arreglo de una
+  noche. Encontrado el 7-10 al arreglar la CLI `scan` (PITF-076).
+- **Writers `syslog` y `cef` huérfanos.** `internal/outputs/{syslog,cef}`
+  existen con tests pero nada los importa; la chuleta y la página man
+  anunciaban `--output-format syslog|cef|html` y `--syslog`/`--webhook-url`,
+  que no existen (corregido en la doc el 7-10). Conectar o borrar.
+- **TwinCAT: probable falso negativo en TwinCAT 3 `[inferencia]`.** En una
+  captura real (TwinCAT XAE contra un CX, `twincat.pcapng` del barrido del
+  7-10), el router contesta con un RST de TCP a la primera petición ADS de un
+  NetID sin ruta, y solo responde después de que el cliente se registre por
+  UDP/48899. Nuestro probe TCP usa NetID origen y destino 0.0.0.0.0.0, así
+  que un router que exija ruta lo cortará igual. Propuesta: un probe de
+  descubrimiento UDP/48899 (`03 66 14 71 …`, 24 bytes), que no necesita ruta
+  y devuelve NetID, nombre de host y versión de TwinCAT; petición y respuesta
+  reales están en esa misma captura. Sin probar contra un equipo propio.
 
 ## [RESUELTO 4-10-2026] el magic de CoDeSys estaba mal
 

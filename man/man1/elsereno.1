@@ -2,7 +2,7 @@
 .\"
 .TH "ELSERENO" "1" "2026\-04\-26" "ElSereno user commands" "Commands"
 .SH NAME
-\f[B]elsereno\f[R] \(em ICS/OT and legacy\-network exposure auditor
+\f[B]elsereno\f[R]: ICS/OT and legacy\-network exposure auditor
 .SH SYNOPSIS
 .PP
 \f[B]elsereno\f[R] [\f[B]\-\-config\f[R] \f[I]file\f[R]]
@@ -24,7 +24,7 @@ Writes refused at the wire layer.
 \f[CR]\-tags offensive\f[R] build.
 Adds \f[B]dial\f[R], \f[B]exploit\f[R], \f[B]harvest\f[R], \f[B]proxy
 listen\f[R] (write\-gated), and \f[B]write\f[R] subcommands.
-Every mutating call clears the triple\-confirm wrapper (ADR\-039) \(em
+Every mutating call clears the triple\-confirm wrapper (ADR\-039),
 \f[CR]\-\-accept\-writes\f[R], \f[CR]\-\-confirm\-target\f[R],
 \f[CR]\-\-confirm\-token\f[R].
 .SH COMMANDS
@@ -44,7 +44,7 @@ Encrypted backup + restore (vault\-keyed AES\-256\-GCM).
 .TP
 \f[B]completion\f[R]
 Generate shell completions (placeholder; see \f[CR]\-\-help\f[R] until
-cobra\(cqs generator is wired).
+cobra\(aqs generator is wired).
 .TP
 \f[B]config\f[R]
 Inspect and validate configuration.
@@ -62,7 +62,7 @@ Run cross\-platform preflight checks (Go runtime, capabilities, nmap,
 IPv6, DNS, disk).
 .TP
 \f[B]explain\f[R]
-Explain how a finding\(cqs score was computed (ADR\-006 factors).
+Explain how a finding\(aqs score was computed (ADR\-006 factors).
 .TP
 \f[B]fmt\f[R]
 Re\-emit a YAML config with canonical formatting.
@@ -79,14 +79,15 @@ Validate \f[B]elsereno.yaml\f[R] and optional \f[B]scope.yaml\f[R].
 .TP
 \f[B]plugins\f[R]
 Manage protocol plugins.
-\f[B]plugins list\f[R] prints the compiled\-in set (17 in the v1.15
-default build).
+\f[B]plugins list\f[R] prints the compiled\-in set (35 in the default
+build).
 .TP
 \f[B]discover\f[R]
 \f[CR]discover \-\-auto <CIDR>\f[R] runs a TCP\-connect sweep across the
 CIDR + the well\-known port of every registered plugin.
 Pipe\-friendly: \f[CR]\-\-format list\f[R] emits \f[CR]host:port\f[R]
-lines for \f[CR]scan \-\-input list:\-\f[R] (v1.15+).
+lines for \f[CR]scan \-\-input list:\-\f[R] (\f[CR]list:\-\f[R] reads
+stdin).
 .TP
 \f[B]proxy\f[R]
 Protocol\-aware interception proxy.
@@ -101,9 +102,15 @@ Scan a set of targets and emit findings.
 \f[CR]onyphe:\f[R], \f[CR]internetdb:\f[R].
 The first 5 require \f[CR]\-\-api\-creds\-file <0600.yaml>\f[R];
 \f[B]internetdb\f[R] is no\-key.
-\f[CR]\-\-output\-format\f[R] accepts \f[CR]ndjson\f[R], \f[CR]csv\f[R],
-\f[CR]html\f[R], \f[CR]cef\f[R], \f[CR]syslog\f[R], and \f[CR]stix\f[R]
-(STIX 2.1 bundle for MISP / OpenCTI / ThreatBus, v1.15+).
+Each target goes to every plugin whose default port it is on
+(\f[B]banner\f[R] probes every target; opt\-in plugins run only when
+named); \f[CR]\-\-plugin <name>[,<name>]\f[R] restricts the set.
+Each finding carries the target\(aqs address and port.
+\f[CR]\-\-output\-format\f[R] accepts \f[CR]ndjson\f[R], \f[CR]csv\f[R]
+and \f[CR]stix\f[R] (STIX 2.1 bundle for MISP / OpenCTI / ThreatBus,
+v1.15+); \f[CR]\-\-output <file>\f[R] writes to a file instead of
+stdout.
+To probe one plugin on another port, use \f[B]fingerprint probe\f[R].
 .TP
 \f[B]scoring\f[R]
 Inspect the scoring weights and severity thresholds.
@@ -223,13 +230,13 @@ error.
 usage error.
 .TP
 \f[CR]128 + signum\f[R]
-killed by a signal (e.g.\ SIGINT → \f[B]130\f[R], SIGTERM →
-\f[B]143\f[R]).
+killed by a signal (e.g.
+SIGINT → \f[B]130\f[R], SIGTERM → \f[B]143\f[R]).
 .TP
 \f[CR]75\f[R]
-\f[I]EX_TEMPFAIL\f[R] \(em only emitted by \f[CR]proxy listen\f[R]
+\f[I]EX_TEMPFAIL\f[R]: only emitted by \f[CR]proxy listen\f[R]
 (offensive build) on SIGHUP.
-Distinguishable from a real crash via systemd\(cqs
+Distinguishable from a real crash via systemd\(aqs
 \f[CR]RestartPreventExitStatus=\f[R]; supervisor restarts with the new
 allowlist + freshly minted confirm\-token (v1.15+).
 .SH ENVIRONMENT
@@ -240,8 +247,8 @@ a 0600 file.
 .TP
 \f[B]DATABASE_URL\f[R]
 Postgres DSN.
-Optional; missing → DB\-backed panels degrade to \(lqbackend
-unavailable\(rq and the rest of \f[CR]serve\f[R] keeps running.
+Optional; missing → DB\-backed panels degrade to \(dqbackend
+unavailable\(dq and the rest of \f[CR]serve\f[R] keeps running.
 .SH SEE ALSO
 \f[I]elsereno\-protocols\f[R](7), \f[I]elsereno\-security\f[R](7),
 \f[I]elsereno.yaml\f[R](5), \f[I]elsereno\-scope\f[R](5),

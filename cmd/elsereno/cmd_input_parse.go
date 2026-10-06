@@ -26,7 +26,7 @@ import (
 type inputParseOpts struct {
 	// InputKind is the operator-supplied --input value. One of:
 	//   stdin                read from Stdin reader
-	//   list:<path>          host:port lines from disk
+	//   list:<path>          host:port lines from disk (list:- = stdin)
 	//   nmap:<path>          nmap XML
 	//   shodan:<query>       shodan API search
 	//   censys:<query>       censys API search
@@ -104,15 +104,24 @@ func parseStdinInput(ctx context.Context, opts inputParseOpts) ([]core.Target, e
 
 func parseListInput(ctx context.Context, opts inputParseOpts) ([]core.Target, error) {
 	path := strings.TrimPrefix(opts.InputKind, "list:")
+	p, err := portForInput(opts.DefaultPort)
+	if err != nil {
+		return nil, err
+	}
+	// "list:-" reads the list from stdin, so `discover --format list`
+	// pipes straight into scan (the documented discover -> scan flow).
+	if path == "-" {
+		var src io.Reader = os.Stdin
+		if opts.Stdin != nil {
+			src = opts.Stdin
+		}
+		return list.Parse(ctx, src, list.ParseOptions{DefaultPort: p})
+	}
 	f, err := os.Open(path) // #nosec G304 -- caller-supplied input list path
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = f.Close() }()
-	p, err := portForInput(opts.DefaultPort)
-	if err != nil {
-		return nil, err
-	}
 	return list.Parse(ctx, f, list.ParseOptions{DefaultPort: p})
 }
 

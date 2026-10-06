@@ -3,7 +3,7 @@
 .\"
 .TH "ELSERENO\-SCORING" "5" "2026\-04\-19" "ElSereno scoring" "File formats"
 .SH NAME
-\f[B]elsereno\-scoring\f[R] \(em scoring model and weights
+\f[B]elsereno\-scoring\f[R]: scoring model and weights
 .SH DESCRIPTION
 ElSereno assigns each finding a score in the inclusive range \f[B][0,
 100]\f[R] derived from six factors.
@@ -96,11 +96,11 @@ buckets in priority order.
 The first match wins:
 .TP
 \f[B]quick_win\f[R]
-severity ∈ {critical, high} AND \f[B]auth_state ≤ 10\f[R] \(em fast
-remediation, fix is usually \(lqturn on auth\(rq.
+severity ∈ {critical, high} AND \f[B]auth_state ≤ 10\f[R]: fast
+remediation, fix is usually \(dqturn on auth\(dq.
 .TP
 \f[B]strategic\f[R]
-severity == critical AND \f[B]impact_class ≥ 60\f[R] \(em long\- horizon
+severity == critical AND \f[B]impact_class ≥ 60\f[R]: long\- horizon
 remediation plans.
 .TP
 \f[B]utility\f[R] (v1.13+)
