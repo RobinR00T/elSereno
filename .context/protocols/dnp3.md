@@ -22,9 +22,11 @@ broadcast deny + link-address pin), wired to the CLI on 2026-09-22.
 See `internal/protocols/dnp3/wire/` for the from-scratch parser.
 
 ## Fingerprint strategy
-One-shot probe: send the smallest valid request the protocol accepts;
-classify the response header and record a vendor/product hint when
-available.
+Request Link Status (link layer only, control 0xC9) to destinations
+0..100 from address 0 in one write, byte-identical to nmap's
+`dnp3-info.nse`; a reply counts only if its link header CRC is valid.
+Until 2026-10-07 the probe sent a zero-CRC header that real outstations
+discard (PITF-073).
 
 ## Read operations (default build)
 - `probe`: what `scan` invokes.

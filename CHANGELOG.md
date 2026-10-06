@@ -324,6 +324,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DNP3 probe now sends a frame a real outstation answers (PITF-073).** The
+  probe sent `05 64 05 c4 01 00 02 00 00 00`: a link header with no
+  application layer and a zero CRC (the right one is `6c 6f`), to address 1
+  only. Every real outstation silently discards a frame with a wrong header
+  CRC, so against real equipment the plugin always came back negative; the
+  simulator accepted it because it never checked the CRC. It now sends link
+  layer Request Link Status frames (the most harmless request in the
+  protocol) to destinations 0..100 from address 0, byte-identical to nmap's
+  `dnp3-info.nse` (DigitalBond Redpoint), and counts a reply only when its
+  link header CRC is valid. `wire.CRC16` reproduces every CRC in the CISA
+  `icsnpp-dnp3` capture. The simulator now discards bad-CRC frames and
+  answers a Request Link Status with a Link Status, like real equipment.
+  Limit: an outstation above address 100, or one that only answers a
+  configured master address, stays silent (same reach as nmap).
 - **Write-gate docs and `proxy listen` help now match the code.** The proxy
   command serves 18 protocols, but its `--plugin` help listed 14 (dnp3, gesrtp,
   codesys and redlion missing) and its long help described only 8; both now

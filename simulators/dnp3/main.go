@@ -2,11 +2,13 @@
 // integration suite, plus a `-send` client mode that emits correctly
 // CRC-framed request frames so the demo does not hand-craft wire bytes.
 //
-// As an outstation it reads link frames, logs the application function
-// code (and the CROB control points for a control), and answers every
-// request with a minimal IIN=0 response. It never acts on a control:
-// the write-gated proxy in front of it is what refuses unauthorised
-// operations, so anything that reaches this outstation was allowed.
+// As an outstation it reads link frames, discards any with a bad header
+// CRC, answers a Request Link Status with a Link Status, logs the
+// application function code (and the CROB control points for a control),
+// and answers every other request with a minimal IIN=0 response. It
+// never acts on a control: the write-gated proxy in front of it is what
+// refuses unauthorised operations, so anything that reaches this
+// outstation was allowed.
 //
 // This is not a full IEEE 1815 implementation; it exists so CI has a
 // deterministic DNP3 peer without external dependencies.
@@ -111,6 +113,19 @@ func handle(ctx context.Context, conn net.Conn) {
 				return
 			}
 		}
+		// A real outstation silently discards a frame whose header CRC
+		// is wrong, so the simulator does too (PITF-073: a zero-CRC probe
+		// used to get an answer here and from no real device).
+		if !wire.ValidHeader(hdr) {
+			log.Printf("discarded frame with a bad header CRC dest=%d src=%d", lh.Dest, lh.Src)
+			continue
+		}
+		if lh.Control == wire.RequestLinkStatusControl {
+			if _, err := conn.Write(buildLinkStatus(lh)); err != nil {
+				return
+			}
+			continue
+		}
 		apdu, ok := wire.StripBlockCRCs(body, int(lh.Length)-5)
 		if !ok {
 			log.Printf("received malformed frame (bad block CRC) dest=%d src=%d", lh.Dest, lh.Src)
@@ -151,6 +166,21 @@ func buildResponse(req wire.Header) []byte {
 	crc := wire.CRC16(frame[0:8])
 	frame[8], frame[9] = byte(crc&0xFF), byte(crc>>8)
 	copy(frame[wire.HeaderLen:], body)
+	return frame
+}
+
+// buildLinkStatus answers a Request Link Status with a header-only Link
+// Status (secondary function 11: DIR=0, PRM=0) back to the master.
+func buildLinkStatus(req wire.Header) []byte {
+	frame := []byte{
+		wire.StartBytes[0], wire.StartBytes[1],
+		0x05, 0x0B,
+		byte(req.Src & 0xFF), byte(req.Src >> 8),
+		byte(req.Dest & 0xFF), byte(req.Dest >> 8),
+		0x00, 0x00,
+	}
+	crc := wire.CRC16(frame[0:8])
+	frame[8], frame[9] = byte(crc&0xFF), byte(crc>>8)
 	return frame
 }
 

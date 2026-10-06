@@ -584,7 +584,7 @@ well-known:
 | s7        | 102/tcp      | TPKT/COTP + ROSCTR=0x01 Setup Comm |
 | enip      | 44818/tcp    | ListIdentity (CIP UCMM) |
 | bacnet    | 47808/udp    | Who-Is (APDU broadcast) |
-| dnp3      | 20000/tcp    | Read Class 0 (link-layer + APDU) |
+| dnp3      | 20000/tcp    | Request Link Status a las direcciones 0..100 (solo capa de enlace, CRC válido) |
 | iec104    | 2404/tcp     | TESTFR/STARTDT (APCI U-format) |
 | hartip    | 5094/tcp     | Session-Initiate |
 | fox       | 1911/4911    | Banner grab "fox a" + "fox.version" |
@@ -669,8 +669,9 @@ elsereno scan --protocol bacnet --input stdin <<< "10.0.0.8:47808"
 ```sh
 elsereno scan --protocol dnp3 --input stdin <<< "10.0.0.9:20000"
 
-# Read Class 0 es la consulta canónica. Respuesta con IIN2 bits
-# identifica el device state (restart, need-time, class-data).
+# El probe envía Request Link Status (solo capa de enlace) a las
+# direcciones 0..100, como el dnp3-info.nse de nmap; cuenta como DNP3
+# una cabecera de enlace con CRC válido (PITF-073).
 ```
 
 ### 3.6 IEC 60870-5-104

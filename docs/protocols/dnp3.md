@@ -10,9 +10,21 @@ Operate skips even that.
 
 ## Probe
 
-- Build a link-layer Request Link Status frame (Control byte 0xC9:
-  DIR=1, PRM=1, FC=9). 10 bytes fixed size.
-- A response that starts with `0x05 0x64` signals a DNP3 outstation.
+- Send link-layer Request Link Status frames (control 0xC9: DIR=1,
+  PRM=1, FC=9; 10 octets each, header CRC included) to every
+  destination address 0..100 from master address 0, in one write. An
+  outstation answers only its own link address, and the scanner does
+  not know it; this is the request nmap's `dnp3-info.nse` (DigitalBond
+  Redpoint) sends, byte for byte. No application-layer request is
+  carried.
+- A reply counts as DNP3 when it is a link frame (`0x05 0x64`, length
+  of at least 5) whose header CRC is valid. A reflected copy of our own
+  frames is rejected first (PITF-071).
+- Limit: an outstation above address 100, or one that only answers a
+  configured master address, stays silent (same reach as nmap).
+- Until 2026-10-07 the code sent a zero-CRC header to address 1, which
+  a real outstation discards, while this page already described the
+  Request Link Status (PITF-073).
 
 ## Proxy policy (default build)
 

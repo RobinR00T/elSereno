@@ -9,7 +9,7 @@ import (
 
 func TestParseHeader(t *testing.T) {
 	t.Parallel()
-	h, err := wire.ParseHeader(wire.BuildReadClass0(1, 2))
+	h, err := wire.ParseHeader(wire.BuildRequestLinkStatus(1, 2))
 	if err != nil {
 		t.Fatalf("ParseHeader: %v", err)
 	}

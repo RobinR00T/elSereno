@@ -45,7 +45,7 @@ func tcpEcho(t *testing.T) core.Target {
 	}
 }
 
-// TestProbeEchoIsNotDNP3: every DNP3 link frame opens with 05 64 in both directions, so a reflected Read Class 0 passed IsDNP3Frame (PITF-071).
+// TestProbeEchoIsNotDNP3: every DNP3 link frame opens with 05 64 in both directions and our frames carry valid CRCs, so a reflected request would pass ValidHeader (PITF-071).
 func TestProbeEchoIsNotDNP3(t *testing.T) {
 	t.Parallel()
 	p := dnp3.Default()

@@ -7,7 +7,10 @@ validates nothing: it agrees with itself. Four real bugs in this codebase
 (Modbus FC43/14, Omron FINS, GE-SRTP, ProConOS) were hidden exactly that way
 until a real capture or a tested reference implementation exposed them
 (PITF-064, PITF-065, PITF-067, PITF-069); a fifth (CoDeSys) is confirmed and
-deferred (PITF-068).
+deferred (PITF-068). Two more were in the REQUEST, not the parser: PC Worx
+sent a made-up hello (PITF-072) and DNP3 a frame with a zero CRC that any
+outstation discards (PITF-073). A row below is only fully validated when the
+probe's request matches a capture or reference tool too, not just the parser.
 
 This table records, per response parser, whether it is validated **byte for
 byte against a real capture** or only against hand-built fixtures / the spec.
@@ -25,7 +28,7 @@ of a real (or reference-stack) device.
 | OPC UA Browse / Read (`opcua/wire`) | CISA `icsnpp-opcua-binary` (open62541) | correct |
 | ENIP ListIdentity (`enip/wire`) | CISA `icsnpp-enip` (Allen-Bradley 1756-ENBT/A) | correct |
 | BACnet BVLC / I-Am / WriteProperty (`bacnet/wire`) | CISA `icsnpp-bacnet` | correct |
-| DNP3 link header (`dnp3/wire`) | CISA `icsnpp-dnp3` | correct |
+| DNP3 link header + probe request (`dnp3/wire`) | CISA `icsnpp-dnp3` + DigitalBond Redpoint `dnp3-info.nse` (the nmap script) | header parser correct; **BUG in the request (PITF-073): the probe sent a 5-octet header with a zero CRC (`05 64 05 c4 01 00 02 00 00 00`), which a real outstation discards, to address 1 only.** Fixed 2026-10-07: Request Link Status to destinations 0..100 from address 0, byte-identical to the NSE's frames; `CRC16` reproduces every capture CRC (headers `6f 36`, `fe dd`, `35 18`, block `34 4d`); a reply only counts with a valid header CRC |
 | IEC 60870-5-104 APCI (`iec104/wire`) | ITI `IEC104_SQ.pcapng` (real I-format frame) | correct |
 | PC Worx init + classifier (`pcworx/wire`) | reidmefirst/PC-PCAP (ILC 191 ETH 2TX, TCP/1962) + hi-KK/ICS-Protocol-identify `PCWorx协议识别.pcapng` (ILC 151 ETH) + nmap `pcworx-info.nse` | **BUG (PITF-072): the probe sent a made-up 32-byte hello (`01 01 00 1C IBETH01\0` + zeros) matching neither the NSE nor any capture, and accepted a reply starting with those same bytes ("prefix echo"): a reflected probe was confirmed while a real PLC's first reply (`81 01 00 14`, no banner) was not.** Fixed 2026-10-07: BuildHello is the NSE `init_comms`, byte-identical to the ILC 151 ETH client packet; Classify keys on the 0x81 response frame (all 25 0x81 replies across both captures carry their own big-endian length). The original banner match on the ILC 191 device-info reply still holds |
 | MQTT CONNACK (`mqtt/wire`) | pradeesi/MQTT-Wireshark-Capture | correct (anonymous CONNECT accepted) |

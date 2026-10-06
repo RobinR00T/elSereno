@@ -53,19 +53,22 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
-	req := wire.BuildReadClass0(1, 2)
+	// Request Link Status to destinations 0..100 from master address 0,
+	// as nmap's dnp3-info.nse: an outstation answers only its own link
+	// address, and only a frame whose CRC is correct (PITF-073).
+	req := wire.BuildLinkStatusSweep(0, wire.SweepLastDest)
 	if _, err := conn.Write(req); err != nil {
 		return nil, fmt.Errorf("dnp3: write: %w", err)
 	}
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
-	// Every DNP3 link frame opens with 05 64 in both directions, so a reflected
-	// request passes IsDNP3Frame; reject an echo of our own frame (PITF-071).
+	// Every DNP3 link frame opens with 05 64 in both directions, and our own
+	// frames carry valid CRCs, so a reflected request would pass ValidHeader;
+	// reject an echo of our own frames first (PITF-071).
 	if netutil.IsEcho(req, buf[:n]) {
 		return buildFinding(target, false), nil
 	}
-	isDNP3 := wire.IsDNP3Frame(buf[:n])
-	return buildFinding(target, isDNP3), nil
+	return buildFinding(target, wire.ValidHeader(buf[:n])), nil
 }
 
 // REPL stub until the generic REPL framework lands.
