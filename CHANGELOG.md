@@ -52,9 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ForGESRTP` and `ForSLMP`, wired into the `gesrtp` and `slmp` findings the
   same way `ForFINS` is. When the probe reads a device model, a matching family
   now raises `cve_exposure` from a qualitative baseline to a real-CVE score and
-  records the ids in the note. GE-SRTP: a PACSystems RX3i model hint maps to
+  records the ids in the note. GE-SRTP: attribution is keyed on the CPU model
+  each advisory names, per CVE: RX3i CPE305/310/330/400 and CRU320 map to
   CVE-2018-8867 (7.5, improper input validation) + CVE-2019-13524 (7.5, remote
-  halt-mode DoS); Series 90-30/90-70 and VersaMax are deliberately not
+  halt-mode DoS); RX3i CPE100/115/302/410 to CVE-2019-13524 only; RSTi-EP
+  CPE100 and RXi CPU320 to CVE-2018-8867 only. Family-only hints
+  ("PACSystems", "PACSystems_RX3i"), the RX7i, RX3i CPUs neither advisory
+  lists (CPU310, CPL410), Series 90 and VersaMax are deliberately not
   attributed. SLMP: an iQ-F/FX5 CPU maps to CVE-2025-7731 (7.5, cleartext SLMP
   credential intercept) + CVE-2024-8403 (7.5, FX5-ENET DoS), an iQ-R ("R" +
   digit) CPU to CVE-2020-5668 (7.5, DoS); classic Q/L/legacy FX get the
@@ -306,6 +310,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Echo false positives in `codesys`, `codesys-active` and `proconos`
+  (PITF-071):** each probe's classifying signature also appears in its own
+  request (the CoDeSys Block Driver magic opens every frame in both directions;
+  the ProConOS request starts with the same 0xcc the response signature keys
+  on), so a service that merely reflects bytes (echo, tarpit, some honeypots)
+  was reported as a confirmed, high-severity device. Reproduced with the real
+  binary against a local echo server. The probes now reject a reply that is a
+  prefix of what they sent before classifying (also catches an echo cut short
+  by a read boundary). The ProConOS plugin test that used the request bytes as
+  its "real reply" fixture now uses the real captured reply. A sweep of all 35
+  plugins against echo vs silent servers found the same class in seven older
+  plugins (atg, dlms, dnp3, iax2, iec104, opcua, pcworx), not yet changed.
+- **GE-SRTP CVE attribution narrowed to the CPU models each advisory names:**
+  the first version keyed on the family and gave the RX3i-only CVEs to an RX7i
+  ("PACSystems RX7i ..." is extracted as "PACSystems") and to RX3i CPUs neither
+  advisory lists (CPL410, CPU310). `cve.ForGESRTP` now maps per CPU and per CVE
+  (see the Added entry), and family-only hints get the baseline.
+- **`melsoft` findings now carry NIST SP 800-82 traceability:** the plugin was
+  missing from `internal/standards`, so its findings silently shipped with no
+  standards references (the map returns nil for an unmapped protocol by
+  design). Added `melsoft` and `codesys-active`, plus a test that fails when a
+  registered plugin has no mapping (only `banner` is exempt, with its reason).
+- **`codesys-active` findings carry their own protocol name:** they were
+  emitted as `codesys`, indistinguishable from the default plugin's; the
+  opt-in pattern (`s7-exposure`, `opcua-exposure`) uses the plugin's own name.
+- **`melsoft` model read stops at the first NUL,** as the reference
+  `melsecq-discover.nse` does, so bytes after a terminator inside the 16-byte
+  field no longer leak into the model; a redundant pre-check that left an
+  unreachable error branch in the probe was removed.
 - **DLMS `cve_exposure` baseline corrected from an unsupported 12 to 6
   (PITF-070):** the comment claimed DLMS/COSEM "has the deepest CVE catalogue
   of the legacy-ICS trio" and carried the highest baseline of any plugin, but a

@@ -223,32 +223,60 @@ func ForFINS(model string) []Record {
 
 // Curated GE / Emerson PACSystems CVEs. GE-SRTP is GE's proprietary PLC
 // protocol; the GE-SRTP fingerprint reads a model hint that names the
-// controller family. These two advisories are the flagship network-exploitable
-// PACSystems RX3i CVEs: improper input validation and a remote halt-mode DoS.
-// They are scoped to the modern PACSystems RX3i / RXi / RSTi-EP line and
-// deliberately NOT attributed to the older Series 90-30 (IC693) / 90-70
-// (IC697) or VersaMax (IC200), which these advisories do not list.
-var gesrtpPACSystemsRX3i = []Record{
-	{ID: "CVE-2018-8867", CVSS: 7.5, Affects: "GE PACSystems RX3i (CPE305/310/330/400) / RSTi-EP CPE100 / RXi CPU320/CRU320: improper input validation"},
-	{ID: "CVE-2019-13524", CVSS: 7.5, Affects: "GE PACSystems RX3i (CPE100/115/302/305/310/330/400/410) / CRU320: crafted packets force halt-mode (DoS)"},
+// controller. These two advisories are the flagship network-exploitable
+// PACSystems CVEs (improper input validation; a remote halt-mode DoS), and
+// each names a specific set of CPU models, so attribution is keyed on the CPU
+// model token, not on the family:
+//   - CVE-2018-8867: RX3i CPE305/310/330/400, RSTi-EP CPE100 (EPSCPE100),
+//     RXi CPU320/CRU320.
+//   - CVE-2019-13524: RX3i CPE100/115/302/305/310/330/400/410, CRU320.
+//
+// A bare family hint ("PACSystems", "PACSystems_RX3i") is NOT attributed: the
+// RX3i line also includes CPUs neither advisory lists (CPU310, CPL410), and
+// "PACSystems" also covers the RX7i. Guessing would misattribute CVEs, the
+// same reason ForS7 leaves ET200 CPUs unclassified.
+var (
+	gePACInputValidation = Record{ID: "CVE-2018-8867", CVSS: 7.5, Affects: "GE PACSystems RX3i CPE305/310/330/400, RSTi-EP CPE100, RXi CPU320/CRU320: improper input validation"}
+	gePACHaltDoS         = Record{ID: "CVE-2019-13524", CVSS: 7.5, Affects: "GE PACSystems RX3i CPE100/115/302/305/310/330/400/410, CRU320: crafted packets force halt-mode (DoS)"}
+)
+
+// gesrtpAffected maps each CPU model token named by the advisories to the
+// records that list it. Order matters: EPSCPE100 (RSTi-EP) is checked before
+// CPE100 (RX3i) so the RSTi-EP CPU does not inherit the RX3i-only CVE.
+var gesrtpAffected = []struct {
+	token string
+	recs  []Record
+}{
+	{"EPSCPE100", []Record{gePACInputValidation}},
+	{"CPE305", []Record{gePACInputValidation, gePACHaltDoS}},
+	{"CPE310", []Record{gePACInputValidation, gePACHaltDoS}},
+	{"CPE330", []Record{gePACInputValidation, gePACHaltDoS}},
+	{"CPE400", []Record{gePACInputValidation, gePACHaltDoS}},
+	{"CRU320", []Record{gePACInputValidation, gePACHaltDoS}},
+	{"CPU320", []Record{gePACInputValidation}},
+	{"CPE100", []Record{gePACHaltDoS}},
+	{"CPE115", []Record{gePACHaltDoS}},
+	{"CPE302", []Record{gePACHaltDoS}},
+	{"CPE410", []Record{gePACHaltDoS}},
 }
 
-// ForGESRTP returns curated PACSystems CVEs for the GE PLC family named by a
-// GE-SRTP model hint. The match fires only for the modern PACSystems RX3i line
-// (model hint beginning "PACSystems", "RX3i", or the IC695 catalog prefix);
-// the older Series 90 / VersaMax families and an empty hint return nil rather
-// than a guessed match. FAMILY-level, not firmware-confirmed: pair with the GE
+// ForGESRTP returns the curated PACSystems CVEs whose advisory names the CPU
+// model found in a GE-SRTP model hint (e.g. "IC695CPE310", "RX3iCPE305").
+// A family-only hint ("PACSystems", "PACSystems_RX3i", an RX7i, a CPL410 or
+// CPU310, Series 90 / VersaMax) or an empty hint returns nil rather than a
+// guessed match. FAMILY-level, not firmware-confirmed: pair with the GE
 // advisory for the device's firmware range.
 func ForGESRTP(modelHint string) []Record {
 	m := strings.ToUpper(strings.TrimSpace(modelHint))
-	switch {
-	case strings.HasPrefix(m, "PACSYSTEMS") ||
-		strings.HasPrefix(m, "RX3I") ||
-		strings.HasPrefix(m, "IC695"):
-		return gesrtpPACSystemsRX3i
-	default:
+	if m == "" {
 		return nil
 	}
+	for _, a := range gesrtpAffected {
+		if strings.Contains(m, a.token) {
+			return a.recs
+		}
+	}
+	return nil
 }
 
 // Curated Mitsubishi MELSEC CVEs, by controller series. SLMP is Mitsubishi's

@@ -47,6 +47,7 @@ var protocolRefs = map[string][]Ref{
 	"mms":      {refUnsecureOT},
 	"finsudp":  {refUnsecureOT},
 	"slmp":     {refUnsecureOT},
+	"melsoft":  {refUnsecureOT},
 	"gesrtp":   {refUnsecureOT},
 	"knxip":    {refUnsecureOT},
 	"mbustcp":  {refUnsecureOT},
@@ -56,9 +57,13 @@ var protocolRefs = map[string][]Ref{
 	"pcworx":   {refUnsecureOT},
 	"proconos": {refUnsecureOT},
 	"codesys":  {refUnsecureOT},
-	"redlion":  {refUnsecureOT},
-	"twincat":  {refUnsecureOT},
-	"atg":      {refUnsecureOT},
+	// codesys-active: the opt-in channel-open probe, same unauthenticated
+	// runtime as codesys; mapped separately because its findings carry their
+	// own protocol name (like s7-exposure / opcua-exposure).
+	"codesys-active": {refUnsecureOT},
+	"redlion":        {refUnsecureOT},
+	"twincat":        {refUnsecureOT},
+	"atg":            {refUnsecureOT},
 	// MQTT brokers commonly allow anonymous connect: no authentication.
 	"mqtt": {refNoAuth},
 	// Legacy/management protocols that are plaintext by nature.

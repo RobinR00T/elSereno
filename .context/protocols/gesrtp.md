@@ -89,9 +89,11 @@ proxy idioms.
 factors{protocol_risk:80, exposure:75, auth_state:95, capability:30
 (70 on SRTP reply, **75 when a model hint is extracted**),
 impact_class:75, cve_exposure:8 baseline}. cve_exposure is raised
-by cve.ForGESRTP when the model hint names the modern PACSystems
-RX3i line (CVE-2018-8867 + CVE-2019-13524, NVD-verified); Series
-90-30/90-70 and VersaMax get the baseline only. impact_class 75
+by cve.ForGESRTP when the model hint names a CPU an advisory
+lists, per CVE (NVD-verified): RX3i CPE305/310/330/400 + CRU320 ->
+CVE-2018-8867 + CVE-2019-13524; CPE100/115/302/410 -> 13524 only;
+RSTi-EP CPE100 / RXi CPU320 -> 8867 only. Family-only hints, RX7i,
+CPU310/CPL410, Series 90 and VersaMax get the baseline only. impact_class 75
 reflects factory-floor + SCADA blast radius (RUN/STOP, write
 program block / system memory). auth_state 95 because SRTP has no
 native authentication.

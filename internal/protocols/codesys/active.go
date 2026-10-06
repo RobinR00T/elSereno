@@ -69,20 +69,25 @@ func (p *ActivePlugin) Probe(ctx context.Context, target core.Target) (*core.Fin
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	if _, err := conn.Write(wire.BuildChannelOpen(randomChannelID())); err != nil {
+	probe := wire.BuildChannelOpen(randomChannelID())
+	if _, err := conn.Write(probe); err != nil {
 		return nil, fmt.Errorf("codesys-active: write: %w", err)
 	}
 
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
 	if err != nil || n == 0 {
-		return buildFinding(target, "channel-open got no usable reply", false), nil
+		return buildFinding(target, ActiveName, "channel-open got no usable reply", false), nil
+	}
+	// A reflecting service would hand back our own magic-prefixed frame.
+	if isEcho(probe, buf[:n]) {
+		return buildFinding(target, ActiveName, "channel-open reply echoes the probe (not CoDeSys)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])
 	if cerr != nil {
-		return buildFinding(target, "channel-open "+classifyParseError(cerr), false), nil
+		return buildFinding(target, ActiveName, "channel-open "+classifyParseError(cerr), false), nil
 	}
-	return buildFinding(target, "CoDeSys channel-open "+note, true), nil
+	return buildFinding(target, ActiveName, "CoDeSys channel-open "+note, true), nil
 }
 
 // REPL stub.

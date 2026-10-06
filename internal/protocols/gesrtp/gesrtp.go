@@ -209,13 +209,14 @@ func buildFinding(target core.Target, note string, isSRTP bool, modelHint string
 		"capability":    30,
 		"impact_class":  75, // factory-floor PLCs
 		// cve_exposure 8: conservative baseline for the GE PLC family.
-		// When the model hint names the modern PACSystems RX3i line,
-		// cve.ForGESRTP below raises it with NVD-verified CVEs
-		// (CVE-2018-8867 7.5 improper input validation + CVE-2019-13524
-		// 7.5 remote halt-mode DoS). Older Series 90 / VersaMax families
-		// get the baseline only. The previous hard-coded list was
-		// de-specified after the fabrication sweep found a non-existent
-		// 2025 id in it; see PITF-070.
+		// When the model hint names a CPU an advisory lists (e.g. RX3i
+		// CPE305/310/330/400, CRU320), cve.ForGESRTP below raises it with
+		// the NVD-verified CVEs that name that CPU (CVE-2018-8867 7.5
+		// improper input validation, CVE-2019-13524 7.5 remote halt-mode
+		// DoS). Family-only hints, the RX7i, unlisted RX3i CPUs (CPU310,
+		// CPL410), Series 90 and VersaMax get the baseline only. The
+		// previous hard-coded list was de-specified after the fabrication
+		// sweep found a non-existent 2025 id in it; see PITF-070.
 		"cve_exposure": 8,
 	}
 	switch {

@@ -40,6 +40,22 @@ func TestParseCPUInfo(t *testing.T) {
 	}
 }
 
+// TestParseCPUInfoStopsAtNUL: like the reference NSE (a NUL-terminated
+// read), bytes after a NUL inside the 16-byte field are not part of the model.
+func TestParseCPUInfoStopsAtNUL(t *testing.T) {
+	t.Parallel()
+	resp := make([]byte, wire.MinResponseLen)
+	resp[0] = wire.ResponseMarker
+	copy(resp[wire.ModelOffset:], []byte("R04ENCPU\x00junk!!"))
+	info, err := wire.ParseCPUInfo(resp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.Model != "R04ENCPU" {
+		t.Fatalf("model: got %q want %q", info.Model, "R04ENCPU")
+	}
+}
+
 func TestParseCPUInfoValidMarkerShort(t *testing.T) {
 	t.Parallel()
 	// Valid marker but too short for a model: positive ID, empty model, no error.

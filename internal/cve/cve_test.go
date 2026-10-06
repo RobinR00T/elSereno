@@ -2,6 +2,7 @@ package cve
 
 import (
 	"regexp"
+	"slices"
 	"testing"
 )
 
@@ -17,7 +18,7 @@ func TestCuratedRecordsWellFormed(t *testing.T) {
 		ForFINS("NX102-9000"),        // Omron SYSMAC Nx
 		ForFINS("CJ2M-CPU33"),        // Omron CJ / CS
 		ForFINS("CP1L-EL20DR-D"),     // Omron CP
-		ForGESRTP("PACSystems_RX3i"), // GE PACSystems RX3i
+		ForGESRTP("IC695CPE310"),     // GE PACSystems RX3i CPE310
 		ForSLMP("R08CPU"),            // Mitsubishi MELSEC iQ-R
 		ForSLMP("FX5U-32MT/ES"),      // Mitsubishi MELSEC iQ-F
 	}
@@ -160,18 +161,35 @@ func TestForFINS(t *testing.T) {
 }
 
 func TestForGESRTP(t *testing.T) {
-	// The modern PACSystems RX3i line carries the two flagship network CVEs.
-	for _, m := range []string{"PACSystems_RX3i", "RX3i", "RX3iCPE100", "IC695CPU310"} {
-		recs := ForGESRTP(m)
-		if len(recs) != 2 || recs[0].ID != "CVE-2018-8867" || recs[1].ID != "CVE-2019-13524" {
-			t.Errorf("ForGESRTP(%q) = %+v, want CVE-2018-8867 + CVE-2019-13524", m, recs)
+	eq := func(got []Record, want ...string) bool { return slices.Equal(IDs(got), want) }
+	// CPUs both advisories name.
+	for _, m := range []string{"IC695CPE310", "RX3iCPE305", "IC695CPE330", "IC695CPE400", "IC695CRU320"} {
+		if got := ForGESRTP(m); !eq(got, "CVE-2018-8867", "CVE-2019-13524") {
+			t.Errorf("ForGESRTP(%q) = %v, want both CVEs", m, IDs(got))
 		}
 	}
-	// Older Series 90-30 (IC693) / 90-70 (IC697) / VersaMax (IC200) are NOT in
-	// the affected list: no over-attribution.
-	for _, m := range []string{"IC693CPU374", "IC697CPU", "IC200", "MarkVIe", ""} {
+	// CPUs only CVE-2019-13524 names (RX3i CPE100/115/302/410).
+	for _, m := range []string{"IC695CPE100", "IC695CPE115", "IC695CPE302", "IC695CPE410"} {
+		if got := ForGESRTP(m); !eq(got, "CVE-2019-13524") {
+			t.Errorf("ForGESRTP(%q) = %v, want only CVE-2019-13524", m, IDs(got))
+		}
+	}
+	// CPUs only CVE-2018-8867 names: RSTi-EP CPE100 (must not fall through to
+	// the RX3i CPE100 token) and the RXi CPU320.
+	for _, m := range []string{"PACSystems_EPSCPE100", "PACSystems_CPU320"} {
+		if got := ForGESRTP(m); !eq(got, "CVE-2018-8867") {
+			t.Errorf("ForGESRTP(%q) = %v, want only CVE-2018-8867", m, IDs(got))
+		}
+	}
+	// No over-attribution: family-only hints, the RX7i, RX3i CPUs neither
+	// advisory lists (CPL410, CPU310), Series 90 / VersaMax / Mark VIe, empty.
+	for _, m := range []string{
+		"PACSystems", "PACSystems_RX3i", "PACSystems_RX7i", "PACSystemsRX7i",
+		"IC698CPE040", "RX3iCPL410", "IC695CPL410", "IC695CPU310",
+		"IC693CPU374", "IC697CPU", "IC200", "MarkVIe", "",
+	} {
 		if got := ForGESRTP(m); got != nil {
-			t.Errorf("ForGESRTP(%q) must be nil (not a PACSystems RX3i), got %+v", m, got)
+			t.Errorf("ForGESRTP(%q) = %v, want nil (not an affected CPU)", m, IDs(got))
 		}
 	}
 }

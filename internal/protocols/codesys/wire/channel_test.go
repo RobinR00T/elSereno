@@ -46,8 +46,10 @@ func TestBuildChannelOpen_Structure(t *testing.T) {
 	if !bytes.Contains(f, idLE) {
 		t.Fatalf("client id not found in frame: %x", f)
 	}
-	// A real gateway reply is recognised by the existing Block Driver
-	// magic path; a frame that echoes the magic classifies as CoDeSys.
+	// At the wire layer Classify keys only on the Block Driver magic, so
+	// any magic-led frame (including this one) classifies by magic. That is
+	// why the plugins reject a reply that echoes their own probe before
+	// calling Classify (codesys.isEcho): a reflected frame is not CoDeSys.
 	if note, err := wire.Classify(f); err != nil || note != "BlockDriver magic" {
 		t.Fatalf("self-built frame should classify by magic: note=%q err=%v", note, err)
 	}

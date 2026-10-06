@@ -35,7 +35,8 @@ MELSOFT, so this plugin is the correct fingerprint for that port;
 ## Wire format (summary)
 Request: fixed 41-byte getcpuinfopack, byte 0 = 0x57, embeds the
 0x0101 read-CPU-model command. Response: byte 0 = 0xD7, byte 1 =
-0x00, 16-byte ASCII CPU model name at offset 41 (space-padded).
+0x00, ASCII CPU model name at offset 41 (16-byte field, read up to
+the first NUL like the NSE, space padding trimmed).
 Validated byte-for-byte against the real capture (BuildGetCPUInfo
 == capture request; ParseCPUInfo extracts "Q03UDECPU").
 

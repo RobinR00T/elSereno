@@ -83,11 +83,11 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if len(buf) == 0 {
 		return buildFinding(target, "no usable reply", false, ""), nil
 	}
-	if !wire.IsResponseFrame(buf) {
-		return buildFinding(target, fmt.Sprintf("non-MELSOFT response (%d bytes)", len(buf)), false, ""), nil
-	}
 	info, perr := wire.ParseCPUInfo(buf)
-	if perr != nil {
+	switch {
+	case errors.Is(perr, wire.ErrNotResponse):
+		return buildFinding(target, fmt.Sprintf("non-MELSOFT response (%d bytes)", len(buf)), false, ""), nil
+	case perr != nil:
 		return buildFinding(target, classifyParseError(perr), false, ""), nil
 	}
 	note := "MELSOFT CPU"

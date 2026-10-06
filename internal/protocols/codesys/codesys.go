@@ -1,6 +1,7 @@
 package codesys
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -64,20 +65,36 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	if _, err := conn.Write(wire.BuildHello()); err != nil {
+	hello := wire.BuildHello()
+	if _, err := conn.Write(hello); err != nil {
 		return nil, fmt.Errorf("codesys: write: %w", err)
 	}
 
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
 	if err != nil || n == 0 {
-		return buildFinding(target, "no usable reply", false), nil
+		return buildFinding(target, Name, "no usable reply", false), nil
+	}
+	// Every CoDeSys Block Driver frame opens with the same magic in both
+	// directions, so a service that merely reflects bytes would otherwise
+	// "confirm" CoDeSys. A reply that is a prefix of what we sent is an echo.
+	if isEcho(hello, buf[:n]) {
+		return buildFinding(target, Name, "reply echoes the probe (not CoDeSys)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])
 	if cerr != nil {
-		return buildFinding(target, classifyParseError(cerr), false), nil
+		return buildFinding(target, Name, classifyParseError(cerr), false), nil
 	}
-	return buildFinding(target, "CoDeSys "+note, true), nil
+	return buildFinding(target, Name, "CoDeSys "+note, true), nil
+}
+
+// isEcho reports whether reply is (a prefix of) the bytes we sent: a
+// reflecting service (echo, tarpit, some honeypots) answers with our own
+// probe, and CoDeSys frames carry the same magic in both directions. A real
+// gateway reply carries its own length field and PDU, so it is never a
+// prefix of the probe it answers.
+func isEcho(sent, reply []byte) bool {
+	return len(reply) > 0 && bytes.HasPrefix(sent, reply)
 }
 
 // REPL stub.
@@ -111,7 +128,10 @@ func classifyParseError(err error) string {
 	}
 }
 
-func buildFinding(target core.Target, note string, isCoDeSys bool) *core.Finding {
+// buildFinding scores a CoDeSys finding. protocol is the emitting plugin's
+// name (Name or ActiveName), so the opt-in active probe's findings stay
+// distinguishable from the default plugin's, as s7-exposure's are from s7's.
+func buildFinding(target core.Target, protocol, note string, isCoDeSys bool) *core.Finding {
 	factors := map[string]int{
 		"protocol_risk": 80, // soft-PLC runtime, kinetic effects
 		"exposure":      75,
@@ -126,7 +146,7 @@ func buildFinding(target core.Target, note string, isCoDeSys bool) *core.Finding
 	score := scoring.ScoreDefault(factors)
 	return &core.Finding{
 		ID:          hashID(target, note),
-		Protocol:    Name,
+		Protocol:    protocol,
 		Severity:    core.SeverityFromScore(score),
 		Score:       score,
 		CreatedAt:   time.Now().UTC().Truncate(time.Microsecond),

@@ -67,7 +67,12 @@ that gap by sending the minimal **channel-open PDU** the gateway does
 answer, then confirming CoDeSys by the Block-Driver-framed reply
 (`00 01 17 e8` magic). It is read-only: it opens a channel to read the
 reply and issues no service request that reads, writes, or changes
-controller state.
+controller state. Its findings carry the protocol name `codesys-active`
+(not `codesys`), so they stay distinguishable in every output.
+
+Both CoDeSys probes reject a reply that merely echoes their own probe
+before classifying it (PITF-071): the magic opens every frame in both
+directions, so a reflecting service would otherwise look like a gateway.
 
 It is kept out of the default read-only sweep (DefaultPort 0, OptIn), so
 a normal scan never opens a gateway channel. Run it explicitly:

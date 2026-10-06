@@ -21,6 +21,7 @@
 package wire
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 )
@@ -64,8 +65,9 @@ var (
 	ErrNotResponse = errors.New("melsoft: byte 0 is not the response marker (0xD7)")
 )
 
-// CPUInfo captures the parsed get-CPU-info response. Model is the
-// space/NUL-trimmed ASCII CPU model name (e.g. "Q03UDECPU"); it is
+// CPUInfo captures the parsed get-CPU-info response. Model is the ASCII
+// CPU model name read up to the first NUL with the 0x20 padding trimmed
+// (e.g. "Q03UDECPU"); it is
 // empty when the response is a valid MELSOFT frame but too short to
 // carry a model or the model field is blank.
 type CPUInfo struct {
@@ -103,13 +105,17 @@ func ParseCPUInfo(buf []byte) (CPUInfo, error) {
 	if len(buf) < MinResponseLen {
 		return CPUInfo{}, nil // valid marker, no room for a model
 	}
-	model := trimASCII(buf[ModelOffset : ModelOffset+ModelLen])
-	return CPUInfo{Model: model}, nil
+	return CPUInfo{Model: modelField(buf[ModelOffset : ModelOffset+ModelLen])}, nil
 }
 
-// trimASCII strips trailing NULs and spaces (SLMP/MELSOFT pad short
-// models with 0x20 to 16 bytes) in a single pass so a model padded
-// with a mix of NUL and space trims cleanly from both.
-func trimASCII(b []byte) string {
-	return strings.TrimRight(string(b), "\x00 ")
+// modelField reads the 16-byte model name the way the reference
+// melsecq-discover.nse does (a NUL-terminated string, at most 16 bytes):
+// it stops at the first NUL, then drops the trailing 0x20 padding. Stopping
+// at the NUL keeps bytes after a terminator out of the model (a plain
+// trailing-trim would keep "MODEL\x00junk" as "MODEL\x00junk").
+func modelField(b []byte) string {
+	if i := bytes.IndexByte(b, 0x00); i >= 0 {
+		b = b[:i]
+	}
+	return strings.TrimRight(string(b), " ")
 }

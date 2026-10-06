@@ -1,6 +1,7 @@
 package proconos
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -66,7 +67,8 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	if _, err := conn.Write(wire.BuildHello()); err != nil {
+	hello := wire.BuildHello()
+	if _, err := conn.Write(hello); err != nil {
 		return nil, fmt.Errorf("proconos: write: %w", err)
 	}
 
@@ -74,6 +76,13 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	n, err := conn.Read(buf)
 	if err != nil || n == 0 {
 		return buildFinding(target, "no usable reply", false), nil
+	}
+	// The enumeration request itself starts with 0xcc, the same byte the
+	// response signature keys on, so a service that merely reflects our
+	// request would otherwise "confirm" ProConOS. A reply that is a prefix
+	// of what we sent is an echo (a real reply starts cc 00, the request cc 01).
+	if bytes.HasPrefix(hello, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not ProConOS)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])
 	if cerr != nil {

@@ -2,6 +2,7 @@ package proconos
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net"
@@ -115,12 +116,31 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 
 func TestProbeSignature(t *testing.T) {
 	t.Parallel()
-	f := probeAgainstResponder(t, func() []byte {
-		// A real ProConOS reply leads with the 0xcc signature.
-		return []byte{0xcc, 0x01, 0x00, 0x0b, 0x40, 0x02, 0x00, 0x00, 0x47, 0xee}
-	})
+	// The real ProConOS V4.2.0214 / QuickMix reply from the
+	// hi-KK/ICS-Protocol-identify capture (see wire/realcap_test.go): 0xcc
+	// signature then the runtime banner. (This fixture used to be the
+	// request bytes themselves, i.e. an echo; the 2026-10-07 audit replaced
+	// it with the real reply.) Decoded here, on the test goroutine, because
+	// the responder closure runs on the listener goroutine.
+	realReply, err := hex.DecodeString("cc003030303030303030300050726f436f6e4f532056342e322e30323134204f6374203238203230313100205620332e3935412e36202020202020204d6172202039203230313200202020202020517569636b4d697800517569636b4d6978006e2f6100")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := probeAgainstResponder(t, func() []byte { return realReply })
 	if f.Factors["capability"] != 60 {
 		t.Fatalf("capability = %d, want 60", f.Factors["capability"])
+	}
+}
+
+// TestProbeEchoIsNotProConOS: the enumeration request starts with 0xcc,
+// the byte the response signature keys on, so a service that reflects the
+// request must not be confirmed as ProConOS (reproduced against a real echo
+// server in the 2026-10-07 audit).
+func TestProbeEchoIsNotProConOS(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, wire.BuildHello)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not ProConOS)", f.Factors["capability"])
 	}
 }
 

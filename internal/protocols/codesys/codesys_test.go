@@ -52,8 +52,8 @@ func TestBuildFindingFactors(t *testing.T) {
 		Address: netip.MustParseAddr("203.0.113.7"),
 		Port:    1217,
 	}
-	yes := buildFinding(target, "CoDeSys BlockDriver magic", true)
-	no := buildFinding(target, "no usable reply", false)
+	yes := buildFinding(target, Name, "CoDeSys BlockDriver magic", true)
+	no := buildFinding(target, Name, "no usable reply", false)
 	if yes.Factors["capability"] <= no.Factors["capability"] {
 		t.Fatalf("capability should jump on CoDeSys reply: yes=%d no=%d",
 			yes.Factors["capability"], no.Factors["capability"])
@@ -115,6 +115,21 @@ func TestProbeMagicEcho(t *testing.T) {
 	})
 	if f.Factors["capability"] != 70 {
 		t.Fatalf("capability: got %d want 70", f.Factors["capability"])
+	}
+}
+
+// TestProbeEchoIsNotCoDeSys: a service that reflects the 4-byte magic
+// hello must not be confirmed as CoDeSys (the magic is the same in both
+// directions, so without the echo check this was a high-severity false
+// positive, reproduced against a real echo server in the 2026-10-07 audit).
+func TestProbeEchoIsNotCoDeSys(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, wire.BuildHello)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not CoDeSys)", f.Factors["capability"])
+	}
+	if f.Protocol != Name {
+		t.Fatalf("Protocol: got %q want %q", f.Protocol, Name)
 	}
 }
 

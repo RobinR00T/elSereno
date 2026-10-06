@@ -25,7 +25,7 @@ func TestActiveMetadataOptIn(t *testing.T) {
 	}
 }
 
-func activeProbeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
+func activeProbeAgainstResponder(t *testing.T, respond func(req []byte) []byte) *core.Finding {
 	t.Helper()
 	lc := &net.ListenConfig{}
 	lctx, lcancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -41,9 +41,11 @@ func activeProbeAgainstResponder(t *testing.T, respond func() []byte) *core.Find
 			return
 		}
 		defer func() { _ = conn.Close() }()
-		// Read the channel-open request (drain a chunk), then reply.
-		_, _ = io.ReadFull(conn, make([]byte, len(wire.BuildChannelOpen(1))))
-		if reply := respond(); reply != nil {
+		// Read the channel-open request, then reply (the responder sees it,
+		// so a test can reflect it like an echo service would).
+		req := make([]byte, len(wire.BuildChannelOpen(1)))
+		_, _ = io.ReadFull(conn, req)
+		if reply := respond(req); reply != nil {
 			_, _ = conn.Write(reply)
 		}
 	}()
@@ -71,17 +73,42 @@ func activeProbeAgainstResponder(t *testing.T, respond func() []byte) *core.Find
 func TestActiveProbeBlockDriverReply(t *testing.T) {
 	t.Parallel()
 	// Gateway replies with a Block-Driver-framed response (magic echo).
-	f := activeProbeAgainstResponder(t, func() []byte {
+	f := activeProbeAgainstResponder(t, func([]byte) []byte {
 		return append([]byte(nil), append(wire.BlockDriverMagic, 0x10, 0x00, 0x00, 0x00)...)
 	})
 	if f.Factors["capability"] != 70 {
 		t.Fatalf("capability: got %d want 70 (confirmed CoDeSys)", f.Factors["capability"])
 	}
+	// Findings carry the opt-in plugin's own name (like s7-exposure), not
+	// the default plugin's, so they stay distinguishable in every output.
+	if f.Protocol != ActiveName {
+		t.Fatalf("Protocol: got %q want %q", f.Protocol, ActiveName)
+	}
+}
+
+// TestActiveProbeEchoIsNotCoDeSys: a reflecting service hands back our own
+// magic-prefixed channel-open frame; that must not confirm CoDeSys.
+func TestActiveProbeEchoIsNotCoDeSys(t *testing.T) {
+	t.Parallel()
+	f := activeProbeAgainstResponder(t, func(req []byte) []byte { return req })
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (full echo is not CoDeSys)", f.Factors["capability"])
+	}
+}
+
+// TestActiveProbePartialEchoIsNotCoDeSys: an echo cut short by a TCP read
+// boundary is still a prefix of the probe and must be rejected too.
+func TestActiveProbePartialEchoIsNotCoDeSys(t *testing.T) {
+	t.Parallel()
+	f := activeProbeAgainstResponder(t, func(req []byte) []byte { return req[:20] })
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (partial echo is not CoDeSys)", f.Factors["capability"])
+	}
 }
 
 func TestActiveProbeSilent(t *testing.T) {
 	t.Parallel()
-	f := activeProbeAgainstResponder(t, func() []byte { return nil })
+	f := activeProbeAgainstResponder(t, func([]byte) []byte { return nil })
 	if f.Factors["capability"] != 30 {
 		t.Fatalf("capability: got %d want 30 (no reply)", f.Factors["capability"])
 	}
@@ -89,7 +116,7 @@ func TestActiveProbeSilent(t *testing.T) {
 
 func TestActiveProbeNonCoDeSys(t *testing.T) {
 	t.Parallel()
-	f := activeProbeAgainstResponder(t, func() []byte {
+	f := activeProbeAgainstResponder(t, func([]byte) []byte {
 		return []byte("HTTP/1.1 400 Bad Request\r\n\r\n")
 	})
 	if f.Factors["capability"] != 30 {
