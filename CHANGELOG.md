@@ -322,6 +322,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Modbus no longer notes a reflected probe as "read-coils accepted"
+  (PITF-071).** A Modbus reply repeats the request's function code, so a
+  reflected Read Coils request parsed as a successful FC1 reply. When the reply
+  PDU is byte-identical to the request PDU the note now says it is a reflection,
+  and the FC43 device-ID probe is skipped. Scoring is unchanged: Modbus factors
+  are constant (capability 60 whether or not a Modbus device answers), which is
+  also why the echo guard cannot catch it; making the score depend on a
+  confirmed reply is left as an open decision.
 - **PC Worx probe now sends the real session init and recognises the real
   reply (PITF-072).** The probe sent a made-up 32-byte hello
   (`01 01 00 1C IBETH01\0` + zeros) that matches neither nmap's

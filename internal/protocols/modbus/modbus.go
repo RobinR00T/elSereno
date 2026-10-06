@@ -1,6 +1,7 @@
 package modbus
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -207,6 +208,14 @@ func probeStage(conn net.Conn) (note, vendor, product, revision string) {
 			return "silent close on read coils", "", "", ""
 		}
 		return fmt.Sprintf("read resp: %v", err), "", "", ""
+	}
+	// A Modbus reply repeats the request's function code, so a reflected Read
+	// Coils request parses as a "successful" FC1 reply and used to be noted
+	// "read-coils accepted". A real reply carries a byte count and the coil
+	// status instead of our address and quantity (PITF-071). Stop before the
+	// FC43 probe too, which a reflector would "answer" the same way.
+	if bytes.Equal(resp.PDU, req.PDU) {
+		return "reply echoes the probe (not Modbus)", "", "", ""
 	}
 	if ec, isEx := resp.ExceptionCode(); isEx {
 		note = fmt.Sprintf("exception on FC1: 0x%02x", uint8(ec))
