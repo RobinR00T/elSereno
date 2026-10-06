@@ -217,3 +217,14 @@ type readWritePair struct {
 
 func (rw readWritePair) Read(b []byte) (int, error)  { return rw.r.Read(b) }
 func (rw readWritePair) Write(b []byte) (int, error) { return rw.w.Write(b) }
+
+// TestProbeEchoIsNotDLMS: the TCP wrapper version (0x0001) opens our AARQ as
+// well as a real AARE, so a reflected AARQ passed the wrapper check and was
+// counted as DLMS (PITF-071).
+func TestProbeEchoIsNotDLMS(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, wire.BuildAARQ)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not DLMS)", f.Factors["capability"])
+	}
+}

@@ -172,3 +172,17 @@ func TestREPLStub(t *testing.T) {
 		t.Fatal("REPL stub should return an error")
 	}
 }
+
+// TestProbeEchoIsNotATG: IsATGResponse keys on the I20100 command code, which
+// is also our own request, so a service that reflects it must not be
+// confirmed as ATG (reproduced against a real echo server in the 2026-10-07
+// audit sweep, PITF-071).
+func TestProbeEchoIsNotATG(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, func() []byte {
+		return []byte{0x01, 'I', '2', '0', '1', '0', '0', '\r', '\n'}
+	})
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not ATG)", f.Factors["capability"])
+	}
+}

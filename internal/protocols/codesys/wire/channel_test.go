@@ -49,7 +49,7 @@ func TestBuildChannelOpen_Structure(t *testing.T) {
 	// At the wire layer Classify keys only on the Block Driver magic, so
 	// any magic-led frame (including this one) classifies by magic. That is
 	// why the plugins reject a reply that echoes their own probe before
-	// calling Classify (codesys.isEcho): a reflected frame is not CoDeSys.
+	// calling Classify (netutil.IsEcho): a reflected frame is not CoDeSys.
 	if note, err := wire.Classify(f); err != nil || note != "BlockDriver magic" {
 		t.Fatalf("self-built frame should classify by magic: note=%q err=%v", note, err)
 	}

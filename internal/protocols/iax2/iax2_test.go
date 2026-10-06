@@ -132,3 +132,40 @@ func TestMetadata_Port4569(t *testing.T) {
 		t.Fatalf("name = %q", meta.Name)
 	}
 }
+
+// udpEcho listens on a loopback UDP port and reflects the first datagram it
+// receives back to its sender, like a UDP echo service.
+func udpEcho(t *testing.T) (int, func()) {
+	t.Helper()
+	lc := net.ListenConfig{}
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := lc.ListenPacket(ctx, "udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		buf := make([]byte, 4096)
+		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		n, addr, err := conn.ReadFrom(buf)
+		if err != nil {
+			return
+		}
+		_, _ = conn.WriteTo(buf[:n], addr)
+	}()
+	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		t.Fatalf("LocalAddr not UDPAddr: %T", conn.LocalAddr())
+	}
+	return addr.Port, func() { cancel(); _ = conn.Close() }
+}
+
+// TestProbe_EchoIsNotIAX2: our NEW is itself an IAX control frame, which
+// IsIAXReply accepts, so a reflected NEW must not confirm IAX2 (PITF-071).
+func TestProbe_EchoIsNotIAX2(t *testing.T) {
+	port, stop := udpEcho(t)
+	defer stop()
+	f := probeAt(t, port)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo is not IAX2)", f.Factors["capability"])
+	}
+}

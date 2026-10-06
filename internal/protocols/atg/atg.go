@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/render"
 	"local/elsereno/internal/scoring"
 )
@@ -62,11 +63,18 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	// \x01I20100\n, the classic Veeder-Root "system status" query.
-	if _, err := conn.Write([]byte{0x01, 'I', '2', '0', '1', '0', '0', '\r', '\n'}); err != nil {
+	req := []byte{0x01, 'I', '2', '0', '1', '0', '0', '\r', '\n'}
+	if _, err := conn.Write(req); err != nil {
 		return nil, fmt.Errorf("atg: write: %w", err)
 	}
 	buf := make([]byte, 4096)
 	n, _ := conn.Read(buf)
+	// IsATGResponse keys on the I20100 command code, which a real TLS-350
+	// reply repeats and which is also our own request, so a reflecting service
+	// would "confirm" ATG (PITF-071).
+	if netutil.IsEcho(req, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not ATG)", false), nil
+	}
 	safe := render.SafeBytes(buf[:n])
 	isATG := IsATGResponse(safe)
 	note := "no ATG response"

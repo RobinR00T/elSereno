@@ -198,3 +198,14 @@ func TestProxy_EmitsUAErrFrame(t *testing.T) {
 		t.Fatal("handler did not return")
 	}
 }
+
+// TestProbeEchoedHelloIsNotUA: HEL is client-only (a server answers Hello
+// with ACK or ERR), so a HEL coming back is our probe reflected. It used to
+// fall into the default branch and count as OPC UA (PITF-071).
+func TestProbeEchoedHelloIsNotUA(t *testing.T) {
+	port := fakeServer(t, func(hel []byte) []byte { return hel })
+	f := probeAt(port)
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (reflected HEL is not a UA server)", f.Factors["capability"])
+	}
+}

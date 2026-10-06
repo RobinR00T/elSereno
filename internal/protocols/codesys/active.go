@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/codesys/wire"
 )
 
@@ -80,7 +81,7 @@ func (p *ActivePlugin) Probe(ctx context.Context, target core.Target) (*core.Fin
 		return buildFinding(target, ActiveName, "channel-open got no usable reply", false), nil
 	}
 	// A reflecting service would hand back our own magic-prefixed frame.
-	if isEcho(probe, buf[:n]) {
+	if netutil.IsEcho(probe, buf[:n]) {
 		return buildFinding(target, ActiveName, "channel-open reply echoes the probe (not CoDeSys)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])

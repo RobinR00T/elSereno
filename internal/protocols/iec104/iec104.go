@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/iec104/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -52,11 +53,18 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
-	if _, err := conn.Write(wire.BuildTESTFR()); err != nil {
+	req := wire.BuildTESTFR()
+	if _, err := conn.Write(req); err != nil {
 		return nil, fmt.Errorf("iec104: write: %w", err)
 	}
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
+	// Our TESTFR act is itself a U-frame, which the classifier accepts, so a
+	// reflected request would "confirm" IEC-104; a real peer answers with
+	// TESTFR con (PITF-071).
+	if netutil.IsEcho(req, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not IEC-104)", false), nil
+	}
 	apci, perr := wire.ParseAPCI(buf[:n])
 	isOK := perr == nil && (apci.Type() == wire.FrameU || apci.Type() == wire.FrameS)
 	note := "silent"

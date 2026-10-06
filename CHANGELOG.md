@@ -312,6 +312,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Echo false positives fixed in six more plugins (PITF-071):** the
+  echo-vs-silent sweep found the same class in older plugins, and `atg`,
+  `dlms`, `dnp3`, `iax2`, `iec104` and `opcua` no longer report a reflecting
+  service as a device. Each classifier accepted a signature its own request
+  also carries: ATG's I20100 command code, the DLMS TCP-wrapper version
+  (whose classify-error branch even counted as DLMS), DNP3's `05 64` start
+  bytes, IAX2's control-frame type (our NEW is one), and IEC-104's U-frame
+  (our TESTFR act is one). These now reject a reply that is a prefix of the
+  probe through a shared `netutil.IsEcho` helper (also adopted by codesys,
+  codesys-active and proconos). OPC UA gets a protocol rule instead: HEL is a
+  client-only message (a server answers Hello with ACK or ERR), so a HEL coming
+  back is a reflection; it used to fall into the default branch and count as
+  OPC UA. Each plugin gained an echo test, mutation-checked to fail without the
+  fix. `dnp3` and `iec104` had no Probe test at all before this.
 - **Docs: plugin lists and counts now match the registry; port claims scoped
   to their evidence.** README said 30 plugins, `docs/MANUAL.md` 28 (its table
   had 29 rows) and the Spanish manual 17; the default build registers 35 (32 in

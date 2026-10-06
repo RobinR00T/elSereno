@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/dnp3/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -52,11 +53,17 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
-	if _, err := conn.Write(wire.BuildReadClass0(1, 2)); err != nil {
+	req := wire.BuildReadClass0(1, 2)
+	if _, err := conn.Write(req); err != nil {
 		return nil, fmt.Errorf("dnp3: write: %w", err)
 	}
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
+	// Every DNP3 link frame opens with 05 64 in both directions, so a reflected
+	// request passes IsDNP3Frame; reject an echo of our own frame (PITF-071).
+	if netutil.IsEcho(req, buf[:n]) {
+		return buildFinding(target, false), nil
+	}
 	isDNP3 := wire.IsDNP3Frame(buf[:n])
 	return buildFinding(target, isDNP3), nil
 }

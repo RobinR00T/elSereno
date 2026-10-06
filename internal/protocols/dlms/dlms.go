@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/dlms/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -60,7 +61,8 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	if _, err := conn.Write(wire.BuildAARQ()); err != nil {
+	aarq := wire.BuildAARQ()
+	if _, err := conn.Write(aarq); err != nil {
 		return nil, fmt.Errorf("dlms: write: %w", err)
 	}
 
@@ -84,6 +86,12 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	if _, err := io.ReadFull(conn, buf[n:total]); err != nil {
 		return buildFinding(target, fmt.Sprintf("short DLMS APDU (declared %d)", apduLen), false), nil
+	}
+	// The DLMS TCP wrapper version (0x0001) opens our AARQ as well as a real
+	// AARE, so a reflected AARQ passes IsWrapperResponse (and the classify-error
+	// branch below still counts as DLMS); reject an echo first (PITF-071).
+	if netutil.IsEcho(aarq, buf[:total]) {
+		return buildFinding(target, "reply echoes the probe (not DLMS)", false), nil
 	}
 	info, cerr := wire.ClassifyResponse(buf[:total])
 	if cerr != nil {

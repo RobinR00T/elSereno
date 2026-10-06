@@ -11,6 +11,9 @@
 // specifiers (`[::1%lo0]:port`). This package replaces those
 // ad-hoc checks with `netip.ParseAddrPort` + `Addr.IsLoopback()`
 // which handle every spec-conformant variant.
+//
+// It also holds IsEcho, the probe-reflection check the protocol plugins
+// share so a reflecting service is not reported as a device (PITF-071).
 package netutil
 
 import (

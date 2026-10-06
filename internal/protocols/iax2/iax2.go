@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/iax2/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -61,13 +62,20 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	srcCall := randomCallNumber()
-	if _, err := conn.Write(wire.BuildNEW(srcCall)); err != nil {
+	newFrame := wire.BuildNEW(srcCall)
+	if _, err := conn.Write(newFrame); err != nil {
 		return nil, fmt.Errorf("iax2: write NEW: %w", err)
 	}
 	buf := make([]byte, 2048)
 	n, _ := conn.Read(buf)
 	if n < wire.HeaderLen {
 		return buildFinding(target, "no-response", false, 0), nil
+	}
+	// Our NEW is itself an IAX control frame, which IsIAXReply accepts, so a
+	// reflected datagram would "confirm" IAX2; a real peer answers with its own
+	// frame (ACCEPT, AUTHREQ, REJECT) (PITF-071).
+	if netutil.IsEcho(newFrame, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not IAX2)", false, 0), nil
 	}
 	h, err := wire.ParseHeader(buf[:n])
 	if err != nil {

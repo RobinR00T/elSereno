@@ -1,7 +1,6 @@
 package codesys
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/codesys/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -78,7 +78,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// Every CoDeSys Block Driver frame opens with the same magic in both
 	// directions, so a service that merely reflects bytes would otherwise
 	// "confirm" CoDeSys. A reply that is a prefix of what we sent is an echo.
-	if isEcho(hello, buf[:n]) {
+	if netutil.IsEcho(hello, buf[:n]) {
 		return buildFinding(target, Name, "reply echoes the probe (not CoDeSys)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])
@@ -86,15 +86,6 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		return buildFinding(target, Name, classifyParseError(cerr), false), nil
 	}
 	return buildFinding(target, Name, "CoDeSys "+note, true), nil
-}
-
-// isEcho reports whether reply is (a prefix of) the bytes we sent: a
-// reflecting service (echo, tarpit, some honeypots) answers with our own
-// probe, and CoDeSys frames carry the same magic in both directions. A real
-// gateway reply carries its own length field and PDU, so it is never a
-// prefix of the probe it answers.
-func isEcho(sent, reply []byte) bool {
-	return len(reply) > 0 && bytes.HasPrefix(sent, reply)
 }
 
 // REPL stub.

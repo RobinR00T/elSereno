@@ -1,7 +1,6 @@
 package proconos
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/proconos/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -81,7 +81,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// response signature keys on, so a service that merely reflects our
 	// request would otherwise "confirm" ProConOS. A reply that is a prefix
 	// of what we sent is an echo (a real reply starts cc 00, the request cc 01).
-	if bytes.HasPrefix(hello, buf[:n]) {
+	if netutil.IsEcho(hello, buf[:n]) {
 		return buildFinding(target, "reply echoes the probe (not ProConOS)", false), nil
 	}
 	note, cerr := wire.Classify(buf[:n])

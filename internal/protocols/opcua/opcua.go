@@ -145,6 +145,11 @@ func classifyFrame(target core.Target, h wire.Header, body []byte) *core.Finding
 		}
 		note := fmt.Sprintf("ua-err code=0x%08x reason=%q", e.Code, render.SafeBytes([]byte(e.Reason)))
 		return buildFinding(target, "ua-err", true, note, "")
+	case wire.MessageHello:
+		// HEL is client-only (OPC UA Part 6: a server answers Hello with ACK or
+		// ERR), so a HEL coming back is our own probe reflected, not a server
+		// (PITF-071). It used to fall into the default branch and count as UA.
+		return buildFinding(target, "ua-hello-reflected", false, "", "")
 	default:
 		return buildFinding(target, "ua-unexpected", true, fmt.Sprintf("ua-%s", h.Type), "")
 	}
