@@ -43,3 +43,18 @@ func FuzzClassifyCOTP(f *testing.F) {
 		}
 	})
 }
+
+// FuzzUnwrapPData: UnwrapPData parses server bytes after the
+// association; it must never panic, and what it returns must lie within
+// its input.
+func FuzzUnwrapPData(f *testing.F) {
+	f.Add(wire.WrapPData(wire.BuildMMSGetServerDirectoryRequest()))
+	f.Add([]byte{0x01, 0x00, 0x01, 0x00, 0x61, 0x81})
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		pdu, err := wire.UnwrapPData(b)
+		if err == nil && len(pdu) > len(b) {
+			t.Fatalf("pdu longer than input: %d > %d", len(pdu), len(b))
+		}
+	})
+}

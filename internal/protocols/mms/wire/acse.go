@@ -13,19 +13,18 @@
 //   COTP DT (TSDU)                             ← already in TPKT
 //   TPKT envelope                              ← already in TPKT
 //
-// We hand-code a known-good static AARQ frame here. Real MMS
-// servers accept it; the response (AARE) carries the same
-// application-context OID echoed back, which is what we look
-// for to distinguish "real MMS server" from "anything else
-// that happens to handshake COTP".
+// The AARQ is the real client request of the w3h/icsmaster IEC 61850
+// MMS captures (iec61850_read.pcap, iec61850_get_name_list.pcap: the
+// same bytes in both), which the server there accepts (AARE result 0).
+// The response (AARE) carries the same application-context OID echoed
+// back, which is what we look for to distinguish "real MMS server" from
+// "anything else that happens to handshake COTP".
 //
-// The frame was reverse-engineered from libiec61850's
-// `client_example_basic_io.c` running against a Conpot
-// honeypot and cross-checked with Wireshark MMS dissector
-// output. The bytes are deliberately verbose / not minified
-// operator-readable comments line up to spec sections so a
-// future contributor can refactor in stages without losing
-// the structure.
+// Until 2026-10-07 this file shipped a hand-written AARQ whose
+// user-information was an EXTERNAL with only a direct-reference: no
+// MMS Initiate-RequestPDU at all, although the comments here said it
+// carried one. Without it an MMS server cannot establish the MMS
+// association (PITF-077).
 
 package wire
 
@@ -66,81 +65,60 @@ var ErrACSETooShort = errors.New("mms: ACSE response too short")
 // caller wraps in a COTP DT header (LI=02, type=0xF0,
 // TPDU-nr=0x80) + TPKT before sending.
 //
-// Frame layout (annotated bottom-up):
+// Byte for byte the client AARQ of the w3h/icsmaster IEC 61850 MMS
+// captures (TestBuildACSEAssociateRequestMMS_RealCapture). Layout:
 //
-//	ACSE AARQ                                   tag 0x60
-//	  [0] protocol-version                       BIT STRING {1}
-//	  [1] application-context-name              OID 1.0.9506.2.3
-//	  [30] user-information                     EXTERNAL with MMS Initiate
-//	    MMS Initiate-RequestPDU                 (proposedMaxServOutstanding…)
-//
-// The MMS Initiate-RequestPDU we ship is the minimum-viable
-// set of negotiation parameters, proposedMaxServOutstanding
-// 5/5, proposedDataStructureNestingLevel 5, no service-
-// specific parameters. Real-world IEDs accept this and
-// respond with their own preferred values in the AARE.
+//	0D B2                     Session CONNECT SPDU, len 178
+//	  05 06 13 01 00 16 01 02   Connect Accept Item (options 0, version 2)
+//	  14 02 00 02               Session User Requirements
+//	  33 02 00 01 / 34 02 00 01 calling / called session selector 1
+//	  C1 9C                     Session User Data, len 156
+//	31 81 99                  Presentation CP-type SET, len 153
+//	  A0 03 80 01 01            mode normal
+//	  A2 81 91                  normal-mode-parameters, len 145
+//	    81 04 00 00 00 01       calling presentation selector 1
+//	    82 04 00 00 00 01       called presentation selector 1
+//	    A4 23 ...               context list: 1 = ACSE, 3 = MMS (both BER)
+//	    88 02 06 00             presentation-requirements
+//	    61 5A 30 58 02 01 01 A0 53   user-data, context 1 (ACSE)
+//	60 51                     ACSE AARQ, len 81
+//	  80 02 07 80               protocol-version 1
+//	  A1 07 06 05 28 CA 22 02 03 application-context-name 1.0.9506.2.3
+//	  A2 06 06 04 2B CE 0F 02   called AP-title 1.3.9999.2
+//	  A3 03 02 01 17            called AE-qualifier 23
+//	  BE 35 28 33               user-information, EXTERNAL
+//	    06 02 51 01 02 01 03    BER transfer syntax, presentation context 3
+//	    A0 2A A8 28             MMS Initiate-RequestPDU:
+//	      80 02 75 30             localDetailCalling 30000
+//	      81 02 03 E8 82 02 03 E8 proposedMaxServOutstanding 1000 / 1000
+//	      83 01 05                proposedDataStructureNestingLevel 5
+//	      A4 17 80 01 01          initRequestDetail: version 1,
+//	        81 03 05 FB 00        parameter CBB,
+//	        82 0D 03 FF … FF 00   services supported
 func BuildACSEAssociateRequestMMS() []byte {
-	// The OSI Session/Presentation/ACSE blob below is one
-	// monolithic hex sequence, hand-tracing through it
-	// reveals the layered structure, but as wire bytes it
-	// goes out as one TSDU.
-	//
-	// Note the sizes embedded in the BER tag-length-value
-	// triples: any change to the inner content needs a
-	// length recalc. The static blob here is verified to
-	// parse on libiec61850 + scapy.
-	return []byte{
-		// ──── ISO 8327 Session CONNECT SPDU ────────────────
-		0x0D, 0x6F, // SPDU type = CONNECT (0x0D), length = 0x6F (111)
-		// Connect Accept Item (PI 5)
-		0x05, 0x06, 0x13, 0x01, 0x00, 0x16, 0x01, 0x02,
-		// Session User Requirements (PI 20)
-		0x14, 0x02, 0x00, 0x02,
-		// Calling Session Selector (PI 51)
-		0x33, 0x02, 0x00, 0x01,
-		// Called Session Selector (PI 52)
-		0x34, 0x02, 0x00, 0x01,
-		// Session User Data (PI 193), wraps the Presentation CP
-		0xC1, 0x59,
+	out := make([]byte, len(realClientAARQ))
+	copy(out, realClientAARQ)
+	return out
+}
 
-		// ──── ISO 8823 Presentation CP-PPDU ────────────────
-		// Mode selector + normal-mode parameters
-		0x31, 0x57, // SET tag length
-		0xA0, 0x03, 0x80, 0x01, 0x01, // mode = normal
-		// normal-mode-parameters [2]
-		0xA2, 0x50,
-		// calling-presentation-selector [1] OCTET STRING
-		0x81, 0x04, 0x00, 0x00, 0x00, 0x01,
-		// called-presentation-selector [2] OCTET STRING
-		0x82, 0x04, 0x00, 0x00, 0x00, 0x01,
-		// presentation-context-definition-list [4]
-		0xA4, 0x23,
-		// First context-def: identifier 1, abstract-syntax = ACSE,
-		// transfer-syntax = BER
-		0x30, 0x0F, 0x02, 0x01, 0x01,
-		0x06, 0x04, 0x52, 0x01, 0x00, 0x01,
-		0x30, 0x04, 0x06, 0x02, 0x51, 0x01,
-		// Second context-def: identifier 3, abstract-syntax = MMS,
-		// transfer-syntax = BER
-		0x30, 0x10, 0x02, 0x01, 0x03,
-		0x06, 0x05, 0x28, 0xCA, 0x22, 0x02, 0x01,
-		0x30, 0x04, 0x06, 0x02, 0x51, 0x01,
-		// user-data [APPLICATION 0], wraps the ACSE AARQ
-		0x61, 0x1D,
-		0x30, 0x1B, 0x02, 0x01, 0x01,
-		0xA0, 0x16,
-
-		// ──── ACSE AARQ ────────────────────────────────────
-		// (tag 0x60 is implicit via the presentation context,
-		// some implementations re-insert it here; libiec61850
-		// inserts the inner aarq directly)
-		0x60, 0x14,
-		// application-context-name [1] EXPLICIT OID
-		0xA1, 0x07, 0x06, 0x05, 0x28, 0xCA, 0x22, 0x02, 0x03,
-		// user-information [30] (Initiate-RequestPDU stub)
-		0xBE, 0x09, 0x28, 0x07, 0x06, 0x05, 0x28, 0xCA,
-		0x22, 0x02, 0x01,
-	}
+// realClientAARQ is the captured client AARQ (see
+// BuildACSEAssociateRequestMMS).
+var realClientAARQ = []byte{
+	0x0D, 0xB2, 0x05, 0x06, 0x13, 0x01, 0x00, 0x16, 0x01, 0x02, 0x14, 0x02,
+	0x00, 0x02, 0x33, 0x02, 0x00, 0x01, 0x34, 0x02, 0x00, 0x01, 0xC1, 0x9C,
+	0x31, 0x81, 0x99, 0xA0, 0x03, 0x80, 0x01, 0x01, 0xA2, 0x81, 0x91, 0x81,
+	0x04, 0x00, 0x00, 0x00, 0x01, 0x82, 0x04, 0x00, 0x00, 0x00, 0x01, 0xA4,
+	0x23, 0x30, 0x0F, 0x02, 0x01, 0x01, 0x06, 0x04, 0x52, 0x01, 0x00, 0x01,
+	0x30, 0x04, 0x06, 0x02, 0x51, 0x01, 0x30, 0x10, 0x02, 0x01, 0x03, 0x06,
+	0x05, 0x28, 0xCA, 0x22, 0x02, 0x01, 0x30, 0x04, 0x06, 0x02, 0x51, 0x01,
+	0x88, 0x02, 0x06, 0x00, 0x61, 0x5A, 0x30, 0x58, 0x02, 0x01, 0x01, 0xA0,
+	0x53, 0x60, 0x51, 0x80, 0x02, 0x07, 0x80, 0xA1, 0x07, 0x06, 0x05, 0x28,
+	0xCA, 0x22, 0x02, 0x03, 0xA2, 0x06, 0x06, 0x04, 0x2B, 0xCE, 0x0F, 0x02,
+	0xA3, 0x03, 0x02, 0x01, 0x17, 0xBE, 0x35, 0x28, 0x33, 0x06, 0x02, 0x51,
+	0x01, 0x02, 0x01, 0x03, 0xA0, 0x2A, 0xA8, 0x28, 0x80, 0x02, 0x75, 0x30,
+	0x81, 0x02, 0x03, 0xE8, 0x82, 0x02, 0x03, 0xE8, 0x83, 0x01, 0x05, 0xA4,
+	0x17, 0x80, 0x01, 0x01, 0x81, 0x03, 0x05, 0xFB, 0x00, 0x82, 0x0D, 0x03,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
 }
 
 // ParseACSEAssociateResponseMMS scans the COTP DT payload

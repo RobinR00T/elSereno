@@ -99,50 +99,146 @@ func ExtractMMSVendorHint(buf []byte) string {
 	return ""
 }
 
-// BuildMMSGetServerDirectoryRequest assembles a confirmed-
-// service GetServerDirectory request listing objectClass =
-// domain (i.e. Logical Devices). MMS PDU is wrapped in COTP
-// DT and submitted on the already-ACSE-associated connection.
+// Object classes for GetNameList (ISO 9506-2 ObjectClass).
+const (
+	// ObjectClassNamedVariable lists named variables.
+	ObjectClassNamedVariable byte = 0
+	// ObjectClassDomain lists domains, which IEC 61850-8-1 maps to
+	// Logical Devices.
+	ObjectClassDomain byte = 9
+)
+
+// BuildMMSGetNameListRequest returns a confirmed-RequestPDU for
+// getNameList with vmd-specific scope. invokeID must be below 0x80
+// (a one-octet positive INTEGER).
 //
-// The Invoke-ID is hard-coded to 1 (we issue exactly one
-// request per probe; no concurrent service overlap to worry
-// about).
+//	A0 0E                                  -- ConfirmedRequest
+//	   02 01 <invokeID>                    -- invokeID
+//	   A1 09                               -- service: getNameList
+//	      A0 03 80 01 <class>              -- extendedObjectClass: objectClass
+//	      A1 02 80 00                      -- objectScope: vmdSpecific (NULL)
 //
-// Layout (ASN.1 BER, MMS PDU = ConfirmedRequestPDU tag 0xA0):
-//
-//	A0 LL                                  -- ConfirmedRequest
-//	   02 01 01                            -- invokeID = 1
-//	   A1 LL                               -- service: getNameList
-//	      A0 03 80 01 09                   -- objectClass = domain (9)
-//	      A1 03 80 01 01                   -- objectScope = vmd-specific
-//
-// MaxResultsPerRequest omitted (defaults to "no limit" per
-// most IED implementations). continueAfter omitted (first
-// page).
+// With invokeID 0 and class 0 it is byte for byte the getNameList the
+// client sends in w3h/icsmaster iec61850_get_name_list.pcap. Until
+// 2026-10-07 the scope was encoded A1 03 80 01 01: a NULL with a
+// content octet, which a strict BER decoder rejects (PITF-077).
+func BuildMMSGetNameListRequest(invokeID, objectClass byte) []byte {
+	return []byte{
+		0xA0, 0x0E,
+		0x02, 0x01, invokeID,
+		0xA1, 0x09,
+		0xA0, 0x03, 0x80, 0x01, objectClass,
+		0xA1, 0x02, 0x80, 0x00,
+	}
+}
+
+// BuildMMSGetServerDirectoryRequest is IEC 61850's GetServerDirectory:
+// getNameList of the domains (Logical Devices), invokeID 1. The caller
+// sends it on the already-associated connection inside a P-DATA
+// (WrapPData) and a COTP DT.
 func BuildMMSGetServerDirectoryRequest() []byte {
-	// Pre-compute the inner ConfirmedRequest body.
-	body := []byte{
-		// invokeID = INTEGER 1
-		0x02, 0x01, 0x01,
-		// service tag = [1] IMPLICIT getNameList = 0xA1
-		0xA1, 0x0A,
-		// objectClass = [0] IMPLICIT INTEGER 9 (domain)
-		0xA0, 0x03, 0x80, 0x01, 0x09,
-		// objectScope = [1] IMPLICIT vmdSpecific (NULL)
-		0xA1, 0x03, 0x80, 0x01, 0x01,
+	return BuildMMSGetNameListRequest(1, ObjectClassDomain)
+}
+
+// ErrNotPData is returned by UnwrapPData when the bytes are not an
+// ISO 8327 Give-Tokens + Data SPDU pair carrying an ISO 8823 P-DATA.
+var ErrNotPData = errors.New("mms: not a session DATA + presentation P-DATA frame")
+
+// sessionGiveTokensData is the two-SPDU prefix (Give-Tokens, then
+// Data, both with no parameters) that precedes every presentation
+// P-DATA on an associated connection.
+var sessionGiveTokensData = []byte{0x01, 0x00, 0x01, 0x00}
+
+// mmsPresentationContext is the presentation context the AARQ
+// defines for MMS (context 3, see BuildACSEAssociateRequestMMS).
+const mmsPresentationContext = 0x03
+
+// WrapPData wraps an MMS PDU for an associated connection: the session
+// Give-Tokens + Data SPDUs and a presentation P-DATA (fully-encoded
+// user data, presentation context 3, single-ASN1-type). After the
+// association every MMS PDU travels like this; in the w3h/icsmaster
+// captures the getNameList is 01 00 01 00 61 17 30 15 02 01 03 A0 10
+// followed by the PDU. Until 2026-10-07 the probe sent the bare PDU
+// after the COTP DT header, which a server cannot route (PITF-077).
+func WrapPData(pdu []byte) []byte {
+	inner := append([]byte{0x02, 0x01, mmsPresentationContext, 0xA0}, berLength(len(pdu))...)
+	inner = append(inner, pdu...)
+	pdv := append([]byte{0x30}, berLength(len(inner))...)
+	pdv = append(pdv, inner...)
+	out := append([]byte{}, sessionGiveTokensData...)
+	out = append(out, 0x61)
+	out = append(out, berLength(len(pdv))...)
+	return append(out, pdv...)
+}
+
+// UnwrapPData returns the MMS PDU carried in a session Give-Tokens +
+// Data and presentation P-DATA frame (the COTP DT header already
+// stripped), the inverse of WrapPData. The presentation context
+// identifier is not checked.
+func UnwrapPData(b []byte) ([]byte, error) {
+	if !bytes.HasPrefix(b, sessionGiveTokensData) {
+		return nil, ErrNotPData
 	}
-	// Wrap in ConfirmedRequestPDU = [0] CONSTRUCTED = 0xA0.
-	pdu := make([]byte, 0, 2+len(body))
-	// G115 guard: body is a fixed-shape PDU (≤ 24 bytes) so
-	// the byte() conversion is always safe; assert defensively.
-	if len(body) > 0xFF {
-		// Unreachable for the current static PDU; here for
-		// future extensions where body could grow.
-		body = body[:0xFF]
+	rest := b[len(sessionGiveTokensData):]
+	for _, tag := range []byte{0x61, 0x30} {
+		var ok bool
+		if rest, ok = enterBER(rest, tag); !ok {
+			return nil, ErrNotPData
+		}
 	}
-	pdu = append(pdu, 0xA0, byte(len(body))) // #nosec G115, bounded above.
-	pdu = append(pdu, body...)
-	return pdu
+	// presentation-context-identifier INTEGER
+	if len(rest) < 3 || rest[0] != 0x02 || int(rest[1]) > len(rest)-2 {
+		return nil, ErrNotPData
+	}
+	rest = rest[2+int(rest[1]):]
+	pdu, ok := enterBER(rest, 0xA0)
+	if !ok {
+		return nil, ErrNotPData
+	}
+	return pdu, nil
+}
+
+// berLength encodes a BER definite length (short form below 128, long
+// form with one or two octets above).
+func berLength(n int) []byte {
+	switch {
+	case n < 0x80:
+		return []byte{byte(n)} // #nosec G115 -- n < 0x80.
+	case n <= 0xFF:
+		return []byte{0x81, byte(n)} // #nosec G115 -- n <= 0xFF.
+	default:
+		return []byte{0x82, byte(n >> 8), byte(n)} // #nosec G115 -- MMS PDUs here are far below 64 KiB.
+	}
+}
+
+// enterBER checks that b starts with tag and a definite length whose
+// value octets are all present, and returns them; a truncated buffer
+// fails rather than being clamped.
+func enterBER(b []byte, tag byte) ([]byte, bool) {
+	if len(b) < 2 || b[0] != tag {
+		return nil, false
+	}
+	n, hdr := int(b[1]), 2
+	switch b[1] {
+	case 0x81:
+		if len(b) < 3 {
+			return nil, false
+		}
+		n, hdr = int(b[2]), 3
+	case 0x82:
+		if len(b) < 4 {
+			return nil, false
+		}
+		n, hdr = int(b[2])<<8|int(b[3]), 4
+	default:
+		if b[1] >= 0x80 {
+			return nil, false
+		}
+	}
+	if len(b)-hdr < n {
+		return nil, false
+	}
+	return b[hdr : hdr+n], true
 }
 
 // ErrShortGetNameListResponse is returned when the response

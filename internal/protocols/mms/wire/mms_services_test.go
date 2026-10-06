@@ -67,9 +67,13 @@ func TestBuildMMSGetServerDirectoryRequest_Shape(t *testing.T) {
 	if !bytes.Contains(pdu, []byte{0x02, 0x01, 0x01}) {
 		t.Errorf("invokeID INTEGER 1 not found in pdu")
 	}
-	// getNameList service tag 0xA1
-	if !bytes.Contains(pdu, []byte{0xA1, 0x0A}) {
+	// getNameList service tag 0xA1 (len 9: object class + vmd scope)
+	if !bytes.Contains(pdu, []byte{0xA1, 0x09}) {
 		t.Errorf("getNameList service tag 0xA1 not found")
+	}
+	// objectScope vmdSpecific is a NULL: A1 02 80 00, no content octet.
+	if !bytes.HasSuffix(pdu, []byte{0xA1, 0x02, 0x80, 0x00}) {
+		t.Errorf("objectScope is not vmdSpecific NULL: % x", pdu)
 	}
 }
 

@@ -324,6 +324,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **IEC 61850 MMS: the association and the directory request now work
+  against a real server (PITF-077).** The AARQ carried no MMS
+  Initiate-RequestPDU (its user-information was an EXTERNAL with only a
+  direct-reference), so a real server could not establish the MMS
+  association; GetServerDirectory was sent as a bare PDU, without the
+  session DATA + presentation P-DATA layers every post-association PDU
+  carries, and with its vmd-specific scope encoded as a NULL with a content
+  octet. Detection itself was unaffected (the COTP handshake already
+  identified the server), but the Logical Device list and vendor hint never
+  came back from real equipment. The AARQ is now the captured client's byte
+  for byte (w3h/icsmaster IEC 61850 captures), the getNameList is
+  byte-identical to the captured one when given the same invoke ID and
+  class, and replies are unwrapped before parsing.
 - **`elsereno scan` now runs the protocol plugins, and every finding names
   its target (PITF-076).** The CLI ran the banner probe alone: no protocol
   plugin (modbus, dnp3, s7…) ever ran from `scan`, although the manual said

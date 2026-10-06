@@ -155,10 +155,13 @@ func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, []byte, b
 // associate). The conn deadline is reset for this exchange.
 func tryGetServerDirectory(conn net.Conn, ioTimeout time.Duration) ([]string, error) {
 	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
-	pdu := wire.BuildMMSGetServerDirectoryRequest()
-	frame := make([]byte, 0, 3+len(pdu))
+	// After the association an MMS PDU travels inside session DATA +
+	// presentation P-DATA; the bare PDU used until 2026-10-07 could not
+	// be routed by a real server (PITF-077).
+	pdata := wire.WrapPData(wire.BuildMMSGetServerDirectoryRequest())
+	frame := make([]byte, 0, 3+len(pdata))
 	frame = append(frame, 0x02, 0xF0, 0x80) // COTP DT header
-	frame = append(frame, pdu...)
+	frame = append(frame, pdata...)
 	if err := wire.WriteTPKT(conn, frame); err != nil {
 		return nil, fmt.Errorf("mms: write GetServerDirectory: %w", err)
 	}
@@ -168,10 +171,14 @@ func tryGetServerDirectory(conn net.Conn, ioTimeout time.Duration) ([]string, er
 	}
 	// Strip COTP DT header (3 bytes) before parsing.
 	body := respTPKT.Payload
-	if len(body) > 3 {
-		body = body[3:]
+	if len(body) < 3 {
+		return nil, wire.ErrNotPData
 	}
-	return wire.ParseMMSGetServerDirectoryResponse(body)
+	pdu, err := wire.UnwrapPData(body[3:]) // past the COTP DT header
+	if err != nil {
+		return nil, err
+	}
+	return wire.ParseMMSGetServerDirectoryResponse(pdu)
 }
 
 // REPL stub, consistent with every other protocol plugin.
