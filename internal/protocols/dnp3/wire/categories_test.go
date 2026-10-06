@@ -8,9 +8,10 @@ func TestClassifyControl(t *testing.T) {
 		ctrl uint8
 		want Category
 	}{
-		{"primary Test Link", 0xC1, CategoryRead},           // DIR=1 PRM=1 FC=1
+		{"primary Test Link States", 0xC2, CategoryRead},    // DIR=1 PRM=1 FC=2
 		{"primary Request Link Status", 0xC9, CategoryRead}, // DIR=1 PRM=1 FC=9
 		{"primary Reset Link", 0xC0, CategoryWrite},
+		{"primary Reset User Process", 0xC1, CategoryWrite}, // FC=1: a reset, never a read (PITF-074)
 		{"primary Confirmed Data", 0xC3, CategoryWrite},
 		{"primary Unconfirmed Data", 0xC4, CategoryWrite},
 		{"primary unknown FC 7", 0xC7, CategoryUnknown},

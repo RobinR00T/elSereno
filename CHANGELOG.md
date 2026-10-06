@@ -324,6 +324,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DNP3 default proxy: a reset no longer passes as a read, and a refused
+  frame no longer breaks the session (PITF-074).** The link function table
+  had Test Link States as 1; in DNP3, 1 is Reset of User Process and Test
+  Link is 2 (Wireshark `packet-dnp.c`, nmap `dnp3-info.nse`). The read-only
+  proxy therefore forwarded a Reset of User Process to the outstation and
+  refused a real Test Link. Separately, it read a refused frame's body
+  without its per-block CRCs, so the next frame was parsed from the
+  leftover CRC octets and the session died. Both fixed; the offensive build
+  already had the right numbering.
 - **DNP3 probe now sends a frame a real outstation answers (PITF-073).** The
   probe sent `05 64 05 c4 01 00 02 00 00 00`: a link header with no
   application layer and a zero CRC (the right one is `6c 6f`), to address 1

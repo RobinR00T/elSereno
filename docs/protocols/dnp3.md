@@ -30,11 +30,17 @@ Operate skips even that.
 
 Every frame's link-layer control byte is classified:
 
-- **CategoryRead**: PRM=0 responses, PRM=1 Test Link (FC 1), PRM=1
-  Request Link Status (FC 9). Forward untouched.
-- **CategoryWrite**: PRM=1 Reset Link (FC 0), Confirmed User Data
+- **CategoryRead**: PRM=0 responses, PRM=1 Test Link States (FC 2),
+  PRM=1 Request Link Status (FC 9). Forward untouched.
+- **CategoryWrite**: PRM=1 Reset Link States (FC 0), Reset of User
+  Process (FC 1, obsolete since IEEE 1815-2012), Confirmed User Data
   (FC 3), Unconfirmed User Data (FC 4). The user-data frames carry the
   application layer, so the default build conservatively blocks them.
+- Until 2026-10-07 the table had Test Link as FC 1, so this proxy
+  forwarded a Reset of User Process and refused a real Test Link; and
+  it read a refused frame's body without its block CRCs, which broke
+  the next frame (PITF-074). The numbering now matches Wireshark's
+  `packet-dnp.c`.
 - **CategoryUnknown**: any primary FC outside the table. Blocked.
 
 Refusal is a secondary FC 15 "Not Supported" frame with the source and

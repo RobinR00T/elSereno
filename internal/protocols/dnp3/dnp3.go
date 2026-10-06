@@ -77,13 +77,13 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 }
 
 // ProxyHandler returns the default DNP3 proxy, which refuses every
-// primary (PRM=1) frame except Test Link States (FC 1) and Request
-// Link Status (FC 9); user-data frames (FC 3/4) and Reset Link
-// States (FC 0) can carry mutating application-layer requests and
-// are short-circuited with a secondary "Not Supported" (FC 15)
-// reply (ADR-040). The offensive build substitutes a handler that
-// parses the application layer and routes writes through the
-// triple-confirm wrapper.
+// primary (PRM=1) frame except Test Link States (FC 2) and Request
+// Link Status (FC 9); user-data frames (FC 3/4) can carry mutating
+// application-layer requests and Reset Link States (FC 0) and Reset
+// of User Process (FC 1) are resets, so all are short-circuited with
+// a secondary "Not Supported" (FC 15) reply (ADR-040). The offensive
+// build substitutes a handler that parses the application layer and
+// routes writes through the triple-confirm wrapper.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
 type writeBanHandler struct{}
@@ -116,10 +116,10 @@ func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Write
 		if err != nil {
 			return err
 		}
-		bodyLen := 0
-		if h.Length > 5 {
-			bodyLen = int(h.Length) - 5
-		}
+		// The on-wire body is the user data plus a 2-octet CRC after
+		// every started 16-octet block; reading only Length-5 octets left
+		// the CRCs in the stream and broke the next header (PITF-074).
+		bodyLen := wire.BodyLen(h.Length)
 		body := make([]byte, bodyLen)
 		if bodyLen > 0 {
 			if _, err := io.ReadFull(client, body); err != nil {

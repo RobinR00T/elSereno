@@ -25,10 +25,16 @@ const (
 
 // Primary link-layer function codes (IEEE 1815 §9.2.4.1.3). Only
 // the ones we classify here are named; others fall into
-// CategoryUnknown.
+// CategoryUnknown. The numbering matches Wireshark's dissector
+// (packet-dnp.c DL_FUNC_*) and nmap's dnp3-info.nse: 1 is Reset of
+// User Process (obsolete since IEEE 1815-2012, and a reset), 2 is Test
+// Link States. Until 2026-10-07 this table had Test Link as 1, so the
+// default proxy forwarded a Reset of User Process as a read and refused
+// a real Test Link (PITF-074).
 const (
 	PrimaryResetLinkStates  uint8 = 0
-	PrimaryTestLinkStates   uint8 = 1
+	PrimaryResetUserProcess uint8 = 1
+	PrimaryTestLinkStates   uint8 = 2
 	PrimaryConfirmedData    uint8 = 3
 	PrimaryUnconfirmedData  uint8 = 4
 	PrimaryRequestLinkState uint8 = 9
@@ -47,7 +53,7 @@ func ClassifyControl(ctrl uint8) Category {
 	switch fc {
 	case PrimaryTestLinkStates, PrimaryRequestLinkState:
 		return CategoryRead
-	case PrimaryResetLinkStates, PrimaryConfirmedData, PrimaryUnconfirmedData:
+	case PrimaryResetLinkStates, PrimaryResetUserProcess, PrimaryConfirmedData, PrimaryUnconfirmedData:
 		return CategoryWrite
 	default:
 		return CategoryUnknown
