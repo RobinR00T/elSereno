@@ -10,9 +10,9 @@ default-port: 4059/tcp
 # DLMS/COSEM
 
 ## TL;DR
-ElSereno's `dlms` plugin sends a 37-byte DLMS-wrapper-framed
-AARQ probe (8-byte wrapper + 29-byte canonical minimal AARQ
-APDU) on TCP/4059 and classifies the response by wrapper version
+ElSereno's `dlms` plugin sends a 39-byte DLMS-wrapper-framed
+AARQ probe (8-byte wrapper + 31-byte public-client AARQ APDU,
+byte-identical to the Gurux client's; PITF-075) on TCP/4059 and classifies the response by wrapper version
 (0x0001) + AARE tag (0x61). Wrapper-only positive ID also
 counts. v1.21 chunk 3 ships read-only fingerprint plus a
 wire-layer write-ban proxy that replies with a 16-byte
@@ -31,13 +31,14 @@ length) + BER-encoded COSEM APDU. Frame layout in
 ## Fingerprint strategy
 One-shot probe over TCP. The wrapper version (0x0001) plus AARE
 tag (0x61) at the APDU start indicates a confirmed
-DLMS/COSEM server. Wrapper-only responses (e.g., AARQ tag echo
-or fault APDU) also count as positive ID, the server speaks
-DLMS-wrapper but rejected our AARQ, common with HLS-locked
-deployments.
+DLMS/COSEM server. Wrapper-only responses (e.g., a fault APDU)
+also count as positive ID, the server speaks DLMS-wrapper but
+rejected our AARQ, common with HLS-locked deployments. A reply
+that reflects our own AARQ is NOT positive (PITF-071, fixed
+2026-10-07): the probe rejects an echo before classifying.
 
 ## Read operations (default build)
-- `probe`: dials TCP/4059, sends BuildAARQ (37 bytes), reads
+- `probe`: dials TCP/4059, sends BuildAARQ (39 bytes), reads
   the 8-byte wrapper + declared APDU body (capped at 8192),
   classifies via ClassifyResponse / IsWrapperResponse.
 

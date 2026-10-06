@@ -27,14 +27,14 @@ func FuzzClassifyResponse(f *testing.F) {
 	})
 }
 
-// FuzzBuildAARQStable asserts the AARQ probe is always 37
-// bytes (8 wrapper + 29 APDU).
+// FuzzBuildAARQStable asserts the AARQ probe is always 39
+// bytes (8 wrapper + 31 APDU).
 func FuzzBuildAARQStable(f *testing.F) {
 	f.Add(byte(0x00))
 	f.Fuzz(func(t *testing.T, _ byte) {
 		got := wire.BuildAARQ()
-		if len(got) != 37 {
-			t.Fatalf("frame length: got %d want 37", len(got))
+		if len(got) != 39 {
+			t.Fatalf("frame length: got %d want 39", len(got))
 		}
 		if got[8] != 0x60 {
 			t.Fatalf("AARQ tag: got 0x%02x want 0x60", got[8])

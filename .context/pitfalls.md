@@ -453,5 +453,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: una tabla de códigos de función se contrasta con un disector de referencia (Wireshark) antes de decidir qué es "lectura". Y si un helper correcto (`BodyLen`) ya existe en el paquete, todo lector del cable lo usa.
 **Ver**: `internal/protocols/dnp3/{dnp3,proxy_test}.go`, `internal/protocols/dnp3/wire/{categories,categories_test}.go`, `offensive/write/dnp3/gatedproxy.go`, `docs/protocols/dnp3.md`; 7-10-2026.
 
+## PITF-075: la AARQ de DLMS iba sin un campo obligatorio del InitiateRequest
+**Síntoma**: barrido de peticiones contra capturas (7-10-2026). Nuestro InitiateRequest era `01 00 00 00 06 5F 1F 04 00 00 18 1F` (12 octetos) y terminaba tras la conformance. En el Green Book, `InitiateRequest` acaba en `client-max-receive-pdu-size Unsigned16`, que es OBLIGATORIO.
+**Evidencia (dos fuentes independientes)**: (1) la AARQ real de zeus8497/dlms-analysis `dlms.pcap` termina su InitiateRequest en `… 5f 1f 04 00 00 fe 1d ff ff` (14 octetos); (2) la AARQ de cliente público que envía el cliente Gurux DLMS (foro gurux.fi, node 19195) es `60 1D A1 09 06 07 60 85 74 05 08 01 01 BE 10 04 0E 01 00 00 00 06 5F 1F 04 00 00 1E 5D FF FF`. Las dos llevan el campo; la nuestra no.
+**Efecto**: un servidor estricto no puede decodificar el InitiateRequest. Lo habitual es que conteste una AARE de rechazo (y el plugin la cuenta igual como DLMS, porque clasifica por la etiqueta AARE), pero un medidor que cierre la conexión ante una AARQ malformada daba falso negativo. Riesgo menor que DNP3 (PITF-073), mismo género: el realcap validaba la AARE, nunca nuestra AARQ.
+**Fix (7-10-2026)**: la APDU es la de Gurux byte a byte (31 octetos; trama de 39). Test: igualdad con Gurux, y el InitiateRequest con la misma disposición que el de la captura real (solo cambian los tres octetos de conformance).
+**Ver**: `internal/protocols/dlms/wire/{wire,realcap_test,wire_test,wire_fuzz_test}.go`, `docs/protocols/dlms.md`, `.context/protocols/dlms.md`, `docs/parser-validation.md`; 7-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

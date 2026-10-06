@@ -11,8 +11,8 @@ import (
 func TestBuildAARQLayout(t *testing.T) {
 	t.Parallel()
 	got := wire.BuildAARQ()
-	if len(got) != 8+29 {
-		t.Fatalf("frame length: got %d want 37", len(got))
+	if len(got) != 8+31 {
+		t.Fatalf("frame length: got %d want 39", len(got))
 	}
 	if binary.BigEndian.Uint16(got[0:2]) != 0x0001 {
 		t.Fatalf("wrapper version: got 0x%04x", binary.BigEndian.Uint16(got[0:2]))
@@ -23,7 +23,7 @@ func TestBuildAARQLayout(t *testing.T) {
 	if binary.BigEndian.Uint16(got[4:6]) != 0x0001 {
 		t.Fatalf("dest wPort: got 0x%04x", binary.BigEndian.Uint16(got[4:6]))
 	}
-	if binary.BigEndian.Uint16(got[6:8]) != 29 {
+	if binary.BigEndian.Uint16(got[6:8]) != 31 {
 		t.Fatalf("apdu length: got %d", binary.BigEndian.Uint16(got[6:8]))
 	}
 	if got[8] != 0x60 {

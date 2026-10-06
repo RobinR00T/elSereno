@@ -8,10 +8,17 @@ that frames the COSEM application-layer APDUs.
 
 ## Probe
 
-- Send a 37-byte DLMS-wrapper-framed AARQ (Application
-  Association Request) probe: 8-byte wrapper + 29-byte canonical
-  minimal AARQ APDU referencing the LN-no-ciphering application
-  context (OID 2.16.756.5.8.1.1).
+- Send a 39-byte DLMS-wrapper-framed AARQ (Application
+  Association Request) probe: 8-byte wrapper + 31-byte AARQ APDU
+  referencing the LN-no-ciphering application context (OID
+  2.16.756.5.8.1.1), no authentication (public client, wPort
+  0x0010). The APDU is byte for byte the public-client AARQ the
+  Gurux DLMS client sends, and its InitiateRequest has the layout
+  of the one in a real capture (zeus8497/dlms-analysis). Until
+  2026-10-07 the InitiateRequest lacked its mandatory
+  client-max-receive-pdu-size (PITF-075).
+- A reply that reflects our own AARQ is rejected first (PITF-071):
+  the wrapper version also opens our request.
 - Read the wrapper header (8 bytes) to learn the declared APDU
   length, then read the body. Classify by:
   - Wrapper version 0x0001 ✓ + AARE tag (0x61) at the APDU

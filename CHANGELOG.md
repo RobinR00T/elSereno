@@ -324,6 +324,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DLMS/COSEM probe: the AARQ now carries its mandatory last field
+  (PITF-075).** The InitiateRequest inside our AARQ stopped after the
+  conformance block and lacked `client-max-receive-pdu-size`, which the
+  Green Book makes mandatory; a strict meter could not decode it. Both a
+  real capture (zeus8497/dlms-analysis) and the Gurux DLMS client end it with
+  `FF FF`. The AARQ APDU is now byte-identical to Gurux's public-client
+  AARQ (31 bytes, 39 with the wrapper).
 - **DNP3 default proxy: a reset no longer passes as a read, and a refused
   frame no longer breaks the session (PITF-074).** The link function table
   had Test Link States as 1; in DNP3, 1 is Reset of User Process and Test

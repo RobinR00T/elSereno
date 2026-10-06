@@ -73,40 +73,50 @@ type AssociationInfo struct {
 	APDULen uint16
 }
 
-// canonicalMinimalAARQ is a 29-byte AARQ APDU that requests the
+// canonicalMinimalAARQ is a 31-byte AARQ APDU that requests the
 // Logical Name referencing application context with no
-// ciphering (OID 2.16.756.5.8.1.1) and a minimal
-// initiate-request user-information block.
+// ciphering (OID 2.16.756.5.8.1.1) and no authentication (the
+// public client), with a minimal initiate-request
+// user-information block. It is byte for byte the AARQ the Gurux
+// DLMS client sends for a public-client association (gurux.fi
+// forum node 19195), and its InitiateRequest has the layout of the
+// one in the real zeus8497/dlms-analysis capture.
 //
 // Frame breakdown:
 //
-//	60 1B                          AARQ-PDU [APPLICATION 0] IMPLICIT, len 27
+//	60 1D                          AARQ-PDU [APPLICATION 0] IMPLICIT, len 29
 //	A1 09                          application-context-name [1] EXPLICIT
 //	  06 07 60 85 74 05 08 01 01     OID = 2.16.756.5.8.1.1 (LN_NoCiphering)
-//	BE 0E                          user-information [APPLICATION 30] EXPLICIT
-//	  04 0C                          OCTET STRING, len 12
+//	BE 10                          user-information [APPLICATION 30] EXPLICIT
+//	  04 0E                          OCTET STRING, len 14
 //	    01                             InitiateRequest tag
 //	    00 00 00                       dedicated-key + response-allowed + proposed-quality-of-service (omitted)
 //	    06                             proposed-DLMS-version-number (6)
-//	    5F 1F 04 00 00 18 1F           proposed-conformance bit-string
+//	    5F 1F 04 00 00 1E 5D           proposed-conformance bit-string
+//	    FF FF                          client-max-receive-pdu-size
+//
+// Until 2026-10-07 the block stopped after the conformance: the
+// mandatory client-max-receive-pdu-size was missing, so a strict
+// server could not decode the InitiateRequest (PITF-075).
 var canonicalMinimalAARQ = []byte{
-	0x60, 0x1B,
+	0x60, 0x1D,
 	0xA1, 0x09,
 	0x06, 0x07, 0x60, 0x85, 0x74, 0x05, 0x08, 0x01, 0x01,
-	0xBE, 0x0E,
-	0x04, 0x0C,
+	0xBE, 0x10,
+	0x04, 0x0E,
 	0x01,
 	0x00, 0x00, 0x00,
 	0x06,
-	0x5F, 0x1F, 0x04, 0x00, 0x00, 0x18, 0x1F,
+	0x5F, 0x1F, 0x04, 0x00, 0x00, 0x1E, 0x5D,
+	0xFF, 0xFF,
 }
 
 // AARQAPDULen is the length of the canonical minimal AARQ APDU
-// (29 bytes, see canonicalMinimalAARQ).
-const AARQAPDULen = 29
+// (31 bytes, see canonicalMinimalAARQ).
+const AARQAPDULen = 31
 
-// BuildAARQ crafts a 37-byte DLMS-wrapper-framed AARQ probe:
-// 8-byte wrapper header + 29-byte canonical minimal AARQ APDU.
+// BuildAARQ crafts a 39-byte DLMS-wrapper-framed AARQ probe:
+// 8-byte wrapper header + 31-byte canonical minimal AARQ APDU.
 // The wrapper uses Source=0x0010 (Public Client management) and
 // Dest=0x0001 (Server management logical device), the canonical
 // default endpoints for unauthenticated probes.
