@@ -1,24 +1,26 @@
 # PBX HTTP admin-UI
 
-**Default ports**: 443, 80, 8088, 5001, 8443, 411 (vendor mix).
+**Default port**: 443 (HTTPS). PBX admin UIs also listen on 80,
+8088, 5001, 8443; the plugin speaks HTTPS only (no plain-HTTP
+fallback) and `scan` runs it on 443, so use `fingerprint probe` for
+another HTTPS port.
 **Status**: probe + write-gated proxy.
 **Offensive build**: per-(method, path) allowlist.
 
 ## Probe
 
-Performs a TLS-aware HTTP probe and matches the response banner
-+ TLS leaf-cert subject + page title against the 15-vendor PBX
-HTTP fingerprint dictionary (FreePBX, FusionPBX, 3CX, Asterisk
-GUI, Issabel, Yeastar, Sangoma, Cisco UCM, Mitel, Avaya, Audiocodes,
-Patton, Ribbon, Grandstream, Polycom).
+One HTTPS `GET /`; the response headers and body are matched against
+the 14-vendor dictionary in `pbxhttp/vendor.go`: FreePBX, PBXact,
+3CX, Yeastar, Cisco UCM, Avaya, Mitel, Grandstream, Fanvil, Yealink,
+Asterisk (HTTP Manager), Switchvox, Elastix and FreeSWITCH. The TLS
+certificate is not inspected.
 
 ## Default-build refusal posture
 
-The default proxy is a strict HTTP reverse-proxy that:
-- Forwards `GET` / `HEAD` / `OPTIONS` requests verbatim.
-- Refuses any other method with `HTTP/1.1 405 Method Not Allowed`
-  + `Allow: GET, HEAD, OPTIONS`.
-- Refuses any path not in the allowlist (`HTTP/1.1 403 Forbidden`).
+The default proxy is deny-all: every client gets `HTTP/1.1 403
+Forbidden` and nothing is forwarded. The method/path gate (`405 Method
+Not Allowed` for unsafe methods) is the offensive build's
+(`offensive/write/pbxhttp`).
 
 ## Offensive write-gate
 

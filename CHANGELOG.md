@@ -324,6 +324,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AT-modem default proxy answers ERROR to a refused command.** A forbidden
+  command (dial, answer) was swallowed but the client got nothing back and
+  kept waiting; the comment said it replied ERROR, and now it does.
 - **SLMP probe no longer panics on a reply that declares a length of 0 or
   1.** The declared length counts the 2-byte end code already read; below 2
   the body read sliced `buf[11:9]` and the probe panicked (outside the

@@ -30,21 +30,23 @@ classes:
 - Mini frames: 4-byte header (just SCallNo + Timestamp) for
   voice payloads.
 
-The probe builds a Full Frame with class=IAX (6) and
-subclass=NEW (1), with IEs for `username` + `password` (empty
-strings to elicit AUTHREQ if creds are required).
+The probe builds a bare Full Frame (12-byte header, no IEs) with
+class=IAX (6) and subclass=NEW (1).
 
 ## Fingerprint strategy
 Send NEW frame, read response:
 - ACCEPT (subclass 7): IAX2 confirmed, server allowed
   unauth registration → high capability.
-- AUTHREQ (subclass 6): IAX2 confirmed, server requires
+- AUTHREQ (subclass 8): IAX2 confirmed, server requires
   creds → still positive ID, slightly lower capability
   (harder to exploit as toll-fraud).
-- REJECT (subclass 9): IAX2 confirmed, server explicitly
+- REJECT (subclass 6): IAX2 confirmed, server explicitly
   refused → still positive ID.
 - HANGUP (subclass 5): IAX2 confirmed, server ended early.
-- UDP closed / silent: no usable reply.
+- UDP closed / silent: a scored "no-response" finding (not "no
+  finding").
+(RFC 5456: NEW 1, PING 2, PONG 3, ACK 4, HANGUP 5, REJECT 6,
+ACCEPT 7, AUTHREQ 8, AUTHREP 9, INVAL 10.)
 
 ## Read operations (default build)
 - `probe`: NEW frame to UDP/4569.

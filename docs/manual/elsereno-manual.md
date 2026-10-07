@@ -592,12 +592,12 @@ well-known:
 | atg       | 10001/tcp    | `<SOH>I20100<CR>` (Veeder-Root info query) |
 | opcua     | 4840/tcp     | HEL Hello → clasifica ACK/ERR/non-UA |
 | xot       | 1998/tcp     | X.25 CALL REQUEST (RFC 1613) |
-| atmodem   | serial/TCP   | AT+CMEE query + banner parse |
-| **sip**   | 5060/udp+tcp | OPTIONS → 15-vendor PBX matcher (Asterisk/FreePBX/3CX/…) |
+| atmodem   | 9999/tcp     | AT → ATI + AT+CGMI, diccionario de fabricantes |
+| **sip**   | 5060/udp     | OPTIONS (solo UDP) → 15 marcas PBX (Asterisk/FreePBX/3CX/…) |
 | **iax2**  | 4569/udp     | RFC 5456 NEW → subclase ACCEPT/AUTHREQ/REJECT |
-| **pbxhttp** | 443 (+80/8080/8088/5001/…) | HTTP admin-UI fingerprint, 15 brands |
+| **pbxhttp** | 443/tcp (solo HTTPS) | GET / a la admin web, 14 marcas |
 | **cwmp**  | 7547/tcp     | TR-069 ACS: GET / (sin Inform) → 13 plataformas ACS + CWMP genérico |
-| banner    | 21/22/23/80  | TCP banner grab genérico (fallback) |
+| banner    | cualquiera   | lee el banner TCP (sin puerto propio: `scan` lo lanza en todos) |
 | mqtt      | 1883/tcp (8883 TLS) | CONNECT anónimo + wildcard + Sparkplug B |
 | opcuahttps | 4843/tcp    | OPC UA HTTPS (Part 6): GetEndpoints + postura de seguridad |
 | finsudp   | 9600/udp     | Omron FINS Controller Data Read (modelo CJ/CS/CP/NJ/NX) |
@@ -748,17 +748,19 @@ elsereno fingerprint probe --plugin atmodem --target 10.0.0.16:23
 ### 3.13 Banner genérico
 
 ```sh
-# Catch-all: puerto desconocido, snaga banner, aplica diccionario
+# Catch-all: lee lo que el puerto envíe al conectar. El diccionario de
+# fabricantes (vendors.go) aún NO se aplica en el probe, y el texto del
+# banner no sale en el finding (decisión abierta en TODO-vNext).
 elsereno scan --plugin banner --input stdin <<< "10.0.0.20:2323"
 ```
 
 ### 3.14 SIP / PBX discovery (v1.3+)
 
 ```sh
-# OPTIONS probe a 5060 UDP (por defecto) o TCP
+# OPTIONS probe a 5060, solo por UDP (no hay sondeo TCP)
 elsereno scan --plugin sip --input stdin <<< "pbx.ejemplo.com:5060"
 
-# Identifica 15 marcas desde Server / User-Agent / Allow headers:
+# Identifica 15 marcas desde las cabeceras Server / User-Agent:
 #   Asterisk / FreePBX / 3CX / Cisco UCM / Cisco SIP Gateway /
 #   Mitel (+ ShoreTel) / Avaya (+ IP Office) / Yeastar /
 #   Grandstream / Fanvil / Yealink / Kamailio / OpenSIPS /
@@ -798,15 +800,12 @@ elsereno scan --plugin iax2 --input stdin <<< "pbx.ejemplo.com:4569"
 # Probe a la admin web (HTTPS por defecto, self-signed tolerado)
 elsereno scan --plugin pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
 
-# También funciona contra puertos comunes de admin alternativos:
-#   80 / 8080 / 8088 / 5001 / 8443 / 411 (Avaya IP Office)
-# El plugin acepta un path alternativo vía config (por defecto "/"):
-#   /admin/config.php  → FreePBX
-#   /webclient/        → 3CX
-#   /ccmadmin/login.do → Cisco UCM
+# Solo HTTPS y solo GET /: en un puerto de admin en HTTP plano
+# (80 / 8080 / 8088) no hay finding, y `scan` solo lo lanza en el 443;
+# otro puerto HTTPS (5001 / 8443) va por
+#   elsereno fingerprint probe --plugin pbxhttp --target pbx.ejemplo.com:8443
 #
-# Reconoce 15 plataformas PBX vía response Server / <title> /
-# body: FreePBX, PBXact (Sangoma), 3CX, Yeastar (+ NeoGate +
+# Reconoce 14 plataformas PBX vía cabeceras y body: FreePBX, PBXact (Sangoma), 3CX, Yeastar (+ NeoGate +
 # Linkus), Cisco UCM, Avaya (IP Office / Aura / Communication
 # Manager), Mitel (+ ShoreTel + MiCollab), Grandstream (+ UCM6
 # + GXP + GXW), Fanvil, Yealink (+ SIP-T), Asterisk HTTP

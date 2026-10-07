@@ -1,29 +1,29 @@
 # SIP (Session Initiation Protocol)
 
 **Default ports**: 5060/udp + 5060/tcp.
-**Status**: probe + write-gated proxy (default build refuses
-mutating methods with `405 Method Not Allowed`).
+**Status**: probe (UDP) + deny-all proxy in the default build
+(`SIP/2.0 403 Forbidden` to every client); the write-gated proxy is
+the offensive build's.
 **Offensive build (`-tags offensive`)**: per-method + per-INVITE-
 prefix + per-REGISTER-AOR + per-From-domain allowlists.
 
 ## Probe
 
-`OPTIONS sip:<host> SIP/2.0` issued via UDP first, falling back
-to TCP. Parses the response banner / `Server:` header against
-the vendor dictionary (15 PBX brands: Asterisk, FreeSWITCH,
-Kamailio, OpenSIPS, 3CX, FreePBX, FusionPBX, Mitel, Avaya, Cisco
-CME, Audiocodes, Patton, Ribbon, Sangoma, Yeastar).
+`OPTIONS sip:<host:port> SIP/2.0` over **UDP only** (the plugin's
+default transport; nothing in the default build switches it to TCP,
+and there is no fallback). The `Server:` and `User-Agent:` headers are
+matched against the vendor dictionary (`sip/vendor.go`, 15 brands):
+Asterisk, FreePBX, 3CX, Cisco UCM, Cisco SIP gateway, Mitel, Avaya,
+Yeastar, Grandstream, Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH
+and SER. Any SIP status line in reply yields a scored finding.
 
 ## Default-build refusal posture
 
-Every SIP request from the client is forwarded only when its
-method is in the **always-safe** set (`OPTIONS`, `ACK`, `BYE`,
-`CANCEL`, `PRACK`). Anything else (INVITE / REGISTER / MESSAGE /
-SUBSCRIBE / NOTIFY / REFER / PUBLISH / UPDATE / INFO) returns:
-
-    SIP/2.0 405 Method Not Allowed
-    Allow: OPTIONS, ACK, BYE, CANCEL, PRACK
-    X-Elsereno-Gate-Reason: …
+The default proxy is deny-all: it answers every client with
+`SIP/2.0 403 Forbidden` and forwards nothing. The method-aware gate
+(always-safe `OPTIONS` / `ACK` / `BYE` / `CANCEL` / `PRACK`, `405
+Method Not Allowed` for the rest) is the offensive build's
+(`offensive/write/sip`).
 
 ## Offensive write-gate
 

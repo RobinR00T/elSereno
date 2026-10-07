@@ -160,8 +160,8 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | Protocol        | Port(s)            | Status (default build) |
 |-----------------|--------------------|------------------------|
 | **Modbus/TCP**  | 502                | probe + write-ban proxy · gated-write per-(unit, FC, address-range) plus per-FC 8-sub-function diagnostics gate (Force Listen Only / Clear Counters default-deny); structured `writes:` / `diag_subfunctions:` YAML round-trip (v1.2/v1.12) |
-| **S7comm**      | 102                | probe + pass-through proxy · gated-write proxy per S7 function code in the offensive build (`--s7-fc`) · deep read-only exposure probe (`s7 probe`: SZL protection level + identity/firmware) and opt-in scored `s7-exposure` plugin |
-| **EtherNet/IP** | 44818              | probe + pass-through proxy · gated-write proxy per CIP encapsulation command, optionally per CIP object, in the offensive build (`--cip-command`, `--cip-attr`) |
+| **S7comm**      | 102                | probe + write-ban proxy · gated-write proxy per S7 function code in the offensive build (`--s7-fc`) · deep read-only exposure probe (`s7 probe`: SZL protection level + identity/firmware) and opt-in scored `s7-exposure` plugin |
+| **EtherNet/IP** | 44818              | probe + write-ban proxy · gated-write proxy per CIP encapsulation command, optionally per CIP object, in the offensive build (`--cip-command`, `--cip-attr`) |
 | **BACnet/IP**   | 47808/udp          | Who-Is probe · gated-write per-service-choice + per-WriteProperty `(ObjectType, Instance, PropertyID)` via ASN.1 BER (v1.4/v1.12) |
 | **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` + g41 analog-setpoint `(index, value-clamp)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
 | IEC 60870-5-104 | 2404               | TESTFR probe |
@@ -170,21 +170,21 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | ATG Veeder-Root | 10001              | I20100 probe |
 | **OPC UA**      | 4840               | Hello probe · deep read-only exposure probe (`opcua probe-anon` + `probe-write` writeable-tag walk) and opt-in scored `opcua-exposure` plugin · gated-write service-TypeID + per-NodeId (numeric + String/GUID/ByteString) + per-CallMethod `(ObjectId, MethodId)` (v1.2/v1.6/v1.12) |
 | XOT (X.25 / TCP) | 1998              | probe + pass-through proxy |
-| AT modem (Hayes/GSM/EN 81-28) | 23, 7, 2001-2032, 3001, 4001-4009, 9999, 10001-10004 | probe + write-ban proxy |
-| **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy per-method + INVITE prefix + REGISTER AOR + From-domain (v1.4/v1.9/v1.10/v1.12) |
+| AT modem (Hayes/GSM/EN 81-28) | 9999 (also seen on 23, 7, 2001-2032, 3001, 4001-4009, 10001-10004: use `fingerprint probe` there) | probe + write-ban proxy |
+| **SIP**         | 5060/udp           | OPTIONS probe (UDP) · 15 PBX vendors · gated-proxy per-method + INVITE prefix + REGISTER AOR + From-domain (v1.4/v1.9/v1.10/v1.12) |
 | **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy per-subclass (v1.4) |
-| **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy per-(method, path) (v1.4) |
+| **pbxhttp**     | 443 (HTTPS only)   | HTTP admin-UI · 14 PBX brands · gated-proxy per-(method, path) (v1.4) |
 | **CWMP / TR-069** | 7547             | ACS fingerprint (HTTP GET, never sends an Inform) · 13 named ACS platforms + generic CWMP · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
 | **FINS**        | 9600/udp           | probe · gated UDP proxy per-(MRC, SRC) command + optional per-memory-area (Omron) |
 | **SLMP**        | 5007               | probe · gated proxy per-command-code + optional per-device-code (MELSEC) |
 | MELSOFT         | 5007               | probe only · GX Works engineering protocol, CPU-info read on the MELSEC CPU's MELSOFT communication port; real-capture validated |
 | **GE-SRTP**     | 18245              | probe · gated proxy per-service-request code (GE/Emerson PACSystems) |
-| **CoDeSys v3**  | 1217, 11740        | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan · opt-in `codesys-active` channel-open probe |
+| **CoDeSys v3**  | 1217 (11740: offensive proxy only) | probe · gated stream proxy per-(L7 service, cmd), fail-closed magic scan · opt-in `codesys-active` channel-open probe |
 | **Red Lion CR3** | 789               | probe · gated proxy per-Type opcode (Crimson v3 HMIs) |
 | **OPC UA HTTPS** | 4843              | GetEndpoints POST · enumerates EndpointDescription list + security posture (a SecurityMode=None endpoint scores as higher exposure) · gated-write over the §7.4 binary binding (same service-TypeID + per-NodeId + per-CallMethod allowlist as OPC UA TCP; transport-scoped token) |
 | IEC 61850 GOOSE/SV | L2 (EtherType 0x88B8/0x88BA) | offline dissect + passive spoofing monitor: stNum jump/regression (the high-stNum override), simulation/test bit, ndsCom, confRev change, sqNum stall, SV smpCnt regression (`goose decode` / `goose monitor`) |
 | MQTT | 1883, 8883 (TLS) | broker exposure fingerprint: anonymous CONNECT + wildcard `#` subscribe + Sparkplug B detection (read-only, never publishes) |
-| banner/dictionary | many             | Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH |
+| banner          | any (no default port) | reads the TCP banner on every target; the vendor dictionary (Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH) is not applied by the probe yet |
 
 The rows in **bold** carry write-gate proxies (this table is a
 representative selection; 18 protocols have write-gates in total,

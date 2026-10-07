@@ -12,7 +12,8 @@
 //   - mini-frame or non-IAX reply → not IAX2 (or audio carrier
 //     on the same port, extremely rare outside
 //     an active call).
-//   - no reply         → no finding.
+//   - no reply         → a scored "no-response" finding (still
+//     recorded: the port was probed).
 //
 // Scoring: any identifiable IAX2 responder sits at the same
 // protocol_risk as Asterisk over SIP (90) because IAX2 is

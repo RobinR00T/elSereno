@@ -146,7 +146,7 @@ func (h *proxy) Handle(ctx context.Context, client, upstream io.ReadWriter) erro
 
 	// client -> upstream: line-by-line veto.
 	go func() {
-		errs <- forwardAndFilter(client, upstream)
+		errs <- forwardAndFilter(client, upstream, client)
 	}()
 	// upstream -> client: bytes unmodified, but rendered via SafeBytes
 	// by the log writer (F3 will wire the log sink; here we forward).
@@ -163,7 +163,11 @@ func (h *proxy) Handle(ctx context.Context, client, upstream io.ReadWriter) erro
 	}
 }
 
-func forwardAndFilter(client io.Reader, upstream io.Writer) error {
+// forwardAndFilter relays client lines upstream, except a forbidden
+// command, which is swallowed and answered with ERROR to the client.
+// (Until 2026-10-07 the refusal wrote an empty string upstream and
+// nothing to the client, which was left waiting.)
+func forwardAndFilter(client io.Reader, upstream, clientWriter io.Writer) error {
 	buf := make([]byte, 0, 256)
 	tmp := make([]byte, 256)
 	for {
@@ -178,8 +182,8 @@ func forwardAndFilter(client io.Reader, upstream io.Writer) error {
 				line := string(buf[:idx])
 				buf = buf[idx+1:]
 				if IsForbiddenCommand(line) {
-					// Swallow the line and reply ERROR.
-					if _, werr := upstream.Write([]byte("")); werr != nil {
+					// Swallow the line and reply ERROR to the client.
+					if _, werr := clientWriter.Write([]byte("ERROR\r\n")); werr != nil {
 						return werr
 					}
 					continue

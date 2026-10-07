@@ -18,13 +18,15 @@ Historical defaults:
 
 ## Probe
 
-- On connection, send `ATZ\r\n` (reset). If no response, try
-  `ATE0\r\nATI\r\n` (echo-off + identify).
-- Match the response against the vendor dictionary:
-  Hayes baseline `OK`, plus Siemens, Nokia, Sierra, MultiTech,
-  Cinterion, Telit, u-blox, Quectel, Huawei identifiers.
-- Elevator monitoring: EN 81-28 command set, `ATA`, `ATD`,
-  `AT+CMGF`, vendor-specific `AT^MNSPV?`.
+- Drain any unsolicited banner (100 ms), then send `AT`. No `OK`
+  means not an AT speaker (an info-level finding).
+- On `OK`, send `ATI` and `AT+CGMI` (identify, manufacturer) and
+  match the banner and both answers against the vendor dictionary
+  (`atmodem/wire`): Hayes baseline plus the modem and elevator
+  vendors listed there.
+- Nothing else is sent: no `ATZ`, no dial (`ATD`), answer (`ATA`),
+  SMS (`AT+CMGF`) or EN 81-28 vendor command; the dial and answer
+  commands are what the default proxy forbids (below).
 
 ## Proxy policy (default build)
 

@@ -1,10 +1,15 @@
 # Banner / dictionary
 
-The `banner` plugin is the low-effort catch-all, read the first
-bytes of a TCP connection, look for vendor-specific ASCII markers,
-emit a finding with a vendor label. It complements the protocol-
-aware plugins for ports that do not carry one of the specialised
-protocols.
+The `banner` plugin is the low-effort catch-all: read the first bytes
+of a TCP connection and emit a low-score finding that the port is open
+(with or without a banner). It has no default port, so `scan` runs it
+on every target; `discover` does not sweep for it.
+
+The vendor dictionary below (`DetectVendor`) exists but the probe does
+NOT apply it today: the finding carries no vendor label and its score
+is fixed (28, low), and the banner text itself is not in the output
+(a `core.Finding` has no field for it; an open decision in
+TODO-vNext).
 
 ## Targets
 
@@ -14,12 +19,12 @@ protocols.
 
 ## Probe
 
-- Open TCP, read up to 8 KiB for up to the IO timeout.
-- Match the read bytes against the vendor dictionary in
-  `internal/protocols/banner/vendors.go`.
+- Open TCP and read up to 16 KiB until the read timeout (5 s); a
+  silent port still yields a finding with an empty banner.
+- The finding ID covers the address, port and banner bytes.
 
-Match rules are case-insensitive substring matches. A known-good
-vendor string bumps the finding score.
+`vendors.go` holds case-insensitive substring matchers for the
+targets above, used by tests only until the probe is wired to them.
 
 ## Vendor dictionary
 

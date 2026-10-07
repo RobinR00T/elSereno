@@ -10,11 +10,12 @@ default-port: 5060/udp+tcp
 # SIP
 
 ## TL;DR
-ElSereno's `sip` plugin sends an OPTIONS request to TCP/5060
-and UDP/5060 and classifies the response by Status-Line +
-`Server:` / `User-Agent:` headers. Vendor detection runs
-against ~15 patterns (Asterisk, FreeSWITCH, Cisco SPA / UCM,
-3CX, Mitel, Yealink, Polycom, Grandstream, etc.). Offensive
+ElSereno's `sip` plugin sends an OPTIONS request to UDP/5060 (UDP
+only: no TCP probe, no fallback) and classifies the response by
+Status-Line + `Server:` / `User-Agent:` headers. Vendor detection
+covers the 15 brands in `sip/vendor.go` (Asterisk, FreePBX, 3CX,
+Cisco UCM, Cisco SIP gateway, Mitel, Avaya, Yeastar, Grandstream,
+Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH, SER). Offensive
 write plugin gates per-method, INVITE prefix, REGISTER AOR,
 From-domain since v1.12.
 
@@ -25,15 +26,15 @@ From-domain since v1.12.
 
 ## Wire format
 Text-based request-response (HTTP-like). Default port 5060
-(plain), 5061 (TLS). UDP and TCP both supported on 5060;
-this plugin probes both.
+(plain), 5061 (TLS). UDP and TCP both exist on 5060; this plugin
+probes UDP only.
 
 OPTIONS request (probe):
 ```
-OPTIONS sip:probe@<target> SIP/2.0
-Via: SIP/2.0/<TRANSPORT> <localhost>:<port>;branch=z9hG4bK<random>
-From: <sip:elsereno@elsereno.local>;tag=<random>
-To: <sip:probe@<target>>
+OPTIONS sip:<target host:port> SIP/2.0
+Via: SIP/2.0/UDP <target host:port>;branch=z9hG4bK<random>
+From: <sip:<target host:port>>;tag=<random>
+To: <sip:<target host:port>>
 Call-ID: <random>@<localhost>
 CSeq: 1 OPTIONS
 Max-Forwards: 70
@@ -42,23 +43,15 @@ Content-Length: 0
 
 ## Fingerprint strategy
 OPTIONS request with random `Via:` branch + `From:` tag +
-`Call-ID`. Captures Status-Line + Server + User-Agent +
-Allow + Supported headers.
+`Call-ID`. Uses the Status-Line and the Server / User-Agent
+headers (Allow and Supported are not parsed). Any SIP status line
+yields a scored finding.
 
-Vendor classification ladder (most-specific first):
-- Asterisk PBX (Server: Asterisk PBX X.Y.Z)
-- FreeSWITCH (User-Agent: FreeSWITCH-mod_sofia)
-- Cisco SPA / UC (Server: Linksys/SPA + Cisco-SPA + Cisco-CP)
-- 3CX (Server: 3CX Phone System)
-- Mitel (Server: Mitel/MiCollab)
-- Yealink (User-Agent: Yealink SIP-T48G)
-- Polycom (User-Agent: PolycomVVX)
-- Grandstream (User-Agent: Grandstream HT/GXP)
-- Avaya / OpenScape / Mediatrix / Sangoma / Audiocodes /
-  Patton / Zultys.
+Vendor classification: the priority-ordered substring matchers in
+`sip/vendor.go` over Server and User-Agent, for the 15 brands above.
 
 ## Read operations (default build)
-- `probe`: OPTIONS over TCP, then UDP fallback.
+- `probe`: OPTIONS over UDP (no TCP, no fallback).
 
 ## Write / dial operations (offensive build tag)
 v1.4+ landed full `offensive/write/sip/gatedproxy.go`:
@@ -88,17 +81,16 @@ SUBSCRIBE, NOTIFY (read-class) forward; everything else hits
 
 ## Scoring contribution
 factors{protocol_risk:70 default → VendorRisk(vendor),
-exposure:80, auth_state:60→70 on 401 challenge, capability:
+exposure:80, auth_state:60→50 on 401 challenge, capability:
 30→60 on SIP reply, impact_class:75 (toll fraud + call
-hijack), **cve_exposure:12** (Asterisk SIP family CVE-
-2009-1207 plus decades of follow-ups, Cisco SPA + UC family
-CVE-2017-3881, FreeSWITCH CVE-2021-33611, 3CX supply-chain
-CVE-2023-29059)}.
+hijack), **cve_exposure:12**, a qualitative baseline with no
+specific ids asserted (the earlier list mis-attributed
+CVE-2017-3881, a Cisco IOS Smart Install RCE, to SIP; PITF-070)}.
 
 ## Sentinel cases
 - 200 OK to OPTIONS: SIP confirmed, capability 60.
-- 401 / 407 challenge: SIP confirmed, capability 60 +
-  auth_state 70.
+- 401 challenge: SIP confirmed, capability 60 + auth_state 50
+  (407 is not special-cased).
 - 405 Method Not Allowed: still SIP confirmed.
 - HTTP/1.1 banner: not SIP (vendor=unknown, capability stays
   30).

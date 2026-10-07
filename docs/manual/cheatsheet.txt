@@ -100,23 +100,23 @@ elsereno scan --input list:t.txt --output-format stix > findings.stix.json
 
 
 ---- Protocol fingerprints (seleccion; plugins list da todos) ----
-  modbus    502/tcp      FC 1/3 + Read-Device-ID
-  s7        102/tcp      TPKT+COTP+ROSCTR 0x01
-  enip      44818/tcp    ListIdentity (CIP UCMM)
+  modbus    502/tcp      FC 1 Read Coils + FC 43/14 Device ID
+  s7        102/tcp      TPKT + COTP CR (TSAP 0100/0102)
+  enip      44818/tcp    ListIdentity (encapsulation 0x63)
   bacnet    47808/udp    Who-Is broadcast
   dnp3      20000/tcp    Request Link Status, addr 0..100
-  iec104    2404/tcp     STARTDT/TESTFR
+  iec104    2404/tcp     TESTFR act
   hartip    5094/tcp     SessionInitiate
   fox       1911/tcp     hello -> "fox a 0 ... {" reply
-  atg       10001/tcp    <SOH>I20100<CR>  Veeder-Root
+  atg       10001/tcp    <SOH>I20100<LF>  Veeder-Root
   opcua     4840/tcp     HEL Hello → ACK/ERR/non-UA
   xot       1998/tcp     X.25 CALL REQUEST
-  atmodem   serial/TCP   AT banner
-  sip       5060/udp+tcp OPTIONS → 15 PBX vendors    (v1.3+)
+  atmodem   9999/tcp     AT -> ATI + AT+CGMI
+  sip       5060/udp     OPTIONS → 15 PBX vendors    (v1.3+)
   iax2      4569/udp     NEW → ACCEPT/AUTHREQ/REJ    (v1.3+)
-  pbxhttp   443/80/8088/5001  HTTP admin-UI, 15 brands (v1.3+)
+  pbxhttp   443/tcp      HTTPS GET /, 14 brands   (v1.3+)
   cwmp      7547/tcp     GET / -> 13 ACS + generic   (v1.4+)
-  banner    *            generic TCP grab (fallback)
+  banner    *            reads the TCP banner (every target)
   (+ knxip, mbustcp, dlms, codesys, redlion, pcworx, proconos,
      twincat, slmp, gesrtp, finsudp, mms, opcuahttps)
 

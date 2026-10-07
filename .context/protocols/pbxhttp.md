@@ -11,30 +11,27 @@ default-port: 443, 80, 8088, 5001, 8443, 411
 
 ## TL;DR
 ElSereno's `pbxhttp` plugin probes the HTTP admin / SIP-
-console UIs that PBX systems expose. Targets the port matrix
-443 (HTTPS), 80, 8088 (Asterisk ARI), 5001 (3CX), 8443
-(FreePBX HTTPS), 411 (Mitel). Vendor detection runs against
-~12 PBX-specific HTML / header patterns (Asterisk Manager,
-FreePBX, 3CX, Mitel, Avaya, RingCentral, etc.). Offensive
+console UIs that PBX systems expose. Speaks HTTPS only, on its
+default port 443 (admin UIs also listen on 80, 8088, 5001, 8443,
+411; a plain-HTTP port gets no finding, and another HTTPS port needs
+`fingerprint probe`). Vendor detection covers the 14 brands in
+`pbxhttp/vendor.go` (FreePBX, PBXact, 3CX, Yeastar, Cisco UCM, Avaya,
+Mitel, Grandstream, Fanvil, Yealink, Asterisk, Switchvox, Elastix,
+FreeSWITCH). Offensive
 write plugin gates per-(method, path) since v1.12.
 
 ## Wire format
-Plain HTTP/1.1 (and HTTPS). The `pbxhttp` plugin sends:
-- GET `/` with a generic User-Agent.
-- HEAD `/admin/` (FreePBX), `/manager/` (Asterisk Manager
-  Web), `/api/` (3CX), `/swagger.json` (FreeSWITCH ARI).
+HTTPS. The `pbxhttp` plugin sends ONE `GET /` with a generic
+User-Agent (no HEAD, no other paths).
 
 ## Fingerprint strategy
-Multi-path probe (parallel across the path candidates) and
-classify by:
-- HTML body containing "FreePBX" / "Asterisk" / "3CX" / etc.
-- HTTP `Server:` header naming a PBX vendor.
-- 401 realm string (e.g., "Asterisk REST Interface").
-- Response signature (e.g., 3CX returns `X-3CX-Phone-System`).
+Classify the single response by the substring matchers in
+`vendor.go` over the HTML body and the response headers. No
+custom header (such as `X-3CX-Phone-System`) or TLS certificate
+field is read.
 
 ## Read operations (default build)
-- `probe`: parallel HTTP probes across the path candidates,
-  vendor classification.
+- `probe`: one HTTPS GET `/`, vendor classification.
 
 ## Write / dial operations (offensive build tag)
 v1.4+ landed full `offensive/write/pbxhttp/gatedproxy.go`:
