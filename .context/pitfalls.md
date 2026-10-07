@@ -481,5 +481,13 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: lo mismo que PITF-072/073, y además: en una pila OSI, validar la primera petición no basta. Cada intercambio posterior (aquí el directorio) lleva sus propias capas y hay que compararlo también con una captura.
 **Ver**: `internal/protocols/mms/{mms,getdir_test}.go`, `internal/protocols/mms/wire/{acse,mms_services,realcap_test,mms_services_test,wire_fuzz_test}.go`, `docs/parser-validation.md`; 7-10-2026.
 
+## PITF-078: Fox esperaba un banner que ninguna estación Niagara envía sola
+**Síntoma**: barrido de peticiones contra capturas (7-10-2026). El probe `fox` abría TCP/1911 y LEÍA, sin enviar nada, esperando un "banner". En la sesión real de w3h/icsmaster `fox_info.pcap` habla primero el cliente (`fox a 1 -1 fox hello\n{…`, un Workbench) y la estación contesta (`fox a 0 -1 fox hello\n{…`). El `fox-info.nse` de nmap hace lo mismo: envía el hello y exige que la respuesta empiece por `fox a 0`.
+**Por qué no se vio**: el realcap validaba el clasificador sobre la respuesta real de la estación, pero el servidor falso de los tests (`probeAgainstBanner`) escribía ese banner nada más conectar, cosa que una estación real no hace; y la doc (`doc.go`, `docs/protocols/fox.md`, el comentario del realcap) afirmaba que la estación "se anuncia al conectar". Efecto: ninguna estación Niagara real se confirmaba nunca (capability 30 en vez de 70). Tercera vez en la misma noche del mismo género que PITF-072.
+**Riesgo añadido**: el clasificador viejo aceptaba `fox a ` o `fox.version` en CUALQUIER sitio. En cuanto el probe enviase un hello, un eco de nuestro propio hello habría contado como Fox.
+**Fix (7-10-2026)**: el probe envía `HelloRequest`, que es la consulta del NSE byte a byte y abre igual que el hello capturado del Workbench. `IsFoxBanner` exige `fox a 0` al principio y un diccionario `{`, como el NSE; `netutil.IsEcho` como defensa en profundidad. El servidor falso de los tests ahora calla hasta recibir un `fox a 1`, como una estación real (con el probe viejo, los dos tests de probe fallan: mutación comprobada). Tests nuevos: la petición contra el NSE y contra la captura, y nuestro hello reflejado no clasifica.
+**Regla**: un servidor falso de test hace lo que hace el equipo real, no lo que el código espera. Si el test escribe primero, hay que comprobar en una captura quién habla primero.
+**Ver**: `internal/protocols/fox/{fox,doc,fox_internal_test,fox_test,realcap_test}.go`, `docs/protocols/fox.md`, `.context/protocols/fox.md`, `docs/parser-validation.md`; 7-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

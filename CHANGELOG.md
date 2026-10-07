@@ -324,6 +324,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Niagara Fox probe now says hello first (PITF-078).** The probe opened
+  TCP/1911 and only listened for a banner, but a Niagara station says
+  nothing until the client sends its hello (in the real w3h/icsmaster
+  `fox_info.pcap` session the Workbench speaks first); no real station was
+  ever confirmed. The test server had been writing the banner on connect,
+  which no station does. The probe now sends nmap's `fox-info.nse` hello and
+  requires a station message (`fox a 0` plus a `{` dictionary), like the
+  NSE; the old match on `fox a ` or `fox.version` anywhere would have
+  accepted a reflected hello.
 - **BACnet Who-Is: hop count 255, as in real traffic.** The probe's Who-Is
   carried a global-broadcast destination with hop count 0, which a BACnet
   router discards instead of forwarding to the devices behind it (an MS/TP

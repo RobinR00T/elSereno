@@ -107,7 +107,7 @@ elsereno scan --input list:t.txt --output-format stix > findings.stix.json
   dnp3      20000/tcp    Request Link Status, addr 0..100
   iec104    2404/tcp     STARTDT/TESTFR
   hartip    5094/tcp     SessionInitiate
-  fox       1911/4911    "fox a" banner + version
+  fox       1911/tcp     hello -> "fox a 0 ... {" reply
   atg       10001/tcp    <SOH>I20100<CR>  Veeder-Root
   opcua     4840/tcp     HEL Hello → ACK/ERR/non-UA
   xot       1998/tcp     X.25 CALL REQUEST

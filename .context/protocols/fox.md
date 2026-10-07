@@ -10,7 +10,7 @@ default-port: 1911,4911/tcp
 # Niagara Fox (Tridium)
 
 ## TL;DR
-ElSereno's `fox` plugin sends a minimal read-only probe on port 1911,4911/tcp
+ElSereno's `fox` plugin sends nmap's fox-info client hello on port 1911/tcp
 and classifies the response. Full REPL + per-field decoding land
 alongside the generic REPL framework; write operations stay behind
 `-tags offensive` (F5).
@@ -19,12 +19,16 @@ alongside the generic REPL framework; write operations stay behind
 - Tridium Niagara framework (proprietary)
 
 ## Wire format (summary)
-See `internal/protocols/fox/wire/` for the from-scratch parser.
+Line-oriented text: `fox a <0|1> -1 fox <verb>\n{\n<key>=<type>:<value>\n...};;`.
+A client's messages start `fox a 1`, a station's `fox a 0`. No wire
+package: the probe and classifier live in `internal/protocols/fox/fox.go`.
 
 ## Fingerprint strategy
-One-shot probe: send the smallest valid request the protocol accepts;
-classify the response header and record a vendor/product hint when
-available.
+The client speaks first (w3h/icsmaster fox_info.pcap): send
+`HelloRequest` (byte for byte nmap's fox-info.nse query), then classify
+the reply as a station message when it starts `fox a 0` and carries a
+`{` dictionary. Until 2026-10-07 the probe sent nothing and waited, so a
+real station never answered (PITF-078).
 
 ## Read operations (default build)
 - `probe`: what `scan` invokes.

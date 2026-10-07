@@ -7,11 +7,18 @@ widely, often exposed to the Internet.
 
 ## Probe
 
-- Open TCP and read up to 8 KiB.
-- Match the greeting line:
-  - Case-insensitive substring `fox a ` (as in `fox a 0 -1 fox
-    hello ...`).
-  - Or `fox.version=` in the response body.
+- Open TCP/1911 and send the client hello nmap's `fox-info.nse` sends
+  (`fox a 1 -1 fox hello\n{\nfox.version=s:1.0\nid=i:1\n};;\n`). A
+  station says nothing until a client says hello: in the real session
+  of w3h/icsmaster `fox_info.pcap` the Workbench speaks first.
+- Read up to 8 KiB. The reply is a station's Fox message when it starts
+  with `fox a 0` (a client's start `fox a 1`) and carries a `{`
+  dictionary, the same check as the NSE. A reflected copy of our hello
+  is rejected.
+- Until 2026-10-07 the probe only listened and sent nothing, and
+  matched `fox a ` or `fox.version=` anywhere in what it read: a real
+  station never answered, so the plugin never confirmed one (PITF-078).
+- 4911 is Fox over TLS; the plugin speaks plain Fox on 1911.
 
 ## Proxy policy (default build)
 

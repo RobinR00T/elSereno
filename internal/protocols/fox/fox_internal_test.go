@@ -50,9 +50,11 @@ func TestBuildFindingFactors(t *testing.T) {
 	}
 }
 
-// probeAgainstBanner stands up a listener that writes banner on connect
-// (Niagara Fox announces itself without a client query) and returns the
-// finding.
+// probeAgainstBanner stands up a listener that behaves like a Niagara
+// station: it says nothing until the client sends a hello ("fox a 1 ..."),
+// then writes banner, and returns the probe's finding. (Until 2026-10-07
+// this helper wrote the banner on connect, which no real station does,
+// and so hid a probe that never said hello; PITF-078.)
 func probeAgainstBanner(t *testing.T, banner []byte) *core.Finding {
 	t.Helper()
 	lc := &net.ListenConfig{}
@@ -67,6 +69,12 @@ func probeAgainstBanner(t *testing.T, banner []byte) *core.Finding {
 			return
 		}
 		defer func() { _ = conn.Close() }()
+		_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+		got := make([]byte, 512)
+		n, _ := conn.Read(got)
+		if !bytes.HasPrefix(got[:n], []byte("fox a 1 ")) {
+			return // a station ignores anything but a client hello
+		}
 		if banner != nil {
 			_, _ = conn.Write(banner)
 		}

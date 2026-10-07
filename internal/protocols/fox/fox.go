@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/render"
 	"local/elsereno/internal/scoring"
 )
@@ -36,18 +37,27 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "Niagara Fox (Tridium) banner fingerprint on 1911/4911",
+		Description: "Niagara Fox (Tridium) fingerprint on 1911: sends the client hello, classifies the station's reply",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
 	}
 }
 
-// IsFoxBanner reports whether the banner bytes match the Niagara Fox
-// welcome line ("fox a 0 -1 ..." or "fox a").
-func IsFoxBanner(banner string) bool {
-	b := strings.ToLower(banner)
-	return strings.Contains(b, "fox a ") || strings.Contains(b, "fox.version")
+// HelloRequest is the client hello a Niagara station waits for before
+// it says anything: byte for byte the query of nmap's fox-info.nse, and
+// the opening of the Workbench hello in w3h/icsmaster fox_info.pcap
+// (where the client speaks first and the station answers).
+const HelloRequest = "fox a 1 -1 fox hello\n{\nfox.version=s:1.0\nid=i:1\n};;\n"
+
+// IsFoxBanner reports whether reply is a Niagara station's Fox message:
+// it starts with "fox a 0" (a station's messages do; a client's, like
+// HelloRequest, start "fox a 1") and carries a "{" dictionary, the check
+// nmap's fox-info.nse makes. Until 2026-10-07 any text containing
+// "fox a " or "fox.version" anywhere counted, which our own hello, once
+// the probe sends one, also satisfies (PITF-078).
+func IsFoxBanner(reply string) bool {
+	return strings.HasPrefix(reply, "fox a 0") && strings.Contains(reply, "{")
 }
 
 // Probe implements core.Protocol.
@@ -61,8 +71,18 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
+	// A station says nothing until the client says hello; until
+	// 2026-10-07 the probe only listened, so a real station never
+	// answered (PITF-078).
+	hello := []byte(HelloRequest)
+	if _, err := conn.Write(hello); err != nil {
+		return nil, fmt.Errorf("fox: write hello: %w", err)
+	}
 	buf := make([]byte, 8192)
 	n, _ := conn.Read(buf)
+	if netutil.IsEcho(hello, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not Fox)", false), nil
+	}
 	safe := render.SafeBytes(buf[:n])
 	isFox := IsFoxBanner(safe)
 	note := "no fox banner"

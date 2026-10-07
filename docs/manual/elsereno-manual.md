@@ -588,7 +588,7 @@ well-known:
 | dnp3      | 20000/tcp    | Request Link Status a las direcciones 0..100 (solo capa de enlace, CRC válido) |
 | iec104    | 2404/tcp     | TESTFR/STARTDT (APCI U-format) |
 | hartip    | 5094/tcp     | Session-Initiate |
-| fox       | 1911/4911    | Banner grab "fox a" + "fox.version" |
+| fox       | 1911/tcp     | Hello "fox a 1 -1 fox hello" (el de nmap) → respuesta "fox a 0 …{" |
 | atg       | 10001/tcp    | `<SOH>I20100<CR>` (Veeder-Root info query) |
 | opcua     | 4840/tcp     | HEL Hello → clasifica ACK/ERR/non-UA |
 | xot       | 1998/tcp     | X.25 CALL REQUEST (RFC 1613) |
@@ -699,8 +699,9 @@ elsereno scan --plugin hartip --input stdin <<< "10.0.0.11:5094"
 ```sh
 elsereno scan --plugin fox --input stdin <<< "10.0.0.12:1911"
 
-# El server envía una línea "fox a 0 -1 fox hello\n{fox.version=4.11.0}"
-# en el connect. ElSereno captura eso como finding evidence.
+# La estación no habla hasta que el cliente saluda: el probe envía el
+# hello de nmap (fox-info.nse) y la estación contesta
+# "fox a 0 -1 fox hello\n{fox.version=…" (PITF-078).
 ```
 
 ### 3.9 ATG Veeder-Root (surtidores)

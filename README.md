@@ -166,7 +166,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | **DNP3**        | 20000              | probe · gated-write per app-FC + CROB `(point-index, control-code)` + g41 analog-setpoint `(index, value-clamp)` scope, broadcast-control deny, master↔outstation link-address pinning · response-path IIN monitor |
 | IEC 60870-5-104 | 2404               | TESTFR probe |
 | HART-IP         | 5094               | session-initiate probe |
-| Niagara Fox     | 1911, 4911         | banner probe |
+| Niagara Fox     | 1911               | client hello (nmap fox-info) |
 | ATG Veeder-Root | 10001              | I20100 probe |
 | **OPC UA**      | 4840               | Hello probe · deep read-only exposure probe (`opcua probe-anon` + `probe-write` writeable-tag walk) and opt-in scored `opcua-exposure` plugin · gated-write service-TypeID + per-NodeId (numeric + String/GUID/ByteString) + per-CallMethod `(ObjectId, MethodId)` (v1.2/v1.6/v1.12) |
 | XOT (X.25 / TCP) | 1998              | probe + pass-through proxy |

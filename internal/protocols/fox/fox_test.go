@@ -13,7 +13,9 @@ func TestIsFoxBanner(t *testing.T) {
 		want bool
 	}{
 		{"fox a 0 -1 fox hello\n{fox.version=1.0}\n", true},
-		{"fox.version=1.2.3\n", true},
+		{"fox.version=1.2.3\n", false},    // no station message header
+		{fox.HelloRequest, false},         // our own (client) hello, reflected
+		{"fox a 0 -1 fox hello\n", false}, // no dictionary
 		{"SSH-2.0-OpenSSH_9.0", false},
 		{"", false},
 	}
