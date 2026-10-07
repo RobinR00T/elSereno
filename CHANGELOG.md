@@ -324,6 +324,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`make sec` (and so `make ci`) passes locally again.** go.mod pins
+  `toolchain go1.26.6`; with an older Go installed, the go command switches
+  toolchain at run time and go-licenses, resolving the standard library
+  from the installed GOROOT, reported every stdlib package as "does not have
+  module info" and failed (google/go-licenses#128). `make sec` now runs it
+  with `GOROOT=$(go env GOROOT)`. CI was unaffected (its GOROOT matches).
 - **opcua-exposure no longer calls a refusing OPC UA server "not OPC UA".**
   A server that answers the Hello with ERR is a UA-TCP server (only those
   emit ERR, and the `opcua` fingerprint counts it so); the exposure probe
