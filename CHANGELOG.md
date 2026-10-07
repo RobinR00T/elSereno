@@ -329,9 +329,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emit ERR, and the `opcua` fingerprint counts it so); the exposure probe
   labelled it not-OPC-UA. It is now `hello-refused` (Medium, posture not
   assessed), and `opcua probe-anon` JSON gains `hello_refused`.
-- **AT-modem default proxy answers ERROR to a refused command.** A forbidden
-  command (dial, answer) was swallowed but the client got nothing back and
-  kept waiting; the comment said it replied ERROR, and now it does.
+- **AT-modem default proxy is now a read-only allowlist, and answers
+  ERROR.** It refused a fixed list of prefixes (ATD, ATA, SMS, CFUN,
+  CPWROFF, `+++`), so a dial chained after another command
+  (`ATE0D5551234`), a spaced dial (`AT D...`) and every unlisted write
+  (`ATZ`, `AT&F`, `AT&W`, `ATS0=1` auto-answer, `AT+CPWD`, `AT+CLCK`)
+  reached the modem in the default build, against ADR-040. It now forwards
+  one read-only command per line (bare `AT`, `ATI`, `AT&V`, `ATSn?`,
+  `AT+X?`, `AT+X=?`, and the identification/status commands) and answers
+  anything else `ERROR`; it used to answer nothing at all. Found by review.
+- **`opcua probe` text output says when the server refused the Hello.**
 - **SLMP probe no longer panics on a reply that declares a length of 0 or
   1.** The declared length counts the 2-byte end code already read; below 2
   the body read sliced `buf[11:9]` and the probe panicked (outside the

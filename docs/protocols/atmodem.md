@@ -25,24 +25,26 @@ Historical defaults:
   (`atmodem/wire`): Hayes baseline plus the modem and elevator
   vendors listed there.
 - Nothing else is sent: no `ATZ`, no dial (`ATD`), answer (`ATA`),
-  SMS (`AT+CMGF`) or EN 81-28 vendor command; the dial and answer
-  commands are what the default proxy forbids (below).
+  SMS (`AT+CMGF`) or EN 81-28 vendor command.
 
 ## Proxy policy (default build)
 
-Line-oriented state machine with a 64 KiB ceiling and `+CME`/`+CMS`
-error-code extraction. The proxy enforces the list of
-`ForbiddenPrefixes` at the wire layer and replies `ERROR\r\n`
-without forwarding the command:
+Line by line, the proxy forwards only a read-only command
+(`IsReadOnlyCommand`) and answers anything else with `ERROR\r\n`
+without forwarding it. Allowed, one command per line, case and spaces
+ignored: a bare `AT`; `ATI` / `ATIn`; `AT&V`; `ATSn?` (read an
+S-register); `AT+<name>?` (read); `AT+<name>=?` (test); and the
+identification / status commands `AT+CGMI`, `+CGMM`, `+CGMR`,
+`+CGSN`, `+GMI`, `+GMM`, `+GMR`, `+GSN`, `+CIMI`, `+CCID`, `+CSQ`,
+`+CLAC`. Everything else is refused: dial and answer (`ATD`, `ATA`),
+commands chained on one line (`ATE0D5551234`), resets and profile
+writes (`ATZ`, `AT&F`, `AT&W`), S-register writes (`ATS0=1`,
+auto-answer), set commands (`AT+CFUN=0`, `AT+CPWD=...`, `AT+CLCK=...`,
+SMS), `A/` and the `+++` escape.
 
-- `ATD*`: dial (voice / data). Blocked.
-- `ATA`: answer incoming call.
-- `AT+CMGS` / `AT+CMGW` / `AT+CMSS` / `AT+CMGD`: SMS send / store.
-- `AT+CFUN` / `AT+CPWROFF`: power state.
-- `+++` escape sequence (interpreted as "enter command mode").
-
-Information queries (`ATI`, `AT+CGMI`, `AT+CIMI`, `AT+CSQ`, etc.)
-forward untouched.
+Until 2026-10-07 the proxy refused a fixed list of prefixes (ATD, ATA,
+SMS, CFUN, CPWROFF, `+++`), which chained or spaced dials and every
+unlisted write got through, and it did not even answer ERROR.
 
 ## Writes (`-tags offensive`)
 

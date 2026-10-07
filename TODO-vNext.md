@@ -61,6 +61,13 @@
   de por `DefaultPort == 0`; cambia el contrato de plugins decidido el 2-10
   ("nombrado = se ejecuta"), por eso no se ha tocado sin tu OK. Encontrado por
   la revisión independiente del 7-10.
+- **El proxy por defecto de XOT es pass-through.** Copia bytes en los dos
+  sentidos sin mirarlos (`xot.go`), contra ADR-040 ("todo plugin TCP aplica
+  write-ban en el build por defecto"): un cliente puede abrir circuitos X.25 y
+  mandar datos a través de él. Opciones: deny-all, o reenviar solo lo que no
+  abre ni usa un circuito. Cambia el comportamiento actual, por eso no se ha
+  tocado (revisión del 7-10). El de atmodem tenía el mismo problema con su
+  lista negra y se pasó a lista blanca el 7-10.
 - **Las notas de identidad no salen en ninguna salida.** Fabricante, modelo,
   CPU, firmware, lista de Logical Devices, CVE anotada o texto del banner se
   calculan en los plugins y solo entran en el hash del ID: `core.Finding` no

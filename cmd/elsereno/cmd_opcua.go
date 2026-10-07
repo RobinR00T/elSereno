@@ -135,6 +135,9 @@ func runOPCUAProbeWrite(cmd *cobra.Command, target, endpoint string, timeout tim
 		return emitOPCUAJSON(cmd, res)
 	}
 	cmd.Printf("OPC UA server:            %t\n", res.IsOPCUA)
+	if res.HelloRefused {
+		cmd.Println("Hello refused (ERR):      the server rejected our Hello; anonymous posture not assessed")
+	}
 	cmd.Printf("Anonymous session opened: %t\n", res.SessionOpened)
 	if !res.SessionOpened {
 		cmd.Println("No anonymous session: nothing to walk.")
@@ -176,6 +179,9 @@ func runOPCUAProbeAnon(cmd *cobra.Command, target, endpoint string, timeout time
 		return emitOPCUAJSON(cmd, res)
 	}
 	cmd.Printf("OPC UA server:            %t\n", res.IsOPCUA)
+	if res.HelloRefused {
+		cmd.Println("Hello refused (ERR):      the server rejected our Hello; anonymous posture not assessed")
+	}
 	cmd.Printf("Anonymous advertised:     %t (policyId %q)\n", res.AdvertisesAnonymous, res.AnonymousPolicyID)
 	cmd.Printf("Anonymous session opened: %t\n", res.SessionOpened)
 	if res.SessionOpened {

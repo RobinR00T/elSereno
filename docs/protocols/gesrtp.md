@@ -32,7 +32,10 @@ After a positive init the probe sends ONE read-only service request,
 service code at offset 42, then 01 03 01), and scans the reply for a
 model and a firmware version (`fw=` in the note). The reply is an
 operation response, byte 0 = 0x03; until 2026-10-07 the probe demanded
-the init reply's 0x01 there, so `fw=` never appeared.
+the init reply's 0x01 there, so `fw=` never appeared. The probe reads
+only the 56-byte reply mailbox; if a CPU sends the status data in a
+following packet, the firmware stays empty [unverified: no public
+capture of a 0x21 exchange].
 
 The probe has no side effects: CONNECTION INIT is the SRTP equivalent
 of a TCP handshake and 0x21 is a status read; no memory areas, no

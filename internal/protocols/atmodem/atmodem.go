@@ -96,44 +96,104 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 }
 
 // REPL hookup lands with the generic REPL in F4. The default-build
-// REPL refuses dial / SMS / write commands; the allow-list lives
-// next to ForbiddenPrefixes.
+// REPL would apply the same allowlist as the proxy
+// (IsReadOnlyCommand).
 func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("atmodem: REPL binding arrives with the generic REPL hookup in F4")
 }
 
 // ProxyHandler returns the AT proxy handler that inspects each line
-// the client writes upstream and blocks the destructive set.
+// the client writes upstream and forwards only read-only commands
+// (IsReadOnlyCommand); anything else is answered ERROR.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &proxy{} }
 
-// ForbiddenPrefixes are the command prefixes the proxy refuses in
-// read-only mode (brief section 7 F2b, conventions.md).
-var ForbiddenPrefixes = []string{
-	"ATD",        // dial any
-	"ATA",        // answer
-	"AT+CMGS",    // send SMS
-	"AT+CMGW",    // write SMS
-	"AT+CMSS",    // send stored SMS
-	"AT+CMGD",    // delete SMS
-	"AT+CFUN",    // radio on/off
-	"AT+CPWROFF", // power off
-	"+++",        // escape-to-command sequence
+// readOnlyExec are the identification / status commands that take no
+// argument and change nothing (AT+<name> with nothing after it).
+var readOnlyExec = map[string]bool{
+	"CGMI": true, "CGMM": true, "CGMR": true, "CGSN": true, // 3GPP 27.007 identification
+	"GMI": true, "GMM": true, "GMR": true, "GSN": true, // V.250 identification
+	"CIMI": true, "CCID": true, "CSQ": true, "CLAC": true, // SIM id, signal, command list
 }
 
-// IsForbiddenCommand returns true if line starts with any of
-// ForbiddenPrefixes. Matching is case-insensitive and tolerates
-// leading whitespace.
-func IsForbiddenCommand(line string) bool {
-	trimmed := strings.ToUpper(strings.TrimSpace(line))
-	if trimmed == "" {
+// IsReadOnlyCommand reports whether line is an AT command the default
+// proxy forwards: one read-only command and nothing else. Case and
+// spaces are ignored. Allowed: a bare `AT`; `ATI` / `ATIn`
+// (identification); `AT&V` / `AT&Vn` (view configuration); `ATSn?`
+// (read an S-register); `AT+<name>?` (read a parameter); `AT+<name>=?`
+// (test: list supported values); and the identification / status
+// commands in readOnlyExec. Everything else is refused, including
+// concatenated commands (`ATE0D555...`), dialling and answering
+// (`ATD`, `ATA`), resets and profile writes (`ATZ`, `AT&F`, `AT&W`),
+// S-register writes (`ATS0=1`, auto-answer), set commands
+// (`AT+CPWD=...`, `AT+CLCK=...`, `AT+CFUN=0`), SMS, `A/` and the `+++`
+// escape. An empty line (a bare CR) is allowed.
+//
+// Until 2026-10-07 the proxy refused a fixed list of prefixes instead,
+// which `ATE0D5551234`, `AT D5551234` and every unlisted write command
+// got through (review).
+func IsReadOnlyCommand(line string) bool {
+	norm := strings.ToUpper(strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\t' {
+			return -1
+		}
+		return r
+	}, line))
+	if norm == "" {
+		return true
+	}
+	rest, ok := strings.CutPrefix(norm, "AT")
+	if !ok {
 		return false
 	}
-	for _, p := range ForbiddenPrefixes {
-		if strings.HasPrefix(trimmed, p) {
-			return true
+	switch {
+	case rest == "":
+		return true
+	case rest[0] == 'I':
+		return allDigits(rest[1:])
+	case strings.HasPrefix(rest, "&V"):
+		return allDigits(rest[2:])
+	case rest[0] == 'S':
+		reg, q := strings.CutSuffix(rest[1:], "?")
+		return q && reg != "" && allDigits(reg)
+	case rest[0] == '+':
+		name := rest[1:]
+		if n, ok := strings.CutSuffix(name, "=?"); ok {
+			return isATName(n)
+		}
+		if n, ok := strings.CutSuffix(name, "?"); ok {
+			return isATName(n)
+		}
+		return readOnlyExec[name]
+	default:
+		return false
+	}
+}
+
+// IsForbiddenCommand reports whether the default proxy refuses line:
+// anything that is not IsReadOnlyCommand.
+func IsForbiddenCommand(line string) bool { return !IsReadOnlyCommand(line) }
+
+func allDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+// isATName reports whether s is an extended-command name: letters and
+// digits, at least one character.
+func isATName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // proxy implements core.ProxyHandler with per-line inspection.

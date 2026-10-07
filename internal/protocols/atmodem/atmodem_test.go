@@ -114,6 +114,19 @@ func TestIsForbiddenCommand(t *testing.T) {
 		"AT+CFUN=0",
 		"AT+CPWROFF",
 		"+++",
+		// Bypasses of the old prefix blocklist (review, 2026-10-07):
+		"ATE0D5551234",               // dial chained after another command
+		"AT D5551234",                // dial with a space
+		"ATZ",                        // reset
+		"AT&F",                       // factory profile
+		"AT&W",                       // write profile
+		"ATS0=1",                     // auto-answer
+		"AT+CPWD=\"SC\",\"1\",\"2\"", // change a password
+		"AT+CLCK=\"SC\",1",           // lock the SIM
+		"A/",                         // repeat last command
+		"ATE0",                       // echo off (a setting)
+		"ATI;+CGMI",                  // two commands on one line
+		"HELLO",                      // not an AT command
 	}
 	for _, line := range blocked {
 		if !atmodem.IsForbiddenCommand(line) {
@@ -126,6 +139,14 @@ func TestIsForbiddenCommand(t *testing.T) {
 		"AT+CGMI",
 		"AT+CPIN?",
 		"",
+		"ATI3",
+		"AT&V",
+		"ATS0?",
+		"AT+CREG?",
+		"AT+COPS=?",
+		"AT+CSQ",
+		"at+cgsn",
+		"AT I",
 	}
 	for _, line := range allowed {
 		if atmodem.IsForbiddenCommand(line) {
@@ -143,4 +164,28 @@ func TestMetadata(t *testing.T) {
 	if md.Build != "default" {
 		t.Fatalf("Build=%q", md.Build)
 	}
+}
+
+// FuzzIsReadOnlyCommand: never panics, and nothing it allows is other
+// than an empty line or an AT command.
+func FuzzIsReadOnlyCommand(f *testing.F) {
+	for _, seed := range []string{"AT", "ATI3", "AT+CREG?", "ATE0D555", "+++", "", "AT S0?"} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, line string) {
+		if !atmodem.IsReadOnlyCommand(line) {
+			return
+		}
+		norm := strings.ToUpper(strings.NewReplacer(" ", "", "\t", "").Replace(line))
+		if norm != "" && !strings.HasPrefix(norm, "AT") {
+			t.Fatalf("allowed a non-AT line %q", line)
+		}
+		rest := strings.TrimPrefix(norm, "AT")
+		if strings.HasPrefix(rest, "D") || strings.HasPrefix(rest, "A") || strings.Contains(rest, ";") {
+			t.Fatalf("allowed a line that dials, answers or chains: %q", line)
+		}
+		if strings.Contains(rest, "=") && !strings.HasSuffix(rest, "=?") {
+			t.Fatalf("allowed a set command: %q", line)
+		}
+	})
 }

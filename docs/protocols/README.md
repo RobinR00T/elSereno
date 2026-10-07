@@ -4,8 +4,9 @@ ElSereno registers **35 plugins** in the default build: 31 protocol
 plugins, the `banner` catch-all, and three opt-in, read-only probes
 (`s7-exposure`, `opcua-exposure`, `codesys-active`) that run only when
 named. `elsereno plugins list` prints the set on your binary. Every
-default-build proxy is read-only (write-ban, deny-all or fail-closed);
-writes need `-tags offensive` and the ADR-039 triple-confirm wrapper,
+default-build proxy is read-only (write-ban, deny-all or fail-closed)
+except XOT's, which copies bytes both ways (an open decision in
+TODO-vNext); writes need `-tags offensive` and the ADR-039 triple-confirm wrapper,
 and `proxy listen` serves the 18 protocols in **bold**. Seven more
 (atg, dlms, fox, hartip, iec104, knxip, mbustcp) have a gated package
 under `offensive/write/` that no command wires yet (open decision in
@@ -31,8 +32,8 @@ sent.
 | [ATG Veeder-Root](atg.md) | 10001 | `\x01I20100\n` | non-`I` commands refused (`9999FF1B`) |
 | [**OPC UA**](opcua.md) | 4840 | HEL Hello | deny-all (one ERR, then drop) |
 | [**OPC UA HTTPS**](opcuahttps.md) | 4843 | GetEndpoints POST to `/`, fallback POST `/discovery` | deny-all |
-| [XOT](xot.md) | 1998 | X.25 Call Request | plain pass-through |
-| [AT modem](atmodem.md) | 9999 | `AT`, then `ATI` + `AT+CGMI` | forbidden prefixes (ATD, ATA, ...) answered `ERROR` |
+| [XOT](xot.md) | 1998 | X.25 Call Request | plain pass-through (NOT read-only) |
+| [AT modem](atmodem.md) | 9999 | `AT`, then `ATI` + `AT+CGMI` | read-only allowlist, anything else answered `ERROR` |
 | [**SIP**](sip.md) | 5060/udp | OPTIONS (UDP only) | deny-all (`403 Forbidden`) |
 | [**IAX2**](iax2.md) | 4569/udp | NEW (bare full frame) | deny-all (silent) |
 | [**pbxhttp**](pbxhttp.md) | 443 | HTTPS `GET /` | deny-all (`403 Forbidden`) |
@@ -56,7 +57,8 @@ sent.
 
 ## Proxy default-build policy
 
-Three postures, per the last column above:
+Three postures, per the last column above (XOT is the exception:
+plain pass-through):
 
 - **Write-ban.** Frames the wire classifier labels CategoryRead are
   forwarded byte for byte; any other frame gets a protocol-native
