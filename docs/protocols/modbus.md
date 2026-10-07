@@ -115,7 +115,7 @@ frame that crossed the gate for post-incident review.
 
 | Technique | Modbus mechanism | elSereno response |
 |-----------|------------------|-------------------|
-| Device / unit enumeration | FC 43/14 Read Device ID, FC 17 Report Slave ID, unit-id sweep | `probe` / `scan` surface the device banner (Vendor/Product/Revision); the proxy forwards these reads (they are read-only) and records them |
+| Device / unit enumeration | FC 43/14 Read Device ID, FC 17 Report Slave ID, unit-id sweep | `probe` / `scan` read Vendor/Product/Revision via FC 43/14 and hash them into the finding ID (not printed: a finding has no field for them, an open decision); the proxy forwards these reads (they are read-only) and records them |
 | Process-data harvesting | FC 1-4 bulk reads of coils / registers | Forwarded by design (the gate governs writes, not reads); with `--record` every read is timestamped for audit |
 | Process manipulation (FrostyGoop pattern) | FC 3 read to map registers, then FC 16 / 6 write to change setpoints | Default build wire-bans all writes; offensive gate forwards a write only if it matches an allowlisted `(unit, FC, address-range)` tuple, otherwise IllegalFunction and upstream never sees it |
 | Out-of-range write escalation | Allowlisted FC 16 write whose quantity runs off the top of the window | The gate checks **both** ends of the multi-register span, so a write that starts inside the window but overruns it is refused |

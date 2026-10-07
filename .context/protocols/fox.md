@@ -40,8 +40,9 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default pass-through. Write-gating (where it applies) lands in F5 with
-the per-FC / per-command matrix.
+Default build: deny-all. The proxy answers `fox a 0 -1 fox denied`
+and forwards nothing. The gated package `offensive/write/fox` is not
+wired to `proxy listen` (orphan; open decision in TODO-vNext).
 
 ## Scoring contribution
 See `internal/protocols/fox/fox.go` for the factor defaults.

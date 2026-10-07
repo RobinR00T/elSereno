@@ -95,9 +95,9 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // `9999FF1B` Data-Error sequence (ADR-040). ATG is a line-oriented
 // ASCII protocol; the only read-class commands start with `I`
 // (I20100, I10200, I20200, …). Any other command, V (setpoint),
-// S (set configuration), T (tank calibration), mutates state. The
-// offensive build substitutes a handler that allows the full
-// command set behind triple confirm.
+// S (set configuration), T (tank calibration), mutates state. A
+// gated handler exists in offensive/write/atg but is not wired to
+// `proxy listen` (orphan package; open decision in TODO-vNext).
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
 type writeBanHandler struct{}

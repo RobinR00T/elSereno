@@ -22,9 +22,10 @@ alongside the generic REPL framework; write operations stay behind
 See `internal/protocols/hartip/wire/` for the from-scratch parser.
 
 ## Fingerprint strategy
-One-shot probe: send the smallest valid request the protocol accepts;
-classify the response header and record a vendor/product hint when
-available.
+Session Initiate (master type 1, 30000 ms timer: byte-identical to
+the client in the CISA capture with the same sequence number); any
+HART-IP response header (MsgType 1) confirms. No HART command is
+sent; no vendor/product hint is recorded.
 
 ## Read operations (default build)
 - `probe`: what `scan` invokes.
@@ -36,8 +37,11 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default pass-through. Write-gating (where it applies) lands in F5 with
-the per-FC / per-command matrix.
+Default build: write-ban filter. Session-management messages
+forward; a TokenPassPDU (an inner HART command) is answered with
+status 0x04 "Unsupported command". The gated package
+`offensive/write/hartip` is not wired to `proxy listen` (orphan;
+open decision in TODO-vNext).
 
 ## Scoring contribution
 See `internal/protocols/hartip/hartip.go` for the factor defaults.

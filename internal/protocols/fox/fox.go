@@ -101,16 +101,16 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // client→upstream byte with a "fox a 0 -1 fox denied\n" line and
 // closes the connection (ADR-040). Niagara Fox is a line-oriented
 // administrative protocol, any client input can mutate state, so
-// the default build offers no legitimate proxy use. The offensive
-// build substitutes a handler that allows `fox a 0 -1 fox hello`
-// handshake and routes everything else through triple confirm.
+// the default build offers no legitimate proxy use. A gated handler
+// exists in offensive/write/fox but is not wired to `proxy listen`
+// (orphan package; open decision in TODO-vNext).
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &denyAll{} }
 
 type denyAll struct{}
 
 func (denyAll) Handle(_ context.Context, client, _ io.ReadWriter) error {
 	_, _ = client.Write([]byte("fox a 0 -1 fox denied\n"))
-	return fmt.Errorf("fox: proxy refuses client input by default (use -tags offensive + triple confirm)")
+	return fmt.Errorf("fox: proxy refuses client input (no write-gated fox proxy is wired, in either build)")
 }
 
 func buildFinding(target core.Target, note string, isFox bool) *core.Finding {

@@ -83,9 +83,10 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // I-format APDUs (the only frame type carrying ASDUs, including
 // Control-family commands that can mutate grid state) by replying
 // with a STOPDT_act U-frame (ADR-040). S-format and U-format frames
-// forward untouched so the data-transfer lifecycle completes. The
-// offensive build substitutes an ASDU-aware handler that routes
-// Control ASDUs through the triple-confirm wrapper.
+// forward untouched so the data-transfer lifecycle completes. An
+// ASDU-aware gated handler exists in offensive/write/iec104 but is
+// not wired to `proxy listen` (orphan package; open decision in
+// TODO-vNext).
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
 type writeBanHandler struct{}

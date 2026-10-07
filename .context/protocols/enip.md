@@ -22,9 +22,10 @@ alongside the generic REPL framework; write operations stay behind
 See `internal/protocols/enip/wire/` for the from-scratch parser.
 
 ## Fingerprint strategy
-One-shot probe: send the smallest valid request the protocol accepts;
-classify the response header and record a vendor/product hint when
-available.
+ListIdentity (24-byte encapsulation header, command 0x0063, empty
+body). The reply's identity item (VendorID, DeviceType, ProductName...)
+is parsed; ProductName drives the Rockwell CVE lookup (cve.ForENIP).
+The identity strings are hashed into the finding ID, not printed.
 
 ## Read operations (default build)
 - `probe`: what `scan` invokes.
@@ -36,8 +37,9 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default pass-through. Write-gating (where it applies) lands in F5 with
-the per-FC / per-command matrix.
+Default build: write-ban handler (encapsulation commands classified;
+anything not a read is refused). Offensive build: per-command and
+optional per-CIP-object gate (`--cip-command`, `--cip-attr`).
 
 ## Scoring contribution
 See `internal/protocols/enip/enip.go` for the factor defaults.

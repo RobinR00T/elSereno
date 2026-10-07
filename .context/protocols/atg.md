@@ -19,12 +19,14 @@ alongside the generic REPL framework; write operations stay behind
 - Veeder-Root ATG protocol (proprietary)
 
 ## Wire format (summary)
-See `internal/protocols/atg/wire/` for the from-scratch parser.
+No wire package: the probe and the substring classifier live in
+`internal/protocols/atg/atg.go`.
 
 ## Fingerprint strategy
-One-shot probe: send the smallest valid request the protocol accepts;
-classify the response header and record a vendor/product hint when
-available.
+Send `\x01I20100\n` (the Veeder-Root in-tank inventory query, as
+nmap's atg-info.nse). The reply counts as ATG when it contains
+"I20100", "IN-TANK" or "VEEDER" anywhere and is not a reflected copy of
+the query. No field (station, tanks, volumes) is extracted.
 
 ## Read operations (default build)
 - `probe`: what `scan` invokes.
@@ -36,8 +38,10 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default pass-through. Write-gating (where it applies) lands in F5 with
-the per-FC / per-command matrix.
+Default build: write-ban filter. Only `I`-prefixed (inquiry)
+commands forward; any other command (V setpoint, S configuration, T
+calibration...) is refused. The gated package `offensive/write/atg` is
+not wired to `proxy listen` (orphan; open decision in TODO-vNext).
 
 ## Scoring contribution
 See `internal/protocols/atg/atg.go` for the factor defaults.

@@ -581,12 +581,12 @@ well-known:
 
 | Plugin    | Puerto       | Lo que hace |
 |-----------|--------------|-------------|
-| modbus    | 502/tcp      | Read-Holding-Regs + Read-Device-Identification |
-| s7        | 102/tcp      | TPKT/COTP + ROSCTR=0x01 Setup Comm |
-| enip      | 44818/tcp    | ListIdentity (CIP UCMM) |
-| bacnet    | 47808/udp    | Who-Is (APDU broadcast) |
+| modbus    | 502/tcp      | Read Coils (FC 1) + Read Device Identification (FC 43/14) |
+| s7        | 102/tcp      | TPKT + COTP Connection Request (TSAP 0x0100/0x0102) |
+| enip      | 44818/tcp    | ListIdentity (comando de encapsulación 0x63, sin CIP) |
+| bacnet    | 47808/udp    | Who-Is (original-unicast, DNET global, hop count 255) |
 | dnp3      | 20000/tcp    | Request Link Status a las direcciones 0..100 (solo capa de enlace, CRC válido) |
-| iec104    | 2404/tcp     | TESTFR/STARTDT (APCI U-format) |
+| iec104    | 2404/tcp     | TESTFR act (APCI U-format); no envía STARTDT |
 | hartip    | 5094/tcp     | Session-Initiate |
 | fox       | 1911/tcp     | Hello "fox a 1 -1 fox hello" (el de nmap) → respuesta "fox a 0 …{" |
 | atg       | 10001/tcp    | `<SOH>I20100<CR>` (Veeder-Root info query) |
@@ -613,9 +613,9 @@ well-known:
 | codesys   | 1217/tcp     | CoDeSys V3 magic Block Driver + banner |
 | redlion   | 789/tcp      | Red Lion CR3: lectura de los registros de fabricante y modelo |
 | twincat   | 48898/tcp    | Beckhoff TwinCAT ADS ReadDeviceInfo |
-| s7-exposure | opt-in (102/tcp) | S7 nivel de protección + identidad (SZL) |
-| opcua-exposure | opt-in (4840/tcp) | OPC UA sesión anónima + walk de tags escribibles |
-| codesys-active | opt-in (1217/tcp) | CoDeSys V3 channel-open, confirma por respuesta Block Driver |
+| s7-exposure | opt-in, sin puerto (usar contra 102) | S7 nivel de protección + identidad (SZL) |
+| opcua-exposure | opt-in, sin puerto (usar contra 4840) | OPC UA sesión anónima + walk de tags escribibles |
+| codesys-active | opt-in, sin puerto (usar contra 1217) | CoDeSys V3 channel-open; confirma por la trama Block Driver (un banner CoDeSys cuenta, con nota) |
 
 Los cuatro plugins en negrita se añadieron en v1.3 (PBX
 discovery) y v1.4 (CWMP / TR-069).
@@ -626,8 +626,8 @@ discovery) y v1.4 (CWMP / TR-069).
 # Fingerprint + scoring
 elsereno scan --input stdin <<< "10.0.0.5:502"
 
-# Ver qué protocolo se detectó y por qué
-elsereno why --finding-id <uuid>
+# Postura de scoring (pesos por defecto) para un target
+elsereno why 10.0.0.5:502
 
 # Explicar cómo se calcula el score
 elsereno explain
@@ -638,9 +638,12 @@ elsereno explain
 ```sh
 elsereno scan --plugin s7 --input stdin <<< "10.0.0.6:102"
 
-# S7 responde con ID + firmware en la Setup Comm response.
-# ElSereno extrae device family + firmware → factor `cve_exposure`
-# sube si el firmware está en nuestra tabla de CVEs.
+# El plugin s7 solo envía el COTP Connection Request (TSAP 0x0100 /
+# 0x0102) y puntúa el COTP Connection Confirm; no envía Setup Comm ni
+# lee firmware, y su cve_exposure es fijo (14). Identidad, firmware y
+# nivel de protección: `elsereno s7 probe` o el plugin opt-in
+# s7-exposure (SZL 0x0011 + 0x001C para identidad y firmware, más el
+# SZL de nivel de protección).
 ```
 
 ### 3.3 EtherNet/IP
@@ -649,11 +652,12 @@ elsereno scan --plugin s7 --input stdin <<< "10.0.0.6:102"
 elsereno scan --plugin enip --input stdin <<< "10.0.0.7:44818"
 
 # ListIdentity saca VendorID, DeviceType, SerialNumber, ProductName.
-# Si el target es Rockwell / Omron / Allen-Bradley → `protocol_risk` alto.
-# Y si el ProductName es un módulo Ethernet ControlLogix (1756-EN2T /
-# -EN2TR / -EN2TP / -EN2F / -EN3TR), `cve_exposure` sube y el finding
-# anota CVE-2025-7353 (RCE 9.8, nivel-catálogo). El 1756-ENBT no entra
-# en la lista afectada, así que se queda en el baseline (sin CVE falsa).
+# protocol_risk es fijo (85). Si el ProductName es un módulo Ethernet
+# ControlLogix de Rockwell (1756-EN2T / -EN2TR / -EN2TP / -EN2F /
+# -EN3TR), cve_exposure sube por CVE-2025-7353 (RCE 9.8, nivel
+# catálogo). El 1756-ENBT no entra en la lista afectada y se queda en
+# el baseline. El id de la CVE no sale en el finding (core.Finding no
+# tiene campo para notas; decisión abierta en TODO-vNext).
 ```
 
 ### 3.4 BACnet/IP (UDP)
@@ -661,8 +665,8 @@ elsereno scan --plugin enip --input stdin <<< "10.0.0.7:44818"
 ```sh
 elsereno scan --plugin bacnet --input stdin <<< "10.0.0.8:47808"
 
-# Who-Is es broadcast UDP. El scanner aguanta ElayedResponseReady
-# I-Am del device y extrae DeviceObject instance.
+# Who-Is unicast (original-unicast al target, DNET global, hop count
+# 255). La respuesta I-Am confirma BACnet.
 ```
 
 ### 3.5 DNP3
@@ -680,8 +684,9 @@ elsereno scan --plugin dnp3 --input stdin <<< "10.0.0.9:20000"
 ```sh
 elsereno scan --plugin iec104 --input stdin <<< "10.0.0.10:2404"
 
-# STARTDT activate / TESTFR. El servidor responde con STARTDT
-# confirm si acepta comandos (power-grid RTUs típicamente).
+# TESTFR act (68 04 43 00 00 00). Confirma IEC 104 una respuesta
+# U-format o S-format. No envía STARTDT, así que no dice si el
+# servidor aceptaría comandos.
 ```
 
 ### 3.7 HART-IP

@@ -76,9 +76,9 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 // that may be a write) with a session-close response carrying
 // status 0x04 "Unsupported command" (ADR-040). Session-management
 // messages forward untouched so the HART-IP lifecycle completes.
-// The offensive build substitutes a handler that parses the inner
-// HART command and routes writes through the triple-confirm
-// wrapper.
+// A gated handler that parses the inner HART command exists in
+// offensive/write/hartip but is not wired to `proxy listen` (orphan
+// package; open decision in TODO-vNext).
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
 type writeBanHandler struct{}

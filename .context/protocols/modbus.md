@@ -37,7 +37,8 @@ PLC, regardless of the upstream configuration.
 - `device-id`: opportunistic FC 43/14 level 0x01 (Basic). When
   supported, the response carries VendorName (obj 0x00),
   ProductCode (obj 0x01), MajorMinorRevision (obj 0x02). These
-  strings feed the finding's vendor/product/revision annotation.
+  strings are hashed into the finding ID; they are not printed (a
+  core.Finding has no note field; open decision in TODO-vNext).
 
 ## Read operations (default build)
 - `probe`: what scan invokes.
