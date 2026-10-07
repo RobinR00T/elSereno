@@ -611,7 +611,7 @@ well-known:
 | pcworx    | 1962/tcp     | Phoenix Contact PC Worx init de sesión (respuesta 0x81) |
 | proconos  | 20547/tcp    | KW-Software ProConOS enumeración (firma 0xcc) |
 | codesys   | 1217/tcp     | CoDeSys V3 magic Block Driver + banner |
-| redlion   | 789/tcp      | Red Lion Crimson / RLN banner |
+| redlion   | 789/tcp      | Red Lion CR3: lectura de los registros de fabricante y modelo |
 | twincat   | 48898/tcp    | Beckhoff TwinCAT ADS ReadDeviceInfo |
 | s7-exposure | opt-in (102/tcp) | S7 nivel de protección + identidad (SZL) |
 | opcua-exposure | opt-in (4840/tcp) | OPC UA sesión anónima + walk de tags escribibles |

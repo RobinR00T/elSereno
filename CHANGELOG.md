@@ -324,6 +324,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Red Lion probe now asks the panel who it is (PITF-079).** The probe
+  waited for a connect banner and then sent three zero bytes; no source
+  shows a Crimson panel announcing itself or answering zeros. It now sends
+  the manufacturer and model register reads of `cr3-fingerprint.nse`
+  (internetofallthethings/cr3-nmap; praetorian-inc/nerva sends the same
+  frames) and classifies the CR3 string reply (note carries
+  `manufacturer=` and `model=`), keeping the banner substrings as a
+  fallback. Checked against those reference implementations; no public
+  capture exists.
 - **Niagara Fox probe now says hello first (PITF-078).** The probe opened
   TCP/1911 and only listened for a banner, but a Niagara station says
   nothing until the client sends its hello (in the real w3h/icsmaster

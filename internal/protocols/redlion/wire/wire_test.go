@@ -2,18 +2,60 @@ package wire_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"testing"
 
 	"local/elsereno/internal/protocols/redlion/wire"
 )
 
-func TestBuildHelloShape(t *testing.T) {
+// TestQueries_Reference: the two identity reads are byte for byte the
+// probes of cr3-fingerprint.nse (internetofallthethings/cr3-nmap) and
+// of praetorian-inc/nerva's crimsonv3 plugin (PITF-079).
+func TestQueries_Reference(t *testing.T) {
 	t.Parallel()
-	got := wire.BuildHello()
-	want := []byte{0x00, 0x00, 0x00}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("hello: got %x want %x", got, want)
+	if want := []byte{0x00, 0x04, 0x01, 0x2b, 0x1b, 0x00}; !bytes.Equal(wire.ManufacturerQuery, want) {
+		t.Fatalf("manufacturer query %x, want %x", wire.ManufacturerQuery, want)
+	}
+	if want := []byte{0x00, 0x04, 0x01, 0x2a, 0x1a, 0x00}; !bytes.Equal(wire.ModelQuery, want) {
+		t.Fatalf("model query %x, want %x", wire.ModelQuery, want)
+	}
+}
+
+// cr3String builds a CR3 string response the way nerva's test server
+// does: length, register, type 0x0300, the string, a NUL.
+func cr3String(register uint16, s string) []byte {
+	data := append([]byte(s), 0x00)
+	out := make([]byte, 6, 6+len(data))
+	binary.BigEndian.PutUint16(out[0:2], uint16(4+len(data))) // #nosec G115 -- test strings are short.
+	binary.BigEndian.PutUint16(out[2:4], register)
+	out[4] = 0x03
+	return append(out, data...)
+}
+
+func TestParseStringResponse(t *testing.T) {
+	t.Parallel()
+	got, err := wire.ParseStringResponse(cr3String(0x012b, "Red Lion Controls"))
+	if err != nil || got != "Red Lion Controls" {
+		t.Fatalf("manufacturer: %q, %v", got, err)
+	}
+	if note, err := wire.Classify(cr3String(0x012b, "Red Lion Controls")); err != nil || note != "manufacturer=Red Lion Controls" {
+		t.Fatalf("Classify: %q, %v", note, err)
+	}
+	if got, err := wire.ParseStringResponse(append(cr3String(0x012a, "G310C2"), 0xAA)); err != nil || got != "G310C2" {
+		t.Fatalf("model with trailing bytes: %q, %v", got, err)
+	}
+	for name, b := range map[string][]byte{
+		"reflected query":   wire.ManufacturerQuery,
+		"truncated frame":   cr3String(0x012b, "Red Lion Controls")[:10],
+		"no data":           {0x00, 0x05, 0x01, 0x2b, 0x03, 0x00, 0x00},
+		"binary data":       {0x00, 0x06, 0x01, 0x2b, 0x03, 0x00, 0x05, 0x1a},
+		"too short":         {0x00, 0x04, 0x01},
+		"length below head": {0x00, 0x01, 0x01, 0x2b, 0x03, 0x00, 'A'},
+	} {
+		if _, err := wire.ParseStringResponse(b); err == nil {
+			t.Errorf("%s: parsed as a CR3 string", name)
+		}
 	}
 }
 

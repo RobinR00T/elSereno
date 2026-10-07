@@ -63,6 +63,27 @@ func run() int {
 // counts the body (reg+type = 4 bytes).
 var cannedResponse = []byte{0x00, 0x04, 0x00, 0x00, 0x02, 0x00}
 
+// identity answers the two identity reads of cr3-fingerprint.nse the
+// way nerva's crimsonv3 test server does (length, register, type
+// 0x0300, string, NUL), so `elsereno scan` against the simulator sees
+// a panel. A mock: no public capture shows a real panel's type field.
+var identity = map[string]string{
+	string(wire.ManufacturerQuery): "Red Lion Controls",
+	string(wire.ModelQuery):        "G310C2",
+}
+
+// responseFor returns the identity string frame for an identity read
+// and the canned response for anything else.
+func responseFor(frame []byte) []byte {
+	s, ok := identity[string(frame)]
+	if !ok {
+		return cannedResponse
+	}
+	data := append([]byte(s), 0x00)
+	n := 4 + len(data)
+	return append([]byte{byte(n >> 8), byte(n), frame[2], frame[3], 0x03, 0x00}, data...) // #nosec G115 -- n < 64.
+}
+
 // serve answers every CR3 frame the proxy forwards with the canned
 // response until the client disconnects or an idle deadline hits.
 func serve(conn net.Conn) {
@@ -73,7 +94,7 @@ func serve(conn net.Conn) {
 		if len(frame) > 0 {
 			t, _ := wire.ExtractType(frame)
 			log.Printf("redlion-sim: received CR3 frame type=0x%04x (%d bytes)", uint16(t), len(frame))
-			if _, werr := conn.Write(cannedResponse); werr != nil {
+			if _, werr := conn.Write(responseFor(frame)); werr != nil {
 				return
 			}
 		}

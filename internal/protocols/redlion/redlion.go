@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/redlion/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -39,7 +40,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "Red Lion Crimson / RLN read-only fingerprint on TCP/789 (G3 / Graphite / FlexEdge / DA-50N / Sixnet HMIs and RTUs)",
+		Description: "Red Lion Crimson v3 (CR3) read-only fingerprint on TCP/789: reads the manufacturer and model registers (G3 / Graphite / FlexEdge / DA-50N HMIs, Sixnet RTUs)",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -63,34 +64,46 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
-	// First: try to read an unsolicited banner.
-	buf := make([]byte, 1024)
-	_ = conn.SetReadDeadline(time.Now().Add(p.IOTimeout / 2))
-	n, _ := conn.Read(buf)
-	if n > 0 {
-		if note, cerr := wire.Classify(buf[:n]); cerr == nil {
-			return buildFinding(target, "Red Lion "+note, true), nil
-		}
+	// A panel says nothing until asked: read the manufacturer register
+	// as cr3-fingerprint.nse does. Until 2026-10-07 the probe waited for
+	// a connect banner and then sent three zero bytes, neither of which
+	// any source supports (PITF-079).
+	query := append([]byte(nil), wire.ManufacturerQuery...)
+	if _, err := conn.Write(query); err != nil {
+		return nil, fmt.Errorf("redlion: write: %w", err)
 	}
-	// Fallback: send the 3-byte hello and try again.
-	_ = conn.SetWriteDeadline(time.Now().Add(p.IOTimeout))
-	if _, err := conn.Write(wire.BuildHello()); err != nil {
+	buf := make([]byte, 1024)
+	n, _ := conn.Read(buf)
+	if netutil.IsEcho(query, buf[:n]) {
+		return buildFinding(target, "reply echoes the probe (not Red Lion)", false), nil
+	}
+	note, cerr := wire.Classify(buf[:n])
+	if cerr != nil {
 		if n == 0 {
 			return buildFinding(target, "no usable reply", false), nil
 		}
-		return buildFinding(target, "non-Red-Lion reply", false), nil
-	}
-	_ = conn.SetReadDeadline(time.Now().Add(p.IOTimeout))
-	n2, _ := conn.Read(buf[n:])
-	total := n + n2
-	if total < 4 {
-		return buildFinding(target, "no usable reply", false), nil
-	}
-	note, cerr := wire.Classify(buf[:total])
-	if cerr != nil {
 		return buildFinding(target, classifyParseError(cerr), false), nil
 	}
+	if model := readModel(conn, p.IOTimeout); model != "" {
+		note += " model=" + model
+	}
 	return buildFinding(target, "Red Lion "+note, true), nil
+}
+
+// readModel reads the model register on the same connection, best
+// effort: an empty string when the panel does not answer it.
+func readModel(conn net.Conn, timeout time.Duration) string {
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+	if _, err := conn.Write(wire.ModelQuery); err != nil {
+		return ""
+	}
+	buf := make([]byte, 1024)
+	n, _ := conn.Read(buf)
+	model, err := wire.ParseStringResponse(buf[:n])
+	if err != nil {
+		return ""
+	}
+	return model
 }
 
 // REPL stub.

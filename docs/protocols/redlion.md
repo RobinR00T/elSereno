@@ -1,34 +1,43 @@
-# Red Lion Crimson / RLN (TCP 789)
+# Red Lion Crimson v3 (CR3, TCP 789)
 
 Red Lion Controls is an HMI / RTU vendor whose product family
 includes G3, G3 Kadet, Graphite, FlexEdge, DA-50N, and the
 post-2010-acquisition Sixnet RTU line. Crimson 3 is the
-proprietary firmware / IDE; RLN (Red Lion Net) is the wire
-protocol on TCP/789. Many devices also expose 23 (telnet) and
+proprietary firmware / IDE; it talks to panels over the Crimson v3
+(CR3) protocol on TCP/789. Many devices also expose 23 (telnet) and
 80 (HTTP) for the same controller.
 
 ## Probe
 
-- Connect to TCP/789. RLN servers typically send an unsolicited
-  banner on connect.
-- If no banner arrives within IOTimeout/2, send a 3-byte zero
-  hello (`0x00 0x00 0x00`), most Crimson firmware ignores
-  zero-padded handshakes and replies with the default banner.
-- Classify the response by canonical Red Lion banner substring:
-  `Red Lion Controls`, `Red Lion`, `Crimson 3`, `CRIMSON 3`,
-  `Crimson 2`, `FlexEdge`, `Graphite`, `DA-50N`, `DA50N`,
-  `G3 Kadet`, `G3 HMI`, `Sixnet`.
-
-The banner-substring approach is the conservative public-data
-choice, Crimson 3's tag-length-value RLN frame layout is not
-fully published, but every Internet-exposed device announces
-itself via banner.
+- Connect to TCP/789 and read the manufacturer register with the
+  frame `00 04 01 2B 1B 00`, then (if the panel answered) the model
+  register with `00 04 01 2A 1A 00`. Both are byte for byte the
+  probes of `cr3-fingerprint.nse` (internetofallthethings/cr3-nmap,
+  by the author of the CR3 Wireshark dissector) and of
+  praetorian-inc/nerva's crimsonv3 plugin. That README shows a panel
+  answering "Red Lion Controls" and "G310C2".
+- Classify the reply as a CR3 string response: a length field that
+  matches a complete frame, then after the 6-octet header (length,
+  register, type) a non-empty printable string ending in NUL. The note
+  carries `manufacturer=` and `model=`.
+- Fallback: a canonical banner substring anywhere in the reply
+  (`Red Lion Controls`, `Red Lion`, `Crimson 3`, `CRIMSON 3`,
+  `Crimson 2`, `FlexEdge`, `Graphite`, `DA-50N`, `DA50N`, `G3 Kadet`,
+  `G3 HMI`, `Sixnet`). A reflected copy of our read is rejected.
+- Until 2026-10-07 the probe waited for an unsolicited connect banner
+  and then sent three zero bytes, claiming panels announce themselves
+  and answer zero-padded handshakes; no source supports either, and
+  the sources above show the client asks first (PITF-079). Validated
+  against those reference implementations, not against a packet
+  capture: none is public.
 
 ## Wire layout
 
-RLN frames use a 3-byte handshake plus tag-length-value bodies.
-This plugin only inspects the banner text (which is plain ASCII)
-and does not parse RLN TLV frames.
+CR3 frame (cr3-wireshark `cr3.lua`): length (2, big-endian, counts the
+bytes after itself), register (2), then the payload, whose first two
+octets are a type; the identity registers return a NUL-terminated
+string after it. The same framing drives the offensive write-gate
+below.
 
 ## Proxy policy (default build)
 

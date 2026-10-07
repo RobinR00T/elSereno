@@ -1455,7 +1455,7 @@ ningún comando conecta todavía; esos figuran como RO.
 | `pbxhttp`    | TCP/443/80/8088   | HTTP admin pages PBX (FreePBX, 3CX, Yeastar, etc.)                     | RO + WG  |
 | `pcworx`     | TCP/1962          | Phoenix Contact PCWorx (ILC + AXC F + RFC)                             | RO + WG  |
 | `proconos`   | TCP/20547         | KW-Software ProConOS                                                  | RO       |
-| `redlion`    | TCP/789           | Red Lion Crimson / RLN (HMIs/RTUs)                                     | RO + WG  |
+| `redlion`    | TCP/789           | Red Lion Crimson v3 / CR3 (HMIs/RTUs)                                  | RO + WG  |
 | `s7`         | TCP/102           | Siemens S7comm                                                        | RO + WG  |
 | `s7-exposure` | opt-in (TCP/102) | S7: nivel de protección + identidad vía SZL                          | RO (opt-in) |
 | `sip`        | UDP/5060          | SIP / PBX                                                             | RO + WG  |

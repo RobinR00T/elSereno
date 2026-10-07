@@ -1,6 +1,7 @@
 package redlion
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -85,9 +86,12 @@ func probeAgainstResponder(t *testing.T, unsolicited bool, respond func() []byte
 			}
 			return
 		}
-		// Wait for the 3-byte hello, then reply.
-		buf := make([]byte, 3)
-		_, _ = io.ReadFull(conn, buf)
+		// Like a panel: answer only the manufacturer read
+		// (cr3-fingerprint.nse); anything else gets silence.
+		buf := make([]byte, len(wire.ManufacturerQuery))
+		if _, err := io.ReadFull(conn, buf); err != nil || !bytes.Equal(buf, wire.ManufacturerQuery) {
+			return
+		}
 		if reply := respond(); reply != nil {
 			_, _ = conn.Write(reply)
 		}
@@ -113,6 +117,34 @@ func probeAgainstResponder(t *testing.T, unsolicited bool, respond func() []byte
 	return f
 }
 
+// TestProbeCR3Manufacturer: a panel that answers the manufacturer read
+// with a CR3 string frame (the shape cr3-fingerprint.nse parses and
+// nerva's test server sends). The previous probe sent three zero bytes,
+// which this panel ignores (PITF-079).
+func TestProbeCR3Manufacturer(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, false, func() []byte {
+		data := append([]byte("Red Lion Controls"), 0x00)
+		return append([]byte{0x00, 0x16, 0x01, 0x2b, 0x03, 0x00}, data...) // length 4 + 18
+	})
+	if f.Factors["capability"] != 70 {
+		t.Fatalf("capability: got %d want 70", f.Factors["capability"])
+	}
+}
+
+// TestProbeEchoIsNotRedLion: a reflected manufacturer read is a CR3
+// frame with no data, not a panel.
+func TestProbeEchoIsNotRedLion(t *testing.T) {
+	t.Parallel()
+	f := probeAgainstResponder(t, false, func() []byte { return append([]byte(nil), wire.ManufacturerQuery...) })
+	if f.Factors["capability"] != 30 {
+		t.Fatalf("capability: got %d want 30 (echo)", f.Factors["capability"])
+	}
+}
+
+// TestProbeUnsolicitedBanner covers the banner-substring fallback for a
+// device that writes text on connect (no source shows a Crimson panel
+// doing so; the fallback is kept for odd firmwares).
 func TestProbeUnsolicitedBanner(t *testing.T) {
 	t.Parallel()
 	f := probeAgainstResponder(t, true, func() []byte {

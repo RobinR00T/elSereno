@@ -7,27 +7,33 @@ protocol-name: redlion
 default-port: 789/tcp
 ---
 
-# Red Lion Crimson / RLN
+# Red Lion Crimson v3 (CR3)
 
 ## TL;DR
-ElSereno's `redlion` plugin connects to TCP/789, reads any
-unsolicited banner, falls back to a 3-byte zero hello, and
-classifies the response by canonical Red Lion / Crimson /
-Sixnet banner substring.
+ElSereno's `redlion` plugin connects to TCP/789 and reads the
+manufacturer and model registers with the two frames of
+cr3-fingerprint.nse (`00 04 01 2B 1B 00`, `00 04 01 2A 1A 00`),
+classifying a CR3 string response, with the canonical Red Lion /
+Crimson / Sixnet banner substrings as fallback. Until 2026-10-07 it
+waited for a connect banner and sent three zero bytes (PITF-079).
 
 ## Spec references
 - ICS-CERT ICSA-21-103-01, ICSA-22-088-01.
-- Shodan banner aggregations.
+- internetofallthethings/cr3-nmap `cr3-fingerprint.nse` (the identity
+  reads) and cr3-wireshark `cr3.lua` (the frame layout).
+- praetorian-inc/nerva `pkg/plugins/services/crimsonv3` (same reads).
 - Red Lion Crimson 3 product manuals (registration required).
 
 ## Wire format
-Banner-only fingerprint. RLN frames use a 3-byte handshake +
-tag-length-value bodies; we don't parse those.
+CR3: length (2, BE, counts the bytes after itself) + register (2) +
+payload (type (2) + data). `wire.ParseStringResponse` reads an identity
+string after the 6-octet header.
 
 ## Fingerprint strategy
-Two-step probe:
-1. Read up to 1024 bytes for IOTimeout/2 (unsolicited banner).
-2. If no positive ID, send 3-byte zero hello, read again.
+1. Send the manufacturer read, read the reply, classify (CR3 string
+   first, banner substring second; an echo of the read is rejected).
+2. On a positive reply, send the model read on the same connection and
+   add `model=` to the note (best effort).
 
 Substring matches: 12 canonical strings ordered most-specific
 first (Red Lion Controls > Red Lion, Crimson 3 > Crimson 2,
@@ -35,7 +41,7 @@ etc.) so the matched substring in the finding note is
 informative.
 
 ## Read operations (default build)
-- `probe`: dial → read → fallback 3-byte hello → classify.
+- `probe`: dial → manufacturer read → classify → model read.
 
 ## Write / dial operations (offensive build tag)
 Shipped (`offensive/write/redlion`, TCP/789). CR3 is length-
@@ -65,4 +71,7 @@ factors{protocol_risk:75, exposure:75, auth_state:85, capability:30
 
 ## Sentinel errors (wire package)
 - ErrShortFrame: < 4-byte response.
-- ErrNotRedLion: response carries no canonical banner substring.
+- ErrNotRedLion: response is neither a CR3 string nor carries a
+  canonical banner substring.
+- ErrNotCR3String: (ParseStringResponse) not a complete CR3 frame
+  with a printable string.
