@@ -289,3 +289,43 @@ func TestWriteFinding_BundleSpecVersion(t *testing.T) {
 		t.Error("bundle must declare spec_version 2.1")
 	}
 }
+
+// TestWriteFinding_SameIDDifferentProtocolDistinctObjects: two plugins
+// sharing a port can produce the same finding ID (s7 and mms both note
+// "silent close" on 102); their observed-data objects must not share a
+// STIX id.
+func TestWriteFinding_SameIDDifferentProtocolDistinctObjects(t *testing.T) {
+	var buf bytes.Buffer
+	w := stix.NewWriter(&buf)
+	a := fixtureFinding()
+	a.Protocol = "s7"
+	b := fixtureFinding()
+	b.Protocol = "mms"
+	if err := w.WriteFinding(a, "192.168.1.5", 102); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteFinding(b, "192.168.1.5", 102); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+	var bundle map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &bundle); err != nil {
+		t.Fatal(err)
+	}
+	objs, _ := bundle["objects"].([]any)
+	seen := map[string]bool{}
+	for _, o := range objs {
+		m, _ := o.(map[string]any)
+		id, _ := m["id"].(string)
+		if !strings.HasPrefix(id, "observed-data--") {
+			continue
+		}
+		if seen[id] {
+			t.Fatalf("two observed-data objects share id %s", id)
+		}
+		seen[id] = true
+	}
+	if len(seen) != 2 {
+		t.Fatalf("observed-data objects: %d, want 2", len(seen))
+	}
+}

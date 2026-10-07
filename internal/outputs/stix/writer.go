@@ -139,7 +139,11 @@ func (x *Writer) buildNetTrafficSCO(findingID core.UUID, addrSCO map[string]any,
 // timestamps from the finding's CreatedAt + the severity
 // promoted to a label.
 func (x *Writer) buildObservedDataSDO(f core.Finding, netRef string) map[string]any {
-	id := "observed-data--" + uuid.NewSHA1(elserenoNamespace, []byte("obs:"+string(f.ID))).String()
+	// The protocol is part of the name: plugins sharing a port (s7 and
+	// mms on 102, slmp and melsoft on 5007) hash (address, port, note)
+	// into their finding IDs, so the same note from both gave two
+	// different objects one STIX id (review, 2026-10-07).
+	id := "observed-data--" + uuid.NewSHA1(elserenoNamespace, []byte("obs:"+f.Protocol+":"+string(f.ID))).String()
 	created := f.CreatedAt.UTC().Format(time.RFC3339)
 	labels := []string{string(f.Severity), f.Protocol}
 	sdo := map[string]any{

@@ -134,3 +134,79 @@ func TestParseInput_ListDashReadsStdin(t *testing.T) {
 		t.Fatalf("targets = %+v", got)
 	}
 }
+
+// TestExecScan_EachFindingKeepsItsOwnTarget: eight listeners that all
+// send the same banner give eight banner findings with the same ID
+// (banner's ID hashed only the banner bytes). Every record must still
+// carry its own port. The first version of the scan fix looked the
+// target up by finding ID after the fact, so records swapped targets
+// (review, 2026-10-07).
+func TestExecScan_EachFindingKeepsItsOwnTarget(t *testing.T) {
+	const n = 8
+	var targets []core.Target
+	want := map[int]bool{}
+	for i := 0; i < n; i++ {
+		lc := net.ListenConfig{}
+		ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				_, _ = c.Write([]byte("same banner everywhere\r\n"))
+				_ = c.Close()
+			}
+		}()
+		addr, ok := ln.Addr().(*net.TCPAddr)
+		if !ok {
+			t.Fatalf("listener address %T", ln.Addr())
+		}
+		targets = append(targets, target(t, addr.AddrPort().String()))
+		want[addr.Port] = true
+	}
+	var out bytes.Buffer
+	opts := scanOpts{outputFormat: "ndjson", noProgress: true, plugins: []string{"banner"}}
+	cfg := config.Config{}
+	cfg.Scanner.MaxConcurrentTargets = n
+	cfg.Scanner.MaxConcurrentPerHost = n
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := execScan(ctx, cfg, opts, targets, &out); err != nil {
+		t.Fatalf("execScan: %v", err)
+	}
+	got := map[int]int{}
+	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+		var rec struct {
+			Port int `json:"port"`
+		}
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("unmarshal %q: %v", line, err)
+		}
+		got[rec.Port]++
+	}
+	for p := range want {
+		if got[p] != 1 {
+			t.Errorf("port %d appears %d times in the output, want once (got %v)", p, got[p], got)
+		}
+	}
+}
+
+// TestWarnOptInAnyPort: a named opt-in plugin without a default port is
+// announced, since it probes every listed target whatever the port.
+func TestWarnOptInAnyPort(t *testing.T) {
+	plugins, err := resolvePlugins([]string{"s7-exposure", "dnp3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runs, _ := planScan(plugins, []core.Target{target(t, "127.0.0.1:502"), target(t, "127.0.0.1:20000")})
+	var buf bytes.Buffer
+	warnOptInAnyPort(&buf, runs)
+	if !strings.Contains(buf.String(), "s7-exposure") || strings.Contains(buf.String(), "dnp3") {
+		t.Fatalf("warning = %q, want one for s7-exposure only", buf.String())
+	}
+}

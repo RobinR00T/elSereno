@@ -375,7 +375,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repeatable `--plugin` flag narrows the set (opt-in plugins run only when
   named; `fingerprint probe` covers non-default ports). Every NDJSON, CSV and
   STIX record carried an empty address and port 0; they now carry the
-  target's. `--input list:-` reads stdin, so `discover --format list | scan
+  target's, written by the probe that knows the target (a first version
+  looked the target up by finding ID, and banner's ID did not depend on the
+  target, so silent ports swapped addresses; caught by review the same
+  night). Banner finding IDs now include the target, STIX observed-data ids
+  include the protocol, and naming an opt-in plugin without a default port
+  (it then probes every listed target) prints a warning. `--input list:-` reads stdin, so `discover --format list | scan
   --input list:-` works (it tried to open a file named `-`).
 - **Docs: `scan` examples use real flags.** README, MANUAL, the Spanish
   manual, the cheatsheet and the man page showed flags `scan` never had

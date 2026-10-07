@@ -49,6 +49,18 @@
   lee `/api/v1/findings`. Un scan lanzado desde el dashboard da estadísticas,
   no resultados. Es diseño (esquema, run_id, target_id), no un arreglo de una
   noche. Encontrado el 7-10 al arreglar la CLI `scan` (PITF-076).
+- **Plugins opt-in sin puerto contra cualquier puerto.** `s7-exposure`,
+  `opcua-exposure` y `codesys-active` tienen `DefaultPort 0` (así quedan fuera
+  de `discover` y `plugins by-port`), y `filterByPort` trata el 0 como "todos
+  los targets" (pensado para `banner`). Nombrados en `scan --plugin` o en un
+  job del dashboard, van contra TODOS los puertos de la lista (p. ej. la sesión
+  anónima y la caminata de escribibles de `opcua-exposure` contra un Modbus).
+  Read-only, pero ruidoso y no es lo que se espera. Desde el 7-10 `scan` lo
+  avisa por stderr y la doc lo dice. Recomendación: darles su puerto real
+  (102 / 4840 / 1217) y que `discover` y `by-port` salten por `OptIn` en vez
+  de por `DefaultPort == 0`; cambia el contrato de plugins decidido el 2-10
+  ("nombrado = se ejecuta"), por eso no se ha tocado sin tu OK. Encontrado por
+  la revisión independiente del 7-10.
 - **Writers `syslog` y `cef` huérfanos.** `internal/outputs/{syslog,cef}`
   existen con tests pero nada los importa; la chuleta y la página man
   anunciaban `--output-format syslog|cef|html` y `--syslog`/`--webhook-url`,

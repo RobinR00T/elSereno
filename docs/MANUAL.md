@@ -338,8 +338,11 @@ correspondientes a cada puerto: cada plugin sondea los targets cuyo
 puerto es su puerto por defecto (`dnp3` el 20000, `modbus` el 502…),
 y `banner`, que no tiene puerto, sondea todos. Los plugins opt-in
 (`s7-exposure`, `opcua-exposure`, `codesys-active`) solo corren si se
-nombran en `--plugin`. Es el mismo reparto que usan los scans del
-dashboard. Cada finding sale con la dirección y el puerto del target.
+nombran en `--plugin`, y como no tienen puerto por defecto van, igual
+que `banner`, contra TODOS los targets de la lista, sea cual sea su
+puerto (`scan` lo avisa por stderr): lista solo los hosts de su
+protocolo, o usa `fingerprint probe`. Es el mismo reparto que usan los
+scans del dashboard. Cada finding sale con la dirección y el puerto del target.
 Para sondear un plugin en un puerto que no es el suyo, `fingerprint
 probe` (§ más abajo).
 
@@ -352,7 +355,7 @@ vacío y `port` a 0.
 | Flag                       | Por defecto    | Uso                                                                   |
 |----------------------------|----------------|-----------------------------------------------------------------------|
 | `--input KIND`             | (requerido)    | `list:FILE`, `nmap:FILE`, `stdin`, `shodan:Q`, `censys:Q`, `fofa:Q`, `zoomeye:Q`, `onyphe:Q`, `internetdb:IP_o_CIDR` |
-| `--plugin NAME[,NAME]`     | (todos)        | solo esos plugins (repetible); cada uno sigue limitado a su puerto    |
+| `--plugin NAME[,NAME]`     | (todos)        | solo esos plugins (repetible); cada uno limitado a su puerto, salvo los opt-in sin puerto (abajo) |
 | `--output-format`          | `ndjson`       | `ndjson`, `csv` o `stix`                                              |
 | `--output FILE`            | `-` (stdout)   | path al fichero de salida                                             |
 | `--default-port N`         | (sin)          | si las líneas no traen `:port`, se aplica este                        |

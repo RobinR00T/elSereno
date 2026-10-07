@@ -75,7 +75,15 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	}
 	raw := buf[:n]
 	_ = render.SafeBytes(raw) // sanitised payload is captured by the evidence writer in F2
-	sum := sha256.Sum256(raw)
+	// The ID and hash cover the target as well as the banner, like every
+	// other plugin's: until 2026-10-07 they hashed the banner alone, so
+	// every silent port (and every host with the same banner) produced
+	// the same finding ID.
+	h := sha256.New()
+	_, _ = h.Write([]byte(addr))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write(raw)
+	sum := h.Sum(nil)
 
 	factors := map[string]int{
 		"protocol_risk": 5, // low, banner is read-only.
@@ -94,7 +102,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		Score:       score,
 		CreatedAt:   time.Now().UTC().Truncate(time.Microsecond),
 		Factors:     factors,
-		FindingHash: sum[:],
+		FindingHash: sum,
 	}, nil
 }
 

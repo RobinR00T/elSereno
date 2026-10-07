@@ -336,8 +336,9 @@ elsereno discover --auto 10.0.0.0/24 --format list | elsereno scan --input list:
 
 `scan` hands each target to every plugin whose default port it is on
 (banner probes all of them; opt-in plugins run only when named in
-`--plugin`) and writes each finding with the target's address and
-port. Until 2026-10-07 the CLI ran banner alone and left the address
+`--plugin`, and, having no default port, then probe every listed target
+whatever its port, with a warning) and writes each finding with the
+target's address and port. Until 2026-10-07 the CLI ran banner alone and left the address
 empty; dashboard scans already dispatched per port.
 
 ```sh

@@ -113,6 +113,8 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 		return fail(core.ExitNoInput, fmt.Errorf("%w; to probe a plugin on a non-default port use `elsereno fingerprint probe --plugin <name> --target host:port`", ErrRunnerNoMatchingPlugins))
 	}
 
+	warnOptInAnyPort(os.Stderr, runs)
+
 	write, cleanup, err := scanOutput(out, opts.outputFormat)
 	if err != nil {
 		return err
@@ -138,19 +140,21 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 
 // runPlans runs each plugin over its targets in turn and writes every
 // finding with the target it was probed on. A core.Finding does not
-// carry its target, so each probe records where its finding came from
-// (keyed by finding ID, which is itself derived from the target).
+// carry its target, so the write happens inside the probe wrapper,
+// where the target is known, under a mutex (the writers are not safe
+// for concurrent use); the drain only counts. An earlier version looked
+// the target up by finding ID afterwards, which breaks when a plugin's
+// ID does not depend on the target: banner's was sha256(banner bytes),
+// identical for every silent port, so findings were written with
+// another host's address (caught by review on 2026-10-07).
 func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []pluginRun,
 	write func(core.Finding, core.Target) error, pb *telemetry.ProgressBar) (int64, error) {
-	var where sync.Map
-	emit := func(f core.Finding) error {
-		var t core.Target
-		if v, ok := where.Load(f.ID); ok {
-			t, _ = v.(core.Target)
-		}
-		return write(f, t)
-	}
-	var produced int64
+	var (
+		mu       sync.Mutex
+		writeErr error
+		produced int64
+	)
+	countOnly := func(core.Finding) error { return nil }
 	for _, r := range runs {
 		scn := scanner.New(scanner.Options{
 			MaxConcurrentTargets: pickPositive(opts.maxConcurrent, cfg.Scanner.MaxConcurrentTargets),
@@ -159,21 +163,46 @@ func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []plug
 			MaxRetries:           opts.retries,
 		})
 		probe := r.plugin.Factory().Probe
-		located := func(ctx context.Context, t core.Target) (*core.Finding, error) {
+		writing := func(ctx context.Context, t core.Target) (*core.Finding, error) {
 			f, err := probe(ctx, t)
-			if f != nil {
-				where.Store(f.ID, t)
+			if err != nil || f == nil {
+				return f, err
 			}
-			return f, err
+			mu.Lock()
+			defer mu.Unlock()
+			if writeErr == nil {
+				writeErr = write(*f, t)
+			}
+			return f, nil
 		}
-		findings, errs := scn.Run(ctx, r.targets, located)
-		n, err := drainScanChannels(findings, errs, emit, pb)
+		findings, errs := scn.Run(ctx, r.targets, writing)
+		n, err := drainScanChannels(findings, errs, countOnly, pb)
 		produced += n
 		if err != nil {
 			return produced, err
 		}
+		mu.Lock()
+		werr := writeErr
+		mu.Unlock()
+		if werr != nil {
+			return produced, fail(core.ExitIOErr, werr)
+		}
 	}
 	return produced, nil
+}
+
+// warnOptInAnyPort warns when a named opt-in plugin has no default port
+// (s7-exposure, opcua-exposure, codesys-active): like banner it then
+// probes every listed target, whatever its port, which is rarely what
+// the operator means. Binding them to their protocol's port is an open
+// decision (TODO-vNext); until then the operator is told.
+func warnOptInAnyPort(w io.Writer, runs []pluginRun) {
+	for _, r := range runs {
+		if r.plugin.OptIn && r.plugin.DefaultPort == 0 {
+			_, _ = fmt.Fprintf(w, "warn: opt-in plugin %s has no default port and will probe all %d listed targets, whatever their port; list only its protocol's hosts, or use `elsereno fingerprint probe --plugin %s --target host:port`\n",
+				r.plugin.Name, len(r.targets), r.plugin.Name)
+		}
+	}
 }
 
 // pluginRun is one plugin and the targets it probes.

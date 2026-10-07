@@ -104,7 +104,8 @@ The first 5 require \f[CR]\-\-api\-creds\-file <0600.yaml>\f[R];
 \f[B]internetdb\f[R] is no\-key.
 Each target goes to every plugin whose default port it is on
 (\f[B]banner\f[R] probes every target; opt\-in plugins run only when
-named); \f[CR]\-\-plugin <name>[,<name>]\f[R] restricts the set.
+named, and then probe every listed target, having no default port);
+\f[CR]\-\-plugin <name>[,<name>]\f[R] restricts the set.
 Each finding carries the target\(aqs address and port.
 \f[CR]\-\-output\-format\f[R] accepts \f[CR]ndjson\f[R], \f[CR]csv\f[R]
 and \f[CR]stix\f[R] (STIX 2.1 bundle for MISP / OpenCTI / ThreatBus,

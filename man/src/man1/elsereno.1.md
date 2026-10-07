@@ -103,7 +103,8 @@ The default-build subcommand list is below. Run
     `--api-creds-file <0600.yaml>`; **internetdb** is no-key.
     Each target goes to every plugin whose default port it is on
     (**banner** probes every target; opt-in plugins run only when
-    named); `--plugin <name>[,<name>]` restricts the set. Each
+    named, and then probe every listed target, having no default
+    port); `--plugin <name>[,<name>]` restricts the set. Each
     finding carries the target's address and port.
     `--output-format` accepts `ndjson`, `csv` and `stix` (STIX 2.1
     bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
