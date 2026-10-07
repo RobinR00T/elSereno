@@ -15,7 +15,9 @@ Operate skips even that.
   destination address 0..100 from master address 0, in one write. An
   outstation answers only its own link address, and the scanner does
   not know it; this is the request nmap's `dnp3-info.nse` (DigitalBond
-  Redpoint) sends, byte for byte. No application-layer request is
+  Redpoint) sends: its 100 well-formed frames byte for byte (its frame
+  for address 0x3D carries a typo and is malformed; ours is well
+  formed). No application-layer request is
   carried.
 - A reply counts as DNP3 when it is a link frame (`0x05 0x64`, length
   of at least 5) whose header CRC is valid. A reflected copy of our own

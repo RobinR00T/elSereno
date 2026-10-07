@@ -99,8 +99,8 @@ func readModel(conn net.Conn, timeout time.Duration) string {
 	}
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
-	model, err := wire.ParseStringResponse(buf[:n])
-	if err != nil {
+	model, ok := wire.IsStringResponseTo(buf[:n], wire.ModelQuery)
+	if !ok {
 		return ""
 	}
 	return model

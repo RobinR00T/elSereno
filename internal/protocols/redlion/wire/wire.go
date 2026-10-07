@@ -85,8 +85,9 @@ const HeaderLen = 6
 var ErrNotCR3String = errors.New("redlion: not a CR3 response carrying a string")
 
 // ParseStringResponse returns the string a CR3 response carries after
-// its 6-octet header, without the trailing NUL, as cr3-fingerprint.nse
-// reads it. The length field must match a complete frame (cr3.lua
+// its 6-octet header, without a trailing NUL if there is one, as
+// cr3-fingerprint.nse reads it. It does not check the register; see
+// IsStringResponseTo. The length field must match a complete frame (cr3.lua
 // dissects a frame whose length + 2 equals the bytes present; more
 // bytes after it are ignored, fewer are a truncated frame), and the
 // string must be non-empty printable ASCII. A reflected query (a
@@ -112,17 +113,53 @@ func ParseStringResponse(b []byte) (string, error) {
 	return string(data), nil
 }
 
+// ResponseRegister returns the register number of a CR3 frame
+// (octets 2..3).
+func ResponseRegister(b []byte) (uint16, bool) {
+	if len(b) < 4 {
+		return 0, false
+	}
+	return uint16(b[2])<<8 | uint16(b[3]), true
+}
+
+// registerOf returns the register a query reads.
+func registerOf(query []byte) uint16 {
+	reg, _ := ResponseRegister(query)
+	return reg
+}
+
+// IsStringResponseTo reports whether b is a CR3 string response that
+// answers query: the frame parses (ParseStringResponse) and its
+// register is the one the query read. It returns the string.
+func IsStringResponseTo(b, query []byte) (string, bool) {
+	s, err := ParseStringResponse(b)
+	if err != nil {
+		return "", false
+	}
+	if reg, ok := ResponseRegister(b); !ok || reg != registerOf(query) {
+		return "", false
+	}
+	return s, true
+}
+
 // Classify validates a candidate Red Lion response to
 // ManufacturerQuery. A CR3 string response is the primary signal
-// ("manufacturer=<name>"); a known banner substring anywhere in the
-// bytes is the fallback ("banner=<substring>"). On failure the
-// appropriate sentinel is returned.
+// ("manufacturer=<name>") when it answers register 0x012B or its
+// string carries a Red Lion name (no capture shows whether every
+// panel echoes the register, so either is accepted; a length-prefixed
+// reply from another protocol that does neither is not). A known
+// banner substring anywhere in the bytes is the fallback
+// ("banner=<substring>"). On failure the appropriate sentinel is
+// returned.
 func Classify(buf []byte) (string, error) {
 	if len(buf) < 4 {
 		return "", ErrShortFrame
 	}
 	if name, err := ParseStringResponse(buf); err == nil {
-		return "manufacturer=" + name, nil
+		_, answers := IsStringResponseTo(buf, ManufacturerQuery)
+		if answers || IsRedLionBanner([]byte(name)) {
+			return "manufacturer=" + name, nil
+		}
 	}
 	for _, sub := range RedLionBannerSubstrings {
 		if bytes.Contains(buf, sub) {

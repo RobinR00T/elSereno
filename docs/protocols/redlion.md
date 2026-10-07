@@ -18,8 +18,10 @@ proprietary firmware / IDE; it talks to panels over the Crimson v3
   answering "Red Lion Controls" and "G310C2".
 - Classify the reply as a CR3 string response: a length field that
   matches a complete frame, then after the 6-octet header (length,
-  register, type) a non-empty printable string ending in NUL. The note
-  carries `manufacturer=` and `model=`.
+  register, type) a non-empty printable string (a trailing NUL is
+  dropped), answering register 0x012B or naming Red Lion. The model
+  must answer register 0x012A. The note carries `manufacturer=` and
+  `model=`.
 - Fallback: a canonical banner substring anywhere in the reply
   (`Red Lion Controls`, `Red Lion`, `Crimson 3`, `CRIMSON 3`,
   `Crimson 2`, `FlexEdge`, `Graphite`, `DA-50N`, `DA50N`, `G3 Kadet`,

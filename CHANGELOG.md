@@ -332,7 +332,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frames) and classifies the CR3 string reply (note carries
   `manufacturer=` and `model=`), keeping the banner substrings as a
   fallback. Checked against those reference implementations; no public
-  capture exists.
+  capture exists. A CR3 string reply counts when it answers the
+  manufacturer register or names Red Lion (review the same night: a
+  length-prefixed text reply from any other protocol used to qualify), and
+  the model must answer the model register.
 - **Niagara Fox probe now says hello first (PITF-078).** The probe opened
   TCP/1911 and only listened for a banner, but a Niagara station says
   nothing until the client sends its hello (in the real w3h/icsmaster

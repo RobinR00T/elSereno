@@ -79,7 +79,7 @@ func probeAgainstResponder(t *testing.T, respond func() []byte) *core.Finding {
 			return
 		}
 		defer func() { _ = conn.Close() }()
-		buf := make([]byte, 37)
+		buf := make([]byte, len(wire.BuildAARQ()))
 		_, _ = io.ReadFull(conn, buf)
 		if reply := respond(); reply != nil {
 			_, _ = conn.Write(reply)

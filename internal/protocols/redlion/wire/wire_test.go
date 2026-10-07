@@ -152,3 +152,22 @@ func TestClassifyMostSpecificFirst(t *testing.T) {
 		t.Fatalf("note: got %q want banner=Red Lion Controls", note)
 	}
 }
+
+// TestClassify_RegisterOrRedLionName: a CR3-shaped string reply counts
+// when it answers the manufacturer register or names Red Lion; another
+// protocol's length-prefixed text on a different register does not.
+func TestClassify_RegisterOrRedLionName(t *testing.T) {
+	t.Parallel()
+	if note, err := wire.Classify(cr3String(0x012b, "Acme OEM Panels")); err != nil || note != "manufacturer=Acme OEM Panels" {
+		t.Fatalf("register 0x012B answer: %q, %v", note, err)
+	}
+	if note, err := wire.Classify(cr3String(0x0000, "Red Lion Controls")); err != nil || note != "manufacturer=Red Lion Controls" {
+		t.Fatalf("Red Lion name on another register: %q, %v", note, err)
+	}
+	if _, err := wire.Classify(cr3String(0x4242, "hello world")); err == nil {
+		t.Fatal("unrelated length-prefixed text classified as Red Lion")
+	}
+	if _, ok := wire.IsStringResponseTo(cr3String(0x012b, "G310C2"), wire.ModelQuery); ok {
+		t.Fatal("a manufacturer-register frame accepted as the model answer")
+	}
+}
