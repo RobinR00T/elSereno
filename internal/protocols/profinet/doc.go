@@ -10,7 +10,9 @@
 // (IP, port) target. Until v2.40+ ships a raw-socket scanner
 // (gopacket + root cap), v2.39 delivers:
 //
-//  1. Wire encoder for DCP Identify / Set / Get requests.
+//  1. Wire encoder for the DCP Identify-All request only
+//     (EncodeDCPIdentifyAll, printed as hex by `profinet`; nothing
+//     sends it). Set / Get are not encoded.
 //  2. Wire decoder for DCP responses with vendor / device /
 //     station-name / IP-config extraction.
 //  3. Offline-pcap decode verb so operators piping

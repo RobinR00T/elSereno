@@ -852,7 +852,8 @@ elsereno opcua probe-write --target plc:4840 --max-nodes 500
 # reporta postura TLS (acepta TLS 1.0/1.1 obsoletos, cert caducado).
 elsereno plaintext-check --target plc:502 --json
 elsereno plaintext-check --target hmi:443 --json   # postura TLS
-# Findings puntuados opt-in (DefaultPort 0: NO en el scan/discover por defecto):
+# Findings puntuados opt-in (OptIn: NO en el scan por defecto; DefaultPort 0: NO en
+# discover. Nombrados en scan --plugin van contra todos los targets de la lista):
 elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
 elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
 # Credenciales por defecto (build offensive, USO AUTORIZADO):
@@ -1435,7 +1436,7 @@ ningún comando conecta todavía; esos figuran como RO.
 | `bacnet`     | UDP/47808         | BACnet/IP (HVAC, edificios)                                            | RO + WG  |
 | `banner`     | (cualquiera)      | TCP banner grab (fallback)                                            | RO       |
 | `codesys`    | TCP/1217          | CoDeSys V3 (Wago/Beckhoff alt/Schneider M251/Eaton/Bosch Rexroth)     | RO + WG  |
-| `codesys-active` | opt-in (TCP/1217) | CoDeSys V3: sonda activa channel-open, confirma por la respuesta Block Driver | RO (opt-in) |
+| `codesys-active` | opt-in, sin puerto (usar contra 1217) | CoDeSys V3: sonda activa channel-open; confirma por una trama Block Driver (un banner CoDeSys cuenta, con nota) | RO (opt-in) |
 | `cwmp`       | TCP/7547          | TR-069 CWMP ACS (FreeACS, GenieACS, Nokia, etc.)                       | RO + WG  |
 | `dlms`       | TCP/4059          | DLMS/COSEM (IEC 62056-46 smart meters)                                 | RO       |
 | `dnp3`       | TCP/20000         | DNP3 IEEE 1815 (power/water utility)                                  | RO + WG  |
@@ -1453,14 +1454,14 @@ ningún comando conecta todavía; esos figuran como RO.
 | `modbus`     | TCP/502           | Modbus/TCP (PLC + RTU industrial generalista)                          | RO + WG  |
 | `mqtt`       | TCP/1883 (8883 TLS) | MQTT broker (CONNECT anónimo, suscripción wildcard, Sparkplug B)    | RO       |
 | `opcua`      | TCP/4840          | OPC UA TCP                                                            | RO + WG  |
-| `opcua-exposure` | opt-in (TCP/4840) | OPC UA: sesión anónima + walk de tags escribibles               | RO (opt-in) |
+| `opcua-exposure` | opt-in, sin puerto (usar contra 4840) | OPC UA: sesión anónima + walk de tags escribibles               | RO (opt-in) |
 | `opcuahttps` | TCP/4843          | OPC UA HTTPS (binding Part 6): GetEndpoints + postura de seguridad    | RO + WG  |
 | `pbxhttp`    | TCP/443/80/8088   | HTTP admin pages PBX (FreePBX, 3CX, Yeastar, etc.)                     | RO + WG  |
 | `pcworx`     | TCP/1962          | Phoenix Contact PCWorx (ILC + AXC F + RFC)                             | RO + WG  |
 | `proconos`   | TCP/20547         | KW-Software ProConOS                                                  | RO       |
 | `redlion`    | TCP/789           | Red Lion Crimson v3 / CR3 (HMIs/RTUs)                                  | RO + WG  |
 | `s7`         | TCP/102           | Siemens S7comm                                                        | RO + WG  |
-| `s7-exposure` | opt-in (TCP/102) | S7: nivel de protección + identidad vía SZL                          | RO (opt-in) |
+| `s7-exposure` | opt-in, sin puerto (usar contra 102) | S7: nivel de protección + identidad vía SZL                          | RO (opt-in) |
 | `sip`        | UDP/5060          | SIP / PBX                                                             | RO + WG  |
 | `slmp`       | TCP/5007          | Mitsubishi MELSEC SLMP                                                | RO + WG  |
 | `twincat`    | TCP/48898         | Beckhoff TwinCAT ADS                                                  | RO       |

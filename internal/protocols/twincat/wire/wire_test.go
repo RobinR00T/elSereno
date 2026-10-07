@@ -26,8 +26,8 @@ func TestBuildReadDeviceInfo(t *testing.T) {
 			t.Errorf("target NetID[%d] = 0x%02x, want 0x%02x", i, frame[6+i], b)
 		}
 	}
-	if got := binary.LittleEndian.Uint16(frame[12:14]); got != AMSPortRouter {
-		t.Errorf("target port = %d, want %d", got, AMSPortRouter)
+	if got := binary.LittleEndian.Uint16(frame[12:14]); got != AMSPortSystemService {
+		t.Errorf("target port = %d, want %d", got, AMSPortSystemService)
 	}
 	if got := binary.LittleEndian.Uint16(frame[22:24]); got != CmdReadDeviceInfo {
 		t.Errorf("cmd = 0x%04x, want 0x%04x", got, CmdReadDeviceInfo)

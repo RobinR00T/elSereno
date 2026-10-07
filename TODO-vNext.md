@@ -61,6 +61,13 @@
   de por `DefaultPort == 0`; cambia el contrato de plugins decidido el 2-10
   ("nombrado = se ejecuta"), por eso no se ha tocado sin tu OK. Encontrado por
   la revisión independiente del 7-10.
+- **Las notas de identidad no salen en ninguna salida.** Fabricante, modelo,
+  CPU, firmware, lista de Logical Devices, CVE anotada o texto del banner se
+  calculan en los plugins y solo entran en el hash del ID: `core.Finding` no
+  tiene campo de nota/evidencia y NDJSON / CSV / STIX / `fingerprint probe` no
+  las imprimen. Mucho del trabajo de identificación (PITF-072 a 080) no lo ve el
+  operador. Propuesta: un campo `Note` (o `Evidence`) en `core.Finding`,
+  saneado, y una columna en las salidas. Cambia el contrato de salida.
 - **Writers `syslog` y `cef` huérfanos.** `internal/outputs/{syslog,cef}`
   existen con tests pero nada los importa; la chuleta y la página man
   anunciaban `--output-format syslog|cef|html` y `--syslog`/`--webhook-url`,

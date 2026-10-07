@@ -2,13 +2,13 @@
 // Layer-2 traffic: GOOSE (IEC 61850-8-1, EtherType 0x88B8) and Sampled
 // Values / SV (IEC 61850-9-2, EtherType 0x88BA).
 //
-// Scope, mirroring the profinet package: this is an OFFLINE dissector +
-// passive anomaly monitor. It takes raw Ethernet frames (from
-// `tcpdump -xx`, a `.bin` capture, or a hex paste) and never opens a
-// socket. Live L2 capture (raw sockets + CAP_NET_RAW) stays vNext; the
-// offline workflow lets an operator audit a substation segment with
-// tcpdump + this verb, and feed a frame sequence through the monitor to
-// catch GOOSE spoofing.
+// Scope: a dissector + passive anomaly monitor. It takes raw Ethernet
+// frames (from `tcpdump -xx`, a `.bin` capture, or a hex paste) and,
+// on Linux, can also read live from a receive-only raw socket
+// (capture_linux.go, used by `goose monitor`; needs CAP_NET_RAW). It
+// never transmits. The offline workflow lets an operator audit a
+// substation segment with tcpdump + this verb, and feed a frame
+// sequence through the monitor to catch GOOSE spoofing.
 //
 // Why GOOSE matters: a GOOSE publisher signals protection events (trip a
 // breaker, block a recloser) by incrementing stNum and resetting sqNum.

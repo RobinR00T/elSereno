@@ -20,9 +20,10 @@
 // Earlier the plugin sent `01 06 00 10` + `PROCONOS` and expected
 // that prefix echoed back, which was wrong on both the send and the
 // recv side and would miss real PLCs (PITF-069). The scoring stays
-// best-effort (`protocol_risk` 75, `capability` ceiling 60) because
-// the response-field parsing (model at offset 45 etc.) is still not
-// exercised against a real-PLC pcap, only the signature is.
+// best-effort (`protocol_risk` 75, `capability` ceiling 60): the
+// reply is classified by its 0xcc signature or a ProConOS banner
+// string only; no field (model, version) is parsed out of it. The
+// request and the 0xcc reply are validated against a real capture.
 //
 // CVE history (cve_exposure: 7), the KW-Software runtime
 // ecosystem inherits much of the Phoenix Contact ILC family's

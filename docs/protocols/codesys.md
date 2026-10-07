@@ -20,13 +20,12 @@ some installations also expose 11740 (newer) or 1200 (V2 legacy).
 > Kaspersky ICS-CERT CODESYS Runtime paper, and a real capture (`cds3.pcapng`:
 > every frame, both directions, opens with `00 01 17 e8`).
 >
-> **Still deferred:** a complete eliciting probe. `BuildHello` sends only the
-> 4-byte magic, which is not a full frame, so a real gateway does not reply to
-> it; the Tenable channel-open PDU is validated only against DWRCS.exe on 11743,
-> and the capture's first client PDU on 11740 embeds an endpoint IP, so no
-> host-independent probe for the canonical 1217 gateway is confirmed, and
-> shipping one would change the tool's active on-wire posture. The banner path
-> is the default-build signal. Note the legitimate `0x55cd` below is the
+> **Default plugin:** `BuildHello` sends only the 4-byte magic, which is not a
+> full frame, so a real gateway does not reply to it; the banner path is the
+> default-build signal. **Eliciting probe:** shipped opt-in as `codesys-active`
+> (2026-10-04), sending the Tenable channel-open PDU (validated byte for byte
+> against the PoC, NOT against a live 1217 gateway: the PoC targets DWRCS.exe
+> on 11743, and the capture's first client PDU on 11740 embeds an endpoint IP). Note the legitimate `0x55cd` below is the
 > services-layer protocol id, a different field, not this magic.
 
 - Send the 4-byte Block Driver magic (`0xE8170100`, LE on the wire
@@ -63,9 +62,10 @@ service requests.
 The default `codesys` plugin is banner + magic-recognition only: a bare
 4-byte magic does not elicit a gateway reply, so a gateway that sends no
 plaintext banner is missed. The opt-in `codesys-active` plugin closes
-that gap by sending the minimal **channel-open PDU** the gateway does
-answer, then confirming CoDeSys by the Block-Driver-framed reply
-(`00 01 17 e8` magic). It is read-only: it opens a channel to read the
+that gap by sending the minimal **channel-open PDU** a gateway is expected to
+answer (not yet seen against a live 1217 gateway), then confirming CoDeSys by a
+Block-Driver-framed reply (`00 01 17 e8` magic); a CoDeSys banner in the reply
+also counts, noted as the weaker banner evidence. It is read-only: it opens a channel to read the
 reply and issues no service request that reads, writes, or changes
 controller state. Its findings carry the protocol name `codesys-active`
 (not `codesys`), so they stay distinguishable in every output.

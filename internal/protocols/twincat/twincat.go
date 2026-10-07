@@ -9,12 +9,13 @@
 // IDE) connect there.
 //
 // We send a Read Device Info request to AMS port 10000
-// (the AMS Router's well-known port) with an all-zero
-// target NetID. Most runtimes answer regardless of NetID
-// for this read-only command; the response includes the
-// runtime name (e.g. "TCatRouter", "TC3 PLC1") + version
+// (the System Service) with all-zero AMS NetIDs. A runtime that
+// accepts it answers with the runtime name (e.g. "TCatRouter",
+// "TC3 PLC1") + version
 // triple (major.minor.build, e.g. 3.1.4024 for TC3 build
-// 4024).
+// 4024). A TwinCAT 3 router that enforces routes likely resets a
+// request from our route-less NetID instead [inference from a real
+// capture, docs/protocols/twincat.md].
 //
 // The probe is read-only by design.
 package twincat

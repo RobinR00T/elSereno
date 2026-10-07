@@ -12,8 +12,8 @@
 //	0..1   Reserved (always 0x00 0x00)
 //	2..5   Length (LE32, bytes that follow)
 //	6..11  Target AMS Net ID (6 bytes; e.g. 192.168.0.1.1.1)
-//	12..13 Target AMS Port (LE16; 350 = SystemService, 851
-//	       = TC3 PLC1, 801 = TC2 PLC1, 10000 = R0)
+//	12..13 Target AMS Port (LE16; 10000 = System Service, 851
+//	       = TC3 PLC1, 801 = TC2 PLC1; per pyads constants)
 //	14..19 Source AMS Net ID
 //	20..21 Source AMS Port
 //	22..23 Command ID (LE16)
@@ -25,8 +25,11 @@
 //
 // Total fixed header: 38 bytes. We send a "Read Device
 // Info" command (id=0x0001) targeted at AMS port 10000
-// (Router) which every TwinCAT runtime answers with the
-// runtime's name + 4-byte version triple. Per the Beckhoff
+// (System Service), which answers with the runtime's name +
+// version triple. Not every runtime answers us: a TwinCAT 3
+// router resets an ADS request from an AMS NetID with no route
+// (seen in a real capture, 2026-10-07), and our NetIDs are
+// 0.0.0.0.0.0 (see docs/protocols/twincat.md). Per the Beckhoff
 // ADS spec a successful response has 8+16=24 bytes of payload:
 // error(4) + version(4, major/minor/build) + name(16,
 // NUL-padded ASCII).
@@ -45,12 +48,11 @@ import (
 // listens on internally (multiplexed over the same TCP
 // 48898 connection by the AMS Router).
 const (
-	// AMSPortRouter is AMS port 0x2710 (10000), the
-	// AMS Router service. Every TwinCAT runtime
-	// listens here for service-discovery + global
-	// device-info queries; we target it for the
-	// fingerprint probe.
-	AMSPortRouter uint16 = 10000
+	// AMSPortSystemService is AMS port 0x2710 (10000), the
+	// TwinCAT System Service (pyads PORT_SYSTEMSERVICE; the
+	// AMS router itself is port 1). The fingerprint probe
+	// sends its device-info read here.
+	AMSPortSystemService uint16 = 10000
 )
 
 // ADS command IDs (subset; only the ones we use).
@@ -129,7 +131,7 @@ func BuildReadDeviceInfo(targetNetID [6]byte) []byte {
 	binary.LittleEndian.PutUint32(frame[2:6], uint32(AMSHeaderLen))
 	// AMS header
 	copy(frame[6:12], targetNetID[:])
-	binary.LittleEndian.PutUint16(frame[12:14], AMSPortRouter)
+	binary.LittleEndian.PutUint16(frame[12:14], AMSPortSystemService)
 	// Source NetID + Port: zero, the runtime echoes them
 	// back in the response, no routing needed for
 	// fingerprint.

@@ -63,16 +63,13 @@ const (
 // both directions, opens with 00 01 17 e8). The RECOGNITION value is now
 // corrected and validated against all three (Classify / IsBlockDriverFrame).
 //
-// STILL DEFERRED: a complete eliciting probe. BuildHello sends only the
-// 4-byte magic, which is not a full Block Driver frame (the gateway
-// expects magic + length + a datagram/channel-open) and on its own
-// elicits no reply. A valid channel-open PDU exists (the Tenable PoC
-// builds one) but is validated only against DWRCS.exe on 11743, while
-// the capture's first client PDU on 11740 embeds an endpoint IP, so no
-// host-independent probe for the canonical 1217 gateway is confirmed.
-// Shipping one changes the tool's active on-wire posture and is left as
-// a deliberate decision. In the default read-only build, identification
-// rests on the banner path below.
+// BuildHello sends only the 4-byte magic, which is not a full Block
+// Driver frame (the gateway expects magic + length + a
+// datagram/channel-open) and on its own elicits no reply; the default
+// plugin therefore rests on the banner path below. The eliciting
+// channel-open PDU (BuildChannelOpen, after the Tenable PoC) ships in
+// the opt-in codesys-active plugin; it is validated against the PoC,
+// not against a live 1217 gateway.
 var BlockDriverMagic = []byte{0x00, 0x01, 0x17, 0xE8}
 
 // CoDeSysBannerSubstrings are CoDeSys server greeting / banner

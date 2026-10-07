@@ -13,16 +13,18 @@ default-port: 1217/tcp
 ElSereno's `codesys` plugin sends the 4-byte Block Driver magic
 (0xE8170100, LE on the wire: 00 01 17 e8) on TCP/1217 and
 classifies the response by either:
-- Block Driver magic echo (response prefix matches the magic), or
+- a reply that starts with the Block Driver magic (a Block Driver
+  frame; an exact copy of our 4 bytes is rejected as an echo,
+  PITF-071), or
 - Canonical CoDeSys banner substring (CoDeSys / CODESYS /
   3S-Smart / 3S-CoDeSys / CmpHostname / CmpAppBP / CmpRuntime).
 
 The magic was corrected 2026-10-04 from the bogus 0xCDCDCDCD
 (MSVC uninitialised-heap fill) to the real value, validated
 against the Tenable gateway PoC, the Kaspersky ICS-CERT paper and
-a real capture (cds3.pcapng). A complete eliciting probe stays
-deferred (PITF-068): a bare magic is not a full frame, so the
-banner path is the default-build signal.
+a real capture (cds3.pcapng). A bare magic is not a full frame, so
+the banner path is the default-build signal; the eliciting
+channel-open probe ships opt-in as `codesys-active` (PITF-068).
 
 v1.22 chunk 2 ships read-only fingerprint with a fail-closed
 proxy.
@@ -42,8 +44,8 @@ Layer-4 / Layer-7 APDU stack is out of scope for v1.22 chunk 2.
 
 ## Fingerprint strategy
 One-shot probe over TCP. Send the 4-byte magic, read up to 1024
-bytes. Two positive-ID paths cover both binary-handshake
-gateways (magic echo) and gateways that prefix a plain-text
+bytes. Two positive-ID paths: a Block Driver frame (magic prefix,
+not an echo of our probe) and gateways that prefix a plain-text
 greeting before the binary handshake (banner substring match).
 
 ## Read operations (default build)
@@ -53,8 +55,9 @@ greeting before the binary handshake (banner substring match).
 
 ## Active probe (opt-in: codesys-active)
 - `codesys-active` (DefaultPort 0, OptIn): sends the channel-open
-  PDU (wire.BuildChannelOpen) that a gateway actually answers, and
-  confirms by the Block-Driver-framed reply. Read-only detection
+  PDU (wire.BuildChannelOpen; validated against the Tenable PoC, not a
+  live 1217 gateway), and confirms by a Block-Driver-framed reply; a
+  CoDeSys banner counts too, noted as banner evidence. Read-only detection
   (opens a channel to read the reply, no service request). Kept
   out of the default sweep; run via `--plugin codesys-active`. The
   frame is ported byte-for-byte from the Tenable PoC and validated
