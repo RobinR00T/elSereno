@@ -93,19 +93,25 @@ sonda reverse-engineered) buscando el patrón PITF-067/068:
   frame de sonda que provoque respuesta del 1217.
 - **SLMP**: correcto. Spec oficial (SH080956ENG) + pymcprotocol; stateless, sin
   handshake oculto.
-- **Fox (Niagara)**: correcto. No envía sonda, lee el banner `fox a 0 ...` que el
-  servidor manda al conectar (igual que nmap fox-info).
-- **Red Lion**: correcto. Detección por substring de banner de producto
-  (Red Lion / Crimson 3 / FlexEdge / ...), con un poke genérico de 3 ceros como
-  fallback; no depende de un magic binario.
+- **Fox (Niagara)**: ~~correcto~~ **BUG, corregido el 7-10 (PITF-078).** Esta
+  línea decía que no envía sonda y lee el banner que el servidor manda al
+  conectar "igual que nmap fox-info"; es falso: nmap fox-info ENVÍA un hello y
+  en la captura real habla primero el cliente. El probe no confirmaba ninguna
+  estación real.
+- **Red Lion**: ~~correcto~~ **BUG, corregido el 7-10 (PITF-079).** El "poke de
+  3 ceros" y el banner al conectar no tenían fuente; cr3-fingerprint.nse lee
+  los registros de fabricante y modelo (`00 04 01 2B 1B 00`, `00 04 01 2A 1A 00`).
 - **ATG (Veeder-Root)**: correcto. Envía el comando documentado I20100 (igual que
   nmap atg-info).
 - **ProConOS (20547)**: BUG, corregido (PITF-069). Enviaba `01 06 00 10 PROCONOS` y
   esperaba ese prefijo echo; el real es la query `cc01000b4002000047ee` con
   respuesta signature 0xcc (Redpoint NSE + nerva, byte a byte).
-- **TwinCAT ADS (48898)**: correcto. AMS/TCP 6B + AMS header 32B (commandId@22,
-  stateFlags@24, dataLength@26) + respuesta ReadDeviceInfo, coincide con la spec
-  Beckhoff AMS/ADS; stateFlags&0x0001 exige respuesta.
+- **TwinCAT ADS (48898)**: formato correcto (AMS/TCP 6B + AMS header 32B,
+  commandId@22, stateFlags@24, dataLength@26, ReadDeviceInfo según la spec
+  Beckhoff AMS/ADS). **Pero (7-10)**: en una captura real el router devuelve RST
+  a una petición ADS de un NetID sin ruta, y el probe usa NetID 0.0.0.0.0.0;
+  probable falso negativo en TwinCAT 3 `[inferencia]`. Ver la decisión abierta
+  arriba (descubrimiento UDP/48899).
 - **IAX2 (Asterisk)**: correcto. Full-frame de 12B y el enum de subclases
   (NEW=1 / PING=2 / PONG=3 / ... / REGREL=17) coinciden exacto con RFC 5456;
   FrameType IAX=0x06. Protocolo con RFC, no reverse-engineering.
