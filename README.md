@@ -174,7 +174,7 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | **SIP**         | 5060/udp+tcp       | OPTIONS probe · 15 PBX vendors · gated-proxy per-method + INVITE prefix + REGISTER AOR + From-domain (v1.4/v1.9/v1.10/v1.12) |
 | **IAX2**        | 4569/udp           | NEW probe · RFC 5456 full-frame parser · gated-proxy per-subclass (v1.4) |
 | **pbxhttp**     | 443, 80, 8088, 5001, 8443, 411 | HTTP admin-UI · 15 PBX brands · gated-proxy per-(method, path) (v1.4) |
-| **CWMP / TR-069** | 7547             | ACS Inform probe · 15 ACS vendors · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
+| **CWMP / TR-069** | 7547             | ACS fingerprint (HTTP GET, never sends an Inform) · 13 named ACS platforms + generic CWMP · gated-proxy per-SOAP-RPC + per-parameter-path + per-firmware-URL (Download) (v1.11/v1.12) |
 | **FINS**        | 9600/udp           | probe · gated UDP proxy per-(MRC, SRC) command + optional per-memory-area (Omron) |
 | **SLMP**        | 5007               | probe · gated proxy per-command-code + optional per-device-code (MELSEC) |
 | MELSOFT         | 5007               | probe only · GX Works engineering protocol, CPU-info read on the MELSEC CPU's MELSOFT communication port; real-capture validated |

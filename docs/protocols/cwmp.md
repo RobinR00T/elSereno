@@ -1,19 +1,26 @@
 # CWMP / TR-069 (ACS-CPE)
 
 **Default port**: 7547/tcp (HTTP).
-**Status**: probe (15 ACS vendor fingerprints) + write-gated
+**Status**: probe (13 named ACS platforms + a generic CWMP marker) + write-gated
 proxy (v1.11+).
 **Offensive build**: per-SOAP-RPC + per-parameter-path +
 per-firmware-URL allowlists.
 
 ## Probe
 
-CPE-side probe: emits a synthetic `Inform` (TR-069 §3.2.1 events
-0 BOOTSTRAP / 1 BOOT / 2 PERIODIC) and classifies the ACS
-response. Vendor fingerprint covers 15 ACS implementations
-(GenieACS, ACS-Lite, FreeACS, OpenACS, Calix Cloud, Adtran Mosaic,
-Nokia AMS, Ericsson HDM, Huawei IMS, ZTE NetNumen, Cisco PSM,
-Affirmed, Incognito Auto Configuration, Axiros, Friendly tech).
+One HTTP `GET /` with an empty `SOAPAction` header (some ACSs gate
+their 401 challenge on it), then classifies the status, headers and
+body against per-vendor markers (`internal/protocols/cwmp/vendor.go`):
+GenieACS, FreeACS, Axiros, Nokia Altiplano, Huawei FusionHome,
+Broadcom BroadWorks-ACS, Cisco Prime, ADB, interaCMS, Netopia
+(Motorola / ARRIS), create-net, the Friendly TR-069 simulator and an
+OpenACS marker, plus a generic "this is CWMP" result.
+
+The probe never sends an `Inform`: an Inform from an unknown device
+makes many ACSs (GenieACS among them) register that device, which is a
+write on the target. Until 2026-10-07 this page said the probe emitted
+a synthetic Inform and listed vendors the code does not recognise; the
+code has always sent the GET.
 
 ## Default-build refusal posture
 

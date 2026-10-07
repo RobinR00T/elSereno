@@ -324,6 +324,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docs: the CWMP probe never sent an Inform.** README, the manuals, the
+  cheatsheet and the protocol page said the probe emits a synthetic TR-069
+  Inform and recognises "15 ACS vendors" (three different lists). The code
+  has always sent a single `GET /` with an empty `SOAPAction`, which is the
+  safe choice: an Inform from an unknown device makes many ACSs register it.
+  The docs now say so and list the 13 platforms the code recognises plus
+  its generic CWMP result.
 - **Red Lion probe now asks the panel who it is (PITF-079).** The probe
   waited for a connect banner and then sent three zero bytes; no source
   shows a Crimson panel announcing itself or answering zeros. It now sends

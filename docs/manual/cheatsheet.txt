@@ -115,7 +115,7 @@ elsereno scan --input list:t.txt --output-format stix > findings.stix.json
   sip       5060/udp+tcp OPTIONS → 15 PBX vendors    (v1.3+)
   iax2      4569/udp     NEW → ACCEPT/AUTHREQ/REJ    (v1.3+)
   pbxhttp   443/80/8088/5001  HTTP admin-UI, 15 brands (v1.3+)
-  cwmp      7547/tcp     TR-069 ACS Inform → 15 ACS  (v1.4+)
+  cwmp      7547/tcp     GET / -> 13 ACS + generic   (v1.4+)
   banner    *            generic TCP grab (fallback)
   (+ knxip, mbustcp, dlms, codesys, redlion, pcworx, proconos,
      twincat, slmp, gesrtp, finsudp, mms, opcuahttps)

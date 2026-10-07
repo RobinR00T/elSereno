@@ -596,7 +596,7 @@ well-known:
 | **sip**   | 5060/udp+tcp | OPTIONS → 15-vendor PBX matcher (Asterisk/FreePBX/3CX/…) |
 | **iax2**  | 4569/udp     | RFC 5456 NEW → subclase ACCEPT/AUTHREQ/REJECT |
 | **pbxhttp** | 443 (+80/8080/8088/5001/…) | HTTP admin-UI fingerprint, 15 brands |
-| **cwmp**  | 7547/tcp     | TR-069 ACS Inform → 15 ACS vendor fingerprints |
+| **cwmp**  | 7547/tcp     | TR-069 ACS: GET / (sin Inform) → 13 plataformas ACS + CWMP genérico |
 | banner    | 21/22/23/80  | TCP banner grab genérico (fallback) |
 | mqtt      | 1883/tcp (8883 TLS) | CONNECT anónimo + wildcard + Sparkplug B |
 | opcuahttps | 4843/tcp    | OPC UA HTTPS (Part 6): GetEndpoints + postura de seguridad |
@@ -827,14 +827,15 @@ elsereno scan --plugin pbxhttp --input stdin <<< "pbx.ejemplo.com:443"
 ### 3.17 CWMP / TR-069 (v1.4+)
 
 ```sh
-# ACS Inform probe a 7547/tcp
+# Fingerprint de ACS en 7547/tcp: un GET / con SOAPAction vacío. NO
+# envía un Inform: un Inform registraría un dispositivo falso en el ACS.
 elsereno scan --plugin cwmp --input stdin <<< "acs.ejemplo.com:7547"
 
-# Reconoce 15 plataformas ACS (Auto-Configuration Servers):
-#   GenieACS (open source) / LibreACS / EasyCwmp / OpenACS /
-#   Axiros ACS / Device Cloud (Digi) / Incognito / Motive /
-#   Netopia ACS / Broadcom ACS / Ericsson (Ericsson EDGE) /
-#   ZTE ACS / Alcatel-Lucent Motive / CommScope Arris / etc.
+# Reconoce 13 plataformas ACS (Auto-Configuration Servers) por
+# cabeceras y cuerpo: GenieACS / FreeACS / Axiros / Nokia Altiplano /
+# Huawei FusionHome / Broadcom BroadWorks-ACS / Cisco Prime / ADB /
+# interaCMS / Netopia (Motorola, ARRIS) / create-net / el simulador
+# Friendly TR-069 / un marcador OpenACS, más un CWMP genérico.
 #
 # TR-069 es el protocolo estándar de gestión remota de CPE
 # (Customer Premises Equipment, routers, ONTs, STBs...).
