@@ -25,10 +25,11 @@
 //     chunk 4 refinement of the v1.20 chunk 3 connection-init-only
 //     signal).
 //
-// Service 0x21 (Read PLC Long Status) probing, a richer follow-up
-// that explicitly asks the CPU for its model + firmware version,
-// is left for a future cycle that can carry test vectors against
-// real PLCs.
+// Service 0x21 (Read PLC Long Status), the follow-up that asks the
+// CPU for its model + firmware version, is sent after a positive init
+// (BuildReadLongStatus); its reply is an operation response (byte 0 =
+// 0x03). No capture of a real 0x21 exchange is public, so ParseLongStatus
+// scans for a model and a version run rather than fixed offsets.
 package wire
 
 import (

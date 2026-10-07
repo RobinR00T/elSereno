@@ -58,7 +58,8 @@ classic Q/L/legacy FX -> baseline only. Family-level, NVD-verified.
 
 ## Read operations (default build)
 - `probe`: dials TCP/5007, sends BuildGetCPUInfo (41 bytes), reads
-  the reply, classifies via IsResponseFrame + ParseCPUInfo.
+  the reply, classifies via ParseCPUInfo (which itself requires the
+  D7 00 response marker).
 
 ## Proxy hooks
 Fail-closed: the MELSOFT service layer (program/parameter transfer,
@@ -73,4 +74,5 @@ MELSOFT communication port has no native authentication.
 
 ## Sentinel errors (wire package)
 - ErrShortFrame: response shorter than the 2-byte marker.
-- ErrNotResponse: byte 0 is not 0xD7 (not a MELSOFT reply).
+- ErrNotResponse: the reply does not start with D7 00 (not a MELSOFT
+  reply).

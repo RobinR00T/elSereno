@@ -47,7 +47,7 @@ Single-byte ACK: 0xE5
 Manufacturer code: 3 ASCII letters packed into 16 bits. Encoded
 as `M = (c1-'A'+1)*32^2 + (c2-'A'+1)*32 + (c3-'A'+1)`. Common
 values: 0x0442="ABB", 0x2C2D="KAM" (Kamstrup), 0x1593="ELS"
-(Elster), 0x4D2D="SEN" (Sensus).
+(Elster), 0x4CAE="SEN" (Sensus).
 
 ## Proxy policy (default build)
 
@@ -60,7 +60,10 @@ denied" in M-Bus.
 
 ## Writes (`-tags offensive`)
 
-Deferred. M-Bus write services include:
+A gated proxy package exists (`offensive/write/mbustcp`) but no
+command wires it: `proxy listen` does not serve mbustcp (one of the 7
+orphan gated packages, an open decision in TODO-vNext). M-Bus write
+services include:
 - `SND_UD` (CI=0x51 / 0x52), write meter parameters: tariff
   rates, primary address, encryption keys, billing cycles.
 - `SET_BAUDRATE` (CI=0xB8..0xBC), re-baud the meter to a non-

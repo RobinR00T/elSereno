@@ -43,7 +43,8 @@ hash.
   RSP_UD via ParseRSPUD.
 
 ## Write / dial operations (offensive build tag)
-Deferred. M-Bus supports SND_UD (CI=0x51/0x52) for parameter
+Gated package `offensive/write/mbustcp` exists but is not wired to
+`proxy listen` (orphan; open decision in TODO-vNext). M-Bus supports SND_UD (CI=0x51/0x52) for parameter
 writes, SET_BAUDRATE (CI=0xB8..0xBC) for re-bauding the meter
 (DoS), and various data-record writes.
 

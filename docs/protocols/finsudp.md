@@ -12,12 +12,16 @@ fins`, `omron`, `cpu`).
 - Send the 13-byte CONTROLLER DATA READ datagram (MRC=0x05,
   SRC=0x01, area=0x00). The frame layout is from OMRON CPU manual
   W421 §5.1 / §5.4.
-- Expect a response with the FINS response-bit set (ICF=0xC0), the
-  same SID echoed in byte 9, MRC=0x05, SRC=0x01, end code
-  0x0000 (success), then a 60-byte controller-data block:
+- Expect a response with the FINS response bit (ICF bit 0x40) set,
+  the same SID echoed in byte 9, MRC=0x05, SRC=0x01, end code
+  0x0000 (success), then the controller-data block, of which the
+  probe reads:
   - 20-byte ASCII Model (e.g. "CJ2M-CPU33", "NJ501-1500")
   - 20-byte ASCII Internal Code (vendor-internal version)
-  - 20-byte ASCII System Version (newer CPUs only)
+  The bytes after them are reserved "For System Use" and are NOT a
+  "System Version" (PITF-065: the real Omron CP1L capture carries no
+  such field there; an earlier version of this page and of the parser
+  said so).
 - The Model field is folded into the finding hash so dedup is
   per-controller-model.
 
@@ -42,7 +46,7 @@ Offset  Field  Size  Description
 10      MRC    1     0x05 (Controller Data Read)
 11      SRC    1     0x01 (all)
 12      data   …     0x00 = entire block (request); end code +
-                     model + internal + system (response)
+                     model + internal code + reserved (response)
 ```
 
 ## Proxy policy (default build)

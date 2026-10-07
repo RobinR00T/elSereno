@@ -35,29 +35,32 @@ Offset  Field                  Value (CONNECTION INIT)
 1..7    reserved               0
 8..9    Packet number          0 (set on follow-up service requests)
 10..11  Sequence number        0
-30..31  Service request code   0 (set on follow-up; 0x21 = read CPU long status)
-32..49  Service-specific       0
+30..41  Service-specific       0
+42      Service request code   0 on init; 0x21 (Read PLC Long Status) in the follow-up
+43..49  Service-specific       0 on init; 43..45 = 01 03 01 in the follow-up
 50..55  end of mailbox         0
 ```
 
 ## Fingerprint strategy
-One-shot probe over TCP. Send a 56-byte CONNECTION INIT mailbox
-(byte 0 = 0x02, rest zero); read 56 bytes of response. Classify by
-the response type byte (0x03). Public protocol documentation is
-sparse, so deeper service-code probing (CPU model identification
-via service 0x21) is deferred, the plugin captures the fact that
-"a 56-byte SRTP mailbox came back" as the fingerprint signal.
+Send a 56-byte ALL-ZERO CONNECTION INIT mailbox; a GE PLC answers a
+56-byte mailbox with byte 0 = 0x01 (PITF-067: an earlier version sent
+0x02 and expected 0x03, the OPERATION message types). On a positive
+init, send one 0x21 Read PLC Long Status (operation request, byte 0 =
+0x02) and read the model and firmware from its 0x03 operation reply
+(accepted since 2026-10-07; the probe used to demand 0x01 there).
 
 **v1.21 chunk 4**: model-hint extraction. After classification, the
 plugin runs `ExtractModelHint` on the full response buffer to
-recover any embedded GE PLC family string (PACSystems / IC693 /
-IC695 / IC697 / IC200 / RX3i / RX7i). When a hint is found, it
+recover any embedded GE PLC family string (22 canonical prefixes in
+`wire.go`: PACSystems, IC693, IC695, IC697, IC200, RX3i, RX7i and the
+per-CPU tokens). When a hint is found, it
 folds into the finding hash and lifts capability from 70 to 75.
 
 ## Read operations (default build)
-- `probe`: dials TCP/18245, sends BuildConnectionInit (56 bytes,
-  byte 0 = 0x02), reads exactly 56 bytes, classifies via
-  ClassifyResponse.
+- `probe`: dials TCP/18245, sends BuildConnectionInit (56 zero
+  bytes), reads exactly 56 bytes, classifies via ClassifyResponse
+  (byte 0 = 0x01); on a positive init, sends BuildReadLongStatus and
+  parses the reply with ParseLongStatus.
 
 ## Write / dial operations (offensive build tag)
 Shipped (`offensive/write/gesrtp`, TCP/18245). The gate classifies

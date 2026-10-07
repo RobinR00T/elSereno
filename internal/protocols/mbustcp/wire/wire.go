@@ -189,7 +189,7 @@ func ParseRSPUD(buf []byte) (MeterInfo, error) {
 // where 'A' encodes as 1, ..., 'Z' as 26.
 //
 // Common values: 0x0442 = "ABB" (ABB), 0x2C2D = "KAM" (Kamstrup),
-// 0x1593 = "ELS" (Elster), 0x4D2D = "SEN" (Sensus).
+// 0x1593 = "ELS" (Elster), 0x4CAE = "SEN" (Sensus).
 func decodeManufacturer(m uint16) string {
 	c1 := byte(m>>10&0x1F) + 'A' - 1
 	c2 := byte(m>>5&0x1F) + 'A' - 1

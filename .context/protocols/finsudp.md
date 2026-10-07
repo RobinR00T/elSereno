@@ -56,7 +56,8 @@ UDP transport (`Options.Network`). See `docs/protocols/finsudp.md`
 
 ## REPL commands (planned)
 - See the generic REPL framework. Expose ControllerData fields
-  (Model, InternalCode, SystemVersion) read-only.
+  (Model, InternalCode) read-only; there is no SystemVersion field
+  (PITF-065).
 
 ## Proxy hooks
 Default build: `ProxyHandler.Handle()` returns immediately with an
@@ -67,7 +68,8 @@ iax2).
 
 ## Scoring contribution
 factors{protocol_risk:80, exposure:80, auth_state:95, capability:30
-(75 on FINS reply), impact_class:75, cve_exposure:0}. impact_class
+(75 on FINS reply), impact_class:75, cve_exposure:9 baseline, raised
+per CPU family by internal/cve}. impact_class
 75 reflects factory-floor PLC blast radius (RUN/STOP, force-set
 output bit, program rewrite). auth_state 95 because FINS has no
 native authentication, every Internet-exposed CPU on 9600 is a

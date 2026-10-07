@@ -46,7 +46,8 @@ disagreement, missing device-info DIB.
   up to 1500 bytes, parses with ParseDescriptionResponse.
 
 ## Write / dial operations (offensive build tag)
-Deferred. KNXnet/IP supports CONNECT_REQUEST (0x0205),
+Gated package `offensive/write/knxip` exists but is not wired to
+`proxy listen` (orphan; open decision in TODO-vNext). KNXnet/IP supports CONNECT_REQUEST (0x0205),
 TUNNELLING_REQUEST (0x0420, write group address values),
 DEVICE_CONFIGURATION_REQUEST (0x0310), ROUTING_INDICATION
 (0x0530 multicast). Each needs per-(group address, service type)

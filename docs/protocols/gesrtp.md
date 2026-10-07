@@ -19,21 +19,24 @@ PACSystems also bind 18246 for a backup/extended frame.
   0x03) and so rejected the genuine 0x01 reply from real PLCs: see
   PITF-067.
 - **v1.21 chunk 4 refinement**: scan the response payload (bytes
-  1..55) for printable-ASCII runs matching the canonical GE PLC
-  family prefixes (PACSystems / IC693 / IC695 / IC697 / IC200 /
-  RX3i / RX7i). When a model hint is extracted (e.g.,
+  1..55) for printable-ASCII runs matching one of the 22 canonical
+  GE PLC family prefixes in `wire.go` (PACSystems, IC693, IC695,
+  IC697, IC200, RX3i, RX7i and the per-CPU tokens). When a model hint
+  is extracted (e.g.,
   "IC695CPE330"), it folds into the finding hash and lifts the
   capability factor from 70 to 75, same delta finsudp / slmp
   get for parsed model strings.
 
-Service 0x21 (Read PLC Long Status) probing, a richer follow-up
-that explicitly asks the CPU for its model + firmware version, 
-is left for a future cycle that can carry test vectors against
-real PLCs.
+After a positive init the probe sends ONE read-only service request,
+0x21 Read PLC Long Status, in an operation mailbox (byte 0 = 0x02,
+service code at offset 42, then 01 03 01), and scans the reply for a
+model and a firmware version (`fw=` in the note). The reply is an
+operation response, byte 0 = 0x03; until 2026-10-07 the probe demanded
+the init reply's 0x01 there, so `fw=` never appeared.
 
-The probe is idempotent and side-effect-free: CONNECTION INIT is
-the SRTP equivalent of a TCP handshake, no memory areas, no
-program blocks, no service-request payloads.
+The probe has no side effects: CONNECTION INIT is the SRTP equivalent
+of a TCP handshake and 0x21 is a status read; no memory areas, no
+program blocks, no writes.
 
 ## Wire layout (mailbox)
 
@@ -44,9 +47,10 @@ Offset  Field                  Size  Description
 8..9    Packet number          2     Set on follow-up service requests
 10..11  Sequence number        2     Set on follow-up service requests
 12..29  Various                18    Service-specific
-30..31  Service request code   2     Set on follow-up service requests
-                                     (0x21 = read CPU long status)
-32..49  Service-specific       18    Empty on init
+30..41  Service-specific       12    Zero in both mailboxes the probe sends
+42      Service request code   1     0x21 = Read PLC Long Status (BuildReadLongStatus;
+                                     bytes 43..45 = 01 03 01)
+43..49  Service-specific       7     Empty on init
 50..55  End of mailbox         6     Zero on init
 ```
 

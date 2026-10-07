@@ -9,11 +9,13 @@ systems in residential + commercial buildings; KNXnet/IP gateways
 ## Probe
 
 - Send the 14-byte KNXnet/IP DESCRIPTION_REQUEST (service type
-  0x0204) with a control HPAI of 0.0.0.0:0 (anonymous endpoint).
-- Parse the DESCRIPTION_RESPONSE (0x0205): 30-byte ASCII friendly
+  0x0203) with a control HPAI of 0.0.0.0:0 (NAT mode: the device
+  answers the datagram's source address).
+- Parse the DESCRIPTION_RESPONSE (0x0204): 30-byte ASCII friendly
   name + KNX Medium byte + KNX Individual Address.
-- The friendly name folds into the finding hash so dedup is
-  per-device-name. KNX Medium decodes as: 0x02=TP1, 0x04=PL110,
+- When the friendly name is non-empty, it and the medium fold into the
+  finding hash (the Individual Address is parsed but not hashed). (Until v1.55 the code
+  sent 0x0204; this page kept the old codes until 2026-10-07.) KNX Medium decodes as: 0x02=TP1, 0x04=PL110,
   0x10=RF, 0x20=IP.
 
 KNXnet/IP is **UDP**: the usual TCP proxy framework does not
@@ -26,7 +28,7 @@ KNXnet/IP header (6 bytes):
   Offset  Field             Value
   0       HeaderLen         0x06
   1       ProtocolVersion   0x10 (KNXnet/IP 1.0)
-  2..3    ServiceType       0x0204 (req) / 0x0205 (resp), BE
+  2..3    ServiceType       0x0203 (req) / 0x0204 (resp), BE
   4..5    TotalLength       BE
 
 Request body (8 bytes, control HPAI):
@@ -57,7 +59,9 @@ offensive write plugin (CONNECT/TUNNELLING_REQUEST gating).
 
 ## Writes (`-tags offensive`)
 
-Deferred. KNXnet/IP write services include:
+A gated proxy package exists (`offensive/write/knxip`) but no command
+wires it: `proxy listen` does not serve knxip (one of the 7 orphan
+gated packages, an open decision in TODO-vNext). KNXnet/IP write services include:
 - `0x0205` CONNECT_REQUEST (open tunnelling channel)
 - `0x0420` TUNNELLING_REQUEST (write group address values, 
   light switches, valve actuators, blind motors)

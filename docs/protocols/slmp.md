@@ -16,9 +16,12 @@ answers an MC 3E frame is unverified (the pymelsec MC client defaults to
 
 - Send the 15-byte READ CPU MODEL NAME 3E-frame request (command
   0x0101, subcommand 0x0000, no monitoring timer).
-- Expect a 29-byte success response: subheader 0xD000 + 7 routing
-  bytes + ResponseDataLength 0x0014 + end code 0x0000 + 16-byte
-  ASCII Model + 2-byte little-endian CPU type code.
+- Expect a 29-byte success response: subheader 0xD000 + 5 routing
+  bytes (network, PC, request-destination module I/O (2), station) +
+  ResponseDataLength 0x0014 + end code 0x0000 + 16-byte ASCII Model +
+  2-byte little-endian CPU type code. A reply declaring a length below
+  2 (its own end code) is rejected (it crashed the probe until
+  2026-10-07).
 - The Model field ("Q03UDVCPU", "L26CPU-BT", "R04ENCPU", etc.) is
   folded into the finding hash so dedup is per-controller-model.
   The CPU type code is exposed in the operator-facing note as

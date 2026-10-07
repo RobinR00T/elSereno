@@ -23,7 +23,7 @@ probe them with `--target host:5002`.
 
 - Send the fixed 41-byte MELSOFT "get CPU info" request (first byte
   0x57; it embeds the 0x0101 read-CPU-model command).
-- A real MELSEC CPU replies with a frame whose first byte is 0xD7.
+- A real MELSEC CPU replies with a frame that starts `D7 00`.
 - The ASCII CPU model name at offset 41 (up to 16 bytes, read up to the
   first NUL like the reference NSE, padding trimmed: "Q03UDECPU",
   "R04ENCPU", "FX5U-32MT/ES", ...) is folded into the finding hash so
