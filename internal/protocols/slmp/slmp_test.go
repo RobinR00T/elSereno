@@ -301,3 +301,21 @@ type readWritePair struct {
 
 func (rw readWritePair) Read(b []byte) (int, error)  { return rw.r.Read(b) }
 func (rw readWritePair) Write(b []byte) (int, error) { return rw.w.Write(b) }
+
+// TestProbeDeclaredLengthBelowEndCode: a reply whose declared length is 0
+// or 1 (less than its own 2-byte end code) made the body read slice
+// buf[11:9] and panic (review, 2026-10-07). It must be a negative
+// finding instead.
+func TestProbeDeclaredLengthBelowEndCode(t *testing.T) {
+	t.Parallel()
+	for _, declared := range []uint16{0, 1} {
+		f := probeAgainstResponder(t, func() []byte {
+			frame := buildSuccessResp("Q03UDVCPU", 0x4612)[:11]
+			binary.LittleEndian.PutUint16(frame[7:9], declared)
+			return frame
+		})
+		if f.Factors["capability"] != 30 {
+			t.Fatalf("declared length %d: capability %d, want 30", declared, f.Factors["capability"])
+		}
+	}
+}

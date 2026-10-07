@@ -125,6 +125,14 @@ func IsMailboxResponse(buf []byte) bool {
 	return len(buf) >= MailboxLen && buf[0] == TypeInitResponse
 }
 
+// IsOperationResponse reports whether buf is a 56-byte mailbox that
+// answers an operation request (byte 0 = TypeResponse, 0x03), the
+// reply to BuildReadLongStatus. The connection-init reply is the 0x01
+// mailbox instead (IsMailboxResponse).
+func IsOperationResponse(buf []byte) bool {
+	return len(buf) >= MailboxLen && buf[0] == TypeResponse
+}
+
 // ServiceLongStatus is the SRTP service code 0x21 (Read PLC Long
 // Status). Sent in the canonical service-request mailbox at
 // offset 42; the response's mailbox payload carries richer

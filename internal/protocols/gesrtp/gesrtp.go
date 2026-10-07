@@ -125,7 +125,12 @@ func tryReadLongStatus(conn io.ReadWriter, timeout time.Duration) string {
 	if _, err := io.ReadFull(conn, buf); err != nil {
 		return ""
 	}
-	if !wire.IsMailboxResponse(buf) {
+	// The Read Long Status reply is an OPERATION response (byte 0 =
+	// 0x03, wire.TypeResponse). Until 2026-10-07 this checked for the
+	// init reply's 0x01, so firmware could never be read from a reply
+	// that follows the protocol (review). A 0x01 reply is still read,
+	// in case a firmware answers that way.
+	if !wire.IsOperationResponse(buf) && !wire.IsMailboxResponse(buf) {
 		return ""
 	}
 	info := wire.ParseLongStatus(buf)

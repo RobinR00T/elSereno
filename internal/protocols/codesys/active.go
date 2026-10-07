@@ -88,7 +88,14 @@ func (p *ActivePlugin) Probe(ctx context.Context, target core.Target) (*core.Fin
 	if cerr != nil {
 		return buildFinding(target, ActiveName, "channel-open "+classifyParseError(cerr), false), nil
 	}
-	return buildFinding(target, ActiveName, "CoDeSys channel-open "+note, true), nil
+	// Only a Block Driver frame confirms the channel-open itself; a
+	// CoDeSys banner in the reply is the same weaker evidence the default
+	// plugin uses, and the note says so (review, 2026-10-07: it was
+	// reported as a channel-open confirmation).
+	if !wire.IsBlockDriverFrame(buf[:n]) {
+		return buildFinding(target, ActiveName, "CoDeSys banner in reply to channel-open (no Block Driver frame): "+note, true), nil
+	}
+	return buildFinding(target, ActiveName, "CoDeSys channel-open answered: "+note, true), nil
 }
 
 // REPL stub.

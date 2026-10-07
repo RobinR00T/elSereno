@@ -90,6 +90,12 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if declaredLen > wire.MaxResponseDataLength {
 		return buildFinding(target, fmt.Sprintf("absurd SLMP length (%d)", declaredLen), false, ""), nil
 	}
+	// The declared length counts the 2-byte end code we already read;
+	// below 2 the rest of the frame would start before what we hold
+	// (buf[11:9]) and the slice panicked (review, 2026-10-07).
+	if declaredLen < 2 {
+		return buildFinding(target, fmt.Sprintf("invalid SLMP length (%d)", declaredLen), false, ""), nil
+	}
 	total := wire.HeaderLenResponse + declaredLen
 	if total > len(buf) {
 		bigger := make([]byte, total)

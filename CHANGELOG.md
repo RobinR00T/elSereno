@@ -324,6 +324,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SLMP probe no longer panics on a reply that declares a length of 0 or
+  1.** The declared length counts the 2-byte end code already read; below 2
+  the body read sliced `buf[11:9]` and the probe panicked (outside the
+  dashboard worker, nothing recovers it: `fingerprint probe` and `scan`
+  crashed). Now a negative "invalid SLMP length" finding.
+- **GE-SRTP firmware is read from the reply that actually carries it.** The
+  Read Long Status reply is an operation response (byte 0 = 0x03), but the
+  probe demanded the connection-init reply's 0x01, so `fw=` could never
+  appear. It now accepts 0x03 (and still 0x01).
+- **codesys-active says when it only saw a banner.** A CoDeSys banner in the
+  reply to the channel-open was noted as a channel-open confirmation; only a
+  Block Driver frame is noted that way now.
 - **Docs: the CWMP probe never sent an Inform.** README, the manuals, the
   cheatsheet and the protocol page said the probe emits a synthetic TR-069
   Inform and recognises "15 ACS vendors" (three different lists). The code
