@@ -118,6 +118,13 @@ func buildExposureFinding(target core.Target, res WriteableWalkResult) *core.Fin
 		factors["auth_state"] = 50
 		factors["capability"] = 10
 		note = "not-opcua"
+	case res.HelloRefused:
+		// OPC UA confirmed (the server sent ERR to our Hello) but no
+		// session could be tried, so the anonymous posture is unknown.
+		factors["exposure"] = 50
+		factors["auth_state"] = 50
+		factors["capability"] = 40
+		note = "hello-refused"
 	case !res.SessionOpened:
 		// OPC UA confirmed but the anonymous session was rejected: auth is
 		// enforced. The reachable control-plane service is still a finding.

@@ -23,11 +23,14 @@ parser is forked.
 
 ## Probe (default build)
 
-`POST /discovery` (and a real `GetEndpoints` POST to `/`) over TLS.
-When the server returns a decodable `GetEndpointsResponse`, the finding
-carries the endpoint list and its security posture; a
-`SecurityMode=None` endpoint (anonymous, unencrypted UA access) scores
-as higher exposure. Certificates are never verified: this fingerprints
+A real binary `GetEndpoints` POST to `/` over TLS first; when the server
+returns HTTP 200 with a decodable `GetEndpointsResponse`, the endpoint
+count and whether any endpoint is `SecurityMode=None` are hashed into
+the finding (the list itself is not printed: a finding has no field for
+it), and a None endpoint (anonymous, unencrypted UA access) scores as
+higher exposure. Otherwise a fallback POST of one zero byte to
+`/discovery` is classified by the reply's Content-Type and Server
+header. Certificates are never verified: this fingerprints
 untrusted hosts, it does not trust them.
 
 ## Offensive write-gate

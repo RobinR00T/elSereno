@@ -52,8 +52,16 @@ func establishAnonymousSession(ctx context.Context, conn io.ReadWriter, endpoint
 	if err != nil {
 		return nil, res, fmt.Errorf("opcua: read ACK: %w", err)
 	}
+	if mt == wire.MessageError {
+		// A UA-TCP server refusing the Hello. Until 2026-10-07 this was
+		// reported as "not OPC UA", while the opcua fingerprint plugin
+		// counts the same ERR as a confirmed server.
+		res.IsOPCUA = true
+		res.HelloRefused = true
+		return nil, res, nil
+	}
 	if mt != wire.MessageAck {
-		return nil, res, nil // not an OPC UA server, or it rejected the Hello
+		return nil, res, nil // not an OPC UA server
 	}
 	res.IsOPCUA = true
 

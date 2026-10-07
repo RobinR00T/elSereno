@@ -324,6 +324,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **opcua-exposure no longer calls a refusing OPC UA server "not OPC UA".**
+  A server that answers the Hello with ERR is a UA-TCP server (only those
+  emit ERR, and the `opcua` fingerprint counts it so); the exposure probe
+  labelled it not-OPC-UA. It is now `hello-refused` (Medium, posture not
+  assessed), and `opcua probe-anon` JSON gains `hello_refused`.
 - **AT-modem default proxy answers ERROR to a refused command.** A forbidden
   command (dial, answer) was swallowed but the client got nothing back and
   kept waiting; the comment said it replied ERROR, and now it does.

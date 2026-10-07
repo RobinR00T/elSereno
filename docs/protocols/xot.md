@@ -13,15 +13,18 @@ worth auditing carefully.
 - Send an X.25 Call Request packet wrapped in the 4-byte XOT header
   (Version 0x0000 + Length big-endian).
 - Parse the response's X.25 PTI (Packet Type Identifier):
-  - `0x0B` Call Accepted, a live X.25 endpoint exists.
+  - `0x0F` Call Accepted, a live X.25 endpoint exists (`0x0B` is the
+    Call Request we send).
   - `0x13` Clear Request, reachable but rejecting the SVC.
-  - Silent close, not XOT.
+  - Silent close: still a Low "silent reject" finding; a timeout is
+    an error (no finding).
+- The probe does not send a Clear Request after a Call Accepted; it
+  closes the TCP connection.
 
 ## Proxy policy (default build)
 
-Pass-through with filtering, the proxy reads each 4-byte XOT
-header, validates Version=0 and Length ≤ 4096, and forwards valid
-frames. Frames outside spec are dropped without closing the session.
+Plain pass-through: bytes are copied in both directions without
+parsing (no XOT header check).
 
 The per-packet classifier (distinguishing a CLEAR from a DATA
 packet) lives in the F5 framework but is not yet wired into a

@@ -41,7 +41,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "X.25 over TCP (RFC 1613) read-only probe + REPL + proxy",
+		Description: "X.25 over TCP (RFC 1613) read-only probe + pass-through proxy",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",
@@ -49,8 +49,8 @@ func (p *Plugin) Metadata() core.PluginMetadata {
 }
 
 // Probe sends a minimal Call Request with LCN=1 and classifies the
-// response. It never attempts to establish an actual virtual circuit:
-// Call Accepted is reported and then closed with a Clear Request.
+// response. A Call Accepted is reported and the TCP connection closed
+// (no Clear Request is sent); no data is exchanged on the circuit.
 func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, error) {
 	addr := net.JoinHostPort(target.Address.String(), fmt.Sprintf("%d", target.Port))
 	d := net.Dialer{Timeout: p.DialTimeout}

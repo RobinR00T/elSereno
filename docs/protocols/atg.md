@@ -7,11 +7,11 @@ published security research efforts.
 
 ## Probe
 
-- Send the SOH-framed I20100 command: `\x01I20100\r\n` (system
-  status query).
-- A response beginning with `\x01` and the printable tank-data block
-  confirms an ATG. The probe parses station name, tank id, volume,
-  ullage, temperature.
+- Send the SOH-framed I20100 command: `\x01I20100\n` (in-tank
+  inventory query, as nmap's atg-info.nse).
+- A reply that contains "I20100", "IN-TANK" or "VEEDER" anywhere, and
+  is not a reflected copy of the query, confirms an ATG. No field
+  (station name, tank id, volume, ullage, temperature) is extracted.
 
 ## Proxy policy (default build)
 

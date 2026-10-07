@@ -589,7 +589,7 @@ well-known:
 | iec104    | 2404/tcp     | TESTFR act (APCI U-format); no envía STARTDT |
 | hartip    | 5094/tcp     | Session-Initiate |
 | fox       | 1911/tcp     | Hello "fox a 1 -1 fox hello" (el de nmap) → respuesta "fox a 0 …{" |
-| atg       | 10001/tcp    | `<SOH>I20100<CR>` (Veeder-Root info query) |
+| atg       | 10001/tcp    | `<SOH>I20100<LF>` (Veeder-Root in-tank inventory) |
 | opcua     | 4840/tcp     | HEL Hello → clasifica ACK/ERR/non-UA |
 | xot       | 1998/tcp     | X.25 CALL REQUEST (RFC 1613) |
 | atmodem   | 9999/tcp     | AT → ATI + AT+CGMI, diccionario de fabricantes |
@@ -714,9 +714,10 @@ elsereno scan --plugin fox --input stdin <<< "10.0.0.12:1911"
 ```sh
 elsereno scan --plugin atg --input stdin <<< "10.0.0.13:10001"
 
-# <SOH>I20100<CR> pide "In-tank inventory". Respuesta TLS-350
-# comienza con "I20100\r\n" + data. Si el operador nunca
-# cerró el puerto a Internet, esto es un hallazgo CRITICAL.
+# <SOH>I20100<LF> pide "In-tank inventory". Cuenta como ATG una
+# respuesta que contenga I20100, IN-TANK o VEEDER (y no sea un eco).
+# Con los factores actuales un ATG expuesto puntúa 71 (High), no
+# Critical; un puerto sin respuesta ATG queda en 65 (High).
 ```
 
 ### 3.10 OPC UA (v1.1+)
@@ -735,8 +736,9 @@ elsereno scan --plugin opcua --input stdin <<< "10.0.0.14:4840"
 ```sh
 elsereno scan --plugin xot --input stdin <<< "10.0.0.15:1998"
 
-# CALL REQUEST. Respuesta CALL ACCEPTED → XOT vivo. Más allá,
-# ElSereno tiene un REPL (v1.2+) para send/clear/data manual.
+# CALL REQUEST. Respuesta CALL ACCEPTED (PTI 0x0F) → XOT vivo; un
+# cierre sin respuesta también deja un finding (bajo). No hay REPL:
+# el método existe pero devuelve un error.
 ```
 
 ### 3.12 AT modems (serial + TCP reverse-proxy)

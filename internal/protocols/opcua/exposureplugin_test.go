@@ -75,3 +75,24 @@ func TestExposurePlugin_Metadata_OptIn(t *testing.T) {
 		t.Errorf("build = %q, want default", m.Build)
 	}
 }
+
+// TestBuildExposureFinding_HelloRefused: an ERR to the Hello is OPC UA
+// with an unknown posture; it must not be labelled not-OPC-UA, and it
+// scores between "not OPC UA" and "anonymous session open".
+func TestBuildExposureFinding_HelloRefused(t *testing.T) {
+	tg := exposureTarget()
+	refused := buildExposureFinding(tg, WriteableWalkResult{
+		AnonymousAccessResult: AnonymousAccessResult{IsOPCUA: true, HelloRefused: true},
+	})
+	notOPCUA := buildExposureFinding(tg, WriteableWalkResult{})
+	anonOpen := buildExposureFinding(tg, WriteableWalkResult{
+		AnonymousAccessResult: AnonymousAccessResult{IsOPCUA: true, SessionOpened: true},
+	})
+	if refused.ID == notOPCUA.ID {
+		t.Fatal("hello-refused got the not-opcua finding ID")
+	}
+	if refused.Score <= notOPCUA.Score || refused.Score >= anonOpen.Score {
+		t.Fatalf("hello-refused score %d, want between not-opcua %d and anon-open %d",
+			refused.Score, notOPCUA.Score, anonOpen.Score)
+	}
+}

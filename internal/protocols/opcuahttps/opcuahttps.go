@@ -63,7 +63,7 @@ func Default() *Plugin {
 func (p *Plugin) Metadata() core.PluginMetadata {
 	return core.PluginMetadata{
 		Name:        Name,
-		Description: "OPC UA HTTPS (Part 6 binding) fingerprint on 4843, POST /discovery, classifies response Content-Type + Server header",
+		Description: "OPC UA HTTPS (Part 6 binding) fingerprint on 4843: GetEndpoints POST to /, falling back to POST /discovery classified by Content-Type + Server header",
 		DefaultPort: DefaultPort,
 		Build:       "default",
 		Version:     "v1",

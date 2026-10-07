@@ -6,7 +6,10 @@
 //   - ERR → OPC UA server that refused (wrong endpoint, version
 //     mismatch, policy reject); still a positive identification
 //     because only UA-TCP speakers emit ERR
-//   - anything else → not UA-TCP. OPC UA over the HTTPS binding
+//   - HEL back → our own Hello reflected, not UA (PITF-071)
+//   - another valid UA-TCP header (OPN / MSG / CLO) → counted as UA
+//     ("ua-unexpected")
+//   - non-UA bytes → not UA-TCP. OPC UA over the HTTPS binding
 //     (Part 6 §7.4) is fingerprinted by the separate `opcuahttps`
 //     plugin on 4843, which POSTs a real GetEndpointsRequest and
 //     parses the EndpointDescription list (security posture

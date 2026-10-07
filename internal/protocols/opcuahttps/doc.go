@@ -20,18 +20,15 @@
 // Probe surface:
 //
 //  1. TLS dial on (host, port).
-//  2. HTTP POST to `/discovery` (the canonical discovery
-//     endpoint per spec) with Content-Type
-//     `application/opcua+uabinary` + a minimal binary
-//     GetEndpointsRequest body.
-//  3. Inspect response:
-//     - HTTP 200 + Content-Type opcua+uabinary  → strong UA hit.
-//     - HTTP 200 + Content-Type opcua+uajson    → strong UA hit
-//     (JSON binding).
-//     - HTTP 405 + UA-style Server header       → likely UA, wrong
-//     method (some impls require POST on /).
-//     - HTTP 404 / 400 with UA Server header    → weak UA hit.
-//     - Any TLS handshake failure              → not OPC UA.
+//  2. HTTP POST of a real binary GetEndpointsRequest to `/`
+//     (Content-Type application/octet-stream). An HTTP 200 whose body
+//     decodes as a GetEndpointsResponse is a confirmed server; the
+//     endpoint count and whether any endpoint is SecurityMode=None
+//     go into the finding hash.
+//  3. Otherwise, fallback: POST a single 0x00 byte to `/discovery`
+//     and classify the reply by its Content-Type and Server header
+//     (the status code is not used).
+//  4. A TLS handshake failure is an error (no finding).
 //
 // Defensive only: probe never proceeds past discovery. No
 // SecureChannel establishment, no session, no read/write.

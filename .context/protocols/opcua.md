@@ -33,7 +33,7 @@ byte LE MessageSize):
 - CLO: CloseSecureChannel.
 
 The fingerprint probe sends a minimal HEL with proto version 0,
-1MB receive buffer, 1MB send buffer, max-message 16MB,
+64 KiB receive buffer, 64 KiB send buffer, max-message 16 MiB,
 max-chunks 5000. The server responds with ACK (positive ID) or
 ERR with a UA-status code (still a positive ID, the server
 spoke UA-TCP).
@@ -64,10 +64,11 @@ Refusal idiom: UA ServiceFault with `BadUserAccessDenied`
   GetEndpoints / Browse / Read against the running session.
 
 ## Proxy hooks
-Default-build proxy: full UA-TCP message-by-message decode.
-Read-class messages (Read, Browse, GetEndpoints, HistoryRead)
-forward; write-class (Write, Call, HistoryUpdate) hit
-ServiceFault BadUserAccessDenied before reaching upstream.
+Default-build proxy: deny-all. It answers one UA-TCP ERR
+(Bad_ResourceLimitsExceeded, "proxy refuses client input") and drops
+the connection. The message-by-message gate (reads forward; Write /
+Call get a ServiceFault BadUserAccessDenied) is the offensive build's
+(`offensive/write/opcua`).
 
 ## Scoring contribution
 factors{protocol_risk:85, exposure:75, auth_state:60 (anon HEL

@@ -99,19 +99,20 @@ attributes, it never issues a Write. Scoring, by what the probe learned:
 | Anonymous session opens **and** exposes anonymous-writeable tags | Critical (`exposure`/`auth_state` 95) |
 | Anonymous session opens, no writeable tag found in the walked subtree | High |
 | OPC UA confirmed but the anonymous session is rejected (auth enforced) | Medium |
-| Not OPC UA | Medium (baseline) |
+| OPC UA, but the server refused our Hello with ERR (posture not assessed) | Medium (`hello-refused`, since 2026-10-07; it was labelled not-OPC-UA) |
+| Not OPC UA (no valid UA-TCP reply) | no finding: the probe returns an error |
 
 Plugin: `internal/protocols/opcua/exposureplugin.go`. It is the OPC UA
 counterpart to the `s7-exposure` plugin (see [`s7.md`](s7.md)).
 
 ## Default-build refusal posture
 
-The default proxy parses each MSG chunk's service TypeID; any
-mutating service (`WriteRequest 673`, `CallRequest 704`)
-short-circuits to a UA `ServiceFault` with status code
-`BadUserAccessDenied (0x80100000)`. Reads (`ReadRequest 631`,
-`BrowseRequest 527`, etc.) and transport-level frames (HEL /
-OPN / CLO) always pass.
+The default proxy is deny-all: one UA-TCP ERR frame
+(Bad_ResourceLimitsExceeded) and the connection is dropped. The
+service-aware gate (each MSG chunk's service TypeID; `WriteRequest
+673`, `CallRequest 704` short-circuit to a `ServiceFault`
+`BadUserAccessDenied (0x80100000)`; reads and HEL / OPN / CLO pass) is
+the offensive build's, below.
 
 ## Offensive write-gate
 

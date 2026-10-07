@@ -14,8 +14,13 @@ import (
 // space.
 type AnonymousAccessResult struct {
 	// IsOPCUA is true once the server answered the UA-TCP Hello with an
-	// Acknowledge.
+	// Acknowledge, or refused it with an ERR (only a UA-TCP server emits
+	// ERR; the opcua fingerprint counts it the same way).
 	IsOPCUA bool `json:"is_opcua"`
+	// HelloRefused is true when the server answered the Hello with ERR
+	// (wrong endpoint URL, version, limits): OPC UA, but no session could
+	// be attempted, so the anonymous posture is unknown.
+	HelloRefused bool `json:"hello_refused,omitempty"`
 	// AdvertisesAnonymous is true when GetEndpoints returned an endpoint
 	// with an Anonymous UserTokenPolicy; AnonymousPolicyID is its PolicyId.
 	AdvertisesAnonymous bool   `json:"advertises_anonymous"`

@@ -144,7 +144,11 @@ func TestProbeAnonymousAccess_Confirmed(t *testing.T) {
 	}
 }
 
-func TestProbeAnonymousAccess_NotOPCUA(t *testing.T) {
+// TestProbeAnonymousAccess_HelloRefusedIsOPCUA: an ERR to the Hello comes
+// from a UA-TCP server (only those emit ERR), so it is OPC UA with the
+// Hello refused, not "not OPC UA" (review, 2026-10-07; the opcua
+// fingerprint already counted ERR as UA).
+func TestProbeAnonymousAccess_HelloRefusedIsOPCUA(t *testing.T) {
 	clientConn, serverConn := net.Pipe()
 	t.Cleanup(func() { _ = clientConn.Close(); _ = serverConn.Close() })
 	// Server replies to HELLO with an ERR instead of ACK.
@@ -160,7 +164,7 @@ func TestProbeAnonymousAccess_NotOPCUA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProbeAnonymousAccess: %v", err)
 	}
-	if res.IsOPCUA || res.SessionOpened {
-		t.Fatalf("a non-ACK reply must yield IsOPCUA=false, SessionOpened=false: %+v", res)
+	if !res.IsOPCUA || !res.HelloRefused || res.SessionOpened {
+		t.Fatalf("an ERR to the Hello must yield IsOPCUA, HelloRefused, no session: %+v", res)
 	}
 }
