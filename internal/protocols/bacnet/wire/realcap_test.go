@@ -50,3 +50,27 @@ func TestBACnet_RealCapture(t *testing.T) {
 		t.Errorf("target = %+v, want type 1 instance 101 property 85", tgt)
 	}
 }
+
+// TestBuildWhoIs_RealCapture validates the probe request: it is the
+// Who-Is of CISA icsnpp-bacnet bacnet_example.pcap / bacnet_services.pcap
+// byte for byte, except the BVLC function (0x0A original-unicast: the
+// probe addresses one IP; the capture's is 0x0B original-broadcast).
+// The hop count must be 255: the previous request had 0, which a
+// BACnet router discards rather than forwarding.
+func TestBuildWhoIs_RealCapture(t *testing.T) {
+	captured, err := hex.DecodeString("810b000c0120ffff00ff1008")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := wire.BuildWhoIs()
+	if len(got) != len(captured) {
+		t.Fatalf("Who-Is length %d, captured %d", len(got), len(captured))
+	}
+	if got[1] != 0x0A {
+		t.Errorf("BVLC function 0x%02x, want 0x0A (original-unicast)", got[1])
+	}
+	got[1] = captured[1]
+	if hex.EncodeToString(got) != hex.EncodeToString(captured) {
+		t.Fatalf("Who-Is (BVLC function aside):\n got  %x\n want %x", got, captured)
+	}
+}

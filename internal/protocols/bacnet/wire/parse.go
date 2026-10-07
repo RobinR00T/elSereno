@@ -48,16 +48,27 @@ func ParseBVLC(b []byte) (BVLC, error) {
 }
 
 // BuildWhoIs returns a minimal Who-Is request (unconfirmed, no
-// instance range) as an unicast broadcast. Total length 12 bytes.
+// instance range) sent unicast to the target. Total length 12 bytes:
+//
+//	81 0A 00 0C   BVLC: BACnet/IP, Original-Unicast-NPDU, length 12
+//	01 20         NPDU: version 1, control 0x20 (destination present)
+//	FF FF 00      DNET 0xFFFF (global broadcast), DLEN 0
+//	FF            hop count 255
+//	10 08         APDU: unconfirmed request, service 8 (Who-Is)
+//
+// Byte for byte the Who-Is in CISA icsnpp-bacnet bacnet_example.pcap
+// and bacnet_services.pcap, except the BVLC function: 0x0A
+// (original-unicast) here, 0x0B (original-broadcast) there, because
+// the probe addresses one IP. Until 2026-10-07 the hop count was 0x00,
+// which a BACnet router discards instead of forwarding to the devices
+// behind it (an MS/TP segment, say).
 func BuildWhoIs() []byte {
-	// BVLC(4) + NPDU(2) + APDU(unconfirmed=0x10, service=0x08)
 	return []byte{
-		0x81, 0x0A, 0x00, 0x0C, // BVLC type, original-unicast, length=12
-		0x01, 0x20, // NPDU version=1, control=0x20 (no dest, expect reply)
-		0xFF, 0xFF, // ...broadcast network + hop count
-		0x00, 0x00, // ...destination address (none)
-		// simpler: use the common 0x81 0x0B variant; include minimal APDU
-		0x10, 0x08, // APDU: unconfirmed, service 0x08 (Who-Is)
+		0x81, 0x0A, 0x00, 0x0C,
+		0x01, 0x20,
+		0xFF, 0xFF, 0x00,
+		0xFF,
+		0x10, 0x08,
 	}
 }
 

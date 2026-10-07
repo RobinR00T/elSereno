@@ -6,8 +6,14 @@ speak it, every one is a potential life-safety surface.
 
 ## Probe
 
-- Send a BVLC "Original-Broadcast-NPDU" carrying an APDU Who-Is
-  (Unconfirmed-Request 0x08, ServiceChoice 0x08) to UDP/47808.
+- Send a Who-Is (APDU 0x10 unconfirmed request, service choice 0x08)
+  in a BVLC "Original-Unicast-NPDU" (0x0A: the probe addresses one IP)
+  to UDP/47808, with NPDU destination DNET 0xFFFF and hop count 255:
+  `81 0A 00 0C 01 20 FF FF 00 FF 10 08`. It is the Who-Is of the CISA
+  `icsnpp-bacnet` captures byte for byte, except their BVLC function is
+  0x0B (original-broadcast). Until 2026-10-07 the hop count was 0,
+  which a BACnet router discards instead of forwarding to the devices
+  behind it.
 - Parse I-Am responses for Object Identifier + Vendor Identifier +
   Max APDU Length.
 

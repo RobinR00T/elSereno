@@ -324,6 +324,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BACnet Who-Is: hop count 255, as in real traffic.** The probe's Who-Is
+  carried a global-broadcast destination with hop count 0, which a BACnet
+  router discards instead of forwarding to the devices behind it (an MS/TP
+  segment behind a BACnet/IP router never saw it). Both CISA
+  `icsnpp-bacnet` captures use 255; the request is now byte-identical to
+  theirs except the BVLC function (unicast, because the probe addresses one
+  IP). The protocol page also said the probe sent an original-broadcast;
+  it sends an original-unicast.
 - **IEC 61850 MMS: the association and the directory request now work
   against a real server (PITF-077).** The AARQ carried no MMS
   Initiate-RequestPDU (its user-information was an EXTERNAL with only a
