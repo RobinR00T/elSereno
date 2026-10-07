@@ -119,7 +119,8 @@ func (x *Writer) buildAddrSCO(findingID core.UUID, addr string) map[string]any {
 // protocol (e.g. "modbus"). STIX requires lowercase protocol
 // names per §6.7.
 func (x *Writer) buildNetTrafficSCO(findingID core.UUID, addrSCO map[string]any, port int, protocol string) map[string]any {
-	id := "network-traffic--" + uuid.NewSHA1(elserenoNamespace, []byte("net:"+string(findingID))).String()
+	// Protocol in the name for the same reason as the observed-data id.
+	id := "network-traffic--" + uuid.NewSHA1(elserenoNamespace, []byte("net:"+protocol+":"+string(findingID))).String()
 	sco := map[string]any{
 		"type":         "network-traffic",
 		"spec_version": SpecVersion,

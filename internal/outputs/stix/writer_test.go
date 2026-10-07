@@ -313,19 +313,24 @@ func TestWriteFinding_SameIDDifferentProtocolDistinctObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	objs, _ := bundle["objects"].([]any)
-	seen := map[string]bool{}
+	// Every object id must be unique, except an address SCO repeated
+	// with identical content (the same host).
+	seen := map[string]string{}
+	perType := map[string]int{}
 	for _, o := range objs {
 		m, _ := o.(map[string]any)
 		id, _ := m["id"].(string)
-		if !strings.HasPrefix(id, "observed-data--") {
-			continue
+		raw, _ := json.Marshal(m)
+		if prev, dup := seen[id]; dup {
+			if strings.HasPrefix(id, "ipv4-addr--") && prev == string(raw) {
+				continue
+			}
+			t.Fatalf("two objects share id %s:\n %s\n %s", id, prev, raw)
 		}
-		if seen[id] {
-			t.Fatalf("two observed-data objects share id %s", id)
-		}
-		seen[id] = true
+		seen[id] = string(raw)
+		perType[strings.SplitN(id, "--", 2)[0]]++
 	}
-	if len(seen) != 2 {
-		t.Fatalf("observed-data objects: %d, want 2", len(seen))
+	if perType["observed-data"] != 2 || perType["network-traffic"] != 2 {
+		t.Fatalf("objects per type = %v, want 2 observed-data and 2 network-traffic", perType)
 	}
 }

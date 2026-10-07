@@ -84,23 +84,37 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 		}
 		return buildFinding(target, classifyParseError(cerr), false), nil
 	}
-	if model := readModel(conn, p.IOTimeout); model != "" {
+	// A panel that echoed the register in its manufacturer reply must
+	// echo it in the model reply too; one that did not is held to the
+	// same looser rule the manufacturer reply passed.
+	_, echoes := wire.IsStringResponseTo(buf[:n], wire.ManufacturerQuery)
+	if model := readModel(conn, p.IOTimeout, echoes); model != "" {
 		note += " model=" + model
 	}
 	return buildFinding(target, "Red Lion "+note, true), nil
 }
 
 // readModel reads the model register on the same connection, best
-// effort: an empty string when the panel does not answer it.
-func readModel(conn net.Conn, timeout time.Duration) string {
+// effort: an empty string when the panel does not answer it. With
+// echoes, the reply must answer register 0x012A; without, any CR3
+// string frame is taken (the manufacturer reply showed this panel does
+// not echo registers).
+func readModel(conn net.Conn, timeout time.Duration, echoes bool) string {
 	_ = conn.SetDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write(wire.ModelQuery); err != nil {
 		return ""
 	}
 	buf := make([]byte, 1024)
 	n, _ := conn.Read(buf)
-	model, ok := wire.IsStringResponseTo(buf[:n], wire.ModelQuery)
-	if !ok {
+	if echoes {
+		model, ok := wire.IsStringResponseTo(buf[:n], wire.ModelQuery)
+		if !ok {
+			return ""
+		}
+		return model
+	}
+	model, err := wire.ParseStringResponse(buf[:n])
+	if err != nil {
 		return ""
 	}
 	return model

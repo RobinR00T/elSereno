@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -208,5 +210,58 @@ func TestWarnOptInAnyPort(t *testing.T) {
 	warnOptInAnyPort(&buf, runs)
 	if !strings.Contains(buf.String(), "s7-exposure") || strings.Contains(buf.String(), "dnp3") {
 		t.Fatalf("warning = %q, want one for s7-exposure only", buf.String())
+	}
+}
+
+// failingWriter fails every write, like a full disk.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
+// TestExecScan_StopsProbingAfterWriteError: once the output fails,
+// nothing more can be recorded, so the scan must stop probing and exit
+// with an I/O error rather than sweep every remaining target (review,
+// 2026-10-07).
+func TestExecScan_StopsProbingAfterWriteError(t *testing.T) {
+	const n = 20
+	var accepted atomic.Int64
+	var targets []core.Target
+	for i := 0; i < n; i++ {
+		lc := net.ListenConfig{}
+		ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				accepted.Add(1)
+				_, _ = c.Write([]byte("banner\r\n"))
+				_ = c.Close()
+			}
+		}()
+		addr, ok := ln.Addr().(*net.TCPAddr)
+		if !ok {
+			t.Fatalf("listener address %T", ln.Addr())
+		}
+		targets = append(targets, target(t, addr.AddrPort().String()))
+	}
+	opts := scanOpts{outputFormat: "ndjson", noProgress: true, plugins: []string{"banner"}}
+	cfg := config.Config{}
+	cfg.Scanner.MaxConcurrentTargets = 1 // one probe at a time, so the count is meaningful
+	cfg.Scanner.MaxConcurrentPerHost = 1
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	err := execScan(ctx, cfg, opts, targets, failingWriter{})
+	var ce cliError
+	if !errors.As(err, &ce) || ce.code != core.ExitIOErr {
+		t.Fatalf("err = %v, want an EX_IOERR exit", err)
+	}
+	if got := accepted.Load(); got >= n {
+		t.Fatalf("probed %d of %d targets after the first write failed; want it to stop early", got, n)
 	}
 }

@@ -341,8 +341,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback. Checked against those reference implementations; no public
   capture exists. A CR3 string reply counts when it answers the
   manufacturer register or names Red Lion (review the same night: a
-  length-prefixed text reply from any other protocol used to qualify), and
-  the model must answer the model register.
+  length-prefixed text reply from any other protocol used to qualify); the
+  model reply is held to the same rule the manufacturer reply passed.
 - **Niagara Fox probe now says hello first (PITF-078).** The probe opened
   TCP/1911 and only listened for a banner, but a Niagara station says
   nothing until the client sends its hello (in the real w3h/icsmaster
@@ -388,9 +388,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   target's, written by the probe that knows the target (a first version
   looked the target up by finding ID, and banner's ID did not depend on the
   target, so silent ports swapped addresses; caught by review the same
-  night). Banner finding IDs now include the target, STIX observed-data ids
-  include the protocol, and naming an opt-in plugin without a default port
-  (it then probes every listed target) prints a warning. `--input list:-` reads stdin, so `discover --format list | scan
+  night). Banner finding IDs now include the target, STIX observed-data and
+  network-traffic ids include the protocol, the first failed write stops the
+  scan (EX_IOERR) instead of probing every remaining target, and naming an
+  opt-in plugin without a default port (it then probes every listed target)
+  prints a warning. `--input list:-` reads stdin, so `discover --format list | scan
   --input list:-` works (it tried to open a file named `-`).
 - **Docs: `scan` examples use real flags.** README, MANUAL, the Spanish
   manual, the cheatsheet and the man page showed flags `scan` never had

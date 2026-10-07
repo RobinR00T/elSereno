@@ -163,6 +163,10 @@ func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []plug
 			MaxRetries:           opts.retries,
 		})
 		probe := r.plugin.Factory().Probe
+		// The first failed write cancels the run: probing on while
+		// nothing can be recorded (a full disk on a /16) is wasted
+		// traffic against the targets.
+		runCtx, cancel := context.WithCancel(ctx)
 		writing := func(ctx context.Context, t core.Target) (*core.Finding, error) {
 			f, err := probe(ctx, t)
 			if err != nil || f == nil {
@@ -171,21 +175,24 @@ func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []plug
 			mu.Lock()
 			defer mu.Unlock()
 			if writeErr == nil {
-				writeErr = write(*f, t)
+				if writeErr = write(*f, t); writeErr != nil {
+					cancel()
+				}
 			}
 			return f, nil
 		}
-		findings, errs := scn.Run(ctx, r.targets, writing)
+		findings, errs := scn.Run(runCtx, r.targets, writing)
 		n, err := drainScanChannels(findings, errs, countOnly, pb)
+		cancel()
 		produced += n
-		if err != nil {
-			return produced, err
-		}
 		mu.Lock()
 		werr := writeErr
 		mu.Unlock()
 		if werr != nil {
 			return produced, fail(core.ExitIOErr, werr)
+		}
+		if err != nil {
+			return produced, err
 		}
 	}
 	return produced, nil

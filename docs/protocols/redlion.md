@@ -20,7 +20,8 @@ proprietary firmware / IDE; it talks to panels over the Crimson v3
   matches a complete frame, then after the 6-octet header (length,
   register, type) a non-empty printable string (a trailing NUL is
   dropped), answering register 0x012B or naming Red Lion. The model
-  must answer register 0x012A. The note carries `manufacturer=` and
+  reply must answer register 0x012A when the manufacturer reply echoed
+  its register; otherwise any CR3 string frame is taken. The note carries `manufacturer=` and
   `model=`.
 - Fallback: a canonical banner substring anywhere in the reply
   (`Red Lion Controls`, `Red Lion`, `Crimson 3`, `CRIMSON 3`,
