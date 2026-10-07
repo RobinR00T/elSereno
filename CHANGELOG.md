@@ -362,7 +362,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   came back from real equipment. The AARQ is now the captured client's byte
   for byte (w3h/icsmaster IEC 61850 captures), the getNameList is
   byte-identical to the captured one when given the same invoke ID and
-  class, and replies are unwrapped before parsing.
+  class, and replies are unwrapped before parsing. The AARE's result field
+  is now read: a rejecting AARE (which also carries the IEC 61850 OID) still
+  identifies the stack but is noted as rejected, and no directory request
+  follows; it used to be noted "associated".
 - **`elsereno scan` now runs the protocol plugins, and every finding names
   its target (PITF-076).** The CLI ran the banner probe alone: no protocol
   plugin (modbus, dnp3, s7…) ever ran from `scan`, although the manual said

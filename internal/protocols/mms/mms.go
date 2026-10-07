@@ -99,9 +99,12 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	// GetServerDirectory to enumerate Logical Devices. Any
 	// step failure degrades gracefully (we still keep the
 	// ACSE-level finding).
-	if acseNote, aareBytes, ok := tryACSEAssociate(conn, p.IOTimeout); ok {
+	if acseNote, aareBytes, associated, ok := tryACSEAssociate(conn, p.IOTimeout); ok {
 		hint := wire.ExtractMMSVendorHint(aareBytes)
-		lds, _ := tryGetServerDirectory(conn, p.IOTimeout)
+		var lds []string
+		if associated {
+			lds, _ = tryGetServerDirectory(conn, p.IOTimeout)
+		}
 		fullNote := acseNote
 		if hint != "" {
 			fullNote += " · vendor-hint: " + hint
@@ -122,28 +125,41 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 //
 // v2.36+: also returns the raw AARE payload bytes (after the
 // COTP DT header) so the caller can extract vendor hints.
+// ok means an IEC 61850-8-1 AARE came back; associated means its
+// result was "accepted" (or could not be parsed), the only case in
+// which GetServerDirectory can succeed (2026-10-07).
 //
 // Wraps the AARQ in COTP DT (LI=02, type=0xF0, TPDU-nr=0x80
 // = end-of-TSDU marker) before TPKT. The conn deadline
 // already covers this exchange, operator-tunable via
 // Plugin.IOTimeout.
-func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (string, []byte, bool) {
+func tryACSEAssociate(conn net.Conn, ioTimeout time.Duration) (note string, aare []byte, associated, ok bool) {
 	_ = conn.SetDeadline(time.Now().Add(ioTimeout))
 	aarq := wire.BuildACSEAssociateRequestMMS()
 	frame := make([]byte, 0, 3+len(aarq))
 	frame = append(frame, 0x02, 0xF0, 0x80) // COTP DT header
 	frame = append(frame, aarq...)
 	if err := wire.WriteTPKT(conn, frame); err != nil {
-		return "", nil, false
+		return "", nil, false, false
 	}
 	respTPKT, err := wire.ReadTPKT(conn)
 	if err != nil {
-		return "", nil, false
+		return "", nil, false, false
 	}
 	if err := wire.ParseACSEAssociateResponseMMS(respTPKT.Payload); err != nil {
-		return "", nil, false
+		return "", nil, false, false
 	}
-	return "MMS ACSE associated (IEC 61850-8-1)", respTPKT.Payload, true
+	// The OID identifies an IEC 61850-8-1 stack whether the server
+	// accepted or rejected the association; only an accepted one can
+	// answer GetServerDirectory.
+	switch result, rerr := wire.AssociationResultMMS(respTPKT.Payload); {
+	case rerr != nil:
+		return "MMS ACSE AARE (IEC 61850-8-1, result not parsed)", respTPKT.Payload, true, true
+	case result == wire.AssociationAccepted:
+		return "MMS ACSE associated (IEC 61850-8-1)", respTPKT.Payload, true, true
+	default:
+		return fmt.Sprintf("MMS ACSE association rejected (IEC 61850-8-1, result=%d)", result), respTPKT.Payload, false, true
+	}
 }
 
 // tryGetServerDirectory issues a confirmed-service

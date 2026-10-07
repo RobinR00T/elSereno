@@ -154,3 +154,40 @@ func ParseACSEAssociateResponseMMS(buf []byte) error {
 	}
 	return nil
 }
+
+// ACSE association results (ISO 8650 AARE result field).
+const (
+	// AssociationAccepted is result 0.
+	AssociationAccepted = 0
+	// AssociationRejectedPermanent is result 1.
+	AssociationRejectedPermanent = 1
+	// AssociationRejectedTransient is result 2.
+	AssociationRejectedTransient = 2
+)
+
+// ErrNoAssociationResult is returned by AssociationResultMMS when the
+// result field does not follow the application-context-name.
+var ErrNoAssociationResult = errors.New("mms: AARE result field not found after the application context")
+
+// aareAppContext is the AARE's application-context-name element for
+// IEC 61850-8-1: [1] { OID 1.0.9506.2.3 }.
+var aareAppContext = []byte{0xA1, 0x07, 0x06, 0x05, 0x28, 0xCA, 0x22, 0x02, 0x03}
+
+// AssociationResultMMS returns the AARE's result (0 accepted, 1
+// rejected-permanent, 2 rejected-transient). In the AARE SEQUENCE the
+// result [2] INTEGER follows the application-context-name [1], as in
+// the real AARE of w3h/icsmaster iec61850_read.pcap
+// (A1 07 06 05 28 CA 22 02 03 A2 03 02 01 00). ParseACSEAssociateResponseMMS
+// only finds the OID, which a rejecting AARE also carries; until
+// 2026-10-07 a rejection was therefore noted as "associated".
+func AssociationResultMMS(buf []byte) (int, error) {
+	i := bytes.Index(buf, aareAppContext)
+	if i < 0 {
+		return 0, ErrNoMMSACSEResponse
+	}
+	r := buf[i+len(aareAppContext):]
+	if len(r) < 5 || r[0] != 0xA2 || r[1] != 0x03 || r[2] != 0x02 || r[3] != 0x01 {
+		return 0, ErrNoAssociationResult
+	}
+	return int(r[4]), nil
+}
