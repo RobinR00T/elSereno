@@ -161,14 +161,17 @@ jobs:
         with:
           go-version: 'stable'
           cache: true
-      - name: start simulators
-        run: |
-          if [ -f simulators/docker-compose.test.yml ]; then
-            docker compose -f simulators/docker-compose.test.yml up -d
-          else
-            echo "no simulators/docker-compose.test.yml yet, skipping"
-          fi
-      - run: go test -tags integration -count=1 ./test/integration/... || echo "no integration suite yet"
+      # The suite needs only Postgres (the Modbus and banner tests use
+      # loopback listeners). Until 2026-10-14 this job started every
+      # simulator, never set DATABASE_URL (so the migration test
+      # skipped) and ended in `|| echo`, so it could not fail: nobody
+      # saw that `db migrate` had panicked since 2026-09-22 (PITF-084).
+      - name: start Postgres
+        run: docker compose -f simulators/docker-compose.test.yml up -d --wait db
+      - name: integration suite
+        env:
+          DATABASE_URL: postgres://elsereno@127.0.0.1:5434/elsereno?sslmode=disable
+        run: go test -tags integration -count=1 ./test/integration/...
 
   sec:
     name: sec

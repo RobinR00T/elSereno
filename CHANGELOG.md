@@ -420,6 +420,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The CI `integration` job can fail again.** It started every
+  simulator but never set `DATABASE_URL`, so the migration test skipped,
+  and it ended in `|| echo "no integration suite yet"`, so nothing in it
+  could fail: that is why the duplicate migration of PITF-084 went
+  unnoticed for three weeks. It now starts only the Postgres service the
+  suite uses (`docker compose ... up -d --wait db`), passes
+  `DATABASE_URL`, and lets `go test` fail the job. The test Postgres
+  healthcheck now probes TCP (the image's initdb server listens on the
+  socket only), and `make test-integration-db` runs the same thing
+  locally. Locally, without Docker, the suite passes with the database
+  test skipped; the migration run itself is first exercised in CI.
+
 - **`elsereno db migrate` panicked since 2026-09-22 (PITF-084).** The
   migration that adds the `dnp3_iin_alert` audit event type was numbered
   `00005`, a version `00005_scan_jobs.sql` already had. goose v3.28.0

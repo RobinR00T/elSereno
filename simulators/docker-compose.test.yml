@@ -13,7 +13,10 @@ services:
     volumes:
       - pgdata-test:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U elsereno -d elsereno"]
+      # Over TCP, not the Unix socket: during initdb the image runs a
+      # temporary server on the socket only, which would report healthy
+      # before the real one listens on 5432.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U elsereno -d elsereno"]
       interval: 2s
       timeout: 2s
       retries: 30

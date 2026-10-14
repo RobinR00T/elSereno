@@ -8,6 +8,9 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (6): **CI integration job can fail again.** Starts only the
+  test Postgres (`--wait`), sets `DATABASE_URL`, drops `|| echo`.
+
 - 2026-10-14 (5): **Docs: the default-build proxy handlers have no
   command.** `elsereno proxy` is a stub (exit 75); protocol pages, index,
   README, man page, ADR-040 and the `.context/protocols` notes now say so.

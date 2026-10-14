@@ -1,5 +1,5 @@
 .PHONY: all build build-offensive build-mini install install-man \
-        test test-race test-cover test-fuzz test-integration test-e2e test-all \
+        test test-race test-cover test-fuzz test-integration test-integration-db test-e2e test-all \
         bench sec lint fmt tidy clean run docker \
         db-up db-down db-migrate db-reset \
         gen-manpages context-check ci release-gate
@@ -66,6 +66,12 @@ test-fuzz:
 
 test-integration:
 	go test -tags integration -count=1 ./test/integration/...
+
+# Same suite with the migration test enabled: starts the test Postgres
+# (simulators/docker-compose.test.yml, port 5434), as the CI job does.
+test-integration-db:
+	docker compose -f simulators/docker-compose.test.yml up -d --wait db
+	DATABASE_URL='postgres://elsereno@127.0.0.1:5434/elsereno?sslmode=disable' go test -tags integration -count=1 ./test/integration/...
 
 test-e2e:
 	go test -tags e2e -count=1 ./test/e2e/...

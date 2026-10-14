@@ -1,13 +1,15 @@
 //go:build integration
 
 // Package integration_test exercises ElSereno against a live Postgres
-// from simulators/docker-compose.test.yml. Run with:
+// from simulators/docker-compose.test.yml. Run with `make
+// test-integration-db`, or:
 //
-//	docker compose -f simulators/docker-compose.test.yml up -d
-//	go test -tags integration -count=1 ./test/integration/...
+//	docker compose -f simulators/docker-compose.test.yml up -d --wait db
+//	DATABASE_URL='postgres://elsereno@127.0.0.1:5434/elsereno?sslmode=disable' \
+//	  go test -tags integration -count=1 ./test/integration/...
 //
-// The suite auto-skips if DATABASE_URL is unset so the tag remains
-// safe on the plain CI path.
+// Without DATABASE_URL the migration test skips (`make
+// test-integration`); the CI integration job sets it, so there it runs.
 package integration_test
 
 import (
