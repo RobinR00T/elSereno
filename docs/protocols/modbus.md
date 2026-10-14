@@ -14,6 +14,11 @@ and input-register tables.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin modbus`.
+
 Wire-layer write-ban. Every frame is parsed; the function code is
 classified, and any **CategoryWrite** FC (5 / 6 / 15 / 16 / 22 / 23,
 write-file-record, mask-write-register) short-circuits to an

@@ -37,6 +37,9 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default build: write-ban handler (encapsulation commands classified;
 anything not a read is refused). Offensive build: per-command and
 optional per-CIP-object gate (`--cip-command`, `--cip-attr`).

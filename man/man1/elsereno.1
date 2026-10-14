@@ -91,8 +91,10 @@ stdin).
 .TP
 \f[B]proxy\f[R]
 Protocol\-aware interception proxy.
-\f[B]proxy listen\f[R] runs a write\-gated proxy in the offensive build
-(read\-only fail\- closed in default).
+\f[B]proxy listen\f[R] runs a write\-gated proxy in the offensive build.
+In the default build \f[B]proxy\f[R] is a stub that exits 75 (planned):
+the per\-plugin handlers that refuse writes (write\-ban, deny\-all,
+fail\-closed) exist as library code, but no command serves them yet.
 .TP
 \f[B]scan\f[R]
 Scan a set of targets and emit findings.
@@ -158,7 +160,7 @@ send\f[R], \f[B]modbus proxy\-dry\-run\f[R], \f[B]sip dry\-run\f[R],
 \f[B]iax2 dry\-run\f[R], \f[B]pbxhttp dry\-run\f[R], \f[B]opcua
 dry\-run\f[R], \f[B]bacnet dry\-run\f[R], \f[B]cwmp dry\-run\f[R].
 .SH WRITE\-GATE FLAGS (offensive build)
-The seven write\-gated proxies all share the
+Seven of the 18 write\-gated proxies accept the
 \f[CR]\-\-allow\-file <path.yaml>\f[R] round\-trip flow.
 Direct CLI flags per proxy:
 .TP
@@ -235,8 +237,9 @@ killed by a signal (e.g.
 SIGINT → \f[B]130\f[R], SIGTERM → \f[B]143\f[R]).
 .TP
 \f[CR]75\f[R]
-\f[I]EX_TEMPFAIL\f[R]: only emitted by \f[CR]proxy listen\f[R]
-(offensive build) on SIGHUP.
+\f[I]EX_TEMPFAIL\f[R]: emitted by the verbs that are still stubs
+(planned for a later phase, \f[B]proxy\f[R] in the default build among
+them) and by \f[CR]proxy listen\f[R] (offensive build) on SIGHUP.
 Distinguishable from a real crash via systemd\(aqs
 \f[CR]RestartPreventExitStatus=\f[R]; supervisor restarts with the new
 allowlist + freshly minted confirm\-token (v1.15+).

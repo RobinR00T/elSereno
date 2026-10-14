@@ -84,6 +84,9 @@ Triple-confirm + audit-chain emission per ADR-039.
   PLC runtime version + project name.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Fail-closed: the proprietary tag-length-value stack is not
 implemented in v1.22 chunk 2; the default-build proxy refuses
 sessions immediately rather than relay bytes that may or may not

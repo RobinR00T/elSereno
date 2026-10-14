@@ -17,6 +17,11 @@ length-prefixed UDP, so each datagram carries one frame.
 
 ## Default-build refusal posture
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin iax2`.
+
 The default proxy is deny-all: it relays nothing and answers nothing
 (UDP has no stream-level refusal). The subclass-aware gate below,
 which answers a refused subclass with an IAX2 `HANGUP` (0x05) and

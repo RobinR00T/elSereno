@@ -23,9 +23,11 @@
 > policy.
 
 ICS/OT and legacy-network exposure auditor. Combines multi-source ingestion
-(Shodan, Censys, nmap XML, list, stdin), active fingerprinting, an
-instrumentable proxy with per-protocol wire-layer write-ban, multi-factor
-scoring, and a small web dashboard. An opt-in offensive module
+(Shodan, Censys, nmap XML, list, stdin), active fingerprinting,
+per-protocol proxy handlers that refuse writes (write-ban, deny-all or
+fail-closed, except XOT's pass-through; library code for now: the
+default build has no proxy command), multi-factor scoring, and a small
+web dashboard. An opt-in offensive module
 (`-tags offensive`) adds writes, exploits, credential harvesting, and
 individual dial gated by the [ADR-039](.context/decisions/039-offensive-architecture-triple-confirm.md)
 triple-confirm wrapper. Linux and macOS; Windows is vNext.
@@ -185,6 +187,12 @@ end-to-end simulator demo under `scripts/demo-*-proxy.sh`.
 | IEC 61850 GOOSE/SV | L2 (EtherType 0x88B8/0x88BA) | offline dissect + passive spoofing monitor: stNum jump/regression (the high-stNum override), simulation/test bit, ndsCom, confRev change, sqNum stall, SV smpCnt regression (`goose decode` / `goose monitor`) |
 | MQTT | 1883, 8883 (TLS) | broker exposure fingerprint: anonymous CONNECT + wildcard `#` subscribe + Sparkplug B detection (read-only, never publishes) |
 | banner          | any (no default port) | reads the TCP banner on every target; the vendor dictionary (Moxa/Lantronix/Digi/NetBurner/KONE/Otis/Schindler/OpenSSH) is not applied by the probe yet |
+
+In the table, "write-ban proxy" and "pass-through proxy" name the
+plugin's default-build proxy *handler*: no command serves it yet
+(`elsereno proxy` is a stub in the default build and exits 75). The
+proxies you can run are the offensive build's write-gated ones, through
+`proxy listen`.
 
 The rows in **bold** carry write-gate proxies (this table is a
 representative selection; 18 protocols have write-gates in total,

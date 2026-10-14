@@ -61,6 +61,9 @@ ADR-009. KNX/IP Secure (2018+) is an optional encrypted layer.
   Address).
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Fail-closed: TCP proxy framework cannot legitimately relay UDP
 KNXnet/IP frames. ProxyHandler.Handle() returns immediately
 with an error citing the missing UDP relay. Mirrors the BACnet

@@ -38,6 +38,9 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default build: write-ban filter. Only `I`-prefixed (inquiry)
 commands forward; any other command (V setpoint, S configuration, T
 calibration...) is refused. The gated package `offensive/write/atg` is

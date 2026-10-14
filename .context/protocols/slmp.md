@@ -84,6 +84,9 @@ emission per ADR-039.
   code against the Mitsubishi catalogue.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Wire-layer write-ban: the default-build handler reads the first
 frame's header, drains the body based on the declared length, and
 replies with a 13-byte error frame carrying end code 0xC059 (the

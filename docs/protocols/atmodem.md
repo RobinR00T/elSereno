@@ -29,6 +29,11 @@ Historical defaults:
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Line by line, the proxy forwards only a read-only command
 (`IsReadOnlyCommand`) and answers anything else with `ERROR\r\n`
 without forwarding it. Allowed, one command per line, case and spaces

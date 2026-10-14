@@ -51,6 +51,11 @@ values: 0x0442="ABB", 0x2C2D="KAM" (Kamstrup), 0x1593="ELS"
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Wire-layer write-ban. The default-build handler reads the first
 M-Bus frame from the client and replies with a single-byte ACK
 (0xE5) without forwarding to upstream. Matches the protocol's

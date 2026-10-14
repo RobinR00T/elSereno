@@ -15,6 +15,11 @@ published security research efforts.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Line-oriented ASCII, SOH-framed. The proxy reads one command line
 at a time (up to 4 KiB or CR, whichever first) and classifies:
 

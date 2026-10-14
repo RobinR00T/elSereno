@@ -72,7 +72,7 @@ exposure.
 Derive the session token (mirrors `write opcua`):
 
 ```
-elsereno write opcuahttps proxy-dry-run \
+elsereno-offensive write opcuahttps proxy-dry-run \
   --target plc.example:4843 \
   --service 673 \
   --node-id "ns=2;i=42" \
@@ -83,7 +83,7 @@ Run the gate (any subset of the allowlist flags the token was minted
 with):
 
 ```
-elsereno proxy listen --plugin opcuahttps \
+elsereno-offensive proxy listen --plugin opcuahttps \
   --listen 127.0.0.1:4843 --target plc.example:4843 \
   --service 673 --node-id "ns=2;i=42" \
   --accept-writes --confirm-target plc.example:4843 \

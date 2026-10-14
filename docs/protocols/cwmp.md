@@ -24,6 +24,11 @@ code has always sent the GET.
 
 ## Default-build refusal posture
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin cwmp`.
+
 The default proxy refuses every client byte with
 `HTTP/1.1 403 Forbidden`. The write-gated variant (offensive
 build) replaces that.

@@ -68,6 +68,11 @@ Mitsubishi advisory.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Fail-closed. The MELSOFT service layer (program read/write, RUN/STOP,
 parameter transfer) is a proprietary TLV stack that is not modelled
 here, so the default-build proxy refuses the session rather than relay

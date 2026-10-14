@@ -52,6 +52,9 @@ writes, SET_BAUDRATE (CI=0xB8..0xBC) for re-bauding the meter
 - See the generic REPL framework. Expose MeterInfo fields.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Wire-layer write-ban: reads the first M-Bus frame and replies
 with a single-byte ACK (0xE5). Matches the protocol's own
 link-layer ACK idiom, the meter says "got it" but no data is

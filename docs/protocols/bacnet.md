@@ -21,6 +21,11 @@ BACnet is **UDP**: the usual TCP proxy framework does not apply.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin bacnet`.
+
 Fail-closed. The TCP proxy framework cannot legitimately relay UDP
 BACnet traffic. `bacnet.ProxyHandler()` returns an immediate error
 ("BACnet proxy requires the offensive UDP relay"). A dedicated UDP

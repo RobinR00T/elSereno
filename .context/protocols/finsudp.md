@@ -60,6 +60,9 @@ UDP transport (`Options.Network`). See `docs/protocols/finsudp.md`
   (PITF-065).
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default build: `ProxyHandler.Handle()` returns immediately with an
 error (the default TCP framework does not relay UDP FINS). The
 write-gated UDP relay lives in the offensive build and runs over

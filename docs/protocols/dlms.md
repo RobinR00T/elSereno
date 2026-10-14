@@ -48,6 +48,11 @@ APDU (BER-encoded COSEM AARQ/AARE):
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Wire-layer write-ban. The default-build handler reads the 8-byte
 wrapper header from the client, drains the declared APDU body,
 and replies with a 16-byte wrapper-framed AARE (associate-result

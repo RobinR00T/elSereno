@@ -23,6 +23,11 @@ worth auditing carefully.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Plain pass-through: bytes are copied in both directions without
 parsing (no XOT header check).
 

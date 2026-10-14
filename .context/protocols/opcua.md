@@ -64,6 +64,9 @@ Refusal idiom: UA ServiceFault with `BadUserAccessDenied`
   GetEndpoints / Browse / Read against the running session.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default-build proxy: deny-all. It answers one UA-TCP ERR
 (Bad_ResourceLimitsExceeded, "proxy refuses client input") and drops
 the connection. The message-by-message gate (reads forward; Write /

@@ -8,6 +8,10 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (5): **Docs: the default-build proxy handlers have no
+  command.** `elsereno proxy` is a stub (exit 75); protocol pages, index,
+  README, man page, ADR-040 and the `.context/protocols` notes now say so.
+
 - 2026-10-14 (4): **Duplicate migration version 5 fixed (PITF-084).**
   `00005_audit_dnp3_iin_alert_event_type.sql` (added 22-9) shared
   version 5 with `00005_scan_jobs.sql`; goose panics collecting them,

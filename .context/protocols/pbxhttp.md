@@ -48,9 +48,12 @@ methods) or HTTP/1.1 403 Forbidden (for refused paths).
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default-build proxy: in-band HTTP request decode. Read-class
-methods (GET, HEAD, OPTIONS) forward to upstream; write-class
-(POST, PUT, DELETE, PATCH) hit 405 / 403.
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
+Default-build handler is deny-all: `HTTP/1.1 403 Forbidden` to every
+client, nothing forwarded. The method/path gate (read-class methods
+forward, write-class get 405 / 403) is the offensive build's.
 
 ## Scoring contribution
 factors{protocol_risk:30→70 on pbx-likely, exposure:70,

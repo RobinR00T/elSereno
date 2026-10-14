@@ -1,9 +1,9 @@
 # SIP (Session Initiation Protocol)
 
 **Default ports**: 5060/udp + 5060/tcp.
-**Status**: probe (UDP) + deny-all proxy in the default build
-(`SIP/2.0 403 Forbidden` to every client); the write-gated proxy is
-the offensive build's.
+**Status**: probe (UDP); a deny-all proxy handler in the default build
+(`SIP/2.0 403 Forbidden` to every client) that no command serves yet;
+the write-gated proxy is the offensive build's (`proxy listen`).
 **Offensive build (`-tags offensive`)**: per-method + per-INVITE-
 prefix + per-REGISTER-AOR + per-From-domain allowlists.
 
@@ -18,6 +18,11 @@ Yeastar, Grandstream, Fanvil, Yealink, Kamailio, OpenSIPS, FreeSWITCH
 and SER. Any SIP status line in reply yields a scored finding.
 
 ## Default-build refusal posture
+
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin sip`.
 
 The default proxy is deny-all: it answers every client with
 `SIP/2.0 403 Forbidden` and forwards nothing. The method-aware gate

@@ -769,6 +769,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docs: no command serves the default-build proxy handlers.** In the
+  default and mini builds `elsereno proxy` is a stub that exits 75, and
+  no production code calls a plugin's `ProxyHandler()`: the write-ban,
+  deny-all and fail-closed handlers are library code with tests. The
+  protocol pages, their index, the README, the man page (which called
+  the default proxy "read-only fail-closed") and ADR-040 described them
+  as usable; each now says so, and names `proxy listen --plugin X` of the
+  offensive build where a gated proxy exists. Whether to ship a
+  default-build proxy command is an open decision (TODO-vNext).
+
 - **Fuzz coverage added for five untrusted-input parsers that had none:**
   PROFINET DCP (`FuzzDecodeDCP`), TwinCAT ADS ReadDeviceInfo
   (`FuzzParseDeviceInfo`), IAX2 full-frame header (`FuzzParseHeader`), MQTT

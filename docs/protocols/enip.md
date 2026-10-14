@@ -43,6 +43,11 @@ reference string).
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin enip`.
+
 The encapsulation command is classified per wire table:
 
 - **CategoryRead**: ListServices (0x04), ListIdentity (0x63),

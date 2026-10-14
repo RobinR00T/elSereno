@@ -90,6 +90,11 @@ capture-confirmed Block Driver magic rather than a presumed reply shape.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin codesys`.
+
 Fail-closed. CoDeSys V3 is a proprietary tag-length-value
 protocol whose deeper layers (Layer-3 / Layer-4 / Layer-7) are
 not implemented. The default-build proxy refuses sessions

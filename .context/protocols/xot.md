@@ -35,6 +35,9 @@ TBD.
 - TBD.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 TBD.
 
 ## Known quirks / vendor deltas

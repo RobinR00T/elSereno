@@ -92,8 +92,10 @@ The default-build subcommand list is below. Run
 
 **proxy**
 :   Protocol-aware interception proxy. **proxy listen** runs a
-    write-gated proxy in the offensive build (read-only fail-
-    closed in default).
+    write-gated proxy in the offensive build. In the default build
+    **proxy** is a stub that exits 75 (planned): the per-plugin
+    handlers that refuse writes (write-ban, deny-all, fail-closed)
+    exist as library code, but no command serves them yet.
 
 **scan**
 :   Scan a set of targets and emit findings.
@@ -156,7 +158,7 @@ The `-tags offensive` build adds:
 
 # WRITE-GATE FLAGS (offensive build)
 
-The seven write-gated proxies all share the `--allow-file
+Seven of the 18 write-gated proxies accept the `--allow-file
 <path.yaml>` round-trip flow. Direct CLI flags per proxy:
 
 **Modbus**
@@ -233,8 +235,9 @@ The seven write-gated proxies all share the `--allow-file
 :   killed by a signal (e.g. SIGINT → **130**, SIGTERM → **143**).
 
 `75`
-:   *EX_TEMPFAIL*: only emitted by `proxy listen` (offensive
-    build) on SIGHUP. Distinguishable from a real crash via
+:   *EX_TEMPFAIL*: emitted by the verbs that are still stubs
+    (planned for a later phase, **proxy** in the default build
+    among them) and by `proxy listen` (offensive build) on SIGHUP. Distinguishable from a real crash via
     systemd's `RestartPreventExitStatus=`; supervisor restarts
     with the new allowlist + freshly minted confirm-token
     (v1.15+).

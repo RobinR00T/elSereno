@@ -55,6 +55,9 @@ needed.
   wPort, dst wPort, APDU length, AARE result code).
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Wire-layer write-ban: reads wrapper header + APDU body, replies
 with a 16-byte wrapper-framed AARE (0xA2 0x03 0x02 0x01 0x01 =
 associate-result rejected-permanent) padded with a BER

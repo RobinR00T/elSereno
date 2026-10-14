@@ -68,8 +68,12 @@ Refusal idiom: IAX2 HANGUP frame with a custom CAUSE IE.
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default-build proxy is wire-layer write-ban: every frame is
-refused with HANGUP before reaching upstream.
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
+Default-build handler is deny-all: it relays nothing and answers
+nothing (UDP has no stream-level refusal). The subclass gate that
+answers a refused subclass with HANGUP is the offensive build's.
 
 ## Scoring contribution
 factors{protocol_risk:70→90 on IAX2 confirmed, exposure:80,

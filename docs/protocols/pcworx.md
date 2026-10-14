@@ -25,7 +25,10 @@ Validated against two real captures (an ILC 151 ETH and an ILC 191 ETH
 Capability score jumps when the target returns a PC WORX reply. The
 probe is fingerprint-only and read-only: it sends one hello and reads
 the reply, it issues no service-request (variable read / write /
-runtime control) frames. The default-build proxy is fail-closed.
+runtime control) frames. The default-build proxy handler is fail-closed,
+and no command serves it yet (`elsereno proxy` is a stub in the default
+build); the offensive build's `proxy listen --plugin pcworx` serves the
+gated proxy.
 
 ## CVE enrichment (fingerprint-confirmed)
 
@@ -51,4 +54,4 @@ the family baseline rather than claiming a CVE.
 | Command | Writes to target? |
 |---------|-------------------|
 | `pcworx` fingerprint | No (one hello, reads the reply) |
-| `pcworx` proxy (default build) | No (fail-closed, refuses the session) |
+| `pcworx` proxy handler (default build; no command serves it yet) | No (fail-closed, refuses the session) |

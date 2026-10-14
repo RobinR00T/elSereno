@@ -42,7 +42,12 @@
   el manual los describen como si se pudieran usar. Solo el build ofensivo
   tiene proxy (`proxy listen`, con los gates). Opciones: conectar un `proxy
   listen` en el build por defecto con los write-ban, o reescribir esas
-  secciones como "handler preparado, sin comando". Visto el 14-10.
+  secciones como "handler preparado, sin comando". Visto el 14-10; desde
+  ese día las páginas de protocolo, el índice, el README, el man y ADR-040
+  lo dicen. Quedan dos textos en código que lo presentan como control
+  activo: el panel de seguridad (`internal/web/handlers/security.go`,
+  "Wire-layer write-ban: ok") y el dashboard (`dashboard.go`, "applies to
+  every TCP plugin").
 - **El job `integration` del CI nunca puede fallar.** No levanta Postgres y
   acaba en `|| echo "no integration suite yet"` (`.github/workflows/ci.yml`),
   y la suite se salta sin `DATABASE_URL`. Por eso nadie vio que `db migrate`

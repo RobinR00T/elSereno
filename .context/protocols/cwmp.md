@@ -81,11 +81,13 @@ or 9005 ("Invalid parameter name") per TR-069 Annex A.
   data model.
 
 ## Proxy hooks
-v1.5+ ships the in-band CWMP proxy at port 7547. Default-build
-proxy refuses every SOAP RPC with Fault 9001 before forwarding
-to upstream, even GetParameterValues is refused (the protocol
-is by design write-capable end-to-end and we don't want to
-forward read-only frames as cover for write payloads).
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
+Default-build handler is deny-all: it refuses every client byte with
+`HTTP/1.1 403 Forbidden` and forwards nothing (the protocol is write-
+capable end to end, so not even GetParameterValues is forwarded as
+cover for a write).
 
 Offensive proxy decodes the SOAP envelope, walks the Body
 RPC, and gates per the 3 allowlist dimensions described

@@ -52,6 +52,11 @@ Response body (54 bytes, Device Hardware DIB):
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Fail-closed. The TCP proxy framework cannot legitimately relay
 UDP KNXnet/IP traffic. `knxip.ProxyHandler()` returns an
 immediate error. A dedicated UDP relay would arrive with a future

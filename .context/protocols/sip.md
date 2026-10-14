@@ -75,9 +75,12 @@ header listing the permitted methods.
   REGISTER probes against the running endpoint.
 
 ## Proxy hooks
-Default-build proxy: in-band SIP message decode. OPTIONS,
-SUBSCRIBE, NOTIFY (read-class) forward; everything else hits
-405.
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
+Default-build handler is deny-all: `SIP/2.0 403 Forbidden` to every
+client, nothing forwarded. The method-aware gate (read-class methods
+forward, the rest get 405) is the offensive build's.
 
 ## Scoring contribution
 factors{protocol_risk:70 default → VendorRisk(vendor),

@@ -22,6 +22,11 @@ widely, often exposed to the Internet.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Fail-closed. Fox is a line-oriented administrative protocol; any
 client byte can mutate state or initiate a session hijack. The
 default `fox.ProxyHandler()` writes

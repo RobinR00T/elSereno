@@ -40,6 +40,9 @@ Deferred to F5.
 - See the generic REPL framework.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default build: deny-all. The proxy answers `fox a 0 -1 fox denied`
 and forwards nothing. The gated package `offensive/write/fox` is not
 wired to `proxy listen` (orphan; open decision in TODO-vNext).

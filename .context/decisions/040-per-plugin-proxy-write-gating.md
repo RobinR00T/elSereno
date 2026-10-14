@@ -8,6 +8,13 @@ phase: F5
 
 # ADR-040: Per-plugin proxy write-gating matrices
 
+> **Status note (2026-10-14).** The handlers this ADR specifies exist and
+> are tested, but no command serves them: in the default build `elsereno
+> proxy` is a stub (exit 75) and no production code calls
+> `ProxyHandler()`. Only the offensive build's `proxy listen` runs a
+> proxy, with the gates of `offensive/write/`. Whether to ship a
+> default-build proxy command is an open decision (`TODO-vNext.md`).
+
 ## Context
 F4 shipped eight ICS plugins (s7, enip, bacnet, dnp3, iec104, hartip,
 fox, atg) with **pass-through** proxy handlers. The Modbus plugin

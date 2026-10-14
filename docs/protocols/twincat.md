@@ -25,6 +25,11 @@ TwinCAT version.
 
 ## Proxy
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The offensive build has
+no proxy for this protocol either.
+
 Default build: fail-closed. No write gate exists.
 
 ## Validation

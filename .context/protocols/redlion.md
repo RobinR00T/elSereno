@@ -58,6 +58,9 @@ closed). See `docs/protocols/redlion.md` +
 `scripts/demo-redlion-proxy.sh`. ADR-039.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Fail-closed. RLN TLV stack not implemented in chunk 3.
 
 ## Scoring contribution

@@ -81,6 +81,9 @@ confirm + audit-chain emission per ADR-039.
   service-code-0x21 reads against test PLCs.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Wire-layer write-ban: the default-build handler reads the
 client's 56-byte mailbox and replies with a 56-byte mailbox
 carrying byte 0 = 0x03 (response) + byte 42 = 0x01 (non-zero

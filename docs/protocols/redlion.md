@@ -44,6 +44,11 @@ below.
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin redlion`.
+
 Fail-closed. In the default build the proxy refuses sessions
 immediately rather than relay bytes that may or may not be valid
 RLN frames. The write-gated relay lives in the offensive build (see

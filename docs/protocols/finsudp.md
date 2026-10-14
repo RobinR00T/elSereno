@@ -51,6 +51,11 @@ Offset  Field  Size  Description
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin finsudp`.
+
 FINS is **UDP**, so the generic TCP proxy framework cannot
 legitimately relay datagrams. In the default build
 `finsudp.ProxyHandler()` returns an immediate error so operators

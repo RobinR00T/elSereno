@@ -107,6 +107,11 @@ counterpart to the `s7-exposure` plugin (see [`s7.md`](s7.md)).
 
 ## Default-build refusal posture
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin opcua`.
+
 The default proxy is deny-all: one UA-TCP ERR frame
 (Bad_ResourceLimitsExceeded) and the connection is dropped. The
 service-aware gate (each MSG chunk's service TypeID; `WriteRequest

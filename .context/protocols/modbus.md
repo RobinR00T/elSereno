@@ -56,6 +56,9 @@ file-record writer.
 See above.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 The proxy handler enforces the read-only policy by parsing each
 client frame and short-circuiting writes with IllegalFunction:
 

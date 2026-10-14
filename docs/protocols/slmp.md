@@ -58,6 +58,11 @@ Response (29 bytes, success):
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin slmp`.
+
 SLMP is **TCP**, so the generic proxy framework applies. The
 default-build handler reads the first frame's request data length,
 drains the body, and replies with a 13-byte error frame carrying

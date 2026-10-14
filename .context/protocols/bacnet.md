@@ -238,6 +238,9 @@ v1.12 / v1.13 stay valid.
 - See the generic REPL framework.
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Default-build refuses with the abort-PDU. Offensive build
 routes via `WriteGatedHandler.routeFrame` →
 `perObjectGatesAllow` (extracted in v1.13 chunk 7 for gocyclo

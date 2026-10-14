@@ -68,6 +68,11 @@ and 90/70) plus the Shodan GE-SRTP signature. Validated in
 
 ## Proxy policy (default build)
 
+No command serves this default-build handler yet: in the default build
+`elsereno proxy` is a stub that exits 75 (see the
+[index](README.md#proxy-default-build-policy)). The proxy you can run is
+the offensive build's gated one, `proxy listen --plugin gesrtp`.
+
 SRTP is **TCP**. The default-build handler reads the first 56-byte
 mailbox from the client and replies with a 56-byte mailbox
 carrying byte 0 = 0x03 (response) + byte 42 = 0x01 (a non-zero

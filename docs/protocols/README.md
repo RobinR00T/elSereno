@@ -4,7 +4,7 @@ ElSereno registers **35 plugins** in the default build: 31 protocol
 plugins, the `banner` catch-all, and three opt-in, read-only probes
 (`s7-exposure`, `opcua-exposure`, `codesys-active`) that run only when
 named. `elsereno plugins list` prints the set on your binary. Every
-default-build proxy is read-only (write-ban, deny-all or fail-closed)
+default-build proxy handler is read-only (write-ban, deny-all or fail-closed)
 except XOT's, which copies bytes both ways (an open decision in
 TODO-vNext); writes need `-tags offensive` and the ADR-039 triple-confirm wrapper,
 and `proxy listen` serves the 18 protocols in **bold**. Seven more
@@ -56,6 +56,15 @@ sent.
 | [Banner](banner.md) | any | reads what the port sends | none |
 
 ## Proxy default-build policy
+
+**No command serves these handlers yet.** In the default and mini
+builds `elsereno proxy` is a stub that exits 75 ("planned for a later
+phase"), and no production code calls a plugin's `ProxyHandler()`: the
+postures below are library code with tests, for when a default-build
+proxy command exists (open decision in `TODO-vNext.md`). The only
+command that runs a proxy is the offensive build's `proxy listen`, and
+it serves the 18 gated proxies of `offensive/write/`, not these
+handlers.
 
 Three postures, per the last column above (XOT is the exception:
 plain pass-through):

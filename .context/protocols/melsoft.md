@@ -62,6 +62,9 @@ classic Q/L/legacy FX -> baseline only. Family-level, NVD-verified.
   D7 00 response marker).
 
 ## Proxy hooks
+No command serves the default-build handler yet (`elsereno proxy` is a
+stub, exit 75; see `docs/protocols/README.md`).
+
 Fail-closed: the MELSOFT service layer (program/parameter transfer,
 RUN/STOP) is a proprietary TLV stack not modelled here, so the
 default-build proxy refuses the session. No offensive write path.
