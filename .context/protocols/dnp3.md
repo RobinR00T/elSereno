@@ -111,6 +111,15 @@ Alerts log to stderr AND land in the tamper-evident audit chain as a
 00005 until 2026-10-14, PITF-084; enum
 `EventDNP3IINAlert`, emitted from `cmd/elsereno/dnp3_iin_audit_offensive.go`
 via `rt.Writer`, best-effort); `WriteGatedHandler.OnIIN` overrides.
+Gate decisions likewise: `WriteGatedHandler.OnDecision` gets each
+refusal (answered or silent) and discard with its reason
+(`decisions.go`, `judge`), the first 20 per session, plus a
+`session_summary`; the CLI writes them as `dnp3_gate_decision` rows
+(migration 00020, `cmd/elsereno/dnp3_iin_audit_offensive.go`
+`dnp3GateDecisionObserver`, bounded queue `decisionAudit` flushed by
+`offensiveRuntime.atClose` before the writer closes). The summary comes
+from Handle too (sync.Once), only if the session refused or discarded
+something. Added 2026-10-14.
 Demo: `scripts/demo-dnp3-proxy.sh` (`-iin restart`) shows the log line,
 the audit row and `audit verify-file` OK.
 

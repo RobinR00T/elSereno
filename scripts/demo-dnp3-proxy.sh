@@ -120,6 +120,11 @@ echo "==> ...and exports to a SIEM (CEF), pipe to \`logger\` for syslog transpor
 HOME="$TMP" "$BIN" audit export --event-type dnp3_iin_alert --format cef 2>/dev/null | head -1 | sed 's/^/  /' || echo "  (no rows)"
 
 echo
+echo "==> every refusal is recorded too, with its reason (dnp3_gate_decision):"
+HOME="$TMP" "$BIN" audit export --event-type dnp3_gate_decision --format ndjson 2>/dev/null \
+	| grep -o '"kind":"refused[a-z_]*"[^}]*"reason":"[^"]*"' | sed 's/^/  /' | head -4 || echo "  (no rows)"
+
+echo
 echo "==> what the outstation actually received (proves the denies never arrived):"
 sed 's/^/  /' "$SIMLOG"
 
@@ -129,4 +134,5 @@ echo "with IIN1=0x80 (Device Restart), surfaced as a state_change alert. TRIP,"
 echo "analog 90@pt10 (above the max=50 clamp) and Cold Restart each return an"
 echo "IIN2 FUNC_NOT_SUPP (byte 0x01 at offset 14) from the GATE; the broadcast gets"
 echo "no reply at all (an outstation never answers a broadcast); and none of"
-echo "them appears in the outstation log."
+echo "them appears in the outstation log. Each refusal, and each session's"
+echo "totals, is a dnp3_gate_decision row in the audit chain."

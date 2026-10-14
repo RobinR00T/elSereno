@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"local/elsereno/internal/protocols/dnp3/wire"
 	"local/elsereno/offensive/confirm"
@@ -77,6 +76,12 @@ type WriteGatedHandler struct {
 	// trouble / config-corrupt, and error-response bursts). Nil logs
 	// to stderr. Observation never gates or alters the response.
 	OnIIN func(IINEvent)
+	// OnDecision, when set, receives the gate's refusals and discards
+	// with their reason (the first decisionBurst of a session) and, if
+	// there was any, one summary of the session's totals when it ends.
+	// It is called on the gate's goroutines and must not block. Nil logs
+	// to stderr.
+	OnDecision func(GateDecision)
 	// IINErrorBurstThreshold is the number of error-bearing responses
 	// in a session that trips an enumeration/fuzzing alert. 0 uses the
 	// default (defaultIINErrorBurst).
@@ -148,28 +153,20 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 	if !h.authorised {
 		return ErrSessionNotAuthorised
 	}
+	// The session's decisions are summarised when Handle returns: when
+	// the context is cancelled the master-side goroutine may still be
+	// blocked in a read, and the proxy server waits for Handle, not for
+	// it, before the audit writer closes.
+	rec := newDecisionRecorder(h)
+	defer rec.summary()
 	errs := make(chan error, 2)
-	go func() { errs <- h.forward(client, upstream, client) }()
+	go func() { errs <- h.forwardWith(rec, client, upstream, client) }()
 	go func() { errs <- h.forwardResponses(upstream, client) }()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-errs:
 		return err
-	}
-}
-
-// Discard logging. The master side decides how many frames the gate
-// discards, so after the first discardLogBurst in a session only every
-// discardLogEvery-th is logged, with the running count.
-const (
-	discardLogBurst = 3
-	discardLogEvery = 1000
-)
-
-func logDiscard(n int, reason error) {
-	if n <= discardLogBurst || n%discardLogEvery == 0 {
-		log.Printf("dnp3: discarded from the master side (%d this session): %v", n, reason)
 	}
 }
 
@@ -204,13 +201,15 @@ type reassembler struct {
 
 // add takes one user-data frame that passed CheckToOutstation. It
 // returns the complete request to judge, or nil while segments are
-// held; a non-nil reason names something discarded, to log.
-func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done *heldRequest, reason error) {
+// held. A non-nil reason names something discarded, to record; dropped
+// is the held request it dropped, or nil when the discarded thing is
+// the frame itself.
+func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done, dropped *heldRequest, reason error) {
 	th := apdu[0]
 	seq := th & wire.TransportSeqMask
 	if th&wire.TransportFIR != 0 {
 		if a.held != nil {
-			reason = errors.New("a new first segment dropped an incomplete multi-segment request")
+			dropped, reason = a.held, errors.New("a new first segment dropped an incomplete multi-segment request")
 		}
 		a.held = &heldRequest{
 			first: lh, frames: frame, apdu: apdu, next: (seq + 1) & wire.TransportSeqMask, contOK: true,
@@ -220,10 +219,10 @@ func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done *heldRequest
 		h := a.held
 		switch {
 		case h == nil:
-			return nil, errors.New("a continuation segment without a first segment")
+			return nil, nil, errors.New("a continuation segment without a first segment")
 		case seq != h.next || lh.Src != h.first.Src || lh.Dest != h.first.Dest:
 			a.held = nil
-			return nil, errors.New("a segment out of sequence or from another address pair dropped the held request")
+			return nil, h, errors.New("a segment out of sequence or from another address pair dropped the held request")
 		}
 		h.frames = append(h.frames, frame...)
 		h.apdu = append(h.apdu, apdu[1:]...)
@@ -232,14 +231,14 @@ func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done *heldRequest
 		h.multi = true
 		if len(h.apdu)-1 > maxHeldRequest {
 			a.held = nil
-			return nil, fmt.Errorf("a multi-segment request above %d octets", maxHeldRequest)
+			return nil, h, fmt.Errorf("a multi-segment request above %d octets", maxHeldRequest)
 		}
 	}
 	if th&wire.TransportFIN == 0 {
-		return nil, reason
+		return nil, dropped, reason
 	}
 	done, a.held = a.held, nil
-	return done, reason
+	return done, dropped, reason
 }
 
 // forward reads full link-layer frames from the client (header + the
@@ -267,30 +266,44 @@ func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done *heldRequest
 // confirmation of each segment waits for an ACK the gate only lets
 // through once the request is complete, and times out.
 func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.Writer) error {
+	rec := newDecisionRecorder(h)
+	defer rec.summary()
+	return h.forwardWith(rec, client, upstream, clientWriter)
+}
+
+// forwardWith is forward with the session's decision recorder, which
+// Handle shares so that it can send the summary itself when the session
+// ends while this goroutine is still blocked in a read.
+func (h *WriteGatedHandler) forwardWith(rec *decisionRecorder, client io.Reader, upstream, clientWriter io.Writer) error {
 	r := bufio.NewReader(client)
-	discards := 0
-	discard := func(reason error) {
-		discards++
-		logDiscard(discards, reason)
+	discard := func(reason error, lh wire.Header, apdu []byte) {
+		rec.record(GateDecision{Kind: DecisionDiscarded, Reason: reason.Error(), Src: lh.Src, Dest: lh.Dest, AppFC: appFCOf(apdu)})
 	}
 	asm := reassembler{allowsPrimary: h.allowsPrimary}
+	// A multi-segment request still held when the session ends was never
+	// judged nor forwarded: record it.
+	defer func() {
+		if held := asm.held; held != nil {
+			discard(errors.New("the session ended inside a multi-segment request"), held.first, held.apdu)
+		}
+	}()
 	for {
 		// ReadFrame skips octets that do not start a valid header (start
 		// octets, LENGTH, header CRC) and reads the body as user data
 		// interleaved with a 2-byte CRC after each <=16-octet block.
 		lh, hdr, wireBody, skipped, err := wire.ReadFrame(r)
+		if skipped > 0 {
+			rec.record(GateDecision{Kind: DecisionDiscarded, Reason: fmt.Sprintf("%d octets before a valid link header", skipped), AppFC: -1, NoAddress: true})
+		}
 		if err != nil {
 			return err
-		}
-		if skipped > 0 {
-			discard(fmt.Errorf("%d octets before a valid link header", skipped))
 		}
 		// AN2013-004b Table 1 first: a frame a conformant outstation
 		// would discard is discarded here too, without a reply. This
 		// also verifies every block CRC and de-blocks the user data.
 		apdu, err := wire.CheckToOutstation(lh, wireBody)
 		if err != nil {
-			discard(err)
+			discard(err, lh, nil)
 			continue
 		}
 		frame := make([]byte, 0, len(hdr)+len(wireBody))
@@ -303,40 +316,65 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 				if _, err := upstream.Write(frame); err != nil {
 					return err
 				}
+				rec.forward()
 			}
 			continue
 		}
-		req, reason := asm.add(lh, frame, apdu)
+		req, dropped, reason := asm.add(lh, frame, apdu)
 		if reason != nil {
-			discard(reason)
+			recordDrop(rec, reason, dropped, lh, apdu)
 		}
 		if req == nil {
 			continue
 		}
-		silent, err := h.decide(req, upstream, clientWriter)
-		if err != nil {
+		if err := h.decide(rec, req, upstream, clientWriter); err != nil {
 			return err
-		}
-		if silent {
-			discard(errors.New("refused without a reply: an outstation never answers this request"))
 		}
 	}
 }
 
+// recordDrop records what the reassembler discarded: the held request
+// it dropped, or else the frame itself. A continuation segment carries
+// object data where a first segment has its function code, so it is
+// recorded without one (PITF-082).
+func recordDrop(rec *decisionRecorder, reason error, dropped *heldRequest, lh wire.Header, apdu []byte) {
+	d := GateDecision{Kind: DecisionDiscarded, Reason: reason.Error(), Src: lh.Src, Dest: lh.Dest, AppFC: -1}
+	switch {
+	case dropped != nil:
+		d.Src, d.Dest, d.AppFC = dropped.first.Src, dropped.first.Dest, appFCOf(dropped.apdu)
+	case apdu[0]&wire.TransportFIR != 0:
+		d.AppFC = appFCOf(apdu)
+	}
+	rec.record(d)
+}
+
 // decide forwards a complete request (one frame or the held segments)
 // or refuses it, with a refusal response or, where an outstation would
-// send nothing, silently (silent=true). A multi-segment request passes
+// send nothing, silently. A refusal is recorded before the reply is
+// written, so it is counted even if the reply fails or the session ends
+// at that moment. A multi-segment request passes
 // only if it is a Read (see forward). Limit: a refusal is written from
 // the master-side goroutine while forwardResponses writes the
 // outstation's replies to the same socket, so it can land between two
 // segments of a multi-segment response, and a master then loses that
 // response fragment.
-func (h *WriteGatedHandler) decide(req *heldRequest, upstream, clientWriter io.Writer) (silent bool, err error) {
+func (h *WriteGatedHandler) decide(rec *decisionRecorder, req *heldRequest, upstream, clientWriter io.Writer) error {
 	first, frames, apdu := req.first, req.frames, req.apdu
-	if req.contOK && (!req.multi || req.read) && h.shouldForward(first, apdu) {
-		_, err = upstream.Write(frames)
-		return false, err
+	ok, why := h.judge(first, apdu)
+	switch {
+	case !req.contOK:
+		ok, why = false, "a continuation segment's link function is not allowed"
+	case req.multi && !req.read:
+		ok, why = false, "only a Read may span several transport segments"
 	}
+	if ok {
+		if _, err := upstream.Write(frames); err != nil {
+			return err
+		}
+		rec.forward()
+		return nil
+	}
+	d := GateDecision{Kind: DecisionRefused, Reason: why, Src: first.Src, Dest: first.Dest, AppFC: appFCOf(apdu)}
 	// A refusal stands in for the outstation's answer, so it is sent only
 	// where an outstation would answer: not to a broadcast or a NO-ACK
 	// request (AN2013-004b footnote (a)), not to a Confirm or any other
@@ -345,59 +383,71 @@ func (h *WriteGatedHandler) decide(req *heldRequest, upstream, clientWriter io.W
 	// without an application header, which an outstation discards. Until
 	// 2026-10-14 every refused request got a response (PITF-083).
 	if len(apdu) < 3 || wire.IsBroadcast(first.Dest) || wire.AppExpectsNoResponse(apdu[2]) || apdu[1]&appControlUNS != 0 {
-		return true, nil
+		d.Kind = DecisionRefusedSilent
+		rec.record(d)
+		return nil
 	}
-	_, err = clientWriter.Write(buildFuncNotSuppResponse(first, apdu))
-	return false, err
+	rec.record(d)
+	_, err := clientWriter.Write(buildFuncNotSuppResponse(first, apdu))
+	return err
 }
 
 // shouldForward applies the gate to a frame that passed
-// wire.CheckToOutstation. Transport-level link FCs (0,2,9) always pass,
-// header-only; 3/4 (user data) consult the destination address, the
-// link-address pins, the app-layer FC and the CROB scope.
+// wire.CheckToOutstation; see judge.
 func (h *WriteGatedHandler) shouldForward(lh wire.Header, apdu []byte) bool {
+	ok, _ := h.judge(lh, apdu)
+	return ok
+}
+
+// judge applies the gate and, when it refuses, says why. Transport-level
+// link FCs (0,2,9) always pass, header-only; 3/4 (user data) consult the
+// destination address, the link-address pins, the app-layer FC and the
+// CROB scope.
+func (h *WriteGatedHandler) judge(lh wire.Header, apdu []byte) (bool, string) {
 	if lh.Control&0x40 == 0 {
 		// Secondary frame: a header-only link reply the master returns
 		// to the outstation (ACK, NACK, LINK_STATUS, NOT SUPPORTED);
 		// CheckToOutstation refused any other secondary function and
 		// any body. Until 2026-10-14 every PRM=0 frame passed here with
 		// its body and skipped all four layers (PITF-081).
-		return true
+		return true, ""
 	}
 	primaryFC := lh.Control & 0x0F
 	switch primaryFC {
 	case LinkFCResetLink, LinkFCTestLink, LinkFCRequestLinkStatus:
-		return true
+		return true, ""
 	}
 	if !h.allowsPrimary(primaryFC) {
-		return false
+		return false, "link function not allowed (--dnp3-primary)"
 	}
 	appFC, ok := extractAppFC(apdu)
 	if !ok {
-		return false // truncated user data: refuse conservatively
+		return false, "no application header" // truncated user data: refuse conservatively
 	}
 	// Reads always pass and are never scoped.
 	if appFC == AppFCRead {
-		return true
+		return true, ""
 	}
 	// A control or write to a broadcast address lands on every
 	// outstation at once and cannot be scoped: always refuse.
 	if wire.IsBroadcast(lh.Dest) {
-		return false
+		return false, "control or write to a broadcast address"
 	}
 	// Link-address pinning applies to every mutating frame.
 	if !h.allowsLink(lh.Src, lh.Dest) {
-		return false
+		return false, "link address pair not pinned (--dnp3-link)"
 	}
 	if !h.allowsApp(appFC) {
-		return false
+		return false, "application function not allowed (--dnp3-app-fc)"
 	}
 	// Control-object scoping refines Operate / Direct Operate / Select
 	// when the operator scopes either CROBs or analog setpoints.
 	if wire.AppIsControl(appFC) && (len(h.AllowedControlOutput) > 0 || len(h.AllowedAnalogOutput) > 0) {
-		return h.allowsControlObjects(apdu)
+		if !h.allowsControlObjects(apdu) {
+			return false, "control object outside the scope (--dnp3-control / --dnp3-analog)"
+		}
 	}
-	return true
+	return true, ""
 }
 
 // allowsPrimary returns true when fc is in h.Allowed (or h.Allowed is

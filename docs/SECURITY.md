@@ -421,6 +421,12 @@ Cada escritura ofensiva produce:
 - `offensive_write` event con todos los parámetros + hash
   del payload.
 - `scope_applied` event con match del allowlist.
+- En el proxy DNP3, un `dnp3_gate_decision` por cada rechazo o descarte
+  con su motivo (los 20 primeros de cada conexión) y, si hubo alguno, un
+  resumen con los totales al cerrarla, también al parar el proxy. Se
+  escriben por una cola acotada: el gate no espera al fichero, y lo que
+  no cabe se cuenta en `dropped_before` (desde el 14-10-2026; antes un
+  rechazo no dejaba rastro).
 
 `elsereno audit verify-file` debe completar exit-0 después.
 Si reportas a un blue-team el archivo `audit.jsonl` es la

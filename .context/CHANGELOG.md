@@ -8,6 +8,10 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (7): **DNP3 gate decisions audited.** `OnDecision` +
+  `dnp3_gate_decision` (migration 00020): each refusal/discard with its
+  reason (first 20 per session) and a session summary.
+
 - 2026-10-14 (6): **CI integration job can fail again.** Starts only the
   test Postgres (`--wait`), sets `DATABASE_URL`, drops `|| echo`.
 

@@ -115,8 +115,9 @@ The offensive build replaces the `proxy` stub with `proxy listen` and
 a four-layer write-gate (`offensive/write/dnp3`). Read (FC 1) always passes;
 everything else is default-deny. Before the four layers it applies the
 same frame validation as the default handler (above) and discards an
-invalid frame without a reply, logging the reason to stderr (the first
-three per session, then one line every thousand with the running count).
+invalid frame without a reply. Every refusal and discard is counted,
+and the first ones of a session are recorded with their reason (see
+"Gate decisions in the audit chain" below).
 
 1. **Link-layer primary FC** (`--dnp3-primary`, optional, `3` or `4`).
    By default both user-data functions pass to the application-layer
@@ -266,6 +267,47 @@ dnp3_iin_alert --format cef` emits one ArcSight CEF line per alert (or
 `--format syslog` for RFC 5424); pipe it to `logger` or a collector.
 The dashboard audit view already lists them (filter `event_type=
 dnp3_iin_alert`).
+
+## Gate decisions in the audit chain
+
+The gate records what it does not forward. Each refusal (answered with
+the IIN2.0 response, or silent where an outstation would not answer)
+and each discard (a frame that fails the AN2013-004b checks or the
+transport reassembly rules, a multi-segment request left unfinished
+when the session ends) goes to stderr and to the audit chain as a
+`dnp3_gate_decision` row with its reason, the link addresses (left out
+when there was no valid link header) and the application function (-1
+when there is none, as in a continuation segment). The master side
+decides how many there are, so a session records the first 20 one by
+one; when it ends, also when the proxy stops, one `session_summary`
+row carries its totals (forwarded, which counts header-only link frames
+too, refused, refused_silent, discarded, and how many were suppressed
+past the first 20). A session that refused and discarded nothing
+records nothing, so connections that only forward add nothing to the
+chain.
+
+The rows go through a bounded queue with one writer, so the gate never
+waits on the audit file. When the queue is full a decision is dropped
+and counted, and the next row written carries `dropped_before`; the
+queue is flushed before the audit file closes. The 20-per-session limit
+is per connection: a client that opens many connections can make the
+queue fill and drop, but not block the gate.
+
+When a flag would have allowed the request, the reason names it, for
+example `application function not allowed (--dnp3-app-fc)`, `control
+object outside the scope (--dnp3-control / --dnp3-analog)` or `link
+address pair not pinned (--dnp3-link)`; others say what the request
+was, such as `control or write to a broadcast address` or `only a Read
+may span several transport segments`. The rows need database migration
+00020 if the chain is mirrored to Postgres, and export like any other
+event:
+
+```sh
+elsereno audit export --event-type dnp3_gate_decision --format cef
+```
+
+Until 2026-10-14 only the session opening was audited: a refusal left
+no trace beyond the reply, and a discard only a stderr line.
 
 ## Attack playbook (mapping to elSereno)
 

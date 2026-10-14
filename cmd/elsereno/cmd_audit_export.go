@@ -143,6 +143,7 @@ func auditTier(t audit.EventType) int {
 		audit.EventOffSMS, audit.EventOffHarvest, audit.EventCWMPFirmwareVerify:
 		return 3
 	case audit.EventProxyAllowlistReload, audit.EventOffSandbox, audit.EventAdmin,
+		audit.EventDNP3GateDecision,
 		audit.EventTokenReveal, audit.EventCredsReveal, audit.EventPurge,
 		audit.EventChainRebase:
 		return 2

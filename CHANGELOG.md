@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **DNP3 gate decisions in the audit chain.** The offensive DNP3 gate
+  audited only the opening of a session: a refusal left no trace beyond
+  the reply, and a discard only a stderr line. Now each refusal (with
+  the IIN2.0 response, or silent where an outstation would not answer)
+  and each discard is a `dnp3_gate_decision` row with its reason, link
+  addresses and application function, for the first 20 of a
+  connection, and a connection that refused or discarded anything ends
+  with one `session_summary` row of its totals (forwarded, refused,
+  refused silently, discarded, suppressed), also when the proxy stops.
+  Rows go through a bounded queue with one writer, so the gate never
+  waits on the audit file; what does not fit is counted in the next
+  row's `dropped_before`, and the queue is flushed before the file
+  closes. When a flag would have allowed a request, the reason names
+  it. New migration 00020 extends the `audit_log` event-type CHECK;
+  `audit export` rates the rows as notable. The demo shows the recorded
+  refusals. Tests cover the ways a request is not forwarded, the
+  per-connection limit, the summary (including when Handle ends on a
+  cancelled context), the queue bound, and its flush to disk before the
+  audit file closes.
+
 - **Echo regression guard for every plugin (PITF-071).**
   `cmd/elsereno/echo_guard_test.go` probes every registered plugin against a
   loopback echo server and a junk-reply server (TCP and UDP on one port, all

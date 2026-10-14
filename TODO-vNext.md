@@ -66,10 +66,15 @@
   juntarse en una que el gate nunca juzgó. Coste: una orden de más de unos 249
   octetos de aplicación (15 a 20 CROB) hay que partirla en varias peticiones.
   Decidido por seguridad; reversible si se prefiere otra política.
-- **Los rechazos y descartes del gate DNP3 no quedan en la cadena de
-  auditoría.** Solo la apertura de sesión se audita; un rechazo no deja rastro
-  y un descarte va a stderr con límite. Las alertas IIN sí van a la cadena
-  (`dnp3_iin_alert`). Propuesta: un evento `dnp3_gate_decision` muestreado.
+- **[RESUELTO 14-10] Los rechazos y descartes del gate DNP3 no quedaban en la
+  cadena de auditoría.** Ahora cada uno es un `dnp3_gate_decision` con su
+  motivo (los 20 primeros por conexión), la conexión cierra con un resumen
+  si hubo alguno (migración 00020), y se escriben por una cola acotada. Los
+  demás gates (17 protocolos) siguen sin auditar sus decisiones por trama:
+  pendiente de decidir si se extiende. Y el `FileWriter` de auditoría relee
+  el fichero entero en cada escritura (2,7 ms por fila con 1.000 filas, 53 ms
+  con 20.000, medido en la auditoría del 14-10): conviene cachear el último
+  hash cuando el flock lo permita.
 - **El rechazo puede caer entre dos segmentos de una respuesta del equipo**
   (se escribe en el mismo socket desde otra goroutine), y el maestro pierde
   ese fragmento. Documentado; arreglarlo exige serializar las dos escrituras

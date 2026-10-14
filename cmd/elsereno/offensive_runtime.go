@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -30,6 +31,19 @@ type offensiveRuntime struct {
 	Auditor confirm.Auditor
 	Actor   string
 	path    string // audit.jsonl path (for the CLI to print after use)
+
+	// closers run, last first, before the audit writer closes: a
+	// component that writes to the chain from its own goroutine (the
+	// DNP3 gate-decision queue) flushes there.
+	closersMu sync.Mutex
+	closers   []func()
+}
+
+// atClose registers f to run in Close before the audit writer closes.
+func (r *offensiveRuntime) atClose(f func()) {
+	r.closersMu.Lock()
+	r.closers = append(r.closers, f)
+	r.closersMu.Unlock()
 }
 
 // newOffensiveRuntime wires the runtime up. `passphraseFile` is the
@@ -67,9 +81,16 @@ func newOffensiveRuntime(cmd *cobra.Command, passphraseFile string) (*offensiveR
 	}, nil
 }
 
-// Close releases the audit writer's file handle. Safe to call
-// multiple times.
+// Close flushes what the registered closers hold, then releases the
+// audit writer's file handle. Safe to call multiple times.
 func (r *offensiveRuntime) Close() {
+	r.closersMu.Lock()
+	closers := r.closers
+	r.closers = nil
+	r.closersMu.Unlock()
+	for i := len(closers) - 1; i >= 0; i-- {
+		closers[i]()
+	}
 	if fw, ok := r.Writer.(*audit.FileWriter); ok && fw != nil {
 		_ = fw.Close()
 	}

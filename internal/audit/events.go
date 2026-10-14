@@ -74,6 +74,17 @@ const (
 	// Requires migration 00019 (numbered 00005 until 2026-10-14, a
 	// duplicate version that made goose panic: PITF-084).
 	EventDNP3IINAlert EventType = "dnp3_iin_alert"
+	// EventDNP3GateDecision records a decision of the DNP3 write-gated
+	// proxy: a refusal (answered or silent) or a discard, with its
+	// reason, for the first ones of a session, and, if there was any,
+	// one summary of the session's totals when it ends. Emitted
+	// best-effort through a bounded queue (dropped_before counts what
+	// did not fit). Payload: kind
+	// (refused|refused_silent|discarded|session_summary), protocol,
+	// target, and reason, src, dest, app_fc for a decision, or
+	// forwarded, refused, refused_silent, discarded, suppressed for a
+	// summary. Requires migration 00020.
+	EventDNP3GateDecision EventType = "dnp3_gate_decision"
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -93,6 +104,7 @@ var AllEventTypes = []EventType{
 	EventProxyAllowlistReload,
 	EventCWMPFirmwareVerify,
 	EventDNP3IINAlert,
+	EventDNP3GateDecision,
 }
 
 // IsProtectedMetadata reports whether a row with the given event type
