@@ -8,6 +8,11 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (8): **x/net v0.60.0 + toolchain go1.26.9.** Eleven new
+  vulnerabilities (five in x/net, six in the 1.26.6 stdlib) had the
+  scheduled supply-chain runs red since 10-09, audit since 10-12 and ci
+  `sec` since 10-14. Dockerfile on golang:1.26.9-alpine3.24.
+
 - 2026-10-14 (7): **DNP3 gate decisions audited.** `OnDecision` +
   `dnp3_gate_decision` (migration 00020): each refusal/discard with its
   reason (first 20 per session) and a session summary.

@@ -313,6 +313,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Eleven newly published vulnerabilities patched: `golang.org/x/net`
+  v0.60.0 and toolchain go1.26.9.** The scheduled `supply-chain` runs
+  failed from 2026-10-09 (OSV-Scanner), the `audit` runs from
+  2026-10-12, and the first `ci` runs on `main`, on 2026-10-14, failed
+  in `sec`. GO-2026-6603, -6610, -6611, -6612 and -6617 are in
+  `golang.org/x/net` v0.59.0 (fixed in v0.60.0) and reachable from the
+  code; they also sit in the HTTP/2 copy bundled in Go 1.26.6's
+  `net/http`, so x/net alone would not close them. The `audit`
+  workflow, which builds with the `go.mod` toolchain, also reported
+  GO-2026-6599, -6600, -6605, -6607, -6608 and -6613 in the Go 1.26.6
+  standard library (fixed in 1.26.9; its log listed only ten of the
+  eleven, because `audit.sh` cuts the list at 20 lines). `go.mod` now
+  requires x/net v0.60.0 and pins `toolchain go1.26.9`, and the
+  Dockerfile builds on `golang:1.26.9-alpine3.24`. govulncheck now finds
+  0 vulnerabilities affecting the code, in both builds; GO-2026-5932 in
+  `golang.org/x/crypto` v0.57.0 has no fix and is not called. The rest
+  of Dependabot's grouped update (`RobinR00T/elSereno#38`) is left to
+  that PR.
+
 - **DNP3 gate refusal: the right IIN bit and the request's sequence
   (PITF-083).** The refusal the offensive gate sends for a blocked
   request set `IIN2` `0x04`, which is IIN2.2 "parameter error", while

@@ -2,13 +2,16 @@ module local/elsereno
 
 go 1.26.0
 
-// Toolchain pin: forces Go ≥1.26.3 at build time, parchando las
-// 6 CVEs de net/http stdlib reportadas por govulncheck contra
-// Go 1.26.2 (GO-2026-4918, -4971, -4977, -4980, -4982, -4986).
-// `go 1.25.7` arriba sigue siendo la versión MÍNIMA de Go
+// Toolchain pin: forces Go ≥1.26.9 at build time. 1.26.3 parcheó
+// las 6 CVEs de net/http stdlib que govulncheck reportó contra
+// Go 1.26.2 (GO-2026-4918, -4971, -4977, -4980, -4982, -4986);
+// 1.26.9 (fijado desde el 14-10-2026) parchea GO-2026-6599, -6600,
+// -6605, -6607, -6608 y -6613 de la stdlib, y la copia de HTTP/2 que
+// net/http lleva dentro (GO-2026-6603, -6610, -6611, -6612, -6617).
+// `go 1.26.0` arriba sigue siendo la versión MÍNIMA de Go
 // lenguaje requerida; `toolchain` selecciona qué compilador
 // real se usa.
-toolchain go1.26.6
+toolchain go1.26.9
 
 require (
 	github.com/awnumar/memguard v0.23.0
@@ -34,7 +37,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/term v0.46.0

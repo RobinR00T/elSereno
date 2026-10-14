@@ -104,7 +104,7 @@ sec:
 	govulncheck ./...
 	trivy fs --exit-code 1 --severity HIGH,CRITICAL .
 	@# GOROOT pinned to the active toolchain: go.mod's toolchain directive
-	@# can switch Go at run time (go1.26.3 installed -> go1.26.6), and
+	@# can switch Go at run time (go1.26.3 installed -> go1.26.9), and
 	@# go-licenses then fails to recognise standard-library packages
 	@# ("does not have module info", google/go-licenses#128).
 	GOROOT="$$(go env GOROOT)" go-licenses check ./... --disallowed_types=forbidden,restricted
