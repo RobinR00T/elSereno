@@ -347,10 +347,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checked a frame from the master side against the DNP Users Group's
   AN2013-004b "Validation of Incoming DNP3 Data", Table 1. Both
   forwarded every PRM=0 frame and the link functions 2 and 9 (the
-  offensive gate also 0) with whatever body they carried: a Direct Operate TRIP inside a frame with
-  control `0x84` (a secondary function that does not exist) reached the
-  outstation through the default proxy and skipped the offensive gate's
-  four layers even with an empty allowlist. A conformant outstation
+  offensive gate also 0) with whatever body they carried: a Direct
+  Operate TRIP inside a frame with control `0x84` (a secondary function
+  that does not exist) skipped the four layers of the offensive gate,
+  served by `proxy listen`, even with an empty allowlist, and crossed
+  the default write-ban handler. No command serves that handler yet
+  (`elsereno proxy` is a stub in the default build), so its half of the
+  fix is hardening of library code; the gate's half is live. A conformant outstation
   discards such a frame; whether a given stack acts on it was not tested.
   Now `wire.ReadFrame` + `wire.CheckToOutstation` run first. An invalid
   header (start octets, LENGTH below 5, header CRC) is skipped octet by

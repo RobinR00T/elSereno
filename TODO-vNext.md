@@ -32,6 +32,19 @@
 
 ## Abierto (14-10-2026, gate DNP3): decisiones pendientes
 
+- **Ningún comando sirve los proxies del build por defecto.** En los builds
+  por defecto y mini `elsereno proxy` es un stub (sale con 75, "planned for a
+  later phase") y ningún código de producción llama a `ProxyHandler()` (solo
+  los tests): las 35 implementaciones (recuento del 14-10: 11 fail-closed, 10
+  write-ban, 8 deny-all, 3 de reenvío propio en modbus, xot y atmodem, 2 sin
+  proxy, 1 nil) son código de librería, sin comando. Las páginas
+  `docs/protocols/*.md` (sección "Proxy policy (default build)"), ADR-040 y
+  el manual los describen como si se pudieran usar. Solo el build ofensivo
+  tiene proxy (`proxy listen`, con los gates). Opciones: conectar un `proxy
+  listen` en el build por defecto con los write-ban, o reescribir esas
+  secciones como "handler preparado, sin comando". Visto el 14-10 al
+  preparar el paso 1 del manifiesto; la doc de DNP3 ya lo dice.
+
 - **¿Reenviar los Confirm de aplicación (FC 0x00)?** El gate ofensivo solo
   deja pasar Read sin lista; un Confirm del maestro (reconoce una respuesta
   con CON o un no solicitado) se rechaza. Desde PITF-083 se descarta en

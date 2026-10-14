@@ -70,15 +70,23 @@ a frame (`wire.ReadFrame` + `wire.CheckToOutstation`).
 
 Until 2026-10-14 neither proxy did this. Both forwarded every PRM=0
 frame and the link functions 2 and 9 (the offensive gate also 0) with
-whatever body they carried: a Direct Operate TRIP inside a frame with control `0x84` (a
-"secondary function 4" that does not exist) crossed the default
-write-ban and skipped all four layers of the offensive gate. Whether
+whatever body they carried: a Direct Operate TRIP inside a frame with
+control `0x84` (a "secondary function 4" that does not exist) skipped
+all four layers of the offensive gate, which `proxy listen` serves,
+and crossed the default write-ban handler, which no command serves yet
+(see below). Whether
 an outstation acted on it depended on its stack: a conformant one
 discards it, and Project Robus (Crain and Sistrunk, 2013-14) disclosed
 dozens of flaws in how DNP3 stacks handle malformed input. Not tested
 against a real outstation (PITF-081).
 
 ## Proxy policy (default build)
+
+No command serves this handler today: in the default build `elsereno
+proxy` is a stub that exits 75 ("planned for a later phase"), and the
+offensive build's `proxy listen` serves the write-gate below. The
+write-ban handler is library code, covered by tests, for when a
+default-build proxy command exists (open decision in `TODO-vNext.md`).
 
 After validation, every frame's link-layer control byte is classified:
 
@@ -87,7 +95,7 @@ After validation, every frame's link-layer control byte is classified:
   (FC 2), PRM=1 Request Link Status (FC 9). Forward untouched.
 - **CategoryWrite**: PRM=1 Reset Link States (FC 0), Confirmed User
   Data (FC 3), Unconfirmed User Data (FC 4). The user-data frames carry
-  the application layer, so the default build conservatively blocks
+  the application layer, so the default handler conservatively blocks
   them. Reset of User Process (FC 1, removed in IEEE 1815-2012) no
   longer reaches classification: it is an invalid frame.
 - Until 2026-10-07 the table had Test Link as FC 1, so this proxy
@@ -103,10 +111,10 @@ destination swapped and a correct header CRC.
 
 ## Writes (`-tags offensive`)
 
-The offensive build replaces the default write-ban proxy with a four-layer
-write-gate (`offensive/write/dnp3`). Read (FC 1) always passes;
+The offensive build replaces the `proxy` stub with `proxy listen` and
+a four-layer write-gate (`offensive/write/dnp3`). Read (FC 1) always passes;
 everything else is default-deny. Before the four layers it applies the
-same frame validation as the default proxy (above) and discards an
+same frame validation as the default handler (above) and discards an
 invalid frame without a reply, logging the reason to stderr (the first
 three per session, then one line every thousand with the running count).
 
@@ -284,7 +292,7 @@ signals below, but it is not a full IDS.
 | Enumeration / fuzzing | probing FCs, objects and qualifiers to map the outstation | A run of Function-not-supported / Object-unknown / Parameter-error responses trips one `error_burst` alert from the IIN |
 | Program Upload (T0845) | FC 25-30 file operations move config / firmware off or onto the device | Default-deny |
 | Malformed-frame abuse | a truncated frame, a bad header or block CRC, a reserved address, or a CROB with an unsupported qualifier | Both proxies apply the stateless rows of AN2013-004b Table 1: an invalid frame is discarded without a reply and an invalid header is skipped until the next valid one; a malformed control is refused, not forwarded |
-| Request smuggling | an application request inside a frame whose link function carries no data (PRM=0, Request Link Status, Test Link, Reset Link) | Discarded before classification since 2026-10-14; until then it crossed both proxies (PITF-081) |
+| Request smuggling | an application request inside a frame whose link function carries no data (PRM=0, Request Link Status, Test Link, Reset Link) | Discarded before classification since 2026-10-14; until then it crossed the offensive gate and the default write-ban handler (PITF-081) |
 | Request splitting | an allowed control followed by a forbidden one in a second object header, or a control split across transport segments | The gate judges the whole request (every header, every segment) since 2026-10-14; until then both passed with only the first part checked (PITF-082) |
 
 Note the asymmetry the poster stresses: reads forward (a passive tap

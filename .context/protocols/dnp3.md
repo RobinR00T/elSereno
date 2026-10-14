@@ -84,7 +84,7 @@ CRC-16/DNP (poly 0x3D65, reflected, xorout 0xFFFF; check "123456789" =
 - See the generic REPL framework.
 
 ## Proxy hooks
-Both builds first apply the stateless rows of AN2013-004b Table 1
+Both handlers first apply the stateless rows of AN2013-004b Table 1
 (`wire.ReadFrame` + `wire.CheckToOutstation`): an invalid header (start
 octets, LENGTH, CRC) is skipped octet by octet until the next valid one
 (resync, as the note prescribes); an invalid control combination, data on a frame that
@@ -94,9 +94,12 @@ must be header-only, user data without data, reserved destination
 offensive gate logs it). Until 2026-10-14 both forwarded any PRM=0
 frame and link FC 2/9 (the gate also 0) with their body, so an app request inside one
 crossed the write-ban and skipped the gate's four layers (PITF-081).
-Default build: write-ban (forwards only Test Link, Request Link Status
-and the master's header-only link replies; everything else gets an FC 15
-refusal with a correct CRC). Offensive build: the four-layer write-gate above, plus a
+Default build: write-ban handler (forwards only Test Link, Request Link
+Status and the master's header-only link replies; everything else gets
+an FC 15 refusal with a correct CRC). No command serves it yet:
+`elsereno proxy` is a stub (exit 75) in the default and mini builds and
+no production code calls `ProxyHandler()` (only tests do); the offensive
+`proxy listen` serves the gate. Offensive build: the four-layer write-gate above, plus a
 response-path IIN monitor (`offensive/write/dnp3/iinmonitor.go`,
 `wire.ParseIIN`/`IINStateChange`/`IINError`/`IINBits`): the return
 path is parsed (verbatim-forward-first, fail-open on desync) and raises

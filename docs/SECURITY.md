@@ -394,7 +394,8 @@ Cada protocol gate scopea writes:
 - **DNP3**: per app-FC + per-CROB `(point-index, control-code)`
   (TRIP/CLOSE default-deny), broadcast-control (0xFFFD-0xFFFF) deny,
   master↔outstation link-address pinning. Reads siempre pasan. Antes
-  de las cuatro capas, los dos proxies aplican las filas sin estado de
+  de las cuatro capas, el gate y el handler write-ban del build por
+  defecto (que hoy no sirve ningún comando) aplican las filas sin estado de
   la Tabla 1 de la nota AN2013-004b del DNP Users Group: descartan sin
   responder una trama con CRC de bloque erróneo, combinación de control
   inválida, datos en una trama que no los admite o direcciones
