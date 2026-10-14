@@ -150,3 +150,22 @@ func TestForwardResponses_FramingDesyncFailsOpen(t *testing.T) {
 		t.Fatalf("desync dropped bytes: got % x want % x", out, in)
 	}
 }
+
+// TestForwardResponses_ContinuationSegmentIgnored: only a first transport
+// segment starts with an application header. A continuation whose data
+// happens to read as "response, Device Restart" at the IIN offsets must
+// not raise an alert (PITF-082).
+func TestForwardResponses_ContinuationSegmentIgnored(t *testing.T) {
+	t.Parallel()
+	f := respFrame(wire.IIN1DeviceRestart, 0)
+	// Clear FIR in the transport octet and fix the block CRC.
+	ud := []byte{wire.TransportFIN | 1, 0xC0, 0x81, wire.IIN1DeviceRestart, 0}
+	copy(f[wire.HeaderLen:], wire.AppendBlockCRCs(ud))
+	events, out := runResponses(t, 0, f)
+	if !bytes.Equal(out, f) {
+		t.Fatal("the continuation segment was not forwarded verbatim")
+	}
+	if len(events) != 0 {
+		t.Fatalf("a continuation segment raised %d IIN alerts: %+v", len(events), events)
+	}
+}

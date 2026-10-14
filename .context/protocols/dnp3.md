@@ -41,15 +41,29 @@ confirm-token via `AllowlistHash(target, Allowlist{...})`:
 3. application-layer FC (`--dnp3-app-fc`); Read (0x01) always passes.
 4. CROB g12v1 scope (`--dnp3-control index=A-B;code=X,Y`): every
    `(index, control-code)` in an Operate / Direct Operate must match;
-   `wire.ExtractCROBs` parses qualifiers 0x17/0x28/0x00/0x01 and fails
-   closed on truncation or an unsupported qualifier.
+   `wire.ExtractControlObjects` walks every object header, parses g12v1
+   qualifiers 0x17/0x28/0x00/0x01 and fails closed on truncation, an
+   unsupported qualifier or left-over octets.
 5. Analog Output g41 scope (`--dnp3-analog index=A-B;min=X;max=Y`):
-   every setpoint must match a `(index-range, value-window)`;
-   `wire.ExtractAnalogOutputs` parses g41 var 1-4 (int16/int32/float32/
-   float64), widens the value to float64, and fails closed on
-   truncation / unsupported variation. `allowsControlObjects` routes a
-   control's objects to the CROB or analog scope by group; any other
-   object type under scoping is refused.
+   every setpoint must match a `(index-range, value-window)`; the same
+   walker parses g41 var 1-4 (int16/int32/float32/float64), widens the
+   value to float64, and fails closed on truncation / unsupported
+   variation. `allowsControlObjects` checks every CROB and setpoint of
+   every header; any other object type under scoping is refused.
+   (`ExtractCROBs` and `ExtractAnalogOutputs` read only the first
+   header: the simulator logs with the first, only tests call the
+   second.)
+The gate judges the whole request: `wire.ExtractControlObjects` walks
+every object header (any unscoped type, malformed header or left-over
+octet refuses), and multi-segment requests are held until FIN, then
+forwarded or refused together (cap 2048 application octets; orphan,
+out-of-sequence or other-address-pair continuations discarded). Only a
+Read may span segments: the outstation's link layer may drop a segment
+the gate forwarded, and two requests could then join into one never
+judged (audit, 14-10). Until 2026-10-14 it read only the
+first header and judged each frame alone, so a TRIP in a second header
+or a second segment passed (PITF-082). The IIN monitor inspects only
+first segments.
 `--dnp3-link src=N;dest=M` pins the master->outstation pair. Refusal is
 a well-formed `IIN2 FUNC_NOT_SUPP` (byte2 0x04) with correct CRCs.
 

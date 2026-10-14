@@ -79,10 +79,18 @@ func ExtractAnalogOutputs(apdu []byte) (points []AnalogPoint, ok bool) {
 	if apdu[0] != GroupAnalogOutput {
 		return nil, true // not an analog output
 	}
+	points, _, ok = parseAnalogHeader(apdu)
+	return points, ok
+}
+
+// parseAnalogHeader parses one g41 object header at apdu[0] and its
+// objects, and returns the points with the number of octets consumed.
+// ok is false on truncation or an unsupported variation or qualifier.
+func parseAnalogHeader(apdu []byte) ([]AnalogPoint, int, bool) {
 	variation := apdu[1]
 	valSize, sizeOK := analogValueSize(variation)
 	if !sizeOK {
-		return nil, false // unsupported g41 variation
+		return nil, 0, false // unsupported g41 variation
 	}
 	objLen := valSize + 1 // value + 1-octet control status
 	switch apdu[2] {
@@ -95,43 +103,43 @@ func ExtractAnalogOutputs(apdu []byte) (points []AnalogPoint, ok bool) {
 	case 0x01: // 2-octet start-stop range
 		return analogStartStop(apdu, 3, 2, objLen, valSize, variation)
 	default:
-		return nil, false
+		return nil, 0, false
 	}
 }
 
-func analogIndexPrefix(apdu []byte, pos, countSize, idxSize, objLen, valSize int, variation uint8) ([]AnalogPoint, bool) {
+func analogIndexPrefix(apdu []byte, pos, countSize, idxSize, objLen, valSize int, variation uint8) ([]AnalogPoint, int, bool) {
 	count, pos, ok := readUint(apdu, pos, countSize)
 	if !ok {
-		return nil, false
+		return nil, 0, false
 	}
 	points := make([]AnalogPoint, 0, int(count))
 	for i := 0; i < int(count); i++ {
 		idx, next, okIdx := readUint(apdu, pos, idxSize)
 		if !okIdx || next+objLen > len(apdu) {
-			return nil, false
+			return nil, 0, false
 		}
 		points = append(points, AnalogPoint{Index: idx, Value: decodeAnalogValue(apdu[next:next+valSize], variation)})
 		pos = next + objLen
 	}
-	return points, true
+	return points, pos, true
 }
 
-func analogStartStop(apdu []byte, pos, size, objLen, valSize int, variation uint8) ([]AnalogPoint, bool) {
+func analogStartStop(apdu []byte, pos, size, objLen, valSize int, variation uint8) ([]AnalogPoint, int, bool) {
 	start, pos, ok := readUint(apdu, pos, size)
 	if !ok {
-		return nil, false
+		return nil, 0, false
 	}
 	stop, pos, ok := readUint(apdu, pos, size)
 	if !ok || stop < start {
-		return nil, false
+		return nil, 0, false
 	}
 	points := make([]AnalogPoint, 0, int(stop-start)+1)
-	for idx := start; idx <= stop; idx++ {
+	for idx := int(start); idx <= int(stop); idx++ {
 		if pos+objLen > len(apdu) {
-			return nil, false
+			return nil, 0, false
 		}
-		points = append(points, AnalogPoint{Index: idx, Value: decodeAnalogValue(apdu[pos:pos+valSize], variation)})
+		points = append(points, AnalogPoint{Index: uint16(idx), Value: decodeAnalogValue(apdu[pos:pos+valSize], variation)}) // #nosec G115 -- idx <= stop, a uint16
 		pos += objLen
 	}
-	return points, true
+	return points, pos, true
 }

@@ -172,14 +172,103 @@ func logDiscard(n int, reason error) {
 	}
 }
 
+// maxHeldRequest caps the application octets (after the transport
+// octet) the gate holds while it reassembles a multi-segment request; a
+// larger request is discarded.
+const maxHeldRequest = 2048
+
+// heldRequest is a request the gate judges as one: a single frame, or
+// the transport segments of a multi-segment request.
+type heldRequest struct {
+	first  wire.Header // header of the first segment
+	frames []byte      // the frames, verbatim and in order
+	apdu   []byte      // the first segment's user data + the application octets of the rest
+	next   uint8       // transport sequence the next segment must carry
+	contOK bool        // every continuation segment's link function is allowed
+	multi  bool        // more than one segment
+	read   bool        // the first segment carries the application header of a Read
+}
+
+// reassembler holds the segments of a multi-segment request until the
+// one carrying FIN arrives, so that the gate judges the whole
+// application fragment instead of one segment at a time.
+type reassembler struct {
+	held          *heldRequest
+	allowsPrimary func(uint8) bool
+}
+
+// add takes one user-data frame that passed CheckToOutstation. It
+// returns the complete request to judge, or nil while segments are
+// held; a non-nil reason names something discarded, to log.
+func (a *reassembler) add(lh wire.Header, frame, apdu []byte) (done *heldRequest, reason error) {
+	th := apdu[0]
+	seq := th & wire.TransportSeqMask
+	if th&wire.TransportFIR != 0 {
+		if a.held != nil {
+			reason = errors.New("a new first segment dropped an incomplete multi-segment request")
+		}
+		a.held = &heldRequest{
+			first: lh, frames: frame, apdu: apdu, next: (seq + 1) & wire.TransportSeqMask, contOK: true,
+			read: len(apdu) >= 3 && apdu[2] == AppFCRead,
+		}
+	} else {
+		h := a.held
+		switch {
+		case h == nil:
+			return nil, errors.New("a continuation segment without a first segment")
+		case seq != h.next || lh.Src != h.first.Src || lh.Dest != h.first.Dest:
+			a.held = nil
+			return nil, errors.New("a segment out of sequence or from another address pair dropped the held request")
+		}
+		h.frames = append(h.frames, frame...)
+		h.apdu = append(h.apdu, apdu[1:]...)
+		h.next = (seq + 1) & wire.TransportSeqMask
+		h.contOK = h.contOK && a.allowsPrimary(lh.Control&0x0F)
+		h.multi = true
+		if len(h.apdu)-1 > maxHeldRequest {
+			a.held = nil
+			return nil, fmt.Errorf("a multi-segment request above %d octets", maxHeldRequest)
+		}
+	}
+	if th&wire.TransportFIN == 0 {
+		return nil, reason
+	}
+	done, a.held = a.held, nil
+	return done, reason
+}
+
 // forward reads full link-layer frames from the client (header + the
 // block-CRC-framed user data) and does one of three things: discards a
 // frame that fails AN2013-004b Table 1, without a reply; forwards an
-// allowed frame verbatim upstream; or answers a refused one with an
+// allowed request verbatim upstream; or answers a refused one with an
 // IIN2 FUNC_NOT_SUPP response.
+//
+// A request is judged whole. The segments of a multi-segment request
+// are held until the one carrying FIN arrives and then forwarded or
+// refused together; a continuation without a first segment, out of
+// sequence or from another address pair is discarded. Only a Read may
+// span several segments: the gate cannot know which segments the
+// outstation's link layer accepts (a DIR=0 frame, a Confirmed User Data
+// frame with an unexpected FCB, a frame of LENGTH 6 may be dropped
+// there), and if it drops one, the segments of two requests can join
+// into one the gate never judged. With every multi-segment request a
+// Read whose function sits in its first segment, whatever the
+// outstation reassembles is a single frame the gate judged, or a Read.
+// Until 2026-10-14 the gate judged each frame on its own and read the
+// function code at the same offset of every segment, so a Direct
+// Operate split in two passed with only its first segment checked
+// (PITF-082). Limits: a control or write too long for one frame (about
+// 249 application octets) is refused; and a master that asks for a link
+// confirmation of each segment waits for an ACK the gate only lets
+// through once the request is complete, and times out.
 func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.Writer) error {
 	r := bufio.NewReader(client)
 	discards := 0
+	discard := func(reason error) {
+		discards++
+		logDiscard(discards, reason)
+	}
+	asm := reassembler{allowsPrimary: h.allowsPrimary}
 	for {
 		// ReadFrame skips octets that do not start a valid header (start
 		// octets, LENGTH, header CRC) and reads the body as user data
@@ -189,28 +278,53 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 			return err
 		}
 		if skipped > 0 {
-			discards++
-			logDiscard(discards, fmt.Errorf("%d octets before a valid link header", skipped))
+			discard(fmt.Errorf("%d octets before a valid link header", skipped))
 		}
 		// AN2013-004b Table 1 first: a frame a conformant outstation
 		// would discard is discarded here too, without a reply. This
 		// also verifies every block CRC and de-blocks the user data.
 		apdu, err := wire.CheckToOutstation(lh, wireBody)
 		if err != nil {
-			discards++
-			logDiscard(discards, err)
+			discard(err)
 			continue
 		}
-		if h.shouldForward(lh, apdu) {
-			if _, err := upstream.Write(append(hdr, wireBody...)); err != nil {
-				return err
+		frame := make([]byte, 0, len(hdr)+len(wireBody))
+		frame = append(append(frame, hdr...), wireBody...)
+		if !wire.IsUserData(lh.Control) {
+			// Header-only link frames (Reset Link, Test Link, Request
+			// Link Status, the master's link replies) carry no request;
+			// they pass, also between the segments of a held request.
+			if h.shouldForward(lh, nil) {
+				if _, err := upstream.Write(frame); err != nil {
+					return err
+				}
 			}
 			continue
 		}
-		if _, err := clientWriter.Write(buildFuncNotSuppResponse(lh)); err != nil {
+		req, reason := asm.add(lh, frame, apdu)
+		if reason != nil {
+			discard(reason)
+		}
+		if req == nil {
+			continue
+		}
+		if err := h.decide(req, upstream, clientWriter); err != nil {
 			return err
 		}
 	}
+}
+
+// decide forwards a complete request (one frame or the held segments)
+// or answers it with a refusal. A multi-segment request passes only if
+// it is a Read (see forward).
+func (h *WriteGatedHandler) decide(req *heldRequest, upstream, clientWriter io.Writer) error {
+	first, frames, apdu := req.first, req.frames, req.apdu
+	if req.contOK && (!req.multi || req.read) && h.shouldForward(first, apdu) {
+		_, err := upstream.Write(frames)
+		return err
+	}
+	_, err := clientWriter.Write(buildFuncNotSuppResponse(first))
+	return err
 }
 
 // shouldForward applies the gate to a frame that passed
@@ -306,39 +420,33 @@ func (h *WriteGatedHandler) allowsApp(fc uint8) bool {
 // object, or one whose object type the operator did not scope, fails
 // closed.
 func (h *WriteGatedHandler) allowsControlObjects(apdu []byte) bool {
-	objs := objectRegion(apdu)
-	crobs, ok := wire.ExtractCROBs(objs)
+	// Every object header counts: the outstation acts on all of them.
+	// Until 2026-10-14 only the first was read, so a TRIP in a second
+	// header of an allowed LATCH passed (PITF-082).
+	crobs, analogs, ok := wire.ExtractControlObjects(objectRegion(apdu))
 	if !ok {
-		return false // malformed g12v1
+		return false // malformed, left-over octets, or an object type we do not scope
 	}
-	if len(crobs) > 0 {
-		if len(h.AllowedControlOutput) == 0 {
-			return false // CROBs not authorised in this session
-		}
-		for _, p := range crobs {
-			if !h.crobPermitted(p) {
-				return false
-			}
-		}
-		return true
+	if len(crobs) == 0 && len(analogs) == 0 {
+		return false // a control carrying neither a CROB nor an analog output
 	}
-	analogs, ok := wire.ExtractAnalogOutputs(objs)
-	if !ok {
-		return false // malformed g41
+	if len(crobs) > 0 && len(h.AllowedControlOutput) == 0 {
+		return false // CROBs not authorised in this session
 	}
-	if len(analogs) > 0 {
-		if len(h.AllowedAnalogOutput) == 0 {
-			return false // analog setpoints not authorised in this session
+	for _, p := range crobs {
+		if !h.crobPermitted(p) {
+			return false
 		}
-		for _, p := range analogs {
-			if !h.analogPermitted(p) {
-				return false
-			}
-		}
-		return true
 	}
-	// A control carrying neither a CROB nor an analog output we scope.
-	return false
+	if len(analogs) > 0 && len(h.AllowedAnalogOutput) == 0 {
+		return false // analog setpoints not authorised in this session
+	}
+	for _, p := range analogs {
+		if !h.analogPermitted(p) {
+			return false
+		}
+	}
+	return true
 }
 
 // analogPermitted reports whether a single (index, value) setpoint

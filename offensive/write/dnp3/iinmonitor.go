@@ -117,6 +117,12 @@ func (h *WriteGatedHandler) inspectResponse(lh wire.Header, body []byte, errRun 
 	if !ok {
 		return
 	}
+	// Only a first transport segment starts with an application header;
+	// a continuation's octets at the same offsets are object data that
+	// can look like a response with IIN bits set (PITF-082).
+	if len(apdu) == 0 || apdu[0]&wire.TransportFIR == 0 {
+		return
+	}
 	iin1, iin2, ok := wire.ParseIIN(apdu)
 	if !ok {
 		return

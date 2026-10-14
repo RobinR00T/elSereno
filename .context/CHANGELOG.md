@@ -8,6 +8,12 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (2): **DNP3 gate judges the whole request (PITF-082).**
+  `wire.ExtractControlObjects` walks every object header; the gate holds
+  multi-segment requests until FIN (cap 2048) and decides on the
+  reassembled fragment, and only a Read may span segments; the IIN
+  monitor skips continuation segments.
+
 - 2026-10-14: **DNP3 frame validation in both proxies (PITF-081).**
   `wire.ReadFrame` (resync on an invalid header) + `wire.CheckToOutstation`
   (stateless rows of AN2013-004b Table 1) run before classification in

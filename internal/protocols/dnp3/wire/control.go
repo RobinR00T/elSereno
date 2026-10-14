@@ -104,8 +104,15 @@ func ExtractCROBs(apdu []byte) (points []ControlPoint, ok bool) {
 	if apdu[0] != GroupBinaryOutputControl || apdu[1] != VarCROB {
 		return nil, true // not a CROB
 	}
-	qualifier := apdu[2]
-	switch qualifier {
+	points, _, ok = parseCROBHeader(apdu)
+	return points, ok
+}
+
+// parseCROBHeader parses one g12v1 object header at apdu[0] and its
+// objects, and returns the points with the number of octets consumed.
+// ok is false on truncation or an unsupported qualifier.
+func parseCROBHeader(apdu []byte) ([]ControlPoint, int, bool) {
+	switch apdu[2] {
 	case 0x17: // 1-octet index prefix, 1-octet count
 		return crobsIndexPrefix(apdu, 3, 1, 1)
 	case 0x28: // 2-octet index prefix, 2-octet count
@@ -115,50 +122,87 @@ func ExtractCROBs(apdu []byte) (points []ControlPoint, ok bool) {
 	case 0x01: // 2-octet start-stop range
 		return crobsStartStop(apdu, 3, 2)
 	default:
-		return nil, false // g12v1 with an unsupported qualifier: fail closed
+		return nil, 0, false // g12v1 with an unsupported qualifier: fail closed
 	}
 }
 
+// ExtractControlObjects walks EVERY object header of a control request's
+// object region (after transport, application control and function
+// code) and returns all the CROBs and analog setpoints it carries. ok is
+// false when any header is not a g12v1 CROB or a g41 Analog Output Block
+// (variations 1-4), is truncated, uses an unsupported qualifier, or when
+// octets are left over: a scoped gate cannot judge what it cannot parse,
+// and the outstation would act on every header. Until 2026-10-14 the gate
+// read only the first header, so a TRIP in a second header of the same
+// Direct Operate went unchecked (PITF-082).
+func ExtractControlObjects(objs []byte) (crobs []ControlPoint, analogs []AnalogPoint, ok bool) {
+	for pos := 0; pos < len(objs); {
+		rest := objs[pos:]
+		if len(rest) < 3 {
+			return nil, nil, false
+		}
+		var n int
+		switch {
+		case rest[0] == GroupBinaryOutputControl && rest[1] == VarCROB:
+			var pts []ControlPoint
+			pts, n, ok = parseCROBHeader(rest)
+			crobs = append(crobs, pts...)
+		case rest[0] == GroupAnalogOutput:
+			var pts []AnalogPoint
+			pts, n, ok = parseAnalogHeader(rest)
+			analogs = append(analogs, pts...)
+		default:
+			return nil, nil, false
+		}
+		if !ok {
+			return nil, nil, false
+		}
+		pos += n
+	}
+	return crobs, analogs, true
+}
+
 // crobsIndexPrefix parses the index-prefix qualifiers (0x17 / 0x28).
-// countSize and idxSize are 1 or 2 octets.
-func crobsIndexPrefix(apdu []byte, pos, countSize, idxSize int) ([]ControlPoint, bool) {
+// countSize and idxSize are 1 or 2 octets. It returns the octets
+// consumed from apdu[0].
+func crobsIndexPrefix(apdu []byte, pos, countSize, idxSize int) ([]ControlPoint, int, bool) {
 	count, pos, ok := readUint(apdu, pos, countSize)
 	if !ok {
-		return nil, false
+		return nil, 0, false
 	}
 	points := make([]ControlPoint, 0, int(count))
 	for i := 0; i < int(count); i++ {
 		idx, next, okIdx := readUint(apdu, pos, idxSize)
 		if !okIdx || next+crobLen > len(apdu) {
-			return nil, false
+			return nil, 0, false
 		}
 		points = append(points, ControlPoint{Index: idx, ControlCode: apdu[next]})
 		pos = next + crobLen
 	}
-	return points, true
+	return points, pos, true
 }
 
 // crobsStartStop parses the start-stop qualifiers (0x00 / 0x01). Each
 // index in [start, stop] carries one CROB in order, with no per-point
-// index prefix.
-func crobsStartStop(apdu []byte, pos, size int) ([]ControlPoint, bool) {
+// index prefix. It returns the octets consumed from apdu[0].
+func crobsStartStop(apdu []byte, pos, size int) ([]ControlPoint, int, bool) {
 	start, pos, ok := readUint(apdu, pos, size)
 	if !ok {
-		return nil, false
+		return nil, 0, false
 	}
 	stop, pos, ok := readUint(apdu, pos, size)
 	if !ok || stop < start {
-		return nil, false
+		return nil, 0, false
 	}
 	points := make([]ControlPoint, 0, int(stop-start)+1)
-	for idx := start; idx <= stop; idx++ {
+	for idx := int(start); idx <= int(stop); idx++ {
 		if pos+crobLen > len(apdu) {
-			return nil, false
+			return nil, 0, false
 		}
-		points = append(points, ControlPoint{Index: idx, ControlCode: apdu[pos]})
+		points = append(points, ControlPoint{Index: uint16(idx), ControlCode: apdu[pos]}) // #nosec G115 -- idx <= stop, a uint16
 		pos += crobLen
 	}
-	return points, true
+	return points, pos, true
 }
 
 // readUint reads a 1- or 2-octet little-endian unsigned value at

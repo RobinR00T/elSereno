@@ -140,6 +140,44 @@ three per session, then one line every thousand with the running count).
    value on the range. When either the CROB or the analog scope is set,
    a control carrying any other object type is refused (fail-closed).
 
+The gate judges the whole request, not the part of it that arrives
+first:
+
+- **Every object header.** A control may carry several object headers,
+  and the outstation acts on all of them. Under a CROB or analog scope
+  each header is checked; one the scope does not cover, a malformed one,
+  or octets left over refuse the request. Until 2026-10-14 only the
+  first header was read, so a TRIP in a second header behind an allowed
+  LATCH passed (PITF-082).
+- **Every transport segment.** A request longer than one frame travels
+  as several transport segments (FIR on the first, FIN on the last).
+  The gate holds the segments until the last one arrives and forwards
+  or refuses them together; header-only link frames between them still
+  pass. A continuation without a first segment, out of sequence or from
+  another address pair is discarded and drops the held request, and so
+  is a request above 2048 application octets.
+- **Only a Read may span several segments.** The gate cannot know which
+  segments the outstation's link layer accepts: a frame with DIR=0, a
+  Confirmed User Data frame with an unexpected FCB, or a frame of
+  LENGTH 6 may be dropped there. If it drops one, the segments of two
+  requests can join into one the gate never judged (an allowed split
+  LATCH, then a split Read whose continuation carries a TRIP). So any
+  other multi-segment request is refused, even when every object in it
+  is allowed, and whatever the outstation reassembles is either a
+  single frame the gate judged or a Read. This rests on the outstation
+  starting a fragment only with a FIR segment, as IEEE 1815 Clause 8
+  requires and opendnp3 does. Cost: a control or write too long for one
+  frame (about 249 application octets, some 15 to 20 CROBs) has to be
+  sent as several requests.
+- Until 2026-10-14 every frame was judged on its own, and the function
+  code was read at the same offset of every segment, where a
+  continuation carries object data: a Direct Operate split in two passed
+  with only its first segment checked (PITF-082). Limit: a master that
+  asks for a link confirmation of each segment of a multi-segment Read
+  waits for an ACK the gate only lets through once the request is
+  complete, so such a request times out [inference: link confirmation
+  is normally off over TCP].
+
 Refusal is a well-formed DNP3 response carrying `IIN2` bit 2
 "FUNC_NOT_SUPP" (byte2 `0x04`) with correct header and block CRCs, so
 the master parses it rather than seeing a wire fault. The gate reads
@@ -229,6 +267,7 @@ signals below, but it is not a full IDS.
 | Program Upload (T0845) | FC 25-30 file operations move config / firmware off or onto the device | Default-deny |
 | Malformed-frame abuse | a truncated frame, a bad header or block CRC, a reserved address, or a CROB with an unsupported qualifier | Both proxies apply the stateless rows of AN2013-004b Table 1: an invalid frame is discarded without a reply and an invalid header is skipped until the next valid one; a malformed control is refused, not forwarded |
 | Request smuggling | an application request inside a frame whose link function carries no data (PRM=0, Request Link Status, Test Link, Reset Link) | Discarded before classification since 2026-10-14; until then it crossed both proxies (PITF-081) |
+| Request splitting | an allowed control followed by a forbidden one in a second object header, or a control split across transport segments | The gate judges the whole request (every header, every segment) since 2026-10-14; until then both passed with only the first part checked (PITF-082) |
 
 Note the asymmetry the poster stresses: reads forward (a passive tap
 must not break the process it observes), controls and writes are

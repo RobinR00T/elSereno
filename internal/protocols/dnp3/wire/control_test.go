@@ -98,3 +98,30 @@ func TestIsBroadcast(t *testing.T) {
 		}
 	}
 }
+
+// TestExtractControlObjects walks every object header (PITF-082).
+func TestExtractControlObjects(t *testing.T) {
+	t.Parallel()
+	latch5 := []byte{12, 1, 0x17, 0x01, 5, OpLatchOn, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	trip7 := []byte{12, 1, 0x17, 0x01, 7, 0x81, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	aob10 := []byte{41, 2, 0x17, 0x01, 10, 0x0F, 0x27, 0x00} // int16 9999, status 0
+	crobs, analogs, ok := ExtractControlObjects(append(append(append([]byte{}, latch5...), trip7...), aob10...))
+	if !ok || len(crobs) != 2 || len(analogs) != 1 {
+		t.Fatalf("got crobs %+v analogs %+v ok %v, want 2 CROBs and 1 setpoint", crobs, analogs, ok)
+	}
+	if crobs[1] != (ControlPoint{Index: 7, ControlCode: 0x81}) || analogs[0] != (AnalogPoint{Index: 10, Value: 9999}) {
+		t.Fatalf("got crobs %+v analogs %+v", crobs, analogs)
+	}
+	for name, objs := range map[string][]byte{
+		"left-over octet":      append(append([]byte{}, latch5...), 0x00),
+		"unscoped object type": append(append([]byte{}, latch5...), 30, 1, 0x06),
+		"truncated second":     append(append([]byte{}, latch5...), trip7[:8]...),
+	} {
+		if _, _, ok := ExtractControlObjects(objs); ok {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	if c, a, ok := ExtractControlObjects(nil); !ok || c != nil || a != nil {
+		t.Fatalf("empty object region: %v %v %v", c, a, ok)
+	}
+}

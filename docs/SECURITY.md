@@ -400,7 +400,9 @@ Cada protocol gate scopea writes:
   inválida, datos en una trama que no los admite o direcciones
   reservadas, y saltan una cabecera inválida hasta la siguiente válida.
   Hasta el 14-10-2026 una trama con PRM=0 cruzaba con su cuerpo
-  (PITF-081).
+  (PITF-081). El gate juzga la petición entera: todas las cabeceras de
+  objeto y todos los segmentos de transporte, y solo una lectura puede
+  ocupar varios segmentos (PITF-082).
 - Rechazo: FINS/SLMP responden con error nativo del protocolo;
   GE-SRTP/CoDeSys/Red Lion cierran la conexión (fail-closed);
   OPC UA devuelve un ServiceFault nativo; DNP3 devuelve un IIN2

@@ -292,6 +292,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **DNP3 gate: judge the whole request, not its first part (PITF-082).**
+  The offensive gate's CROB and analog scope read only the first object
+  header of a control, so a Direct Operate carrying an allowed LATCH on
+  point 5 and a TRIP on point 7 in a second header passed whole. And it
+  judged each link frame on its own, reading the application function at
+  the same offset of every transport segment: a continuation segment
+  starting with a g12v1 header put its variation octet (0x01) there, was
+  taken for a Read and passed, so a Direct Operate split in two reached
+  the outstation with only its first segment checked. Both reproduced
+  against the gate's own forwarding path; not tested against a real
+  outstation. Now `wire.ExtractControlObjects` walks every header (an
+  unscoped object type, a malformed header or left-over octets refuse),
+  and the gate holds a multi-segment request until its last segment,
+  then forwards or refuses it whole; header-only link frames between
+  segments still pass, orphan, out-of-sequence or other-address-pair
+  continuations and requests above 2048 application octets are
+  discarded. Only a Read may span several segments: the gate cannot know
+  which segments the outstation's link layer accepts, and if it drops
+  one, two requests can join into one the gate never judged (found by
+  the audit of the first version of this fix). A control or write too
+  long for one frame (about 249 application octets) now has to be sent
+  as several requests. The response-path IIN monitor now inspects only
+  first segments, so a continuation can no longer raise a false Device
+  Restart alert. Limit: a master that wants a link confirmation of each
+  segment of a multi-segment Read times out. Also: a g12v1 or g41
+  start-stop range ending at index 0xFFFF is parsed instead of failing.
+  Mutation-checked: the old gate fails all three new tests, and each
+  reassembly rule has a test that fails without it. Found by the
+  independent audit of PITF-081.
 - **DNP3: both proxies now validate frames before classifying them
   (PITF-081).** Neither the default write-ban nor the offensive gate
   checked a frame from the master side against the DNP Users Group's
