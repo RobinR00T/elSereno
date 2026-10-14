@@ -227,8 +227,10 @@ func TestWriteWithoutAllowRefused(t *testing.T) {
 	}
 	// IIN2 is at offset HeaderLen + 4 (transport + AC + FC + IIN1)
 	iin2 := buf[wire.HeaderLen+4]
-	if iin2&0x04 == 0 {
-		t.Fatalf("expected IIN2 FUNC_NOT_SUPP bit; got 0x%02x", iin2)
+	// IIN2.0 function code not supported, nothing else (0x04 is IIN2.2
+	// parameter error, which the refusal carried until PITF-083).
+	if iin1 := buf[wire.HeaderLen+3]; iin1 != 0 || iin2 != wire.IIN2FuncNotSupp {
+		t.Fatalf("refusal IIN = 0x%02x%02x, want 0x0001 (IIN2.0 function code not supported)", iin1, iin2)
 	}
 }
 

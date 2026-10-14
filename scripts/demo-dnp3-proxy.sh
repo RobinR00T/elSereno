@@ -11,8 +11,9 @@
 #
 #   Read Class 0            -> forwarded -> outstation IIN response
 #   Direct Operate LATCH pt5-> forwarded -> outstation IIN response (allowlisted)
-#   Direct Operate TRIP pt5 -> REFUSED   -> IIN2 FUNC_NOT_SUPP (0x04) from the gate
-#   Direct Operate broadcast-> REFUSED   -> broadcast control never scopes
+#   Direct Operate TRIP pt5 -> REFUSED   -> IIN2 FUNC_NOT_SUPP (0x01) from the gate
+#   Direct Operate broadcast-> REFUSED   -> no reply at all: an outstation never
+#                                          answers a broadcast, so neither does the gate
 #   Cold Restart            -> REFUSED   -> FC not in the app-FC allowlist
 #
 # Allowlist: --dnp3-app-fc 0x05 (Direct Operate), --dnp3-control
@@ -20,7 +21,8 @@
 # --dnp3-link src=2;dest=1. The passes reach the outstation; the
 # refusals do not (proven by the outstation log at the end).
 #
-# Refused frames carry IIN2 bit 2 set (byte at offset 14 = 0x04). The
+# Refused frames carry IIN2.0 "function code not supported" (byte at
+# offset 14 = 0x01) and the request's application sequence number. The
 # passes carry IIN2 = 0x00 from the outstation.
 #
 # Everything is torn down on exit. Requires: go.
@@ -62,7 +64,7 @@ trap cleanup EXIT
 el() { HOME="$TMP" "$BIN" "$@"; }
 
 send() { # $1 = label, $2 = -send case
-	printf '  %-38s' "$1"
+	printf '  %-46s' "$1"
 	"$SIM" -send "$2" -addr "127.0.0.1:$PXP" 2>/dev/null || true
 }
 
@@ -99,7 +101,7 @@ send "Direct Operate LATCH pt5    (pass):" latch5
 send "Direct Operate TRIP  pt5    (deny):" trip5
 send "Analog setpoint 30 pt10     (pass):" analog-ok
 send "Analog setpoint 90 pt10     (deny):" analog-hi
-send "Direct Operate broadcast    (deny):" bcast-latch
+send "Direct Operate broadcast    (deny, no reply):" bcast-latch
 send "Cold Restart                (deny):" coldrestart
 
 echo
@@ -124,6 +126,7 @@ sed 's/^/  /' "$SIMLOG"
 echo
 echo "Expected: Read + LATCH pt5 + analog 30@pt10 reach the outstation and reply"
 echo "with IIN1=0x80 (Device Restart), surfaced as a state_change alert. TRIP,"
-echo "analog 90@pt10 (above the max=50 clamp), broadcast and Cold Restart each"
-echo "return an IIN2 FUNC_NOT_SUPP (byte 0x04 at offset 14) from the GATE and"
-echo "never appear in the outstation log."
+echo "analog 90@pt10 (above the max=50 clamp) and Cold Restart each return an"
+echo "IIN2 FUNC_NOT_SUPP (byte 0x01 at offset 14) from the GATE; the broadcast gets"
+echo "no reply at all (an outstation never answers a broadcast); and none of"
+echo "them appears in the outstation log."

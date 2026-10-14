@@ -30,6 +30,31 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
+## Abierto (14-10-2026, gate DNP3): decisiones pendientes
+
+- **¿Reenviar los Confirm de aplicación (FC 0x00)?** El gate ofensivo solo
+  deja pasar Read sin lista; un Confirm del maestro (reconoce una respuesta
+  con CON o un no solicitado) se rechaza. Desde PITF-083 se descarta en
+  silencio (antes recibía una respuesta que ningún equipo envía). Efecto: el
+  equipo no libera eventos y reintenta los no solicitados. Reenviarlo siempre
+  arregla el sondeo de eventos, pero un Confirm también hace que el equipo
+  borre eventos de su búfer (lo que puede servir para ocultarlos). Opciones:
+  siempre, con flag (`--dnp3-app-fc 0x00`, que ya funciona), o nunca.
+- **Controles y escrituras de varios segmentos se rechazan** (PITF-082, tras la
+  auditoría): solo un Read puede ocupar varios segmentos de transporte, porque
+  si la capa de enlace del equipo descarta un segmento, dos peticiones pueden
+  juntarse en una que el gate nunca juzgó. Coste: una orden de más de unos 249
+  octetos de aplicación (15 a 20 CROB) hay que partirla en varias peticiones.
+  Decidido por seguridad; reversible si se prefiere otra política.
+- **Los rechazos y descartes del gate DNP3 no quedan en la cadena de
+  auditoría.** Solo la apertura de sesión se audita; un rechazo no deja rastro
+  y un descarte va a stderr con límite. Las alertas IIN sí van a la cadena
+  (`dnp3_iin_alert`). Propuesta: un evento `dnp3_gate_decision` muestreado.
+- **El rechazo puede caer entre dos segmentos de una respuesta del equipo**
+  (se escribe en el mismo socket desde otra goroutine), y el maestro pierde
+  ese fragmento. Documentado; arreglarlo exige serializar las dos escrituras
+  por fragmento.
+
 ## Abierto (7-10-2026, auditoría de código): decisiones pendientes
 
 - **7 paquetes de write-gate huérfanos.** `offensive/write/{atg,dlms,fox,

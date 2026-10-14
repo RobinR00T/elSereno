@@ -50,10 +50,13 @@ default-deny: an application function code must be listed with
 is always refused, and --dnp3-control scopes an Operate / Direct
 Operate to a (point-index, control-code) allowlist.
 
-Application function codes (--dnp3-app-fc): 0x02 Write, 0x03 Select,
-0x04 Operate, 0x05 Direct Operate, 0x06 Direct Operate No-Ack,
-0x0D Cold Restart, 0x0E Warm Restart, 0x12 Stop Application,
-0x15 Disable Unsolicited.
+Application function codes (--dnp3-app-fc): 0x00 Confirm (acknowledges
+an outstation response or unsolicited report, which lets it clear the
+reported events), 0x02 Write, 0x03 Select, 0x04 Operate, 0x05 Direct
+Operate, 0x06 Direct Operate No-Ack, 0x0D Cold Restart, 0x0E Warm
+Restart, 0x12 Stop Application, 0x15 Disable Unsolicited. A refused
+broadcast, No-Ack request or Confirm gets no reply, as from a real
+outstation.
 
 CROB control codes (--dnp3-control code=): 0x03 LATCH_ON, 0x04
 LATCH_OFF, 0x41 CLOSE+PULSE_ON, 0x81 TRIP+PULSE_ON. Example: allow a

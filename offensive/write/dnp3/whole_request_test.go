@@ -191,3 +191,57 @@ func TestGate_SegmentedRequestJudgedWhole(t *testing.T) {
 		t.Fatal("a split Read above the 2048-octet cap was forwarded")
 	}
 }
+
+// TestRefusalCarriesRequestSequence: an outstation answers with the
+// application sequence number of the request, and a master ignores a
+// response whose sequence does not match (opendnp3 MContext). Until
+// 2026-10-14 the refusal always carried SEQ 0, so a master saw it only
+// for requests numbered 0 (PITF-083).
+func TestRefusalCarriesRequestSequence(t *testing.T) {
+	t.Parallel()
+	// AC 0xE5 also sets CON: only its 4-bit sequence is copied. (A request
+	// with UNS set gets no reply at all; see the test below.)
+	for ac, seq := range map[uint8]uint8{0xC0: 0, 0xC5: 5, 0xCF: 15, 0xE5: 5} {
+		req := userFrame(append([]byte{wire.TransportFIR | wire.TransportFIN, ac, AppFCDirectOperate}, crobObjects(7, 0x81)...))
+		_, reply := runForward(t, latchOnlyGate(), req)
+		lh, err := wire.ParseCheckedHeader(reply)
+		if err != nil {
+			t.Fatalf("seq %d: refusal header: %v", seq, err)
+		}
+		ud, ok := wire.StripBlockCRCs(reply[wire.HeaderLen:], int(lh.Length)-5)
+		if !ok || len(ud) != 5 {
+			t.Fatalf("seq %d: refusal body % x", seq, reply)
+		}
+		if ud[1] != 0xC0|seq || ud[2] != AppFCResponse || ud[3] != 0 || ud[4] != wire.IIN2FuncNotSupp {
+			t.Fatalf("seq %d: refusal AC 0x%02x FC 0x%02x IIN 0x%02x%02x, want AC 0x%02x FC 0x81 IIN 0x0001", seq, ud[1], ud[2], ud[3], ud[4], 0xC0|seq)
+		}
+		if lh.Dest != 2 || lh.Src != 1 {
+			t.Fatalf("seq %d: refusal addressed %d -> %d, want 1 -> 2", seq, lh.Src, lh.Dest)
+		}
+	}
+}
+
+// TestRefusalOnlyWhereAnOutstationAnswers: the refusal stands in for the
+// outstation's answer, so a refused request an outstation would never
+// answer gets nothing (AN2013-004b footnote (a): never a response to a
+// broadcast or a NO-ACK request; Table 2: a Confirm, or anything with
+// UNS set, is a confirmation, not a request), and neither does a
+// fragment without an application header, which an outstation discards.
+// Until 2026-10-14 all of these got a refusal, and a lone transport
+// octet could have indexed past the fragment (PITF-083).
+func TestRefusalOnlyWhereAnOutstationAnswers(t *testing.T) {
+	t.Parallel()
+	for name, req := range map[string][]byte{
+		"broadcast Direct Operate": ctrlFrame(0xC4, 0xFFFF, append([]byte{0xC0, 0xC0, AppFCDirectOperate}, crobObjects(7, 0x81)...)),
+		"Direct Operate No Ack":    userFrame(append([]byte{0xC0, 0xC0, AppFCDirectOperateNoAck}, crobObjects(7, 0x81)...)),
+		"application Confirm":      userFrame([]byte{0xC0, 0xC0, 0x00}),
+		"Direct Operate with UNS":  userFrame(append([]byte{0xC0, 0xD0, AppFCDirectOperate}, crobObjects(7, 0x81)...)),
+		"transport octet only":     userFrame([]byte{0xC0}),
+		"no function code":         userFrame([]byte{0xC0, 0xC9}),
+	} {
+		up, reply := runForward(t, latchOnlyGate(), req)
+		if len(up) != 0 || len(reply) != 0 {
+			t.Errorf("%s: upstream % x reply % x, want neither", name, up, reply)
+		}
+	}
+}

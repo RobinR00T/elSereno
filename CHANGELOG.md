@@ -292,6 +292,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **DNP3 gate refusal: the right IIN bit and the request's sequence
+  (PITF-083).** The refusal the offensive gate sends for a blocked
+  request set `IIN2` `0x04`, which is IIN2.2 "parameter error", while
+  code, docs and demo called it "function not supported" (IIN2.0,
+  `0x01`, as the repo's own `wire.IIN2FuncNotSupp` defines). And it
+  always carried application sequence 0: an outstation answers with the
+  request's sequence (opendnp3 `OContext::RespondToNonReadRequest`) and
+  an opendnp3 master ignores a response whose sequence differs
+  ("Response with bad sequence"), so such a master saw the refusal only
+  for requests numbered 0 and otherwise timed out. Now IIN2.0 and the
+  request's sequence. The refusal also went to requests no outstation
+  ever answers; now a refused broadcast or NO-ACK request (Direct
+  Operate No Ack, the "No Ack" freezes, Authentication Request No Ack;
+  AN2013-004b footnote (a)), an application Confirm or other message
+  with UNS set (a confirmation, not a request: the note's Table 2), and
+  a fragment without an application header get no reply. A refused Confirm is thus
+  dropped silently; whether to forward Confirms is left open. The
+  DNP3 simulator's outstation had the same faults (it answered
+  everything with sequence 0) and now behaves like the note. Found
+  cross-checking the gate against AN2013-004b's IIN table and its
+  independent audit; mutation-checked.
 - **DNP3 gate: judge the whole request, not its first part (PITF-082).**
   The offensive gate's CROB and analog scope read only the first object
   header of a control, so a Direct Operate carrying an allowed LATCH on

@@ -405,8 +405,13 @@ Cada protocol gate scopea writes:
   ocupar varios segmentos (PITF-082).
 - Rechazo: FINS/SLMP responden con error nativo del protocolo;
   GE-SRTP/CoDeSys/Red Lion cierran la conexión (fail-closed);
-  OPC UA devuelve un ServiceFault nativo; DNP3 devuelve un IIN2
-  FUNC_NOT_SUPP (byte2 0x04) bien formado con CRCs correctos.
+  OPC UA devuelve un ServiceFault nativo; DNP3 devuelve una respuesta
+  bien formada con IIN2.0 FUNC_NOT_SUPP (byte IIN2 0x01), el número de
+  secuencia de la petición y CRCs correctos, y solo donde un equipo
+  respondería: un broadcast, una petición NO-ACK o un Confirm
+  rechazados no reciben nada (hasta el 14-10-2026 ponía 0x04, que es
+  IIN2.2 "parameter error", siempre secuencia 0, y contestaba a todo;
+  PITF-083).
 
 ### Audit obligatorio
 

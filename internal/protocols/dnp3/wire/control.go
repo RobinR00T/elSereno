@@ -29,6 +29,23 @@ const (
 	AppActivateConfigCode  uint8 = 0x1F
 )
 
+// AppExpectsNoResponse reports whether an outstation never answers a
+// message with this function code: a Confirm (0x00, a "Confirmation",
+// not a "Request", in AN2013-004b Table 2; opendnp3's outstation
+// processes it without a reply), or one of the NO-ACK requests of
+// AN2013-004b Figure 3 (0x06 Direct Operate, 0x08 Immediate Freeze, 0x0A
+// Freeze and Clear, 0x0C Freeze at Time, 0x21 Authentication Request,
+// each "No Ack"), which the note's footnote (a) says an outstation
+// shall "never respond to", even in the case of errors.
+func AppExpectsNoResponse(fc uint8) bool {
+	switch fc {
+	case 0x00, 0x06, 0x08, 0x0A, 0x0C, 0x21:
+		return true
+	default:
+		return false
+	}
+}
+
 // AppIsControl reports whether an application-layer function code
 // issues a control that may carry a Control Relay Output Block
 // (Select, Operate, Direct Operate, Direct Operate No-Ack).

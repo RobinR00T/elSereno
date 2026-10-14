@@ -8,6 +8,12 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (3): **DNP3 gate refusal fixed (PITF-083).** IIN2.0
+  function-not-supported (0x01) instead of 0x04 (IIN2.2 parameter
+  error), the request's application SEQ instead of 0, and no reply to
+  a broadcast, NO-ACK request, Confirm or headerless fragment (also in
+  the simulator).
+
 - 2026-10-14 (2): **DNP3 gate judges the whole request (PITF-082).**
   `wire.ExtractControlObjects` walks every object header; the gate holds
   multi-segment requests until FIN (cap 2048) and decides on the

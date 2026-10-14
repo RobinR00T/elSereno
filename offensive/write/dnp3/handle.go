@@ -33,7 +33,8 @@ import (
 //     point yet still refuse TRIP / CLOSE on any breaker.
 //
 // Refusal path: a DNP3 user-data frame with an application-layer
-// response carrying IIN2 bit 2 "FUNC_NOT_SUPP" (byte2 0x04), with
+// response carrying IIN2.0 "FUNC_NOT_SUPP" (byte2 0x01) and the request's
+// application sequence number, with
 // correct CRCs. Real masters see a parseable "function not supported"
 // indication rather than a TCP RST or a wire fault.
 type WriteGatedHandler struct {
@@ -172,6 +173,10 @@ func logDiscard(n int, reason error) {
 	}
 }
 
+// appControlUNS is the UNS bit of the application control octet: set on
+// an unsolicited response and on its Confirm, never on a request.
+const appControlUNS = 0x10
+
 // maxHeldRequest caps the application octets (after the transport
 // octet) the gate holds while it reassembles a multi-segment request; a
 // larger request is discarded.
@@ -308,23 +313,42 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 		if req == nil {
 			continue
 		}
-		if err := h.decide(req, upstream, clientWriter); err != nil {
+		silent, err := h.decide(req, upstream, clientWriter)
+		if err != nil {
 			return err
+		}
+		if silent {
+			discard(errors.New("refused without a reply: an outstation never answers this request"))
 		}
 	}
 }
 
 // decide forwards a complete request (one frame or the held segments)
-// or answers it with a refusal. A multi-segment request passes only if
-// it is a Read (see forward).
-func (h *WriteGatedHandler) decide(req *heldRequest, upstream, clientWriter io.Writer) error {
+// or refuses it, with a refusal response or, where an outstation would
+// send nothing, silently (silent=true). A multi-segment request passes
+// only if it is a Read (see forward). Limit: a refusal is written from
+// the master-side goroutine while forwardResponses writes the
+// outstation's replies to the same socket, so it can land between two
+// segments of a multi-segment response, and a master then loses that
+// response fragment.
+func (h *WriteGatedHandler) decide(req *heldRequest, upstream, clientWriter io.Writer) (silent bool, err error) {
 	first, frames, apdu := req.first, req.frames, req.apdu
 	if req.contOK && (!req.multi || req.read) && h.shouldForward(first, apdu) {
-		_, err := upstream.Write(frames)
-		return err
+		_, err = upstream.Write(frames)
+		return false, err
 	}
-	_, err := clientWriter.Write(buildFuncNotSuppResponse(first))
-	return err
+	// A refusal stands in for the outstation's answer, so it is sent only
+	// where an outstation would answer: not to a broadcast or a NO-ACK
+	// request (AN2013-004b footnote (a)), not to a Confirm or any other
+	// message with UNS set (a confirmation, not a request: Table 2;
+	// opendnp3 ignores a non-Confirm with UNS), and not to a fragment
+	// without an application header, which an outstation discards. Until
+	// 2026-10-14 every refused request got a response (PITF-083).
+	if len(apdu) < 3 || wire.IsBroadcast(first.Dest) || wire.AppExpectsNoResponse(apdu[2]) || apdu[1]&appControlUNS != 0 {
+		return true, nil
+	}
+	_, err = clientWriter.Write(buildFuncNotSuppResponse(first, apdu))
+	return false, err
 }
 
 // shouldForward applies the gate to a frame that passed
@@ -506,17 +530,28 @@ func objectRegion(apdu []byte) []byte {
 }
 
 // buildFuncNotSuppResponse emits a well-formed DNP3 user-data response
-// with IIN2 bit 2 "FUNC_NOT_SUPP" set, addressed back to the
-// requesting master (src/dest swapped). Header and data-block CRCs are
-// computed: a zeroed CRC would itself read as a wire fault on port
-// 20000. IIN1 = 0, IIN2 = 0x04 (FUNC_NOT_SUPP).
-func buildFuncNotSuppResponse(req wire.Header) []byte {
+// with IIN2.0 "function code not supported" set (wire.IIN2FuncNotSupp,
+// 0x01), addressed back to the requesting master (src/dest swapped) and
+// carrying the application sequence number of the request in apdu, as
+// an outstation does (opendnp3 OContext::RespondToNonReadRequest): a
+// master ignores a response whose SEQ does not match its request
+// (opendnp3 MContext "Response with bad sequence"). Header and
+// data-block CRCs are computed: a zeroed CRC would itself read as a wire
+// fault on port 20000. Until 2026-10-14 it set IIN2 0x04, which is
+// IIN2.2 "parameter error", and always SEQ 0 (PITF-083).
+func buildFuncNotSuppResponse(req wire.Header, apdu []byte) []byte {
+	// decide never refuses with a reply when apdu lacks an application
+	// header; the guard keeps any other caller from indexing past it.
+	var seq uint8
+	if len(apdu) >= 2 {
+		seq = apdu[1] & 0x0F
+	}
 	userData := []byte{
-		0xC0,          // transport: FIR=1, FIN=1, seq=0
-		0xC0,          // AC: FIR=1, FIN=1, CON=0, UNS=0, seq=0
-		AppFCResponse, // app FC (0x81)
-		0x00,          // IIN1
-		0x04,          // IIN2: bit 2 = FUNC_NOT_SUPP
+		0xC0,                 // transport: FIR=1, FIN=1, seq=0
+		0xC0 | seq,           // AC: FIR=1, FIN=1, CON=0, UNS=0, the request's SEQ
+		AppFCResponse,        // app FC (0x81)
+		0x00,                 // IIN1
+		wire.IIN2FuncNotSupp, // IIN2.0 = function code not supported
 	}
 	body := wire.AppendBlockCRCs(userData)
 	frame := make([]byte, wire.HeaderLen+len(body))

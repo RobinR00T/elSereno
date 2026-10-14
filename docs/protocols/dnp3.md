@@ -178,9 +178,27 @@ first:
   complete, so such a request times out [inference: link confirmation
   is normally off over TCP].
 
-Refusal is a well-formed DNP3 response carrying `IIN2` bit 2
-"FUNC_NOT_SUPP" (byte2 `0x04`) with correct header and block CRCs, so
-the master parses it rather than seeing a wire fault. The gate reads
+Refusal is a well-formed DNP3 response carrying IIN2.0 "function code
+not supported" (`IIN2` byte `0x01`), the request's application
+sequence number and correct header and block CRCs, so the master
+parses it rather than seeing a wire fault, and can match it to its
+request: an opendnp3 master ignores a response whose sequence differs.
+The refusal stands in for the outstation's answer, so it is sent only
+where an outstation would answer. A refused broadcast or NO-ACK request
+(Direct Operate No Ack and the other "No Ack" functions) gets nothing,
+as AN2013-004b's footnote (a) requires of an outstation; so does an
+application Confirm or any other message with UNS set (a confirmation,
+not a request, in the note's Table 2), and a fragment without an
+application header. A
+refused application Confirm is therefore dropped silently: whether the
+gate should forward Confirms (they acknowledge events, and let the
+outstation clear them) is an open decision. Until 2026-10-14 the
+refusal set `IIN2` `0x04`, which is IIN2.2 "parameter error", always
+sequence 0 (so such a master saw it only for requests numbered 0), and
+went to every refused request (PITF-083). Limit: the refusal is written
+on the same socket as the outstation's replies, so it can land between
+two segments of a multi-segment response, and the master then loses
+that response fragment. The gate reads
 the full block-CRC-framed body and verifies every block CRC: a corrupt
 frame is discarded.
 

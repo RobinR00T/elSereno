@@ -125,3 +125,19 @@ func TestExtractControlObjects(t *testing.T) {
 		t.Fatalf("empty object region: %v %v %v", c, a, ok)
 	}
 }
+
+// TestAppExpectsNoResponse: the Confirm and the five NO-ACK functions of
+// AN2013-004b Figure 3, and nothing else.
+func TestAppExpectsNoResponse(t *testing.T) {
+	t.Parallel()
+	for fc := 0; fc <= 0xFF; fc++ {
+		want := false
+		switch fc {
+		case 0x00, 0x06, 0x08, 0x0A, 0x0C, 0x21:
+			want = true
+		}
+		if got := AppExpectsNoResponse(uint8(fc)); got != want { // #nosec G115 -- fc <= 0xFF
+			t.Errorf("FC 0x%02x: got %v, want %v", fc, got, want)
+		}
+	}
+}

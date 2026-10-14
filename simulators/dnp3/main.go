@@ -132,7 +132,10 @@ func handle(ctx context.Context, conn net.Conn) {
 			continue
 		}
 		logRequest(lh, apdu)
-		if _, err := conn.Write(buildResponse(lh)); err != nil {
+		if !answers(lh, apdu) {
+			continue
+		}
+		if _, err := conn.Write(buildResponse(lh, apdu)); err != nil {
 			return
 		}
 	}
@@ -152,10 +155,21 @@ func logRequest(lh wire.Header, apdu []byte) {
 	log.Printf("received fc=0x%02x dest=%d src=%d", fc, lh.Dest, lh.Src)
 }
 
-// buildResponse returns a minimal IIN=0 response addressed back to the
-// requesting master, with correct CRCs.
-func buildResponse(req wire.Header) []byte {
-	userData := []byte{0xC0, 0xC0, 0x81, respIIN1, respIIN2} // transport, AC, FC=response, IIN1, IIN2
+// answers reports whether a real outstation answers this request. It
+// never answers a broadcast or a NO-ACK request (AN2013-004b footnote
+// (a)), a Confirm or another message with UNS set (a confirmation, not
+// a request: Table 2), nor a fragment without an application header.
+func answers(lh wire.Header, apdu []byte) bool {
+	return len(apdu) >= 3 && !wire.IsBroadcast(lh.Dest) && !wire.AppExpectsNoResponse(apdu[2]) && apdu[1]&0x10 == 0
+}
+
+// buildResponse returns a minimal response addressed back to the
+// requesting master, carrying the request's application sequence
+// number as a real outstation does (a master ignores a response whose
+// sequence differs), with correct CRCs.
+func buildResponse(req wire.Header, apdu []byte) []byte {
+	seq := apdu[1] & 0x0F
+	userData := []byte{0xC0, 0xC0 | seq, 0x81, respIIN1, respIIN2} // transport, AC, FC=response, IIN1, IIN2
 	body := wire.AppendBlockCRCs(userData)
 	frame := make([]byte, wire.HeaderLen+len(body))
 	frame[0], frame[1] = wire.StartBytes[0], wire.StartBytes[1]

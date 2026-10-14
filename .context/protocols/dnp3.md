@@ -65,7 +65,13 @@ first header and judged each frame alone, so a TRIP in a second header
 or a second segment passed (PITF-082). The IIN monitor inspects only
 first segments.
 `--dnp3-link src=N;dest=M` pins the master->outstation pair. Refusal is
-a well-formed `IIN2 FUNC_NOT_SUPP` (byte2 0x04) with correct CRCs.
+a well-formed response with IIN2.0 FUNC_NOT_SUPP (`IIN2` 0x01), the
+request's application SEQ and correct CRCs, sent only where an
+outstation would answer: a refused broadcast, NO-ACK request
+(`wire.AppExpectsNoResponse`), application Confirm, message with UNS
+set or fragment without an application header gets nothing (until 2026-10-14: `IIN2` 0x04,
+which is IIN2.2 parameter error, SEQ 0, and a reply to every refused
+request; PITF-083). Whether to forward Confirms is an open decision.
 
 The forwarder reads the full block-CRC-framed body (`wire.BodyLen` +
 `wire.StripBlockCRCs`), not just `Length-5` octets, so real user-data
