@@ -71,7 +71,8 @@ const (
 	// Emitted best-effort from the response monitor, one row per
 	// alert. Payload: kind (state_change|error_burst), protocol,
 	// target, src, dest, iin1, iin2, bits, and error_run for a burst.
-	// Requires migration 00005.
+	// Requires migration 00019 (numbered 00005 until 2026-10-14, a
+	// duplicate version that made goose panic: PITF-084).
 	EventDNP3IINAlert EventType = "dnp3_iin_alert"
 )
 

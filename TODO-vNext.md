@@ -42,8 +42,12 @@
   el manual los describen como si se pudieran usar. Solo el build ofensivo
   tiene proxy (`proxy listen`, con los gates). Opciones: conectar un `proxy
   listen` en el build por defecto con los write-ban, o reescribir esas
-  secciones como "handler preparado, sin comando". Visto el 14-10 al
-  preparar el paso 1 del manifiesto; la doc de DNP3 ya lo dice.
+  secciones como "handler preparado, sin comando". Visto el 14-10.
+- **El job `integration` del CI nunca puede fallar.** No levanta Postgres y
+  acaba en `|| echo "no integration suite yet"` (`.github/workflows/ci.yml`),
+  y la suite se salta sin `DATABASE_URL`. Por eso nadie vio que `db migrate`
+  moría desde el 22-9 (PITF-084). Propuesta: un servicio Postgres en el job y
+  quitar el `|| echo`.
 
 - **¿Reenviar los Confirm de aplicación (FC 0x00)?** El gate ofensivo solo
   deja pasar Read sin lista; un Confirm del maestro (reconoce una respuesta

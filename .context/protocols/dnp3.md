@@ -107,7 +107,8 @@ a `state_change` alert on Device Restart/Trouble/Config-Corrupt (a run
 of identical ones de-dups to one) and one `error_burst` on a run of
 FUNC_NOT_SUPP/Object-unknown/Parameter-error (default threshold 3).
 Alerts log to stderr AND land in the tamper-evident audit chain as a
-`dnp3_iin_alert` row (event_type added in migration 00005, enum
+`dnp3_iin_alert` row (event_type added in migration 00019, numbered
+00005 until 2026-10-14, PITF-084; enum
 `EventDNP3IINAlert`, emitted from `cmd/elsereno/dnp3_iin_audit_offensive.go`
 via `rt.Writer`, best-effort); `WriteGatedHandler.OnIIN` overrides.
 Demo: `scripts/demo-dnp3-proxy.sh` (`-iin restart`) shows the log line,

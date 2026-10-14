@@ -8,6 +8,13 @@ last-updated: 2026-10-14
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-14 (4): **Duplicate migration version 5 fixed (PITF-084).**
+  `00005_audit_dnp3_iin_alert_event_type.sql` (added 22-9) shared
+  version 5 with `00005_scan_jobs.sql`; goose panics collecting them,
+  so `db migrate up/down` and
+  `db status` died. Renumbered 00019; `internal/db` tests
+  forbid duplicates and collect the set without a database.
+
 - 2026-10-14 (3): **DNP3 gate refusal fixed (PITF-083).** IIN2.0
   function-not-supported (0x01) instead of 0x04 (IIN2.2 parameter
   error), the request's application SEQ instead of 0, and no reply to

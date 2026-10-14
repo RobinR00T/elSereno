@@ -249,7 +249,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first and fails open on a framing desync, so the master's stream is
   never delayed; a run of identical state-changes de-dups to one alert.
   Each alert is logged and recorded in the tamper-evident audit chain
-  as a `dnp3_iin_alert` row (new audit event_type, migration 00005), so
+  as a `dnp3_iin_alert` row (new audit event_type, migration 00019, first
+  numbered 00005: PITF-084), so
   it reaches the dashboard / SSE feed; an `OnIIN` callback can override.
 - **Legacy-ICS write-gated proxies (`-tags offensive`):** FINS
   (`finsudp`, Omron, UDP/9600), SLMP (MELSEC, TCP/5007), GE-SRTP
@@ -418,6 +419,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reassembly buffer. Found by fuzzing.
 
 ### Fixed
+
+- **`elsereno db migrate` panicked since 2026-09-22 (PITF-084).** The
+  migration that adds the `dnp3_iin_alert` audit event type was numbered
+  `00005`, a version `00005_scan_jobs.sql` already had. goose v3.28.0
+  panics ("duplicate version 5 detected") while collecting migrations,
+  before it touches the database, so `db migrate up`, `db migrate down` and
+  `db status` died and no database could be created or upgraded. It is now
+  `00019_audit_dnp3_iin_alert_event_type.sql`, same SQL. Upgrade path: a
+  database migrated before 2026-09-22 is at most at version 18 and
+  applies whatever it lacks, up to 19; a new one applies 1 to 19; no database can hold the old version 5
+  of this file, since goose never got past collection. New tests in
+  `internal/db` forbid duplicate versions and have goose collect the
+  embedded set (1..N, no gaps) without a database. Not caught before
+  because CI runs no Postgres and the integration suite skips without
+  `DATABASE_URL`. Not run against a live Postgres (none was running).
 
 - **`make sec` (and so `make ci`) passes locally again.** go.mod pins
   `toolchain go1.26.6`; with an older Go installed, the go command switches

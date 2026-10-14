@@ -535,5 +535,14 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: un bit se nombra por su significado en la tabla de la norma, no por su posición. Y una respuesta sintética tiene que ser una respuesta que el otro extremo acepte (misma secuencia, direcciones invertidas) y que el equipo real habría enviado: donde el equipo calla, el gate calla.
 **Ver**: `offensive/write/dnp3/{handle,handle_test,whole_request_test}.go`, `scripts/demo-dnp3-proxy.sh`, `docs/protocols/dnp3.md`, `.context/protocols/dnp3.md`, `docs/SECURITY.md`; 14-10-2026.
 
+## PITF-084: dos migraciones con la versión 5 y `db migrate` muerto desde el 22-9
+**Síntoma**: al revisar `internal/db/migrations/` (14-10-2026) apareció `internal/db/migrations/00005_audit_dnp3_iin_alert_event_type.sql` junto a `00005_scan_jobs.sql`.
+**Causa**: el commit 2ec5dfd (22-9, alertas IIN de DNP3 en la cadena de auditoría) numeró su migración siguiendo la serie de las de `audit_log` (00002 a 00004), no la del directorio (la última era 00018).
+**Efecto**: goose v3.28.0 entra en pánico al ordenar las migraciones (`Migrations.Less`, "duplicate version 5 detected"), antes de tocar la base de datos: `db migrate up`, `db migrate down` y `db status` morían y ninguna base se podía crear ni actualizar. Reproducido sin base de datos con `goose.CollectMigrations` sobre el FS embebido. Nadie lo vio: el CI no levanta Postgres y la suite de integración se salta sin `DATABASE_URL`.
+**Fix (14-10-2026)**: renumerada a `00019_audit_dnp3_iin_alert_event_type.sql`, mismo SQL. Una base migrada antes del 22-9 está como mucho en la 18 y aplica lo que le falte, hasta la 19; ninguna puede tener la "5" de DNP3. Tests en `internal/db` (versiones únicas y goose recoge 1..N sin huecos, sin base de datos); con los ficheros antiguos fallan los dos. No ejecutado contra un Postgres real (no había ninguno en marcha).
+**Además**: el job `integration` del CI no levanta Postgres y acaba en `|| echo "no integration suite yet"`, así que nunca puede fallar (anotado en TODO-vNext).
+**Regla**: una migración nueva toma el siguiente número del directorio, nunca el de "su serie"; y lo que el CI no ejecuta necesita un test que lo cubra sin la dependencia (aquí, recoger las migraciones sin base de datos).
+**Ver**: `internal/db/{migrations_test.go,migrations/00019_audit_dnp3_iin_alert_event_type.sql}`, `internal/audit/events.go`; 14-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
