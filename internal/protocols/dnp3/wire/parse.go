@@ -100,6 +100,6 @@ func BuildLinkStatusSweep(src, last uint16) []byte {
 // that matches. A real outstation always sends a correct CRC, and
 // discards any frame whose CRC is wrong.
 func ValidHeader(b []byte) bool {
-	h, err := ParseHeader(b)
-	return err == nil && CRC16(b[0:8]) == h.CRC
+	_, err := ParseCheckedHeader(b)
+	return err == nil
 }

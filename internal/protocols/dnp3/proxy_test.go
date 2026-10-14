@@ -3,6 +3,7 @@ package dnp3_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
 	"net"
@@ -14,16 +15,36 @@ import (
 )
 
 // buildFrame returns a minimal link-layer-only DNP3 frame with the
-// given control byte.
+// given control byte and a correct header CRC (the proxy checks it).
 func buildFrame(control uint8) []byte {
-	return []byte{
+	f := []byte{
 		wire.StartBytes[0], wire.StartBytes[1],
 		0x05,       // length
 		control,    // control
 		0x00, 0x00, // dest
 		0x01, 0x00, // src
-		0x00, 0x00, // CRC (unused by proxy)
+		0x00, 0x00, // CRC
 	}
+	binary.LittleEndian.PutUint16(f[8:10], wire.CRC16(f[0:8]))
+	return f
+}
+
+// buildDataFrame returns a frame with the given control byte carrying
+// userData in CRC'd blocks, header CRC included.
+func buildDataFrame(control uint8, userData []byte) []byte {
+	f := buildFrame(control)
+	f[2] = byte(5 + len(userData)) // #nosec G115 -- test data under 250 octets
+	binary.LittleEndian.PutUint16(f[8:10], wire.CRC16(f[0:8]))
+	return append(f, wire.AppendBlockCRCs(userData)...)
+}
+
+// directOperateTrip is the user data of a Direct Operate (FC 5) of one
+// CROB, g12v1 index 7, TRIP + PULSE_ON (0x81): the breaker trip the
+// write-ban exists to stop.
+var directOperateTrip = []byte{
+	0xC0, 0xC0, 0x05,
+	0x0C, 0x01, 0x17, 0x01, 0x07,
+	0x81, 0x01, 0x64, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00,
 }
 
 func readFullDNP3(r io.Reader) ([]byte, error) {
@@ -57,8 +78,10 @@ func TestProxy_UserDataRefused(t *testing.T) {
 		upstreamGot <- buf
 	}()
 
-	// Unconfirmed User Data: PRM=1 DIR=1 FC=4 -> 0xC4.
-	req := buildFrame(0xC4)
+	// Unconfirmed User Data: PRM=1 DIR=1 FC=4 -> 0xC4, carrying a Direct
+	// Operate (a user-data frame without data is invalid and discarded).
+	_ = client.SetDeadline(time.Now().Add(2 * time.Second))
+	req := buildDataFrame(0xC4, directOperateTrip)
 	if _, err := client.Write(req); err != nil {
 		t.Fatalf("client write: %v", err)
 	}
@@ -161,24 +184,21 @@ func upstreamFrames(upstream net.Conn) <-chan []byte {
 // Process (a reset) and 2 is Test Link States (Wireshark packet-dnp.c,
 // nmap dnp3-info.nse). The table had them the other way round, so the
 // read-only proxy forwarded a reset and refused a Test Link (PITF-074).
+// Since PITF-081 a Reset of User Process, removed in IEEE 1815-2012,
+// is an invalid frame and is discarded without a reply.
 func TestProxy_LinkFunctionNumbering(t *testing.T) {
 	t.Parallel()
 	client, upstream := startProxy(t)
 	got := upstreamFrames(upstream)
 
-	// Reset of User Process: DIR=1 PRM=1 FC=1 -> 0xC1. Refused.
+	// Reset of User Process: DIR=1 PRM=1 FC=1 -> 0xC1. Discarded. On a
+	// synchronous pipe a reply nobody reads would block the proxy, and
+	// the next write would hit the deadline.
 	if _, err := client.Write(buildFrame(0xC1)); err != nil {
 		t.Fatalf("client write: %v", err)
 	}
-	resp, err := readFullDNP3(client)
-	if err != nil {
-		t.Fatalf("client read: %v", err)
-	}
-	if resp[3] != 0x0F {
-		t.Fatalf("Reset of User Process: reply control=0x%02x, want 0x0F refusal", resp[3])
-	}
-	// Test Link States: DIR=1 PRM=1 FC=2 -> 0xC2. Forwarded.
-	tl := buildFrame(0xC2)
+	// Test Link States: DIR=1 PRM=1 FCV=1 FC=2 -> 0xD2. Forwarded.
+	tl := buildFrame(0xD2)
 	if _, err := client.Write(tl); err != nil {
 		t.Fatalf("client write: %v", err)
 	}
@@ -227,5 +247,88 @@ func TestProxy_RefusedUserDataKeepsStreamInSync(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("the frame after a refused user-data frame was lost (stream out of sync)")
+	}
+}
+
+// TestProxy_SecondaryFrameCarryingDataDiscarded: a Direct Operate TRIP
+// wrapped in a frame with PRM cleared (control 0x84, "secondary FC 4",
+// a function that does not exist) reached the outstation through the
+// write-ban until 2026-10-14, because every PRM=0 frame classified as a
+// read and was forwarded with its body (PITF-081). The same held for
+// Request Link Status and Test Link carrying data. AN2013-004b Table 1
+// says to discard all of them; the next valid frame still forwards.
+func TestProxy_SecondaryFrameCarryingDataDiscarded(t *testing.T) {
+	t.Parallel()
+	for _, ctrl := range []uint8{0x84, 0x04, 0x8B, 0xC9, 0xD2} {
+		client, upstream := startProxy(t)
+		got := upstreamFrames(upstream)
+		if _, err := client.Write(buildDataFrame(ctrl, directOperateTrip)); err != nil {
+			t.Fatalf("ctrl 0x%02x: client write: %v", ctrl, err)
+		}
+		select {
+		case f := <-got:
+			t.Fatalf("ctrl 0x%02x: the frame carrying a Direct Operate reached the outstation: % x", ctrl, f)
+		case <-time.After(100 * time.Millisecond):
+		}
+		rls := wire.BuildRequestLinkStatus(1, 0)
+		if _, err := client.Write(rls); err != nil {
+			t.Fatalf("ctrl 0x%02x: client write after the discarded frame: %v", ctrl, err)
+		}
+		select {
+		case f := <-got:
+			if !bytes.Equal(f, rls) {
+				t.Fatalf("ctrl 0x%02x: upstream got % x, want only the Request Link Status (the Direct Operate must never arrive)", ctrl, f)
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatalf("ctrl 0x%02x: the frame after a discarded one was lost (stream out of sync)", ctrl)
+		}
+	}
+}
+
+// TestProxy_ResyncAfterBadHeader: a header whose CRC is wrong cannot be
+// trusted to frame anything, so the proxy forwards nothing of it and
+// hunts for the next valid header, as AN2013-004b prescribes; line noise
+// from a serial master behind a terminal server does not end the session.
+func TestProxy_ResyncAfterBadHeader(t *testing.T) {
+	t.Parallel()
+	client, upstream := startProxy(t)
+	got := upstreamFrames(upstream)
+	bad := wire.BuildRequestLinkStatus(1, 0)
+	bad[8] ^= 0x01
+	rls := wire.BuildRequestLinkStatus(2, 0)
+	in := append(append([]byte{0xFF, 0x05}, bad...), rls...)
+	if _, err := client.Write(in); err != nil {
+		t.Fatalf("client write: %v", err)
+	}
+	select {
+	case f := <-got:
+		if !bytes.Equal(f, rls) {
+			t.Fatalf("upstream got % x, want only the valid Request Link Status % x", f, rls)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("the valid frame after a bad header was lost")
+	}
+}
+
+// TestProxy_LinkAckForwarded: the header-only link replies a master
+// returns to an outstation (ACK, with and without DFC, and LINK_STATUS)
+// still cross the proxy after validation.
+func TestProxy_LinkAckForwarded(t *testing.T) {
+	t.Parallel()
+	for _, ctrl := range []uint8{0x80, 0x90, 0x8B} {
+		client, upstream := startProxy(t)
+		got := upstreamFrames(upstream)
+		f := buildFrame(ctrl)
+		if _, err := client.Write(f); err != nil {
+			t.Fatalf("ctrl 0x%02x: client write: %v", ctrl, err)
+		}
+		select {
+		case u := <-got:
+			if !bytes.Equal(u, f) {
+				t.Fatalf("ctrl 0x%02x: upstream got % x, want % x", ctrl, u, f)
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatalf("ctrl 0x%02x: a master's link reply was not forwarded", ctrl)
+		}
 	}
 }

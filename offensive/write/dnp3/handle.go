@@ -3,11 +3,13 @@
 package dnp3
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	"local/elsereno/internal/protocols/dnp3/wire"
 	"local/elsereno/offensive/confirm"
@@ -38,10 +40,11 @@ type WriteGatedHandler struct {
 	// Target is the upstream host:port. Must match
 	// confirm.Mutation.Target used to mint the session token.
 	Target string
-	// Allowed lists the link-layer primary function codes the
-	// session accepts. Zero length forbids all primary frames except
-	// Reset-Link (0), Test-Link (2), and Request-Link-Status (9),
-	// which are transport-level.
+	// Allowed lists the link-layer primary function codes the session
+	// accepts for user data. Zero length lets both user-data functions
+	// (3 and 4) through to the application-layer gate. Reset-Link (0),
+	// Test-Link (2) and Request-Link-Status (9) always pass, header-only;
+	// any other function is an invalid frame and is discarded first.
 	Allowed []AllowedControl
 	// AllowedAppFC lists the application-layer function codes permitted
 	// inside user-data frames (link-layer FC 3 + 4). Read (0x01) is
@@ -155,35 +158,47 @@ func (h *WriteGatedHandler) Handle(ctx context.Context, client, upstream io.Read
 	}
 }
 
+// Discard logging. The master side decides how many frames the gate
+// discards, so after the first discardLogBurst in a session only every
+// discardLogEvery-th is logged, with the running count.
+const (
+	discardLogBurst = 3
+	discardLogEvery = 1000
+)
+
+func logDiscard(n int, reason error) {
+	if n <= discardLogBurst || n%discardLogEvery == 0 {
+		log.Printf("dnp3: discarded from the master side (%d this session): %v", n, reason)
+	}
+}
+
 // forward reads full link-layer frames from the client (header + the
-// block-CRC-framed user data), decides allow/refuse, and emits either
-// the frame verbatim upstream or an IIN2 FUNC_NOT_SUPP refusal back to
-// the client.
+// block-CRC-framed user data) and does one of three things: discards a
+// frame that fails AN2013-004b Table 1, without a reply; forwards an
+// allowed frame verbatim upstream; or answers a refused one with an
+// IIN2 FUNC_NOT_SUPP response.
 func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.Writer) error {
-	hdr := make([]byte, wire.HeaderLen)
+	r := bufio.NewReader(client)
+	discards := 0
 	for {
-		if _, err := io.ReadFull(client, hdr); err != nil {
+		// ReadFrame skips octets that do not start a valid header (start
+		// octets, LENGTH, header CRC) and reads the body as user data
+		// interleaved with a 2-byte CRC after each <=16-octet block.
+		lh, hdr, wireBody, skipped, err := wire.ReadFrame(r)
+		if err != nil {
 			return err
 		}
-		lh, err := wire.ParseHeader(hdr)
+		if skipped > 0 {
+			discards++
+			logDiscard(discards, fmt.Errorf("%d octets before a valid link header", skipped))
+		}
+		// AN2013-004b Table 1 first: a frame a conformant outstation
+		// would discard is discarded here too, without a reply. This
+		// also verifies every block CRC and de-blocks the user data.
+		apdu, err := wire.CheckToOutstation(lh, wireBody)
 		if err != nil {
-			return fmt.Errorf("dnp3: parse header: %w", err)
-		}
-		// Read the on-wire body: user data interleaved with a 2-byte
-		// CRC after each <=16-octet block.
-		wireBody := make([]byte, wire.BodyLen(lh.Length))
-		if len(wireBody) > 0 {
-			if _, err := io.ReadFull(client, wireBody); err != nil {
-				return err
-			}
-		}
-		// De-block for inspection (verifies every block CRC). A
-		// malformed frame fails closed.
-		apdu, ok := wire.StripBlockCRCs(wireBody, int(lh.Length)-5)
-		if !ok {
-			if _, err := clientWriter.Write(buildFuncNotSuppResponse(lh)); err != nil {
-				return err
-			}
+			discards++
+			logDiscard(discards, err)
 			continue
 		}
 		if h.shouldForward(lh, apdu) {
@@ -198,13 +213,17 @@ func (h *WriteGatedHandler) forward(client io.Reader, upstream, clientWriter io.
 	}
 }
 
-// shouldForward applies the gate. Transport-level link FCs (0,2,9)
-// always pass; 3/4 (user data) consult the destination address, the
+// shouldForward applies the gate to a frame that passed
+// wire.CheckToOutstation. Transport-level link FCs (0,2,9) always pass,
+// header-only; 3/4 (user data) consult the destination address, the
 // link-address pins, the app-layer FC and the CROB scope.
 func (h *WriteGatedHandler) shouldForward(lh wire.Header, apdu []byte) bool {
 	if lh.Control&0x40 == 0 {
-		// Secondary frame (outstation -> master). Never originates on
-		// the client side in our pipe; pass through.
+		// Secondary frame: a header-only link reply the master returns
+		// to the outstation (ACK, NACK, LINK_STATUS, NOT SUPPORTED);
+		// CheckToOutstation refused any other secondary function and
+		// any body. Until 2026-10-14 every PRM=0 frame passed here with
+		// its body and skipped all four layers (PITF-081).
 		return true
 	}
 	primaryFC := lh.Control & 0x0F

@@ -24,38 +24,99 @@ Operate skips even that.
   frames is rejected first (PITF-071).
 - Limit: an outstation above address 100, or one that only answers a
   configured master address, stays silent (same reach as nmap).
+- Footprint: the probe is 101 Request Link Status frames from one
+  source to 101 destination link addresses. The "DNP3 Attack & Defend"
+  poster lists "one source touching many DNP3 destination link
+  addresses" among the suspicious patterns and maps the link-address
+  sweep to ATT&CK for ICS T0840 Network Connection Enumeration, so a
+  DNP3-aware IDS flags it, as it flags nmap's `dnp3-info.nse`. The
+  outstation sees only link-layer status requests.
 - Until 2026-10-07 the code sent a zero-CRC header to address 1, which
   a real outstation discards, while this page already described the
   Request Link Status (PITF-073).
 
+## Frame validation (both proxies)
+
+Before either proxy classifies a frame from the master side, it applies
+the stateless rows of the DNP Users Group Application Note AN2013-004b,
+"Validation of Incoming DNP3 Data" (revision b, 2014-08-13), Table 1:
+the conditions under which an outstation's data link layer must discard
+a frame (`wire.ReadFrame` + `wire.CheckToOutstation`).
+
+- **Header invalid** (start octets, LENGTH below 5, or header CRC):
+  nothing of it is forwarded and the proxy hunts for the next valid
+  header octet by octet, as the note prescribes after a discard. The
+  LENGTH of such a header cannot be trusted to frame anything, and a
+  serial master behind a terminal server can deliver line noise inside
+  TCP, so this does not end the session. (Before 2026-10-14 bad start
+  octets ended it.)
+- **Discarded without a reply**, as a conformant outstation discards
+  it: a control octet whose PRM / FCV / function combination IEEE
+  1815-2012 does not define (Test Link and Confirmed User Data need
+  FCV=1; Reset Link, Unconfirmed User Data and Request Link Status need
+  FCV=0; Reset of User Process, primary 1, was removed in 2012; a
+  secondary frame may only be ACK, NACK, LINK_STATUS or NOT SUPPORTED);
+  any frame other than user data whose LENGTH is not 5 (it carries
+  data it must not carry); user data with no data; a destination in
+  `0xFFF0-0xFFFB` (reserved); anything but user data to a broadcast
+  address; a source in `0xFFF0-0xFFFF`; a bad block CRC.
+- **Not applied**, because a proxy does not track the link state or
+  know the outstation's configuration: "PRM clear while no secondary is
+  expected", "secondary not a permitted response", the FCB check, and
+  the outstation's own address (the offensive gate's `--dnp3-link`
+  pins it instead). A secondary frame that passes is header-only, so it
+  carries no application data. A frame shorter than its LENGTH is not
+  discarded: on a stream the proxy waits for the rest.
+
+Until 2026-10-14 neither proxy did this. Both forwarded every PRM=0
+frame and the link functions 2 and 9 (the offensive gate also 0) with
+whatever body they carried: a Direct Operate TRIP inside a frame with control `0x84` (a
+"secondary function 4" that does not exist) crossed the default
+write-ban and skipped all four layers of the offensive gate. Whether
+an outstation acted on it depended on its stack: a conformant one
+discards it, and Project Robus (Crain and Sistrunk, 2013-14) disclosed
+dozens of flaws in how DNP3 stacks handle malformed input. Not tested
+against a real outstation (PITF-081).
+
 ## Proxy policy (default build)
 
-Every frame's link-layer control byte is classified:
+After validation, every frame's link-layer control byte is classified:
 
-- **CategoryRead**: PRM=0 responses, PRM=1 Test Link States (FC 2),
-  PRM=1 Request Link Status (FC 9). Forward untouched.
-- **CategoryWrite**: PRM=1 Reset Link States (FC 0), Reset of User
-  Process (FC 1, obsolete since IEEE 1815-2012), Confirmed User Data
-  (FC 3), Unconfirmed User Data (FC 4). The user-data frames carry the
-  application layer, so the default build conservatively blocks them.
+- **CategoryRead**: the header-only link replies a master returns
+  (PRM=0 ACK, NACK, LINK_STATUS, NOT SUPPORTED), PRM=1 Test Link States
+  (FC 2), PRM=1 Request Link Status (FC 9). Forward untouched.
+- **CategoryWrite**: PRM=1 Reset Link States (FC 0), Confirmed User
+  Data (FC 3), Unconfirmed User Data (FC 4). The user-data frames carry
+  the application layer, so the default build conservatively blocks
+  them. Reset of User Process (FC 1, removed in IEEE 1815-2012) no
+  longer reaches classification: it is an invalid frame.
 - Until 2026-10-07 the table had Test Link as FC 1, so this proxy
   forwarded a Reset of User Process and refused a real Test Link; and
   it read a refused frame's body without its block CRCs, which broke
   the next frame (PITF-074). The numbering now matches Wireshark's
   `packet-dnp.c`.
-- **CategoryUnknown**: any primary FC outside the table. Blocked.
+- **CategoryUnknown**: any other function. Blocked (validation already
+  discards them; the classifier refuses them on its own as well).
 
 Refusal is a secondary FC 15 "Not Supported" frame with the source and
 destination swapped and a correct header CRC.
 
 ## Writes (`-tags offensive`)
 
-The offensive build replaces the deny-all proxy with a four-layer
+The offensive build replaces the default write-ban proxy with a four-layer
 write-gate (`offensive/write/dnp3`). Read (FC 1) always passes;
-everything else is default-deny.
+everything else is default-deny. Before the four layers it applies the
+same frame validation as the default proxy (above) and discards an
+invalid frame without a reply, logging the reason to stderr (the first
+three per session, then one line every thousand with the running count).
 
-1. **Link-layer primary FC** (`--dnp3-primary`, optional). By default
-   user-data frames pass to the application-layer gate.
+1. **Link-layer primary FC** (`--dnp3-primary`, optional, `3` or `4`).
+   By default both user-data functions pass to the application-layer
+   gate; listing `3` or `4` restricts them to confirmed or unconfirmed
+   user data (a Read inside the other one is refused too). Reset Link
+   (0), Test Link (2) and Request Link Status (9) always pass,
+   header-only, so the flag rejects them, as it rejects any function
+   IEEE 1815-2012 does not define.
 2. **Destination link address.** A control or write to a broadcast
    address (`0xFFFD-0xFFFF`) reaches every outstation on the loop at
    once and cannot be scoped, so it is always refused. `--dnp3-link
@@ -83,7 +144,7 @@ Refusal is a well-formed DNP3 response carrying `IIN2` bit 2
 "FUNC_NOT_SUPP" (byte2 `0x04`) with correct header and block CRCs, so
 the master parses it rather than seeing a wire fault. The gate reads
 the full block-CRC-framed body and verifies every block CRC: a corrupt
-frame fails closed.
+frame is discarded.
 
 ```sh
 # Mint the token: allow a LATCH on points 5-8 only, pin the master,
@@ -166,7 +227,8 @@ signals below, but it is not a full IDS.
 | Anti-forensics | FC 9/10 Freeze-and-Clear wipes accumulators; the IIN "Device Restart / Config Corrupt" bits are the evidence | Freeze/Clear default-deny; the request is recorded, and the response-path monitor alerts on the Config-Corrupt / Restart IIN bits |
 | Enumeration / fuzzing | probing FCs, objects and qualifiers to map the outstation | A run of Function-not-supported / Object-unknown / Parameter-error responses trips one `error_burst` alert from the IIN |
 | Program Upload (T0845) | FC 25-30 file operations move config / firmware off or onto the device | Default-deny |
-| Malformed-frame abuse | a truncated frame, a bad block CRC, or a CROB with an unsupported qualifier | The gate verifies every block CRC and fails closed; a malformed control is refused, not forwarded |
+| Malformed-frame abuse | a truncated frame, a bad header or block CRC, a reserved address, or a CROB with an unsupported qualifier | Both proxies apply the stateless rows of AN2013-004b Table 1: an invalid frame is discarded without a reply and an invalid header is skipped until the next valid one; a malformed control is refused, not forwarded |
+| Request smuggling | an application request inside a frame whose link function carries no data (PRM=0, Request Link Status, Test Link, Reset Link) | Discarded before classification since 2026-10-14; until then it crossed both proxies (PITF-081) |
 
 Note the asymmetry the poster stresses: reads forward (a passive tap
 must not break the process it observes), controls and writes are
@@ -177,11 +239,20 @@ control code) is inspected, not waved through with the function code.
 
 - DNP3 outstations at power-utility RTUs, DER inverters, reclosers, and
   substation IEDs; a control here throws a physical breaker.
-- The link-layer probe is invisible to most deployed DNP3 RTUs and does
-  not disrupt Class 0 polling.
+- The link-layer probe carries no application-layer request and changes
+  no outstation state (Request Link Status asks for the link status; it
+  does not reset the link). It is not invisible on the network: see the
+  footprint under Probe. (Until 2026-10-14 this page called it
+  "invisible to most deployed DNP3 RTUs".)
 
 ## Public references
 
 - IEEE Std 1815-2012; the DNP Users Group object library.
+- DNP Users Group, Application Note AN2013-004b "Validation of Incoming
+  DNP3 Data" (2014-08-13):
+  <https://www.dnp.org/Portals/0/Public%20Documents/DNP3%20AN2013-004b%20Validation%20of%20Incoming%20DNP3%20Data.pdf>
+- Pascal Ackerman, "DNP3 Attack & Defend" poster, v1.0, September 2026,
+  CC BY 4.0:
+  <https://github.com/SackOfHacks/OT_Security_OnePagers/tree/main/DNP3>
 - NIST SP 800-82r3; NERC CIP-005 / CIP-007.
 - Wireshark DNP3 dissector (`packet-dnp3.c`); CISA/INL ICSNPP-DNP3.

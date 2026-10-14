@@ -1,6 +1,7 @@
 package dnp3
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -76,14 +77,17 @@ func (p *Plugin) REPL(_ context.Context, _ *core.Session) error {
 	return fmt.Errorf("dnp3: REPL arrives with the generic framework")
 }
 
-// ProxyHandler returns the default DNP3 proxy, which refuses every
-// primary (PRM=1) frame except Test Link States (FC 2) and Request
-// Link Status (FC 9); user-data frames (FC 3/4) can carry mutating
-// application-layer requests and Reset Link States (FC 0) and Reset
-// of User Process (FC 1) are resets, so all are short-circuited with
-// a secondary "Not Supported" (FC 15) reply (ADR-040). The offensive
-// build substitutes a handler that parses the application layer and
-// routes writes through the triple-confirm wrapper.
+// ProxyHandler returns the default DNP3 proxy. It first discards any
+// frame a conformant outstation would discard (AN2013-004b Table 1, see
+// wire.CheckToOutstation), so a frame that passes is header-only unless
+// it is user data. It then forwards Test Link States (FC 2), Request
+// Link Status (FC 9) and the header-only link replies a master returns
+// (ACK, NACK, LINK_STATUS, NOT SUPPORTED); user-data frames (FC 3/4)
+// can carry mutating application-layer requests and Reset Link States
+// (FC 0) is a reset, so both are short-circuited with a secondary "Not
+// Supported" (FC 15) reply (ADR-040). The offensive build substitutes a
+// handler that parses the application layer and routes writes through
+// the triple-confirm wrapper.
 func (p *Plugin) ProxyHandler() core.ProxyHandler { return &writeBanHandler{} }
 
 type writeBanHandler struct{}
@@ -103,37 +107,32 @@ func (writeBanHandler) Handle(ctx context.Context, client, upstream io.ReadWrite
 	}
 }
 
-// forwardFiltered reads one DNP3 link-layer frame at a time. Frames
-// classified as Read forward; every other frame is short-circuited
-// with a protocol-native refusal reply.
+// forwardFiltered reads one DNP3 link-layer frame at a time. Octets
+// that do not start a valid header are skipped until one does
+// (wire.ReadFrame), and a frame that fails AN2013-004b Table 1 is
+// discarded without a reply, as a conformant outstation discards both.
+// Frames classified as Read forward; every other frame is
+// short-circuited with a protocol-native refusal reply.
 func forwardFiltered(client io.Reader, upstream io.Writer, clientWriter io.Writer) error {
-	buf := make([]byte, wire.HeaderLen)
+	r := bufio.NewReader(client)
 	for {
-		if _, err := io.ReadFull(client, buf); err != nil {
-			return err
-		}
-		h, err := wire.ParseHeader(buf)
+		// ReadFrame reads the body as user data plus a 2-octet CRC after
+		// every started 16-octet block; reading only Length-5 octets left
+		// the CRCs in the stream and broke the next header (PITF-074).
+		h, hdr, body, _, err := wire.ReadFrame(r)
 		if err != nil {
 			return err
 		}
-		// The on-wire body is the user data plus a 2-octet CRC after
-		// every started 16-octet block; reading only Length-5 octets left
-		// the CRCs in the stream and broke the next header (PITF-074).
-		bodyLen := wire.BodyLen(h.Length)
-		body := make([]byte, bodyLen)
-		if bodyLen > 0 {
-			if _, err := io.ReadFull(client, body); err != nil {
-				return err
-			}
+		// Until 2026-10-14 this proxy forwarded any PRM=0 frame, and the
+		// link functions 2 and 9, with whatever body they carried, so an
+		// application request wrapped in one crossed the write-ban
+		// (PITF-081).
+		if _, err := wire.CheckToOutstation(h, body); err != nil {
+			continue
 		}
 		if wire.ClassifyControl(h.Control) == wire.CategoryRead {
-			if _, werr := upstream.Write(buf); werr != nil {
+			if _, werr := upstream.Write(append(hdr, body...)); werr != nil {
 				return werr
-			}
-			if bodyLen > 0 {
-				if _, werr := upstream.Write(body); werr != nil {
-					return werr
-				}
 			}
 			continue
 		}

@@ -1,12 +1,18 @@
 ---
 phase: any
 status: living
-last-updated: 2026-09-22
+last-updated: 2026-10-14
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-10-14: **DNP3 frame validation in both proxies (PITF-081).**
+  `wire.ReadFrame` (resync on an invalid header) + `wire.CheckToOutstation`
+  (stateless rows of AN2013-004b Table 1) run before classification in
+  the default write-ban and the offensive gate; until then any PRM=0
+  frame and link FC 2/9 (the gate also 0) crossed with their body.
 
 - 2026-09-22 (4): **DNP3 g41 Analog Output Block scoping.** The control
   scope now covers analog setpoints, not just breakers: `--dnp3-analog

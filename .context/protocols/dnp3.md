@@ -1,7 +1,7 @@
 ---
 phase: F4
 status: implemented
-last-updated: 2026-09-22
+last-updated: 2026-10-14
 token-budget: 1000
 protocol-name: dnp3
 default-port: 20000/tcp
@@ -35,7 +35,7 @@ discard (PITF-073).
 Wired 2026-09-22 (`write dnp3 proxy-dry-run` + `proxy listen --plugin
 dnp3`). Four-layer gate in `offensive/write/dnp3`, all bound into the
 confirm-token via `AllowlistHash(target, Allowlist{...})`:
-1. link-layer primary FC (`--dnp3-primary`, optional).
+1. link-layer primary FC (`--dnp3-primary`, optional, 3 or 4 only).
 2. destination link address: broadcast `0xFFFD-0xFFFF` mutating frames
    always refused (`wire.IsBroadcast`).
 3. application-layer FC (`--dnp3-app-fc`); Read (0x01) always passes.
@@ -55,7 +55,8 @@ a well-formed `IIN2 FUNC_NOT_SUPP` (byte2 0x04) with correct CRCs.
 
 The forwarder reads the full block-CRC-framed body (`wire.BodyLen` +
 `wire.StripBlockCRCs`), not just `Length-5` octets, so real user-data
-frames are framed correctly; a bad block CRC fails closed. CRC is
+frames are framed correctly; a bad block CRC is discarded without a
+reply (it was answered with a refusal until 2026-10-14). CRC is
 CRC-16/DNP (poly 0x3D65, reflected, xorout 0xFFFF; check "123456789" =
 0xEA82) in `wire.CRC16`.
 
@@ -63,8 +64,19 @@ CRC-16/DNP (poly 0x3D65, reflected, xorout 0xFFFF; check "123456789" =
 - See the generic REPL framework.
 
 ## Proxy hooks
-Default build: deny-all (link-layer classify + FC 15 refusal, correct
-CRC). Offensive build: the four-layer write-gate above, plus a
+Both builds first apply the stateless rows of AN2013-004b Table 1
+(`wire.ReadFrame` + `wire.CheckToOutstation`): an invalid header (start
+octets, LENGTH, CRC) is skipped octet by octet until the next valid one
+(resync, as the note prescribes); an invalid control combination, data on a frame that
+must be header-only, user data without data, reserved destination
+`0xFFF0-0xFFFB`, non-user-data to broadcast, reserved source
+`0xFFF0-0xFFFF` or a bad block CRC is discarded without a reply (the
+offensive gate logs it). Until 2026-10-14 both forwarded any PRM=0
+frame and link FC 2/9 (the gate also 0) with their body, so an app request inside one
+crossed the write-ban and skipped the gate's four layers (PITF-081).
+Default build: write-ban (forwards only Test Link, Request Link Status
+and the master's header-only link replies; everything else gets an FC 15
+refusal with a correct CRC). Offensive build: the four-layer write-gate above, plus a
 response-path IIN monitor (`offensive/write/dnp3/iinmonitor.go`,
 `wire.ParseIIN`/`IINStateChange`/`IINError`/`IINBits`): the return
 path is parsed (verbatim-forward-first, fail-open on desync) and raises

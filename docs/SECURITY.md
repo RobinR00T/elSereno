@@ -393,7 +393,14 @@ Cada protocol gate scopea writes:
 - **Red Lion CR3**: per-Type opcode (length-prefixed frames).
 - **DNP3**: per app-FC + per-CROB `(point-index, control-code)`
   (TRIP/CLOSE default-deny), broadcast-control (0xFFFD-0xFFFF) deny,
-  master↔outstation link-address pinning. Reads siempre pasan.
+  master↔outstation link-address pinning. Reads siempre pasan. Antes
+  de las cuatro capas, los dos proxies aplican las filas sin estado de
+  la Tabla 1 de la nota AN2013-004b del DNP Users Group: descartan sin
+  responder una trama con CRC de bloque erróneo, combinación de control
+  inválida, datos en una trama que no los admite o direcciones
+  reservadas, y saltan una cabecera inválida hasta la siguiente válida.
+  Hasta el 14-10-2026 una trama con PRM=0 cruzaba con su cuerpo
+  (PITF-081).
 - Rechazo: FINS/SLMP responden con error nativo del protocolo;
   GE-SRTP/CoDeSys/Red Lion cierran la conexión (fail-closed);
   OPC UA devuelve un ServiceFault nativo; DNP3 devuelve un IIN2

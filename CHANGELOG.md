@@ -292,6 +292,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **DNP3: both proxies now validate frames before classifying them
+  (PITF-081).** Neither the default write-ban nor the offensive gate
+  checked a frame from the master side against the DNP Users Group's
+  AN2013-004b "Validation of Incoming DNP3 Data", Table 1. Both
+  forwarded every PRM=0 frame and the link functions 2 and 9 (the
+  offensive gate also 0) with whatever body they carried: a Direct Operate TRIP inside a frame with
+  control `0x84` (a secondary function that does not exist) reached the
+  outstation through the default proxy and skipped the offensive gate's
+  four layers even with an empty allowlist. A conformant outstation
+  discards such a frame; whether a given stack acts on it was not tested.
+  Now `wire.ReadFrame` + `wire.CheckToOutstation` run first. An invalid
+  header (start octets, LENGTH below 5, header CRC) is skipped octet by
+  octet until the next valid one, as the note prescribes. An invalid
+  PRM/FCV/function combination, data on a frame that must be
+  header-only, user data without data, a reserved destination
+  (`0xFFF0-0xFFFB`) or source (`0xFFF0-0xFFFF`), anything but user data
+  to a broadcast address, or a bad block CRC is discarded without a
+  reply (the offensive gate logs the reason, rate-limited). The
+  classifier also stops treating every PRM=0 function as a read, and
+  `--dnp3-primary` accepts only the user-data functions 3 and 4 (0, 2
+  and 9 always pass, and any other is not defined by IEEE 1815-2012; a
+  list holding only those used to refuse every user-data frame, Read
+  included). Tests per Table 1 row, resync, a fuzz
+  target, and a mutation check on both proxies.
+
+  **Behaviour changes, none for a conformant master** (checked against
+  the note's Figure 1: ACK `0x80`/`0x90`, NACK, LINK_STATUS `0x8B`,
+  NOT SUPPORTED, Reset Link `0xC0`, Test Link `0xD2`/`0xF2`, Confirmed
+  Data `0xD3`/`0xF3`, Unconfirmed Data `0xC4` and Request Link Status
+  `0xC9` still pass). Now discarded without a reply: Reset of User
+  Process (`0xC1`, was refused), Test Link with FCV=0 (`0xC2`, was
+  forwarded), Confirmed User Data with FCV=0 (`0xC3`; the gate used to
+  pass a Read inside it), Unconfirmed User Data or Request Link Status
+  with FCV=1 (`0xD4`, `0xD9`), Reset Link with FCV=1 (`0xD0`), user data
+  with no data (was refused), a secondary frame with bit 5 set, frames
+  to reserved addresses or non-user-data to broadcast (were forwarded),
+  and in the offensive gate a bad block CRC (was refused). Bad start
+  octets no longer end the session (resync instead), and a bad header
+  CRC, which neither proxy checked, now gets the header skipped too.
+  The DNP3 page also stops calling the probe "invisible": 101 Request Link Status frames to 101 link
+  addresses is the link-address sweep a DNP3-aware IDS flags (ATT&CK for
+  ICS T0840).
 - **DNP3 gate: confirm-token now binds the full allowlist + correct
   framing.** The DNP3 session hash previously bound only the link-layer
   primary function codes, so the application-FC allowlist (the thing

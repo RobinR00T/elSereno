@@ -96,8 +96,8 @@ func addDNP3AllowlistFlags(fs dnp3FlagSet, appFCs, links, controls, analogs, pri
 		"pin a master->outstation link-address pair: src=N;dest=M (repeatable). "+
 			"A zero/omitted field is a wildcard. Mutating frames from an unpinned pair are refused.")
 	fs.StringArrayVar(primaries, "dnp3-primary", nil,
-		"link-layer primary function code to allow (optional; repeatable). "+
-			"Default policy accepts user-data frames and lets the app-layer gate decide.")
+		"user-data link function to allow (optional; repeatable): 3 (confirmed) or 4 (unconfirmed). "+
+			"Default accepts both and lets the app-layer gate decide; Reset Link, Test Link and Request Link Status always pass.")
 }
 
 func runWriteDNP3ProxyDryRun(cmd *cobra.Command, f dnp3ProxyFlags) error {
@@ -144,6 +144,13 @@ func buildDNP3Allowlist(appFCs, links, controls, analogs, primaries []string) (d
 		v, err := strconv.ParseUint(strings.TrimSpace(raw), 0, 8)
 		if err != nil {
 			return al, fmt.Errorf("--dnp3-primary %q: %w", raw, err)
+		}
+		// Only the user-data functions are gated: 0, 2 and 9 always pass
+		// header-only, and the gate discards any function IEEE 1815-2012
+		// does not define (PITF-081). A list holding none of 3 and 4
+		// would refuse every user-data frame, Read included.
+		if v != 3 && v != 4 {
+			return al, fmt.Errorf("--dnp3-primary %q: only the user-data link functions 3 (confirmed) and 4 (unconfirmed) are gated", raw)
 		}
 		al.Control = append(al.Control, dnpwrite.AllowedControl{PrimaryFC: uint8(v)}) // #nosec G115 -- bitSize 8
 	}

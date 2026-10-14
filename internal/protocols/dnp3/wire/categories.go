@@ -41,13 +41,20 @@ const (
 )
 
 // ClassifyControl returns the Category for a DNP3 link-layer control
-// byte. Only PRM=1 (primary) frames are classified; PRM=0 frames
-// are always allowed (they are responses from the outstation that
-// the master is reading, not commands into the outstation).
+// byte. A PRM=0 (secondary) frame is a link acknowledgement or status
+// the master returns to the outstation (ACK, NACK, LINK_STATUS, NOT
+// SUPPORTED) and is a read; any other secondary function is unknown.
+// The proxy runs CheckToOutstation first, so a frame classified here is
+// header-only unless it is user data: until 2026-10-14 a PRM=0 frame
+// was a read whatever its function and its body (PITF-081).
 func ClassifyControl(ctrl uint8) Category {
 	// PRM = bit 6 (0x40).
 	if ctrl&0x40 == 0 {
-		return CategoryRead
+		switch ctrl & 0x0F {
+		case SecondaryAck, SecondaryNack, SecondaryLinkStatus, SecondaryNotSupported:
+			return CategoryRead
+		}
+		return CategoryUnknown
 	}
 	fc := ctrl & 0x0F
 	switch fc {

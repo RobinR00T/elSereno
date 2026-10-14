@@ -15,8 +15,11 @@ func TestClassifyControl(t *testing.T) {
 		{"primary Confirmed Data", 0xC3, CategoryWrite},
 		{"primary Unconfirmed Data", 0xC4, CategoryWrite},
 		{"primary unknown FC 7", 0xC7, CategoryUnknown},
-		{"secondary ACK", 0x00, CategoryRead}, // PRM=0 always read
+		{"secondary ACK", 0x00, CategoryRead},
+		{"secondary Link Status", 0x0B, CategoryRead},
 		{"secondary Not Supported", 0x0F, CategoryRead},
+		{"secondary FC 4 (no such function)", 0x04, CategoryUnknown}, // PITF-081
+		{"secondary FC 4 with DIR=1", 0x84, CategoryUnknown},
 	}
 	for _, c := range cases {
 		if got := ClassifyControl(c.ctrl); got != c.want {

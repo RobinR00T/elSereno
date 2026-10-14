@@ -21,9 +21,11 @@ import (
 
 // AllowedControl scopes DNP3 link-layer primary function codes.
 type AllowedControl struct {
-	// PrimaryFC is the link-layer primary function (0 Reset Link,
-	// 1 Reset of User Process, 2 Test Link, 3 Confirmed Data,
-	// 4 Unconfirmed Data, 9 Request Link Status).
+	// PrimaryFC is a user-data link function: 3 (Confirmed User Data) or
+	// 4 (Unconfirmed User Data); the CLI accepts nothing else. Reset Link
+	// (0), Test Link (2) and Request Link Status (9) always pass,
+	// header-only, and any function IEEE 1815-2012 does not define is
+	// discarded as an invalid frame before the gate.
 	PrimaryFC uint8
 }
 
