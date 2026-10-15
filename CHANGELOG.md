@@ -459,6 +459,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The dev container runs Go 1.26, and drift there now fails the
+  audit.** `.devcontainer/devcontainer.json` still used
+  `mcr.microsoft.com/devcontainers/go:1.23-bookworm` (Go 1.23.11) while
+  `go.mod` requires Go 1.26, and the image sets `GOTOOLCHAIN=local`, so
+  `go build` inside it failed with "go.mod requires go >= 1.26.0"; its
+  `postCreateCommand` failed too (`lefthook@latest` needs Go 1.25), hidden
+  by `|| true`, so the git hooks were never installed there. It now uses
+  `go:1.26-bookworm` (Go 1.26.9), and `scripts/check-version-sync.sh`
+  (run by the `audit` job) compares the dev container's Go with
+  `go.mod`, the Dockerfile and the CI minimum matrix entry; with the
+  image back on 1.23 the check fails. The script now also reports a
+  version it cannot read (exit 2) instead of stopping silently.
+  `CONTRIBUTING.md` and `INSTALL.md` asked for Go 1.22+ and 1.25+; both
+  now say 1.26+.
+
 - **The CI `integration` job can fail again.** It started every
   simulator but never set `DATABASE_URL`, so the migration test skipped,
   and it ended in `|| echo "no integration suite yet"`, so nothing in it

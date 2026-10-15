@@ -194,8 +194,9 @@ else
     fail "Go not installed"
 fi
 
-# Version drift across go.mod / Dockerfile / ci.yml matrix (the class
-# that broke CI on the 2026-09 pgx 5.11 / Go 1.26 bump).
+# Version drift across go.mod / Dockerfile / ci.yml matrix / dev
+# container image (the class that broke CI on the 2026-09 pgx 5.11 /
+# Go 1.26 bump).
 if bash scripts/check-version-sync.sh >/tmp/.audit-vsync.$$ 2>&1; then
     ok "Go version sync: $(tail -1 /tmp/.audit-vsync.$$)"
 else

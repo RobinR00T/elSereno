@@ -1,12 +1,16 @@
 ---
 phase: any
 status: living
-last-updated: 2026-10-14
+last-updated: 2026-10-15
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-10-15: **Dev container on Go 1.26, checked.** Image
+  `devcontainers/go:1.26-bookworm` (was 1.23); `check-version-sync.sh`
+  now compares it too.
 
 - 2026-10-14 (8): **x/net v0.60.0 + toolchain go1.26.9.** Eleven new
   vulnerabilities (five in x/net, six in the 1.26.6 stdlib) had the

@@ -314,7 +314,7 @@ sudo rm -rf /etc/elsereno /var/lib/elsereno /var/log/elsereno   # if applicable
 
 ## Build from source
 
-ElSereno needs Go 1.25+ and `make`. No cgo, no C toolchain, no Postgres dev headers.
+ElSereno needs Go 1.26+ and `make`. No cgo, no C toolchain, no Postgres dev headers.
 
 ```sh
 git clone https://github.com/RobinR00T/elSereno

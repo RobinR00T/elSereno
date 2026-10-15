@@ -6,7 +6,7 @@ Phase 6.
 
 ## First 15 minutes
 
-1. Clone the repository and ensure Go 1.22+ and Docker are installed.
+1. Clone the repository and ensure Go 1.26+ and Docker are installed.
 2. Start the dev database:
 
    ```sh
