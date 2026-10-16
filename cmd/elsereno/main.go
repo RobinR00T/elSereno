@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -28,6 +29,54 @@ var (
 	flagQuiet   bool
 	flagVerbose bool
 )
+
+// dryRunAnnotation marks a command whose RunE honours --dry-run.
+const dryRunAnnotation = "elsereno/dry-run"
+
+// honoursDryRun marks cmd as one that implements --dry-run, so the root
+// lets the flag through to it.
+func honoursDryRun(cmd *cobra.Command) *cobra.Command {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[dryRunAnnotation] = "honoured"
+	return cmd
+}
+
+// refuseUnhonouredDryRun stops a command that does not implement
+// --dry-run before it runs. Until 2026-10-16 those commands ignored the
+// flag and acted: `scan --dry-run` scanned, `db migrate up --dry-run`
+// migrated (PITF-089). It is the root's PersistentPreRunE, so it only
+// runs while no subcommand defines its own persistent pre-run hook
+// (dry_run_test.go checks that none does).
+func refuseUnhonouredDryRun(cmd *cobra.Command, _ []string) error {
+	if !flagDryRun || cmd.Annotations[dryRunAnnotation] == "honoured" {
+		return nil
+	}
+	hint := "only " + strings.Join(dryRunCommands(cmd.Root()), ", ") + " implement it"
+	if strings.HasSuffix(cmd.Name(), "dry-run") {
+		hint = "this subcommand is already a dry run; drop --dry-run"
+	}
+	return fail(core.ExitUsage, fmt.Errorf("--dry-run is not implemented by `%s`; nothing was run (%s)",
+		cmd.CommandPath(), hint))
+}
+
+// dryRunCommands lists the commands marked with honoursDryRun, without
+// the root's name, in cobra's (alphabetical) order.
+func dryRunCommands(root *cobra.Command) []string {
+	var out []string
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		if c.Annotations[dryRunAnnotation] == "honoured" {
+			out = append(out, strings.TrimPrefix(c.CommandPath(), root.Name()+" "))
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(root)
+	return out
+}
 
 // exitCodeForSignal returns 128+signum for SIGINT and SIGTERM; 1 otherwise.
 func exitCodeForSignal(sig os.Signal) int {
@@ -130,7 +179,8 @@ func newRootCmd() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&flagConfig, "config", "", "path to elsereno.yaml (overrides lookup order)")
 	root.PersistentFlags().StringVar(&flagFormat, "format", "", "output format (yaml|json|table|ndjson|csv)")
-	root.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "simulate side effects; only schedule delete|enable|disable|clone|import|pause-all|resume-all honour it, other commands ignore it and act")
+	root.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "simulate side effects; only schedule delete|enable|disable|clone|import|pause-all|resume-all implement it, every other command refuses to run with it")
+	root.PersistentPreRunE = refuseUnhonouredDryRun
 	root.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "suppress non-critical output")
 	root.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "verbose logging (debug level)")
 

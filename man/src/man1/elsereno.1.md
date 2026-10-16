@@ -195,8 +195,8 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 **\--dry-run**
 :   Simulate side effects without performing them. Only **schedule
     delete**, **enable**, **disable**, **clone**, **import**,
-    **pause-all** and **resume-all** honour it; every other command
-    ignores it and acts (**scan** scans).
+    **pause-all** and **resume-all** implement it; every other command
+    refuses to run with it (exit 64) instead of acting.
 
 **\--format** *yaml|json|table|ndjson|csv*
 :   Output format selector (per-command support varies).

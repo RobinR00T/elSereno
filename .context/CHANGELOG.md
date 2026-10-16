@@ -8,6 +8,10 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (7): **`--dry-run` refused where not implemented
+  (PITF-089).** Only seven schedule verbs implement it; every other
+  command now exits 64 instead of acting.
+
 - 2026-10-16 (6): **Security panel and dashboard no longer claim the
   write-ban, protocol scope, canary, CSRF, redaction hook, subprocess
   allowlist or default-build sandbox as active (PITF-087).** web.md

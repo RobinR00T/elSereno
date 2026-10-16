@@ -96,7 +96,7 @@ token-budget: 2500
 - Request IDs propagated; OTel-compatible.
 
 ## CLI UX
-- Globals: `--format`, `--dry-run`, `--quiet`, `--verbose`, `--config`.
+- Globals: `--format`, `--dry-run`, `--quiet`, `--verbose`, `--config`. A command that implements `--dry-run` is marked with `honoursDryRun` (`cmd/elsereno/main.go`); every other command refuses the flag (PITF-089).
 - Respect `NO_COLOR`, `TERM=dumb`.
 - Exit codes per sysexits(3) + 128+signum for signals.
 - Errors include resolution hints.

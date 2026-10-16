@@ -63,16 +63,16 @@ func newScheduleCmd() *cobra.Command {
 	cmd.PersistentFlags().String("token", "", "Bearer token (default $ELSERENO_TOKEN or ~/.elsereno/token)")
 	cmd.AddCommand(newScheduleListCmd())
 	cmd.AddCommand(newScheduleGetCmd())
-	cmd.AddCommand(newScheduleDeleteCmd())
+	cmd.AddCommand(honoursDryRun(newScheduleDeleteCmd()))
 	cmd.AddCommand(newScheduleStatsCmd())
 	cmd.AddCommand(newScheduleExportCmd())
 	// v2.8+ mutating verbs.
-	cmd.AddCommand(newScheduleEnableCmd())
-	cmd.AddCommand(newScheduleDisableCmd())
-	cmd.AddCommand(newScheduleCloneCmd())
-	cmd.AddCommand(newScheduleImportCmd())
-	cmd.AddCommand(newSchedulePauseAllCmd())
-	cmd.AddCommand(newScheduleResumeAllCmd())
+	cmd.AddCommand(honoursDryRun(newScheduleEnableCmd()))
+	cmd.AddCommand(honoursDryRun(newScheduleDisableCmd()))
+	cmd.AddCommand(honoursDryRun(newScheduleCloneCmd()))
+	cmd.AddCommand(honoursDryRun(newScheduleImportCmd()))
+	cmd.AddCommand(honoursDryRun(newSchedulePauseAllCmd()))
+	cmd.AddCommand(honoursDryRun(newScheduleResumeAllCmd()))
 	return cmd
 }
 

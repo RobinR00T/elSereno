@@ -94,7 +94,9 @@ the vault master key.
 
 Operators run the target tool twice, once with its `dry-run`
 subcommand to mint the expected token, once with `--confirm-token
-<value>` to fire. (The global `--dry-run` flag is not that subcommand.)
+<value>` to fire. (The global `--dry-run` flag is not that subcommand,
+and the two cannot be combined: `write modbus dry-run --dry-run` is
+refused with exit 64 and a hint to drop the flag.)
 
 ## Deeper protocol notes
 

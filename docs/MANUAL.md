@@ -331,7 +331,8 @@ Convenciones para los ejemplos:
 - Flags globales: `--config`, `--dry-run`, `--format`, `--verbose`,
   `--quiet`. Ojo: `--dry-run` solo lo implementan `schedule delete`,
   `enable`, `disable`, `clone`, `import`, `pause-all` y `resume-all`; los
-  demás lo ignoran y actúan de verdad (`scan` escanea).
+  demás se niegan a arrancar con él (salida 64, "nothing was run"). Hasta
+  el 16-10-2026 lo ignoraban y actuaban de verdad (`scan` escaneaba).
 
 ### 7.1 `scan`
 
@@ -1147,9 +1148,9 @@ elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml
 elsereno serve --scope ./fleet-scope.yaml
 ```
 
-`scan` no tiene modo de prueba: `--dry-run` no impide que escanee.
-Para ver qué quedaría dentro del scope sin tocar nada, compara la lista
-de targets con `ranges` y `ports` a mano.
+`scan` no tiene modo de prueba: con `--dry-run` se niega a arrancar
+(salida 64). Para ver qué quedaría dentro del scope sin tocar nada,
+compara la lista de targets con `ranges` y `ports` a mano.
 
 ### Best practices
 

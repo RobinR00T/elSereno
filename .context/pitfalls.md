@@ -575,5 +575,13 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: un secreto que viaja en la URL viaja también en cada error que la cite. Si la API no admite cabecera, el error se limpia en el mismo sitio donde se construye la petición, y un test provoca el fallo de red y busca el secreto en el texto.
 **Ver**: `internal/inputs/{redact.go,redact_test.go}`, `internal/inputs/shodan/{client.go,host.go,redact_test.go}`, `internal/inputs/fofa/{client.go,redact_test.go}`; 16-10-2026.
 
+## PITF-089: `--dry-run` era un flag global que casi ningún comando respetaba
+**Síntoma**: al corregir el MANUAL (PITF-087, 16-10-2026) salió que su receta `scan --scope ... --dry-run` para ver qué targets pasarían "sin tocarlos" escaneaba de verdad: `--dry-run` es un flag persistente de la raíz ("simulate side effects without performing them") y solo lo leen siete verbos de `schedule`. La auditoría independiente lo comprobó sin querer: su `scan --dry-run` de prueba intentó conectar a `10.0.0.5:502`.
+**Causa**: el flag se declaró global con la convención de flags comunes, y cada comando tenía que implementarlo por su cuenta; nada impedía que un comando lo ignorase.
+**Efecto**: con `--dry-run`, todo comando salvo esos siete actuaba como sin él: `scan`, `discover`, `db migrate up`, `vault`, las escrituras ofensivas (estas aún exigen la triple confirmación). El operador creía estar ensayando.
+**Fix (16-10-2026)**: `honoursDryRun` marca los comandos que lo implementan; un `PersistentPreRunE` de la raíz rechaza el flag en todos los demás con salida 64 y "nothing was run", antes de leer la entrada. En los subcomandos ofensivos `dry-run` (que ya son un ensayo) el mensaje pide quitar el flag. Tests: el conjunto de comandos que lo aceptan es exactamente esos siete (un comando nuevo que lo implemente tiene que entrar en la lista, y la ayuda del flag los nombra); la guarda rechaza el flag en todo comando ejecutable sin marca, y ningún subcomando define un hook persistente propio ni desactiva el parseo de flags (cualquiera de las dos cosas la saltaría); `scan --dry-run` sale con 64 sin abrir conexión, y `schedule delete --dry-run` sigue funcionando.
+**Regla**: un flag que promete no tener efectos falla cerrado: o el comando lo implementa y lo declara, o se niega a ejecutarse. Nunca se ignora en silencio.
+**Ver**: `cmd/elsereno/{main.go,cmd_schedule.go,dry_run_test.go}`, `docs/MANUAL.md`, `man/src/man1/elsereno.1.md`; 16-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

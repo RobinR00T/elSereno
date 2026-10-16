@@ -199,8 +199,8 @@ Path to \f[CR]elsereno.yaml\f[R] (overrides default lookup order).
 Simulate side effects without performing them.
 Only \f[B]schedule delete\f[R], \f[B]enable\f[R], \f[B]disable\f[R],
 \f[B]clone\f[R], \f[B]import\f[R], \f[B]pause\-all\f[R] and
-\f[B]resume\-all\f[R] honour it; every other command ignores it and acts
-(\f[B]scan\f[R] scans).
+\f[B]resume\-all\f[R] implement it; every other command refuses to run
+with it (exit 64) instead of acting.
 .TP
 \f[B]\-\-format\f[R] \f[I]yaml|json|table|ndjson|csv\f[R]
 Output format selector (per\-command support varies).

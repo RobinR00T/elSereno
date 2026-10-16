@@ -459,6 +459,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`--dry-run` no longer lets a command act (PITF-089).** It is a
+  global flag documented as "simulate side effects without performing
+  them", but only seven `schedule` verbs (`delete`, `enable`, `disable`,
+  `clone`, `import`, `pause-all`, `resume-all`) read it; every other
+  command ignored it and acted, so `scan --dry-run` scanned and `db
+  migrate up --dry-run` migrated. Commands that implement it are now
+  marked (`honoursDryRun`), and the root refuses the flag for every other
+  command with exit 64 and "nothing was run", before the command reads
+  its input; on the offensive `dry-run` subcommands (which are already
+  dry runs) the message says to drop the flag. Tests: the set of commands
+  that accept the flag is exactly those seven (and the flag's help names
+  them), every other runnable command is refused, no subcommand defines a
+  persistent pre-run hook that would hide the guard, `scan --dry-run`
+  exits 64 without opening a connection, and `schedule delete --dry-run`
+  still prints what it would do. They pass in the default, offensive and
+  mini builds. (The mini build's CLI tests did not compile:
+  `cmd_serve_bind_test.go` tests `serve`, which mini leaves out, without
+  the `!mini` tag. Tagged; CI does not run the mini tests.)
+
 - **The security panel and the dashboard reported controls that are
   not applied (PITF-087).** `/admin/security` showed "Wire-layer
   write-ban: ok" for the default plugins, although no command serves
