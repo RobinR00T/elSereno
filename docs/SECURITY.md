@@ -77,20 +77,22 @@ Garantías de boundary:
 
 | Componente            | Algoritmo                                            |
 |-----------------------|------------------------------------------------------|
-| KDF passphrase → master key | scrypt (N=2^17, r=8, p=1)                        |
+| KDF passphrase → master key | Argon2id (time=3, memory=64 MiB, threads=4)      |
 | Encryption envelope   | AES-256-GCM con random nonce per write              |
 | Master key storage    | en memoria con `memguard` (mlocked, zeroed on signal) |
 | Backup encryption     | AES-256-GCM con HKDF-derived key (`info=backup/v1`) |
-| CSRF key derivation   | HKDF master key (`info=csrf/v1`)                    |
+| CSRF key derivation   | HKDF master key (`info=csrf/v1`); sin uso           |
 | Audit HMAC key        | HKDF master key (`info=audit/v1`)                   |
 
 ### Archivo `vault.v1.bin`
 
 - Path por defecto: `~/.elsereno/vault.v1.bin`.
 - Mode: `0600`.
-- Header: magic + version + scrypt params + nonce.
-- Body: AES-GCM ciphertext de un blob JSON con todas las
-  credenciales.
+- Formato: JSON con `magic` (`elsereno.vault.v1`), `version` 1,
+  `created`, `envelope` (salt de Argon2id, nonce y un centinela
+  cifrado con AES-GCM que verifica la passphrase) y `entries`: cada
+  credencial con su propio nonce y su ciphertext AES-GCM
+  (`fileFormat`, `internal/creds/storage.go`).
 
 Cambiar la passphrase **requiere desbloquear con la antigua**.
 No hay rotation walk-through automatizado en v1.88, se
@@ -207,31 +209,37 @@ Sin las tres flags, serve aborta con un mensaje explícito.
 - HSTS header agregado en non-loopback (`max-age=31536000;
   includeSubDomains`).
 
-### Cookies
+### Autenticación
 
-- Cookie `Secure=true` cuando TLS está activo.
-- Cookie `Secure=false` con loopback HTTP, con comentario
-  rationale en el código.
-- `HttpOnly=true`, `SameSite=Lax`.
-- Token TTL: 30 días por defecto, configurable via
-  `web.token_ttl_days`.
-- Token rotation bumpa `web_state.token_generation` con
-  advisory lock; middleware cachea generation 5s.
+- Sin `auth.oidc` (modo dev): la API no autentica; el operador va
+  en la cabecera opcional y falsificable `X-Operator`. `serve` solo
+  lo admite en un bind loopback.
+- Con `auth.oidc` (issuer, audience, JWKS URL): las rutas con rol piden
+  un Bearer JWT validado contra el JWKS. Obligatorio fuera de loopback.
+  Aun así `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` y los
+  `GET` de solo lectura de `/api/v1` (`plugins`, `scoring`, `health`,
+  `health/pool`, `openapi.yaml`) se sirven sin token.
+- No hay cookies, ni fichero de token web, ni rotación de token:
+  `web.token_ttl_days` se acepta y nada lo usa, y `token rotate` es
+  un stub.
 
 ### CSRF
 
-- Key derivada por HKDF de la master key del vault
-  (`info=csrf/v1`).
-- Token en cookie `_csrf` + header `X-CSRF-Token` requerido
-  en POST/PUT/DELETE.
-- Mismatch → 403.
+- No hay protección CSRF. La clave se deriva por HKDF de la master
+  key del vault (`info=csrf/v1`) y nada la lee.
+- Consecuencia: en modo dev (loopback, sin OIDC) una página abierta
+  en el navegador del operador puede mandar peticiones a `serve`
+  (lanzar scans, tocar horarios). Decisión abierta en TODO-vNext.
+  (Hasta el 16-10-2026 esta sección describía cookies y un token
+  CSRF que nunca existieron; PITF-087.)
 
 ---
 
 ## 5. Subprocess
 
-Cualquier `execve` interno (raro pero existe en algunos
-plugins offensive) usa **`internal/exec.SafeCommand`**:
+Hoy ningún comando lanza subprocesos (el panel lo muestra
+como código sin conectar). El que lo haga tiene que usar
+**`internal/exec.SafeCommand`**:
 
 ```go
 exec.SafeCommand{

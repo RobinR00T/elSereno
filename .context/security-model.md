@@ -35,22 +35,31 @@ collaboration is vNext.
   Master key in `memguard.LockedBuffer`, unlock-once, zeroised on
   SIGINT/SIGTERM or `vault lock` (ADR-018).
 - **CSRF key**: HKDF-SHA256 from vault master key,
-  `info="elsereno/csrf/v1"`. `serve` requires vault unlocked (ADR-017,
+  `info="elsereno/csrf/v1"`. Derived and unused: there is no CSRF
+  protection, and dev mode (loopback, no OIDC) has no authentication
+  (PITF-087). `serve` requires vault unlocked (ADR-017,
   PITF-021).
 - **DB TLS**: required when not loopback (ADR-021).
 - **Redaction**: zerolog hook with specific patterns +
-  entropy heuristic with UUID-v1..v5 exclusion (PITF-004).
+  entropy heuristic with UUID-v1..v5 exclusion (PITF-004). Not wired:
+  nothing builds that logger (PITF-087).
 - **CSP nonces** per request; full security header set.
 - **Rate limits** per-IP (loopback exempt) AND per-token.
-- **Wire-layer write-ban in proxy plugins**: Modbus and atmodem enforce
+- **Wire-layer write-ban in proxy plugins** (library code in every
+  build: no command serves these handlers; the default build's `elsereno
+  proxy` is a stub and the offensive `proxy listen` serves the gates in
+  `offensive/write/<proto>` instead; PITF-087): Modbus and atmodem enforce
   the read-only policy at frame parse time, not at config. A misconfig
   cannot turn the proxy into a write proxy (ADR-030 for Modbus;
-  atmodem `ForbiddenPrefixes` list for AT commands). The seven F4
-  plugins (s7, enip, bacnet, dnp3, iec104, hartip, fox, atg) ship
-  pass-through proxies; their per-service write-ban matrices land in F5
-  with triple-confirm wrappers.
-- **Sandbox**: offensive subprocesses on Linux under seccomp-bpf (F5; library
-  decision deferred, ADR-010).
+  atmodem `ForbiddenPrefixes` list for AT commands). The other plugins
+  have their own default-build handlers (write-ban, filter, fail-closed,
+  deny-all, or XOT's pass-through; per-plugin list in
+  `docs/protocols/README.md`).
+- **Sandbox** (offensive build only): `dial`, `exploit`, `harvest` and
+  `write modbus send` confine their own process with seccomp-bpf on Linux
+  and `sandbox_init` on macOS with cgo, and stop if it cannot be
+  installed (NO_NEW_PRIVS alone only on architectures without a syscall
+  table); `proxy listen` and `creds-check` run without it (ADR-042).
 - **Secrets transport**: never argv, never herestring; env vars accepted
   only for CI/cron contexts with a rationale and a TTY warning (ADR-026,
   PITF-016, PITF-032).

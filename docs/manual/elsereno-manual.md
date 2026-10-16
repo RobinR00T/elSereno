@@ -915,10 +915,14 @@ Panel admin + self-audit:
 http://127.0.0.1:8787/admin/security
 ```
 
-Muestra todo el estado de controles de seguridad (vault,
+Muestra el estado de los controles de seguridad (vault,
 audit chain, CSRF, redaction, subprocess allowlist, scope,
-write-ban por protocolo, sandbox seccomp, canary webhook,
-backup cifrado).
+escrituras del build por defecto, sandbox seccomp, canary
+webhook, backup cifrado). Desde el 16-10-2026 dice qué está
+activo y qué no: el scope solo con `--scope`; el write-ban de
+los proxies por defecto, sin comando que lo sirva; el canary, la
+clave CSRF, el redaction hook y la allowlist de subprocesos, como
+código sin conectar; y el sandbox, solo en el build offensive.
 
 ---
 

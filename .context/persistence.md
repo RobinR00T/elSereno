@@ -16,10 +16,11 @@ stays as the Postgres default decision.
 ## Core tables (migration 00001)
 
 - `schema_info(contract_name, version, since)`: e.g. `ndjson=v1`, `api=v1`.
-- `web_state(key, token_generation, updated_at)`: persistent token
-  generation; bumped with advisory lock on `token rotate` (ADR-014, PITF-001,
-  PITF-026). Middleware cache TTL `web.token_generation_cache_ttl` (default
-  5 s; PITF-034).
+- `web_state(key, token_generation, updated_at)`: designed for a
+  persistent token generation bumped on `token rotate` (ADR-014, PITF-001,
+  PITF-026) and cached per `web.token_generation_cache_ttl` (PITF-034).
+  The table exists; `token rotate` is a stub and nothing bumps or reads it
+  (PITF-087).
 - `runs(id, started_at, finished_at, status, scope_hash, operator)`.
 - `targets(id, address inet, port, asn, country, first_seen, last_seen)`: 
   `UNIQUE(address, port)`.

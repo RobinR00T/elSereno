@@ -50,7 +50,7 @@ a side-channel for an attacker to influence the operator.
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
-| Secret leaks into a log message (API key, bearer) | zerolog redaction hook with specific-pattern match + Shannon entropy >4.5 bits/byte + UUID v1-v5 exemption | PITF-004, `internal/telemetry/redact.go` |
+| Secret leaks into a log message (API key, bearer) | **Gap**: the zerolog redaction hook (specific patterns + Shannon entropy >4.5 bits/byte + UUID v1-v5 exemption) exists but nothing builds that logger; the binary logs through the standard library (PITF-087). Provider errors scrub query secrets (PITF-088) | PITF-004, `internal/telemetry/redact.go`, `internal/inputs/redact.go` |
 | Prometheus label cardinality explosion with ASN / country values | Label sanitiser restricts ASN to numeric, country to ISO 3166-1 (PITF-017) | `internal/telemetry/metrics.go` |
 | OTel span attribute contains target banner (potential secret) | Scanner span attaches only `target.address` + `target.port` + `scanner.attempts`: no banner bytes | `internal/scanner/scanner.go:withRetries` |
 | Canary body carries the raw offending payload | `Event` fields are typed (Kind, Actor, Target, Reason); attacker-supplied bytes never passed through verbatim | `internal/canary/canary.go:Event` |

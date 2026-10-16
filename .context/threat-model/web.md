@@ -27,8 +27,8 @@ loopback-only by default.
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
-| Attacker on same machine issues requests to the serve process | Bearer token required for `/api/v1/*`; cookie auth for HTML. Token generation stored in `web_state` with advisory lock; middleware cache TTL 5 s | `internal/web/middleware`, ADR-014 |
-| CSRF from malicious page in the same browser | `gorilla/csrf` with HKDF-derived key from vault master; every mutating form includes a CSP-nonced hidden input | `internal/web/server.go` + `internal/web/handlers` |
+| Attacker on same machine issues requests to the serve process | **Gap** in dev mode (loopback, no OIDC): no authentication. With OIDC, the routes with a role need a Bearer JWT; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open. No cookie, no token rotation (PITF-087) | `internal/web/handlers/api.go:wrapWithRole`, `cmd/elsereno/cmd_serve.go` |
+| CSRF from malicious page in the same browser | **Gap**: no CSRF protection; the HKDF-derived key is unused. In dev mode a page can POST `text/plain` to the API (open decision, TODO-vNext; PITF-087) | `internal/web/server.go` |
 | Forged OpenAPI spec distributed as "authoritative" | Spec served from the same binary + in-code declaration (`internal/web/openapi.Spec`). Tag artefacts include `cosign`-signed `docs/openapi.yaml` snapshot | `internal/web/openapi/spec.go` |
 
 ## T, Tampering
@@ -70,7 +70,7 @@ loopback-only by default.
 |--------|------------|------|
 | Non-loopback bind without TLS | `runServe` refuses unless `--tls-cert`, `--tls-key`, `--i-know-what-im-doing` all set | `cmd/elsereno/cmd_serve.go` |
 | Dashboard path traversal | Handlers only serve in-code HTML + embedded static; no file-system routing | `internal/web/server.go` |
-| CSRF bypass via stale token after rotation | `token_generation` stored in DB; middleware cache TTL 5 s picks up rotation within 5 s of the `token_rotate` event | ADR-014 |
+| CSRF bypass via stale token after rotation | n/a today: there is no CSRF token and no token rotation (PITF-087) | ADR-014 |
 
 ## Residual risk (accepted)
 

@@ -24,26 +24,27 @@ Default `127.0.0.1:8787`. Binding outside loopback requires: `--tls-cert`
 + `--tls-key` + `--i-know-what-im-doing`, and an audit `serve_start` entry.
 `binds.allow` in `scope.yaml` is parsed but not checked (PITF-087).
 
-## Auth (ADR-014)
-Dual:
+## Auth (as built; ADR-014 described a different design)
 
-- **`/api/v1/*`**: `Authorization: Bearer <token>`. Token is 32 bytes from
-  `crypto/rand`, base64url-encoded, stored at `~/.elsereno/web-token`
-  (0600). TTL per `web.token_ttl_days` (default 30). **No CSRF.**
-- **`/` (HTML)**: `POST /login` exchanges Bearer for a cookie
-  `HttpOnly, SameSite=Strict, Secure=<tls>`. Cookie embeds the current
-  `token_generation`. CSRF via `gorilla/csrf`, key HKDF-SHA256 derived from
-  the vault master key (`info="elsereno/csrf/v1"`: ADR-017).
-
-### Token generation
-Persisted in `web_state` (ADR-014, PITF-001). `token rotate` is a
-transaction with `pg_advisory_xact_lock(hashtext('web_state_token_rotate'))`
-+ `UPDATE ... RETURNING`; a fresh 32 B token is written to the 0600 file.
-
-### Cache
-Middleware caches `token_generation` with TTL
-`web.token_generation_cache_ttl` (default 5 s, PITF-034). After a
-rotation, cookies expire within that TTL.
+- **Dev mode (default)**: when `auth.oidc` is not fully configured, the
+  API has no authentication; the operator identity comes from the
+  optional, spoofable `X-Operator` header. `serve` allows this only on a
+  loopback bind (`validateBindSecurity`, `cmd/elsereno/cmd_serve.go`).
+- **OIDC**: with `auth.oidc` (issuer, audience, JWKS URL) the routes
+  that carry a role (`wrapWithRole`, `internal/web/handlers/api.go`)
+  require a Bearer JWT validated against the JWKS: 401 without or with a
+  bad token, 403 with too low a role. Required for any non-loopback
+  bind. Even then `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` are served without a token.
+- **Not built** (described here until 2026-10-16, PITF-087): the
+  `~/.elsereno/web-token` file with `web.token_ttl_days` (the config key
+  exists, nothing reads it), `token rotate` (a stub), the persisted
+  `web_state.token_generation` and its cache, the `POST /login` cookie,
+  and CSRF via `gorilla/csrf` (not a dependency). The CSRF key is still
+  derived from the vault master (`info="elsereno/csrf/v1"`, ADR-017) and
+  nothing reads it.
+- **Consequence**: in dev mode, with no authentication and no CSRF or
+  Origin check, a page in the operator's browser can send requests to a
+  loopback `serve`. Open decision in TODO-vNext.
 
 ## Headers
 - HSTS (only when TLS).
@@ -64,7 +65,7 @@ rotation, cookies expire within that TTL.
   tail verification (`readyz.audit_tail_entries = 100`). Degraded
   without DB wiring; returns 200 with `"db":"skipped"`.
 - `GET /metrics`: Prometheus (wiring lands with the findings sink).
-- `POST /login`, `POST /logout` (planned F4 chunk 2).
+- `POST /login`, `POST /logout`: planned, not built.
 - `GET /`: dashboard overview page (inline HTML listing 12
   registered plugins). HTMX + Alpine move in for chunk 2 polish.
 - `GET /api/v1/plugins`: plugin list (read-only).
@@ -72,15 +73,12 @@ rotation, cookies expire within that TTL.
 - `GET /api/v1/health`: API-level health.
 
 All `/api/v1/*` responses carry `{"schema":"api:v1","data":…}`. The
-contract lives in `docs/openapi.yaml` (OpenAPI 3.1). Bearer-token
-auth on `/api/v1/*` and the full findings/runs/targets endpoints
-wire in alongside the DB-backed audit writer.
+contract lives in `docs/openapi.yaml` (OpenAPI 3.1). Auth is as in the
+Auth section above (dev mode, or OIDC on the routes with a role).
 
 ## Cookie flags
-- `HttpOnly`, `SameSite=Strict`.
-- `Secure=true` only under TLS. On HTTP loopback `Secure=false` with a
-  rationale comment in the middleware (browsers drop `Secure` cookies over
-  plain HTTP).
+Not built: `serve` sets no cookie (PITF-087). The design was
+`HttpOnly`, `SameSite=Strict`, and `Secure=true` only under TLS.
 
 ## Other
 - Request ID propagated; OTel-compatible `traceparent`.

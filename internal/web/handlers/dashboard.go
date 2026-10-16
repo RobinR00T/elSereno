@@ -367,7 +367,7 @@ const overviewHTML = `<!doctype html>
   <div>
     <section class="panel">
       <h2>Default plugins <span class="badge default">{{len .DefaultPlugins}} registered</span></h2>
-      <div class="sub">Read-only in the default build. Wire-layer write-ban applies to every TCP plugin.</div>
+      <div class="sub">Read-only in the default build: probes do not write, and no command serves the proxies, so their write-ban is not in use.</div>
       <table>
         <thead><tr><th>Name</th><th>Description</th><th>Port</th></tr></thead>
         <tbody>

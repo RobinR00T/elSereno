@@ -18,7 +18,7 @@ counterpart to the ADR that declared the *design*.
 | **S** | Spoofing identities | Auth (Bearer / Basic / cosign), mutual TLS, HMAC on webhooks |
 | **T** | Tampering with data | JCS hash chain, wire-layer parsers, signed artefacts, `os.Lstat` permission checks |
 | **R** | Repudiation of actions | Tamper-evident audit chain; offensive_{allowed,denied,failed} events |
-| **I** | Information disclosure | Redaction hook, `SafeBytes` / `SafeField`, 0600 passphrase files, CSP nonces |
+| **I** | Information disclosure | `SafeBytes` / `SafeField`, 0600 passphrase files, CSP nonces, query-secret redaction in provider errors (PITF-088); the redaction hook is not wired (PITF-087) |
 | **D** | Denial of service | Timeouts, circuit breaker, semaphores, rate limiting, evidence truncation |
 | **E** | Elevation of privilege | `PR_SET_NO_NEW_PRIVS`, seccomp-bpf (F7+ filters), triple-confirm on writes, `internal/exec` allowlist |
 
@@ -27,11 +27,11 @@ counterpart to the ADR that declared the *design*.
 | Surface | Doc | Leading mitigation |
 |---------|-----|--------------------|
 | Vault + audit chain | [vault-audit.md](vault-audit.md) | AES-GCM + Argon2id + JCS hash chain |
-| Web server + API + dashboard | [web.md](web.md) | CSRF (HKDF from vault) + Cookie Secure + CSP nonces |
-| Scanner + proxy framework | [scanner-proxy.md](scanner-proxy.md) | Wire-layer write-ban + per-host semaphore + temporal dedupe |
-| Subprocess + scope | [exec-scope.md](exec-scope.md) | `SafeCommand` path allowlist + scope ranges + CIDR match |
+| Web server + API + dashboard | [web.md](web.md) | OIDC Bearer JWT when configured (required off loopback) + CSP nonces; on loopback without OIDC no authentication and no CSRF check (PITF-087) |
+| Scanner + proxy framework | [scanner-proxy.md](scanner-proxy.md) | Offensive `proxy listen` write gates (the default-build write-ban handlers are not served) + per-host semaphore + temporal dedupe |
+| Subprocess + scope | [exec-scope.md](exec-scope.md) | Scope ranges + CIDR match with `--scope`; `SafeCommand` path allowlist is library code no command uses (PITF-087) |
 | Offensive surface | [offensive.md](offensive.md) | ADR-039 triple-confirm + ADR-041 dial guard + seccomp-bpf |
-| Observability + canary | [telemetry-canary.md](telemetry-canary.md) | Redaction hook + HMAC-SHA256 on canary webhook |
+| Observability + canary | [telemetry-canary.md](telemetry-canary.md) | **Gap**: the label sanitiser, the redaction hook and the canary webhook are library code nothing wires (PITF-087) |
 
 ## Residual risk acceptance
 

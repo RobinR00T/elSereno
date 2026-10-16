@@ -58,6 +58,8 @@ Unknown keys are rejected at parse time with the error
 **web.token_generation_cache_ttl** (default **5s**)
 **web.rate_limit_per_min_ip** (default **100**, loopback exempt)
 **web.rate_limit_per_min_token** (default **300**)
+:   Accepted, not used yet: there is no web token, token rotation or
+    rate limiting in `serve` (PITF-087).
 **web.max_body_bytes** (default **1048576**)
 **web.read_header_timeout** (default **5s**)
 **web.read_timeout** (default **30s**)

@@ -459,6 +459,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The security panel and the dashboard reported controls that are
+  not applied (PITF-087).** `/admin/security` showed "Wire-layer
+  write-ban: ok" for the default plugins, although no command serves
+  the default proxies (`elsereno proxy` is a stub), a scope check of
+  "protocol allow/deny" (nothing calls `CheckProtocol`), offensive writes
+  gated by "scope" (no write command takes `--scope`), a canary webhook
+  that nothing sends, a CSRF key nothing reads (there is no CSRF
+  protection, and on loopback without OIDC the API has no authentication
+  at all), a redaction hook and a subprocess
+  allowlist no code path uses, and a seccomp sandbox marked ok on any
+  Linux host, although the default build does not contain it. The
+  dashboard said the write-ban "applies to every TCP plugin". The panel
+  now shows "Default-build writes: ok" (no default-build command writes),
+  "CSRF protection" as "warn" with the dev-mode exposure, the scope
+  check, redaction hook, subprocess allowlist and canary as "info" with
+  what they are, the offensive row without scope,
+  the audit chain without the unimplemented purge and compact, and the
+  sandbox by build and OS (in the offensive build: `dial`, `exploit`,
+  `harvest` and `write modbus send`, not `proxy listen` or
+  `creds-check`); the dashboard says the proxies are not served. The
+  threat-model notes, the web notes (dev mode without auth, OIDC Bearer
+  JWT, no web token, `/login`, cookie or CSRF middleware), the glossary,
+  conventions and `docs/protocols/s7.md` say the same, and so do the user
+  docs: MANUAL §15 (auth, and a curl example that used a cookie jar and
+  an `X-CSRF-Token` that never existed), its troubleshooting row, the
+  glossary and a sample config key `web.csrf_origin` that does not
+  exist; SECURITY's cookie and CSRF sections; and the vault KDF, which
+  MANUAL and SECURITY gave as scrypt (it is Argon2id, time 3, 64 MiB, 4
+  threads, as the panel says). The rate limits several docs describe are
+  not implemented either; that sweep is listed in TODO-vNext. Tests fail if any of the old claims comes back or an
+  unwired control is reported "ok".
+
 - **Shodan and FOFA API keys no longer appear in error messages
   (PITF-088).** Both providers take their credentials in the query
   string (`key`, and for FOFA also `email`), and `net/http` reports every

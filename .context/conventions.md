@@ -55,8 +55,7 @@ token-budget: 2500
 - AT dialing / SMS requires `-tags offensive` + `--dial-allowed` (rule for the first command that dials; none does yet and the flag does not exist, PITF-087). Numbers ≤3 digits blocked hard. Proxy read-only blocks: ATD*, ATA, AT+CMGS, AT+CMGW, AT+CMSS, AT+CMGD, AT+CFUN, AT+CPWROFF, +++.
 - Offensive subprocess with seccomp-bpf on Linux (lib decision deferred to F5).
 - `crypto/rand` only.
-- Web tokens 32B crypto/rand base64url.
-- `token_generation` persisted in `web_state`; bumped with advisory lock on rotate; middleware caches generation TTL 5s.
+- Web tokens 32B crypto/rand base64url, and `token_generation` persisted in `web_state` (bumped with advisory lock on rotate, cached 5s): the design; not built, nothing issues a web token or bumps the generation (PITF-087).
 - CSRF key HKDF from vault; `serve` requires vault unlocked.
 - Vault unlock-once memguard; zeroized on SIGINT/SIGTERM or `vault lock`.
 - `http.Server` with full timeouts (5s/30s/30s/120s/16KiB).
@@ -105,9 +104,8 @@ token-budget: 2500
 ## Web UX
 - `html/template` only.
 - CSP nonces per request.
-- API `/api/v1/*`: Bearer, no CSRF.
-- HTML dashboard: cookie+CSRF (key HKDF from vault). Cookie Secure per TLS.
-- Token rotation bumps persisted `web_state.token_generation`; middleware cache TTL 5s.
+- API `/api/v1/*`: Bearer JWT on the routes with a role when OIDC is configured (`GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open, as do `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz`); dev mode (loopback, no OIDC) has no auth. No CSRF.
+- HTML dashboard: cookie+CSRF (key HKDF from vault) and token rotation via `web_state.token_generation` are the design; none is built yet (PITF-087).
 - Static embedded via `embed.FS`; HTMX + Alpine + Tailwind precompiled; no Node in build.
 - Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min.
 - Body limit 1 MiB.

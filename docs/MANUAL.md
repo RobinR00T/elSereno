@@ -1040,7 +1040,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | Audit chain reports `ErrChainBroken`                             | Alguien editó `audit.jsonl` a mano                     | Recovery manual; sin atajo                                                |
 | `OCI image runtime: tzdata: cannot find zone "..."`              | Sistema sin tzdata bundle                              | `apt install tzdata` o equivalente                                        |
 | `elsereno serve: scheduler exited: ...`                          | Bug del scheduler, reportar issue                     | Captura stderr + abre issue                                               |
-| `403 Forbidden` en POST                                           | CSRF token faltante                                    | El dashboard lo añade automático; en curl: usa el cookie + header X-CSRF-Token |
+| `401`/`403` en `/api/v1/*`                                        | `serve` con OIDC: falta el Bearer JWT o el rol          | Pasa `Authorization: Bearer <jwt>` del emisor configurado en `auth.oidc` |
 
 ---
 
@@ -1053,7 +1053,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | **plugin**           | Implementación de protocolo (modbus, opcua, …); registrado al arrancar via `init()`.            |
 | **scope**            | Archivo YAML que limita los targets aceptados. Si presente, targets fuera de scope son `denied`. |
 | **vault**            | Almacén cifrado AES-256-GCM con credenciales + master key.                                     |
-| **master key**       | Clave derivada de la passphrase del vault con scrypt. Cifra `creds` + audit HMAC + CSRF + backup. |
+| **master key**       | Clave derivada de la passphrase del vault con Argon2id. Cifra `creds` y deriva las claves de audit HMAC, backup y CSRF (esta, sin uso). |
 | **audit chain**      | Hash chain HMAC en `audit.jsonl`. Cada entry incluye hash del previo.                          |
 | **schedule**         | Scan recurrente con cadence (interval o cron) + timezone (v1.75+).                             |
 | **scan_jobs**        | Tabla DB que registra jobs de scan-orch (queued/running/completed/failed).                      |
@@ -1066,7 +1066,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | **goose**            | Library de migraciones DB embebida en el binario via `go:embed`.                                |
 | **NDJSON**           | Newline-Delimited JSON: un objeto por línea. Es el formato canónico de finding.                 |
 | **SSE**              | Server-Sent Events: stream HTTP unidireccional. `/api/v1/stream` usa esto.                      |
-| **CSRF**             | Cross-Site Request Forgery; el token va en cookie + header `X-CSRF-Token`.                      |
+| **CSRF**             | Cross-Site Request Forgery. ElSereno no tiene protección CSRF hoy (PITF-087).                  |
 | **If-Match**         | Header HTTP (v1.78+): optimistic-locking precondition para PUT /schedules/{id}.                 |
 | **merge-view**       | Dashboard panel (v1.81+) que muestra el diff cuando un PUT recibe 412.                          |
 | **force overwrite**  | PUT sin If-Match (v1.84+ con header `X-Schedule-Force-Overwrite: true`), audita el override.   |
@@ -1188,8 +1188,7 @@ web:
   read_timeout: 30s
   write_timeout: 30s
   idle_timeout: 120s
-  token_ttl_days: 30
-  csrf_origin: ""        # CSRF Origin allowlist (vacío → loopback only)
+  token_ttl_days: 30     # se acepta, nada lo usa todavía
 
 database:
   tls_required: true     # exige TLS salvo loopback (PITF)
@@ -1333,9 +1332,18 @@ elsereno scan ... | jq -r '[.ts,.target.host,.target.port,.plugin,.severity,.sco
 
 ## 15. HTTP API reference
 
-El dashboard expone `/api/v1/*`. Todos los endpoints
-requieren auth (cookie + CSRF token para mutaciones) y
-responden con `Content-Type: application/json` (excepto SSE).
+El dashboard expone `/api/v1/*`. Sin OIDC (modo dev, que
+`serve` solo admite en loopback) no piden autenticación: el
+operador va en la cabecera opcional `X-Operator`. Con
+`auth.oidc` configurado (obligatorio fuera de loopback), las rutas
+con rol piden `Authorization: Bearer <JWT>` (401 sin token, 403 con
+rol insuficiente); `/`, `/admin/security`, `/metrics`, `/healthz`,
+`/readyz` y los `GET` de `plugins`, `scoring`, `health`,
+`health/pool` y `openapi.yaml` siguen abiertos. No hay
+cookie ni token CSRF, así que en modo dev cualquier página abierta
+en tu navegador puede mandar peticiones a `serve` (decisión
+abierta en TODO-vNext). Responden con `Content-Type:
+application/json` (excepto SSE).
 
 ### Scans
 
@@ -1399,12 +1407,9 @@ responden con `Content-Type: application/json` (excepto SSE).
 ### Ejemplo: crear un schedule via curl
 
 ```bash
-TOKEN=$(curl -s -c /tmp/cj http://127.0.0.1:8787/admin/security | jq -r .token)
-CSRF=$(grep csrf /tmp/cj | awk '{print $NF}')
-
+# Modo dev (loopback, sin OIDC). Con OIDC, añade
+#   -H "Authorization: Bearer $JWT"
 curl -X POST http://127.0.0.1:8787/api/v1/schedules \
-    -b /tmp/cj \
-    -H "X-CSRF-Token: $CSRF" \
     -H "X-Operator: alice" \
     -H "Content-Type: application/json" \
     -d '{
@@ -1414,10 +1419,6 @@ curl -X POST http://127.0.0.1:8787/api/v1/schedules \
       "timezone": "America/New_York"
     }'
 ```
-
-Forma alternativa sin CSRF (sólo para clientes que no son
-browser, pasa `X-Operator` directo si tu config lo
-permite).
 
 ---
 
@@ -1984,7 +1985,7 @@ DB.
 **Olvido la passphrase del vault**
 Sin recuperación. Borra `vault.v1.bin`, re-init con nueva
 passphrase, vuelve a guardar credenciales. La master del
-vault está derivada con scrypt + sin escape-hatch a
+vault está derivada con Argon2id + sin escape-hatch a
 propósito.
 
 **¿Funciona offline / air-gapped?**

@@ -37,10 +37,10 @@ rationale behind each package.
 | `internal/db` | pgx pool, migrations (goose), DDL. |
 | `internal/audit` | JCS hash chain (genesis / tombstone / rebase). |
 | `internal/creds` | Encrypted vault (AES-GCM + Argon2id + HKDF). |
-| `internal/exec` | `SafeCommand` with typed `CommandSpec`. |
+| `internal/exec` | `SafeCommand` with typed `CommandSpec` (no command spawns a subprocess yet). |
 | `internal/render` | `SafeBytes` sanitiser for target-controlled bytes. |
-| `internal/telemetry` | zerolog, redaction hook, Prometheus, OTel. |
-| `internal/web` | HTTP server, dual auth, CSRF, rate limits, health endpoints. |
+| `internal/telemetry` | Prometheus, OTel, progress bar; a zerolog redaction hook nothing wires yet. |
+| `internal/web` | HTTP server, auth (dev mode or OIDC JWT), health endpoints; no CSRF protection (PITF-087). |
 | `internal/scope` | Optional `scope.yaml`, applied with `--scope` (ranges, ports, dial blocked numbers). |
 | `internal/scoring` | Multi-factor scoring engine. |
 | `internal/triage` | Grouping (quick-wins, strategic). |

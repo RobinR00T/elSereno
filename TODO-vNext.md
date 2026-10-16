@@ -60,6 +60,25 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   `--scope`: `discover`, `fingerprint probe`, `plaintext-check`, `tui
   --input`, los verbos por protocolo y, en el build ofensivo, `write`,
   `exploit`, `proxy listen`, `harvest` y `creds-check` no. ¿Se les añade?
+- **Barrido de la documentación de seguridad contra el código.** PITF-087
+  corrigió lo que el panel de seguridad muestra, pero `docs/SECURITY.md`,
+  `.context/security-model.md`, `_quickref.md` y el threat model aún
+  describen controles sin comprobar o que no existen: los rate limits
+  per-IP y per-token (solo están en el comentario de
+  `internal/web/middleware/doc.go`, no hay código), el mlock de `memguard`
+  que verificaría `doctor`, el outbox con `outbox_dead`, entre otros. Hace
+  falta un barrido como el de PITF-080, control por control, buscando
+  quién lo llama.
+- **API sin autenticación ni CSRF en modo dev.** Con `serve` en loopback y
+  sin OIDC (el modo por defecto) la API no autentica, no comprueba Origin
+  ni Host y acepta JSON sin exigir `Content-Type`, así que una página
+  abierta en el navegador del operador puede lanzar scans o tocar
+  horarios con un POST `text/plain`, también por DNS rebinding. La clave
+  CSRF se deriva y nadie la usa. Visto en la auditoría del panel (16-10,
+  PITF-087). ¿Exigir `Content-Type: application/json` y comprobar
+  Origin/Host, o un token local? Relacionado: incluso con OIDC, `/`,
+  `/admin/security`, `/metrics`, `/healthz`, `/readyz` y los `GET` de solo
+  lectura de `/api/v1` se sirven sin token, también en un bind de red.
 - **Cabeceras con clave en redirecciones a otro host.** Go solo quita
   `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
   redirigir a un host que no es el mismo ni un subdominio suyo
@@ -84,10 +103,10 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   listen` en el build por defecto con los write-ban, o reescribir esas
   secciones como "handler preparado, sin comando". Visto el 14-10; desde
   ese día las páginas de protocolo, el índice, el README, el man y ADR-040
-  lo dicen. Quedan dos textos en código que lo presentan como control
-  activo: el panel de seguridad (`internal/web/handlers/security.go`,
-  "Wire-layer write-ban: ok") y el dashboard (`dashboard.go`, "applies to
-  every TCP plugin").
+  lo dicen. Los dos textos en código que lo presentaban como control
+  activo (el panel de seguridad, "Wire-layer write-ban: ok", y el
+  dashboard, "applies to every TCP plugin") se corrigieron el 16-10
+  (PITF-087).
 - **[RESUELTO 14-10] El job `integration` del CI nunca podía fallar.** Ahora
   arranca solo el Postgres del compose de test (`--wait`), pasa
   `DATABASE_URL` y no lleva `|| echo`. Falta verlo en verde en el CI.

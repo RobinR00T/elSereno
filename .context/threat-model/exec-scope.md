@@ -52,7 +52,7 @@ binary we're about to spawn actually the one we think it is?"
 |--------|------------|------|
 | Secret in argv visible via `ps e` / `/proc/<pid>/cmdline` | CLAUDE.md rule + ADR-026 + PITF-032: never secrets via argv; passphrase via 0600 file or prompt only | CLAUDE.md |
 | Subprocess environment leaks parent secrets | `SafeCommand` inherits env; callers can clear before running. Today we rely on operator hygiene; F8 adds `EnvAllowlist` to `CommandSpec` |, (F8) |
-| Subprocess stdout/stderr contains secrets | Caller owns the streams; scanner pipes through redaction hook before logging | `internal/telemetry/redact.go` |
+| Subprocess stdout/stderr contains secrets | No command spawns a subprocess today; `SafeCommand` and the redaction hook are library code nothing wires (PITF-087) | `internal/exec/safecommand.go`, `internal/telemetry/redact.go` |
 
 ## D, Denial of service
 

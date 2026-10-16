@@ -22,16 +22,16 @@ token-budget: 950
 - Scoring 0-100 multi-factor (ADR-006).
 - Audit JCS hash chain; genesis `prev_hash=0x00..00`; canonical `id/occurred_at/actor/event_type/payload/prev_hash`; tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries. `event_type` is CHECK enum.
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.
-- Web: Bearer `/api/v1/*`; cookie+CSRF (HKDF from vault) HTML. Cookie `token_generation` persisted in `web_state`; bumped with advisory lock; middleware cache TTL 5s.
+- Web: OIDC Bearer JWT on the routes with a role when configured (required off loopback; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open); dev mode on loopback has no auth. Cookie, CSRF, web token and `web_state` rotation are designed, not built (PITF-087).
 - Vault: `init` → `unlock` → ops; `lock` zeroizes. Unlock-once memguard.
 - Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min.
-- `crypto/rand` only. Subprocess via `internal/exec.SafeCommand(ctx, CommandSpec)` with deterministic `--` separator.
+- `crypto/rand` only. Subprocess via `internal/exec.SafeCommand(ctx, CommandSpec)` with deterministic `--` separator (rule; no command spawns one yet).
 - Timestamps RFC3339 up to 6 fractional digits (microseconds). Logs stderr, data stdout.
 - IPv4+IPv6 first-class; IDN via `x/net/idna`.
 - SIGINT→130, SIGTERM→143. Second signal immediate same code.
 - Evidence truncated with `original_sha256` (populated only when truncated); retention keep-if-referenced.
 - Outbox with max_attempts + `outbox_dead`.
-- Redaction hook: specific patterns + entropy heuristic excluding UUID format.
+- Redaction hook: specific patterns + entropy heuristic excluding UUID format (exists, not wired: the binary logs through the standard library; PITF-087).
 - Errors in emitting package.
 - Never secrets via argv, herestring, or unwarned env.
 - `make ci` must include build variants to catch bitrot.
@@ -58,8 +58,10 @@ protocol plugins** in the default build; **24 offensive write-gated
 proxies** (incl. the legacy-ICS set finsudp/slmp/gesrtp/codesys/
 redlion, landed 2026-08/09); **7 attack-surface input clients**
 (shodan, censys, fofa, zoomeye, onyphe, binaryedge, internetdb;
-the last is no-key + single-IP/bulk-lookup). Every TCP-based
-plugin enforces a wire-layer write-ban in default mode. The core
+the last is no-key + single-IP/bulk-lookup). Default-build proxy
+handlers (write-ban, fail-closed, deny-all or XOT pass-through; see
+`docs/protocols/README.md`) are not served by any command (`elsereno
+proxy` is a stub; PITF-087). The core
 gates carry per-object / per-path scoping as of
 v1.12 + v1.13: Modbus structured writes + FC 8 diag
 sub-function gate, OPC UA per-NodeId

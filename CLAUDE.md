@@ -43,7 +43,7 @@ No future-phase work without owner approval.
 - Audit: tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries (genesis/chain_rebase/purge_event).
 - Findings via pgx.CopyFrom batched. Audit via sequential INSERT single-threaded.
 - Cookie Secure=true with TLS; false on HTTP loopback with comment rationale.
-- Token rotation bumps persisted `web_state.token_generation` with advisory lock; middleware caches generation TTL 5s.
+- Token rotation bumps persisted `web_state.token_generation` with advisory lock; middleware caches generation TTL 5s (design; not built yet, PITF-087).
 - CSRF key HKDF from vault master key; `serve` requires vault unlocked (use `vault init` + `vault unlock`).
 - Vault unlock-once cached in memguard; `vault lock` zeroizes; zeroized on SIGINT/SIGTERM.
 - Exit codes: 128+signum (SIGINT=130, SIGTERM=143).

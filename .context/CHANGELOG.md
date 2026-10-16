@@ -8,6 +8,11 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (6): **Security panel and dashboard no longer claim the
+  write-ban, protocol scope, canary, CSRF, redaction hook, subprocess
+  allowlist or default-build sandbox as active (PITF-087).** web.md
+  rewritten to the auth that exists (dev mode or OIDC JWT).
+
 - 2026-10-16 (5): **Shodan/FOFA keys out of error messages
   (PITF-088).** `inputs.RedactQuery` scrubs `key`/`email` from the
   `*url.Error` URL before wrapping.

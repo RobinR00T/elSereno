@@ -58,7 +58,9 @@ Optional NTP server for drift check; empty disables it.
 \f[B]web.token_ttl_days\f[R] (default \f[B]30\f[R])
 \f[B]web.token_generation_cache_ttl\f[R] (default \f[B]5s\f[R])
 \f[B]web.rate_limit_per_min_ip\f[R] (default \f[B]100\f[R], loopback
-exempt) \f[B]web.rate_limit_per_min_token\f[R] (default \f[B]300\f[R])
+exempt) \f[B]web.rate_limit_per_min_token\f[R] (default \f[B]300\f[R]) :
+Accepted, not used yet: there is no web token, token rotation or rate
+limiting in \f[CR]serve\f[R] (PITF\-087).
 \f[B]web.max_body_bytes\f[R] (default \f[B]1048576\f[R])
 \f[B]web.read_header_timeout\f[R] (default \f[B]5s\f[R])
 \f[B]web.read_timeout\f[R] (default \f[B]30s\f[R])

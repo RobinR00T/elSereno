@@ -84,39 +84,33 @@ func buildControls(offensiveOn bool) []securityControl {
 			Detail: "AES-256-GCM + Argon2id (time=3, memory=64 MiB, threads=4)",
 			Code:   "internal/creds/vault.go", ADR: "ADR-018"},
 		{Name: "Audit hash chain", Status: "ok",
-			Detail: "JCS (RFC 8785) + SHA-256 + genesis + tombstone + rebase markers",
+			Detail: "JCS (RFC 8785) + SHA-256 + genesis; tombstone and rebase markers are defined, but `audit purge` and `audit compact` are not implemented yet",
 			Code:   "internal/audit/canonical.go", ADR: "ADR-013 + ADR-025"},
-		{Name: "CSRF key", Status: "ok",
-			Detail: "HKDF-SHA256 from vault master, info=elsereno/csrf/v1",
+		{Name: "CSRF protection", Status: "warn",
+			Detail: "None: the derived key (HKDF-SHA256 from vault master, info=elsereno/csrf/v1) is unused. On loopback without OIDC the API has no authentication (dev mode, X-Operator header), so a page in the operator's browser can send it requests; with OIDC (required off loopback) the routes with a role need a Bearer JWT, and this panel, /metrics, /healthz, /readyz and GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml} stay open",
 			Code:   "internal/web/server.go", ADR: "ADR-017"},
-		{Name: "Redaction hook", Status: "ok",
-			Detail: "Specific patterns + entropy >4.5 bits/byte + UUID v1-v5 exemption",
+		{Name: "Redaction hook", Status: "info",
+			Detail: "Library code, not wired: nothing builds the redacting logger, the binary logs through the standard library (specific patterns + entropy >4.5 bits/byte + UUID v1-v5 exemption)",
 			Code:   "internal/telemetry/redact.go", ADR: "PITF-004"},
-		{Name: "Subprocess allowlist", Status: "ok",
-			Detail: "SafeCommand + CommandSpec + path allowlist + `--` separator",
+		{Name: "Subprocess allowlist", Status: "info",
+			Detail: "Library code, not wired: no command spawns a subprocess (SafeCommand + CommandSpec + path allowlist + `--` separator)",
 			Code:   "internal/exec/safecommand.go", ADR: "ADR-024"},
-		{Name: "Scope check", Status: "ok",
-			Detail: "CIDR v4/v6 + port allow/deny + protocol allow/deny + dial blocked_numbers",
+		{Name: "Scope check", Status: "info",
+			Detail: "Only with --scope: CIDR v4/v6 + port allow/deny on scan targets (CLI and dashboard scans), and dial blocked_numbers in the offensive build; protocols, binds and canary are parsed but not applied",
 			Code:   "internal/scope/scope.go", ADR: "ADR-038 (+ ADR-041 dial)"},
-		{Name: "Wire-layer write-ban", Status: "ok",
-			Detail: "12 default plugins with per-protocol refusal response; bypass requires -tags offensive + ADR-039 triple confirm",
-			Code:   "internal/protocols/<proto>/", ADR: "ADR-030 + ADR-040"},
+		{Name: "Default-build writes", Status: "ok",
+			Detail: "No default-build command sends a write: probes are read-only and `proxy` is a stub (exit 75). The per-protocol write-ban proxy handlers are library code no command serves yet",
+			Code:   "cmd/elsereno/cmd_stubs.go", ADR: "ADR-030 + ADR-040"},
 		{Name: "Offensive build tag",
 			Status: ternary(offensiveOn, "warn", "ok"),
 			Detail: ternary(offensiveOn,
-				"Offensive plugins ARE registered, triple confirm + scope + dial-guard actively gate writes",
+				"Offensive plugins ARE registered: writes need the ADR-039 triple confirm, dial numbers pass the dial guard",
 				"Default build, no offensive code path is reachable",
 			),
 			Code: "offensive/confirm/confirm.go", ADR: "ADR-039"},
-		{Name: "seccomp-bpf sandbox",
-			Status: ternary(runtime.GOOS == "linux", "ok", "warn"),
-			Detail: ternary(runtime.GOOS == "linux",
-				"PR_SET_NO_NEW_PRIVS installed for offensive subprocesses; BPF filter sequences ship post-1.0",
-				"Non-Linux host, sandbox gracefully degrades to log-and-continue (ADR-042)",
-			),
-			Code: "offensive/sandbox/sandbox_linux.go", ADR: "ADR-042"},
+		sandboxControl(offensiveOn),
 		{Name: "Canary webhook", Status: "info",
-			Detail: "Optional HMAC-SHA256 signature in X-Elsereno-Signature (HKDF from vault master)",
+			Detail: "Library code, not wired: nothing sends it yet (HMAC-SHA256 signature in X-Elsereno-Signature, HKDF from vault master)",
 			Code:   "internal/canary/canary.go", ADR: "ADR-038 (scope canary)"},
 		{Name: "Encrypted backup", Status: "info",
 			Detail: "AES-256-GCM envelope with HKDF salt binding; ELSB magic + version 1",
@@ -129,6 +123,29 @@ func buildLabel(offensiveOn bool) string {
 		return "offensive (-tags offensive)"
 	}
 	return "default"
+}
+
+// sandboxControl reports the offensive process sandbox. It is compiled
+// only into the offensive build, and there it confines the dial,
+// exploit, harvest and write modbus send processes, not proxy listen or
+// creds-check.
+func sandboxControl(offensiveOn bool) securityControl {
+	c := securityControl{Name: "Offensive sandbox", Code: "offensive/sandbox/", ADR: "ADR-042"}
+	switch {
+	case !offensiveOn:
+		c.Status = "info"
+		c.Detail = "Not in the default build, which has no offensive command to confine"
+	case runtime.GOOS == "linux":
+		c.Status = "ok"
+		c.Detail = "seccomp-bpf filter on dial, exploit, harvest and write modbus send (the verb stops if it cannot install it; NO_NEW_PRIVS alone only on architectures without a syscall table); proxy listen and creds-check run without it"
+	case runtime.GOOS == "darwin":
+		c.Status = "warn"
+		c.Detail = "macOS sandbox_init profile when built with cgo (the verb stops if it cannot install it), otherwise log-and-continue (ADR-042); proxy listen and creds-check run without it"
+	default:
+		c.Status = "warn"
+		c.Detail = "No sandbox on this OS: log-and-continue (ADR-042)"
+	}
+	return c
 }
 
 func ternary(cond bool, a, b string) string {
