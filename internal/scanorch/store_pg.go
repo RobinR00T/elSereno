@@ -103,6 +103,19 @@ targets_seen, targets_scanned, findings_count,
 error_msg, operator, findings_by_plugin,
 triggered_by_schedule_id`
 
+// rowsMiss explains a SELECT that produced no row: pgx reports a
+// statement that failed while running (a dropped connection, a server
+// error) only through rows.Err, after Next returns false, so that error
+// comes first, wrapped with op, and notFound only when there is none.
+// The UPDATE paths check rows.Err inline. Until 2026-10-16 every one of
+// these paths returned the sentinel for any failure (PITF-090).
+func rowsMiss(rows pgx.Rows, op string, notFound error) error {
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("scanorch: %s: %w", op, err)
+	}
+	return notFound
+}
+
 // Get returns the job with the given ID.
 func (s *DBStore) Get(ctx context.Context, id string) (Job, error) {
 	rows, err := s.q.Query(ctx, "SELECT "+jobColumns+" FROM scan_jobs WHERE id = $1", id)
@@ -111,7 +124,7 @@ func (s *DBStore) Get(ctx context.Context, id string) (Job, error) {
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return Job{}, ErrJobNotFound
+		return Job{}, rowsMiss(rows, "query job", ErrJobNotFound)
 	}
 	return scanJob(rows)
 }
@@ -395,6 +408,9 @@ func (s *DBStore) Transition(ctx context.Context, id string, to State, fields Tr
 	}
 	defer rows.Close()
 	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return Job{}, fmt.Errorf("scanorch: transition: %w", err)
+		}
 		// 0 rows updated: either job doesn't exist OR current
 		// state isn't in fromStates. Distinguish via a follow-up
 		// SELECT so the caller gets ErrJobNotFound vs
@@ -480,7 +496,7 @@ func (s *DBStore) classifyTransitionMiss(ctx context.Context, id string) (Job, e
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return Job{}, ErrJobNotFound
+		return Job{}, rowsMiss(rows, "classify miss", ErrJobNotFound)
 	}
 	return Job{}, ErrInvalidTransition
 }

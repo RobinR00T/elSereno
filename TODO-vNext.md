@@ -79,6 +79,12 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   Origin/Host, o un token local? Relacionado: incluso con OIDC, `/`,
   `/admin/security`, `/metrics`, `/healthz`, `/readyz` y los `GET` de solo
   lectura de `/api/v1` se sirven sin token, también en un bind de red.
+- **La caché de Idempotency-Key traga los errores de la base.**
+  `internal/web/handlers/idempotency_pg.go` trata cualquier fallo de la
+  base como "no está en caché", sin log (deliberado y comentado), así que
+  un POST con `Idempotency-Key` durante un fallo de la base vuelve a
+  ejecutar el handler y puede duplicar el trabajo. Visto en la auditoría
+  de PITF-090 (17-10). ¿Al menos registrarlo en el log?
 - **Cabeceras con clave en redirecciones a otro host.** Go solo quita
   `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
   redirigir a un host que no es el mismo ni un subdominio suyo

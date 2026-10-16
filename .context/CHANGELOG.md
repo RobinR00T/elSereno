@@ -8,6 +8,9 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (8): **scanorch stores return DB errors instead of "not
+  found" (PITF-090).** `rows.Err()` checked on every no-row path.
+
 - 2026-10-16 (7): **`--dry-run` refused where not implemented
   (PITF-089).** Only seven schedule verbs implement it; every other
   command now exits 64 instead of acting.

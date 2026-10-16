@@ -277,7 +277,7 @@ func (s *DBScheduleStore) Get(ctx context.Context, id string) (ScanSchedule, err
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return ScanSchedule{}, ErrScheduleNotFound
+		return ScanSchedule{}, rowsMiss(rows, "query schedule", ErrScheduleNotFound)
 	}
 	return scanSchedule(rows)
 }
@@ -335,6 +335,9 @@ func (s *DBScheduleStore) Update(ctx context.Context, id string, req UpdateSched
 	}
 	defer rows.Close()
 	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return ScanSchedule{}, fmt.Errorf("scanorch: update schedule: %w", err)
+		}
 		// 0-row UPDATE. Disambiguate not-found vs.
 		// precondition-failure when IfMatch is set.
 		if req.IfMatch == nil {
@@ -495,7 +498,13 @@ func (s *DBScheduleStore) scheduleExists(ctx context.Context, id string) (bool, 
 		return false, fmt.Errorf("scanorch: schedule exists check: %w", err)
 	}
 	defer rows.Close()
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("scanorch: schedule exists check: %w", err)
+	}
+	return false, nil
 }
 
 // Delete removes the schedule.

@@ -459,6 +459,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Database errors no longer come back as "not found" from the scan and
+  schedule stores (PITF-090).** pgx reports a statement that fails while
+  running (a CHECK violation, a dropped connection) only through
+  `rows.Err()`, after `Next` returns false, and six places in
+  `internal/scanorch` read "no row" as "not found": `Get` and `Update` of
+  schedules, the If-Match existence check, and `Get`, `Transition` and its
+  follow-up check of jobs. So a rejected UPDATE answered a false 404 or
+  412 (it is how switching a schedule to cron failed before migration
+  00021), a failed job transition on an existing job answered a false
+  409 ("job is already in a terminal state" when cancelling a scan), and
+  a broken connection looked like a missing record. They now return the
+  database error (a 500 from the API). Tests inject a rows error into
+  each of the six paths, including a failed UPDATE whose follow-up check
+  finds the record, and fail without the fix.
+
 - **`--dry-run` no longer lets a command act (PITF-089).** It is a
   global flag documented as "simulate side effects without performing
   them", but only seven `schedule` verbs (`delete`, `enable`, `disable`,

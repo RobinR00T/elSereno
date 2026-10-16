@@ -45,6 +45,13 @@ type fakeQuerier struct {
 	// rows and the second to the classify-existence rows.
 	queryCallCount int
 
+	// rowsErr is what every returned fakeRows reports from Err,
+	// as pgx does when the statement fails while running.
+	rowsErr error
+	// followUpRowsErr is reported only by the rows of the second and
+	// later Query calls (the existence checks after a 0-row UPDATE).
+	followUpRowsErr error
+
 	// execRowsAffected lets v1.71 schedule tests configure the
 	// CommandTag returned by Exec. Defaults to 0; schedule
 	// tests bump to 1 to simulate "row found + updated".
@@ -63,12 +70,16 @@ func (f *fakeQuerier) Query(_ context.Context, sql string, args ...any) (pgx.Row
 	// Route based on whether this looks like an UPDATE-RETURNING
 	// (first call when transitionUpdateRows is set) vs a SELECT.
 	if strings.HasPrefix(strings.TrimSpace(sql), "UPDATE") {
-		return &fakeRows{rows: f.transitionUpdateRows}, nil
+		return &fakeRows{rows: f.transitionUpdateRows, err: f.rowsErr}, nil
+	}
+	rowsErr := f.rowsErr
+	if f.queryCallCount > 1 && f.followUpRowsErr != nil {
+		rowsErr = f.followUpRowsErr
 	}
 	if f.queryCallCount > 1 && f.classifyExistsRows != nil {
-		return &fakeRows{rows: f.classifyExistsRows}, nil
+		return &fakeRows{rows: f.classifyExistsRows, err: rowsErr}, nil
 	}
-	return &fakeRows{rows: f.queryRows}, nil
+	return &fakeRows{rows: f.queryRows, err: rowsErr}, nil
 }
 
 func (f *fakeQuerier) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
@@ -98,10 +109,11 @@ func (errRow) Scan(_ ...any) error { return errors.New("QueryRow not used") }
 type fakeRows struct {
 	rows []map[string]any
 	i    int
+	err  error
 }
 
 func (r *fakeRows) Close()                                       {}
-func (r *fakeRows) Err() error                                   { return nil }
+func (r *fakeRows) Err() error                                   { return r.err }
 func (r *fakeRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *fakeRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *fakeRows) Conn() *pgx.Conn                              { return nil }
