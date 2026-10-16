@@ -8,6 +8,9 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (2): **CI fuzz job renamed** `fuzz (30s per target)` (83
+  targets, about 43 min); required checks unchanged.
+
 - 2026-10-16: **audit serve Close/Serve race fixed (PITF-085).** Serve
   takes the listener once under the lock; audit.sh shows the failure
   markers instead of the last 30 lines.

@@ -56,7 +56,7 @@ Phase 6.
 ## Local vs remote CI
 
 `make ci` runs the same build variants (default / offensive),
-tests, fuzz smoke, and security scans as the CI pipeline, and is a
+tests, fuzz (30s per target), and security scans as the CI pipeline, and is a
 reasonable local approximation. **The remote CI is authoritative.** See
 PITF-031 for why `make ci` is kept a functional superset of the bitrot-
 catching CI jobs. The former `sqlite` build variant was retired in
@@ -66,7 +66,7 @@ v1.2, Postgres is the only supported backend.
 
 All PRs require:
 
-1. Green CI (lint, builds × 2, tests + race + coverage, fuzz smoke, sec,
+1. Green CI (lint, builds × 2, tests + race + coverage, fuzz (30s per target), sec,
    context, CodeQL).
 2. Coverage thresholds (protocols 90 %, core 85 %, else 80 %).
 3. `.context/pitfalls.md` reviewed against the change.

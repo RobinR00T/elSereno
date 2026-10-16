@@ -141,8 +141,11 @@ jobs:
       - name: sandbox seccomp integration (real kernel)
         run: go test -tags 'offensive sandbox_integration' -count=1 -run TestLoad ./offensive/sandbox/...
 
+  # run-fuzz.sh runs every Fuzz* target in turn for the given time, so
+  # the job takes about 43 minutes with 83 targets (2026-10-16). Until
+  # then it was named "fuzz smoke (30s)", which read as the job's length.
   fuzz:
-    name: fuzz smoke (30s)
+    name: fuzz (30s per target)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

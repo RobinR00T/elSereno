@@ -9,7 +9,7 @@
 ## Checklist
 
 - [ ] `make ci` green locally (lint, build ×3, test-race, test-cover,
-      test-fuzz smoke, sec with go-licenses, context-check).
+      test-fuzz (30s per target), sec with go-licenses, context-check).
 - [ ] `.context/pitfalls.md` reviewed against this change.
 - [ ] `.context/STATE.md` updated if a phase milestone moves.
 - [ ] `.context/CHANGELOG.md` one-line entry added.

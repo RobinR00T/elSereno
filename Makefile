@@ -152,7 +152,7 @@ context-check:
 
 # `ci` replicates the remote CI locally as a superset so bitrot is caught
 # before push (PITF-031). Covers the default + offensive build variants,
-# test-race, test-cover, test-fuzz smoke, sec (including go-licenses),
+# test-race, test-cover, test-fuzz (30s per target), sec (including go-licenses),
 # and context-check.
 ci: lint build build-offensive build-mini test-race test-cover test-fuzz sec context-check
 

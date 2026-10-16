@@ -37,7 +37,7 @@ gh auth login                           # or export GH_TOKEN=…
 ## Pre-release checklist
 
 1. `make ci` green end-to-end (lint ×2, build ×3 variants, race,
-   cover, fuzz smoke, sec suite, context-check). A failing CI
+   cover, fuzz (30s per target), sec suite, context-check). A failing CI
    blocks the tag.
 2. `make release-gate` exits 0 (goreleaser snapshot build +
    govulncheck + gitleaks + benchmarks baseline check).

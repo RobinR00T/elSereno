@@ -851,6 +851,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CI job `fuzz smoke (30s)` renamed `fuzz (30s per target)`.** The
+  30 seconds are per fuzz target, and `scripts/run-fuzz.sh` runs the 83
+  targets one after another, so the job takes about 43 minutes (measured
+  on the last two runs); the old name read as the job's length. The
+  required checks (`audit`, `ci-passed`) are unchanged. CONTRIBUTING,
+  RELEASING, the Makefile and the PR template use the new name.
+
 - **Docs: no command serves the default-build proxy handlers.** In the
   default and mini builds `elsereno proxy` is a stub that exits 75, and
   no production code calls a plugin's `ProxyHandler()`: the write-ban,
