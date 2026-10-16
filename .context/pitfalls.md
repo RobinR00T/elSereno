@@ -1,7 +1,7 @@
 ---
 phase: any
 status: living-catalogue
-last-updated: 2026-04-19
+last-updated: 2026-10-16
 token-budget: 5500
 ---
 
@@ -550,6 +550,14 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Fix (16-10-2026)**: `Serve` toma el listener una vez bajo el cerrojo y trabaja con esa copia (cerrarlo termina `Accept` con `net.ErrClosed`); `SocketPath` lee bajo el cerrojo (`socketPathLocked` para quien ya lo tiene). `TestServer_CloseRacesServe` reproduce la carrera y el pánico (ventana de arranque) con el código anterior al primer intento; la otra ventana la cubren los `TestClient_*` con `-race`. `audit.sh` muestra ahora los `--- FAIL`, `panic:`, `fatal error:`, `WARNING: DATA RACE` y errores de compilación de tests con contexto, y los paquetes que fallan.
 **Regla**: un "fallo intermitente" que trae un `DATA RACE` no es ruido: es un bug con un reparto de tiempos poco frecuente. Antes de relanzar, se lee el log entero de la ejecución (aquí, el paso de volcado), no solo el paso que falla.
 **Ver**: `internal/audit/{serve.go,serve_test.go}`, `scripts/audit.sh`; 16-10-2026.
+
+## PITF-086: la migración 00008 no quitaba el CHECK de intervalo y ningún horario cron se guardaba en Postgres
+**Síntoma**: al repasar las migraciones (16-10-2026), el bloque `DO` de `00008_scan_schedules_cron.sql` buscaba el CHECK de la v1.71 con `pg_get_constraintdef(oid) ILIKE '%interval_seconds%BETWEEN%'`.
+**Causa**: PostgreSQL no guarda `BETWEEN`: el parser lo reescribe como `(x >= a) AND (x <= b)` (`transformAExprBetween`, `src/backend/parser/parse_expr.c:1277` en REL_16_3, leído en el código). `pg_get_constraintdef` devuelve esa forma, así que la búsqueda no encontraba nada y el `IF constraint_name IS NOT NULL` hacía que fallara en silencio.
+**Efecto**: desde la v1.73 (9-5-2026) el CHECK viejo convivía con `scan_schedules_cadence_xor`. Un horario cron guarda `interval_seconds = 0`, que el CHECK viejo rechaza, así que con `serve --scan-store=db` crear, clonar o importar como nuevo un horario cron fallaba con una violación de CHECK, y pasar uno de intervalo a cron devolvía un 404 o un 412 falsos (al importar sobrescribiendo, "schedule not found" en esa fila) (`Update` no mira `rows.Err()` y lee el `UPDATE` fallido como "no encontrado"; lo vio la auditoría independiente). Los horarios por intervalo y el almacén en memoria no se veían afectados, y los tests de `scanorch` usan el almacén en memoria o un Querier falso, por eso nadie lo vio.
+**Fix (16-10-2026)**: migración nueva `00021_scan_schedules_drop_interval_check.sql` que quita el CHECK de `scan_schedules` que acota `interval_seconds` en 604800 sin mencionar `cron_expr` (el XOR menciona las dos y se queda, y también se quedaría un CHECK añadido a mano, salvo que acote también en 604800). Bajar de la 00008 exige ahora borrar antes los horarios cron: su Down vuelve a poner el CHECK de intervalo, que las filas cron no cumplen. No se toca la 00008: las bases que ya la aplicaron no la volverían a ejecutar. Test de integración `TestCronScheduleInsert`: tras `MigrateUp` lista los CHECK de la tabla y guarda un horario cron. Corre en el job `integration` del CI (Postgres 16.3); no se ha ejecutado en local porque no hay servidor Postgres.
+**Regla**: no se busca un objeto del catálogo por el texto con que se escribió, porque Postgres guarda su forma normalizada. Se busca por lo que es (columnas que toca, nombre) y se comprueba en un test contra una base real que el objeto ya no está.
+**Ver**: `internal/db/migrations/{00008_scan_schedules_cron.sql,00021_scan_schedules_drop_interval_check.sql}`, `test/integration/db_integration_test.go`, `internal/scanorch/{schedule.go,schedule_pg.go}`; 16-10-2026.
 
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

@@ -459,6 +459,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cron schedules can now be saved with `serve --scan-store=db`
+  (PITF-086).** Migration 00008 (v1.73, cron cadence) meant to drop the
+  v1.71 `CHECK (interval_seconds BETWEEN 60 AND 604800)` by looking for
+  `BETWEEN` in `pg_get_constraintdef`, but PostgreSQL rewrites `BETWEEN`
+  as `>= AND <=` when it parses the constraint (`transformAExprBetween`
+  in `parse_expr.c`), so the lookup never matched and the old CHECK stayed
+  next to the new `scan_schedules_cadence_xor`. A cron schedule stores
+  `interval_seconds = 0`, so since v1.73, with the database schedule
+  store, creating, cloning or importing a new cron schedule failed with a
+  check violation, and switching an interval schedule to cron answered a
+  false 404 or 412, or "schedule not found" on that row of an import that
+  overwrites (the update path reports a failed `UPDATE` as "not found"). Interval schedules and the in-memory store were not affected.
+  New migration 00021 drops the CHECK that bounds `interval_seconds` at
+  604800 without mentioning `cron_expr`, and leaves the cadence XOR in
+  place. A new integration test (`TestCronScheduleInsert`) checks the
+  constraints after `MigrateUp` and saves a cron schedule; it runs in the
+  CI `integration` job, not locally (no Postgres server here). Rolling
+  back below 00008 now needs the cron schedules deleted first: its Down
+  re-adds the interval CHECK, which cron rows fail.
+
 - **`elsereno audit serve` could crash on a close that raced start-up
   (PITF-085).** `Server.Serve` read the listener field on every accept
   without the lock that `Close` takes to clear it, so a `Close` between

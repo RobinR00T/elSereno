@@ -8,6 +8,11 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (3): **Cron schedules on Postgres fixed (PITF-086).**
+  00008 never dropped the v1.71 interval CHECK (Postgres stores BETWEEN
+  as >= AND <=), so the DB store rejected every cron schedule; migration 00021
+  drops it, integration test `TestCronScheduleInsert`.
+
 - 2026-10-16 (2): **CI fuzz job renamed** `fuzz (30s per target)` (83
   targets, about 43 min); required checks unchanged.
 
