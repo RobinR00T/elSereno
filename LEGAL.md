@@ -1,8 +1,7 @@
 # Legal and acceptable use
 
 ElSereno is a tool for authorised security work. Reading this document is
-mandatory before the first run; the binary refuses to operate until an
-explicit acknowledgement is recorded.
+mandatory before the first run.
 
 ## Acceptable Use Policy (AUP)
 
@@ -67,17 +66,27 @@ supports responsible handling:
 
 ## Acceptable-use acknowledgement flow
 
-1. On first launch, ElSereno prints this document and requires the operator
-   to type `I AGREE` verbatim.
-2. The acknowledgement is stored in `~/.elsereno/ack.v1` with a checksum of
-   the disclaimer text.
-3. If the disclaimer text changes (checksum mismatch), re-acknowledgement is
-   required.
-4. `elsereno legal show` re-prints the disclaimer at any time.
-5. If `scope.yaml` is absent, active commands display an additional banner
+What the binary does today:
+
+- `elsereno legal` prints the acceptable-use disclaimer at any time, and
+  the root help asks the operator to run it before first use.
+- A scope applies only when passed with `--scope`; without it nothing is
+  filtered.
+
+Planned, not implemented (until 2026-10-16 this section described them as
+if they were):
+
+1. On first launch, print this document and require the operator to type
+   `I AGREE` verbatim, storing the acknowledgement in `~/.elsereno/ack.v1`
+   with a checksum of the disclaimer text, and asking again when the text
+   changes.
+2. When no scope is passed, show active commands an additional banner
    prompting the operator to create one.
-6. Offensive builds (`-tags offensive`) with `--dial-allowed` display an
-   additional warning about telephony cost and traceability.
+3. When a command first places calls or sends SMS (none does yet), gate it
+   behind `--dial-allowed` in offensive builds, with a warning about
+   telephony cost and traceability.
+
+Until these exist, the binary records no acknowledgement.
 
 ## Disclaimer of warranty
 

@@ -13,8 +13,8 @@ token-budget: 950
 
 **Key invariants**:
 - Default build read-only. Writes require `-tags offensive` + triple-confirm.
-- Dialing requires `-tags offensive` + `--dial-allowed`. ≤3-digit numbers blocked. Wardialing batch vNext.
-- `scope.yaml` optional; AUP ack when absent.
+- Dialing is offensive-only and must be gated by `--dial-allowed` when a command first places calls; none does yet and the flag does not exist (dial validate validates; batch/wardial validate, classify and audit). ≤3-digit numbers blocked.
+- `scope.yaml` applies only with `--scope` (ranges + ports in scan/serve, blocked_numbers in dial, digits only: entries are not normalised); protocols/binds/canary parsed, not applied; no other command takes --scope (discover, fingerprint probe, plaintext-check, tui, per-protocol verbs, write/exploit/proxy/harvest/creds-check); no auto-load, no AUP prompt (PITF-087).
 - Parsers from scratch in `internal/protocols/<name>/wire/`.
 - Hexagonal: `core` only stdlib.
 - Plugins register in `init()` via `core.Register(...)`.

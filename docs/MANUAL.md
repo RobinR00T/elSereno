@@ -328,8 +328,10 @@ Convenciones para los ejemplos:
 
 - `TARGET_FILE` = archivo de texto con un host:port por línea.
 - `OUTPUT.ndjson` = donde dejas el output NDJSON.
-- Todos los verbos respetan las flags globales:
-  `--config`, `--dry-run`, `--format`, `--verbose`, `--quiet`.
+- Flags globales: `--config`, `--dry-run`, `--format`, `--verbose`,
+  `--quiet`. Ojo: `--dry-run` solo lo implementan `schedule delete`,
+  `enable`, `disable`, `clone`, `import`, `pause-all` y `resume-all`; los
+  demás lo ignoran y actúan de verdad (`scan` escanea).
 
 ### 7.1 `scan`
 
@@ -361,7 +363,7 @@ vacío y `port` a 0.
 | `--default-port N`         | (sin)          | si las líneas no traen `:port`, se aplica este                        |
 | `--max-concurrent N`       | (config)       | targets paralelos                                                     |
 | `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe                 |
-| `--scope FILE.yaml`        | (sin)          | scope.yaml; targets fuera de scope rechazados                         |
+| `--scope FILE.yaml`        | (sin)          | scope.yaml; descarta los targets fuera de sus rangos o puertos (§12)  |
 | `--no-progress`            | `false`        | desactiva barra de progreso (CI-friendly)                             |
 
 **Ejemplos:**
@@ -1077,83 +1079,86 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 
 ## 12. `scope.yaml` reference
 
-Un **scope file** limita qué targets puede tocar el binario.
-Cuando un `scope.yaml` está presente (o pasas `--scope FILE`)
-los targets fuera de la lista se rechazan con `denied: target
-outside scope`. Es el mecanismo que separa "scan autorizado"
-de "scan accidental".
+Un **scope file** limita qué targets pueden tocar `scan` y los scans del
+dashboard, y qué números acepta `dial`. Solo se aplica cuando lo pasas
+con `--scope FILE`: no hay carga automática (un `scope.yaml` en el
+directorio de trabajo o en `~/.elsereno/` no se lee). Lo aceptan `scan`,
+`serve` (para los scans del dashboard), `lint` (solo valida) y, en el
+build offensive, `dial validate|batch|wardial`. Sin `--scope`, no se
+filtra ningún target. Ningún otro comando acepta `--scope`, así que el
+scope no limita lo que tocan: `discover`, `fingerprint probe`,
+`plaintext-check`, `tui --input`, los verbos por protocolo (`opcua
+probe-anon`, `s7 probe-protection`...) y, en el build offensive, `write`,
+`exploit`, `proxy listen`, `harvest` y `creds-check`.
 
-### Forma canónica
+### Formato
 
 ```yaml
-# scope.yaml, autoriza explícitamente targets para esta sesión.
 version: 1
-allow:
-  # CIDR, todo lo dentro está permitido.
+ranges:                  # direcciones permitidas (IPv4 e IPv6)
   - cidr: 10.0.0.0/24
-  - cidr: 192.168.50.0/24
-  # IPv6 también soportado.
+    note: "planta norte, ticket SOC-12345"
   - cidr: 2001:db8::/48
-  # Host único.
-  - host: 10.10.10.10
-  # Host con puerto específico (limita aún más).
-  - host: 10.10.10.20
-    ports: [502, 4840, 47808]
-  # Range explícito.
-  - range: 10.0.1.10-10.0.1.30
-deny:
-  # Excepciones, un deny dentro de un allow tiene prioridad.
-  - host: 10.0.0.99    # router crítico, NO tocar
-  - cidr: 10.0.0.250/32
-notes: |
-  Ventana de mantenimiento autorizada por Juan Perez
-  (ticket SOC-12345), 2026-05-15 02:00 → 04:00 CET.
+ports:
+  allow: [102, 502, 4840, 20000, 44818, 47808]
+  deny: [23]
+dial:                    # solo `dial`, build offensive
+  blocked_numbers:
+    - "34112"            # solo dígitos: sin "+" ni "00" (ver tabla)
 ```
+
+Cualquier clave fuera de `version`, `ranges`, `ports`, `protocols`,
+`binds`, `dial` y `canary` es un error de parseo (`KnownFields`), así
+que un typo no pasa en silencio. Cada CIDR es una entrada `cidr` (con
+`note` opcional); no hay entradas `host` ni `range`, ni listas
+`allow`/`deny` de primer nivel.
+
+### Qué se aplica
+
+| Sección                    | Dónde se aplica                     | Regla                                                                                   |
+|----------------------------|-------------------------------------|-----------------------------------------------------------------------------------------|
+| `ranges`                   | `scan`, scans de `serve`            | Sin entradas: cualquier dirección. Con entradas: fuera de todas, el target se descarta. |
+| `ports.allow`/`ports.deny` | `scan`, scans de `serve`            | `deny` gana. `allow` vacío: cualquier puerto salvo `deny`.                              |
+| `dial.blocked_numbers`     | `dial` (offensive)                  | Bloquea el número exacto y todo lo que empiece por él, además del bloqueo fijo de 3 dígitos o menos. `dial` normaliza el número marcado (quita `+`, `00` inicial y puntuación) pero no la entrada: escríbela solo con dígitos y sin `00` (`"34112"`, no `"+34112"` ni `"0034112"`, que no bloquean nada). |
+| `protocols`                | ninguno                             | Se parsea pero no se aplica: no limita qué plugins corren.                              |
+| `binds`                    | ninguno                             | Se parsea pero no se aplica: un bind no-loopback de `serve` lo controlan sus flags.     |
+| `canary`                   | ninguno                             | Se parsea pero no se aplica.                                                            |
+
+Consecuencias que conviene saber:
+
+- Un `scope.yaml` con solo `version: 1` lo deja pasar todo.
+- Una CIDR mal escrita (`10.0.0.0/33`) se ignora sin error, y `lint
+  --scope` tampoco la detecta: lo que solo cubría ella queda fuera (falla
+  cerrado).
+- `scan` descarta los targets fuera de scope antes de cualquier conexión,
+  sin aviso por target ni entrada en la auditoría; si no queda ninguno,
+  sale con `no targets after scope filter` (código 66, `ExitNoInput`).
 
 ### Cómo se usa
 
 ```bash
-# Auto-detect: si hay scope.yaml en cwd o ~/.elsereno/, se carga:
-elsereno scan --input list:targets.txt
-
-# Explícito:
-elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml
-
-# Confirmar qué scope está activo:
-elsereno doctor   # imprime el path del scope detectado
-```
-
-### Reglas de evaluación
-
-1. `deny` se evalúa antes que `allow`. Un deny exacto blockea
-   incluso si hay un allow general.
-2. CIDR más específico gana en conflictos (longest-prefix
-   match estilo routing).
-3. Si el target no matchea NI allow NI deny → `denied: not
-   in scope` (default-deny).
-4. `ports` en una entrada `host` filtra: si la entrada no
-   lista el puerto del target, ese puerto se rechaza aunque
-   el host esté permitido.
-
-### Validación
-
-```bash
-# Validar sintaxis sin scan:
+# Validar la sintaxis sin escanear (claves y tipos; no valida las CIDR):
 elsereno lint --scope ./fleet-scope.yaml
 
-# Ver qué targets se aceptarían sin tocarlos (dry-run):
-elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml --dry-run
+# Escanear solo lo que el scope permite:
+elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml
+
+# El dashboard aplica el mismo scope a todos sus scans:
+elsereno serve --scope ./fleet-scope.yaml
 ```
+
+`scan` no tiene modo de prueba: `--dry-run` no impide que escanee.
+Para ver qué quedaría dentro del scope sin tocar nada, compara la lista
+de targets con `ranges` y `ports` a mano.
 
 ### Best practices
 
 - **Una sesión, un scope**: no recicles `scope.yaml` entre
   ventanas de pen-test. Crear uno fresco por engagement
   evita confusiones.
-- **Comentarios obligatorios** (campo `notes`): quién
-  autorizó, ventana de tiempo, ticket de referencia. Tu
-  futuro yo en una investigación post-incidente te lo
-  agradecerá.
+- **Deja constancia**: quién autorizó, ventana de tiempo y ticket,
+  en comentarios YAML o en el `note` de cada rango. Tu futuro yo
+  en una investigación post-incidente te lo agradecerá.
 - **Modo paranoico**: poner el scope en el repo del SOC
   con git history. PR + review antes de aplicar.
 
@@ -1541,17 +1546,21 @@ El allowlist round-trip a YAML con `--emit-allow-file` (claves
 
 ### Dial / SMS
 
-Disponible sólo en offensive + flag `--dial-allowed`. Números
-≤3 dígitos están **bloqueados duro** (evita marcar 911,
-emergency, asistencia operador, etc.). Wardialing batch es
-vNext (item en TODO-vNext.md, no shipped aún).
+Disponible sólo en offensive. Hoy ningún comando marca ni envía
+SMS: `dial validate` valida un número, y `dial batch` y `dial wardial`
+validan, clasifican y auditan listas; la entrega por hardware es vNext. El
+flag `--dial-allowed` no existe todavía: es la puerta prevista para
+el primer comando que marque. Números ≤3 dígitos están **bloqueados
+duro** (evita marcar 911, emergency, asistencia operador, etc.).
 
 ### Audit obligatorio
 
-Cada escritura ofensiva produce 2 entries en el audit log:
+Cada escritura ofensiva produce en el audit log:
 - `offensive_write` con todos los parámetros + hash del
   payload.
-- `scope_applied` con el match del allowlist.
+
+(El catálogo tiene un tipo `scope_applied`, pero nada lo emite: las
+escrituras ofensivas no pasan por el scope.)
 
 `elsereno audit verify-file` debe completar exit-0 después.
 Si reportes diff con un blue-team el archivo `audit.jsonl`

@@ -53,9 +53,11 @@ unlisted write got through, and it did not even answer ERROR.
 
 ## Writes (`-tags offensive`)
 
-`offensive/dial` (see `docs/protocols/dial.md` when written) adds
-`elsereno dial --number <E.164>` with the ≤3-digit hard block +
-scope.blocked_numbers guard on top of the triple-confirm wrapper.
+`offensive/dial` adds `elsereno dial validate --number <E.164>` (and
+`dial batch`, `dial wardial` for lists) with the ≤3-digit hard block and
+the `scope.blocked_numbers` guard. None of them dials yet and they do not
+ask for triple confirmation; the AT backend that would place calls is
+library code no command uses (PITF-087).
 
 SMS send / write operations land with the offensive-build SMS
 module in F6+, NOT implemented in F5.

@@ -474,7 +474,7 @@ Still apply from `NON-GOALS.md`:
 - Windows server support.
 - Auto-exploitation cascade (ElSereno always requires explicit
   operator confirmation per mutation).
-- Offensive flows without legal scope (`scope.yaml` required).
+- Offensive flows without legal scope. (Goal, not yet enforced: today only `dial` takes `--scope`; write, exploit, proxy, harvest and creds-check do not, PITF-087.)
 
 ---
 

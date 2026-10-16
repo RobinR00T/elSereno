@@ -69,8 +69,10 @@ jump host. The primary adversaries are:
 
 **-tags offensive** (build)
 :   Enables writes, exploits, harvesting, and dialling. Writes require
-    triple confirmation. Dialling additionally requires
-    **--dial-allowed**; ≤ 3-digit numbers are hard-blocked.
+    triple confirmation. No command places calls or sends SMS yet
+    (the **dial** verbs validate numbers; **batch** and **wardial** also audit them);
+    **--dial-allowed** is the planned gate for the first one that does
+    and does not exist yet. ≤ 3-digit numbers are hard-blocked.
 
 **ELSERENO_VAULT_PASSPHRASE** (env)
 :   Emits a warning when a TTY is present; prefer **vault unlock** or a

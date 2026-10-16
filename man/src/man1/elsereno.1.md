@@ -193,7 +193,10 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 :   Path to `elsereno.yaml` (overrides default lookup order).
 
 **\--dry-run**
-:   Simulate side effects without performing them.
+:   Simulate side effects without performing them. Only **schedule
+    delete**, **enable**, **disable**, **clone**, **import**,
+    **pause-all** and **resume-all** honour it; every other command
+    ignores it and acts (**scan** scans).
 
 **\--format** *yaml|json|table|ndjson|csv*
 :   Output format selector (per-command support varies).

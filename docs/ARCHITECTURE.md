@@ -41,7 +41,7 @@ rationale behind each package.
 | `internal/render` | `SafeBytes` sanitiser for target-controlled bytes. |
 | `internal/telemetry` | zerolog, redaction hook, Prometheus, OTel. |
 | `internal/web` | HTTP server, dual auth, CSRF, rate limits, health endpoints. |
-| `internal/scope` | Optional `scope.yaml` + AUP flow. |
+| `internal/scope` | Optional `scope.yaml`, applied with `--scope` (ranges, ports, dial blocked numbers). |
 | `internal/scoring` | Multi-factor scoring engine. |
 | `internal/triage` | Grouping (quick-wins, strategic). |
 | `internal/doctor` | Cross-platform preflight. |

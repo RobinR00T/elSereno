@@ -75,8 +75,11 @@ Tombstone purge preserves the chain; compact inserts a
 \f[B]\-tags offensive\f[R] (build)
 Enables writes, exploits, harvesting, and dialling.
 Writes require triple confirmation.
-Dialling additionally requires \f[B]\-\-dial\-allowed\f[R]; ≤ 3\-digit
-numbers are hard\-blocked.
+No command places calls or sends SMS yet (the \f[B]dial\f[R] verbs
+validate numbers; \f[B]batch\f[R] and \f[B]wardial\f[R] also audit
+them); \f[B]\-\-dial\-allowed\f[R] is the planned gate for the first one
+that does and does not exist yet.
+≤ 3\-digit numbers are hard\-blocked.
 .TP
 \f[B]ELSERENO_VAULT_PASSPHRASE\f[R] (env)
 Emits a warning when a TTY is present; prefer \f[B]vault unlock\f[R] or

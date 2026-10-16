@@ -32,9 +32,11 @@ func newScanCmd() *cobra.Command {
 			"s7-exposure run only when named in --plugin). The same " +
 			"per-port dispatch as dashboard scans. Findings are emitted in " +
 			"the format selected by --output-format (ndjson|csv|stix), each " +
-			"with the target's address and port. If a scope.yaml is present " +
-			"or --scope is set, targets outside scope are rejected. To probe " +
-			"one plugin on a non-default port, use `fingerprint probe`.",
+			"with the target's address and port. With --scope, targets " +
+			"outside the scope file's ranges or ports are dropped before " +
+			"any probe; without it no scope applies (a scope.yaml in the " +
+			"working directory is not read). To probe one plugin on a " +
+			"non-default port, use `fingerprint probe`.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runScan(cmd, opts)
 		},
@@ -43,7 +45,7 @@ func newScanCmd() *cobra.Command {
 		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query> | onyphe:<query>")
 	cmd.Flags().StringVar(&opts.apiCredsFile, "api-creds-file", "",
 		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:/onyphe:")
-	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "path to scope.yaml (optional)")
+	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "scope.yaml; targets outside its ranges or ports are dropped (no scope without this flag)")
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
 	cmd.Flags().IntVar(&opts.maxConcurrent, "max-concurrent", 0, "max concurrent targets (default from config)")

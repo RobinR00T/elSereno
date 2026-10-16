@@ -481,13 +481,13 @@ printf '10.0.0.5:502\n10.0.0.6:102\n10.0.0.7:44818\n' | \
   elsereno scan --input stdin
 
 # O una lista en fichero
-elsereno scan --input-file targets.txt
+elsereno scan --input list:targets.txt
 ```
 
-#### 2.1.6 Aplicar scope (filtro de sanidad previo a toda acción)
+#### 2.1.6 Aplicar scope (filtro previo a toda conexión, solo con `--scope`)
 
 ```yaml
-# scope.yaml, SIEMPRE carga un scope antes de scans grandes
+# scope.yaml, pásalo SIEMPRE con --scope antes de scans grandes
 version: 1
 ranges:
   - cidr: 10.0.0.0/16
@@ -495,29 +495,28 @@ ranges:
 ports:
   allow: [102, 502, 1911, 2404, 4840, 5094, 10001, 20000, 44818, 47808]
   deny: []
-protocols:
-  allow: [modbus, s7, enip, bacnet, dnp3, iec104, hartip, fox, atg, opcua]
-  deny: [atmodem, xot]
-bind:
-  allow: ["127.0.0.1", "::1"]
 dial:
   blocked_numbers:
     - "555"          # prefijos prohibidos
     - "01189998819991197253"
-canary:
-  enabled: true
-  alert_webhook: "https://canary.internal/hook"
 ```
+
+Las secciones `protocols`, `binds` y `canary` también se aceptan, pero
+hoy no se aplican (no limitan plugins, binds ni avisan). Cualquier otra
+clave es un error de parseo. Detalle en `docs/MANUAL.md` §12.
 
 Uso:
 
 ```sh
-elsereno scan --scope scope.yaml --input-file targets.txt
+elsereno scan --scope scope.yaml --input list:targets.txt
 elsereno dial validate --number "+34 91 123 4567" --scope scope.yaml
 ```
 
-Un target fuera del scope **no se prueba** y queda auditéado con
-`scope_applied` + `decision:denied`.
+Sin `--scope` no se aplica ningún scope: un `scope.yaml` en el
+directorio de trabajo no se lee. Un target fuera del scope **no se
+prueba**, pero tampoco deja rastro: no hay aviso por target ni evento en
+la auditoría. Si no queda ninguno, `scan` sale con `no targets after
+scope filter`.
 
 #### 2.1.7 Outputs + reporting
 
@@ -923,7 +922,7 @@ backup cifrado).
 1. Binario construido con `-tags offensive` (release: `elsereno-offensive`).
 2. Vault desbloqueado (para derivar tokens).
 3. Triple confirmación: `--accept-writes`, `--confirm-target`, `--confirm-token`.
-4. (Si dial) `--dial-allowed` y números > 3 dígitos.
+4. (Si dial) números > 3 dígitos. Hoy `dial` no marca: `validate` valida un número, `batch` y `wardial` validan, clasifican y auditan listas; `--dial-allowed` no existe todavía.
 
 ### 6.1 Modbus write, dos modos
 

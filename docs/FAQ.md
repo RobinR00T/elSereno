@@ -187,9 +187,12 @@ significativo.
 
 Posibles causas en orden de probabilidad:
 
-1. **Scope rechazo**: tu `scope.yaml` no lo incluye.
-   Comprueba con `elsereno doctor` o pasa `--no-scope`
-   temporalmente para confirmar.
+1. **Scope rechazo**: pasaste `--scope` y tu `scope.yaml` no
+   lo incluye (rangos o puertos). Compara el target con
+   `ranges` y `ports`; el resumen `scan complete: ... (from N
+   targets ...)` cuenta solo los que pasaron el filtro. No
+   repitas sin `--scope` para comprobarlo: tocarías justo lo
+   que el scope dejó fuera.
 2. **Puerto cerrado**: el TCP-connect probe falló. Verifica
    con `nc -zv host port`.
 3. **Probe falló a nivel protocolo**: el target responde
@@ -248,8 +251,9 @@ ventana de mantenimiento**. Plugin notes en
 gotchas por dispositivo.
 
 **Offensive build**: cualquier escritura requiere
-triple-confirm + scope explícito + audit obligatorio. No
-puede dispararse por accidente.
+triple-confirm y queda auditada. No puede dispararse por
+accidente. El scope no la limita: los comandos de escritura
+no aceptan `--scope`.
 
 ---
 

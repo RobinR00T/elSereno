@@ -8,11 +8,19 @@
 
 # DESCRIPTION
 
-A *scope.yaml* file defines the authorised ranges, ports, protocols, web
-binds, dialling blacklist, and optional canary for an engagement.
+A *scope.yaml* file defines the authorised ranges and ports, and the
+dialling blacklist, for an engagement. It also accepts protocols, web
+binds and a canary, which are parsed but not applied.
 
-A scope file is **optional**: when absent, ElSereno requires an explicit
-acceptable-use acknowledgement at every active command.
+A scope file applies only when passed with **--scope** (to **scan**, to
+**serve** for dashboard scans, and to **dial** in the offensive build;
+**lint --scope** only validates it). No other command takes it, so it
+does not limit **discover**, **fingerprint probe**, **plaintext-check**,
+**tui --input**, the per-protocol verbs, or the offensive **write**,
+**exploit**, **proxy listen**, **harvest** and **creds-check**.
+Nothing loads it on its own: a *scope.yaml* in the working directory is
+not read, and without **--scope** no target is filtered. Keys other
+than the ones below are a parse error.
 
 # FORMAT
 
@@ -35,9 +43,10 @@ binds:
     - "[::1]:8787"
 dial:
   # In addition to the hardcoded ≤3-digit block (always on).
+  # Digits only, no "+" or leading "00": entries are not normalised.
   blocked_numbers:
-    - "+34112"
-    - "+34062"
+    - "34112"
+    - "34062"
 canary:
   enabled: false
   alert_webhook: ""
@@ -46,27 +55,36 @@ canary:
 # SEMANTICS
 
 **ranges**
-:   CIDRs. Both IPv4 and IPv6 are supported.
+:   CIDRs, IPv4 and IPv6. With no entries, any address passes. With
+    entries, a target outside all of them is dropped before any
+    connection. A malformed CIDR is skipped without error, so what only
+    it covered is dropped.
 
 **ports.allow / ports.deny**
 :   Deny wins over allow. If **allow** is empty, all ports are allowed
     subject to **deny**.
 
+**dial.blocked_numbers**
+:   Numbers refused by **dial**, exact or as a prefix, on top of the
+    hard-coded block of numbers of 3 digits or fewer. **dial** normalises
+    the dialled number (drops "+", a leading "00" and punctuation) but
+    not the entries, so write them as digits only: "+34112" or
+    "0034112" block nothing.
+
 **protocols.allow / protocols.deny**
-:   Same precedence as ports.
+:   Parsed, not applied: they do not limit which plugins run.
 
 **binds.allow**
-:   Addresses the web server is allowed to bind to. Non-loopback binds
-    additionally require **--tls-cert**, **--tls-key**, and
-    **--i-know-what-im-doing**.
-
-**dial.blocked_numbers**
-:   Additional numbers blocked on offensive dialling. ≤3-digit numbers are
-    always blocked regardless.
+:   Parsed, not applied. A non-loopback bind of **serve** is governed by
+    its own flags (**--tls-cert**, **--tls-key**,
+    **--i-know-what-im-doing**).
 
 **canary**
-:   Optional webhook that fires when the canary condition is met (to be
-    defined per engagement).
+:   Parsed, not applied.
+
+A dropped target is not probed and leaves no trace: there is no
+per-target message and no audit event. When no target is left, **scan**
+exits with "no targets after scope filter".
 
 # SEE ALSO
 

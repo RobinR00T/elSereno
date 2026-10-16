@@ -420,7 +420,8 @@ Cada escritura ofensiva produce:
 
 - `offensive_write` event con todos los parámetros + hash
   del payload.
-- `scope_applied` event con match del allowlist.
+- (El catálogo tiene un tipo `scope_applied`, pero ninguna escritura
+  ni ningún scan lo emite hoy.)
 - En el proxy DNP3, un `dnp3_gate_decision` por cada rechazo o descarte
   con su motivo (los 20 primeros de cada conexión) y, si hubo alguno, un
   resumen con los totales al cerrarla, también al parar el proxy. Se
@@ -434,29 +435,42 @@ evidencia oficial.
 
 ### Dial / SMS
 
-Sólo en offensive build + `--dial-allowed`. Números ≤3
-dígitos están **bloqueados duro** en el binario (evita
-911, 112, etc.). Wardialing batch es vNext.
+Sólo en offensive build. Hoy ningún comando marca ni envía SMS:
+`dial validate` valida un número, y `dial batch` y `dial wardial`
+validan, clasifican y auditan listas (el backend AT de `offensive/dial/backend` es código
+de librería que ningún comando usa). El flag `--dial-allowed` que
+documentaba esta sección no existe: es la puerta prevista para el
+primer comando que marque. Números ≤3 dígitos están **bloqueados
+duro** en el binario (evita 911, 112, etc.).
 
 ---
 
 ## 9. Scope enforcement
 
-`scope.yaml` se evalúa **antes** de tocar un target:
+`scope.yaml` solo se aplica si se pasa con `--scope` (`scan`, `serve`
+para los scans del dashboard, `dial` en el build offensive). No hay
+carga automática: un `scope.yaml` en el directorio de trabajo no se lee.
 
-1. Si el target matchea `deny` → `denied: explicit deny`.
-2. Si el target matchea `allow` → `allowed`.
-3. Default-deny si scope está cargado y no hay match.
-4. Sin scope cargado, todos los targets pasan
-   (intencional para uso ad-hoc).
+Con scope cargado, antes de tocar un target:
 
-Findings de targets fuera de scope **NO** se emiten, el
-finding tiene `scope_state: denied` y no aparece en
-findings.ndjson (los logs sí registran el rechazo).
+1. Si su puerto está en `ports.deny`, o `ports.allow` no está vacío y
+   no lo incluye, se descarta.
+2. Si `ranges` tiene entradas y la dirección no cae en ninguna, se
+   descarta. Sin entradas en `ranges`, cualquier dirección pasa.
+3. Sin scope cargado, todos los targets pasan (intencional para uso
+   ad-hoc).
 
-Para uso en pen-test autorizado: **scope obligatorio**.
-Un `scope.yaml` en CWD se auto-carga; pasarlo explícito
-es la forma robusta.
+Un target descartado no se prueba ni produce finding, y tampoco deja
+rastro: no hay aviso por target ni evento en la auditoría (el tipo
+`scope_applied` existe pero nadie lo emite). `protocols`, `binds` y
+`canary` se parsean pero no se aplican. Detalle en `docs/MANUAL.md` §12.
+
+Para uso en pen-test autorizado: **scope obligatorio**, pasado
+siempre con `--scope`. Ojo: solo lo aplican `scan`, los scans de
+`serve` y `dial`. Ningún otro comando acepta `--scope` (`discover`,
+`fingerprint probe`, `plaintext-check`, `tui --input`, los verbos por
+protocolo, y los ofensivos de escritura, exploit, proxy, harvest y
+`creds-check`), así que el scope no los limita.
 
 ---
 

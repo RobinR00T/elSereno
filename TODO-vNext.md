@@ -30,6 +30,39 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
+## Abierto (16-10-2026, controles de seguridad documentados que no existían): decisiones pendientes
+
+La documentación describía controles que el código no tiene (PITF-087). Los
+docs ya dicen lo que hay; queda decidir cuáles se construyen:
+
+- **Aviso de uso aceptable.** LEGAL.md describía un `I AGREE` obligatorio en
+  el primer arranque, guardado en `~/.elsereno/ack.v1` con checksum, y un
+  banner en los comandos activos sin scope. No existe nada de eso; hoy solo
+  `elsereno legal` imprime el texto. ¿Se construye, o se queda como
+  responsabilidad del operador?
+- **`protocols` del scope.** `scope.CheckProtocol` existe y nadie lo llama:
+  `protocols.allow/deny` no limitan qué plugins corren. ¿Se aplica en el
+  reparto de plugins de `scan` y de los scans del dashboard?
+- **`binds` y `canary` del scope.** Se parsean y no se aplican. ¿Se aplica
+  `binds.allow` al bind no-loopback de `serve`, o se retiran del formato?
+- **Rastro de lo que el scope descarta.** Un target fuera de scope se descarta
+  sin aviso ni evento; `scope_applied` está en el catálogo y nadie lo emite.
+  ¿Una línea en stderr con el recuento, un evento de auditoría por ejecución,
+  o los dos?
+- **`--dial-allowed`.** Ningún comando marca todavía y el flag no existe. Es
+  la puerta prevista para el primero que lo haga (CLAUDE.md, conventions.md).
+- **`blocked_numbers` con `+` o `00` no bloquea nada.** `dial` normaliza el
+  número marcado y no la entrada del scope, así que `"+34112"` deja pasar
+  `+34112345678` (comprobado por la auditoría del 16-10). Los docs dicen
+  ahora "solo dígitos". ¿Se normalizan las entradas al cargar, o `lint`
+  las rechaza?
+- **Comandos de red sin scope.** Solo `scan`, `serve` y `dial` aceptan
+  `--scope`: `discover`, `fingerprint probe`, `plaintext-check`, `tui
+  --input`, los verbos por protocolo y, en el build ofensivo, `write`,
+  `exploit`, `proxy listen`, `harvest` y `creds-check` no. ¿Se les añade?
+- **`lint --scope` no valida las CIDR.** `10.0.0.0/33` da "scope: ok" y en
+  ejecución se ignora en silencio.
+
 ## Abierto (14-10-2026, gate DNP3): decisiones pendientes
 
 - **Ningún comando sirve los proxies del build por defecto.** En los builds

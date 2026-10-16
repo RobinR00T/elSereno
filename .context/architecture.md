@@ -61,7 +61,7 @@ deduped by `(addr, port)` before scanning. IDN via `x/net/idna.Lookup.ToASCII`.
 | `internal/exec/` | `SafeCommand` + `CommandSpec` + path allowlist + `--` enforcement. |
 | `internal/inputs/{shodan,censys,nmapxml,list,stdin}/` | Input adapters. |
 | `internal/scanner/` | Resolve + dedupe + scan. |
-| `internal/scope/` | `scope.yaml` + AUP flow. |
+| `internal/scope/` | `scope.yaml`, applied with `--scope` (PITF-087). |
 | `internal/protocols/` | Plugins. |
 | `internal/proxy/` | TCP/UDP framework. |
 | `internal/repl/` | Generic REPL. |

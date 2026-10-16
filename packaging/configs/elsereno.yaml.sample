@@ -39,10 +39,9 @@
 # readyz:
 #   audit_tail_entries: 1000
 
-# scope.yaml, operator authorisation document. Optional;
-# when absent, an interactive AUP acknowledgement is
-# required on every elsereno run (PITF-019).
-# scope_path: "/etc/elsereno/scope.yaml"
+# scope.yaml is not configured here: pass it with --scope to
+# scan, serve or dial (see elsereno-scope(5)). Without --scope no
+# scope applies.
 
 # Scanner concurrency tuning. Defaults match the
 # scanner.New() constants: 100 concurrent targets, 1

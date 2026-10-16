@@ -16,9 +16,9 @@ import (
 var ErrOutOfScope = errors.New("scope: target out of scope")
 
 // Scope is the parsed representation of scope.yaml (section 15 of the
-// project brief). Only the fields used by F1 are populated; F2+
-// layers (dial.blocked_numbers, canary.alert_webhook) are tolerated
-// but unused for now.
+// project brief). Ranges and Ports are applied by Check, Dial by
+// CheckDial; Protocols, Binds and Canary are parsed (so KnownFields
+// accepts them) but no caller applies them.
 type Scope struct {
 	Version   int         `yaml:"version"`
 	Ranges    []RangeDecl `yaml:"ranges"`
@@ -130,7 +130,10 @@ func (s *Scope) CheckProtocol(proto string) error {
 // CheckDial returns nil if `normalisedNumber` is not in the scope's
 // blocked_numbers list. Entries match if they are a prefix or an
 // exact match of the normalised number (operators typically paste
-// country-code prefixes like "0090" to block whole regions).
+// country-code prefixes to block whole regions). The number arrives
+// normalised (offensive/dial.Normalise drops "+", a leading "00" and
+// punctuation) but the entries are compared as written, so an entry
+// with "+" or "00" never matches: write "90", not "0090" or "+90".
 //
 // This method is the *scope half* of the dial guard (ADR-041 gate
 // 2). The ≤3-digit hard block lives in offensive/dial/validate.go

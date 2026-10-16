@@ -459,6 +459,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The docs described safety controls the binary does not have
+  (PITF-087).** `scan --help`, `docs/MANUAL.md` §12 and
+  `docs/SECURITY.md` §9 said a `scope.yaml` in the working directory was
+  loaded on its own; nothing loads it, and a scope applies only with
+  `--scope`. MANUAL §12 documented a scope format (`allow`/`deny` lists
+  with `host` and `range` entries, longest-prefix rules, a `notes` key)
+  that `scope.Load` rejects as unknown fields, and a `scan --dry-run` to
+  see which targets would pass "without touching them": `--dry-run` is a
+  global flag `scan` ignores, so that command scanned for real.
+  `docs/manual/elsereno-manual.md` used a `bind:` key that fails to parse
+  and said dropped targets were audited as `scope_applied`, an event
+  nothing emits. LEGAL.md described an `I AGREE` acknowledgement stored in
+  `~/.elsereno/ack.v1` and a banner when no scope is given, and several
+  docs a `--dial-allowed` flag; none of them exists. FAQ suggested
+  `doctor` (which does not look at the scope) and a `--no-scope` flag
+  that does not exist, and FAQ and ROADMAP said offensive writes need a
+  scope (no write command takes `--scope`). The help text, the global
+  `--dry-run` help, the manuals, the man pages (scope, security,
+  elsereno(1)), SECURITY, LEGAL, FAQ, ROADMAP, ARCHITECTURE and the code
+  comments now say what is applied (ranges and ports in `scan` and
+  dashboard scans, `blocked_numbers` in `dial`), what is parsed but not
+  applied (`protocols`, `binds`, `canary`), which commands take no scope
+  at all, that a dropped target leaves no trace, which verbs honour
+  `--dry-run`, and that no command dials yet. The scope examples wrote
+  `blocked_numbers` as `"+34112"`, which blocks nothing because `dial`
+  normalises the dialled number and not the entry; they now use digits
+  only and say why. The packaged sample config advertised a
+  `scope_path` key that `lint --config` rejects and the same AUP prompt;
+  it now says to pass `--scope`. What to build is listed in TODO-vNext. New test
+  `TestRunScan_ScopeOnlyWithFlag`: a `scope.yaml` in the working
+  directory and in `~/.elsereno/` that leaves the target out is ignored
+  without `--scope`, and with it the target is dropped before any
+  connection.
+
 - **Cron schedules can now be saved with `serve --scan-store=db`
   (PITF-086).** Migration 00008 (v1.73, cron cadence) meant to drop the
   v1.71 `CHECK (interval_seconds BETWEEN 60 AND 604800)` by looking for

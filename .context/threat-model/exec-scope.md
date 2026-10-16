@@ -44,7 +44,7 @@ binary we're about to spawn actually the one we think it is?"
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Operator claims they never bypassed the allowlist | `CommandSpec.AllowAnyPath=true` mandates a `BypassAuditor` whose `RecordBypass` must succeed before spawn; absence or failure fails closed | `internal/exec/safecommand.go` F5 chunk 6 |
-| Disputed scope decision | `scope_applied` audit event fired when a run loads a scope.yaml | `internal/audit/events.go:EventScopeApplied` |
+| Disputed scope decision | **Gap**: `scope_applied` exists in the event catalogue but nothing emits it, and a dropped target leaves no trace (PITF-087) | `internal/audit/events.go:EventScopeApplied` |
 
 ## I, Information disclosure
 

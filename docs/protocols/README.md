@@ -92,8 +92,9 @@ which requires **all three**: `--accept-writes`, `--confirm-target
 <target>`, and `--confirm-token <hex>` derived via HMAC-SHA256 from
 the vault master key.
 
-Operators run the target tool twice, once with `--dry-run` to mint
-the expected token, once with `--confirm-token <value>` to fire.
+Operators run the target tool twice, once with its `dry-run`
+subcommand to mint the expected token, once with `--confirm-token
+<value>` to fire. (The global `--dry-run` flag is not that subcommand.)
 
 ## Deeper protocol notes
 

@@ -8,6 +8,11 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (4): **Docs no longer claim safety controls that do not
+  exist (PITF-087).** No scope auto-load, real scope format, `scan`
+  ignores `--dry-run`, no `scope_applied` emitter, no AUP prompt, no
+  `--dial-allowed`; decisions in TODO-vNext.
+
 - 2026-10-16 (3): **Cron schedules on Postgres fixed (PITF-086).**
   00008 never dropped the v1.71 interval CHECK (Postgres stores BETWEEN
   as >= AND <=), so the DB store rejected every cron schedule; migration 00021

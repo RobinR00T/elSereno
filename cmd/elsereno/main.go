@@ -130,7 +130,7 @@ func newRootCmd() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&flagConfig, "config", "", "path to elsereno.yaml (overrides lookup order)")
 	root.PersistentFlags().StringVar(&flagFormat, "format", "", "output format (yaml|json|table|ndjson|csv)")
-	root.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "simulate side effects without performing them")
+	root.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "simulate side effects; only schedule delete|enable|disable|clone|import|pause-all|resume-all honour it, other commands ignore it and act")
 	root.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "suppress non-critical output")
 	root.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "verbose logging (debug level)")
 

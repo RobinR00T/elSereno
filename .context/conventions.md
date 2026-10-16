@@ -52,7 +52,7 @@ token-budget: 2500
 - TLS verification always on. `--insecure-*` per call site only.
 - Postgres TLS required when not loopback; prefer `.pgpass`/`PGSERVICEFILE` over DSN password.
 - Audit: tombstone preserves chain; compact inserts rebase marker and **skips** entries `event_type IN ('genesis','chain_rebase','purge_event')`. Canonical JCS fields: id/occurred_at/actor/event_type/payload/prev_hash. Genesis `prev_hash=0x00..00`. Actor `'system'` for non-attributable.
-- AT dialing / SMS requires `-tags offensive` + `--dial-allowed`. Numbers ≤3 digits blocked hard. Proxy read-only blocks: ATD*, ATA, AT+CMGS, AT+CMGW, AT+CMSS, AT+CMGD, AT+CFUN, AT+CPWROFF, +++.
+- AT dialing / SMS requires `-tags offensive` + `--dial-allowed` (rule for the first command that dials; none does yet and the flag does not exist, PITF-087). Numbers ≤3 digits blocked hard. Proxy read-only blocks: ATD*, ATA, AT+CMGS, AT+CMGW, AT+CMSS, AT+CMGD, AT+CFUN, AT+CPWROFF, +++.
 - Offensive subprocess with seccomp-bpf on Linux (lib decision deferred to F5).
 - `crypto/rand` only.
 - Web tokens 32B crypto/rand base64url.

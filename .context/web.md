@@ -21,8 +21,8 @@ token-budget: 1800
 
 ## Binding
 Default `127.0.0.1:8787`. Binding outside loopback requires: `--tls-cert`
-+ `--tls-key` + `--i-know-what-im-doing` + the target address being listed
-in `binds.allow` in `scope.yaml`, and an audit `serve_start` entry.
++ `--tls-key` + `--i-know-what-im-doing`, and an audit `serve_start` entry.
+`binds.allow` in `scope.yaml` is parsed but not checked (PITF-087).
 
 ## Auth (ADR-014)
 Dual:

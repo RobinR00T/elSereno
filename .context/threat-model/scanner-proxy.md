@@ -27,7 +27,7 @@ that sends the scanner into a degenerate retry loop.
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
-| Adversary spoofs IP to frame an authorised target | Scanner scope check (`internal/scope.Check`) runs pre-dial; scope.yaml CIDR is operator authority | `internal/scanner/scanner.go:Run` → `scope.Check` |
+| Adversary spoofs IP to frame an authorised target | Scope check (`internal/scope.Check`) runs pre-dial when `--scope` is given; scope.yaml CIDR is operator authority | `cmd/elsereno/cmd_scan.go:filterByScope` (CLI scan and serve's scan runner) → `scope.Check` |
 | Proxy client impersonates a downstream | Per-connection idle deadline closes stale; proxy does not authenticate clients today (operator-network trust zone) | `internal/proxy/framework.go:handle` |
 
 ## T, Tampering
