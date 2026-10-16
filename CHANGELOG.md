@@ -459,6 +459,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Shodan and FOFA API keys no longer appear in error messages
+  (PITF-088).** Both providers take their credentials in the query
+  string (`key`, and for FOFA also `email`), and `net/http` reports every
+  transport failure (DNS, refused, timeout, TLS) as `Get "<full URL>":
+  ...` and a malformed request URL as `parse "<full URL>": ...`, so a
+  network error during `scan --input shodan:...` or `fofa:...` (or `tui
+  --input`) printed the API key on the terminal and in any CI or cron
+  log that kept the output. Dashboard scans never reach these providers.
+  A new `inputs.RedactQuery` replaces those query values with `REDACTED` in the
+  `*url.Error` before it is wrapped, keeping the cause (`errors.Is` with
+  `context.DeadlineExceeded` still works). Applied to Shodan search and
+  host lookup and to FOFA search. Censys, ZoomEye, ONYPHE and BinaryEdge
+  send their credentials in headers and were not affected; InternetDB
+  needs none. Tests drive Shodan search, Shodan host and FOFA search
+  through a failing transport and a malformed base URL and fail if the
+  key or e-mail is in the error; removing any one of the six redaction
+  calls makes a test fail.
+
 - **The docs described safety controls the binary does not have
   (PITF-087).** `scan --help`, `docs/MANUAL.md` §12 and
   `docs/SECURITY.md` §9 said a `scope.yaml` in the working directory was

@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs"
 )
 
 // ErrHostNotFound is returned by Host when Shodan has no record for the
@@ -123,7 +124,8 @@ func (h *HostInfo) CVEs() []string {
 //
 // Returns ErrHostNotFound on a 404 (Shodan has nothing on the address).
 // The API key travels as a query parameter over HTTPS, same as Search
-// (PITF-016 covers argv/shell, not TLS-protected query strings).
+// (PITF-016 covers argv/shell, not TLS-protected query strings); errors
+// that quote the URL go through inputs.RedactQuery (PITF-088).
 func (c *Client) Host(ctx context.Context, ip string, history bool) (*HostInfo, error) {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
@@ -142,11 +144,11 @@ func (c *Client) Host(ctx context.Context, ip string, history bool) (*HostInfo, 
 	u := fmt.Sprintf("%s/shodan/host/%s?%s", c.BaseURL, addr.String(), q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("shodan: request: %w", err)
+		return nil, fmt.Errorf("shodan: request: %w", inputs.RedactQuery(err, "key"))
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("shodan: http: %w", err)
+		return nil, fmt.Errorf("shodan: http: %w", inputs.RedactQuery(err, "key"))
 	}
 	defer func() { _ = resp.Body.Close() }()
 

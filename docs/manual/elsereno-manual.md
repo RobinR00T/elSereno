@@ -453,6 +453,12 @@ El loader enforce 0600 al leer (cualquier fichero con bits de
 grupo / mundo se rechaza con `chmod 600 <path>` de sugerencia)
 y `KnownFields(true)` rechaza typos en las claves al parse.
 
+Shodan y FOFA reciben la clave (FOFA también el email) como
+parámetros de la URL. Desde el 16-10-2026 un error de red los
+muestra como `key=REDACTED` / `email=REDACTED`; antes salían
+enteros en el mensaje. Censys, ZoomEye, ONYPHE y BinaryEdge usan
+cabeceras; InternetDB no lleva clave.
+
 Para uso programático (librería Go, sin CLI):
 
 ```go

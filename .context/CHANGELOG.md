@@ -8,6 +8,10 @@ last-updated: 2026-10-16
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-16 (5): **Shodan/FOFA keys out of error messages
+  (PITF-088).** `inputs.RedactQuery` scrubs `key`/`email` from the
+  `*url.Error` URL before wrapping.
+
 - 2026-10-16 (4): **Docs no longer claim safety controls that do not
   exist (PITF-087).** No scope auto-load, real scope format, `scan`
   ignores `--dry-run`, no `scope_applied` emitter, no AUP prompt, no

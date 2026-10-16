@@ -13,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs"
 )
 
 // DefaultBaseURL is the Shodan API endpoint. Override via
@@ -70,7 +71,8 @@ type SearchResponse struct {
 // hits. The API key is passed as a query parameter, which Shodan
 // mandates; the secure transport is HTTPS so the value is encrypted
 // on the wire (PITF-016 applies to argv/shell, not to TLS-protected
-// query strings).
+// query strings). Every error that quotes the URL goes through
+// inputs.RedactQuery first (PITF-088).
 func (c *Client) Search(ctx context.Context, query string, limit int) ([]core.Target, error) {
 	if limit <= 0 {
 		limit = 100
@@ -145,12 +147,12 @@ func (c *Client) searchPage(ctx context.Context, query string, page, limit int) 
 	u := fmt.Sprintf("%s/shodan/host/search?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("shodan: request: %w", err)
+		return nil, 0, fmt.Errorf("shodan: request: %w", inputs.RedactQuery(err, "key"))
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("shodan: http: %w", err)
+		return nil, 0, fmt.Errorf("shodan: http: %w", inputs.RedactQuery(err, "key"))
 	}
 	defer func() { _ = resp.Body.Close() }()
 

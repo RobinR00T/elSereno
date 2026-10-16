@@ -15,6 +15,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs"
 )
 
 // DefaultBaseURL is the FOFA API endpoint. Override via
@@ -155,12 +156,12 @@ func (c *Client) searchPage(ctx context.Context, query string, page, size int) (
 	u := fmt.Sprintf("%s/api/v1/search/all?%s", c.BaseURL, q.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
-		return nil, 0, fmt.Errorf("fofa: request: %w", err)
+		return nil, 0, fmt.Errorf("fofa: request: %w", inputs.RedactQuery(err, "key", "email"))
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("fofa: http: %w", err)
+		return nil, 0, fmt.Errorf("fofa: http: %w", inputs.RedactQuery(err, "key", "email"))
 	}
 	defer func() { _ = resp.Body.Close() }()
 

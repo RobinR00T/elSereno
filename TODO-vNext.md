@@ -60,6 +60,13 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   `--scope`: `discover`, `fingerprint probe`, `plaintext-check`, `tui
   --input`, los verbos por protocolo y, en el build ofensivo, `write`,
   `exploit`, `proxy listen`, `harvest` y `creds-check` no. ¿Se les añade?
+- **Cabeceras con clave en redirecciones a otro host.** Go solo quita
+  `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
+  redirigir a un host que no es el mismo ni un subdominio suyo
+  (`net/http/client.go`), así que `X-Key` (BinaryEdge) y `API-KEY`
+  (ZoomEye) se reenviarían a donde apunte un `Location`, también por
+  `http://`; ningún cliente define `CheckRedirect`. Visto en la auditoría
+  de PITF-088 (16-10). ¿`CheckRedirect` que rechace cambiar de host?
 - **`lint --scope` no valida las CIDR.** `10.0.0.0/33` da "scope: ok" y en
   ejecución se ignora en silencio.
 
