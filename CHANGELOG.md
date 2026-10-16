@@ -459,6 +459,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`elsereno audit serve` could crash on a close that raced start-up
+  (PITF-085).** `Server.Serve` read the listener field on every accept
+  without the lock that `Close` takes to clear it, so a `Close` between
+  two accepts (at start-up, or right after a connection was accepted: a
+  signal, a test cleanup) made `Accept` dereference nil and the daemon
+  died with SIGSEGV; the comment on
+  `Close` said it was safe to call concurrently with `Serve`. `Serve`
+  now takes the listener once under the lock, and `SocketPath` reads it
+  under the lock too. Found when the `audit` workflow failed on
+  2026-10-16 with a data race and a nil-pointer panic in
+  `internal/audit`; a new test reproduces both against the old code.
+  `scripts/audit.sh` now prints the failure markers (`--- FAIL`,
+  `panic:`, `fatal error:`, `WARNING: DATA RACE`, test build errors) and
+  the failing packages instead of the last 30 lines of the test log,
+  which had hidden the culprit.
+
 - **The dev container runs Go 1.26, and drift there now fails the
   audit.** `.devcontainer/devcontainer.json` still used
   `mcr.microsoft.com/devcontainers/go:1.23-bookworm` (Go 1.23.11) while

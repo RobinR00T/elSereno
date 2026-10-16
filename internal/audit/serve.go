@@ -100,8 +100,16 @@ func NewServer(w Writer, socketPath string) (*Server, error) {
 }
 
 // SocketPath returns the path the server is bound to, useful for
-// log lines + tests that need to reconstruct the path.
+// log lines + tests that need to reconstruct the path. It returns ""
+// once the server is closed.
 func (s *Server) SocketPath() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.socketPathLocked()
+}
+
+// socketPathLocked is SocketPath for callers that hold s.mu.
+func (s *Server) socketPathLocked() string {
 	if s.ln == nil {
 		return ""
 	}
@@ -119,7 +127,7 @@ func (s *Server) Close() error {
 	if s.ln == nil {
 		return nil
 	}
-	path := s.SocketPath()
+	path := s.socketPathLocked()
 	err := s.ln.Close()
 	s.ln = nil
 	if path != "" {
@@ -133,12 +141,24 @@ func (s *Server) Close() error {
 // goroutine. The daemon's Writer mutex serialises chain order
 // across all clients.
 func (s *Server) Serve(ctx context.Context) error {
+	// Take the listener once, under the lock: Close sets s.ln to nil
+	// under the same lock, and until 2026-10-16 the loop read s.ln on
+	// every turn without it, so a Close between two Accepts (at start-up,
+	// or right after a connection was accepted: a signal, a test
+	// cleanup) made Accept dereference nil and crashed the daemon. Closing the listener ends Accept with
+	// net.ErrClosed, which returns nil below.
+	s.mu.Lock()
+	ln := s.ln
+	s.mu.Unlock()
+	if ln == nil {
+		return nil // already closed
+	}
 	go func() {
 		<-ctx.Done()
 		_ = s.Close()
 	}()
 	for {
-		c, err := s.ln.Accept()
+		c, err := ln.Accept()
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()

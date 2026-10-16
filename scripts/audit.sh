@@ -241,8 +241,15 @@ hdr "8. Tests + race detector"
 if go test -race -count=1 -short ./... >/tmp/.audit-test.$$ 2>&1; then
     ok "go test -race -short: all packages pass"
 else
-    fail "tests failed, see /tmp/.audit-test.$$ (last 30 lines below)"
-    tail -30 /tmp/.audit-test.$$ | sed 's/^/      /'
+    fail "tests failed, see /tmp/.audit-test.$$ (failures below)"
+    # A plain tail misses the failing package when the packages after it
+    # pass (2026-10-16: a data race in internal/audit scrolled out of the
+    # last 30 lines). Show the failure markers with context first, then
+    # the failing packages.
+    # Also `fatal error:` (concurrent map writes, deadlock) and test
+    # build errors (`# pkg [pkg.test]`), which carry no `--- FAIL`.
+    grep -E -A14 '^(--- FAIL|panic:|fatal error:|WARNING: DATA RACE|# )' /tmp/.audit-test.$$ | head -80 | sed 's/^/      /' || true
+    grep -E '^FAIL[[:space:]]' /tmp/.audit-test.$$ | sed 's/^/      /' || true
 fi
 
 # ====================================================================

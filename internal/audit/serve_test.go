@@ -257,3 +257,41 @@ type stubWriter struct{}
 func (stubWriter) Append(_ context.Context, e audit.Entry) (audit.Entry, error) {
 	return e, errors.New("stub")
 }
+
+// TestServer_CloseRacesServe: Close may run before or while Serve starts
+// (a signal at start-up, a test cleanup). Serve must return, not
+// dereference the listener Close cleared. Until 2026-10-16 it read
+// s.ln without the lock and crashed with a nil pointer under -race on
+// CI. Run with -race.
+func TestServer_CloseRacesServe(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		dir := shortSocketDir(t)
+		w, err := audit.OpenFileWriter(filepath.Join(dir, "audit.jsonl"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv, err := audit.NewServer(w, filepath.Join(dir, "audit.sock"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- srv.Serve(ctx) }()
+		if i%2 == 0 {
+			_ = srv.Close() // as soon as possible: often before Serve reads the listener
+		} else {
+			_ = srv.SocketPath()
+			_ = srv.Close()
+		}
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("Serve after Close returned %v, want nil", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("Serve did not return after Close")
+		}
+		cancel() // ends Serve's context watcher
+		_ = w.Close()
+	}
+}

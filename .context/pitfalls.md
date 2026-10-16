@@ -544,5 +544,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: una migración nueva toma el siguiente número del directorio, nunca el de "su serie"; y lo que el CI no ejecuta necesita un test que lo cubra sin la dependencia (aquí, recoger las migraciones sin base de datos).
 **Ver**: `internal/db/{migrations_test.go,migrations/00019_audit_dnp3_iin_alert_event_type.sql}`, `internal/audit/events.go`; 14-10-2026.
 
+## PITF-085: `audit serve` leía el listener sin el cerrojo y caía si `Close` ganaba la carrera
+**Síntoma**: el workflow `audit` del 16-10-2026 (push 5ed5120, que no tocaba código Go) falló en sus tests con `WARNING: DATA RACE` y `panic: runtime error: invalid memory address or nil pointer dereference` en `internal/audit/serve.go:141`. En local y en el job `unit` del `ci`, mismo commit y mismo `-race`, pasaba. `audit.sh` solo enseñaba las 30 últimas líneas del log y el paquete culpable quedaba fuera; estaba en el paso "Dump audit logs on failure".
+**Causa**: `Server.Serve` leía `s.ln` en cada vuelta del bucle de `Accept` sin el cerrojo con el que `Close` lo pone a `nil`. Si `Close` llegaba entre dos `Accept` (al arrancar, o justo después de aceptar una conexión: una señal, la limpieza de un test), `Accept` se llamaba sobre `nil`. En CI fue el segundo caso: `TestClient_AppendRoundTrip` ya había atendido un `Append` cuando su limpieza cerró el servidor. El comentario de `Close` decía que era seguro llamarlo a la vez que `Serve`. Fallo previo (v1.26, abril), no de los cambios recientes; salió por el reparto de tiempos del runner.
+**Fix (16-10-2026)**: `Serve` toma el listener una vez bajo el cerrojo y trabaja con esa copia (cerrarlo termina `Accept` con `net.ErrClosed`); `SocketPath` lee bajo el cerrojo (`socketPathLocked` para quien ya lo tiene). `TestServer_CloseRacesServe` reproduce la carrera y el pánico (ventana de arranque) con el código anterior al primer intento; la otra ventana la cubren los `TestClient_*` con `-race`. `audit.sh` muestra ahora los `--- FAIL`, `panic:`, `fatal error:`, `WARNING: DATA RACE` y errores de compilación de tests con contexto, y los paquetes que fallan.
+**Regla**: un "fallo intermitente" que trae un `DATA RACE` no es ruido: es un bug con un reparto de tiempos poco frecuente. Antes de relanzar, se lee el log entero de la ejecución (aquí, el paso de volcado), no solo el paso que falla.
+**Ver**: `internal/audit/{serve.go,serve_test.go}`, `scripts/audit.sh`; 16-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

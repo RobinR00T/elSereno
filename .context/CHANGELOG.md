@@ -1,12 +1,16 @@
 ---
 phase: any
 status: living
-last-updated: 2026-10-15
+last-updated: 2026-10-16
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-10-16: **audit serve Close/Serve race fixed (PITF-085).** Serve
+  takes the listener once under the lock; audit.sh shows the failure
+  markers instead of the last 30 lines.
 
 - 2026-10-15: **Dev container on Go 1.26, checked.** Image
   `devcontainers/go:1.26-bookworm` (was 1.23); `check-version-sync.sh`
