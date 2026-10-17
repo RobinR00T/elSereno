@@ -486,6 +486,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A config file with a duration or a list did not load (PITF-096).**
+  The loader merges the file over the defaults with koanf's strict merge,
+  which refuses a key whose type differs, and the defaults kept their Go
+  types: `read_timeout: 30s` (a string against `time.Duration`) or any
+  list failed with "incorrect types", exit 78, and so did the output of
+  `config show`, which the manual tells you to save as your config. The
+  defaults now take the types the YAML parser gives, and the decoder
+  turns them back. MANUAL §13 showed keys that do not exist (`scan:`,
+  `scoring:`, `pool_max`, `logging:`...), and §21 and the FAQ used
+  `scan.max_concurrent`; they now show the real keys, from `config show`,
+  and say which ones nothing reads yet. From the audit: a negative
+  duration is refused (net/http reads a timeout <= 0 as no limit, so
+  `read_header_timeout: -1s` left `serve` open to slow clients), a type
+  error says how to write durations, the sample the package installs as
+  `/etc/elsereno/elsereno.yaml` showed keys that do not exist
+  (`web.listen`, `web.tls`, `database.url`, `audit.*`,
+  `scanner.base_backoff`) and is now checked by a test, and
+  `elsereno.yaml(5)` described effects that no code has (it said
+  `exec.allowed_paths` limits which binaries run; nothing reads it).
+
 - **Scans queued from the dashboard, the API or a schedule never ran,
   and nothing kept their findings (PITF-094).** `serve` started the
   worker pool but nothing handed it the queued jobs, so every job stayed

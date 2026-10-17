@@ -1249,56 +1249,70 @@ output que `elsereno config show` con un binario virgen).
 
 ### Esqueleto comentado
 
+Son los valores por defecto, tal como los imprime `elsereno config show`
+con un binario virgen. Las duraciones se escriben como texto (`30s`,
+`2m0s`); un número suelto se rechaza. Cualquier clave que no esté aquí
+es un error (`unknown field`, salida 78).
+
 ```yaml
-# elsereno.yaml, ejemplo con todos los campos comunes anotados.
-# Generado por: elsereno config show > ~/.elsereno/elsereno.yaml
-
+retention:
+    findings_days: 0
+    evidence_days: 0
+    runs_days: 0
+evidence:
+    max_payload_bytes: 16384
+scanner:                          # lo leen scan y los scans de serve
+    max_concurrent_targets: 100   # targets en paralelo por plugin
+    max_concurrent_per_host: 1    # sondas a la vez contra un mismo host
+log:
+    level: info
+    output: stderr
+shutdown:
+    drain_timeout: 10s
+doctor:
+    ntp_server: ""
+database:                         # lo lee todo comando con DATABASE_URL
+    max_conns: 10
+    tls_required: auto            # auto | always | disable
 web:
-  read_header_timeout: 5s
-  read_timeout: 30s
-  write_timeout: 30s
-  idle_timeout: 120s
-  token_ttl_days: 30     # se acepta, nada lo usa todavía
-
-database:
-  tls_required: true     # exige TLS salvo loopback (PITF)
-  connect_timeout: 5s
-  pool_max: 16
-
-scan:
-  default_port: 0        # 0 → exige que la línea traiga :port
-  max_concurrent: 32     # paralelo global; --max-concurrent lo sobreescribe
-  per_target_timeout: 8s
-  retry_count: 0         # protocol-aware probes ya manejan retries internos
-
-scoring:
-  # ADR-006, pesos del scorer. Cámbialos sólo con rationale documentado.
-  weights:
-    protocol_risk: 0.30
-    cve_exposure: 0.25
-    confidence: 0.20
-    auth_state: 0.15
-    network_reach: 0.10
-  thresholds:
-    critical: 0.85
-    high: 0.65
-    medium: 0.45
-    low: 0.20
-
-audit:
-  file_path: ~/.elsereno/audit.jsonl
-  hmac_key_kdf: hkdf-from-vault    # source of truth: vault master
-  uds_socket: ""                   # vacío → file-backed; path → daemon UDS
-
-logging:
-  level: info             # debug | info | warn | error
-  format: json            # json | text
-  output: stderr          # stderr | stdout | /path/to/file
-
-telemetry:
-  otlp_endpoint: ""       # vacío → off
-  service_name: elsereno
+    token_ttl_days: 30
+    token_generation_cache_ttl: 5s
+    rate_limit_per_min_ip: 100
+    rate_limit_per_min_token: 300
+    max_body_bytes: 1048576
+    read_header_timeout: 5s       # los cuatro timeouts los lee serve;
+    read_timeout: 30s             # 0 = el valor por defecto, uno
+    write_timeout: 30s            # negativo se rechaza
+    idle_timeout: 2m0s
+readyz:
+    audit_tail_entries: 100
+exec:
+    allowed_paths:
+        - /usr/bin
+        - /usr/local/bin
+        - /opt/homebrew/bin
+outbox:
+    max_attempts: 10
+auth:
+    oidc:                         # issuer, audience y jwks_url los lee serve
+        issuer: ""
+        audience: ""
+        jwks_url: ""
+        clock_skew: 0s
 ```
+
+Las claves sin comentario "lo lee" se aceptan pero nada las lee todavía
+(cambiarlas no cambia nada): `retention.*`, `evidence.*`, `log.*`,
+`shutdown.*`, `doctor.*`, `web.token_*`, `web.rate_limit_*`,
+`web.max_body_bytes`, `readyz.*` (solo el stub `audit verify`),
+`exec.allowed_paths` (no limita qué binarios se ejecutan),
+`outbox.*` y `auth.oidc.clock_skew` (fijo en 60 s en el código).
+
+
+Hasta el 17-10-2026 un fichero con cualquier duración o lista no
+cargaba ("incorrect types", salida 78), tampoco el volcado de
+`config show`; y esta sección mostraba claves que no existen (`scan:`,
+`scoring:`, `pool_max`...) (PITF-096).
 
 ### Validación
 
@@ -1930,27 +1944,31 @@ elsereno serve --scan-pool N    # clamped [1, 64]
 - **Máximo útil**: 64 (clamp). Más allá los kernel-level
   socket budgets dominan.
 
-### `max_concurrent` (scan global)
+### `scanner` (concurrencia de cada scan)
 
 ```yaml
-scan:
-  max_concurrent: 32
+scanner:
+  max_concurrent_targets: 32
+  max_concurrent_per_host: 1
 ```
 
 Distinto del worker pool: limita cuántos targets puede
-tener un single scan en flight. El worker pool limita
-cuántos scans simultáneos puede ejecutar serve.
+tener un scan en vuelo (por plugin) y cuántas sondas a la
+vez recibe un mismo host. Lo leen `scan` (`--max-concurrent`
+lo sobreescribe) y, desde el 17-10-2026, los scans de
+`serve`. El worker pool limita cuántos scans simultáneos
+ejecuta serve.
 
 ### Postgres connection pool
 
 ```yaml
 database:
-  pool_max: 16
+  max_conns: 10
 ```
 
 A nivel binario. La DB también tiene su `max_connections`
-(default 100 en pg 16); reservé suficiente para
-`max_concurrent * workers + 10 de overhead`.
+(default 100 en pg 16); deja margen para `--scan-pool`
+más el dashboard.
 
 ### Garbage collection
 
@@ -1988,8 +2006,9 @@ Sí desde v1.14. `targets.txt` acepta IPv6 entre brackets:
 `[2001:db8::5]:502`.
 
 **¿Tiene rate-limiting per-target?**
-No nativo. La concurrencia global (`max_concurrent`) +
-el `per_target_timeout` evitan el peor caso. Para
+No nativo. `scanner.max_concurrent_targets` y
+`scanner.max_concurrent_per_host` (1 por defecto: nunca dos
+sondas a la vez contra un host) evitan el peor caso. Para
 rate-limiting estricto en networks frágiles, integra con
 un FRR/`tc` rule a nivel host.
 

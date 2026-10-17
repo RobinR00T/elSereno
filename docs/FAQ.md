@@ -182,8 +182,8 @@ significativo.
   Migration 00006 dejó hooks para esto (no obligatorio).
 - **Read replicas**: streaming replication estándar.
 - **`pgbouncer`** front para pooling.
-- `pool_max` en config (default 16), para 50+ workers
-  necesitarás subirlo.
+- `database.max_conns` en config (default 10); con muchos
+  workers (`--scan-pool`) necesitarás subirlo.
 
 ---
 
@@ -344,9 +344,9 @@ allá de `nproc - 2`.
 ### ¿Cómo limito la velocidad para no DoSear targets frágiles?
 
 ```yaml
-scan:
-  max_concurrent: 4           # un puñado, no decenas
-  per_target_timeout: 30s     # generoso
+scanner:
+  max_concurrent_targets: 4   # un puñado, no decenas
+  max_concurrent_per_host: 1  # nunca dos sondas a la vez a un host
 ```
 
 Plus `--scan-pool 2` (default). Para protocolos

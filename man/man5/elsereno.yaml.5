@@ -25,58 +25,47 @@ ElSereno reads its configuration from the first of:
 Unknown keys are rejected at parse time with the error
 \f[B]ErrUnknownConfigField\f[R] (see \f[B]elsereno\-security\f[R](7)).
 .SH FIELDS
-.TP
-\f[B]retention.findings_days\f[R], \f[B]retention.evidence_days\f[R], \f[B]retention.runs_days\f[R]
-Per\-class retention.
-Evidence additionally follows a \f[I]keep\-if\-referenced\f[R] rule: a
-row is never deleted while a finding still references it.
-.TP
-\f[B]evidence.max_payload_bytes\f[R] (default \f[B]16384\f[R])
-Truncation ceiling for captured payloads.
-When truncated, \f[B]evidence.original_sha256\f[R] is populated with the
-SHA\-256 of the full body.
+Durations are written as text (\f[B]30s\f[R], \f[B]2m0s\f[R]); a bare
+number, a negative duration or an unknown key stops the command with
+exit 78.
+Until 2026\-10\-17 a file with any duration or list did not load at all
+(PITF\-096).
+The defaults are what \f[B]elsereno config show\f[R] prints.
+.PP
+Read by the binary:
 .PP
 \f[B]scanner.max_concurrent_targets\f[R] (default \f[B]100\f[R])
 \f[B]scanner.max_concurrent_per_host\f[R] (default \f[B]1\f[R]) :
-Concurrency caps.
-.TP
-\f[B]log.level\f[R] (default \f[B]info\f[R]), \f[B]log.output\f[R] (default \f[B]stderr\f[R])
-Log level and sink.
-.TP
-\f[B]shutdown.drain_timeout\f[R] (default \f[B]10s\f[R])
-Graceful drain window before forced exit.
-.TP
-\f[B]doctor.ntp_server\f[R]
-Optional NTP server for drift check; empty disables it.
+Concurrency caps of \f[B]scan\f[R] and of the dashboard scans of
+\f[B]serve\f[R].
 .PP
 \f[B]database.max_conns\f[R] (default \f[B]10\f[R])
-\f[B]database.tls_required\f[R] ∈ {\f[B]auto\f[R], \f[B]always\f[R],
-\f[B]disable\f[R]} (default \f[B]auto\f[R]) : See
-\f[B]elsereno\-security\f[R](7).
-\f[B]disable\f[R] is rejected at runtime on non\-loopback hosts.
+\f[B]database.tls_required\f[R] in {\f[B]auto\f[R], \f[B]always\f[R],
+\f[B]disable\f[R]} (default \f[B]auto\f[R]) : Postgres pool size and
+TLS; see \f[B]elsereno\-security\f[R](7).
+The connection itself comes from \f[B]DATABASE_URL\f[R].
 .PP
-\f[B]web.token_ttl_days\f[R] (default \f[B]30\f[R])
-\f[B]web.token_generation_cache_ttl\f[R] (default \f[B]5s\f[R])
-\f[B]web.rate_limit_per_min_ip\f[R] (default \f[B]100\f[R], loopback
-exempt) \f[B]web.rate_limit_per_min_token\f[R] (default \f[B]300\f[R]) :
-Accepted, not used yet: there is no web token, token rotation or rate
-limiting in \f[CR]serve\f[R] (PITF\-087).
-\f[B]web.max_body_bytes\f[R] (default \f[B]1048576\f[R])
 \f[B]web.read_header_timeout\f[R] (default \f[B]5s\f[R])
 \f[B]web.read_timeout\f[R] (default \f[B]30s\f[R])
 \f[B]web.write_timeout\f[R] (default \f[B]30s\f[R])
-\f[B]web.idle_timeout\f[R] (default \f[B]120s\f[R]) : HTTP server
-settings.
+\f[B]web.idle_timeout\f[R] (default \f[B]2m0s\f[R]) : HTTP server
+timeouts of \f[B]serve\f[R]; zero means the built\-in default.
 .TP
-\f[B]readyz.audit_tail_entries\f[R] (default \f[B]100\f[R])
-Number of trailing audit entries verified by /readyz.
-.TP
-\f[B]exec.allowed_paths\f[R] (default \f[B][/usr/bin, /usr/local/bin, /opt/homebrew/bin]\f[R])
-Resolved subprocess paths must be under one of these directories.
-.TP
-\f[B]outbox.max_attempts\f[R] (default \f[B]10\f[R])
-Maximum retries before an outbox entry is moved to
-\f[B]outbox_dead\f[R].
+\f[B]auth.oidc.issuer\f[R], \f[B]auth.oidc.audience\f[R], \f[B]auth.oidc.jwks_url\f[R]
+OIDC for \f[B]serve\f[R]; required on a non\-loopback address.
+.PP
+Accepted but not read by anything yet (setting them changes nothing):
+\f[B]retention.findings_days\f[R], \f[B]retention.evidence_days\f[R],
+\f[B]retention.runs_days\f[R], \f[B]evidence.max_payload_bytes\f[R],
+\f[B]log.level\f[R], \f[B]log.output\f[R],
+\f[B]shutdown.drain_timeout\f[R], \f[B]doctor.ntp_server\f[R],
+\f[B]web.token_ttl_days\f[R], \f[B]web.token_generation_cache_ttl\f[R],
+\f[B]web.rate_limit_per_min_ip\f[R],
+\f[B]web.rate_limit_per_min_token\f[R], \f[B]web.max_body_bytes\f[R],
+\f[B]readyz.audit_tail_entries\f[R] (only the stub \f[B]audit
+verify\f[R]), \f[B]exec.allowed_paths\f[R] (it does not limit which
+binaries run), \f[B]outbox.max_attempts\f[R], and
+\f[B]auth.oidc.clock_skew\f[R] (fixed at 60s in the code).
 .SH SEE ALSO
 \f[I]elsereno\f[R](1), \f[I]elsereno\-scope\f[R](5),
 \f[I]elsereno\-scoring\f[R](5), \f[I]elsereno\-security\f[R](7).

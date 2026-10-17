@@ -27,54 +27,41 @@ Unknown keys are rejected at parse time with the error
 
 # FIELDS
 
-**retention.findings_days**, **retention.evidence_days**, **retention.runs_days**
-:   Per-class retention. Evidence additionally follows a *keep-if-referenced*
-    rule: a row is never deleted while a finding still references it.
+Durations are written as text (**30s**, **2m0s**); a bare number, a
+negative duration or an unknown key stops the command with exit 78.
+Until 2026-10-17 a file with any duration or list did not load at all
+(PITF-096). The defaults are what **elsereno config show** prints.
 
-**evidence.max_payload_bytes** (default **16384**)
-:   Truncation ceiling for captured payloads. When truncated,
-    **evidence.original_sha256** is populated with the SHA-256 of the full
-    body.
+Read by the binary:
 
 **scanner.max_concurrent_targets** (default **100**)
 **scanner.max_concurrent_per_host** (default **1**)
-:   Concurrency caps.
-
-**log.level** (default **info**), **log.output** (default **stderr**)
-:   Log level and sink.
-
-**shutdown.drain_timeout** (default **10s**)
-:   Graceful drain window before forced exit.
-
-**doctor.ntp_server**
-:   Optional NTP server for drift check; empty disables it.
+:   Concurrency caps of **scan** and of the dashboard scans of **serve**.
 
 **database.max_conns** (default **10**)
-**database.tls_required** ∈ {**auto**, **always**, **disable**} (default **auto**)
-:   See **elsereno-security**(7). **disable** is rejected at runtime on
-    non-loopback hosts.
+**database.tls_required** in {**auto**, **always**, **disable**} (default **auto**)
+:   Postgres pool size and TLS; see **elsereno-security**(7). The
+    connection itself comes from **DATABASE_URL**.
 
-**web.token_ttl_days** (default **30**)
-**web.token_generation_cache_ttl** (default **5s**)
-**web.rate_limit_per_min_ip** (default **100**, loopback exempt)
-**web.rate_limit_per_min_token** (default **300**)
-:   Accepted, not used yet: there is no web token, token rotation or
-    rate limiting in `serve` (PITF-087).
-**web.max_body_bytes** (default **1048576**)
 **web.read_header_timeout** (default **5s**)
 **web.read_timeout** (default **30s**)
 **web.write_timeout** (default **30s**)
-**web.idle_timeout** (default **120s**)
-:   HTTP server settings.
+**web.idle_timeout** (default **2m0s**)
+:   HTTP server timeouts of **serve**; zero means the built-in default.
 
-**readyz.audit_tail_entries** (default **100**)
-:   Number of trailing audit entries verified by /readyz.
+**auth.oidc.issuer**, **auth.oidc.audience**, **auth.oidc.jwks_url**
+:   OIDC for **serve**; required on a non-loopback address.
 
-**exec.allowed_paths** (default **[/usr/bin, /usr/local/bin, /opt/homebrew/bin]**)
-:   Resolved subprocess paths must be under one of these directories.
-
-**outbox.max_attempts** (default **10**)
-:   Maximum retries before an outbox entry is moved to **outbox_dead**.
+Accepted but not read by anything yet (setting them changes nothing):
+**retention.findings_days**, **retention.evidence_days**,
+**retention.runs_days**, **evidence.max_payload_bytes**, **log.level**,
+**log.output**, **shutdown.drain_timeout**, **doctor.ntp_server**,
+**web.token_ttl_days**, **web.token_generation_cache_ttl**,
+**web.rate_limit_per_min_ip**, **web.rate_limit_per_min_token**,
+**web.max_body_bytes**, **readyz.audit_tail_entries** (only the stub
+**audit verify**), **exec.allowed_paths** (it does not limit which
+binaries run), **outbox.max_attempts**, and **auth.oidc.clock_skew**
+(fixed at 60s in the code).
 
 # SEE ALSO
 

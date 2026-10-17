@@ -2,52 +2,39 @@
 # (serve verb). Lives at /etc/elsereno/elsereno.yaml when
 # the deb/rpm package is installed.
 #
-# Every field below has a sane default; uncomment + edit
-# only what you need. Run `elsereno doctor` to validate
-# the file before enabling the systemd unit.
+# Every key has a default (`elsereno config show` prints them all);
+# uncomment and edit only what you need, then check the file with
+#   elsereno config lint --config /etc/elsereno/elsereno.yaml
+# A key that does not exist is an error (exit 78). Durations are text
+# (30s, 2m0s), never a bare number. Keys that nothing reads yet are left
+# out here; MANUAL section 13 lists them.
 
-# Web dashboard + /api/v1.
-# web:
-#   listen: "127.0.0.1:8787"
-#   # tls is OFF by default; cookie Secure flag follows
-#   # this, when listening on loopback only, cookies are
-#   # accepted without TLS (PITF-024 trade-off).
-#   tls:
-#     enabled: false
-#     cert: ""
-#     key: ""
-
-# Postgres connection. The default below uses a local
-# socket; for remote hosts ALWAYS set tls_required: always
-# (PITF-007 enforced, non-loopback without TLS is
-# rejected at startup).
+# Postgres pool and TLS. The connection itself comes from DATABASE_URL.
+# For a remote host set tls_required to always.
 # database:
-#   url: "postgres:///elsereno?host=/var/run/postgresql"
-#   tls_required: "auto"  # auto | always | disable
+#   max_conns: 10
+#   tls_required: auto   # auto | always | disable
 
-# Audit log. The default file backend lives at
-# /var/lib/elsereno/audit.jsonl. SOC-scale operators
-# point this at the daemon socket from
-# `elsereno audit serve` instead.
-# audit:
-#   backend: "file"   # file | uds
-#   uds_path: "/run/elsereno/audit.sock"
+# HTTP server timeouts of serve. Zero means the built-in default; a
+# negative value is refused.
+# web:
+#   read_header_timeout: 5s
+#   read_timeout: 30s
+#   write_timeout: 30s
+#   idle_timeout: 2m0s
 
-# readyz tail length for `elsereno audit verify` and the
-# /readyz endpoint. Operators set this to match the
-# expected event rate of their site.
-# readyz:
-#   audit_tail_entries: 1000
-
-# scope.yaml is not configured here: pass it with --scope to
-# scan, serve or dial (see elsereno-scope(5)). Without --scope no
-# scope applies.
-
-# Scanner concurrency tuning. Defaults match the
-# scanner.New() constants: 100 concurrent targets, 1
-# concurrent probe per host (well-mannered for ICS).
+# Scan concurrency, read by scan and by serve's dashboard scans.
 # scanner:
 #   max_concurrent_targets: 100
-#   max_concurrent_per_host: 1
-#   base_backoff: "250ms"
-#   jitter_fraction: 0.25
+#   max_concurrent_per_host: 1   # one probe at a time per host, kind to ICS
+
+# OIDC, required for serve on a non-loopback address.
+# auth:
+#   oidc:
+#     issuer: "https://idp.example/"
+#     audience: "elsereno"
+#     jwks_url: "https://idp.example/.well-known/jwks.json"
+
+# scope.yaml is not configured here: pass it with --scope (see
+# elsereno-scope(5) for the commands that take it). Without --scope no
+# scope applies.

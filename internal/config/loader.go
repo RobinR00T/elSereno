@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -124,7 +126,11 @@ func (l *Loader) Load(ctx context.Context) (cfg Config, path string, err error) 
 
 	if path != "" {
 		if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
-			return cfg, path, fmt.Errorf("%w: %s: %w", ErrInvalidConfig, path, err)
+			hint := ""
+			if strings.Contains(err.Error(), "incorrect types") {
+				hint = " (durations are text such as 30s, counts are plain numbers, lists are YAML lists)"
+			}
+			return cfg, path, fmt.Errorf("%w: %s: %w%s", ErrInvalidConfig, path, err, hint)
 		}
 	}
 
@@ -148,8 +154,43 @@ func (l *Loader) Load(ctx context.Context) (cfg Config, path string, err error) 
 	if err := validateDatabaseTLS(cfg.Database.TLSRequired); err != nil {
 		return cfg, path, err
 	}
+	if err := rejectNegativeDurations("", reflect.ValueOf(cfg)); err != nil {
+		return cfg, path, err
+	}
 
 	return cfg, path, nil
+}
+
+// rejectNegativeDurations refuses a negative duration anywhere in the
+// config. net/http reads any timeout <= 0 as "no limit", and serve
+// replaces only zero with its default, so web.read_header_timeout: -1s
+// left serve open to slow clients. A file could not set a duration at
+// all until PITF-096 (2026-10-17).
+func rejectNegativeDurations(prefix string, v reflect.Value) error {
+	if d, ok := v.Interface().(time.Duration); ok {
+		if d < 0 {
+			return fmt.Errorf("%w: %s = %s: a duration cannot be negative", ErrInvalidConfig, prefix, d)
+		}
+		return nil
+	}
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		name := strings.SplitN(f.Tag.Get("koanf"), ",", 2)[0]
+		if prefix != "" {
+			name = prefix + "." + name
+		}
+		if err := rejectNegativeDurations(name, v.Field(i)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // validateDatabaseTLS enforces the enum (ADR-021, PITF-022).

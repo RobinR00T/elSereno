@@ -8,6 +8,10 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (7b): **a config file with a duration or a list failed to
+  load (strict merge against Go-typed defaults); MANUAL §13 rebuilt from
+  config show (PITF-096).**
+
 - 2026-10-17 (7): **dashboard, API and schedule scans now run and keep
   their findings (runs/targets/findings + SSE); jobs queued before serve
   started do not run; schedule import keeps "enabled" (PITF-094).**
