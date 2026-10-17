@@ -23,8 +23,9 @@ Hexagonal. `internal/core` depends only on stdlib. Adapters
 
 ## Event bus (`internal/bus`)
 Typed channels. Subscribers:
-- `findings-persistence`: buffered goroutine (1000 findings or 1 s) →
-  `pgx.CopyFrom`.
+- `findings-persistence`: not built. Dashboard scans write runs,
+  targets and findings directly through `repo.RunWriter`, one INSERT
+  per finding (PITF-094).
 - `audit-persistence`: **single-threaded** sequential INSERT (hash chain
   is not parallelisable).
 - `scoring`, `triage`, `web-sse`, `outbox`.

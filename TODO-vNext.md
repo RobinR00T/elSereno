@@ -180,13 +180,33 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   dan la misma severidad. Opción: baseline 30 y subir con respuesta FC1 o
   excepción válidas, como el resto de plugins. Cambiaría la severidad de todos
   los findings de Modbus sin respuesta Modbus. Ver PITF-071.
-- **Los scans del dashboard no guardan findings.** `defaultScanRunner`
-  (`cmd/elsereno/scan_runner.go`, `drainPluginRun`) cuenta los findings y los
-  descarta; `internal/bus` es solo un `doc.go` que describe un
-  "findings-persistence" que no existe, y nada escribe la tabla `findings` que
-  lee `/api/v1/findings`. Un scan lanzado desde el dashboard da estadísticas,
-  no resultados. Es diseño (esquema, run_id, target_id), no un arreglo de una
-  noche. Encontrado el 7-10 al arreglar la CLI `scan` (PITF-076).
+- **[RESUELTO 17-10, PITF-094] Los scans del dashboard no guardaban
+  findings** (y no se ejecutaban: nada alimentaba el pool). Ahora se
+  ejecutan y escriben `runs`, `targets` y `findings`. Queda:
+- **Enlazar job y run.** `GET /api/v1/scans/{id}` da contadores y no
+  apunta a su run (`runs` no tiene `job_id`), y `/api/v1/findings` no
+  filtra por `run_id` aunque `repo.FindingsQuery` sí. Migración con
+  `runs.job_id` y el parámetro `run_id`. (PITF-094.)
+- **[RESUELTO 17-10, PITF-094] Clonar un schedule desactivado lo dejaba
+  activo.** El clon conserva ahora el estado del original.
+- **Un job en `running` cuando muere `serve` se queda así.** Nada lo
+  devuelve a la cola ni lo marca fallido al arrancar (razonado por el
+  código, no probado), y el feed solo mira `queued`. (PITF-094.)
+- **Dos `serve` sobre una base disparan dos veces un schedule.**
+  `MarkFired` es un `UPDATE` sin condición: dos ticks que leen la lista a
+  la vez disparan los dos (razonado, sin Postgres). Un `MarkFired`
+  condicional (`AND last_fired_at IS NOT DISTINCT FROM $3`) lo cierra. Hoy
+  la doc dice "un solo `serve` por base". (Auditoría de PITF-094.)
+- **El feed del pool.** Lee cada segundo los 1.000 jobs más nuevos sin
+  filtrar por estado (con más de 1.000 nuevos, un viejo en cola no se
+  ve), corta por hora de arranque (un salto de reloj hacia atrás deja
+  jobs nuevos en cola hasta reiniciar) y avisa una sola vez. Una consulta
+  `WHERE state='queued' AND created_at >= $1 ORDER BY created_at` lo
+  arregla; necesita un método nuevo en `Store`. Y el mutex de `recording`
+  serializa las escrituras de un job. (Auditoría de PITF-094.)
+- **`scan` de la CLI tampoco recupera un pánico de sonda.** `serve` ya lo
+  convierte en error (`safeProbe`); la CLI cae con él. Mover el `recover`
+  al scanner lo cubriría para los dos. (Reauditoría de PITF-094.)
 - **Plugins opt-in sin puerto contra cualquier puerto.** `s7-exposure`,
   `opcua-exposure` y `codesys-active` tienen `DefaultPort 0` (así quedan fuera
   de `discover` y `plugins by-port`), y `filterByPort` trata el 0 como "todos

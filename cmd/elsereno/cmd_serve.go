@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/creds"
 	"local/elsereno/internal/netutil"
+	"local/elsereno/internal/repo"
 	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/scope"
 	"local/elsereno/internal/telemetry"
@@ -49,7 +51,7 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&opts.scanPool, "scan-pool", 2,
 		"concurrent scan-job workers (clamped to [1, 64])")
 	cmd.Flags().StringVar(&opts.scopePath, "scope", "",
-		"path to scope.yaml; when set, scan-job targets outside scope are rejected before dialling (same guardrail as `elsereno scan --scope`)")
+		"path to scope.yaml; when set, scan-job targets outside scope are rejected before dialling, as in elsereno scan --scope")
 	cmd.Flags().IntVar(&opts.auditRetentionDays, "audit-retention-days", 0,
 		"schedule-audit retention in days; 0 = disabled, >0 spawns a daily pruner (v1.87+)")
 	addPassphraseFileFlag(cmd, &opts.passphraseFile)
@@ -74,6 +76,9 @@ type serveOpts struct {
 	// spawn a daily AuditPruner that deletes audit events
 	// older than the configured days.
 	auditRetentionDays int
+	// scanner is the config's scanner section (concurrency caps),
+	// filled in by runServe.
+	scanner config.ScannerConfig
 }
 
 // validateBindSecurity refuses a network-facing bind that lacks TLS or
@@ -99,6 +104,8 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	if err != nil {
 		return fail(core.ExitConfig, err)
 	}
+	// Dashboard scans honour the same concurrency caps as scan.
+	opts.scanner = cfg.Scanner
 	v, err := unlockVault(cmd, opts.passphraseFile)
 	if err != nil {
 		return err
@@ -414,6 +421,7 @@ func startAuditPruner(ctx context.Context, auditStore scanorch.ScheduleAuditStor
 // fire are logged to stderr; the next tick re-evaluates the
 // schedule, so a transient Submit failure isn't fatal.
 func startScheduler(ctx context.Context, schedStore scanorch.ScheduleStore, scanStore scanorch.Store) {
+	announceEnabledSchedules(ctx, os.Stderr, schedStore)
 	sc := &scanorch.Scheduler{
 		ScheduleStore: schedStore,
 		ScanStore:     scanStore,
@@ -434,6 +442,30 @@ func startScheduler(ctx context.Context, schedStore scanorch.ScheduleStore, scan
 				"elsereno serve: scheduler exited: %v\n", err)
 		}
 	}()
+}
+
+// announceEnabledSchedules tells the operator on start how many
+// schedules will fire. Since 2026-10-17 a fire is a real scan; before,
+// the job stayed queued (PITF-094). A failed listing prints nothing:
+// the scheduler reports it on its first tick.
+func announceEnabledSchedules(ctx context.Context, w io.Writer, schedStore scanorch.ScheduleStore) {
+	list, err := schedStore.List(ctx)
+	if err != nil {
+		return
+	}
+	n := 0
+	for _, s := range list {
+		if s.Enabled {
+			n++
+		}
+	}
+	switch {
+	case n == 1:
+		_, _ = fmt.Fprintln(w, "elsereno serve: 1 enabled schedule runs a real scan each time it is due; the first tick fires it if it is already due")
+	case n > 1:
+		_, _ = fmt.Fprintf(w,
+			"elsereno serve: %d enabled schedules run a real scan each time they are due; the first tick fires every one already due\n", n)
+	}
 }
 
 // startAuditTail spins up the audit-file tailer so offensive
@@ -484,7 +516,7 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 		}
 		inner = scanorch.NewDBStore(pool)
 		_, _ = fmt.Fprintf(os.Stderr,
-			"elsereno serve: scan-store=db; pool=%d (jobs survive restart)\n", opts.scanPool)
+			"elsereno serve: scan-store=db; pool=%d (jobs survive restart; queued ones from before this start do not run)\n", opts.scanPool)
 	default:
 		return nil, nil, fmt.Errorf("--scan-store: unknown value %q (off | memory | db)", opts.scanStore)
 	}
@@ -508,15 +540,38 @@ func buildScanOrchestrator(ctx context.Context, opts serveOpts, pool *pgxpool.Po
 	// transitions clear per-job state.
 	progress := stream.NewScanProgressThrottle(broadcaster, 500*time.Millisecond)
 	store.AttachProgressThrottle(progress)
+	// Findings go to the runs/targets/findings tables the dashboard
+	// reads when there is a database, and to the SSE stream always
+	// (PITF-094).
+	var recorder runRecorder = streamRunRecorder{b: broadcaster}
+	if pool != nil {
+		recorder = dbRunRecorder{w: repo.NewRunWriter(pool), b: broadcaster}
+	}
 	worker := &scanorch.Worker{
-		Store:  store,
-		Runner: &defaultScanRunner{scope: sc},
+		Store: store,
+		Runner: &defaultScanRunner{
+			concurrency: opts.scanner.MaxConcurrentTargets,
+			perHost:     opts.scanner.MaxConcurrentPerHost,
+			scope:       sc,
+			recorder:    recorder,
+		},
 		OnProgress: func(jobID string, s scanorch.Stats, byPlugin map[string]int) {
 			progress.Report(jobID, s, byPlugin)
 		},
 	}
 	p := scanorch.NewPool(worker, opts.scanPool)
+	// Jobs queued before this start (the backlog of the days when
+	// nothing ran them, or what a stopped serve left) are not run.
+	feedSince := time.Now().UTC().Truncate(time.Millisecond)
 	p.Start(ctx)
+	// Hand queued jobs (dashboard, API, schedules) to the pool. Until
+	// 2026-10-17 nothing did, and every job stayed queued (PITF-094).
+	go func() {
+		if err := p.Feed(ctx, store, feedSince, time.Second); err != nil &&
+			!errors.Is(err, context.Canceled) && !errors.Is(err, scanorch.ErrPoolClosed) {
+			_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: scan feed stopped: %v\n", err)
+		}
+	}()
 	return store, p, nil
 }
 

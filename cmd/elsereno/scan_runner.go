@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
+	"sync"
 	"sync/atomic"
 
 	"local/elsereno/internal/core"
@@ -52,11 +54,31 @@ type defaultScanRunner struct {
 	// dials. Operators tune via --scan-pool indirectly (worker
 	// pool concurrency × per-plugin cap = ceiling).
 	concurrency int
+	// perHost caps the probes in flight against one host (the
+	// config's scanner.max_concurrent_per_host); zero means no cap.
+	// serve passes the config's values, as scan does (PITF-094).
+	perHost int
 	// scope, when non-nil, is the same scope.yaml guardrail the CLI
 	// applies: targets it rejects are dropped before any dial. A nil
 	// scope is a pass-through (no --scope was set on serve). Without
 	// this, dashboard/API scans could reach targets the CLI refuses.
 	scope *scope.Scope
+	// recorder keeps what the scan finds: the run, its findings and
+	// their targets (PITF-094). Nil only in tests that do not care.
+	recorder runRecorder
+}
+
+// runRecorder records what a dashboard scan finds (PITF-094). Until
+// 2026-10-17 the runner only counted findings and dropped them, so the
+// dashboard's runs and findings panels never showed a scan.
+type runRecorder interface {
+	// Start opens the run of a job, before any probe is sent.
+	Start(ctx context.Context, job scanorch.Job) (string, error)
+	// Record keeps one finding with the target it was probed on.
+	Record(ctx context.Context, runID string, f core.Finding, t core.Target) error
+	// Finish closes the run with its status (completed, error,
+	// cancelled) and the per-severity counts.
+	Finish(ctx context.Context, runID, status string, counts map[string]int)
 }
 
 // Sentinel errors.
@@ -110,14 +132,68 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	if len(targets) == 0 {
 		return stats, nil, nil
 	}
-	state := newRunState(r.concurrency, len(targets))
-	dispatched := state.dispatchAll(ctx, plugins, targets, report)
-	if dispatched == 0 {
+	if !anyPluginMatches(plugins, targets) {
+		// No run is opened for a job with nothing to probe.
 		return stats, nil, ErrRunnerNoMatchingPlugins
 	}
+	state := newRunState(r.concurrency, r.perHost, len(targets))
+	// runErr stays set until Run reaches its end, so a panic closes
+	// the run as error rather than completed.
+	runErr := errRunAborted
+	if r.recorder != nil {
+		// The run is opened before any probe, so a database that cannot
+		// record it stops the scan before it sends traffic.
+		runID, serr := r.recorder.Start(ctx, job)
+		if serr != nil {
+			return stats, nil, fmt.Errorf("scan runner: start run: %w", serr)
+		}
+		state.recordTo(r.recorder, runID)
+		defer func() { r.recorder.Finish(ctx, runID, state.runStatus(ctx, runErr), state.severityCounts()) }()
+	}
+	dispatched := state.dispatchAll(ctx, plugins, targets, report)
 	stats.FindingsCount = int(state.findingsCount.Load())
 	stats.TargetsScanned = int(state.targetsScanned.Load())
+	if rerr := state.recordErr(); rerr != nil {
+		// Probing on while nothing can be kept is wasted traffic: the
+		// first failed write cancelled the rest, as in the CLI.
+		runErr = fmt.Errorf("scan runner: record findings: %w", rerr)
+		return stats, state.snapshotByPlugin(), runErr
+	}
+	if dispatched == 0 {
+		runErr = ErrRunnerNoMatchingPlugins
+		return stats, nil, runErr
+	}
+	runErr = nil
 	return stats, state.snapshotByPlugin(), nil
+}
+
+// errRunAborted is the status a run is closed with when Run does not
+// reach its end (a panic outside the probes).
+var errRunAborted = errors.New("scan runner: run aborted")
+
+// safeProbe turns a panic in a probe into that probe's error. The
+// scanner runs probes in goroutines without recover, so one panic on
+// hostile bytes took the whole serve process down, every running job
+// with it (PITF-094 audit; PITF-080 had such a panic in slmp).
+func safeProbe(plugin string, probe scanner.Probe) scanner.Probe {
+	return func(ctx context.Context, t core.Target) (f *core.Finding, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				f, err = nil, fmt.Errorf("scan runner: %s probe panicked on %s: %v", plugin, netip.AddrPortFrom(t.Address, uint16(t.Port)), r)
+			}
+		}()
+		return probe(ctx, t)
+	}
+}
+
+// anyPluginMatches reports whether some plugin would probe some target.
+func anyPluginMatches(plugins []core.Plugin, targets []core.Target) bool {
+	for _, p := range plugins {
+		if len(filterByPort(targets, p)) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // runState carries the per-Run mutable state, the shared
@@ -125,6 +201,7 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 // defaultScanRunner.Run under the funlen 60-line ceiling.
 type runState struct {
 	concurrency    int
+	perHost        int
 	targetsTotal   int
 	findingsCount  atomic.Int64
 	targetsScanned atomic.Int64
@@ -134,14 +211,84 @@ type runState struct {
 	// the runner's single-goroutine outer loop (one plugin at a
 	// time, sync), so no extra mutex is needed.
 	byPlugin map[string]*atomic.Int64
+
+	// recorder and runID, when set, receive every finding with its
+	// target. The first failed write is kept in recErr and cancels
+	// the remaining probes. bySeverity feeds the run's end event.
+	recorder   runRecorder
+	runID      string
+	mu         sync.Mutex
+	recErr     error
+	bySeverity map[string]int
 }
 
-func newRunState(concurrency, targetsTotal int) *runState {
+func (s *runState) recordTo(r runRecorder, runID string) {
+	s.recorder, s.runID = r, runID
+	s.bySeverity = make(map[string]int)
+}
+
+func (s *runState) recordErr() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.recErr
+}
+
+func (s *runState) severityCounts() map[string]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make(map[string]int, len(s.bySeverity))
+	for k, v := range s.bySeverity {
+		out[k] = v
+	}
+	return out
+}
+
+// runStatus is the status the run is closed with: cancelled when the
+// job's context ended, error when the runner failed, else completed.
+func (s *runState) runStatus(ctx context.Context, runErr error) string {
+	switch {
+	case ctx.Err() != nil:
+		return "cancelled"
+	case runErr != nil || s.recordErr() != nil:
+		return "error"
+	default:
+		return "completed"
+	}
+}
+
+// recording wraps a probe so each finding is recorded with its target
+// before it is counted. The first failed write cancels the run.
+func (s *runState) recording(probe scanner.Probe, cancel context.CancelFunc) scanner.Probe {
+	if s.recorder == nil {
+		return probe
+	}
+	return func(ctx context.Context, t core.Target) (*core.Finding, error) {
+		f, err := probe(ctx, t)
+		if err != nil || f == nil {
+			return f, err
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.recErr != nil {
+			return f, nil
+		}
+		if werr := s.recorder.Record(ctx, s.runID, *f, t); werr != nil {
+			s.recErr = werr
+			cancel()
+			return f, nil
+		}
+		s.bySeverity[string(f.Severity)]++
+		return f, nil
+	}
+}
+
+func newRunState(concurrency, perHost, targetsTotal int) *runState {
 	if concurrency <= 0 {
 		concurrency = 100
 	}
 	return &runState{
 		concurrency:  concurrency,
+		perHost:      perHost,
 		targetsTotal: targetsTotal,
 		byPlugin:     make(map[string]*atomic.Int64),
 	}
@@ -177,9 +324,14 @@ func (s *runState) dispatchAll(ctx context.Context, plugins []core.Plugin, targe
 		dispatched++
 		var perPlugin atomic.Int64
 		s.byPlugin[plugin.Name] = &perPlugin
-		scn := scanner.New(scanner.Options{MaxConcurrentTargets: s.concurrency})
-		findings, errs := scn.Run(ctx, matching, plugin.Factory().Probe)
+		scn := scanner.New(scanner.Options{MaxConcurrentTargets: s.concurrency, MaxConcurrentPerHost: s.perHost})
+		runCtx, cancel := context.WithCancel(ctx)
+		findings, errs := scn.Run(runCtx, matching, s.recording(safeProbe(plugin.Name, plugin.Factory().Probe), cancel))
 		drainPluginRun(findings, errs, &s.findingsCount, &s.targetsScanned, &perPlugin, emit)
+		cancel()
+		if s.recordErr() != nil {
+			break
+		}
 	}
 	return dispatched
 }

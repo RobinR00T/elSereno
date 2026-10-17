@@ -11,10 +11,18 @@ import (
 // Safe to call with b == nil (no-op) so CLI paths that optionally
 // wire a dashboard can keep a single code path.
 func PublishFinding(b *Broadcaster, f core.Finding) {
+	PublishFindingAt(b, f, "")
+}
+
+// PublishFindingAt is PublishFinding with the address:port the finding
+// was probed on, which a core.Finding does not carry, so the live feed
+// says which device it is about. Empty target omits the field.
+func PublishFindingAt(b *Broadcaster, f core.Finding, target string) {
 	if b == nil {
 		return
 	}
 	payload, err := json.Marshal(findingWirePayload{
+		Target:    target,
 		ID:        string(f.ID),
 		RunID:     string(f.RunID),
 		TargetID:  string(f.TargetID),
@@ -72,6 +80,7 @@ type findingWirePayload struct {
 	ID        string         `json:"id"`
 	RunID     string         `json:"run_id"`
 	TargetID  string         `json:"target_id"`
+	Target    string         `json:"target,omitempty"`
 	Protocol  string         `json:"protocol"`
 	Severity  string         `json:"severity"`
 	Score     int            `json:"score"`

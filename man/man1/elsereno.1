@@ -121,6 +121,12 @@ Inspect the scoring weights and severity thresholds.
 \f[B]serve\f[R]
 Start the HTTP dashboard at the configured listen address + serve
 \f[CR]/api/v1\f[R].
+With \f[B]\-\-scan\-store\f[R] memory or db, scans queued from the
+dashboard, the API or a schedule run against their targets (limited by
+\f[B]\-\-scope\f[R] when given); jobs already queued when serve starts
+do not run.
+Findings go to the SSE stream and, with \f[B]DATABASE_URL\f[R], to the
+runs and findings tables.
 .TP
 \f[B]triage\f[R]
 Group NDJSON findings into quick\-win / strategic / routine.
@@ -256,7 +262,8 @@ a 0600 file.
 \f[B]DATABASE_URL\f[R]
 Postgres DSN.
 Optional; missing → DB\-backed panels degrade to \(dqbackend
-unavailable\(dq and the rest of \f[CR]serve\f[R] keeps running.
+unavailable\(dq, dashboard scans keep their findings only on the live
+stream, and the rest of \f[CR]serve\f[R] keeps running.
 .SH SEE ALSO
 \f[I]elsereno\-protocols\f[R](7), \f[I]elsereno\-security\f[R](7),
 \f[I]elsereno.yaml\f[R](5), \f[I]elsereno\-scope\f[R](5),

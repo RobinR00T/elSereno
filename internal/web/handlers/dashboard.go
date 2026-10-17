@@ -464,12 +464,13 @@ const overviewHTML = `<!doctype html>
     <section class="panel" id="scans-panel">
       <h2>Scan jobs <span class="sub" id="scans-sub">v1.62 · trigger + monitor · newest first</span></h2>
       <div class="sub">
-        Submit a scan job; the worker (configured via
-        <code>serve --scan-store</code> + <code>--scan-pool</code>)
-        picks it up, runs the named plugin against the parsed
-        targets, and the row updates as state advances
-        (<code>queued → running → completed</code>). Backed by
-        <code>POST/GET /api/v1/scans/</code>.
+        Submit a scan job; the worker pool (<code>serve --scan-pool</code>)
+        picks it up and runs the named plugins against the parsed
+        targets: real traffic, limited by <code>serve --scope</code> when
+        given. The row updates as state advances
+        (<code>queued → running → completed</code>); findings reach the
+        live feed and, with a database, the Findings and Runs panels.
+        Backed by <code>POST/GET /api/v1/scans/</code>.
       </div>
       <form id="scan-submit-form" onsubmit="return submitScan(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
         <label>input:
@@ -893,6 +894,7 @@ const overviewHTML = `<!doctype html>
     try {
       if (kind === "finding") {
         return (data.severity || "?") + " · " + (data.protocol || "?") +
+               (data.target ? " · " + data.target : "") +
                " · score=" + (data.score != null ? data.score : "?") +
                " · id=" + short(data.id || "", 8);
       }

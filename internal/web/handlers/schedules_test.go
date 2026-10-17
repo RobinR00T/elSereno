@@ -2026,7 +2026,7 @@ func TestCloneSchedule_DefaultName(t *testing.T) {
 		t.Errorf("IntervalSeconds = %d, want %d", resp.Data.IntervalSeconds, source.IntervalSeconds)
 	}
 	if !resp.Data.Enabled {
-		t.Errorf("Enabled = false, want true (clones always start enabled)")
+		t.Errorf("Enabled = false, want true (the source is enabled)")
 	}
 }
 

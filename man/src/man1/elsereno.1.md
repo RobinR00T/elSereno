@@ -118,7 +118,11 @@ The default-build subcommand list is below. Run
 
 **serve**
 :   Start the HTTP dashboard at the configured listen address +
-    serve `/api/v1`.
+    serve `/api/v1`. With **--scan-store** memory or db, scans queued
+    from the dashboard, the API or a schedule run against their
+    targets (limited by **--scope** when given); jobs already queued
+    when serve starts do not run. Findings go to the SSE stream and,
+    with **DATABASE_URL**, to the runs and findings tables.
 
 **triage**
 :   Group NDJSON findings into quick-win / strategic / routine.
@@ -253,7 +257,8 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 
 **DATABASE_URL**
 :   Postgres DSN. Optional; missing → DB-backed panels degrade
-    to "backend unavailable" and the rest of `serve` keeps
+    to "backend unavailable", dashboard scans keep their findings
+    only on the live stream, and the rest of `serve` keeps
     running.
 
 # SEE ALSO

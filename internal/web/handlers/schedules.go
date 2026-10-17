@@ -481,10 +481,11 @@ type CloneScheduleRequest struct {
 // validation is identical to Create's).
 //
 // Notable copy semantics:
-//   - Enabled = true on the clone, regardless of source.
-//     Operators cloning a disabled schedule almost always
-//     want to test the clone, not preserve the disabled
-//     state.
+//   - The clone keeps the source's Enabled state. Until
+//     2026-10-17 every clone started enabled, and since
+//     dashboard scans run (PITF-094) a clone of a disabled
+//     schedule would have fired a real scan on the next tick;
+//     enable the clone explicitly to start it.
 //   - LastFiredAt does NOT carry over (clone starts
 //     "never-fired"; new ID = new cadence anchor).
 //   - Operator on the clone = the cloner (X-Operator
@@ -572,6 +573,7 @@ func buildCloneRequest(source scanorch.ScanSchedule, override CloneScheduleReque
 		CronExpr:           source.CronExpr,
 		Timezone:           source.Timezone,
 		AuditRetentionDays: source.AuditRetentionDays,
+		StartDisabled:      !source.Enabled,
 	}
 	// Cadence override: when the operator specifies a cadence
 	// in the body, that wins. The cadence-XOR rule applies,
@@ -1923,6 +1925,11 @@ func applyImportRow(ctx context.Context, store scanorch.ScheduleStore, existing 
 }
 
 // applyImportCreate calls Create + updates the existing index.
+//
+// The row's "enabled" is kept, and a row without it is imported
+// disabled: since 2026-10-17 a schedule fires real scans, so an import
+// must not start one the file did not ask for (PITF-094). The
+// schedule is created disabled in the same write, before any tick.
 func applyImportCreate(ctx context.Context, store scanorch.ScheduleStore, existing map[string]scanorch.ScanSchedule, operator string, row scanorch.ScanSchedule, base ScheduleImportResult) ScheduleImportResult {
 	req := scanorch.CreateScheduleRequest{
 		Name:               row.Name,
@@ -1931,6 +1938,7 @@ func applyImportCreate(ctx context.Context, store scanorch.ScheduleStore, existi
 		CronExpr:           row.CronExpr,
 		Timezone:           row.Timezone,
 		AuditRetentionDays: row.AuditRetentionDays,
+		StartDisabled:      !row.Enabled,
 	}
 	created, err := store.Create(ctx, req, operator)
 	if err != nil {
@@ -1946,8 +1954,17 @@ func applyImportCreate(ctx context.Context, store scanorch.ScheduleStore, existi
 
 // applyImportOverwrite Updates the existing schedule in-place.
 // Preserves the existing ID + CreatedAt + LastFiredAt
-// (Update's semantics).
+// (Update's semantics), and applies the row's "enabled": a row that
+// turns the schedule off is disabled before the update, so the new
+// template never fires; one that turns it on is enabled after.
 func applyImportOverwrite(ctx context.Context, store scanorch.ScheduleStore, existing map[string]scanorch.ScanSchedule, prior, row scanorch.ScanSchedule, base ScheduleImportResult) ScheduleImportResult {
+	if prior.Enabled && !row.Enabled {
+		if err := store.SetEnabled(ctx, prior.ID, false); err != nil {
+			base.Outcome = importOutcomeError
+			base.ErrorMsg = err.Error()
+			return base
+		}
+	}
 	req := scanorch.UpdateScheduleRequest{
 		Name:               row.Name,
 		Template:           row.Template,
@@ -1964,6 +1981,14 @@ func applyImportOverwrite(ctx context.Context, store scanorch.ScheduleStore, exi
 		base.ErrorMsg = err.Error()
 		return base
 	}
+	if row.Enabled && !prior.Enabled {
+		if err := store.SetEnabled(ctx, prior.ID, true); err != nil {
+			base.Outcome = importOutcomeError
+			base.ErrorMsg = err.Error()
+			return base
+		}
+	}
+	updated.Enabled = row.Enabled
 	existing[updated.Name] = updated
 	base.Outcome = importOutcomeOverwritten
 	base.ID = updated.ID

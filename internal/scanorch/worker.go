@@ -107,6 +107,10 @@ type Worker struct {
 	// responsibility (cmd_serve wires a time-based throttle
 	// here). Nil → no-op reporter passed to Runner.Run.
 	OnProgress func(jobID string, stats Stats, byPlugin map[string]int)
+	// CancelPoll is how often a running job's state is read back
+	// from the store, so a cancel (POST /api/v1/scans/{id}/cancel)
+	// stops its probes. Zero means one second.
+	CancelPoll time.Duration
 }
 
 // Process dispatches the job with the given ID. The worker:
@@ -121,6 +125,12 @@ type Worker struct {
 //     error message.
 //  5. On ctx cancellation during Run: transitions running →
 //     cancelled (the operator-initiated cancellation path).
+//
+// The job runs under a context of its own, cancelled when the
+// store says the job was cancelled (read every CancelPoll), so a
+// cancel stops the probes and not only the row. Until 2026-10-17
+// a cancelled running job kept scanning and its run was recorded as
+// completed (PITF-094).
 //
 // Returns the final Job state plus any orchestration error
 // (NOT the runner's error, that's recorded on the Job and
@@ -138,10 +148,52 @@ func (w *Worker) Process(ctx context.Context, jobID string) (Job, error) {
 	if err != nil {
 		return Job{}, fmt.Errorf("scanorch: claim job %s: %w", jobID, err)
 	}
-	// Step 2: run with panic recovery.
-	stats, byPlugin, runErr := w.runWithRecover(ctx, claimed)
+	// Step 2: run with panic recovery, under a context a cancel in
+	// the store can stop.
+	jobCtx, cancelJob := context.WithCancel(ctx)
+	stopWatch := w.watchCancel(jobCtx, jobID, cancelJob)
+	stats, byPlugin, runErr := w.runWithRecover(jobCtx, claimed)
+	stopWatch()
+	cancelErr := jobCtx.Err()
+	cancelJob()
 	// Step 3: terminal transition based on outcome.
-	return w.terminate(ctx, jobID, stats, byPlugin, runErr, ctx.Err())
+	return w.terminate(ctx, jobID, stats, byPlugin, runErr, cancelErr)
+}
+
+// watchCancel cancels a running job's context once the store shows
+// the job cancelled. Each read is bounded by the poll interval and the
+// watch has a context of its own, so stop (which ends the watch and
+// waits for it) cannot hang on a store that does not answer.
+func (w *Worker) watchCancel(ctx context.Context, jobID string, cancel context.CancelFunc) (stop func()) {
+	interval := w.CancelPoll
+	if interval <= 0 {
+		interval = time.Second
+	}
+	watchCtx, endWatch := context.WithCancel(ctx)
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchCtx.Done():
+				return
+			case <-ticker.C:
+				getCtx, endGet := context.WithTimeout(watchCtx, interval)
+				job, err := w.Store.Get(getCtx, jobID)
+				endGet()
+				if err == nil && job.State == StateCancelled {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	return func() {
+		endWatch()
+		<-finished
+	}
 }
 
 // runWithRecover wraps Runner.Run with a panic recovery so a
@@ -208,6 +260,17 @@ func (w *Worker) terminate(ctx context.Context, jobID string, stats Stats, byPlu
 	defer cancel()
 	//nolint:contextcheck // deliberate detach, see comment above
 	final, err := w.Store.Transition(storeCtx, jobID, to, fields)
+	if errors.Is(err, ErrInvalidTransition) {
+		// A job cancelled in the store is already terminal: that
+		// is the cancel this worker just honoured. A cancel that
+		// lands after the runner finished but before this
+		// transition also ends here: the job reads cancelled while
+		// its run, which did complete, reads completed.
+		//nolint:contextcheck // same detached context as above
+		if job, gerr := w.Store.Get(storeCtx, jobID); gerr == nil && job.State == StateCancelled {
+			return job, nil
+		}
+	}
 	if err != nil {
 		return Job{}, fmt.Errorf("scanorch: terminal transition %s → %s: %w", jobID, to, err)
 	}

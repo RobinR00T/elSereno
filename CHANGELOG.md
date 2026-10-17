@@ -486,6 +486,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Scans queued from the dashboard, the API or a schedule never ran,
+  and nothing kept their findings (PITF-094).** `serve` started the
+  worker pool but nothing handed it the queued jobs, so every job stayed
+  `queued`; and the runner counted findings and dropped them, so the runs
+  and findings panels and `/api/v1/{runs,findings}` stayed empty. Now
+  `serve` feeds the pool every second, oldest job first, and the runner
+  records each run and finding: on the SSE stream (`run_start`,
+  `finding`, `run_end`) always, and in the `runs`, `targets` and
+  `findings` tables the dashboard reads when `DATABASE_URL` is set (after
+  `db migrate up`). If a finding cannot be stored, the job fails instead
+  of reporting findings nobody can read. **This changes what `serve`
+  does: a dashboard scan or a schedule now sends real traffic to its
+  targets** (limited by `--scope` when given). Two guards come with it:
+  jobs that were already queued when `serve` started (all of them until
+  now, or what a stopped `serve` left) do not run, and `serve` says how
+  many once; and `serve` says on start how many schedules are enabled,
+  since the first tick fires every one already due. Review them
+  (`GET /api/v1/schedules`) and disable what should not run before
+  upgrading. Schedule import ignored `"enabled"`: every imported row was
+  created enabled, so a schedule exported disabled fired after an
+  import. A created row now keeps its `"enabled"`, a row without it is
+  created disabled, and an overwrite applies it. A job does not point to
+  its run yet: its detail shows counters, and its findings are in
+  `/api/v1/findings` under the run that started with it (TODO-vNext).
+  The independent audit found that cancelling a running job only
+  changed its row: the probes went on and the run was recorded as
+  completed. Each job now runs under a context of its own that a cancel
+  in the store stops (read every second), so no new connection is
+  opened after a cancel (the probe already in flight ends on its own
+  timeout) and the run is closed as cancelled. Also from that audit: a
+  clone keeps the source's enabled state (a clone of a disabled schedule
+  started enabled and would have fired), dashboard scans honour
+  `scanner.max_concurrent_targets` and `scanner.max_concurrent_per_host`
+  as `scan` does, a job with no matching plugin opens no run, a panic
+  in a probe fails that probe instead of taking `serve` down (the
+  scanner runs probes without `recover`), a panic elsewhere in the
+  runner closes its run as error, the finding of a probe in flight at
+  the cancel is still stored, the cancel watch and closing a run are
+  bounded so a database that stops answering cannot hang a worker, the SSE
+  `finding` event carries `target` (address:port) and the live feed
+  shows it, and an IPv6 zone is dropped before the `INET` insert. And
+  three follow-ups to PITF-093: `replaceFile` syncs before the rename,
+  `backup restore` prints the permission bits it sets, and the copy
+  recipes take the config from any place the loader reads it.
+
 - **Three smaller defects (PITF-093).** `--emit-allow-file` printed
   "(0600)" but `os.WriteFile` kept the mode of an existing file, so
   overwriting a 0644 allow-file left the gate policy world-readable, and

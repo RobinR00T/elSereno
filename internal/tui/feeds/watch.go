@@ -276,6 +276,7 @@ type findingPayload struct {
 	ID        string         `json:"id"`
 	RunID     string         `json:"run_id"`
 	TargetID  string         `json:"target_id"`
+	Target    string         `json:"target,omitempty"`
 	Protocol  string         `json:"protocol"`
 	Severity  string         `json:"severity"`
 	Score     int            `json:"score"`

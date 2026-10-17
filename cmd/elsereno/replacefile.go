@@ -38,6 +38,11 @@ func replaceFile(path string, data []byte, mode os.FileMode) error {
 	if _, err := tmp.Write(data); err != nil {
 		return fail(err)
 	}
+	// On disk before the rename, so a power cut cannot leave an
+	// empty file under the old name.
+	if err := tmp.Sync(); err != nil {
+		return fail(err)
+	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpName)
 		return err

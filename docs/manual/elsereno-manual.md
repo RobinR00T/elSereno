@@ -1566,7 +1566,7 @@ elsereno backup create --out backup-2026-04-22.elsb
 
 # Restore: solo donde el vault original existe (no recupera un vault
 # perdido; para eso copia vault.v1.bin, MANUAL §20, PITF-093)
-mkdir -m 0700 /tmp/restored   # --to tiene que existir
+install -d -m 0700 /tmp/restored   # --to tiene que existir
 elsereno backup restore --in backup-2026-04-22.elsb --to /tmp/restored
 ```
 

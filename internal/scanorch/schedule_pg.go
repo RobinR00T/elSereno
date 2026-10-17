@@ -72,11 +72,11 @@ INSERT INTO scan_schedules
   (id, name, template_input, template_plugins, template_default_port,
    interval_seconds, cron_expr, timezone, enabled, operator, created_at, updated_at,
    audit_retention_days, tags, source_schedule_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)`
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $15, $9, $10, $11, $12, $13, $14)`
 	if _, err := s.q.Exec(ctx, sql,
 		sched.ID, sched.Name, sched.Template.Input, plugins, sched.Template.DefaultPort,
 		sched.IntervalSeconds, sched.CronExpr, sched.Timezone, operator, sched.CreatedAt, sched.UpdatedAt,
-		auditRetentionDaysToDB(sched.AuditRetentionDays), tags, nullableString(sourceID),
+		auditRetentionDaysToDB(sched.AuditRetentionDays), tags, nullableString(sourceID), sched.Enabled,
 	); err != nil {
 		return ScanSchedule{}, fmt.Errorf("scanorch: insert schedule: %w", err)
 	}

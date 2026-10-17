@@ -277,6 +277,11 @@ set -euo pipefail
 DEST=/var/backups/elsereno/$(date +%Y%m%d)
 install -d -m 0700 "$DEST"
 install -m 0600 ~/.elsereno/vault.v1.bin "$DEST/"
+# La config, de donde la lee elSereno (orden de MANUAL §13):
+for c in "${ELSERENO_CONFIG:-}" "${XDG_CONFIG_HOME:-$HOME/.config}/elsereno/elsereno.yaml" \
+         "$HOME/.config/elsereno/elsereno.yaml" "$HOME/.elsereno/elsereno.yaml"; do
+  if [ -n "$c" ] && [ -e "$c" ]; then install -m 0600 "$c" "$DEST/elsereno.yaml"; break; fi
+done
 # audit.jsonl no existe hasta que algo escribe en él (los verbos del
 # build offensive o `audit serve`):
 if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$DEST/"; fi

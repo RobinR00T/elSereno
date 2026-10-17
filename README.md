@@ -347,7 +347,9 @@ elsereno discover --auto 10.0.0.0/24 --format list | elsereno scan --input list:
 `--plugin`, and, having no default port, then probe every listed target
 whatever its port, with a warning) and writes each finding with the
 target's address and port. Until 2026-10-07 the CLI ran banner alone and left the address
-empty; dashboard scans already dispatched per port.
+empty. Dashboard, API and schedule scans use the same dispatch; until
+2026-10-17 they never ran at all (nothing fed the worker pool), and now
+they send real traffic and keep their findings (PITF-094).
 
 ```sh
 # one plugin on a non-default port:

@@ -473,7 +473,48 @@ elsereno serve \
     --vault-passphrase-file /etc/elsereno/vault.pp
 ```
 
-Salida: una vez arrancado verás `serve listening on 127.0.0.1:8787`.
+Salida: una vez arrancado verás `elsereno serve: listening on 127.0.0.1:8787`.
+
+**Qué hace con los scans.** Desde el 17-10-2026 los jobs que se encolan
+desde el dashboard, la API o un schedule se ejecutan en el pool de
+workers (`--scan-pool`): **mandan tráfico real a sus targets**, con el
+mismo reparto por puerto que `scan` (§7.1). Antes se quedaban en
+`queued` para siempre (PITF-094). Con `--scope`, los targets fuera de
+scope se descartan antes de sondear; sin él no hay límite.
+
+- Los findings van siempre al stream SSE (`/api/v1/stream`: `run_start`,
+  `finding`, `run_end`) y, si hay `DATABASE_URL`, a las tablas `runs`,
+  `targets` y `findings` que leen el dashboard y
+  `/api/v1/{runs,findings}` (necesitan `elsereno db migrate up`). Si un
+  finding no se puede guardar, el job falla en vez de dar por buenos
+  resultados que nadie podrá leer.
+- Los jobs que ya estaban en cola al arrancar `serve` no se ejecutan: es
+  el atasco de cuando nada los ejecutaba, o lo que dejó un `serve`
+  parado. `serve` avisa una vez de cuántos son; cancélalos
+  (`POST /api/v1/scans/{id}/cancel`) o vuelve a lanzarlos.
+- Al arrancar, `serve` dice cuántos schedules activos hay. Cada uno lanza
+  un scan real cuando le toca, y el primer tick dispara todos los que ya
+  tocaban: revísalos (`GET /api/v1/schedules`) antes de actualizar.
+- El detalle de un job (`GET /api/v1/scans/{id}`) da contadores, no sus
+  findings, y el job todavía no apunta a su run: los findings están en
+  `/api/v1/findings`, y el run en `/api/v1/runs`, con la hora de inicio
+  del job (TODO-vNext).
+- Un job en curso se cancela con `POST /api/v1/scans/{id}/cancel` o el
+  botón Cancel: en un segundo como mucho deja de abrir conexiones, la
+  sonda que ya estaba en marcha acaba sola (hasta su timeout) y su
+  finding se guarda, y el run queda `cancelled`. Un cancel que llega
+  justo cuando el scan termina deja el job `cancelled` y el run
+  `completed`. Hasta el 17-10-2026 el cancel solo cambiaba el
+  estado y el scan seguía.
+- Respeta los límites de la config, `scanner.max_concurrent_targets` y
+  `scanner.max_concurrent_per_host` (§13), como `scan`.
+- Clonar un schedule conserva su estado: el clon de uno desactivado nace
+  desactivado (hasta el 17-10-2026 todo clon nacía activo).
+- Si `serve` se para con un job en `running`, el job se queda así: nada
+  lo recupera al arrancar (TODO-vNext). Un solo `serve` por base de
+  datos: con dos, el Scheduler puede disparar dos veces el mismo
+  schedule.
+
 Ctrl+C envía SIGINT → exit 130; SIGTERM → exit 143.
 
 ### 7.4 `vault`
@@ -637,7 +678,7 @@ elsereno backup create --out /backups/elsereno-2026-05-11.tar.gz.enc
 elsereno backup inspect --in /backups/elsereno-2026-05-11.tar.gz.enc
 
 # Restaurar (requiere mismo vault master; --to tiene que existir):
-mkdir -m 0700 /tmp/restored
+install -d -m 0700 /tmp/restored
 elsereno backup restore --in /backups/elsereno-2026-05-11.tar.gz.enc --to /tmp/restored
 ```
 
@@ -880,10 +921,13 @@ Tras `elsereno serve`, abre `http://127.0.0.1:8787`. Verás:
 
 ### Paneles principales
 
-- **Scans**: scans recientes con su estado (queued/running/
-  done/failed). Click en uno → detalle + findings.
+- **Scans**: jobs recientes con su estado (queued/running/
+  completed/failed/cancelled) y un botón Cancel para los que
+  están en cola o en curso (§7.3). Sus findings están en el
+  panel Findings y en el live feed, que dice dirección y puerto.
 - **Submit a scan**: textarea para pegar targets o cargar
-  archivo. Selecciona plugins + dispara.
+  archivo. Selecciona plugins + dispara. Es un scan real contra esos
+  targets (§7.3).
 - **Schedules** (v1.70+): scans recurrentes con cron o
   interval. CRUD inline. Botón "History" abre el audit log
   por schedule.
@@ -958,8 +1002,9 @@ Dashboard → Schedules → Create:
 - Cadence: cron `0 */6 * * *`
 - Timezone: `America/New_York`
 
-El Scheduler en serve dispara cada 6h. Audit log registra
-cada fire. v1.78+ optimistic locking previene races si otro
+El Scheduler en serve dispara cada 6h, y cada disparo es un scan real
+(hasta el 17-10-2026 el job se quedaba en cola, PITF-094). Audit log
+registra cada fire. v1.78+ optimistic locking previene races si otro
 operador edita.
 
 ### 9.6 Investigar un finding sospechoso
@@ -986,8 +1031,14 @@ tal cual; `vault.v1.bin` ya va cifrado con la passphrase:
 # Diario; borra las copias de más de 7 días.
 set -euo pipefail
 D=/backups/elsereno/$(date +%Y%m%d)
+DEST=$D
 install -d -m 0700 "$D"
 install -m 0600 ~/.elsereno/vault.v1.bin "$D/"
+# La config, de donde la lee elSereno (orden de §13):
+for c in "${ELSERENO_CONFIG:-}" "${XDG_CONFIG_HOME:-$HOME/.config}/elsereno/elsereno.yaml" \
+         "$HOME/.config/elsereno/elsereno.yaml" "$HOME/.elsereno/elsereno.yaml"; do
+  if [ -n "$c" ] && [ -e "$c" ]; then install -m 0600 "$c" "$DEST/elsereno.yaml"; break; fi
+done
 # audit.jsonl no existe hasta que algo escribe en él (los verbos del
 # build offensive o `audit serve`):
 if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$D/"; fi
@@ -1047,6 +1098,8 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | `template: failed to apply "...GITHUB_REPOSITORY..."` (goreleaser) | Env var no setea                                     | `GITHUB_REPOSITORY=user/repo` añadido al export                            |
 | `serve: scheduler fire error (sched X): submit: ...`             | Plugin del schedule no existe en este build            | Verifica con `elsereno plugins list`                                       |
 | Dashboard 503 en `/api/v1/scans` o `/schedules`                  | `--scan-store=off` (default)                           | Re-arranca con `--scan-store=memory` o `=db`                              |
+| Job `failed` con `scan runner: start run: ...` o `record findings: ...` | Faltan las tablas `runs`/`targets`/`findings` o la base falla | `elsereno db migrate up`; mira el error de Postgres que acompaña      |
+| `scanorch: feed: N queued jobs predate this start and will not run` | Jobs en cola de antes de arrancar `serve` (PITF-094)   | Cancélalos (`POST /api/v1/scans/{id}/cancel`) o vuelve a lanzarlos       |
 | Audit chain reports `ErrChainBroken`                             | Alguien editó `audit.jsonl` a mano                     | Recovery manual; sin atajo                                                |
 | `OCI image runtime: tzdata: cannot find zone "..."`              | Sistema sin tzdata bundle                              | `apt install tzdata` o equivalente                                        |
 | `elsereno serve: scheduler exited: ...`                          | Bug del scheduler, reportar issue                     | Captura stderr + abre issue                                               |
@@ -1374,8 +1427,8 @@ application/json` (excepto SSE).
 | POST   | `/api/v1/scans`                         | Crea un scan job (body: SubmitRequest).                |
 | POST   | `/api/v1/scans/bulk`                    | Crea varios jobs en una sola request (v1.69+).         |
 | GET    | `/api/v1/scans`                         | Lista los últimos N jobs.                              |
-| GET    | `/api/v1/scans/{id}`                    | Detalle de un job + sus findings.                      |
-| POST   | `/api/v1/scans/{id}/cancel`             | Cancela un job queued/running.                         |
+| GET    | `/api/v1/scans/{id}`                    | Detalle de un job y sus contadores (sus findings, en `/api/v1/findings`). |
+| POST   | `/api/v1/scans/{id}/cancel`             | Cancela un job en cola o en curso; uno en curso deja de abrir conexiones en un segundo como mucho. |
 
 ### Schedules (v1.70+)
 
@@ -1391,13 +1444,15 @@ application/json` (excepto SSE).
 | POST   | `/api/v1/schedules/preview?count=N`           | Preview de los próximos N fires (v1.77+; cap 10 v1.79+).|
 | GET    | `/api/v1/schedules/{id}/audit`                | Audit history del schedule (v1.84+).                    |
 | DELETE | `/api/v1/schedules/audit?before=<rfc3339>`    | Prune audit log global (v1.86+).                        |
+| GET    | `/api/v1/schedules/export?format=`            | Backup en `json`, `ndjson`, `csv` o `ics` (v1.97+).     |
+| POST   | `/api/v1/schedules/import?on_conflict=`       | Restaura NDJSON o un array JSON (v1.99+). Cada fila conserva su `"enabled"`; sin él se crea desactivada (PITF-094). `on_conflict=skip\|overwrite\|rename`. |
 
 ### Findings + Runs + Triage
 
 | Método | Path                              | Qué hace                                                |
 |--------|-----------------------------------|---------------------------------------------------------|
 | GET    | `/api/v1/findings`                | Findings paginados (`?page=`, `?limit=`, filtros).     |
-| GET    | `/api/v1/findings/diff`           | Diff entre dos runs (`?run_a=`, `?run_b=`).             |
+| GET    | `/api/v1/findings/diff`           | Diff entre dos runs (`?old=<run_id>&new=<run_id>`).     |
 | GET    | `/api/v1/runs`                    | Runs históricos.                                        |
 | GET    | `/api/v1/triage`                  | Counts por bucket (quick-win / strategic / utility / routine). |
 
@@ -1833,14 +1888,16 @@ almacenamiento separado:
 #!/usr/bin/env bash
 set -euo pipefail
 DEST=/var/backups/elsereno/$(date -u +%Y%m%dT%H%M%S)
-# La configuración que usas (orden de búsqueda en §13):
-CFG=${ELSERENO_CONFIG:-$HOME/.config/elsereno/elsereno.yaml}
 install -d -m 0700 "$DEST"
 install -m 0600 ~/.elsereno/vault.v1.bin "$DEST/"
+# La config, de donde la lee elSereno (orden de §13):
+for c in "${ELSERENO_CONFIG:-}" "${XDG_CONFIG_HOME:-$HOME/.config}/elsereno/elsereno.yaml" \
+         "$HOME/.config/elsereno/elsereno.yaml" "$HOME/.elsereno/elsereno.yaml"; do
+  if [ -n "$c" ] && [ -e "$c" ]; then install -m 0600 "$c" "$DEST/elsereno.yaml"; break; fi
+done
 # audit.jsonl no existe hasta que algo escribe en él (los verbos del
 # build offensive o `audit serve`):
 if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$DEST/"; fi
-if [ -e "$CFG" ]; then install -m 0600 "$CFG" "$DEST/"; fi
 find /var/backups/elsereno -mindepth 1 -maxdepth 1 -mtime +30 -exec rm -rf {} +
 ```
 

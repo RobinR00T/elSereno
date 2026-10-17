@@ -253,7 +253,7 @@ func schedulesToggleAndClonePaths() []Path {
 			"post": {
 				Summary: "Duplicate a schedule (v1.93+).",
 				Description: "Body fields override the source. Default name is " +
-					"`<source.name> (copy)`. Clone always starts Enabled=true; " +
+					"`<source.name> (copy)`. The clone keeps the source's enabled state (PITF-094); " +
 					"LastFiredAt reset; operator = the cloner.",
 				Tags:        tag,
 				RequestBody: &RequestBody{Ref: "CloneScheduleRequest", Required: false, Description: "Optional override fields; empty body = full copy."},
@@ -460,8 +460,9 @@ func schedulesIOPaths() []Path {
 					"parser; unknown CT auto-detects via the first non-whitespace " +
 					"byte. Query param `on_conflict=skip|overwrite|rename` " +
 					"(default skip). IDs from the input are IGNORED, the server " +
-					"generates fresh IDs in every case. Returns aggregate counts + " +
-					"per-row items.",
+					"generates fresh IDs in every case. Each row keeps its `enabled`; " +
+					"a row without it is created disabled, and on_conflict=overwrite " +
+					"applies it (PITF-094). Returns aggregate counts + per-row items.",
 				Tags: tag,
 				Responses: map[string]Response{
 					"200": {Description: "Import result with per-row outcomes.", Ref: "Envelope"},

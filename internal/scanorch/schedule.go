@@ -162,6 +162,12 @@ type CreateScheduleRequest struct {
 	// Tags (v2.4+, optional) is the operator's grouping
 	// label set. See ScanSchedule.Tags for validation rules.
 	Tags []string `json:"tags,omitempty"`
+	// StartDisabled creates the schedule disabled, in the same write,
+	// so no scheduler tick can fire it first. The import path sets it
+	// for rows exported as disabled; the API create leaves it false.
+	// Until 2026-10-17 every schedule was created enabled, so an
+	// imported "enabled": false row fired on the next tick (PITF-094).
+	StartDisabled bool `json:"-"`
 }
 
 // IntervalSeconds clamping bounds. Lower bound prevents an
@@ -526,7 +532,7 @@ func buildScheduleFromRequest(req CreateScheduleRequest, operator string) (ScanS
 		Name:               req.Name,
 		Template:           req.Template,
 		Timezone:           req.Timezone,
-		Enabled:            true,
+		Enabled:            !req.StartDisabled,
 		Operator:           operator,
 		CreatedAt:          now,
 		AuditRetentionDays: clampAuditRetention(req.AuditRetentionDays),

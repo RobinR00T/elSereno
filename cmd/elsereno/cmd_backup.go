@@ -117,16 +117,15 @@ func newBackupRestoreCmd() *cobra.Command {
 					return fail(core.ExitUsage, fmt.Errorf("refusing tar member %q: escapes --to %s", bf.Name, toDir))
 				}
 				// bf.Mode comes from a tar header we wrote on
-				// `Create`; narrow to 12-bit Unix perms. The
-				// bit-mask bounds the cast even if bf.Mode is
-				// mis-shaped; gosec G115 is silenced below.
-				// bit-masked to 12-bit Unix perms; the cast is
-				// safe even if bf.Mode is mis-shaped. gosec
+				// `Create`; narrow to the 9 permission bits, the
+				// ones replaceFile's chmod applies (so the mode
+				// printed is the mode set). The mask bounds the
+				// cast even if bf.Mode is mis-shaped. gosec
 				// wants the #nosec on the same line as the
 				// offending statement (standalone binary
 				// ignores the line-above form; golangci-lint's
 				// bundled gosec accepts both, PITF-030).
-				mode := os.FileMode(uint32(bf.Mode) & 0o7777) // #nosec G115 -- bit-masked above
+				mode := os.FileMode(uint32(bf.Mode) & 0o777) // #nosec G115 -- bit-masked above
 				// replaceFile, not os.WriteFile: an existing 0644
 				// file at dst must end up with the backup's mode
 				// (PITF-093).

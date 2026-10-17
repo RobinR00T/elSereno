@@ -8,6 +8,10 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (7): **dashboard, API and schedule scans now run and keep
+  their findings (runs/targets/findings + SSE); jobs queued before serve
+  started do not run; schedule import keeps "enabled" (PITF-094).**
+
 - 2026-10-17 (6): **allow-file 0600 on overwrite, idempotency DB errors
   logged, backup docs say it cannot restore a lost vault (PITF-093).**
 
