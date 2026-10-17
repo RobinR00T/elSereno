@@ -22,7 +22,7 @@ token-budget: 950
 - Scoring 0-100 multi-factor (ADR-006).
 - Audit JCS hash chain; genesis `prev_hash=0x00..00`; canonical `id/occurred_at/actor/event_type/payload/prev_hash`; tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries. `event_type` is CHECK enum.
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.
-- Web: OIDC Bearer JWT on the routes with a role when configured (required off loopback; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open); dev mode on loopback has no auth. Cookie, CSRF, web token and `web_state` rotation are designed, not built (PITF-087).
+- Web: OIDC Bearer JWT on the routes with a role when configured (required off loopback; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open); dev mode on loopback has no auth; a browser guard refuses cross-origin writes, non-JSON write bodies and DNS rebinding (PITF-092). Cookie, CSRF token, web token and `web_state` rotation are designed, not built (PITF-087).
 - Vault: `init` → `unlock` → ops; `lock` zeroizes. Unlock-once memguard.
 - Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min.
 - `crypto/rand` only. Subprocess via `internal/exec.SafeCommand(ctx, CommandSpec)` with deterministic `--` separator (rule; no command spawns one yet).

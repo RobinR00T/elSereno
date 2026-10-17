@@ -11,6 +11,7 @@ import (
 
 	"local/elsereno/internal/config"
 	"local/elsereno/internal/creds"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/repo"
 	"local/elsereno/internal/scanorch"
 	"local/elsereno/internal/web/auth"
@@ -157,7 +158,7 @@ func NewServer(opts Options) (*Server, error) {
 	// #nosec G112 -- all timeouts are set explicitly below.
 	s.server = &http.Server{
 		Addr:              opts.Addr,
-		Handler:           securityHeaders(mux),
+		Handler:           securityHeaders(browserGuard(netutil.IsLoopbackHostPort(opts.Addr), mux)),
 		ReadHeaderTimeout: nonzero(opts.Web.ReadHeaderTimeout, 5*time.Second),
 		ReadTimeout:       nonzero(opts.Web.ReadTimeout, 30*time.Second),
 		WriteTimeout:      nonzero(opts.Web.WriteTimeout, 30*time.Second),

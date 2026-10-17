@@ -8,6 +8,10 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (5): **browser guard on serve (PITF-092)**: cross-origin
+  writes 403, write bodies or Content-Types other than JSON/NDJSON 415, non-loopback Host on a
+  loopback bind 421.
+
 - 2026-10-17 (4): **54 broken command examples in the docs fixed
   (PITF-091)**; `TestDocsExamples_UseRealCommandsAndFlags` checks the
   examples in code blocks against the cobra tree in both builds.

@@ -40,7 +40,7 @@ rationale behind each package.
 | `internal/exec` | `SafeCommand` with typed `CommandSpec` (no command spawns a subprocess yet). |
 | `internal/render` | `SafeBytes` sanitiser for target-controlled bytes. |
 | `internal/telemetry` | Prometheus, OTel, progress bar; a zerolog redaction hook nothing wires yet. |
-| `internal/web` | HTTP server, auth (dev mode or OIDC JWT), health endpoints; no CSRF protection (PITF-087). |
+| `internal/web` | HTTP server, auth (dev mode or OIDC JWT), browser guard against cross-site requests and DNS rebinding (no CSRF token; PITF-092), health endpoints. |
 | `internal/scope` | Optional `scope.yaml`, applied with `--scope` (ranges, ports, dial blocked numbers). |
 | `internal/scoring` | Multi-factor scoring engine. |
 | `internal/triage` | Grouping (quick-wins, strategic). |

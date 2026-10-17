@@ -42,9 +42,14 @@ Default `127.0.0.1:8787`. Binding outside loopback requires: `--tls-cert`
   and CSRF via `gorilla/csrf` (not a dependency). The CSRF key is still
   derived from the vault master (`info="elsereno/csrf/v1"`, ADR-017) and
   nothing reads it.
-- **Consequence**: in dev mode, with no authentication and no CSRF or
-  Origin check, a page in the operator's browser can send requests to a
-  loopback `serve`. Open decision in TODO-vNext.
+- **Browser guard** (17-10-2026, PITF-092; `internal/web/browserguard.go`):
+  on a loopback bind a non-loopback `Host` gets 421 (DNS rebinding);
+  writes (not GET/HEAD/OPTIONS) from another origin (`Origin`,
+  `Sec-Fetch-Site`) get 403; writes whose body or `Content-Type` is not
+  JSON or NDJSON get 415 (a bodyless write carries no `Content-Type`, or one of those two). It is not authentication:
+  in dev mode any local process can still call the API. Before it, any
+  page in the operator's browser could send requests to a loopback
+  `serve`.
 
 ## Headers
 - HSTS (only when TLS).

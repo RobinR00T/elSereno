@@ -81,7 +81,7 @@ Garantías de boundary:
 | Encryption envelope   | AES-256-GCM con random nonce per write              |
 | Master key storage    | en memoria con `memguard` (mlocked, zeroed on signal) |
 | Backup encryption     | AES-256-GCM con HKDF-derived key (`info=backup/v1`) |
-| CSRF key derivation   | HKDF master key (`info=csrf/v1`); sin uso           |
+| CSRF key derivation   | HKDF master key (`info=csrf/v1`); sin uso (la defensa es el browser guard, PITF-092) |
 | Audit HMAC key        | HKDF master key (`info=audit/v1`)                   |
 
 ### Archivo `vault.v1.bin`
@@ -223,15 +223,26 @@ Sin las tres flags, serve aborta con un mensaje explícito.
   `web.token_ttl_days` se acepta y nada lo usa, y `token rotate` es
   un stub.
 
-### CSRF
+### CSRF y DNS rebinding
 
-- No hay protección CSRF. La clave se deriva por HKDF de la master
-  key del vault (`info=csrf/v1`) y nada la lee.
-- Consecuencia: en modo dev (loopback, sin OIDC) una página abierta
-  en el navegador del operador puede mandar peticiones a `serve`
-  (lanzar scans, tocar horarios). Decisión abierta en TODO-vNext.
-  (Hasta el 16-10-2026 esta sección describía cookies y un token
-  CSRF que nunca existieron; PITF-087.)
+`serve` rechaza lo que una página del navegador podría mandarle sin que
+lo quieras (desde el 17-10-2026, PITF-092): con bind en loopback, un
+`Host` que no sea un nombre de loopback (421, DNS rebinding); las
+escrituras (todo salvo GET, HEAD y OPTIONS) desde otro origen según
+`Origin` o `Sec-Fetch-Site` (403); y las escrituras cuyo cuerpo o
+`Content-Type` no sea JSON o NDJSON (415): una escritura sin cuerpo no
+lleva `Content-Type`, o lleva uno de esos dos. El CLI y curl con JSON o
+NDJSON no mandan `Origin` y pasan.
+
+- No hay token CSRF: la clave que se deriva por HKDF de la master del
+  vault (`info=csrf/v1`) sigue sin usarse.
+- No es autenticación: en modo dev cualquier proceso local puede llamar
+  a la API.
+- Hasta el 17-10-2026 no había nada de esto, y una página abierta en el
+  navegador del operador podía encolar scans y crear o cambiar horarios
+  con un POST `text/plain` (con DNS rebinding, también borrarlos y leer
+  la API). Hasta el 16-10 esta sección describía cookies y un token
+  CSRF que nunca existieron (PITF-087).
 
 ---
 
@@ -535,8 +546,9 @@ Para deployments productivos:
 
 ### Red
 
-- [ ] `serve` bindea localhost + reverse proxy con TLS al
-      front, **o** TLS directo con `--tls-cert`.
+- [ ] `serve` bindea localhost (uso local) **o** TLS directo con
+      `--tls-cert` y OIDC. No detrás de un proxy inverso: expondría el
+      modo dev sin autenticación, y la guarda lo rechaza (PITF-092).
 - [ ] Firewall reglas restringen acceso al puerto del
       dashboard a IPs de SOC.
 - [ ] Postgres en private network o socket UDS.

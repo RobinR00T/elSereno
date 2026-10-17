@@ -920,7 +920,8 @@ webhook, backup cifrado). Desde el 16-10-2026 dice qué está
 activo y qué no: el scope solo con `--scope`; el write-ban de
 los proxies por defecto, sin comando que lo sirva; el canary, la
 clave CSRF, el redaction hook y la allowlist de subprocesos, como
-código sin conectar; y el sandbox, solo en el build offensive.
+código sin conectar (contra peticiones de otras webs está la guarda del
+navegador, PITF-092); y el sandbox, solo en el build offensive.
 
 ---
 

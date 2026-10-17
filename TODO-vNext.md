@@ -69,16 +69,14 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   que verificaría `doctor`, el outbox con `outbox_dead`, entre otros. Hace
   falta un barrido como el de PITF-080, control por control, buscando
   quién lo llama.
-- **API sin autenticación ni CSRF en modo dev.** Con `serve` en loopback y
-  sin OIDC (el modo por defecto) la API no autentica, no comprueba Origin
-  ni Host y acepta JSON sin exigir `Content-Type`, así que una página
-  abierta en el navegador del operador puede lanzar scans o tocar
-  horarios con un POST `text/plain`, también por DNS rebinding. La clave
-  CSRF se deriva y nadie la usa. Visto en la auditoría del panel (16-10,
-  PITF-087). ¿Exigir `Content-Type: application/json` y comprobar
-  Origin/Host, o un token local? Relacionado: incluso con OIDC, `/`,
-  `/admin/security`, `/metrics`, `/healthz`, `/readyz` y los `GET` de solo
-  lectura de `/api/v1` se sirven sin token, también en un bind de red.
+- **[RESUELTO 17-10, PITF-092] Peticiones de otras webs a `serve`.** La
+  guarda del navegador (`internal/web/browserguard.go`) rechaza las
+  escrituras de otro origen, las escrituras cuyo cuerpo o
+  `Content-Type` no sea JSON o NDJSON y, con bind en loopback, un `Host` que no sea loopback
+  (DNS rebinding). Sigue abierto: en modo dev la API no autentica a los
+  procesos locales, y con OIDC `/`, `/admin/security`, `/metrics`,
+  `/healthz`, `/readyz` y los `GET` de solo lectura de `/api/v1` se sirven
+  sin token, también en un bind de red.
 - **[RESUELTO 17-10] Versiones de golangci-lint desalineadas.** `ci.yml`
   usaba `latest` y `audit.yml` fijaba v2.11.4; el 16-10 salió v2.15.0 y el
   17-10 `ci` falló por una línea que `audit` y el lint local (2.13.2) no
@@ -98,6 +96,10 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   restore` desbloquea primero el vault local, así que en una máquina sin
   vault falla antes de restaurar (razonado por el código, no probado).
   Revisar el flujo y la doc de OPERATIONS.
+- **`docker run -p 8787:8787 ... serve` no llega al contenedor**
+  (`INSTALL.md`): `serve` escucha en 127.0.0.1 dentro del contenedor.
+  Visto en la auditoría de PITF-092 (17-10); exponerlo fuera de loopback
+  exige TLS y OIDC.
 - **Cabeceras con clave en redirecciones a otro host.** Go solo quita
   `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
   redirigir a un host que no es el mismo ni un subdominio suyo

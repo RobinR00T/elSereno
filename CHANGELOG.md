@@ -313,6 +313,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`serve` refuses requests a web page could send without the operator
+  meaning to (PITF-092).** In dev mode (loopback bind, no OIDC, the
+  default) the API has no authentication and no CSRF protection, so any
+  page open in the operator's browser could POST to `127.0.0.1:8787` and
+  queue scans or create and change schedules (a `text/plain` POST reached
+  the handlers), and a hostile name resolved to 127.0.0.1 (DNS rebinding)
+  could also delete them and read the API. A browser guard in front of
+  every route now refuses, on a loopback bind, a `Host` that is not a
+  loopback name (421); writes (anything but GET, HEAD and OPTIONS) whose
+  `Origin` is another origin or whose `Sec-Fetch-Site` is not
+  `same-origin`/`none` (403); and writes whose body or `Content-Type` is
+  anything but JSON or NDJSON, which covers everything a page can send
+  without a CORS preflight (415); a bodyless write carries no
+  `Content-Type`, or a JSON or NDJSON one. The CLI, curl with JSON or NDJSON and the
+  dashboard keep working (bodyless POST and DELETE from the CLI too).
+  `curl -d` without `-H 'Content-Type: application/json'` now gets 415.
+  This is not authentication: any local process can still call the API
+  in dev mode, and with OIDC the read-only routes listed in SECURITY stay
+  open. The security panel reports it, and `internal/web/middleware`'s
+  doc no longer describes middleware that does not exist. The MANUAL's
+  Nginx recipe (a loopback `serve` behind a reverse proxy) is gone: the
+  guard answers it 421/403, and it exposed dev mode without
+  authentication to the network anyway; use `--tls-cert` with OIDC. Dashboard scans
+  do not run today (nothing feeds the worker pool), so before this the
+  reach was queued jobs and schedule changes, not traffic; the guard has
+  to be in place before they do.
+
 - **Eleven newly published vulnerabilities patched: `golang.org/x/net`
   v0.60.0 and toolchain go1.26.9.** The scheduled `supply-chain` runs
   failed from 2026-10-09 (OSV-Scanner), the `audit` runs from

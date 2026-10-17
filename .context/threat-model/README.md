@@ -27,7 +27,7 @@ counterpart to the ADR that declared the *design*.
 | Surface | Doc | Leading mitigation |
 |---------|-----|--------------------|
 | Vault + audit chain | [vault-audit.md](vault-audit.md) | AES-GCM + Argon2id + JCS hash chain |
-| Web server + API + dashboard | [web.md](web.md) | OIDC Bearer JWT when configured (required off loopback) + CSP nonces; on loopback without OIDC no authentication and no CSRF check (PITF-087) |
+| Web server + API + dashboard | [web.md](web.md) | OIDC Bearer JWT when configured (required off loopback) + CSP nonces; on loopback without OIDC no authentication; a browser guard refuses cross-site writes and DNS rebinding (PITF-087, PITF-092) |
 | Scanner + proxy framework | [scanner-proxy.md](scanner-proxy.md) | Offensive `proxy listen` write gates (the default-build write-ban handlers are not served) + per-host semaphore + temporal dedupe |
 | Subprocess + scope | [exec-scope.md](exec-scope.md) | Scope ranges + CIDR match with `--scope`; `SafeCommand` path allowlist is library code no command uses (PITF-087) |
 | Offensive surface | [offensive.md](offensive.md) | ADR-039 triple-confirm + ADR-041 dial guard + seccomp-bpf |

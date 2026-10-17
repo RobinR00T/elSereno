@@ -21,14 +21,14 @@ loopback-only by default.
 | `127.0.0.1:8787` HTTP endpoints | Non-loopback binds (require explicit TLS + `--i-know-what-im-doing`) |
 | Dashboard HTML rendering | Upstream reverse-proxy TLS termination |
 | `/api/v1/*` JSON + OpenAPI serving | Bearer token rotation (ADR-014) |
-| CSRF + Cookie Secure policy | Browser-side XSS defence beyond CSP |
+| Cross-site requests and DNS rebinding (browser guard) | Browser-side XSS defence beyond CSP |
 
 ## S, Spoofing
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Attacker on same machine issues requests to the serve process | **Gap** in dev mode (loopback, no OIDC): no authentication. With OIDC, the routes with a role need a Bearer JWT; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open. No cookie, no token rotation (PITF-087) | `internal/web/handlers/api.go:wrapWithRole`, `cmd/elsereno/cmd_serve.go` |
-| CSRF from malicious page in the same browser | **Gap**: no CSRF protection; the HKDF-derived key is unused. In dev mode a page can POST `text/plain` to the API (open decision, TODO-vNext; PITF-087) | `internal/web/server.go` |
+| CSRF from malicious page in the same browser | Browser guard: writes from another origin (`Origin`, `Sec-Fetch-Site`) refused, write bodies or Content-Types other than JSON/NDJSON refused (everything a page can send without a CORS preflight); DNS rebinding refused by pinning `Host` to loopback names on a loopback bind. No CSRF token (PITF-092) | `internal/web/browserguard.go` |
 | Forged OpenAPI spec distributed as "authoritative" | Spec served from the same binary + in-code declaration (`internal/web/openapi.Spec`). Tag artefacts include `cosign`-signed `docs/openapi.yaml` snapshot | `internal/web/openapi/spec.go` |
 
 ## T, Tampering
@@ -36,7 +36,7 @@ loopback-only by default.
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Attacker injects a template-rendered field with `<script>` | `html/template` auto-escapes; raw output blocked at compile time | `internal/web/handlers/dashboard.go` |
-| Mutating request flows through without CSRF | Middleware registers CSRF on every non-`/api/v1/*` POST; JSON API requires Bearer anyway | `internal/web/server.go` |
+| Mutating request flows through without CSRF | The browser guard wraps every route; the API needs a Bearer only with OIDC (dev mode has no auth) | `internal/web/browserguard.go`, `internal/web/handlers/api.go:wrapWithRole` |
 | Request body exceeds server limits | `http.Server` full timeouts (ReadHeaderTimeout, ReadTimeout, WriteTimeout, IdleTimeout, MaxHeaderBytes) | `internal/web/server.go:51` |
 
 ## R, Repudiation

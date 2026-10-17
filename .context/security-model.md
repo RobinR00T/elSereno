@@ -36,8 +36,9 @@ collaboration is vNext.
   SIGINT/SIGTERM or `vault lock` (ADR-018).
 - **CSRF key**: HKDF-SHA256 from vault master key,
   `info="elsereno/csrf/v1"`. Derived and unused: there is no CSRF
-  protection, and dev mode (loopback, no OIDC) has no authentication
-  (PITF-087). `serve` requires vault unlocked (ADR-017,
+  token, and dev mode (loopback, no OIDC) has no authentication
+  (PITF-087). Cross-site requests and DNS rebinding are refused by the
+  browser guard (`internal/web/browserguard.go`, PITF-092). `serve` requires vault unlocked (ADR-017,
   PITF-021).
 - **DB TLS**: required when not loopback (ADR-021).
 - **Redaction**: zerolog hook with specific patterns +

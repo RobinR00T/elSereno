@@ -13,7 +13,7 @@ token-budget: 800
 - **CEF**: Common Event Format (ArcSight).
 - **CHECK**: SQL column-level constraint used for enum-like enforcement.
 - **CSP**: Content Security Policy (HTTP header).
-- **CSRF**: Cross-site request forgery. Designed protection via `gorilla/csrf`, not built: there is none today (PITF-087).
+- **CSRF**: Cross-site request forgery. No token (the `gorilla/csrf` design was not built, PITF-087); `serve` refuses cross-origin writes and non-JSON write bodies with a browser guard (PITF-092).
 - **DCO**: Developer Certificate of Origin (Signed-off-by commit trailer).
 - **DDoS**: Denial of service (mass).
 - **Evidence**: Raw bytes captured for a finding; truncated at

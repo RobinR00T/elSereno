@@ -49,8 +49,8 @@ func TestBuildControls_UnwiredControlsAreNotOK(t *testing.T) {
 				t.Errorf("offensive=%v: %q status = %q, want info", offensive, name, status[name])
 			}
 		}
-		if status["CSRF protection"] != "warn" {
-			t.Errorf("offensive=%v: CSRF status = %q, want warn (no protection, no auth in dev mode)", offensive, status["CSRF protection"])
+		if status["CSRF protection"] != "ok" {
+			t.Errorf("offensive=%v: CSRF status = %q, want ok (the browser guard, PITF-092)", offensive, status["CSRF protection"])
 		}
 		if !offensive && status["Offensive sandbox"] != "info" {
 			t.Errorf("default build: sandbox status = %q, want info (it is not compiled in)", status["Offensive sandbox"])

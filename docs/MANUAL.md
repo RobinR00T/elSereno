@@ -1041,6 +1041,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | `OCI image runtime: tzdata: cannot find zone "..."`              | Sistema sin tzdata bundle                              | `apt install tzdata` o equivalente                                        |
 | `elsereno serve: scheduler exited: ...`                          | Bug del scheduler, reportar issue                     | Captura stderr + abre issue                                               |
 | `401`/`403` en `/api/v1/*`                                        | `serve` con OIDC: falta el Bearer JWT o el rol          | Pasa `Authorization: Bearer <jwt>` del emisor configurado en `auth.oidc` |
+| `415` / `403` / `421` de `serve`                                   | Cuerpo o `Content-Type` que no es JSON/NDJSON, petición desde otro origen, o `Host` que no es loopback | Manda `-H 'Content-Type: application/json'` (curl `-d` manda form por defecto); llama a `127.0.0.1` o `localhost` (PITF-092) |
 
 ---
 
@@ -1066,7 +1067,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | **goose**            | Library de migraciones DB embebida en el binario via `go:embed`.                                |
 | **NDJSON**           | Newline-Delimited JSON: un objeto por línea. Es el formato canónico de finding.                 |
 | **SSE**              | Server-Sent Events: stream HTTP unidireccional. `/api/v1/stream` usa esto.                      |
-| **CSRF**             | Cross-Site Request Forgery. ElSereno no tiene protección CSRF hoy (PITF-087).                  |
+| **CSRF**             | Cross-Site Request Forgery. Sin token: `serve` rechaza las escrituras de otro origen y los cuerpos que no son JSON/NDJSON (PITF-092). |
 | **If-Match**         | Header HTTP (v1.78+): optimistic-locking precondition para PUT /schedules/{id}.                 |
 | **merge-view**       | Dashboard panel (v1.81+) que muestra el diff cuando un PUT recibe 412.                          |
 | **force overwrite**  | PUT sin If-Match (v1.84+ con header `X-Schedule-Force-Overwrite: true`), audita el override.   |
@@ -1340,9 +1341,14 @@ con rol piden `Authorization: Bearer <JWT>` (401 sin token, 403 con
 rol insuficiente); `/`, `/admin/security`, `/metrics`, `/healthz`,
 `/readyz` y los `GET` de `plugins`, `scoring`, `health`,
 `health/pool` y `openapi.yaml` siguen abiertos. No hay
-cookie ni token CSRF, así que en modo dev cualquier página abierta
-en tu navegador puede mandar peticiones a `serve` (decisión
-abierta en TODO-vNext). Responden con `Content-Type:
+cookie ni token CSRF. En su lugar, `serve` rechaza lo que una página del navegador podría mandarle sin que
+lo quieras (desde el 17-10-2026, PITF-092): con bind en loopback, un
+`Host` que no sea un nombre de loopback (421, DNS rebinding); las
+escrituras (todo salvo GET, HEAD y OPTIONS) desde otro origen según
+`Origin` o `Sec-Fetch-Site` (403); y las escrituras cuyo cuerpo o
+`Content-Type` no sea JSON o NDJSON (415): una escritura sin cuerpo no
+lleva `Content-Type`, o lleva uno de esos dos. El CLI y curl con JSON o
+NDJSON no mandan `Origin` y pasan. Responden con `Content-Type:
 application/json` (excepto SSE).
 
 ### Scans
@@ -1733,34 +1739,14 @@ Sin réplicas múltiples por ahora: el Scheduler asume
 single-process; multi-replica race el carryover v1.90+
 (advisory lock).
 
-### Reverse proxy en front (Nginx)
+### Detrás de un proxy inverso
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name elsereno.example.com;
-
-    ssl_certificate     /etc/ssl/elsereno.crt;
-    ssl_certificate_key /etc/ssl/elsereno.key;
-
-    # ElSereno hace TLS por su cuenta cuando bindea non-loopback,
-    # pero también puedes terminar TLS en Nginx y reverse-proxy
-    # plano a 127.0.0.1:8787.
-    location / {
-        proxy_pass http://127.0.0.1:8787;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-
-        # SSE, desactiva buffering:
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 24h;
-    }
-}
-```
+No: `serve` en loopback detrás de Nginx u otro proxy deja expuesto a la
+red el modo dev, que no autentica, y la guarda contra peticiones de otras
+webs lo rechaza (421 por el `Host` público, 403 por el `Origin`). Para
+servir fuera de loopback, `serve` hace TLS por su cuenta y exige OIDC:
+`--addr 0.0.0.0:8443 --tls-cert ... --tls-key ... --i-know-what-im-doing`
+con `auth.oidc` configurado.
 
 ---
 

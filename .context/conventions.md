@@ -104,7 +104,7 @@ token-budget: 2500
 ## Web UX
 - `html/template` only.
 - CSP nonces per request.
-- API `/api/v1/*`: Bearer JWT on the routes with a role when OIDC is configured (`GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open, as do `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz`); dev mode (loopback, no OIDC) has no auth. No CSRF.
+- API `/api/v1/*`: Bearer JWT on the routes with a role when OIDC is configured (`GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open, as do `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz`); dev mode (loopback, no OIDC) has no auth. No CSRF token; the browser guard (`internal/web/browserguard.go`) refuses cross-origin writes, non-JSON write bodies and non-loopback `Host` on a loopback bind (PITF-092).
 - HTML dashboard: cookie+CSRF (key HKDF from vault) and token rotation via `web_state.token_generation` are the design; none is built yet (PITF-087).
 - Static embedded via `embed.FS`; HTMX + Alpine + Tailwind precompiled; no Node in build.
 - Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min.
