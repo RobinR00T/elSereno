@@ -112,6 +112,41 @@ func TestEmitAllowFile_WritesFile(t *testing.T) {
 	}
 }
 
+// TestEmitAllowFile_ExistingFileBecomes0600: overwriting an allow-file
+// that already exists with group/world access leaves it 0600. Until
+// 2026-10-17 os.WriteFile kept the old 0644 while the command printed
+// "(0600)" (PITF-093).
+func TestEmitAllowFile_ExistingFileBecomes0600(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "allow.yaml")
+	if err := os.WriteFile(path, []byte("old\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil { // #nosec G302 -- the test sets the loose mode on purpose
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	af := buildAllowFileSIP("pbx:5060", []string{"INVITE"}, nil, nil, nil, 0)
+	if err := emitAllowFile(helperCmd(&buf), path, af); err != nil {
+		t.Fatalf("emitAllowFile: %v", err)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := fi.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("perms %o after overwriting a 0644 file, want 600", perm)
+	}
+	data, err := os.ReadFile(path) // #nosec G304 -- test tempdir path
+	if err != nil || !strings.Contains(string(data), "plugin: sip") {
+		t.Fatalf("content not replaced: %q, %v", data, err)
+	}
+	leftovers, _ := filepath.Glob(filepath.Join(dir, ".allow.yaml.*"))
+	if len(leftovers) != 0 {
+		t.Fatalf("temp files left behind: %v", leftovers)
+	}
+}
+
 // ---- Round-trip: emit → load ---------------------------------
 
 func TestEmitAllowFile_RoundTripSIP(t *testing.T) {

@@ -8,6 +8,9 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (6): **allow-file 0600 on overwrite, idempotency DB errors
+  logged, backup docs say it cannot restore a lost vault (PITF-093).**
+
 - 2026-10-17 (5): **browser guard on serve (PITF-092)**: cross-origin
   writes 403, write bodies or Content-Types other than JSON/NDJSON 415, non-loopback Host on a
   loopback bind 421.

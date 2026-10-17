@@ -620,21 +620,24 @@ backup envelope).
 
 | Sub-comando | Uso                                                            |
 |-------------|----------------------------------------------------------------|
-| `create`    | Crea un `.tar.gz.enc` con vault + config + audit chain.        |
-| `inspect`   | Describe el envelope SIN descifrar (metadata: fecha, vault id). |
-| `restore`   | Descifra a un directorio.                                      |
+| `create`    | Crea un fichero cifrado con `vault.v1.bin` (solo eso).         |
+| `inspect`   | Describe el envelope SIN descifrar: magic, versión, sal, nonce, tamaño y modo. |
+| `restore`   | Descifra a un directorio que ya existe; solo donde el vault original existe. |
+
+Ojo: la clave del backup se deriva del propio vault, así que no sirve
+para recuperarse de perderlo (§20, PITF-093).
 
 **Ejemplos:**
 
 ```bash
-# Crear backup:
-elsereno vault unlock
+# Crear backup (pide la passphrase):
 elsereno backup create --out /backups/elsereno-2026-05-11.tar.gz.enc
 
 # Inspeccionar sin descifrar:
 elsereno backup inspect --in /backups/elsereno-2026-05-11.tar.gz.enc
 
-# Restaurar (requiere mismo vault master):
+# Restaurar (requiere mismo vault master; --to tiene que existir):
+mkdir -m 0700 /tmp/restored
 elsereno backup restore --in /backups/elsereno-2026-05-11.tar.gz.enc --to /tmp/restored
 ```
 
@@ -975,13 +978,20 @@ elsereno why 10.0.0.5:502
 
 ### 9.7 Backup periódico
 
+`backup create` no sirve si pierdes el vault (§20). Copia los ficheros
+tal cual; `vault.v1.bin` ya va cifrado con la passphrase:
+
 ```bash
-# Diario, mantiene 7:
-# (vault unlock no deja nada desbloqueado entre comandos: cada uno
-#  pide la passphrase, o la lee de --vault-passphrase-file en cron)
-elsereno backup create --vault-passphrase-file /etc/elsereno/vault.pp \
-  --out /backups/elsereno-$(date +%Y%m%d).tar.gz.enc \
-  && find /backups -name 'elsereno-*.tar.gz.enc' -mtime +7 -delete
+#!/usr/bin/env bash
+# Diario; borra las copias de más de 7 días.
+set -euo pipefail
+D=/backups/elsereno/$(date +%Y%m%d)
+install -d -m 0700 "$D"
+install -m 0600 ~/.elsereno/vault.v1.bin "$D/"
+# audit.jsonl no existe hasta que algo escribe en él (los verbos del
+# build offensive o `audit serve`):
+if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$D/"; fi
+find /backups/elsereno -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
 ```
 
 ### 9.8 Rotar credenciales API
@@ -1167,13 +1177,19 @@ compara la lista de targets con `ranges` y `ports` a mano.
 
 ## 13. `elsereno.yaml` reference
 
-Config global. Ubicación (por orden de prioridad):
+Config global. Se usa el primer fichero que existe, en este orden
+(`internal/config/loader.go`):
 
-1. `--config FILE` flag.
+1. `--config FILE` flag (si no existe, error).
 2. `ELSERENO_CONFIG` env var.
-3. `./elsereno.yaml`.
-4. `~/.elsereno/elsereno.yaml`.
-5. `/etc/elsereno/elsereno.yaml`.
+3. `$XDG_CONFIG_HOME/elsereno/elsereno.yaml`, si `XDG_CONFIG_HOME` está
+   definida.
+4. `~/.config/elsereno/elsereno.yaml`.
+5. `~/.elsereno/elsereno.yaml`.
+6. `./elsereno.yaml`.
+
+`/etc/elsereno/elsereno.yaml` no se lee (hasta el 17-10-2026 esta lista
+lo daba por bueno).
 
 Sin config, todo corre con defaults sensatos (mismo
 output que `elsereno config show` con un binario virgen).
@@ -1790,69 +1806,55 @@ páginas man, y las de las secciones 5 y 7 solo van en el tarball.
 
 ## 20. Backup & disaster recovery
 
-### Política recomendada
+### Lo que hace `backup` hoy (y lo que no)
 
-1. **Diario**: `elsereno backup create` a almacenamiento
-   separado (NFS, S3, archivado).
-2. **Retención**: 30 días rolling + 1 mensual frozen.
-3. **Restore drill**: cada trimestre, probar restore en
-   sandbox para validar que la passphrase no se ha
-   perdido.
+`elsereno backup create` guarda **solo `vault.v1.bin`**, cifrado con
+una clave que se deriva de la master del propio vault. Por eso un
+backup solo se puede restaurar donde ese mismo vault sigue existiendo
+(comprobado el 17-10-2026): en una máquina sin vault, `backup restore`
+sale con 64 ("vault not initialised"), y con un vault nuevo creado con
+la misma passphrase falla con "wrong key", porque la sal es otra. No
+sirve, por tanto, para recuperarse de perder el vault, que es justo
+cuando haría falta. Cambiarlo exige un formato de backup nuevo
+(decisión abierta en TODO-vNext, PITF-093).
 
-### Script de backup automático (cron)
+`audit.jsonl` y `elsereno.yaml` **no** van en el backup, ni las tablas
+de Postgres (`scan_jobs`, `scan_schedules`...), que tienen su propio
+`pg_dump`.
+
+### Recuperación que sí funciona hoy
+
+`vault.v1.bin` ya va cifrado con tu passphrase (Argon2id + AES-GCM) y
+lleva dentro su sal: copiado a otra máquina, se desbloquea con la misma
+passphrase. Copia el fichero tal cual, junto con el resto, a un
+almacenamiento separado:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-DEST=/var/backups/elsereno
-DATE=$(date -u +%Y%m%dT%H%M%S)
-elsereno vault unlock --vault-passphrase-file /etc/elsereno/vault.pp
-elsereno backup create \
-    --vault-passphrase-file /etc/elsereno/vault.pp \
-    --out "$DEST/elsereno-$DATE.tar.gz.enc"
-find "$DEST" -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
+DEST=/var/backups/elsereno/$(date -u +%Y%m%dT%H%M%S)
+# La configuración que usas (orden de búsqueda en §13):
+CFG=${ELSERENO_CONFIG:-$HOME/.config/elsereno/elsereno.yaml}
+install -d -m 0700 "$DEST"
+install -m 0600 ~/.elsereno/vault.v1.bin "$DEST/"
+# audit.jsonl no existe hasta que algo escribe en él (los verbos del
+# build offensive o `audit serve`):
+if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$DEST/"; fi
+if [ -e "$CFG" ]; then install -m 0600 "$CFG" "$DEST/"; fi
+find /var/backups/elsereno -mindepth 1 -maxdepth 1 -mtime +30 -exec rm -rf {} +
 ```
 
-```cron
-# Backup nightly at 02:30:
-30 2 * * * /usr/local/bin/elsereno-backup-cron.sh >>/var/log/elsereno-backup.log 2>&1
-```
+Un fichero que no existe se salta a propósito; cualquier otro fallo
+(permisos, disco lleno) para el script.
 
-### Restore en máquina nueva
+Para restaurar en una máquina nueva: pon `vault.v1.bin` en
+`~/.elsereno/` (0600), `audit.jsonl` y la configuración en su sitio, y
+comprueba con `elsereno vault status`, `elsereno creds list` (pide la
+passphrase) y `elsereno audit verify-file`.
 
-```bash
-# Pre-requisitos:
-# - elsereno binary instalado.
-# - mismo vault passphrase que cuando se hizo el backup.
-
-# 1) Inspect sin descifrar (verifica integridad del envelope):
-elsereno backup inspect --in elsereno-2026-05-11.tar.gz.enc
-
-# 2) Restore:
-elsereno backup restore \
-    --in elsereno-2026-05-11.tar.gz.enc \
-    --to /tmp/elsereno-restore
-
-# 3) Mover a su sitio:
-sudo install -m 0600 -o elsereno -g elsereno \
-    /tmp/elsereno-restore/vault.v1.bin /var/lib/elsereno/
-sudo install -m 0640 -o elsereno -g elsereno \
-    /tmp/elsereno-restore/audit.jsonl /var/lib/elsereno/
-
-# 4) Arrancar y verificar:
-sudo systemctl start elsereno
-elsereno audit verify-file       # debería pasar, la chain es íntegra
-```
-
-### Qué se incluye en el backup
-
-- `vault.v1.bin` (todas las credenciales cifradas).
-- `audit.jsonl` (chain HMAC completa).
-- `elsereno.yaml` (config).
-- **NO** se incluye `scan_jobs`, `scan_schedules`, etc.
-  La DB Postgres tiene su propio backup (pg_dump). Si
-  perdiste la DB pero conservaste el vault, restauras y
-  re-creas schedules.
+**Restore drill**: cada trimestre, en una máquina limpia, restaura así y
+abre el vault con la passphrase; es la única prueba de que no se ha
+perdido.
 
 ---
 

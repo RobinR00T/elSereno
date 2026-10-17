@@ -127,8 +127,10 @@ func newBackupRestoreCmd() *cobra.Command {
 				// ignores the line-above form; golangci-lint's
 				// bundled gosec accepts both, PITF-030).
 				mode := os.FileMode(uint32(bf.Mode) & 0o7777) // #nosec G115 -- bit-masked above
-				// #nosec G304 -- caller-controlled destination
-				if err := os.WriteFile(dst, bf.Body, mode); err != nil {
+				// replaceFile, not os.WriteFile: an existing 0644
+				// file at dst must end up with the backup's mode
+				// (PITF-093).
+				if err := replaceFile(dst, bf.Body, mode); err != nil {
 					return fail(core.ExitIOErr, err)
 				}
 				cmd.Printf("restored %s (%d bytes, mode %#o)\n", dst, len(bf.Body), mode)

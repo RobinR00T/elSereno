@@ -266,21 +266,35 @@ Resumen:
 
 ### Backup nightly
 
+`elsereno backup create` solo sirve donde el vault original sigue
+existiendo: su clave se deriva de ese vault, así que no recupera nada si
+lo pierdes (PITF-093). Copia los ficheros tal cual, `vault.v1.bin` ya va
+cifrado con la passphrase:
+
 ```bash
-elsereno backup create --vault-passphrase-file /etc/elsereno/vault.pp \
-  --out /var/backups/elsereno-$(date +%Y%m%d).tar.gz.enc
-find /var/backups -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
+#!/usr/bin/env bash
+set -euo pipefail
+DEST=/var/backups/elsereno/$(date +%Y%m%d)
+install -d -m 0700 "$DEST"
+install -m 0600 ~/.elsereno/vault.v1.bin "$DEST/"
+# audit.jsonl no existe hasta que algo escribe en él (los verbos del
+# build offensive o `audit serve`):
+if [ -e ~/.elsereno/audit.jsonl ]; then install -m 0600 ~/.elsereno/audit.jsonl "$DEST/"; fi
+find /var/backups/elsereno -mindepth 1 -maxdepth 1 -mtime +30 -exec rm -rf {} +
 ```
 
 ### Restore en máquina nueva
 
 ```bash
-elsereno backup inspect --in /var/backups/elsereno-YYYYMMDD.tar.gz.enc
-elsereno backup restore --in ... --to /tmp/restored
-install -m 0600 /tmp/restored/vault.v1.bin /var/lib/elsereno/
-install -m 0640 /tmp/restored/audit.jsonl /var/lib/elsereno/
-systemctl start elsereno
-elsereno audit verify-file   # exit-0 confirma chain intacto
+install -d -m 0700 ~/.elsereno
+B=/var/backups/elsereno/YYYYMMDD
+install -m 0600 "$B/vault.v1.bin" ~/.elsereno/
+elsereno creds list          # pide la passphrase: confirma que abre
+# Si la copia trae audit.jsonl:
+if [ -e "$B/audit.jsonl" ]; then
+  install -m 0600 "$B/audit.jsonl" ~/.elsereno/
+  elsereno audit verify-file   # exit-0 confirma chain intacto
+fi
 ```
 
 ### Test trimestral

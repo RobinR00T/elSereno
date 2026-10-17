@@ -486,6 +486,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three smaller defects (PITF-093).** `--emit-allow-file` printed
+  "(0600)" but `os.WriteFile` kept the mode of an existing file, so
+  overwriting a 0644 allow-file left the gate policy world-readable, and
+  `backup restore` had the same defect over an existing `vault.v1.bin`.
+  Both now write a temp file in the same directory with the right mode
+  and rename it over the path. That changes three things: a symlink at
+  the path is refused (write to the file it points to), a hard link
+  keeps the old contents under its other name, and the directory must be
+  writable. The Postgres idempotency cache turned every database failure
+  into a silent miss, so a retried request could run twice without a
+  trace; it still degrades to a miss, and now logs the failure. And
+  `backup` cannot recover a lost vault: it stores only `vault.v1.bin`,
+  under a key derived from that same vault, so `backup restore` works only
+  where the vault still exists (verified: 64 without a vault, "wrong key"
+  with a new vault and the same passphrase). MANUAL §20 and OPERATIONS
+  said it restored on a new machine and included `audit.jsonl` and
+  `elsereno.yaml`; they, the FAQ, SECURITY and the long manual (whose
+  `backup restore` example also lacked the required `--to`) now say what
+  it does and describe a recovery that works (copying `vault.v1.bin`,
+  which is already encrypted with the passphrase), with copy recipes that
+  no longer fail when `audit.jsonl` does not exist. Fixing the format is
+  an open decision in TODO-vNext.
+  MANUAL §13 listed `./elsereno.yaml` first and `/etc/elsereno` last; the
+  loader never reads `/etc` and tries the XDG and home paths before the
+  working directory, as the section now says.
+
 - **54 command examples in the docs did not run, and several described
   features that do not exist (PITF-091).** INSTALL, CONTRIBUTING, FAQ,
   MANUAL, OPERATIONS, DEV-SETUP, the long manual and the cheat sheet used

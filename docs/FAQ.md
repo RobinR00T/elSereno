@@ -78,14 +78,16 @@ Más info en [SECURITY.md §7](SECURITY.md#7-supply-chain).
 
 ### Olvidé la passphrase del vault. ¿Cómo recupero?
 
-**No hay recuperación**. El vault se cifra con scrypt-derived
-key, sin la passphrase, el vault es bytes random.
+**No hay recuperación**. El vault se cifra con una clave derivada
+con Argon2id de la passphrase; sin ella, el vault es bytes random.
 Sin escape-hatch a propósito (PITF-021).
 
 Opciones:
 
-1. Si tienes un backup reciente y **conoces su passphrase**:
-   `elsereno backup restore`.
+1. Si conservas una copia antigua de `vault.v1.bin` y **conoces su
+   passphrase**: ponla en `~/.elsereno/` (0600). Un `backup` de
+   `elsereno backup create` no sirve para esto: se descifra con el
+   vault que lo creó (MANUAL §20, PITF-093).
 2. Si no: `rm ~/.elsereno/vault.v1.bin`, `vault init` con
    nueva passphrase, `creds store` re-importar cada
    credencial manualmente.

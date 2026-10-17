@@ -1558,14 +1558,16 @@ en el otro sentido: ElSereno produce NDJSON y eventos de auditoría
 
 ## 8. Backup + restauración
 
-Backup cifrado del vault + config:
+Backup cifrado del vault (solo `vault.v1.bin`; ni config ni audit):
 
 ```sh
-# Cifrado AES-GCM con master key derivada de la passphrase
+# Cifrado AES-GCM con una clave derivada de la master del vault
 elsereno backup create --out backup-2026-04-22.elsb
 
-# Restore
-elsereno backup restore --in backup-2026-04-22.elsb
+# Restore: solo donde el vault original existe (no recupera un vault
+# perdido; para eso copia vault.v1.bin, MANUAL §20, PITF-093)
+mkdir -m 0700 /tmp/restored   # --to tiene que existir
+elsereno backup restore --in backup-2026-04-22.elsb --to /tmp/restored
 ```
 
 Audit chain:
@@ -1628,8 +1630,10 @@ stub (Windows support es backlog v1.16+).
 
 ### 10.1 `vault: bad passphrase`
 Reintentarlo; no hay recuperación (por diseño ADR-018). Para
-instalación en máquina nueva: `vault init` de cero + reimportar
-credenciales desde backup cifrado.
+instalación en máquina nueva: copia `vault.v1.bin` de la máquina vieja
+(o de su copia) y ábrelo con la misma passphrase (MANUAL §20). Sin esa
+copia solo queda `vault init` de cero y volver a guardar cada
+credencial: `backup restore` no recupera un vault perdido (PITF-093).
 
 ### 10.2 `serve: CSRF key: HKDF failed`
 El vault no está desbloqueado. `elsereno vault unlock` antes.

@@ -83,19 +83,27 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   marcaban. Decidido: una sola versión fijada (v2.15.0) en los dos, y
   `scripts/audit.sh` falla si no coinciden o si la local es otra
   (PITF-063).
-- **La caché de Idempotency-Key traga los errores de la base.**
-  `internal/web/handlers/idempotency_pg.go` trata cualquier fallo de la
-  base como "no está en caché", sin log (deliberado y comentado), así que
-  un POST con `Idempotency-Key` durante un fallo de la base vuelve a
-  ejecutar el handler y puede duplicar el trabajo. Visto en la auditoría
-  de PITF-090 (17-10). ¿Al menos registrarlo en el log?
-- **`--emit-allow-file` conserva los permisos de un fichero existente**
-  pero imprime "(0600)": si el fichero ya era 0644 sigue siéndolo. Visto
-  en la auditoría de PITF-091 (17-10).
-- **"Restore en máquina nueva" necesita un vault ya creado:** `backup
-  restore` desbloquea primero el vault local, así que en una máquina sin
-  vault falla antes de restaurar (razonado por el código, no probado).
-  Revisar el flujo y la doc de OPERATIONS.
+- **[RESUELTO 17-10, PITF-093] La caché de Idempotency-Key se tragaba los
+  errores de la base.** Sigue degradando a "no está en caché" (un
+  reintento puede ejecutarse dos veces), pero ahora lo registra en el log.
+- **[RESUELTO 17-10, PITF-093] `--emit-allow-file` conservaba los
+  permisos de un fichero existente** (0644) aunque decía "(0600)", y
+  `backup restore` igual.
+- **Otros `os.WriteFile` sobre un fichero que puede existir.**
+  `fingerprint --output` (`cmd_fingerprint.go`) conserva el modo de un
+  fichero previo; ¿pasarlo a `replaceFile`? `config lint` al formatear
+  (`cmd_lint.go`) también, y ahí conservarlo puede ser lo correcto.
+  Visto en la auditoría de PITF-093 (17-10).
+- **El backup no recupera nada si se pierde el vault (decisión).**
+  `backup create` guarda solo `vault.v1.bin`, cifrado con una clave que
+  sale de la master del propio vault, así que `backup restore` solo
+  funciona donde ese vault sigue existiendo (comprobado el 17-10: sin
+  vault sale con 64, y con un vault nuevo con la misma passphrase,
+  "wrong key"). La doc decía que restauraba en una máquina nueva e
+  incluía `audit.jsonl` y `elsereno.yaml`; ya no. Opciones: un formato
+  nuevo que lleve en claro la sal de Argon2id para derivar la clave de la
+  passphrase, o retirar el verbo y quedarse con copiar `vault.v1.bin`.
+  (PITF-093.)
 - **`docker run -p 8787:8787 ... serve` no llega al contenedor**
   (`INSTALL.md`): `serve` escucha en 127.0.0.1 dentro del contenedor.
   Visto en la auditoría de PITF-092 (17-10); exponerlo fuera de loopback

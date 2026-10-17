@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -23,12 +25,15 @@ type pgQuerier interface {
 type PGIdempotencyCache struct {
 	q   pgQuerier
 	ttl time.Duration
+	// logf reports a database failure; the cache then degrades to a
+	// miss (Lookup) or to not storing (Store).
+	logf func(format string, args ...any)
 }
 
 // NewPGIdempotencyCache wraps the supplied pool with the
 // default TTL of 1h (matches the in-memory cache).
 func NewPGIdempotencyCache(q pgQuerier) *PGIdempotencyCache {
-	return &PGIdempotencyCache{q: q, ttl: time.Hour}
+	return &PGIdempotencyCache{q: q, ttl: time.Hour, logf: log.Printf}
 }
 
 // WithTTL returns a copy with the given TTL. Useful for
@@ -62,7 +67,13 @@ WHERE key = $1 AND created_at >= $2`, key, cutoff).Scan(
 	if err != nil {
 		// pgx.ErrNoRows or any IO error → treat as miss.
 		// Don't bubble: idempotency is an optimisation;
-		// the worst case is the inner handler re-runs.
+		// the worst case is the inner handler re-runs. That
+		// re-run can duplicate the work of a retried request,
+		// so a database failure is logged, not swallowed: until
+		// 2026-10-17 it was silent (PITF-093).
+		if !errors.Is(err, pgx.ErrNoRows) {
+			c.logf("idempotency: lookup failed, the request runs without replay protection: %v", err)
+		}
 		return idempotencyMiss, idempotencyEntry{}
 	}
 	if entry.bodyHash != hash {
@@ -85,9 +96,9 @@ INSERT INTO idempotency_keys (key, body_hash, status_code, response_body, create
 VALUES ($1, $2, $3, $4, NOW())
 ON CONFLICT (key) DO NOTHING`, key, hash, status, response)
 	if err != nil {
-		// Best-effort: silent. Same justification as Lookup
-		// idempotency degrades gracefully.
-		return
+		// Best-effort, as in Lookup: a retry of this request will
+		// run again. Logged since 2026-10-17 (PITF-093).
+		c.logf("idempotency: store failed, a retry of this request will run again: %v", err)
 	}
 }
 

@@ -95,9 +95,10 @@ Garantías de boundary:
   (`fileFormat`, `internal/creds/storage.go`).
 
 Cambiar la passphrase **requiere desbloquear con la antigua**.
-No hay rotation walk-through automatizado en v1.88, se
-hace via `backup create` → `vault init` con passphrase nueva
-→ `creds store` re-importing una a una. **Item vNext.**
+No hay rotation walk-through automatizado: se crea un vault nuevo
+con la passphrase nueva y se vuelve a guardar cada credencial (receta
+en la FAQ). Un `backup create` no sirve de puente: se descifra con el
+vault viejo. **Item vNext.**
 
 ### Operaciones expuestas
 

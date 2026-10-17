@@ -5,7 +5,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,8 +15,12 @@ import (
 // emitAllowFile writes the allowlist described by af to the
 // operator-supplied path. Path "-" writes YAML to stdout (so
 // the operator can `> file.yaml` or pipe into git). Any other
-// path is created/truncated with 0600 permissions so accidental
-// world-readability doesn't leak the operator's gate policy.
+// path gets a new 0600 file, so accidental world-readability
+// doesn't leak the operator's gate policy: the YAML goes to a
+// 0600 temp file in the same directory, renamed over the path.
+// os.WriteFile kept the mode of an existing file, so until
+// 2026-10-17 overwriting a 0644 allow-file left it 0644 while
+// this said "(0600)" (PITF-093).
 //
 // The YAML shape matches the `proxyAllowFile` struct read by
 // loadAllowFile(), guaranteeing round-trip: the file emitted
@@ -38,7 +41,7 @@ func emitAllowFile(cmd *cobra.Command, path string, af proxyAllowFile) error {
 		cmd.Printf("\n# --- allow-file (YAML; pipe into --allow-file) ---\n%s", out)
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(out), 0o600); err != nil {
+	if err := replaceFile(path, []byte(out), 0o600); err != nil {
 		return fmt.Errorf("emit allow-file: write %s: %w", path, err)
 	}
 	cmd.Printf("\nallow-file written to: %s (0600)\n", path)
