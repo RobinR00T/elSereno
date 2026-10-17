@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/telemetry"
 )
 
 // Build-time variables populated via -ldflags.
@@ -97,6 +99,17 @@ func main() {
 // entrypoint wires signal handling and dispatches via cobra. Kept separate
 // from main() so deferred cleanup runs before os.Exit.
 func entrypoint(args []string) int {
+	// Redact every standard-logger line at the sink, so a log.Printf
+	// anywhere in the binary is far less likely to emit a keyed secret
+	// (api-key, bearer, password) or a bare high-entropy token in the
+	// clear (PITF-099). It is not a complete net: a low-entropy token
+	// such as a hex key tops out near 4.0 bits/byte and slips the
+	// bare-token heuristic, and a direct fmt.Fprint to os.Stderr never
+	// reaches this sink, so inputs.RedactQuery upstream stays the primary
+	// defence. Defence in depth, not a licence to log secrets on purpose.
+	log.SetFlags(0)
+	log.SetOutput(telemetry.NewRedactWriter(os.Stderr))
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 

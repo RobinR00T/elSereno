@@ -660,5 +660,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: una entrada de configuración que se compara contra un dato normalizado se normaliza igual, o no casa. Y un control parseado que nadie llama es documentación, no control.
 **Ver**: `internal/scope/{scope.go,validate_test.go}`, `cmd/elsereno/{cmd_dial_offensive.go,cmd_serve.go,cmd_scan.go,scan_runner.go,cmd_tui.go,scope_gate_test.go,scope_gate_offensive_test.go}`, `docs/{MANUAL.md,SECURITY.md}`, `man/src/man5/elsereno-scope.5.md`, `scope.yaml`; 17-10-2026.
 
+## PITF-099: los secretos en el log no se redactaban
+**Síntoma**: el P0 del spec marcaba que el hook de redacción existía pero no estaba cableado. El binario registra con la librería estándar (`log.Printf` en `serve` y en otros sitios) y con `fmt.Fprintf(os.Stderr, ...)`; `telemetry.Logger` redacta pero nadie lo usaba como logger del proceso. Una clave o un token que llegara a un `log.Printf` salía en claro.
+**Causa**: la redacción estaba escrita a nivel de campo (`Logger.Str`), no en el sumidero, y el proceso no instalaba ningún logger redactor.
+**Fix (17-10-2026)**: `telemetry.RedactWriter` envuelve un `io.Writer` y redacta cada línea: formas con clave (`api-key`, `x-key`, `bearer`, `password`, `authorization`, `cookie`, ...), tokens `Bearer <x>` y tokens sueltos de alta entropía (>4.5 bits/byte, UUID v1-v5 exentos). `entrypoint` lo instala en el logger estándar (`log.SetOutput`), así que cada `log.Printf` del binario se redacta en el sumidero, sin tocar los sitios de llamada. Tests: formas con clave, Bearer, token suelto, línea limpia intacta, UUID intacto, y el `Write` reporta la longitud de entrada; mutante que apaga la entropía, muerto. El panel pasa "Redaction hook" de info a ok. Es defensa en profundidad, no permiso para loguear secretos a propósito.
+**Regla**: la redacción de secretos se hace en el sumidero del log, no confiando en que cada sitio de llamada use el logger que redacta.
+**Ver**: `internal/telemetry/{redactwriter.go,redactwriter_test.go,doc.go}`, `cmd/elsereno/main.go`, `internal/web/handlers/security.go`; 17-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

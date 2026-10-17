@@ -486,6 +486,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Logged secrets were not redacted: the binary logged through the
+  standard library, and the redacting logger was library code nobody
+  wired (PITF-099).** entrypoint now installs a RedactWriter on the
+  standard logger, so every log.Printf line has its keyed secrets
+  (api-key, x-key, bearer, password and the rest of the patterns), its
+  Bearer tokens and its bare high-entropy tokens (>4.5 bits/byte, UUID
+  v1-v5 exempt) masked at the sink before it is written. The security
+  panel's "Redaction hook" row moves from info to ok. This is defence in
+  depth; code that handles a secret still must not log it in the clear on
+  purpose.
+
 - **Four more P0 scope controls the docs described but the code did not
   apply (PITF-098).** `blocked_numbers` entries are now normalised like
   the dialled number (drop +, a leading 00, every non-digit), so

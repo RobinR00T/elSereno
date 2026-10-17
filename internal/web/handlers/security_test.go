@@ -38,7 +38,7 @@ func TestBuildControls_NoUnbackedClaims(t *testing.T) {
 // TestBuildControls_UnwiredControlsAreNotOK: a control that runs only
 // when asked (scope) or that no code path uses is "info", never "ok".
 func TestBuildControls_UnwiredControlsAreNotOK(t *testing.T) {
-	info := []string{"Scope check", "Redaction hook", "Subprocess allowlist", "Canary webhook"}
+	info := []string{"Scope check", "Subprocess allowlist", "Canary webhook"}
 	for _, offensive := range []bool{false, true} {
 		status := map[string]string{}
 		for _, c := range buildControls(offensive) {
@@ -51,6 +51,9 @@ func TestBuildControls_UnwiredControlsAreNotOK(t *testing.T) {
 		}
 		if status["CSRF protection"] != "ok" {
 			t.Errorf("offensive=%v: CSRF status = %q, want ok (the browser guard, PITF-092)", offensive, status["CSRF protection"])
+		}
+		if status["Redaction hook"] != "ok" {
+			t.Errorf("offensive=%v: Redaction status = %q, want ok (wired at the log sink, PITF-099)", offensive, status["Redaction hook"])
 		}
 		if !offensive && status["Offensive sandbox"] != "info" {
 			t.Errorf("default build: sandbox status = %q, want info (it is not compiled in)", status["Offensive sandbox"])
