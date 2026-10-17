@@ -84,9 +84,12 @@ func RunWithOpts(ctx context.Context, mode Mode, feed Feed, out io.Writer, in io
 		defer func() { _ = rec.Close() }()
 	}
 
-	// Run the feed in a goroutine; emit pushes into the program.
-	feedDone := make(chan error, 1)
+	// Run the feed in a goroutine; emit pushes into the program. Its
+	// error reaches the UI (and the record) as FeedClosedMsg, so
+	// feedDone only signals the end.
+	feedDone := make(chan struct{})
 	go func() {
+		defer close(feedDone)
 		emit := func(msg tea.Msg) { prog.Send(msg) }
 		if rec != nil {
 			emit = rec.Tee(emit)
@@ -97,7 +100,6 @@ func RunWithOpts(ctx context.Context, mode Mode, feed Feed, out io.Writer, in io
 		// so the on-disk record captures the exit reason.
 		closeMsg := FeedClosedMsg{Mode: mode, Err: err}
 		emit(closeMsg)
-		feedDone <- err
 	}()
 
 	if _, err := prog.Run(); err != nil {

@@ -1,12 +1,16 @@
 ---
 phase: any
 status: living
-last-updated: 2026-10-16
+last-updated: 2026-10-17
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-10-17: **ci lint red on golangci-lint v2.15.0** (errcheck on
+  `<-feedDone` in the TUI runner); channel is now a done signal. ci uses
+  `latest`, audit pins v2.11.4: alignment is an open decision.
 
 - 2026-10-16 (8): **scanorch stores return DB errors instead of "not
   found" (PITF-090).** `rows.Err()` checked on every no-row path.

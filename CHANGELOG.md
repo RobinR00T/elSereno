@@ -459,6 +459,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ci` lint failed after golangci-lint v2.15.0 (released 2026-10-16).** The
+  `ci` workflow installs the latest golangci-lint, and v2.15.0's errcheck
+  flagged the discarded error of `<-feedDone` in `internal/tui/runner.go`.
+  That error already reached the UI and the `--record` file as
+  `FeedClosedMsg`, so the channel now only signals the end
+  (`chan struct{}`, closed by the feed goroutine). No behaviour change.
+  The `audit` workflow pins v2.11.4 and its comment said it matched
+  `ci.yml`; it does not, and the comment now says so.
+
 - **Database errors no longer come back as "not found" from the scan and
   schedule stores (PITF-090).** pgx reports a statement that fails while
   running (a CHECK violation, a dropped connection) only through
