@@ -211,7 +211,8 @@ estructurado, ve a [`MANUAL.md §10`](MANUAL.md#10-troubleshooting).
 
 | Síntoma | Causa | Fix |
 |---|---|---|
-| `lint` falla con "Go language version (go1.23) lower than targeted (1.25)" | golangci-lint binario stale | Workflow ya pin `v2.11.4` desde commit `<TBD>`. Verifica + bump si necesitas Go nuevo. |
+| `lint` falla con "Go language version (go1.23) lower than targeted (1.25)" | golangci-lint binario stale | `ci.yml` y `audit.yml` fijan la misma versión (v2.15.0 desde el 17-10-2026); súbela en los dos a la vez si necesitas un Go nuevo. `scripts/audit.sh` falla si no coinciden. |
+| `lint` en rojo en `ci` y verde en local o en `audit` | Versiones de golangci-lint distintas | Instala la versión fijada en `ci.yml` (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0`); `scripts/audit.sh` falla si la local no coincide, y `scripts/bootstrap.sh` instala la fijada (PITF-063). |
 | `dependency review`: "Invalid license(s) in deny-licenses: Commons-Clause" | SPDX inválido en `.github/dependency-review-config.yml` | Borra el ID (no es SPDX real). Arreglado en `aeae4e3`. |
 | `analyze (go)`: "Code scanning is not enabled" | Code Scanning OFF en Settings | Settings → Security → Code scanning → enable it for the repo (keep CodeQL on the `codeql.yml` advanced setup, not Default) |
 | `sec`: gosec issues > 0 | Vulnerabilidades reales o markers nosec faltantes | `gosec ./...` local; añade `// #nosec G<NNN>` con rationale donde aplique |

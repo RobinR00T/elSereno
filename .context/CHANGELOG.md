@@ -8,6 +8,9 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (2): **golangci-lint pinned to v2.15.0 in ci.yml and
+  audit.yml**; audit.sh fails if they or the local binary differ.
+
 - 2026-10-17: **ci lint red on golangci-lint v2.15.0** (errcheck on
   `<-feedDone` in the TUI runner); channel is now a done signal. ci uses
   `latest`, audit pins v2.11.4: alignment is an open decision.

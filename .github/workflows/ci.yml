@@ -25,7 +25,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
+          # The Go of go.mod, as the audit job uses: with 'stable' a new
+          # Go release could break the pinned golangci-lint here while
+          # audit stays green (the reason the old v2.11.4 pin was
+          # dropped on 2026-08-29).
+          go-version-file: go.mod
           cache: true
       - name: gofmt
         run: |
@@ -51,9 +55,12 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           # v2.x matches the config schema in .golangci.yml (v2).
-          # 'latest' picks a build new enough to type-check the Go 1.26
-          # toolchain; the old v2.11.4 pin crashed on it (exit code 2).
-          version: latest
+          # Pinned, and the same version audit.yml installs: one version
+          # everywhere, bumped by hand in both files (scripts/audit.sh
+          # checks they agree and that the local binary matches). With
+          # `latest` a new release turned ci red after a signed push on
+          # 2026-09-29 (v2.14.0) and 2026-10-17 (v2.15.0).
+          version: v2.15.0
 
   build-default:
     name: build-default

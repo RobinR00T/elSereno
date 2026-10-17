@@ -201,9 +201,16 @@ install_gh()    { install_via_pm gh gh gh github-cli github-cli; }
 install_gpg()   { install_via_pm gnupg gnupg gnupg2 gnupg gnupg; }
 install_jq()    { install_via_pm jq jq jq jq jq; }
 
+# golangci-lint must be the exact version ci.yml pins (scripts/audit.sh
+# fails on any other, PITF-063), so it is installed with go install at
+# that version, never from a package manager.
+GLCI_PIN=$(awk '/golangci-lint-action/ {f=1} f && /^[[:space:]]*version:/ {v=$2; gsub(/["\047]/, "", v); print v; exit}' \
+    "$(cd "$(dirname "$0")/.." && pwd)/.github/workflows/ci.yml")
 install_golangci_lint() {
-    install_via_pm golangci-lint golangci-lint golangci-lint golangci-lint golangci-lint || \
-        install_via_go "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+    command -v go >/dev/null 2>&1 || { fail "go not installed, cannot install golangci-lint"; return 1; }
+    [ -n "$GLCI_PIN" ] || { fail "no golangci-lint version pinned in .github/workflows/ci.yml"; return 1; }
+    note "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$GLCI_PIN"
+    GO111MODULE=on go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$GLCI_PIN"
 }
 
 install_gosec()        { install_via_go "github.com/securego/gosec/v2/cmd/gosec"; }
@@ -254,7 +261,7 @@ run_check() {
 }
 
 hdr "Required for build"
-run_check "go (>=1.25)"      1 "command -v go"     install_go
+run_check "go (>=1.26)"      1 "command -v go"     install_go
 run_check "git"              1 "command -v git"    install_git
 
 hdr "Required for dev-db"
@@ -263,7 +270,7 @@ run_check "docker compose"   1 "docker compose version" install_docker
 run_check "jq"               1 "command -v jq"     install_jq
 
 hdr "Required for tests + lint"
-run_check "golangci-lint"    1 "command -v golangci-lint" install_golangci_lint
+run_check "golangci-lint $GLCI_PIN" 1 "golangci-lint --version | grep -q 'version ${GLCI_PIN#v} '" install_golangci_lint
 run_check "gosec"            1 "command -v gosec"          install_gosec
 run_check "govulncheck"      1 "command -v govulncheck"    install_govulncheck
 

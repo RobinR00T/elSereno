@@ -79,12 +79,12 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   Origin/Host, o un token local? Relacionado: incluso con OIDC, `/`,
   `/admin/security`, `/metrics`, `/healthz`, `/readyz` y los `GET` de solo
   lectura de `/api/v1` se sirven sin token, también en un bind de red.
-- **Versiones de golangci-lint desalineadas.** `ci.yml` instala `latest` (el
-  pin v2.11.4 se caía en `ci` el 29-8; hoy `audit` corre esa misma v2.11.4
-  con 0 issues) y `audit.yml` fija v2.11.4. El 16-10 salió v2.15.0 y el
+- **[RESUELTO 17-10] Versiones de golangci-lint desalineadas.** `ci.yml`
+  usaba `latest` y `audit.yml` fijaba v2.11.4; el 16-10 salió v2.15.0 y el
   17-10 `ci` falló por una línea que `audit` y el lint local (2.13.2) no
-  marcaban. ¿Fijar las dos a la misma versión y subirla
-  a mano, o dejar `latest` y aceptar que una release rompa `ci`?
+  marcaban. Decidido: una sola versión fijada (v2.15.0) en los dos, y
+  `scripts/audit.sh` falla si no coinciden o si la local es otra
+  (PITF-063).
 - **La caché de Idempotency-Key traga los errores de la base.**
   `internal/web/handlers/idempotency_pg.go` trata cualquier fallo de la
   base como "no está en caché", sin log (deliberado y comentado), así que

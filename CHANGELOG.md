@@ -459,6 +459,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **golangci-lint is pinned to one version everywhere (v2.15.0).**
+  `ci.yml` used `latest` and `audit.yml` pinned v2.11.4, and the two
+  versions disagreed three times, each time after a signed push
+  (2026-09-28, 09-29 and 10-17). Both now pin v2.15.0, bumped by hand
+  together; the `ci` lint job runs on the Go of `go.mod`, like `audit`,
+  instead of `stable`; `scripts/audit.sh` fails when the two files
+  disagree or the local binary is another version; and
+  `scripts/bootstrap.sh` installs that exact version with `go install`
+  instead of whatever the package manager has. v2.15.0 with Go 1.26.9
+  reports 0 issues on the tree. DEV-SETUP and OPERATIONS give the install
+  command (DEV-SETUP and bootstrap also said Go >= 1.25; `go.mod` needs
+  1.26).
+
 - **`ci` lint failed after golangci-lint v2.15.0 (released 2026-10-16).** The
   `ci` workflow installs the latest golangci-lint, and v2.15.0's errcheck
   flagged the discarded error of `<-feedDone` in `internal/tui/runner.go`.

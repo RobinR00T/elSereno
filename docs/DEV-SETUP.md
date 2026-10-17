@@ -38,12 +38,12 @@ explains the moving parts.
 
 | Tool              | Required for          | Default install via                  |
 |-------------------|-----------------------|--------------------------------------|
-| **go** (≥ 1.25)   | building from source  | `brew install go` / `apt golang-go`  |
+| **go** (≥ 1.26)   | building from source  | `brew install go` / `apt golang-go`  |
 | **git**           | everything            | system PM                            |
 | **docker**        | dev-db (Postgres)     | Docker Desktop (macOS) / `apt docker.io` (Linux) |
 | **docker compose** v2 | dev-db            | bundled with Docker Desktop          |
 | **jq**            | dev-db status checks  | system PM                            |
-| **golangci-lint** | `make lint`           | system PM or `go install`            |
+| **golangci-lint** | `make lint`           | the version `ci.yml` pins (v2.15.0): `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0`, which `scripts/bootstrap.sh` runs; `scripts/audit.sh` fails on any other version |
 | **gosec**         | `make sec`            | `go install`                         |
 | **govulncheck**   | `make sec`            | `go install`                         |
 | **go-licenses**   | `make sec`            | `go install github.com/google/go-licenses@latest`; `make sec` runs it with `GOROOT=$(go env GOROOT)` so a toolchain switch (go.mod pins go1.26.9) does not break stdlib detection |
