@@ -459,6 +459,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The `audit` workflow could not install golangci-lint v2.15.0.** It
+  fetched `install.sh` from golangci-lint's `master` branch, which upstream
+  no longer maintains (the default is `main`). That copy looks up the
+  tarball's checksum with an unanchored `grep`, which since v2.12.0 also
+  matches the `.sbom.json` line, so it reports "checksum did not verify"
+  on a good download (the tarball's hash matched the published one;
+  upstream fixed the grep on `main` in #6539). `audit.yml`
+  now uses `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0`,
+  like `scripts/bootstrap.sh`, verified by the Go checksum database, and
+  `scripts/audit.sh` checks the pin on that line.
+
 - **golangci-lint is pinned to one version everywhere (v2.15.0).**
   `ci.yml` used `latest` and `audit.yml` pinned v2.11.4, and the two
   versions disagreed three times, each time after a signed push

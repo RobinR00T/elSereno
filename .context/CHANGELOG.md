@@ -8,6 +8,10 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (3): **audit installs golangci-lint with go install**; the
+  install.sh of the abandoned `master` branch greps the checksum
+  unanchored and also matches the `.sbom.json` line (since v2.12.0).
+
 - 2026-10-17 (2): **golangci-lint pinned to v2.15.0 in ci.yml and
   audit.yml**; audit.sh fails if they or the local binary differ.
 

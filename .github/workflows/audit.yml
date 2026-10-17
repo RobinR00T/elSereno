@@ -56,7 +56,14 @@ jobs:
           # golangci-lint, the same version ci.yml pins (scripts/audit.sh
           # fails if they differ). Until 2026-10-17 this pinned v2.11.4
           # while ci used `latest`, and each caught what the other missed.
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.15.0
+          # go install, not install.sh from golangci-lint's `master` branch,
+          # which upstream no longer maintains: its checksum lookup is an
+          # unanchored grep that, since v2.12.0, also matches the
+          # `.sbom.json` line and fails on a good download (PITF-063; fixed
+          # on `main` in #6539). go install is verified by the Go checksum
+          # database; upstream prefers binaries, so this build (Go of
+          # go.mod) can differ in toolchain from the ci one, not in version.
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
           # PATH already includes GOPATH/bin via setup-go
           # Ruby ships with ubuntu-latest, used by audit.sh for YAML validation
           ruby --version

@@ -226,12 +226,12 @@ if go build -tags mini ./... >/tmp/.audit-build-mini.$$ 2>&1; then ok "build min
 hdr "7. golangci-lint"
 # ====================================================================
 # One pinned version everywhere: ci.yml's golangci-lint-action input,
-# audit.yml's install line and the local binary must agree, or a lint
+# audit.yml's go install line and the local binary must agree, or a lint
 # that passes here can fail in CI (PITF-063).
 GLCI_PIN=$(awk '/golangci-lint-action/ {f=1} f && /^[[:space:]]*version:/ {v=$2; gsub(/["\047]/, "", v); print v; exit}' .github/workflows/ci.yml)
 if [ -z "$GLCI_PIN" ]; then
     fail "golangci-lint: no pinned version found in .github/workflows/ci.yml"
-elif ! grep -q "^[[:space:]]*curl .*install.sh | sh -s -- -b .* ${GLCI_PIN}\$" .github/workflows/audit.yml; then
+elif ! grep -q "^[[:space:]]*go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GLCI_PIN}\$" .github/workflows/audit.yml; then
     fail "golangci-lint: audit.yml does not install ${GLCI_PIN}, the version ci.yml pins"
 else
     ok "golangci-lint pin: ${GLCI_PIN} in ci.yml and audit.yml"
