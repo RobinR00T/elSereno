@@ -34,7 +34,7 @@ No future-phase work without owner approval.
 
 ## Security discipline
 - golangci-lint strict, gosec, govulncheck, gitleaks, race, per-package coverage mandatory.
-- Writes to ICS require `-tags offensive`. Dial/SMS require `-tags offensive` + `--dial-allowed` (rule for the first command that dials; none does yet and the flag does not exist, PITF-087). Numbers ≤3 digits blocked hard. Wardialing batch is vNext.
+- Writes to ICS require `-tags offensive`. Dial/SMS require `-tags offensive`; recording delivery intent (`--disposition delivery-requested`) requires `--dial-allowed` (PITF-098). No command dials hardware yet (vNext). Numbers ≤3 digits blocked hard. Wardialing batch is vNext.
 - Sanitize target-controlled bytes via `internal/render.SafeBytes`.
 - Sanitize target-controlled strings via `internal/telemetry.SafeField`.
 - Postgres TLS required when not loopback (`database.tls_required`).

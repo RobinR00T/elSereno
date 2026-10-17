@@ -5,9 +5,9 @@
 \f[B]scope.yaml\f[R]: authorised scope file for \f[I]elsereno\f[R](1)
 .SH DESCRIPTION
 A \f[I]scope.yaml\f[R] file defines the authorised ranges, ports and
-protocols, and the dialling blacklist, for an engagement.
-It also accepts web binds and a canary, which are parsed but not
-applied.
+protocols, the serve bind allow\-list and the dialling blacklist, for an
+engagement.
+It also accepts a canary, which is parsed but not applied.
 .PP
 A scope file applies only when passed with \f[B]\-\-scope\f[R].
 Every command that connects to a target takes it: \f[B]scan\f[R],
@@ -51,7 +51,7 @@ binds\f[B]:\f[R]
     \f[B]\-\f[R] \(dq[::1]:8787\(dq
 dial\f[B]:\f[R]
 \f[I]  # In addition to the hardcoded ≤3\-digit block (always on).\f[R]
-\f[I]  # Digits only, no \(dq+\(dq or leading \(dq00\(dq: entries are not normalised.\f[R]
+\f[I]  # \(dq+\(dq, \(dq00\(dq and punctuation are fine: entries are normalised like the number.\f[R]
   blocked_numbers\f[B]:\f[R]
     \f[B]\-\f[R] \(dq34112\(dq
     \f[B]\-\f[R] \(dq34062\(dq
@@ -77,9 +77,9 @@ If \f[B]allow\f[R] is empty, all ports are allowed subject to
 \f[B]dial.blocked_numbers\f[R]
 Numbers refused by \f[B]dial\f[R], exact or as a prefix, on top of the
 hard\-coded block of numbers of 3 digits or fewer.
-\f[B]dial\f[R] normalises the dialled number (drops \(dq+\(dq, a leading
-\(dq00\(dq and punctuation) but not the entries, so write them as digits
-only: \(dq+34112\(dq or \(dq0034112\(dq block nothing.
+The dialled number and each entry are normalised the same way (drop
+\(dq+\(dq, a leading \(dq00\(dq and punctuation), so \(dq+34112\(dq,
+\(dq0034112\(dq and \(dq34112\(dq block the same range (PITF\-098).
 .TP
 \f[B]protocols.allow / protocols.deny\f[R]
 Which plugins may run.
@@ -110,8 +110,10 @@ An entry that matches no plugin (a typo such as \f[B]s7\-\f[R]) changes
 nothing and no command warns about it.
 .TP
 \f[B]binds.allow\f[R]
-Parsed, not applied.
-A non\-loopback bind of \f[B]serve\f[R] is governed by its own flags
+When set and \f[B]serve\f[R] is given \f[B]\-\-scope\f[R], the bind
+address must be one of these (exit 77 otherwise); an empty list allows
+any bind (PITF\-098).
+A non\-loopback bind is still governed by its own flags
 (\f[B]\-\-tls\-cert\f[R], \f[B]\-\-tls\-key\f[R],
 \f[B]\-\-i\-know\-what\-im\-doing\f[R]).
 .TP

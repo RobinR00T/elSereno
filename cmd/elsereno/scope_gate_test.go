@@ -244,3 +244,21 @@ func TestScanRunner_ProtocolsApply(t *testing.T) {
 		t.Fatalf("%d connections despite protocols deny: [banner]", n)
 	}
 }
+
+// TestFilterByScope_ReportsDropped: filterByScope returns how many
+// targets the scope dropped, so callers can trace it (PITF-087).
+func TestFilterByScope_ReportsDropped(t *testing.T) {
+	targets := []core.Target{
+		{Address: netip.MustParseAddr("127.0.0.1"), Port: 502},
+		{Address: netip.MustParseAddr("192.0.2.9"), Port: 502},
+		{Address: netip.MustParseAddr("192.0.2.10"), Port: 502},
+	}
+	sc := &scope.Scope{Ranges: []scope.RangeDecl{{CIDR: "127.0.0.0/8"}}}
+	kept, dropped := filterByScope(sc, targets)
+	if len(kept) != 1 || dropped != 2 {
+		t.Fatalf("kept %d, dropped %d; want 1, 2", len(kept), dropped)
+	}
+	if k2, d2 := filterByScope(nil, targets); d2 != 0 || len(k2) != 3 {
+		t.Fatalf("nil scope: kept %d dropped %d; want 3, 0", len(k2), d2)
+	}
+}

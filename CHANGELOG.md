@@ -486,6 +486,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four more P0 scope controls the docs described but the code did not
+  apply (PITF-098).** `blocked_numbers` entries are now normalised like
+  the dialled number (drop +, a leading 00, every non-digit), so
+  "+34112", "0034112" and "34112" all block the same range; they only
+  matched a digits-only entry before. `binds.allow`, when the operator
+  passes --scope to serve, now restricts which address serve may bind
+  (exit 77 otherwise); it was parsed and ignored. `dial batch` and
+  `dial wardial` now require --dial-allowed for --disposition
+  delivery-requested, so a dry run cannot turn into a dispatch record by
+  accident; the flag did not exist. And scan, serve and tui --input now
+  print how many targets the scope dropped instead of dropping them in
+  silence (the scope_applied gap). canary stays parsed and not applied.
+
 - **An input provider could leak its API key on a redirect, and a bad
   CIDR in a scope passed lint then matched nothing (PITF-097).** The
   seven search-input clients (Shodan, Censys, FOFA, ZoomEye, ONYPHE,

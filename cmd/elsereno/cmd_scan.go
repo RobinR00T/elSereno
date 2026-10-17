@@ -94,7 +94,10 @@ func runScan(cmd *cobra.Command, opts scanOpts) error {
 	if err != nil {
 		return fail(core.ExitDataErr, err)
 	}
-	targets = filterByScope(s, targets)
+	targets, dropped := filterByScope(s, targets)
+	if dropped > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: scope dropped %d of %d targets\n", dropped, dropped+len(targets))
+	}
 	if len(targets) == 0 {
 		return fail(core.ExitNoInput, fmt.Errorf("no targets after scope filter"))
 	}
@@ -337,19 +340,21 @@ func readTargets(ctx context.Context, opts scanOpts) ([]core.Target, error) {
 	})
 }
 
-// filterByScope drops targets rejected by the scope. A nil scope is a
-// pass-through.
-func filterByScope(s *scope.Scope, targets []core.Target) []core.Target {
+// filterByScope drops targets rejected by the scope and returns how
+// many it dropped, so the caller can leave a one-line trace (the
+// scope_applied gap of PITF-087: a dropped target used to vanish
+// silently). A nil scope is a pass-through.
+func filterByScope(s *scope.Scope, targets []core.Target) (kept []core.Target, dropped int) {
 	if s == nil {
-		return targets
+		return targets, 0
 	}
-	out := make([]core.Target, 0, len(targets))
+	kept = make([]core.Target, 0, len(targets))
 	for _, t := range targets {
 		if err := s.Check(t); err == nil {
-			out = append(out, t)
+			kept = append(kept, t)
 		}
 	}
-	return out
+	return kept, len(targets) - len(kept)
 }
 
 // openOutput prepares the sink. Returning a closer keeps the io.Writer

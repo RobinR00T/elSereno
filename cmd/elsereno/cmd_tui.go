@@ -261,7 +261,11 @@ func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uin
 		return nil, fmt.Errorf("tui: --input %s: no targets parsed", inputKind)
 	}
 	if gate.active() {
-		targets = filterByScope(gate.sc, targets)
+		var dropped int
+		targets, dropped = filterByScope(gate.sc, targets)
+		if dropped > 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "elsereno tui: scope dropped %d of %d targets\n", dropped, dropped+len(targets))
+		}
 		if len(targets) == 0 {
 			return nil, fail(core.ExitNoInput, fmt.Errorf("tui: --input %s: no targets after scope filter", inputKind))
 		}

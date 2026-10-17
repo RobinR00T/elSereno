@@ -77,8 +77,9 @@ Enables writes, exploits, harvesting, and dialling.
 Writes require triple confirmation.
 No command places calls or sends SMS yet (the \f[B]dial\f[R] verbs
 validate numbers; \f[B]batch\f[R] and \f[B]wardial\f[R] also audit
-them); \f[B]\-\-dial\-allowed\f[R] is the planned gate for the first one
-that does and does not exist yet.
+them); recording delivery intent (\f[B]\-\-disposition
+delivery\-requested\f[R]) needs \f[B]\-\-dial\-allowed\f[R]; the first
+command that actually dials and does not exist yet.
 ≤ 3\-digit numbers are hard\-blocked.
 .TP
 \f[B]ELSERENO_VAULT_PASSPHRASE\f[R] (env)

@@ -48,3 +48,22 @@ func TestScope_TUIInputExitCodes(t *testing.T) {
 		}
 	}
 }
+
+// TestEnforceBindScope: serve refuses a bind outside binds.allow (77),
+// accepts one inside, and no --scope allows any (PITF-098).
+func TestEnforceBindScope(t *testing.T) {
+	_, sp := scopeTestEnv(t, "version: 1\nbinds:\n  allow: [127.0.0.1:8787]\n")
+	if err := enforceBindScope(serveOpts{addr: "127.0.0.1:8787", scopePath: sp}); err != nil {
+		t.Errorf("allowed bind refused: %v", err)
+	}
+	if got := exitCode(enforceBindScope(serveOpts{addr: "127.0.0.1:9999", scopePath: sp})); got != core.ExitNoPerm {
+		t.Errorf("out-of-allow bind: exit %d, want 77", got)
+	}
+	if err := enforceBindScope(serveOpts{addr: "0.0.0.0:1234"}); err != nil {
+		t.Errorf("no --scope should allow any bind: %v", err)
+	}
+	_, bad := scopeTestEnv(t, "version: 1\nrangez: []\n")
+	if got := exitCode(enforceBindScope(serveOpts{addr: "127.0.0.1:8787", scopePath: bad})); got != core.ExitConfig {
+		t.Errorf("bad scope file: exit %d, want 78", got)
+	}
+}

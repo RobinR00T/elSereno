@@ -16,6 +16,18 @@ import (
 	"local/elsereno/offensive/sandbox"
 )
 
+// requireDialAllowed is the ADR-041 dispatch gate: recording
+// delivery intent needs --dial-allowed, so a dry-run (preview) can
+// never silently turn into a dispatch record. Until 2026-10-17 the
+// flag did not exist (PITF-087). An unknown disposition is left to the
+// batch/wardial validator.
+func requireDialAllowed(disposition string, dialAllowed bool) error {
+	if disposition == "delivery-requested" && !dialAllowed {
+		return fail(core.ExitNoPerm, errors.New("--disposition delivery-requested requires --dial-allowed"))
+	}
+	return nil
+}
+
 func newDialCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dial",
@@ -85,6 +97,7 @@ Use this for dry-run validation before invoking a delivery channel.`,
 // cannot spawn fresh network sockets while classifying.
 func newDialBatchCmd() *cobra.Command {
 	var scopePath, numbersFile, disposition string
+	var dialAllowed bool
 	cmd := &cobra.Command{
 		Use:   "batch",
 		Short: "Wardial batch, validate + audit every number in a file or stdin",
@@ -99,6 +112,9 @@ the process cannot open new network sockets during classification
 (ADR-042). On non-Linux the sandbox degrades to
 "unavailable" and the batch still runs.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := requireDialAllowed(disposition, dialAllowed); err != nil {
+				return err
+			}
 			sc, err := loadScope(scopePath)
 			if err != nil {
 				return err
@@ -135,6 +151,8 @@ the process cannot open new network sockets during classification
 	cmd.Flags().StringVar(&numbersFile, "numbers-file", "", "file with one number per line (omit for stdin)")
 	cmd.Flags().StringVar(&disposition, "disposition", "preview",
 		"audit disposition: preview | delivery-requested (actual dial is v1.2)")
+	cmd.Flags().BoolVar(&dialAllowed, "dial-allowed", false,
+		"required for --disposition delivery-requested: acknowledge you may place calls to these numbers")
 	return cmd
 }
 
@@ -188,6 +206,7 @@ func printBatchSummary(cmd *cobra.Command, results []dial.BatchResult, auditPath
 // wardialFlags bundles the wardial verb's flag state so the
 // cobra RunE closure stays under funlen limits.
 type wardialFlags struct {
+	dialAllowed    bool
 	rangeSpec      string
 	numbersPath    string
 	scopePath      string
@@ -230,6 +249,8 @@ vNext.`,
 	cmd.Flags().StringVar(&f.checkpointPath, "checkpoint", "", "append each completed number; resume skips lines in this file")
 	cmd.Flags().StringVar(&f.disposition, "disposition", "preview",
 		"audit disposition: preview | delivery-requested (actual dial is vNext)")
+	cmd.Flags().BoolVar(&f.dialAllowed, "dial-allowed", false,
+		"required for --disposition delivery-requested: acknowledge you may place calls to these numbers")
 	return cmd
 }
 
@@ -237,6 +258,9 @@ vNext.`,
 // Loads scope + audit + sandbox, opens input (range or file),
 // runs the Wardial orchestrator, prints summary.
 func runDialWardial(cmd *cobra.Command, f *wardialFlags) error {
+	if err := requireDialAllowed(f.disposition, f.dialAllowed); err != nil {
+		return err
+	}
 	sc, err := loadScope(f.scopePath)
 	if err != nil {
 		return err

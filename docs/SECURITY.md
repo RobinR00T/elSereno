@@ -458,10 +458,9 @@ evidencia oficial.
 Sólo en offensive build. Hoy ningún comando marca ni envía SMS:
 `dial validate` valida un número, y `dial batch` y `dial wardial`
 validan, clasifican y auditan listas (el backend AT de `offensive/dial/backend` es código
-de librería que ningún comando usa). El flag `--dial-allowed` que
-documentaba esta sección no existe: es la puerta prevista para el
-primer comando que marque. Números ≤3 dígitos están **bloqueados
-duro** en el binario (evita 911, 112, etc.).
+de librería que ningún comando usa). `--disposition delivery-requested`
+exige `--dial-allowed` en `dial batch` y `wardial`. Números ≤3 dígitos
+están **bloqueados duro** en el binario (evita 911, 112, etc.).
 
 ---
 
@@ -496,10 +495,12 @@ Con scope cargado, antes de conectar:
    cubre el target tal como se escribe.
 5. Sin scope cargado, todo pasa (intencional para uso ad-hoc).
 
-Un target descartado no se prueba ni produce finding, y tampoco deja
-rastro: no hay aviso por target ni evento en la auditoría (el tipo
-`scope_applied` existe pero nadie lo emite). `binds` y `canary` se
-parsean pero no se aplican. Detalle en `docs/MANUAL.md` §12.
+Un target descartado no se prueba ni produce finding. `scan`, `serve` y
+`tui --input` dicen por stderr cuántos descartó el scope, pero no hay
+aviso por target ni evento en la auditoría (el tipo `scope_applied`
+existe y nadie lo emite todavía). `binds.allow` limita el bind de
+`serve` con `--scope`; `canary` se parsea y no se aplica. Detalle en
+`docs/MANUAL.md` §12.
 
 Para uso en pen-test autorizado: **scope obligatorio**, pasado
 siempre con `--scope` a cada comando: no se hereda de una ejecución a

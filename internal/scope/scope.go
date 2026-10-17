@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"strings"
@@ -51,6 +52,43 @@ type ProtoDecl struct {
 // BindDecl lists bind addresses serve is allowed to use.
 type BindDecl struct {
 	Allow []string `yaml:"allow"`
+}
+
+// CheckBind returns nil if `addr` (the serve bind, host:port) is
+// allowed by the scope's binds.allow list. An empty list allows any
+// bind; a non-empty list allows only its members, compared after
+// canonicalising the IP-literal form so "[::1]:8787" and
+// "[0:0:0:0:0:0:0:1]:8787" match. Until 2026-10-17 binds.allow was
+// parsed and never applied (PITF-087).
+func (s *Scope) CheckBind(addr string) error {
+	if s == nil || len(s.Binds.Allow) == 0 {
+		return nil
+	}
+	want := canonBind(addr)
+	for _, a := range s.Binds.Allow {
+		if canonBind(a) == want {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: bind %q not in binds.allow", ErrOutOfScope, addr)
+}
+
+// canonBind normalises a host:port for comparison: an IP literal is
+// reduced to its canonical form (zone dropped), the host is
+// lower-cased, and a missing port is kept as-is.
+func canonBind(hostport string) string {
+	host, port, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(hostport))
+	}
+	host = strings.Trim(host, "[]")
+	if i := strings.IndexByte(host, '%'); i >= 0 {
+		host = host[:i]
+	}
+	if ip, perr := netip.ParseAddr(host); perr == nil {
+		host = ip.WithZone("").Unmap().String()
+	}
+	return strings.ToLower(host) + ":" + port
 }
 
 // DialDecl holds dial blacklists above the always-on ≤3-digit block.
@@ -209,10 +247,11 @@ func (s *Scope) CheckProtocol(proto string) error {
 // CheckDial returns nil if `normalisedNumber` is not in the scope's
 // blocked_numbers list. Entries match if they are a prefix or an
 // exact match of the normalised number (operators typically paste
-// country-code prefixes to block whole regions). The number arrives
-// normalised (offensive/dial.Normalise drops "+", a leading "00" and
-// punctuation) but the entries are compared as written, so an entry
-// with "+" or "00" never matches: write "90", not "0090" or "+90".
+// country-code prefixes to block whole regions). Both the number and
+// each entry are normalised the same way (NormaliseNumber: drop "+", a
+// leading "00" and every non-digit), so "+34112", "0034112" and
+// "34112" all block the same range. Until 2026-10-17 the entries were
+// compared as written, so "+34112" matched nothing (PITF-087).
 //
 // This method is the *scope half* of the dial guard (ADR-041 gate
 // 2). The ≤3-digit hard block lives in offensive/dial/validate.go
@@ -221,18 +260,40 @@ func (s *Scope) CheckDial(normalisedNumber string) error {
 	if s == nil {
 		return nil
 	}
-	for _, e := range s.Dial.BlockedNumbers {
+	for _, raw := range s.Dial.BlockedNumbers {
+		e := NormaliseNumber(raw)
 		if e == "" {
 			continue
 		}
 		if normalisedNumber == e {
-			return fmt.Errorf("%w: dial number matches blocked entry %q", ErrOutOfScope, e)
+			return fmt.Errorf("%w: dial number matches blocked entry %q", ErrOutOfScope, raw)
 		}
 		if len(normalisedNumber) > len(e) && normalisedNumber[:len(e)] == e {
-			return fmt.Errorf("%w: dial number prefix matches blocked entry %q", ErrOutOfScope, e)
+			return fmt.Errorf("%w: dial number prefix matches blocked entry %q", ErrOutOfScope, raw)
 		}
 	}
 	return nil
+}
+
+// NormaliseNumber reduces a dialled number or a blocked_numbers entry
+// to comparable digits: it drops a leading "+" or "00" (the
+// international prefixes) and every non-digit. It matches
+// offensive/dial.Normalise so the dialled number and the scope entries
+// are compared on the same footing (PITF-087). It lives here, with no
+// build tag, so the scope half of the guard does not depend on the
+// offensive build.
+func NormaliseNumber(in string) string {
+	s := strings.TrimSpace(in)
+	s = strings.TrimPrefix(s, "+")
+	s = strings.TrimPrefix(s, "00")
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteByte(byte(r))
+		}
+	}
+	return b.String()
 }
 
 func (s *Scope) checkPort(p int) error {

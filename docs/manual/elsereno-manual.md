@@ -511,9 +511,9 @@ dial:
 ```
 
 `protocols` limita qué plugins corren (por nombre o por protocolo:
-`s7` cubre `s7` y `s7-exposure`). `binds` y `canary` se aceptan pero no
-se aplican. Cualquier otra clave es un error de parseo. Detalle en
-`docs/MANUAL.md` §12.
+`s7` cubre `s7` y `s7-exposure`). `binds.allow` limita el bind de `serve`
+con `--scope`; `canary` se acepta pero no se aplica. Cualquier otra clave
+es un error de parseo. Detalle en `docs/MANUAL.md` §12.
 
 Uso:
 
@@ -935,7 +935,7 @@ navegador, PITF-092); y el sandbox, solo en el build offensive.
 1. Binario construido con `-tags offensive` (release: `elsereno-offensive`).
 2. Vault desbloqueado (para derivar tokens).
 3. Triple confirmación: `--accept-writes`, `--confirm-target`, `--confirm-token`.
-4. (Si dial) números > 3 dígitos. Hoy `dial` no marca: `validate` valida un número, `batch` y `wardial` validan, clasifican y auditan listas; `--dial-allowed` no existe todavía.
+4. (Si dial) números > 3 dígitos. Hoy `dial` no marca: `validate` valida un número, `batch` y `wardial` validan, clasifican y auditan listas; registrar intención de entrega exige `--dial-allowed`.
 
 ### 6.1 Modbus write, dos modos
 

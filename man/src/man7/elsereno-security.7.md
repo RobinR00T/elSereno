@@ -71,7 +71,8 @@ jump host. The primary adversaries are:
 :   Enables writes, exploits, harvesting, and dialling. Writes require
     triple confirmation. No command places calls or sends SMS yet
     (the **dial** verbs validate numbers; **batch** and **wardial** also audit them);
-    **--dial-allowed** is the planned gate for the first one that does
+    recording delivery intent (**--disposition delivery-requested**)
+    needs **--dial-allowed**; the first command that actually dials
     and does not exist yet. ≤ 3-digit numbers are hard-blocked.
 
 **ELSERENO_VAULT_PASSPHRASE** (env)

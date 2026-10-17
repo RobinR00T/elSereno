@@ -9,8 +9,8 @@
 # DESCRIPTION
 
 A *scope.yaml* file defines the authorised ranges, ports and protocols,
-and the dialling blacklist, for an engagement. It also accepts web binds
-and a canary, which are parsed but not applied.
+the serve bind allow-list and the dialling blacklist, for an engagement.
+It also accepts a canary, which is parsed but not applied.
 
 A scope file applies only when passed with **--scope**. Every command
 that connects to a target takes it: **scan**, **serve** (dashboard,
@@ -47,7 +47,7 @@ binds:
     - "[::1]:8787"
 dial:
   # In addition to the hardcoded ≤3-digit block (always on).
-  # Digits only, no "+" or leading "00": entries are not normalised.
+  # "+", "00" and punctuation are fine: entries are normalised like the number.
   blocked_numbers:
     - "34112"
     - "34062"
@@ -70,10 +70,10 @@ canary:
 
 **dial.blocked_numbers**
 :   Numbers refused by **dial**, exact or as a prefix, on top of the
-    hard-coded block of numbers of 3 digits or fewer. **dial** normalises
-    the dialled number (drops "+", a leading "00" and punctuation) but
-    not the entries, so write them as digits only: "+34112" or
-    "0034112" block nothing.
+    hard-coded block of numbers of 3 digits or fewer. The dialled number
+    and each entry are normalised the same way (drop "+", a leading "00"
+    and punctuation), so "+34112", "0034112" and "34112" block the same
+    range (PITF-098).
 
 **protocols.allow / protocols.deny**
 :   Which plugins may run. An entry matches a plugin's name or its
@@ -98,9 +98,10 @@ canary:
     nothing and no command warns about it.
 
 **binds.allow**
-:   Parsed, not applied. A non-loopback bind of **serve** is governed by
-    its own flags (**--tls-cert**, **--tls-key**,
-    **--i-know-what-im-doing**).
+:   When set and **serve** is given **--scope**, the bind address must be
+    one of these (exit 77 otherwise); an empty list allows any bind
+    (PITF-098). A non-loopback bind is still governed by its own flags
+    (**--tls-cert**, **--tls-key**, **--i-know-what-im-doing**).
 
 **canary**
 :   Parsed, not applied.

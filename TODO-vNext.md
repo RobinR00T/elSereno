@@ -42,19 +42,20 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   responsabilidad del operador?
 - **[RESUELTO 17-10, PITF-095] `protocols` del scope.** Ahora limita qué
   plugins corren en todo comando de red (por nombre o por protocolo).
-- **`binds` y `canary` del scope.** Se parsean y no se aplican. ¿Se aplica
-  `binds.allow` al bind no-loopback de `serve`, o se retiran del formato?
-- **Rastro de lo que el scope descarta.** Un target fuera de scope se descarta
-  sin aviso ni evento; `scope_applied` está en el catálogo y nadie lo emite.
-  ¿Una línea en stderr con el recuento, un evento de auditoría por ejecución,
-  o los dos?
-- **`--dial-allowed`.** Ningún comando marca todavía y el flag no existe. Es
-  la puerta prevista para el primero que lo haga (CLAUDE.md, conventions.md).
-- **`blocked_numbers` con `+` o `00` no bloquea nada.** `dial` normaliza el
-  número marcado y no la entrada del scope, así que `"+34112"` deja pasar
-  `+34112345678` (comprobado por la auditoría del 16-10). Los docs dicen
-  ahora "solo dígitos". ¿Se normalizan las entradas al cargar, o `lint`
-  las rechaza?
+- **[RESUELTO 17-10, PITF-098] `binds.allow` del scope.** `serve` con
+  `--scope` solo se ata a una dirección de la lista. Queda `canary`: se
+  parsea y no se aplica (¿webhook de aviso, o se retira del formato?).
+- **[PARCIAL 17-10, PITF-098] Rastro de lo que el scope descarta.** `scan`,
+  `serve` y `tui --input` ya dicen por stderr cuántos targets descartó el
+  scope. Falta el evento de auditoría `scope_applied`: `scan` no tiene
+  audit writer (no desbloquea el vault), así que emitirlo necesita antes
+  decidir de dónde sale la cadena de auditoría en la CLI.
+- **[RESUELTO 17-10, PITF-098] `--dial-allowed`.** `dial batch` y `wardial`
+  lo exigen para `--disposition delivery-requested`; la entrega por
+  hardware (que de verdad marcará) es vNext y heredará el gate.
+- **[RESUELTO 17-10, PITF-098] `blocked_numbers` con `+` o `00`.**
+  `scope.NormaliseNumber` normaliza número y entrada igual, así que
+  `"+34112"` bloquea.
 - **[RESUELTO 17-10, PITF-095] Comandos de red sin scope.** Todos aceptan
   ya `--scope`. Queda abierto el rastro de lo que se descarta (arriba).
 - **`lint --scope` no avisa de entradas de `protocols` que no casan con

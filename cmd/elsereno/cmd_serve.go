@@ -81,6 +81,23 @@ type serveOpts struct {
 	scanner config.ScannerConfig
 }
 
+// enforceBindScope applies binds.allow from --scope: serve may bind only
+// an address the scope lists (PITF-098). No --scope, or an empty
+// binds.allow, allows any bind.
+func enforceBindScope(opts serveOpts) error {
+	if opts.scopePath == "" {
+		return nil
+	}
+	sc, err := scope.Load(opts.scopePath)
+	if err != nil {
+		return fail(core.ExitConfig, err)
+	}
+	if err := sc.CheckBind(opts.addr); err != nil {
+		return fail(core.ExitNoPerm, err)
+	}
+	return nil
+}
+
 // validateBindSecurity refuses a network-facing bind that lacks TLS or
 // real auth. A non-loopback bind requires --tls-cert/--tls-key and the
 // explicit --i-know-what-im-doing, and OIDC must be enabled: in DEV
@@ -116,6 +133,9 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	}
 	if err := validateBindSecurity(opts, cfg.Auth.OIDC.Enabled()); err != nil {
 		return fail(core.ExitUsage, err)
+	}
+	if err := enforceBindScope(opts); err != nil {
+		return err
 	}
 
 	// Optional DB pool for the /api/v1/findings, /runs, /triage

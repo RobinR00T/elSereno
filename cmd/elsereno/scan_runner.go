@@ -129,7 +129,10 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	// Apply the scope guardrail before anything is dialled, mirroring
 	// the CLI (cmd_scan). filterByScope is a pass-through when r.scope
 	// is nil, so this is a no-op unless serve was started with --scope.
-	targets = filterByScope(r.scope, targets)
+	targets, dropped := filterByScope(r.scope, targets)
+	if dropped > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: job %s: scope dropped %d of %d targets\n", job.ID, dropped, dropped+len(targets))
+	}
 	stats := scanorch.Stats{TargetsSeen: len(targets)}
 	if len(targets) == 0 {
 		return stats, nil, nil

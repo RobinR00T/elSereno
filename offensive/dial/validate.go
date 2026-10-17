@@ -5,8 +5,6 @@ package dial
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"unicode"
 
 	"local/elsereno/internal/scope"
 )
@@ -35,20 +33,12 @@ var (
 //	"00 44 20 7123 4567"    -> "442071234567"
 //	"112"                    -> "112"
 func Normalise(in string) string {
-	// Strip a leading "+" or a leading "00" (international prefix).
-	// Both are preserved as digits in the inner loop if they survive;
-	// here we only discard the very common prefix noise.
-	s := strings.TrimSpace(in)
-	s = strings.TrimPrefix(s, "+")
-	s = strings.TrimPrefix(s, "00")
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		if unicode.IsDigit(r) {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
+	// One source of truth: the scope half of the guard uses the same
+	// rule, so a dialled number and a blocked_numbers entry compare on
+	// the same footing (PITF-098). Only ASCII digits survive, so a
+	// number written with Unicode digits collapses toward the hard
+	// ≤3-digit block rather than slipping past it.
+	return scope.NormaliseNumber(in)
 }
 
 // Validate is the dial guard. It returns (normalised, nil) on success

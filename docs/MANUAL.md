@@ -1176,7 +1176,7 @@ protocols:               # qué plugins corren
   deny: [s7-exposure]
 dial:                    # solo `dial`, build offensive
   blocked_numbers:
-    - "34112"            # solo dígitos: sin "+" ni "00" (ver tabla)
+    - "+34112"           # "+" y "00" valen: se normaliza igual que el número
 ```
 
 Cualquier clave fuera de `version`, `ranges`, `ports`, `protocols`,
@@ -1192,8 +1192,8 @@ que un typo no pasa en silencio. Cada CIDR es una entrada `cidr` (con
 | `ranges`                   | todo comando de red con `--scope`   | Sin entradas: cualquier dirección. Con entradas: fuera de todas, el target se descarta (o se rechaza con 77 si es el único). |
 | `ports.allow`/`ports.deny` | todo comando de red con `--scope`   | `deny` gana. `allow` vacío: cualquier puerto salvo `deny`.                              |
 | `protocols.allow`/`protocols.deny` | todo comando que lanza un plugin | Por nombre del plugin o por su protocolo (lo de antes del primer `-`): `s7` cubre `s7` y `s7-exposure`; `s7-exposure` solo ese; `opcuahttps` es un nombre propio. Sin distinguir mayúsculas. `deny` gana; `allow` vacío deja pasar todo lo no denegado, y uno con entradas tiene que incluir `banner` para que corra. |
-| `dial.blocked_numbers`     | `dial` (offensive)                  | Bloquea el número exacto y todo lo que empiece por él, además del bloqueo fijo de 3 dígitos o menos. `dial` normaliza el número marcado (quita `+`, `00` inicial y puntuación) pero no la entrada: escríbela solo con dígitos y sin `00` (`"34112"`, no `"+34112"` ni `"0034112"`, que no bloquean nada). |
-| `binds`                    | ninguno                             | Se parsea pero no se aplica: un bind no-loopback de `serve` lo controlan sus flags.     |
+| `dial.blocked_numbers`     | `dial` (offensive)                  | Bloquea el número exacto y todo lo que empiece por él, además del bloqueo fijo de 3 dígitos o menos. Número y entrada se normalizan igual (se quitan `+`, un `00` inicial y la puntuación), así que `"+34112"`, `"0034112"` y `"34112"` bloquean lo mismo. |
+| `binds.allow`              | `serve` con `--scope`               | Si tiene entradas, `serve` solo puede atarse a una de ellas (si no, 77). Vacío: cualquier bind (sus flags de TLS/OIDC siguen rigiendo un bind no-loopback). |
 | `canary`                   | ninguno                             | Se parsea pero no se aplica.                                                            |
 
 Consecuencias que conviene saber:
@@ -1203,8 +1203,9 @@ Consecuencias que conviene saber:
   un error al cargar: `lint --scope` y cualquier comando con `--scope`
   salen con 78 (antes se ignoraba en silencio, PITF-097).
 - `scan`, `serve`, `discover` y `tui --input` descartan los targets fuera
-  de scope antes de cualquier conexión, sin aviso por target ni entrada
-  en la auditoría; si no queda ninguno, salen con 66 (`ExitNoInput`).
+  de scope antes de cualquier conexión. `scan`, `serve` y `tui --input`
+  dicen por stderr cuántos descartaron (no hay aviso por target ni evento
+  de auditoría todavía); si no queda ninguno, salen con 66 (`ExitNoInput`).
 - Un comando de un solo `--target` lo rechaza con 77 (`ExitNoPerm`) sin
   conectar. Si le das un nombre, lo resuelve una vez, comprueba esa IP y
   se conecta a ella, así que el nombre no puede resolver a otra cosa
@@ -1681,10 +1682,11 @@ El allowlist round-trip a YAML con `--emit-allow-file` (claves
 
 Disponible sólo en offensive. Hoy ningún comando marca ni envía
 SMS: `dial validate` valida un número, y `dial batch` y `dial wardial`
-validan, clasifican y auditan listas; la entrega por hardware es vNext. El
-flag `--dial-allowed` no existe todavía: es la puerta prevista para
-el primer comando que marque. Números ≤3 dígitos están **bloqueados
-duro** (evita marcar 911, emergency, asistencia operador, etc.).
+validan, clasifican y auditan listas; la entrega por hardware es vNext.
+Registrar intención de entrega (`--disposition delivery-requested`) exige
+`--dial-allowed`: un dry-run no se convierte en registro de envío por
+descuido. Números ≤3 dígitos están **bloqueados duro** (evita marcar
+911, emergency, asistencia operador, etc.).
 
 ### Audit obligatorio
 

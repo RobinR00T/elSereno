@@ -653,5 +653,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: un cliente HTTP que lleva un secreto define siempre `CheckRedirect`; Go no protege las cabeceras propias. Y una restricción de seguridad parseada se valida al cargar, no solo al usarla, o un typo la desactiva en silencio.
 **Ver**: `internal/inputs/httpclient/{httpclient.go,httpclient_test.go}`, `internal/inputs/*/client.go`, `internal/scope/{scope.go,validate_test.go}`, `docs/MANUAL.md`, `man/src/man5/elsereno-scope.5.md`; 17-10-2026.
 
+## PITF-098: cuatro controles de scope que la doc daba por aplicados
+**Síntoma**: el P0 del spec marcaba cuatro cosas que el código no hacía. `blocked_numbers` con `+` o `00` no bloqueaba (`"+34112"` dejaba pasar `+34112345678`). `binds.allow` se parseaba y no limitaba el bind de `serve`. `--dial-allowed`, la puerta para marcar, no existía. Y un target descartado por el scope desaparecía sin dejar rastro (el hueco `scope_applied`).
+**Causa**: `CheckDial` comparaba la entrada tal cual contra el número ya normalizado; nadie llamaba a una comprobación de `binds`; el flag no se había creado; `filterByScope` descartaba en silencio.
+**Fix (17-10-2026)**: `scope.NormaliseNumber` (sin build tag) normaliza número y entrada igual, y `CheckDial` la usa. `scope.CheckBind` compara el bind contra `binds.allow` tras canonicalizar la forma IP; `serve` la llama cuando hay `--scope` (77 si no encaja). `requireDialAllowed` exige `--dial-allowed` para `--disposition delivery-requested` en `dial batch` y `wardial` (77 si falta). `filterByScope` devuelve cuántos descartó, y `scan`, `serve` y `tui --input` lo dicen por stderr. Tests: entradas con `+`/`00` que bloquean, `CheckBind` con formas IPv4/IPv6, el gate del dial y el recuento; cuatro mutantes muertos. El evento de auditoría `scope_applied` queda pendiente: `scan` no tiene audit writer (no desbloquea el vault), así que por ahora es un recuento por stderr (TODO-vNext).
+**Regla**: una entrada de configuración que se compara contra un dato normalizado se normaliza igual, o no casa. Y un control parseado que nadie llama es documentación, no control.
+**Ver**: `internal/scope/{scope.go,validate_test.go}`, `cmd/elsereno/{cmd_dial_offensive.go,cmd_serve.go,cmd_scan.go,scan_runner.go,cmd_tui.go,scope_gate_test.go,scope_gate_offensive_test.go}`, `docs/{MANUAL.md,SECURITY.md}`, `man/src/man5/elsereno-scope.5.md`, `scope.yaml`; 17-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -120,5 +122,50 @@ func TestCredsCheck_CommandPinsResolvedAddress(t *testing.T) {
 		"--confirm-authorized", "--timeout", "3s", "--scope", sp)
 	if n := hits.Load(); n != 0 {
 		t.Fatalf("the unchecked address %s got %d requests", other, n)
+	}
+}
+
+// TestRequireDialAllowed: recording delivery intent needs
+// --dial-allowed; a preview never does (PITF-087).
+func TestRequireDialAllowed(t *testing.T) {
+	if err := requireDialAllowed("preview", false); err != nil {
+		t.Errorf("preview without the flag: %v", err)
+	}
+	if err := requireDialAllowed("delivery-requested", true); err != nil {
+		t.Errorf("delivery with the flag: %v", err)
+	}
+	if exitCode(requireDialAllowed("delivery-requested", false)) != core.ExitNoPerm {
+		t.Error("delivery without the flag should be 77")
+	}
+}
+
+// TestDialBatch_DeliveryNeedsFlag: `dial batch --disposition
+// delivery-requested` is refused (77) before it reads any number when
+// --dial-allowed is absent.
+func TestDialBatch_DeliveryNeedsFlag(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	nums := filepath.Join(dir, "n.txt")
+	if err := os.WriteFile(nums, []byte("5551234567\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := runRoot(t, "dial", "batch", "--disposition", "delivery-requested", "--numbers-file", nums)
+	if exitCode(err) != core.ExitNoPerm {
+		t.Fatalf("exit %d (%v), want 77", exitCode(err), err)
+	}
+}
+
+// TestDialWardial_DeliveryNeedsFlag: wardial also gates
+// delivery-requested behind --dial-allowed (PITF-098).
+func TestDialWardial_DeliveryNeedsFlag(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	nums := filepath.Join(dir, "n.txt")
+	if err := os.WriteFile(nums, []byte("5551234567\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := runRoot(t, "dial", "wardial", "--disposition", "delivery-requested", "--numbers-file", nums)
+	if exitCode(err) != core.ExitNoPerm {
+		t.Fatalf("wardial delivery without --dial-allowed: exit %d (%v), want 77", exitCode(err), err)
 	}
 }

@@ -16,7 +16,7 @@ binds:
     - "[::1]:8787"
 dial:
   # Además de la blacklist hardcoded de ≤3 dígitos (siempre activa).
-  # Solo dígitos: "+34112" o "0034112" no bloquean nada (PITF-087).
+  # "+", "00" y puntuación valen: se normaliza igual que el número marcado.
   blocked_numbers:
     - "34112"
     - "34062"
