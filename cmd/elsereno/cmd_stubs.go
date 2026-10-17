@@ -13,6 +13,11 @@ import (
 // Real implementations arrive in later F1 chunks (db, audit, vault,
 // creds, token, serve, scan) and F2+ (repl, proxy, triage, diff,
 // explain, why, lint, fmt).
+// stubAnnotation marks a declared verb that does nothing yet: the
+// "planned" stubs below (exit 75) and the audit verbs whose writer is
+// pending (exit 69). The docs-examples test refuses examples that use one.
+const stubAnnotation = "elsereno/stub"
+
 func newStubCmds() []*cobra.Command {
 	stubs := []struct {
 		name, short string
@@ -29,8 +34,9 @@ func newStubCmds() []*cobra.Command {
 	for _, s := range stubs {
 		s := s
 		out = append(out, &cobra.Command{
-			Use:   s.name,
-			Short: s.short,
+			Use:         s.name,
+			Short:       s.short,
+			Annotations: map[string]string{stubAnnotation: "planned"},
 			RunE: func(_ *cobra.Command, _ []string) error {
 				return fail(core.ExitTempFail, fmt.Errorf("%q is planned for a later phase", s.name))
 			},

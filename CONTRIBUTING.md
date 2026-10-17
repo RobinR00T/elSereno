@@ -19,7 +19,6 @@ Phase 6.
    make tidy
    make build
    ./bin/elsereno doctor
-   ./bin/elsereno init
    ./bin/elsereno vault init
    ./bin/elsereno vault unlock
    ./bin/elsereno db migrate up

@@ -8,6 +8,10 @@ last-updated: 2026-10-17
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-17 (4): **54 broken command examples in the docs fixed
+  (PITF-091)**; `TestDocsExamples_UseRealCommandsAndFlags` checks the
+  examples in code blocks against the cobra tree in both builds.
+
 - 2026-10-17 (3): **audit installs golangci-lint with go install**; the
   install.sh of the abandoned `master` branch greps the checksum
   unanchored and also matches the `.sbom.json` line (since v2.12.0).

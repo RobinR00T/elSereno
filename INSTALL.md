@@ -255,7 +255,7 @@ After install, regardless of method:
 ```sh
 elsereno doctor          # validates config + reachability + version
 elsereno legal           # required acknowledgement on first use
-elsereno version --json  # machine-readable: version, commit, date, build tags
+elsereno version         # version, commit and build date
 ```
 
 `elsereno doctor` returns non-zero on any environmental issue (missing config, unreachable Postgres, vault locked, etc.) so it's safe in CI.

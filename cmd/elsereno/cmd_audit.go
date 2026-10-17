@@ -35,6 +35,8 @@ func newAuditVerifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Verify the audit hash chain (tail or full)",
+		// Always exits 69 until the DB audit writer exists; use verify-file.
+		Annotations: map[string]string{stubAnnotation: "unavailable"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, _, err := loadConfig()
 			if err != nil {
@@ -66,6 +68,8 @@ func newAuditDestructiveCmd(verb, short, riskFlag, pendingMsg string) *cobra.Com
 	cmd := &cobra.Command{
 		Use:   verb,
 		Short: short,
+		// Always exits 69 after its flag checks: the writer is pending.
+		Annotations: map[string]string{stubAnnotation: "unavailable"},
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if !riskAck {
 				return fail(core.ExitUsage, fmt.Errorf("required flag --%s missing", riskFlag))

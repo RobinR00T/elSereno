@@ -267,16 +267,16 @@ Resumen:
 ### Backup nightly
 
 ```bash
-elsereno vault unlock --vault-passphrase-file /etc/elsereno/vault.pp
-elsereno backup create --output /var/backups/elsereno-$(date +%Y%m%d).tar.gz.enc
+elsereno backup create --vault-passphrase-file /etc/elsereno/vault.pp \
+  --out /var/backups/elsereno-$(date +%Y%m%d).tar.gz.enc
 find /var/backups -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
 ```
 
 ### Restore en máquina nueva
 
 ```bash
-elsereno backup inspect --input /var/backups/elsereno-YYYYMMDD.tar.gz.enc
-elsereno backup restore --input ... --to /tmp/restored
+elsereno backup inspect --in /var/backups/elsereno-YYYYMMDD.tar.gz.enc
+elsereno backup restore --in ... --to /tmp/restored
 install -m 0600 /tmp/restored/vault.v1.bin /var/lib/elsereno/
 install -m 0640 /tmp/restored/audit.jsonl /var/lib/elsereno/
 systemctl start elsereno

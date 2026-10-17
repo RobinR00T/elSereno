@@ -459,6 +459,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **54 command examples in the docs did not run, and several described
+  features that do not exist (PITF-091).** INSTALL, CONTRIBUTING, FAQ,
+  MANUAL, OPERATIONS, DEV-SETUP, the long manual and the cheat sheet used
+  flags and verbs that do not exist: `scan --input-file --input-type
+  --out-ndjson --out-csv --out-html --syslog --cef-file --webhook-url`
+  (`scan` has `--input <kind>:<arg>`, `--output` and `--output-format
+  ndjson|csv|stix`), `creds store|show|rotate|purge --name` (the name is
+  positional), `backup create --output` and `backup inspect|restore
+  --input` (`--out`, `--in`), `fingerprint validate --bytes` (`--file`),
+  `why --target`, `triage --run`, `discover --concurrency --timeout`
+  (`--parallel --dial-timeout`), `audit export --out`, `version --json`,
+  `api spec` (`api openapi`), `audit show`, `audit rebase`, `harvest
+  --targets --probers` (it is `harvest <proto> --target`, one target, no
+  vault write), `write sip dry-run --allow-file` (it takes the lists and
+  writes the file with `--emit-allow-file`), `vault init
+  --passphrase-file` (`--vault-passphrase-file`), and `init`,
+  `completion`, `gen-man`, `audit verify`, `audit compact` and `audit
+  purge`, which exit 75 or 69 without doing anything although the verbs
+  table marked some "listo". Beyond syntax: the long manual described
+  HTML, CEF, syslog and webhook output for findings and a CEF input,
+  none of which exists; the FAQ's passphrase-change recipe restored a
+  backup into a new vault, which cannot decrypt it; `echo $KEY | creds
+  store` fails, because without a TTY `creds store` and `rotate` read
+  the vault passphrase and then the value from stdin; `creds show
+  --reveal` was described as audited, and it only prints a notice on
+  stderr; and the cron backup ran `vault unlock` first, which unlocks
+  nothing for the next command. All fixed against the binary. New test
+  `TestDocsExamples_UseRealCommandsAndFlags` walks the `elsereno ...`
+  commands (also `./bin/elsereno`, `elsereno-offensive`) in the docs'
+  code blocks and the cheat sheet and fails on an unknown command,
+  subcommand or long flag, or a verb that does nothing yet (stubs and the
+  pending audit verbs now carry an annotation); it runs in the default
+  and offensive builds. Not checked: commands in inline code outside
+  code blocks, short flags, global flags placed before the verb,
+  commands that are not the first on their line (the second command of
+  a pipe, `VAR=... elsereno`, `ExecStart=`, cron), and CHANGELOG,
+  ROADMAP, TODO-vNext and `.context/`. The SIP gate reload recipe now
+  regenerates the allow-file instead of editing it by hand and passes
+  the token with `--confirm-token-file`. The SECURITY index
+  linked two sections by anchors that did not exist; fixed.
+
 - **The `audit` workflow could not install golangci-lint v2.15.0.** It
   fetched `install.sh` from golangci-lint's `master` branch, which upstream
   no longer maintains (the default is `main`). That copy looks up the

@@ -92,16 +92,18 @@ Opciones:
 
 ### ¿Puedo cambiar la passphrase del vault?
 
-En v1.88 no hay verbo dedicado (`vault rotate` está en
-vNext). De momento:
+No: no hay verbo para cambiarla (`vault rotate` está en vNext). Un
+backup no sirve de puente, porque se descifra con la misma master
+del vault que lo creó. La única vía es crear un vault nuevo y volver a
+guardar cada credencial:
 
 ```bash
-elsereno vault unlock                         # con passphrase vieja
-elsereno backup create --output /tmp/old.tar.gz.enc
+elsereno creds list                           # con el vault viejo
+elsereno creds show shodan_api_key --reveal   # una a una; anótalas fuera de la shell
 mv ~/.elsereno/vault.v1.bin ~/.elsereno/vault.v1.bin.old
-elsereno vault init                           # con passphrase nueva
-elsereno backup restore --input /tmp/old.tar.gz.enc --to /tmp/r
-# ... y re-importas las creds una a una con `creds store`.
+elsereno vault init                           # con la passphrase nueva
+elsereno creds store shodan_api_key           # pide passphrase y valor sin eco
+# cuando estén todas: shred -u ~/.elsereno/vault.v1.bin.old
 ```
 
 Workaround feo, lo sé. PR welcome.
@@ -109,25 +111,27 @@ Workaround feo, lo sé. PR welcome.
 ### ¿Por qué `creds store --plaintext '<api-key>'` no funciona?
 
 Intencional. PITF-032: secrets en argv son visibles en
-`ps -ef`. La forma correcta es leer de stdin:
+`ps -ef`. La forma correcta es dejar que lo pida sin eco, o pasarlo
+por stdin:
 
 ```bash
-echo "$YOUR_KEY" | elsereno creds store --name shodan_api_key
-# o más elegante:
-read -s -r KEY && echo "$KEY" | elsereno creds store --name shodan_api_key
-unset KEY
+elsereno creds store shodan_api_key           # pide passphrase y valor sin eco
+# Por tubería, creds store y rotate leen DOS líneas de stdin: la
+# passphrase del vault y después el valor (sin TTY no preguntan).
+read -s -r PP && read -s -r KEY && printf '%s\n%s\n' "$PP" "$KEY" | elsereno creds store shodan_api_key
+unset PP KEY
 ```
 
 ### ¿Cómo expongo una credencial a otro proceso?
 
-`creds show --reveal --name shodan_api_key` imprime el
-plaintext a stdout **y audita el reveal**. Pipe a un
-archivo 0600 si necesitas persistirlo para un siguiente
-proceso:
+`creds show shodan_api_key --reveal` imprime los metadatos y el
+plaintext (línea `value:`) a stdout. El reveal **no** queda en la
+cadena de auditoría todavía: solo se avisa por stderr. Pipe a un
+archivo 0600 si necesitas persistirlo para un siguiente proceso:
 
 ```bash
 umask 077
-elsereno creds show --reveal --name shodan_api_key > /tmp/.shodan-key
+elsereno creds show shodan_api_key --reveal | sed -n 's/^value: *//p' > /tmp/.shodan-key
 SHODAN_API_KEY=$(cat /tmp/.shodan-key) my-other-tool ...
 shred -u /tmp/.shodan-key
 ```

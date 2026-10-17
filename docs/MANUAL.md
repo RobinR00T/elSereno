@@ -532,22 +532,23 @@ Sustituye a las env vars de `SHODAN_API_KEY` etc.
 **Ejemplos:**
 
 ```bash
-# Guardar la api key de Shodan:
-read -s -r SHODAN_KEY && echo "$SHODAN_KEY" | elsereno creds store --name shodan_api_key
-unset SHODAN_KEY    # importante, evita /proc/<pid>/environ leak
+# Guardar la api key de Shodan (pide passphrase y valor sin eco):
+elsereno creds store shodan_api_key
+# Por tubería, creds store y rotate leen DOS líneas de stdin: la
+# passphrase del vault y después el valor (sin TTY no preguntan).
 
 # Listar lo guardado:
 elsereno creds list
 
-# Ver plaintext (auditado):
-elsereno creds show --name shodan_api_key --reveal
+# Ver plaintext (todavía no queda en la cadena de auditoría; solo
+# avisa por stderr):
+elsereno creds show shodan_api_key --reveal
 
-# Rotar (reemplazar):
-read -s -r NEW_KEY && echo "$NEW_KEY" | elsereno creds rotate --name shodan_api_key
-unset NEW_KEY
+# Rotar (reemplazar; pide passphrase y valor nuevo):
+elsereno creds rotate shodan_api_key
 
 # Borrar:
-elsereno creds purge --name shodan_api_key
+elsereno creds purge shodan_api_key
 ```
 
 ### 7.6 `db`
@@ -595,20 +596,17 @@ la chain y `verify` lo detecta.
 | `purge`         | Tombstone-purge antes de cutoff (preserva chain).                     |
 | `serve`         | Daemon UDS centralizado (v1.26+, para múltiples processes).           |
 
+`audit verify`, `audit compact` y `audit purge` están declarados pero
+no hacen nada todavía: tras validar sus flags salen con 69 (el escritor
+de la cadena en la base de datos está pendiente). La verificación que
+funciona hoy es la del fichero, `audit verify-file`.
+
 **Ejemplos:**
 
 ```bash
 # Verificar full chain del archivo:
 elsereno audit verify-file
 
-# Verificar (último N entries):
-elsereno audit verify --tail 100
-
-# Compactar entradas anteriores a 2026-01-01:
-elsereno audit compact --before 2026-01-01T00:00:00Z
-
-# Purga blanda (mantiene chain, marca tombstone):
-elsereno audit purge --before 2026-01-01T00:00:00Z
 
 # Levantar daemon UDS:
 elsereno audit serve --socket /var/run/elsereno-audit.sock
@@ -631,13 +629,13 @@ backup envelope).
 ```bash
 # Crear backup:
 elsereno vault unlock
-elsereno backup create --output /backups/elsereno-2026-05-11.tar.gz.enc
+elsereno backup create --out /backups/elsereno-2026-05-11.tar.gz.enc
 
 # Inspeccionar sin descifrar:
-elsereno backup inspect --input /backups/elsereno-2026-05-11.tar.gz.enc
+elsereno backup inspect --in /backups/elsereno-2026-05-11.tar.gz.enc
 
 # Restaurar (requiere mismo vault master):
-elsereno backup restore --input /backups/elsereno-2026-05-11.tar.gz.enc --to /tmp/restored
+elsereno backup restore --in /backups/elsereno-2026-05-11.tar.gz.enc --to /tmp/restored
 ```
 
 ### 7.9 `config`
@@ -705,7 +703,7 @@ elsereno fingerprint capture --listen 127.0.0.1:5020 --output /tmp/modbus.bin
 # (en otra terminal: nmap o cliente real → 127.0.0.1:5020)
 
 # Validar (offline) contra un plugin:
-elsereno fingerprint validate --plugin modbus --bytes /tmp/modbus.bin
+elsereno fingerprint validate --plugin modbus --file /tmp/modbus.bin
 # Salida: capability score + reasoning
 
 # Probe en vivo de un solo target con un plugin concreto:
@@ -816,7 +814,7 @@ Meta-operaciones sobre la HTTP API.
 
 ```bash
 # Imprimir el OpenAPI 3.1 spec generado del código:
-elsereno api spec > openapi.yaml
+elsereno api openapi > openapi.yaml
 ```
 
 ### 7.18 Otros verbos
@@ -831,11 +829,11 @@ elsereno api spec > openapi.yaml
 | `repl`    | planned   | REPL de protocolo interactivo.                                   |
 | `init`    | planned   | Wizard de primera ejecución.                                     |
 | `token`   | planned   | Operaciones de web token (rotate / show).                        |
-| `gen-man` | listo     | Genera man pages.                                                |
+| `gen-man` | planned   | Generar man pages desde cobra; hoy las genera `scripts/gen-manpages.sh`. |
 | `fmt`     | listo     | Re-emite YAML con formato canónico.                               |
 | `lint`    | listo     | Valida `elsereno.yaml` + `scope.yaml`.                            |
 | `help`    | listo     | Ayuda sobre cualquier comando.                                    |
-| `completion` | listo  | Genera shell completions (bash/zsh/fish).                         |
+| `completion` | planned | Shell completions (bash/zsh/fish); hoy sale con 75.               |
 
 ### 7.1 Probes de exposición profunda (read-only) y trazabilidad
 
@@ -972,24 +970,25 @@ elsereno explain --from-file suspect.ndjson
 
 # Ver score detallado de ese tipo:
 elsereno scoring
-elsereno why --target 10.0.0.5:502
+elsereno why 10.0.0.5:502
 ```
 
 ### 9.7 Backup periódico
 
 ```bash
 # Diario, mantiene 7:
-( elsereno vault unlock && \
-  elsereno backup create --output /backups/elsereno-$(date +%Y%m%d).tar.gz.enc \
-) && find /backups -name 'elsereno-*.tar.gz.enc' -mtime +7 -delete
+# (vault unlock no deja nada desbloqueado entre comandos: cada uno
+#  pide la passphrase, o la lee de --vault-passphrase-file en cron)
+elsereno backup create --vault-passphrase-file /etc/elsereno/vault.pp \
+  --out /backups/elsereno-$(date +%Y%m%d).tar.gz.enc \
+  && find /backups -name 'elsereno-*.tar.gz.enc' -mtime +7 -delete
 ```
 
 ### 9.8 Rotar credenciales API
 
 ```bash
-# Genera nueva key en Shodan → la rotas:
-read -s -r NEW_KEY && echo "$NEW_KEY" | elsereno creds rotate --name shodan_api_key
-unset NEW_KEY
+# Genera nueva key en Shodan → la rotas (pide passphrase y valor):
+elsereno creds rotate shodan_api_key
 # Verifica:
 elsereno creds list
 elsereno scan --input shodan:'port:502' ...   # debe usar la nueva
@@ -1769,49 +1768,37 @@ server {
 
 ### Bash / zsh / fish completions
 
-```bash
-# Bash:
-elsereno completion bash > /usr/local/etc/bash_completion.d/elsereno
-# o más portable:
-elsereno completion bash > ~/.bash_completion.d/elsereno
-. ~/.bash_completion.d/elsereno
-
-# Zsh:
-elsereno completion zsh > "${fpath[1]}/_elsereno"
-# o:
-elsereno completion zsh > ~/.zsh/completions/_elsereno
-# añade a ~/.zshrc:  fpath=(~/.zsh/completions $fpath)
-
-# Fish:
-elsereno completion fish > ~/.config/fish/completions/elsereno.fish
-```
-
-Tras esto: `elsereno <TAB>` autocompleta verbos, `elsereno scan --<TAB>`
-autocompleta flags, etc.
+Todavía no hay: `elsereno completion` es un stub que sale con 75
+("planned for a later phase"). Mientras tanto, `elsereno --help` y
+`elsereno <verbo> --help` listan verbos y flags.
 
 ### Man pages
 
+Las páginas vienen ya generadas en el repo y en el tarball de release
+por defecto (`man/man1`, `man/man5`, `man/man7`; el tarball mini solo
+lleva `elsereno.1`). `elsereno gen-man` es
+un stub; para regenerarlas desde las fuentes Markdown hace falta
+`pandoc`:
+
 ```bash
-# Generar las páginas:
-elsereno gen-man --output /tmp/man
+scripts/gen-manpages.sh                # escribe man/man{1,5,7}/
 
 # Instalar (Linux):
-sudo cp /tmp/man/elsereno.1 /usr/local/share/man/man1/
-sudo cp /tmp/man/elsereno-*.1 /usr/local/share/man/man1/
+sudo cp man/man1/*.1 /usr/local/share/man/man1/
+sudo cp man/man5/*.5 /usr/local/share/man/man5/
+sudo cp man/man7/*.7 /usr/local/share/man/man7/
 sudo mandb
-
-# macOS:
-sudo cp /tmp/man/elsereno*.1 /usr/local/share/man/man1/
-# El index se reconstruye al usar `man -k`.
 
 # Consultar:
 man elsereno
-man elsereno-scan
-man elsereno-serve
+man elsereno-scope        # sección 5: scope.yaml
+man elsereno.yaml         # sección 5: configuración
+man elsereno-security     # sección 7: modelo de seguridad
 ```
 
-Los paquetes `.deb` / `.rpm` instalan las man pages
-automáticamente bajo `/usr/share/man/man1/`.
+El paquete `elsereno` (`.deb` / `.rpm` / `.apk`) instala `elsereno(1)`
+bajo `/usr/share/man/man1/`; los paquetes offensive y mini no instalan
+páginas man, y las de las secciones 5 y 7 solo van en el tarball.
 
 ---
 
@@ -1836,7 +1823,7 @@ DATE=$(date -u +%Y%m%dT%H%M%S)
 elsereno vault unlock --vault-passphrase-file /etc/elsereno/vault.pp
 elsereno backup create \
     --vault-passphrase-file /etc/elsereno/vault.pp \
-    --output "$DEST/elsereno-$DATE.tar.gz.enc"
+    --out "$DEST/elsereno-$DATE.tar.gz.enc"
 find "$DEST" -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
 ```
 
@@ -1853,11 +1840,11 @@ find "$DEST" -name 'elsereno-*.tar.gz.enc' -mtime +30 -delete
 # - mismo vault passphrase que cuando se hizo el backup.
 
 # 1) Inspect sin descifrar (verifica integridad del envelope):
-elsereno backup inspect --input elsereno-2026-05-11.tar.gz.enc
+elsereno backup inspect --in elsereno-2026-05-11.tar.gz.enc
 
 # 2) Restore:
 elsereno backup restore \
-    --input elsereno-2026-05-11.tar.gz.enc \
+    --in elsereno-2026-05-11.tar.gz.enc \
     --to /tmp/elsereno-restore
 
 # 3) Mover a su sitio:
@@ -1974,8 +1961,10 @@ en TODO-vNext.md.
 No actualmente. Single-operator por proceso. Item vNext.
 
 **¿Cómo se renueva el master del vault?**
-`elsereno vault rotate` (planeado). De momento: backup +
-re-init con nueva passphrase + restore-rotate manual.
+`elsereno vault rotate` (planeado). De momento un backup no sirve
+(se descifra con la master vieja): hay que crear un vault nuevo y
+volver a guardar cada credencial. Receta en la FAQ, "¿Puedo cambiar
+la passphrase del vault?".
 
 **¿Puedo correr múltiples `serve` contra la misma DB?**
 v1.88 sólo soporta single-process Scheduler. v1.90+

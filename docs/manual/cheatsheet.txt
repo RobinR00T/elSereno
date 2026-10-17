@@ -151,7 +151,7 @@ elsereno standards --protocol opcua-exposure --json
 --------------------- Scoring + triage ------------------------
 elsereno explain                 # ADR-006 factors
 elsereno scoring show            # weights + thresholds
-elsereno triage --run <uuid>     # quick-wins / strategic / utility / routine
+elsereno triage --from-file findings.ndjson   # quick-wins / strategic / utility / routine
                                   # (utility = banner-info / inventory data,
                                   #  v1.13+; antes en routine)
 
@@ -415,9 +415,8 @@ elsereno-offensive exploit run \
 
 
 -- Harvest ---------------------------------------------------
-elsereno-offensive harvest --targets list.txt \
-  --probers telnet,ftp,http-basic,snmp --accept-writes \
-  --confirm-target list.txt --confirm-token <tok>
+elsereno-offensive harvest snmp --target 10.0.0.9:161   # one proto, one target
+elsereno-offensive harvest http-basic --target 10.0.0.5:80
 
 
 -- Dial (wardial batch, v1.1 chunk 8) ------------------------
@@ -428,7 +427,7 @@ elsereno-offensive dial batch --numbers-file nums.txt \
 
 -- Audit -----------------------------------------------------
 elsereno audit verify-file
-elsereno audit show --last 10
+elsereno audit export --since 24h   # last day's entries (ndjson | cef | syslog)
 
 
 ---------------- Detection (blue team, alerts) ---------------

@@ -18,9 +18,9 @@ entender qué garantiza el binario y dónde están sus límites.
 3. [Audit chain (tamper-evidence)](#3-audit-chain)
 4. [TLS + bind policy](#4-tls--bind-policy)
 5. [Subprocess (PITF-022): execve via SafeCommand](#5-subprocess)
-6. [Secret-transport policy (PITF-032)](#6-secret-transport)
+6. [Secret-transport policy (PITF-032)](#6-secret-transport-policy)
 7. [Reproducible builds + supply-chain](#7-supply-chain)
-8. [Write-gates (offensive build)](#8-write-gates)
+8. [Write-gates (offensive build)](#8-write-gates-offensive-build)
 9. [Scope enforcement](#9-scope-enforcement)
 10. [Network reach + sandbox](#10-sandbox)
 11. [Hardening checklist (prod)](#11-hardening-checklist)
@@ -274,7 +274,7 @@ Por tanto:
 | ❌ Evita | ✅ Usa |
 |---|---|
 | `ELSERENO_VAULT_PASSPHRASE=...` env (long-lived) | `--vault-passphrase-file ~/.elsereno/dev.pp` (0600) |
-| `./elsereno creds store --plaintext '<api-key>'` | `echo $KEY \| ./elsereno creds store` (stdin) |
+| `./elsereno creds store --plaintext '<api-key>'` | `./elsereno creds store <name>` (pide passphrase y valor sin eco; por stdin, dos líneas: passphrase y valor) |
 | `curl -d "key=$API_KEY" ...` | `curl --header "@/path/to/0600.header" ...` |
 | `goreleaser ... GITHUB_TOKEN=$(...)` repetido | `set` shell + leer de file |
 

@@ -91,6 +91,13 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   un POST con `Idempotency-Key` durante un fallo de la base vuelve a
   ejecutar el handler y puede duplicar el trabajo. Visto en la auditoría
   de PITF-090 (17-10). ¿Al menos registrarlo en el log?
+- **`--emit-allow-file` conserva los permisos de un fichero existente**
+  pero imprime "(0600)": si el fichero ya era 0644 sigue siéndolo. Visto
+  en la auditoría de PITF-091 (17-10).
+- **"Restore en máquina nueva" necesita un vault ya creado:** `backup
+  restore` desbloquea primero el vault local, así que en una máquina sin
+  vault falla antes de restaurar (razonado por el código, no probado).
+  Revisar el flujo y la doc de OPERATIONS.
 - **Cabeceras con clave en redirecciones a otro host.** Go solo quita
   `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
   redirigir a un host que no es el mismo ni un subdominio suyo
@@ -196,10 +203,13 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   las imprimen. Mucho del trabajo de identificación (PITF-072 a 080) no lo ve el
   operador. Propuesta: un campo `Note` (o `Evidence`) en `core.Finding`,
   saneado, y una columna en las salidas. Cambia el contrato de salida.
-- **Writers `syslog` y `cef` huérfanos.** `internal/outputs/{syslog,cef}`
-  existen con tests pero nada los importa; la chuleta y la página man
-  anunciaban `--output-format syslog|cef|html` y `--syslog`/`--webhook-url`,
-  que no existen (corregido en la doc el 7-10). Conectar o borrar.
+- **Escritores de salida sin comando para findings.** `internal/outputs/`
+  tiene `html`, `webhook`, `jira`, `githubissues`, `syslog` y `cef`, que
+  solo importan sus tests (`audit export` emite CEF y syslog con su
+  propio formateador). La chuleta, la página man y el manual largo anunciaban
+  `--output-format syslog|cef|html`, `--syslog`, `--webhook-url` y
+  `--out-html` para `scan`, que no existen (corregido el 7-10 y el 17-10,
+  PITF-091). Conectar a `scan` o borrar.
 - **TwinCAT: probable falso negativo en TwinCAT 3 `[inferencia]`.** En una
   captura real (TwinCAT XAE contra un CX, `twincat.pcapng` del barrido del
   7-10), el router contesta con un RST de TCP a la primera petición ADS de un

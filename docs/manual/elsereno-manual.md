@@ -372,7 +372,7 @@ elsereno discover --auto 192.168.1.0/24 --format list \
 
 # Output de discover en NDJSON (default)
 elsereno discover --auto 10.0.0.0/24 \
-  --concurrency 64 --timeout 1s > inventory.ndjson
+  --parallel 64 --dial-timeout 1s > inventory.ndjson
 ```
 
 Útil para el flujo "punto y dispara" cuando no tienes Shodan /
@@ -403,10 +403,13 @@ elsereno scan --input shodan:'org:"ejemplo corp"' \
 #### 2.1.2 Inputs desde Censys
 
 ```sh
-censys search 'services.service_name: MODBUS AND org: "ejemplo corp"' \
-  --index hosts --pages 10 --output json > censys-modbus.json
-elsereno scan --input-file censys-modbus.json --input-type censys
+elsereno scan \
+  --input censys:'services.service_name: MODBUS AND org: "ejemplo corp"' \
+  --api-creds-file ~/.elsereno/api-creds.yaml
 ```
+
+No hay entrada desde un fichero JSON exportado por el CLI de Censys:
+la entrada `censys:` consulta la API directamente.
 
 #### 2.1.3 Inputs desde FOFA / ZoomEye / ONYPHE (v1.8 + v1.9)
 
@@ -475,8 +478,8 @@ targets, err := c.Search(ctx, `protocol="iax2"`, 100)
 nmap -sS -p 102,502,1911,2404,4840,5094,10001,20000,44818,47808 \
      -oX nmap-ics.xml ejemplo.com
 
-elsereno scan --input-file nmap-ics.xml --input-type nmapxml \
-              --concurrency 50 --rate 200 --out-ndjson findings.ndjson
+elsereno scan --input nmap:nmap-ics.xml \
+              --max-concurrent 50 --rate 200 --output findings.ndjson
 ```
 
 #### 2.1.5 Inputs desde stdin / lista plana
@@ -526,30 +529,25 @@ scope filter`.
 
 #### 2.1.7 Outputs + reporting
 
-Cinco formatos cubren los casos habituales:
+`scan` tiene tres formatos de salida (`--output-format`), al fichero
+de `--output` o a stdout:
 
 ```sh
-# NDJSON (máquina)
-elsereno scan --input-file t.txt --out-ndjson findings.ndjson
+# NDJSON (máquina, por defecto)
+elsereno scan --input list:t.txt --output findings.ndjson
 
 # CSV (SOC analyst)
-elsereno scan --input-file t.txt --out-csv findings.csv
-
-# HTML (operator-friendly, dark-mode, per-protocol)
-elsereno scan --input-file t.txt --out-html findings.html
-
-# CEF / Syslog (SIEM integration)
-elsereno scan --input-file t.txt --syslog udp://siem.internal:514
-elsereno scan --input-file t.txt --cef-file findings.cef
-
-# Webhook genérico (HMAC-SHA256 firmado)
-elsereno scan --input-file t.txt \
-  --webhook-url https://ops.example/hook \
-  --webhook-secret-file ~/.elsereno/wh.pp
+elsereno scan --input list:t.txt --output-format csv --output findings.csv
 
 # STIX 2.1 (v1.15+), feed MISP / OpenCTI / ThreatBus
-elsereno scan --input-file t.txt --output-format stix > findings.stix.json
+elsereno scan --input list:t.txt --output-format stix > findings.stix.json
 ```
+
+No hay salida de findings a HTML, CEF, syslog, webhook, Jira ni GitHub
+issues: esos escritores existen en `internal/outputs/` pero ningún
+comando los importa (`audit export` emite CEF y syslog para los eventos
+de auditoría con su propio formateador). Para un SIEM, reenvía el NDJSON con tu
+forwarder (ver `docs/INTEGRATIONS.md`).
 
 El bundle STIX 2.1 emite por finding:
 - Un `ipv4-addr` o `ipv6-addr` SCO (con UUIDv5 determinístico)
@@ -866,8 +864,8 @@ elsereno explain
 # Mostrar el YAML embebido (pesos + umbrales)
 elsereno scoring show
 
-# Triage: agrupa findings por quick-win / strategic / routine
-elsereno triage --run <uuid>
+# Triage: agrupa findings por quick-win / strategic / utility / routine
+elsereno triage --from-file findings.ndjson
 ```
 
 Los pesos por defecto:
@@ -1014,17 +1012,18 @@ elsereno-offensive exploit run \
 
 Probers: Telnet, FTP, HTTP-Basic, SNMPv1/v2c (community strings).
 
-```sh
-# Harvest contra una lista de objetivos, guarda hallazgos en vault
-elsereno-offensive harvest \
-  --targets harvest-list.txt \
-  --probers telnet,ftp,http-basic,snmp \
-  --accept-writes --confirm-target harvest-list.txt --confirm-token … \
-  --vault-passphrase-file ~/.elsereno/dev.pp
+Un protocolo y un objetivo por ejecución; prueba la lista de
+credenciales por defecto y escribe `HIT` o `NO-HIT`. No guarda nada en
+el vault: si hay acierto, imprime el `creds store` que lo guardaría.
 
-# Ver credenciales descubiertas (con redacción si TTY)
+```sh
+elsereno-offensive harvest snmp --target 10.0.0.9:161
+elsereno-offensive harvest http-basic --target 10.0.0.5:80
+
+# Guardar a mano una credencial encontrada (pide passphrase y valor):
+elsereno-offensive creds store snmp-10.0.0.9:161
 elsereno-offensive creds list
-elsereno-offensive creds show --name cisco-snmp-1 --reveal   # registra token_reveal en audit
+elsereno-offensive creds show snmp-10.0.0.9:161 --reveal   # el reveal aún no va a la cadena de auditoría
 ```
 
 ### 6.4 Dial individual (un número)
@@ -1393,18 +1392,22 @@ transporte ambiguo.
 Workflow operator (systemd / runit / s6):
 
 ```sh
-# 1. Edita el allow-file con la nueva config
-sudo vim /etc/elsereno/sip-gate.yaml
+# 1. Decide las listas nuevas (el allow-file no se edita a mano: el
+#    paso 2 lo regenera desde los flags y lo sobrescribe)
 
-# 2. Re-mint del confirm-token contra el nuevo allow-file
+# 2. Re-mint del confirm-token: dry-run no lee el allow-file; se le
+#    pasan las listas y escribe el fichero con --emit-allow-file
 elsereno-offensive write sip dry-run \
-  --allow-file /etc/elsereno/sip-gate.yaml \
+  --target sip.internal:5060 --method INVITE,REGISTER \
+  --from-domain internal.pbx --to-prefix +34 \
+  --emit-allow-file /tmp/sip-gate.yaml \
   --vault-passphrase-file ~/.elsereno/dev.pp
-# → ConfirmToken: <NUEVO-hex>
+# → Confirm-token: <NUEVO-hex>
+sudo install -m 0600 /tmp/sip-gate.yaml /etc/elsereno/sip-gate.yaml
 
-# 3. Escribe el nuevo token en el EnvironmentFile del supervisor
-sudo vim /etc/systemd/system/elsereno-sip-gate.service.d/token.conf
-# Environment="ELSERENO_CONFIRM_TOKEN=<NUEVO-hex>"
+# 3. Guarda el token en un fichero 0600 que la unit lee con
+#    --confirm-token-file (no --confirm-token: se ve en ps)
+printf '%s\n' '<NUEVO-hex>' | sudo install -m 0600 /dev/stdin /etc/elsereno/sip-gate.token
 
 # 4. Trigger reload
 sudo systemctl kill -s SIGHUP elsereno-sip-gate.service
@@ -1545,13 +1548,10 @@ response: envuelve líneas con tankID, inventory, alarm codes
 
 ### 7.5 Dashboard como receptor de detection
 
-Si tu stack envía a ElSereno (vía `syslog` output):
-
-```sh
-# Agente ICS-NIDS vuelca CEF a ElSereno
-elsereno scan --input-file cef-events.csv --input-type cef \
-              --out-ndjson merged.ndjson
-```
+No existe: ElSereno no ingiere eventos CEF ni syslog de otras
+herramientas (ninguna entrada de `scan` los acepta). La integración va
+en el otro sentido: ElSereno produce NDJSON y eventos de auditoría
+(`audit export --format cef|syslog`) que tu SIEM recoge.
 
 ---
 
@@ -1570,7 +1570,7 @@ elsereno backup restore --in backup-2026-04-22.elsb
 Audit chain:
 ```sh
 elsereno audit verify-file       # valida ~/.elsereno/audit.jsonl
-elsereno audit export --out audit.jsonl.asc   # firma con GPG
+elsereno audit export > audit-export.ndjson   # firmar aparte, p. ej. gpg --detach-sign
 ```
 
 **Audit cross-process flock (v1.15+)**: dos procesos ElSereno
@@ -1647,9 +1647,10 @@ Alguien (o algo) tocó el fichero `~/.elsereno/audit.jsonl`. Esto
 es grave: la cadena hash ya no valida. Procedimiento:
 1. `cp ~/.elsereno/audit.jsonl audit-corrupt.jsonl.bak`
 2. Investigar quién modificó (mtime, zfs snapshots, etc.)
-3. Si el operador quiere seguir: `elsereno audit rebase` inserta
-   un rebase marker + reinicia la cadena. La corruption queda
-   auditéada de forma explícita (no oculta).
+3. Si el operador quiere seguir: hoy no hay comando que reinicie la
+   cadena (`audit compact`, que insertaría un rebase marker, sale con
+   69: el escritor está pendiente). Archiva el fichero corrupto y
+   empieza uno nuevo; deja constancia fuera de la cadena.
 
 ---
 

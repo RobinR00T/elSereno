@@ -249,7 +249,7 @@ is restored.
 | `Docker daemon not responding` | Docker Desktop closed / `dockerd` not running | Start Docker Desktop or `sudo systemctl start docker` |
 | `dev-db.sh: line N: /Users/Jane/AI projects/...: No such file or directory` | Outdated `dev-db.sh` (pre-`e007f13`) doesn't handle paths with spaces | Update repo: `git pull` and re-run |
 | Migrations report `migrations applied` but `\dt` shows no new tables | Binary is **stale**: embedded migrations don't include the recent ones | `scripts/start.sh` rebuilds automatically; otherwise: `go build -o elsereno ./cmd/elsereno && ./elsereno db migrate up` |
-| `serve` exits with `vault not initialised` | First-run; vault state missing | `./elsereno vault init --passphrase-file ~/.elsereno/dev.pp` |
+| `serve` exits with `vault not initialised` | First-run; vault state missing | `./elsereno vault init --vault-passphrase-file ~/.elsereno/dev.pp` |
 | `gh auth status` shows token invalid after running hygiene flow | Bootstrap PAT was revoked; `gh` had it cached | `gh auth login -h github.com` (web flow recommended) |
 | `goreleaser` fails with `GITHUB_REPOSITORY` template error | Env not set (only exists inside GitHub Actions) | Prepend `GITHUB_REPOSITORY=RobinR00T/elSereno` to the command |
 
