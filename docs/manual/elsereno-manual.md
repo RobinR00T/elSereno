@@ -510,19 +510,23 @@ dial:
     - "01189998819991197253"
 ```
 
-Las secciones `protocols`, `binds` y `canary` también se aceptan, pero
-hoy no se aplican (no limitan plugins, binds ni avisan). Cualquier otra
-clave es un error de parseo. Detalle en `docs/MANUAL.md` §12.
+`protocols` limita qué plugins corren (por nombre o por protocolo:
+`s7` cubre `s7` y `s7-exposure`). `binds` y `canary` se aceptan pero no
+se aplican. Cualquier otra clave es un error de parseo. Detalle en
+`docs/MANUAL.md` §12.
 
 Uso:
 
 ```sh
 elsereno scan --scope scope.yaml --input list:targets.txt
+elsereno fingerprint probe --plugin modbus --target 10.0.0.5:502 --scope scope.yaml
 elsereno dial validate --number "+34 91 123 4567" --scope scope.yaml
 ```
 
-Sin `--scope` no se aplica ningún scope: un `scope.yaml` en el
-directorio de trabajo no se lee. Un target fuera del scope **no se
+Todo comando que se conecta a un target acepta `--scope` (desde el
+17-10-2026; antes solo `scan`, `serve` y `dial`). Sin `--scope` no se
+aplica ningún scope: un `scope.yaml` en el directorio de trabajo no se
+lee. Un target fuera del scope **no se
 prueba**, pero tampoco deja rastro: no hay aviso por target ni evento en
 la auditoría. Si no queda ninguno, `scan` sale con `no targets after
 scope filter`.

@@ -258,8 +258,9 @@ gotchas por dispositivo.
 
 **Offensive build**: cualquier escritura requiere
 triple-confirm y queda auditada. No puede dispararse por
-accidente. El scope no la limita: los comandos de escritura
-no aceptan `--scope`.
+accidente. Con `--scope`, `write modbus send`, `exploit run` y
+`proxy listen` rechazan un target fuera del scope (77) y exigen
+una IP, no un nombre.
 
 ---
 

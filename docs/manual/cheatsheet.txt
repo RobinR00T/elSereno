@@ -456,7 +456,7 @@ audit: ErrChainBroken        → audit.jsonl tocado; audit rebase
 ~/.elsereno/vault.v1.bin     AES-GCM vault
 ~/.elsereno/audit.jsonl      audit chain JCS+SHA256 (0600)
 ~/.elsereno/dev.pp           passphrase file (0600)
-scope.yaml                   ranges + ports + blocked_numbers
+scope.yaml                   ranges + ports + protocols + blocked_numbers (--scope on every network command)
 docs/openapi.yaml            API 3.1 spec snapshot
 dist/*.tar.gz                goreleaser output (release build)
 

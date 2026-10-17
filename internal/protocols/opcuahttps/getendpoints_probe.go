@@ -49,6 +49,13 @@ func probeGetEndpoints(ctx context.Context, postURL, endpointURL string, timeout
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			DisableKeepAlives: true,
 		},
+		// The probe talks to the target only: a redirect is the answer
+		// (not a GetEndpointsResponse), never followed. Until 2026-10-17
+		// it was, so a device could point the probe at any address
+		// outside the scan's scope (PITF-095).
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 	resp, err := client.Do(req)
 	if err != nil {

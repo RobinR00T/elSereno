@@ -364,7 +364,7 @@ vacío y `port` a 0.
 | `--default-port N`         | (sin)          | si las líneas no traen `:port`, se aplica este                        |
 | `--max-concurrent N`       | (config)       | targets paralelos                                                     |
 | `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe                 |
-| `--scope FILE.yaml`        | (sin)          | scope.yaml; descarta los targets fuera de sus rangos o puertos (§12)  |
+| `--scope FILE.yaml`        | (sin)          | scope.yaml; descarta los targets fuera de sus rangos o puertos, y no lanza los plugins fuera de `protocols` (§12) |
 | `--no-progress`            | `false`        | desactiva barra de progreso (CI-friendly)                             |
 
 **Ejemplos:**
@@ -480,7 +480,8 @@ desde el dashboard, la API o un schedule se ejecutan en el pool de
 workers (`--scan-pool`): **mandan tráfico real a sus targets**, con el
 mismo reparto por puerto que `scan` (§7.1). Antes se quedaban en
 `queued` para siempre (PITF-094). Con `--scope`, los targets fuera de
-scope se descartan antes de sondear; sin él no hay límite.
+scope se descartan antes de sondear y los plugins fuera de `protocols`
+no corren (§12); sin él no hay límite.
 
 - Los findings van siempre al stream SSE (`/api/v1/stream`: `run_start`,
   `finding`, `run_end`) y, si hay `DATABASE_URL`, a las tablas `runs`,
@@ -1143,17 +1144,21 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 
 ## 12. `scope.yaml` reference
 
-Un **scope file** limita qué targets pueden tocar `scan` y los scans del
-dashboard, y qué números acepta `dial`. Solo se aplica cuando lo pasas
-con `--scope FILE`: no hay carga automática (un `scope.yaml` en el
-directorio de trabajo o en `~/.elsereno/` no se lee). Lo aceptan `scan`,
-`serve` (para los scans del dashboard), `lint` (solo valida) y, en el
-build offensive, `dial validate|batch|wardial`. Sin `--scope`, no se
-filtra ningún target. Ningún otro comando acepta `--scope`, así que el
-scope no limita lo que tocan: `discover`, `fingerprint probe`,
-`plaintext-check`, `tui --input`, los verbos por protocolo (`opcua
-probe-anon`, `s7 probe-protection`...) y, en el build offensive, `write`,
-`exploit`, `proxy listen`, `harvest` y `creds-check`.
+Un **scope file** limita a qué direcciones y puertos se conecta
+elSereno, qué plugins corren y qué números acepta `dial`. Solo se aplica
+cuando lo pasas con `--scope FILE`: no hay carga automática (un
+`scope.yaml` en el directorio de trabajo o en `~/.elsereno/` no se lee).
+Sin `--scope`, no se filtra nada.
+
+Desde el 17-10-2026 lo acepta todo comando que se conecta a un target
+(antes solo `scan`, `serve` y `dial`, PITF-095): `scan`, `serve` (scans
+del dashboard, la API y los schedules), `discover`, `fingerprint probe`,
+`plaintext-check`, `tui --input`, `opcua probe-anon` y `probe-write`,
+`s7 probe`, `probe-protection` y `probe-identity` y, en el build
+offensive, `write modbus send`, `exploit run`, `proxy listen`, `harvest`
+y `creds-check http`, además de `dial validate|batch|wardial` (solo
+`blocked_numbers`). `lint --scope` solo valida. Un fichero que no parsea
+para el comando con 78.
 
 ### Formato
 
@@ -1166,6 +1171,9 @@ ranges:                  # direcciones permitidas (IPv4 e IPv6)
 ports:
   allow: [102, 502, 4840, 20000, 44818, 47808]
   deny: [23]
+protocols:               # qué plugins corren
+  allow: [modbus, s7, opcua, dnp3, enip, bacnet, banner]
+  deny: [s7-exposure]
 dial:                    # solo `dial`, build offensive
   blocked_numbers:
     - "34112"            # solo dígitos: sin "+" ni "00" (ver tabla)
@@ -1181,10 +1189,10 @@ que un typo no pasa en silencio. Cada CIDR es una entrada `cidr` (con
 
 | Sección                    | Dónde se aplica                     | Regla                                                                                   |
 |----------------------------|-------------------------------------|-----------------------------------------------------------------------------------------|
-| `ranges`                   | `scan`, scans de `serve`            | Sin entradas: cualquier dirección. Con entradas: fuera de todas, el target se descarta. |
-| `ports.allow`/`ports.deny` | `scan`, scans de `serve`            | `deny` gana. `allow` vacío: cualquier puerto salvo `deny`.                              |
+| `ranges`                   | todo comando de red con `--scope`   | Sin entradas: cualquier dirección. Con entradas: fuera de todas, el target se descarta (o se rechaza con 77 si es el único). |
+| `ports.allow`/`ports.deny` | todo comando de red con `--scope`   | `deny` gana. `allow` vacío: cualquier puerto salvo `deny`.                              |
+| `protocols.allow`/`protocols.deny` | todo comando que lanza un plugin | Por nombre del plugin o por su protocolo (lo de antes del primer `-`): `s7` cubre `s7` y `s7-exposure`; `s7-exposure` solo ese; `opcuahttps` es un nombre propio. Sin distinguir mayúsculas. `deny` gana; `allow` vacío deja pasar todo lo no denegado, y uno con entradas tiene que incluir `banner` para que corra. |
 | `dial.blocked_numbers`     | `dial` (offensive)                  | Bloquea el número exacto y todo lo que empiece por él, además del bloqueo fijo de 3 dígitos o menos. `dial` normaliza el número marcado (quita `+`, `00` inicial y puntuación) pero no la entrada: escríbela solo con dígitos y sin `00` (`"34112"`, no `"+34112"` ni `"0034112"`, que no bloquean nada). |
-| `protocols`                | ninguno                             | Se parsea pero no se aplica: no limita qué plugins corren.                              |
 | `binds`                    | ninguno                             | Se parsea pero no se aplica: un bind no-loopback de `serve` lo controlan sus flags.     |
 | `canary`                   | ninguno                             | Se parsea pero no se aplica.                                                            |
 
@@ -1194,9 +1202,38 @@ Consecuencias que conviene saber:
 - Una CIDR mal escrita (`10.0.0.0/33`) se ignora sin error, y `lint
   --scope` tampoco la detecta: lo que solo cubría ella queda fuera (falla
   cerrado).
-- `scan` descarta los targets fuera de scope antes de cualquier conexión,
-  sin aviso por target ni entrada en la auditoría; si no queda ninguno,
-  sale con `no targets after scope filter` (código 66, `ExitNoInput`).
+- `scan`, `serve`, `discover` y `tui --input` descartan los targets fuera
+  de scope antes de cualquier conexión, sin aviso por target ni entrada
+  en la auditoría; si no queda ninguno, salen con 66 (`ExitNoInput`).
+- Un comando de un solo `--target` lo rechaza con 77 (`ExitNoPerm`) sin
+  conectar. Si le das un nombre, lo resuelve una vez, comprueba esa IP y
+  se conecta a ella, así que el nombre no puede resolver a otra cosa
+  después de la comprobación (`creds-check http` hace lo mismo y deja el
+  nombre en la cabecera `Host`).
+- `write modbus send`, `exploit run` y `proxy listen` exigen con
+  `--scope` una IP:puerto, no un nombre (64): su token de confirmación
+  cubre el target tal como lo escribes.
+- Un plugin que `protocols` no deja correr: si lo pediste por nombre
+  (`--plugin`, o en un job del dashboard), el scan para con 77 o el job
+  falla; si no nombraste plugins, se queda fuera y `scan` lo dice en una
+  línea por stderr. `discover` no barre los puertos de esos plugins.
+- Los verbos cuentan como un plugin: `opcua probe-anon` y `probe-write`
+  como `opcua-exposure`, los tres de `s7` como `s7-exposure`, `harvest`
+  como su subverbo (`telnet`, `ftp`, `http-basic`, `snmp`),
+  `creds-check http` como `http-basic`, `write modbus send` como
+  `modbus` y `proxy listen` como su `--plugin`. `exploit run` y
+  `plaintext-check` no nombran plugin: solo les aplican rangos y puertos.
+- Las familias van por nombre: `deny: [s7]` no cubre `mms`, que también
+  habla COTP en el 102; ponlo también. Una entrada que no casa con ningún
+  plugin (un typo como `s7-`) no hace nada, y nadie avisa.
+- Las sondas HTTP (`harvest http-basic`, `opcuahttps`, `cwmp`, `pbxhttp`,
+  `creds-check http`) no siguen redirecciones: un 3xx es la respuesta, no
+  una invitación a conectar a otro sitio.
+- Con `--scope`, un nombre que no resuelve sale con 68 (y siempre en
+  `fingerprint probe`); sin `--scope`, cada comando informa del fallo a su
+  manera. Se comprueba la primera dirección del nombre: `localhost` suele
+  resolver primero a `::1`, así que un scope con solo `127.0.0.1/32` lo
+  rechaza.
 
 ### Cómo se usa
 
@@ -1209,6 +1246,10 @@ elsereno scan --input list:targets.txt --scope ./fleet-scope.yaml
 
 # El dashboard aplica el mismo scope a todos sus scans:
 elsereno serve --scope ./fleet-scope.yaml
+
+# Igual en cualquier comando de red:
+elsereno discover --auto 10.0.0.0/24 --scope ./fleet-scope.yaml
+elsereno fingerprint probe --plugin modbus --target 10.0.0.5:502 --scope ./fleet-scope.yaml
 ```
 
 `scan` no tiene modo de prueba: con `--dry-run` se niega a arrancar

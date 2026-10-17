@@ -37,6 +37,7 @@ func newOPCUAProbeAnonCmd() *cobra.Command {
 	var target, endpoint string
 	var timeout time.Duration
 	var jsonOut bool
+	var scopePath string
 	cmd := &cobra.Command{
 		Use:   "probe-anon",
 		Short: "Confirm whether an anonymous OPC UA session actually opens (read-only)",
@@ -62,13 +63,18 @@ Examples:
 			if endpoint == "" {
 				endpoint = "opc.tcp://" + target
 			}
-			return runOPCUAProbeAnon(cmd, target, endpoint, timeout, jsonOut)
+			dialTarget, err := scopedHostPort(cmd, scopePath, target, "opcua-exposure")
+			if err != nil {
+				return err
+			}
+			return runOPCUAProbeAnon(cmd, dialTarget, endpoint, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the OPC UA server (e.g. plc:4840)")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "endpoint URL (default opc.tcp://<target>)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 10*time.Second, "overall probe timeout")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }
 
@@ -77,6 +83,7 @@ func newOPCUAProbeWriteCmd() *cobra.Command {
 	var timeout time.Duration
 	var maxNodes int
 	var jsonOut bool
+	var scopePath string
 	cmd := &cobra.Command{
 		Use:   "probe-write",
 		Short: "Walk the address space as the anonymous user and flag writeable tags (read-only)",
@@ -104,7 +111,11 @@ Examples:
 			if endpoint == "" {
 				endpoint = "opc.tcp://" + target
 			}
-			return runOPCUAProbeWrite(cmd, target, endpoint, timeout, maxNodes, jsonOut)
+			dialTarget, err := scopedHostPort(cmd, scopePath, target, "opcua-exposure")
+			if err != nil {
+				return err
+			}
+			return runOPCUAProbeWrite(cmd, dialTarget, endpoint, timeout, maxNodes, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port of the OPC UA server (e.g. plc:4840)")
@@ -112,6 +123,7 @@ Examples:
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "overall probe timeout")
 	cmd.Flags().IntVar(&maxNodes, "max-nodes", 500, "cap on nodes tracked / folders browsed (bounds the walk)")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }
 

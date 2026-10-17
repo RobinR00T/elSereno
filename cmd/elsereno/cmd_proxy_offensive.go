@@ -113,6 +113,31 @@ func registerProxyListenFlags(cmd *cobra.Command, opts *proxyListenOpts) {
 	registerProxyListenLegacyICSFlags(cmd, opts)
 	registerProxyListenSessionFlags(cmd, opts)
 	addPassphraseFileFlag(cmd, &opts.ppFile)
+	addScopeFlag(cmd, &opts.scopePath)
+}
+
+// prepareProxyListenOpts loads the allow-file, validates and
+// canonicalises the flags, and checks --target against --scope.
+func prepareProxyListenOpts(opts *proxyListenOpts) error {
+	if opts.allowFile != "" {
+		if err := loadAllowFile(opts.allowFile, opts); err != nil {
+			return fail(core.ExitUsage, err)
+		}
+	}
+	if err := resolveAndValidateProxyOpts(opts); err != nil {
+		return fail(core.ExitUsage, err)
+	}
+	// Canonicalise the IP-literal forms in target / listen /
+	// confirmTarget so an operator who wrote
+	// `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in
+	// proxy listen sees both normalise to the same value (token
+	// matches, byte-for-byte compare succeeds). v1.14 chunk 2.
+	opts.target = canonicaliseTarget(opts.target)
+	opts.listen = canonicaliseTarget(opts.listen)
+	opts.confirmTarget = canonicaliseTarget(opts.confirmTarget)
+	// Every connection goes to --target, so it is the one checked
+	// (PITF-095).
+	return scopedLiteral(opts.scopePath, opts.target, opts.plugin)
 }
 
 // registerProxyListenLegacyICSFlags adds the v1.35+ flags for
@@ -412,8 +437,10 @@ type proxyListenOpts struct {
 	allowFile                                             string
 	acceptWrites                                          bool
 	confirmTarget, confirmToken, confirmTokenFile, ppFile string
-	dialTimeout, idleTimeout                              time.Duration
-	maxConns                                              int
+	// scopePath is --scope (PITF-095).
+	scopePath                string
+	dialTimeout, idleTimeout time.Duration
+	maxConns                 int
 	// reloadAllowFile enables the v1.17 chunk-4 SIGUSR1
 	// in-process reload. Requires allowFile to be set.
 	reloadAllowFile bool
@@ -493,22 +520,9 @@ type proxyListenOpts struct {
 }
 
 func runProxyListen(cmd *cobra.Command, opts proxyListenOpts) error {
-	if opts.allowFile != "" {
-		if err := loadAllowFile(opts.allowFile, &opts); err != nil {
-			return fail(core.ExitUsage, err)
-		}
+	if err := prepareProxyListenOpts(&opts); err != nil {
+		return err
 	}
-	if err := resolveAndValidateProxyOpts(&opts); err != nil {
-		return fail(core.ExitUsage, err)
-	}
-	// Canonicalise the IP-literal forms in target / listen /
-	// confirmTarget so an operator who wrote
-	// `[0:0:0:0:0:0:0:1]:7547` in dry-run + `[::1]:7547` in
-	// proxy listen sees both normalise to the same value (token
-	// matches, byte-for-byte compare succeeds). v1.14 chunk 2.
-	opts.target = canonicaliseTarget(opts.target)
-	opts.listen = canonicaliseTarget(opts.listen)
-	opts.confirmTarget = canonicaliseTarget(opts.confirmTarget)
 
 	rt, err := newOffensiveRuntime(cmd, opts.ppFile)
 	if err != nil {

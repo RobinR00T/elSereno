@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
@@ -15,9 +14,7 @@ import (
 // newPlaintextCheckCmd is the top-level verb for the cleartext-transport
 // exposure check (NIST SP 800-82 r4 Table 16).
 func newPlaintextCheckCmd() *cobra.Command {
-	var target string
-	var timeout time.Duration
-	var jsonOut bool
+	var v targetVerb
 	cmd := &cobra.Command{
 		Use:   "plaintext-check",
 		Short: "Check whether a service's transport is cleartext (read-only)",
@@ -46,16 +43,9 @@ Examples:
   elsereno plaintext-check --target plc.example:502
   elsereno plaintext-check --target 10.0.0.5:80 --json
   elsereno plaintext-check --target 10.0.0.5:443   # reports TLS posture`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if target == "" {
-				return errors.New("--target host:port is required")
-			}
-			return runPlaintextCheck(cmd, target, timeout, jsonOut)
-		},
+		RunE: v.runE("", runPlaintextCheck),
 	}
-	cmd.Flags().StringVar(&target, "target", "", "host:port to check (e.g. plc:502)")
-	cmd.Flags().DurationVar(&timeout, "timeout", 8*time.Second, "overall check timeout")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	v.register(cmd, "host:port to check (e.g. plc:502)", 8*time.Second, "overall check timeout")
 	return cmd
 }
 

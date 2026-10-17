@@ -467,30 +467,43 @@ duro** en el binario (evita 911, 112, etc.).
 
 ## 9. Scope enforcement
 
-`scope.yaml` solo se aplica si se pasa con `--scope` (`scan`, `serve`
-para los scans del dashboard, `dial` en el build offensive). No hay
+`scope.yaml` solo se aplica si se pasa con `--scope`, y desde el
+17-10-2026 lo acepta todo comando que se conecta a un target (antes solo
+`scan`, `serve` y `dial`, PITF-095): `scan`, `serve` (scans del
+dashboard, la API y los schedules), `discover`, `fingerprint probe`,
+`plaintext-check`, `tui --input`, `opcua probe-anon` y `probe-write`,
+`s7 probe`, `probe-protection` y `probe-identity` y, en el build
+offensive, `write modbus send`, `exploit run`, `proxy listen`, `harvest`
+y `creds-check http`, además de `dial` (solo `blocked_numbers`). No hay
 carga automática: un `scope.yaml` en el directorio de trabajo no se lee.
+Un fichero que no parsea para el comando con 78.
 
-Con scope cargado, antes de tocar un target:
+Con scope cargado, antes de conectar:
 
-1. Si su puerto está en `ports.deny`, o `ports.allow` no está vacío y
+1. Si el puerto está en `ports.deny`, o `ports.allow` no está vacío y
    no lo incluye, se descarta.
 2. Si `ranges` tiene entradas y la dirección no cae en ninguna, se
    descarta. Sin entradas en `ranges`, cualquier dirección pasa.
-3. Sin scope cargado, todos los targets pasan (intencional para uso
-   ad-hoc).
+3. Si el plugin no pasa `protocols` (por nombre o por protocolo, lo de
+   antes del primer `-`: `s7` cubre `s7` y `s7-exposure`), no corre.
+   Uno pedido por nombre (`--plugin`, o en un job del dashboard) para
+   el scan con 77 o hace fallar el job; sin nombres, se queda fuera y
+   `scan` lo dice por stderr.
+4. Un comando con un solo `--target` lo rechaza con 77 sin conectar. Si
+   le das un nombre, lo resuelve una vez y se conecta a la IP que ha
+   comprobado. `write modbus send`, `exploit run` y `proxy listen`
+   exigen una IP con `--scope` (64 si no): su token de confirmación
+   cubre el target tal como se escribe.
+5. Sin scope cargado, todo pasa (intencional para uso ad-hoc).
 
 Un target descartado no se prueba ni produce finding, y tampoco deja
 rastro: no hay aviso por target ni evento en la auditoría (el tipo
-`scope_applied` existe pero nadie lo emite). `protocols`, `binds` y
-`canary` se parsean pero no se aplican. Detalle en `docs/MANUAL.md` §12.
+`scope_applied` existe pero nadie lo emite). `binds` y `canary` se
+parsean pero no se aplican. Detalle en `docs/MANUAL.md` §12.
 
 Para uso en pen-test autorizado: **scope obligatorio**, pasado
-siempre con `--scope`. Ojo: solo lo aplican `scan`, los scans de
-`serve` y `dial`. Ningún otro comando acepta `--scope` (`discover`,
-`fingerprint probe`, `plaintext-check`, `tui --input`, los verbos por
-protocolo, y los ofensivos de escritura, exploit, proxy, harvest y
-`creds-check`), así que el scope no los limita.
+siempre con `--scope` a cada comando: no se hereda de una ejecución a
+otra.
 
 ---
 

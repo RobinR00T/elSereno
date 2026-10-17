@@ -517,7 +517,7 @@ func registerWriteSendFlags(cmd *cobra.Command, f *modbusFlags, acceptWrites *bo
 func newWriteModbusSendCmd() *cobra.Command {
 	var f modbusFlags
 	var acceptWrites bool
-	var confirmTarget, confirmToken, confirmTokenFile, ppFile string
+	var confirmTarget, confirmToken, confirmTokenFile, ppFile, scopePath string
 	cmd := &cobra.Command{
 		Use:   "send",
 		Short: "Authorise + send a Modbus write (requires triple confirm + vault)",
@@ -531,6 +531,9 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 			}
 			if !acceptWrites {
 				return fail(core.ExitUsage, errors.New("--accept-writes is required for real delivery"))
+			}
+			if err := scopedLiteral(scopePath, f.target, "modbus"); err != nil {
+				return err
 			}
 			ct, terr := resolveConfirmToken(confirmToken, confirmTokenFile)
 			if terr != nil {
@@ -573,5 +576,6 @@ appended to the audit chain at ~/.elsereno/audit.jsonl.`,
 		},
 	}
 	registerWriteSendFlags(cmd, &f, &acceptWrites, &confirmTarget, &confirmToken, &confirmTokenFile, &ppFile)
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }

@@ -229,18 +229,39 @@ Pass via \f[CR]\-\-vault\-passphrase\-file\f[R].
 Provider API keys for \f[CR]\-\-input <provider>:<q>\f[R].
 0600 enforced at load.
 .TP
-\f[CR]./elsereno.yaml\f[R], \f[CR]./scope.yaml\f[R]
-Per\-project config + scope.
+\f[CR]./elsereno.yaml\f[R]
+Per\-project config, last in the lookup order (see
+\f[I]elsereno.yaml\f[R](5)).
+A \f[I]scope.yaml\f[R] is read only when passed with
+\f[B]\-\-scope\f[R], which every command that connects to a target
+accepts (\f[I]elsereno\-scope\f[R](5)).
 .SH EXIT CODES
 .TP
 \f[CR]0\f[R]
 success.
 .TP
 \f[CR]1\f[R]
-error.
+error (also an unknown flag or a missing argument).
 .TP
-\f[CR]2\f[R]
-usage error.
+\f[CR]64\f[R]
+usage error, \f[I]EX_USAGE\f[R] (also a name given as
+\f[B]\-\-target\f[R] to a write\-class verb with \f[B]\-\-scope\f[R]).
+.TP
+\f[CR]66\f[R]
+nothing left to do, \f[I]EX_NOINPUT\f[R] (no targets after the scope
+filter).
+.TP
+\f[CR]68\f[R]
+a \f[B]\-\-target\f[R] name that does not resolve, \f[I]EX_NOHOST\f[R]:
+with \f[B]\-\-scope\f[R], and always in \f[B]fingerprint probe\f[R].
+.TP
+\f[CR]77\f[R]
+refused by \f[B]\-\-scope\f[R], \f[I]EX_NOPERM\f[R]: a target outside
+its ranges or ports, or a plugin outside its protocols.
+.TP
+\f[CR]78\f[R]
+configuration error, \f[I]EX_CONFIG\f[R]: a config or scope file that
+does not parse.
 .TP
 \f[CR]128 + signum\f[R]
 killed by a signal (e.g.

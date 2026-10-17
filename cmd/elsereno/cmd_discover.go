@@ -45,6 +45,7 @@ func newDiscoverCmd() *cobra.Command {
 		dialTimeout  time.Duration
 		parallel     int
 		outputFormat string
+		scopePath    string
 	)
 	cmd := &cobra.Command{
 		Use:   "discover",
@@ -69,9 +70,13 @@ only runs against hosts that responded.
 
 The walk is bounded by --max-hosts (default 256, i.e. /24
 sized) and --parallel (default 64 concurrent connects). Use
---dial-timeout to tune for slow links.`,
+--dial-timeout to tune for slow links.
+
+With --scope, only the hosts in its ranges are swept, and only the
+ports its ports lists allow for the plugins its protocols lists allow.
+--max-hosts counts before that filter.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDiscover(cmd, auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat)
+			return runDiscover(cmd, auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat, scopePath)
 		},
 	}
 	cmd.Flags().StringVar(&auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
@@ -81,25 +86,27 @@ sized) and --parallel (default 64 concurrent connects). Use
 	cmd.Flags().DurationVar(&dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
 	cmd.Flags().IntVar(&parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
 	cmd.Flags().StringVar(&outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }
 
 // runDiscover dispatches the actual discover work. Extracted
 // from newDiscoverCmd's RunE so the parent stays under funlen
 // as new flags land.
-func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel int, dialTimeout time.Duration, outputFormat string) error {
+func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel int, dialTimeout time.Duration, outputFormat, scopePath string) error {
 	if (auto == "") == (hostsFile == "") {
 		return fail(core.ExitUsage,
 			errors.New("exactly one of --auto <CIDR> or --hosts <file> is required"))
+	}
+	gate, err := loadScopeGate(scopePath)
+	if err != nil {
+		return err
 	}
 	ports := registeredPluginPorts()
 	if len(ports) == 0 {
 		return fail(core.ExitSoftware, errors.New("no plugins registered, link with the protocol packages"))
 	}
-	var (
-		hosts []netip.Addr
-		err   error
-	)
+	var hosts []netip.Addr
 	if auto != "" {
 		hosts, err = expandCIDR(auto, maxHosts)
 	} else {
@@ -108,9 +115,36 @@ func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel 
 	if err != nil {
 		return fail(core.ExitUsage, err)
 	}
+	if gate.active() {
+		// Nothing outside the scope is connected to (PITF-095).
+		hosts, ports = scopeDiscover(gate, hosts, ports)
+		if len(hosts) == 0 || len(ports) == 0 {
+			return fail(core.ExitNoInput, fmt.Errorf("no hosts or ports left after scope filter (%d hosts, %d ports)", len(hosts), len(ports)))
+		}
+	}
 	ctx := cmd.Context()
 	results := sweep(ctx, hosts, ports, parallel, dialTimeout)
 	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, outputFormat)
+}
+
+// scopeDiscover keeps the hosts in the scope's ranges and the
+// (port, plugin) entries whose port the ports lists allow and whose
+// plugin the protocols lists allow. A port shared by an allowed and a
+// denied plugin is swept for the allowed one.
+func scopeDiscover(gate scopeGate, hosts []netip.Addr, ports []pluginPort) ([]netip.Addr, []pluginPort) {
+	keptHosts := make([]netip.Addr, 0, len(hosts))
+	for _, h := range hosts {
+		if gate.sc.CheckAddr(h) == nil {
+			keptHosts = append(keptHosts, h)
+		}
+	}
+	keptPorts := make([]pluginPort, 0, len(ports))
+	for _, p := range ports {
+		if gate.sc.CheckPort(p.Port) == nil && gate.sc.CheckPlugin(p.PluginID) == nil {
+			keptPorts = append(keptPorts, p)
+		}
+	}
+	return keptHosts, keptPorts
 }
 
 // loadDiscoverHostsFile parses a host-list file: one IP per

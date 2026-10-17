@@ -16,9 +16,10 @@ binds:
     - "[::1]:8787"
 dial:
   # Además de la blacklist hardcoded de ≤3 dígitos (siempre activa).
+  # Solo dígitos: "+34112" o "0034112" no bloquean nada (PITF-087).
   blocked_numbers:
-    - "+34112"
-    - "+34062"
+    - "34112"
+    - "34062"
 canary:
   enabled: false
   alert_webhook: ""

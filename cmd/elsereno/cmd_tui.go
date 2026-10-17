@@ -74,6 +74,12 @@ N.NN/s)" feedback.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			mode, feed, err := pickFeed(cmd.Context(), args)
 			if err != nil {
+				// An error that carries its exit code (the --scope
+				// checks: 77, 78, 66) keeps it (PITF-095).
+				var ce cliError
+				if errors.As(err, &ce) {
+					return err
+				}
 				return fail(core.ExitUsage, err)
 			}
 			runOpts, err := openRecordSink(args.recordPath)
@@ -117,6 +123,8 @@ func registerTUIFlags(cmd *cobra.Command, args *pickFeedArgs) {
 		"Bearer token for --watch URL (required for non-loopback targets)")
 	cmd.Flags().StringVar(&args.recordPath, "record", "",
 		"v1.41+: tee every event the TUI receives onto FILE as `elsereno-tui-record/v1` NDJSON. Symmetric counterpart to --replay. Useful for screen-recording / training / forensics. File created 0600.")
+	cmd.Flags().StringVar(&args.scopePath, "scope", "",
+		"scope.yaml for --input: targets outside its ranges and ports are not probed, and banner must be in its protocols if it lists any (elsereno-scope(5))")
 	cmd.Flags().Float64Var(&args.rate, "rate", 0,
 		"v1.43+: slow-motion playback rate in events per second (only meaningful for --replay or --feed -; 0 = as fast as possible). Useful for demos where a long capture should pace itself for the audience.")
 }
@@ -134,6 +142,7 @@ type pickFeedArgs struct {
 	apiCredsFile string
 	recordPath   string  // v1.41+
 	rate         float64 // v1.43+
+	scopePath    string  // --input only (PITF-095)
 }
 
 // openRecordSink resolves --record to a tui.RunOpts struct.
@@ -205,7 +214,7 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 			Bearer: a.watchBearer,
 		}, nil
 	case hasInput:
-		feed, err := buildInteractiveFeed(ctx, a.inputKind, a.defaultPort, a.apiCredsFile)
+		feed, err := buildInteractiveFeed(ctx, a.inputKind, a.defaultPort, a.apiCredsFile, a.scopePath)
 		if err != nil {
 			return "", nil, err
 		}
@@ -228,9 +237,17 @@ func pickFeed(ctx context.Context, a pickFeedArgs) (tui.Mode, tui.Feed, error) {
 // either pipe via `--feed -` (which reads NDJSON live) or use
 // list:/dev/stdin. We keep the kind here for symmetry with
 // `scan`, but it'll race the TUI input on a TTY.
-func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uint16, apiCredsFile string) (tui.Feed, error) {
+func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uint16, apiCredsFile, scopePath string) (tui.Feed, error) {
 	if inputKind == "" {
 		return nil, errors.New("tui: --input: empty")
+	}
+	gate, err := loadScopeGate(scopePath)
+	if err != nil {
+		return nil, err
+	}
+	// --input probes every target with banner (PITF-095).
+	if err := gate.plugin("banner"); err != nil {
+		return nil, err
 	}
 	targets, err := parseInput(ctx, inputParseOpts{
 		InputKind:    inputKind,
@@ -242,6 +259,12 @@ func buildInteractiveFeed(ctx context.Context, inputKind string, defaultPort uin
 	}
 	if len(targets) == 0 {
 		return nil, fmt.Errorf("tui: --input %s: no targets parsed", inputKind)
+	}
+	if gate.active() {
+		targets = filterByScope(gate.sc, targets)
+		if len(targets) == 0 {
+			return nil, fail(core.ExitNoInput, fmt.Errorf("tui: --input %s: no targets after scope filter", inputKind))
+		}
 	}
 	return feeds.Interactive{
 		Targets: targets,

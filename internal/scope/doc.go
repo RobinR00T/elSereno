@@ -1,6 +1,8 @@
-// Package scope parses and evaluates scope.yaml. Callers apply ranges
-// and ports (Check: scan and serve's scan runner) and dial blacklists
-// (CheckDial: dial); protocols, binds and canary are parsed but no caller
-// applies them (CheckProtocol has none). A scope applies only when a
-// command is given --scope: nothing loads scope.yaml on its own.
+// Package scope parses and evaluates scope.yaml. Every network command
+// given --scope applies ranges and ports (Check, CheckAddr, CheckPort)
+// and the protocols lists (CheckPlugin) before it connects, through
+// cmd/elsereno/scope_gate.go; dial applies its blacklist (CheckDial).
+// Binds and canary are parsed but no caller applies them. A scope
+// applies only when a command is given --scope: nothing loads
+// scope.yaml on its own.
 package scope

@@ -282,7 +282,7 @@ func TestAnnounceEnabledSchedules(t *testing.T) {
 func TestSafeProbe_PanicBecomesError(t *testing.T) {
 	probe := safeProbe("boom", func(context.Context, core.Target) (*core.Finding, error) {
 		panic("probe panic")
-	})
+	}, nil)
 	f, err := probe(context.Background(), core.Target{Address: netip.MustParseAddr("127.0.0.1"), Port: 502})
 	if f != nil || err == nil || !strings.Contains(err.Error(), "boom probe panicked on 127.0.0.1:502") {
 		t.Fatalf("got %v, %v", f, err)
@@ -319,5 +319,36 @@ func TestDBRunRecorder_RecordOutlivesCancel(t *testing.T) {
 		core.Target{Address: netip.MustParseAddr("127.0.0.1"), Port: 502})
 	if err != nil || q.rows != 1 || q.execs != 1 || q.deadCtx != 0 {
 		t.Fatalf("err %v; %d target upserts, %d inserts, %d with a cancelled context; want nil, 1, 1, 0", err, q.rows, q.execs, q.deadCtx)
+	}
+}
+
+// panicProtocol is a plugin whose probe panics, as one could on bytes
+// a device crafted.
+type panicProtocol struct{}
+
+func (panicProtocol) Metadata() core.PluginMetadata {
+	return core.PluginMetadata{Name: "panic-test"}
+}
+func (panicProtocol) Probe(context.Context, core.Target) (*core.Finding, error) {
+	panic("hostile bytes")
+}
+func (panicProtocol) REPL(context.Context, *core.Session) error { return nil }
+func (panicProtocol) ProxyHandler() core.ProxyHandler           { return nil }
+
+// TestScanRunner_ProbePanicFailsJob: a probe panic through the real
+// dispatch neither takes the process down nor passes for a clean run:
+// it is counted, and Run would fail the job (re-audit of PITF-094).
+func TestScanRunner_ProbePanicFailsJob(t *testing.T) {
+	plugin := core.Plugin{PluginMetadata: core.PluginMetadata{Name: "panic-test"}, Factory: func() core.Protocol { return panicProtocol{} }}
+	state := newRunState(1, 0, 2)
+	targets := []core.Target{
+		{Address: netip.MustParseAddr("127.0.0.1"), Port: 1},
+		{Address: netip.MustParseAddr("127.0.0.1"), Port: 2},
+	}
+	if n := state.dispatchAll(context.Background(), []core.Plugin{plugin}, targets, func(scanorch.Stats, map[string]int) {}); n != 1 {
+		t.Fatalf("dispatched %d plugins, want 1", n)
+	}
+	if got := state.panics.Load(); got != 2 {
+		t.Fatalf("%d panics counted, want 2", got)
 	}
 }

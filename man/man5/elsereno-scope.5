@@ -4,23 +4,28 @@
 .SH NAME
 \f[B]scope.yaml\f[R]: authorised scope file for \f[I]elsereno\f[R](1)
 .SH DESCRIPTION
-A \f[I]scope.yaml\f[R] file defines the authorised ranges and ports, and
-the dialling blacklist, for an engagement.
-It also accepts protocols, web binds and a canary, which are parsed but
-not applied.
+A \f[I]scope.yaml\f[R] file defines the authorised ranges, ports and
+protocols, and the dialling blacklist, for an engagement.
+It also accepts web binds and a canary, which are parsed but not
+applied.
 .PP
-A scope file applies only when passed with \f[B]\-\-scope\f[R] (to
-\f[B]scan\f[R], to \f[B]serve\f[R] for dashboard scans, and to
-\f[B]dial\f[R] in the offensive build; \f[B]lint \-\-scope\f[R] only
-validates it).
-No other command takes it, so it does not limit \f[B]discover\f[R],
+A scope file applies only when passed with \f[B]\-\-scope\f[R].
+Every command that connects to a target takes it: \f[B]scan\f[R],
+\f[B]serve\f[R] (dashboard, API and schedule scans), \f[B]discover\f[R],
 \f[B]fingerprint probe\f[R], \f[B]plaintext\-check\f[R], \f[B]tui
-\-\-input\f[R], the per\-protocol verbs, or the offensive
-\f[B]write\f[R], \f[B]exploit\f[R], \f[B]proxy listen\f[R],
-\f[B]harvest\f[R] and \f[B]creds\-check\f[R].
+\-\-input\f[R], \f[B]opcua probe\-anon\f[R] and \f[B]probe\-write\f[R],
+\f[B]s7 probe\f[R], \f[B]probe\-protection\f[R] and
+\f[B]probe\-identity\f[R], and in the offensive build \f[B]write modbus
+send\f[R], \f[B]exploit run\f[R], \f[B]proxy listen\f[R],
+\f[B]harvest\f[R] and \f[B]creds\-check http\f[R], plus \f[B]dial\f[R]
+(which applies only \f[B]dial.blocked_numbers\f[R]).
+\f[B]lint \-\-scope\f[R] only validates it.
+Until 2026\-10\-17 only \f[B]scan\f[R], \f[B]serve\f[R] and
+\f[B]dial\f[R] took it.
 Nothing loads it on its own: a \f[I]scope.yaml\f[R] in the working
-directory is not read, and without \f[B]\-\-scope\f[R] no target is
+directory is not read, and without \f[B]\-\-scope\f[R] nothing is
 filtered.
+A file that does not parse stops the command with exit 78.
 Keys other than the ones below are a parse error.
 .SH FORMAT
 .IP
@@ -36,7 +41,7 @@ ports\f[B]:\f[R]
   deny\f[B]:\f[R] \f[B][]\f[R]
 protocols\f[B]:\f[R]
   allow\f[B]:\f[R] \f[B][\f[R]modbus\f[B],\f[R] s7\f[B],\f[R] enip\f[B],\f[R] bacnet\f[B],\f[R] dnp3\f[B],\f[R] iec104\f[B],\f[R] xot\f[B],\f[R] atmodem\f[B],\f[R] banner\f[B]]\f[R]
-  deny\f[B]:\f[R] \f[B][]\f[R]
+  deny\f[B]:\f[R] \f[B][\f[R]s7\-exposure\f[B]]\f[R]
 binds\f[B]:\f[R]
   allow\f[B]:\f[R]
     \f[B]\-\f[R] 127.0.0.1:8787
@@ -74,7 +79,32 @@ hard\-coded block of numbers of 3 digits or fewer.
 only: \(dq+34112\(dq or \(dq0034112\(dq block nothing.
 .TP
 \f[B]protocols.allow / protocols.deny\f[R]
-Parsed, not applied: they do not limit which plugins run.
+Which plugins may run.
+An entry matches a plugin\(aqs name or its protocol, the part of the
+name before the first \(dq\-\(dq: \f[B]s7\f[R] covers s7 and
+s7\-exposure, \f[B]s7\-exposure\f[R] only that plugin, and
+\f[B]opcuahttps\f[R] is a name of its own.
+Case is ignored.
+Deny wins over allow; an empty \f[B]allow\f[R] lets through every plugin
+not denied, and a non\-empty one must list \f[B]banner\f[R] for banner
+to run.
+A plugin named with \f[B]\-\-plugin\f[R] (or in a dashboard job) that
+the lists refuse stops the scan (exit 77, or a failed job); without
+names the refused plugins are left out, and \f[B]scan\f[R] says which on
+stderr.
+\f[B]discover\f[R] does not sweep the ports of refused plugins.
+The verbs count as a plugin: \f[B]opcua probe\-anon\f[R] and
+\f[B]probe\-write\f[R] as opcua\-exposure, the three \f[B]s7\f[R] probes
+as s7\-exposure, \f[B]harvest\f[R] as its sub\-verb (telnet, ftp,
+http\-basic, snmp), \f[B]creds\-check http\f[R] as http\-basic,
+\f[B]write modbus send\f[R] as modbus and \f[B]proxy listen\f[R] as its
+\f[B]\-\-plugin\f[R].
+\f[B]exploit run\f[R] and \f[B]plaintext\-check\f[R] name no plugin, so
+only ranges and ports apply to them.
+Families go by name only: \f[B]deny: [s7]\f[R] does not cover
+\f[B]mms\f[R], which also speaks COTP on port 102; list it too.
+An entry that matches no plugin (a typo such as \f[B]s7\-\f[R]) changes
+nothing and no command warns about it.
 .TP
 \f[B]binds.allow\f[R]
 Parsed, not applied.
@@ -85,10 +115,25 @@ A non\-loopback bind of \f[B]serve\f[R] is governed by its own flags
 \f[B]canary\f[R]
 Parsed, not applied.
 .PP
+\f[B]ranges\f[R] and \f[B]ports\f[R] apply to the address and port each
+command connects to.
+A command with a list (\f[B]scan\f[R], \f[B]serve\f[R],
+\f[B]discover\f[R], \f[B]tui \-\-input\f[R]) drops what falls outside; a
+command with one \f[B]\-\-target\f[R] refuses it with exit 77 before
+connecting.
+A read\-only command given a name resolves it once, checks that address
+and connects to it, so the name cannot resolve elsewhere after the
+check; \f[B]creds\-check http\f[R] does the same and keeps the name in
+the Host header.
+\f[B]write modbus send\f[R], \f[B]exploit run\f[R] and \f[B]proxy
+listen\f[R] need \f[B]\-\-target\f[R] as an IP:port with
+\f[B]\-\-scope\f[R] (exit 64 otherwise): their confirm token covers the
+target as typed.
+.PP
 A dropped target is not probed and leaves no trace: there is no
 per\-target message and no audit event.
-When no target is left, \f[B]scan\f[R] exits with \(dqno targets after
-scope filter\(dq.
+When no target is left, \f[B]scan\f[R], \f[B]discover\f[R] and \f[B]tui
+\-\-input\f[R] exit with 66.
 .SH SEE ALSO
 \f[I]elsereno\f[R](1), \f[I]elsereno.yaml\f[R](5),
 \f[I]elsereno\-security\f[R](7).

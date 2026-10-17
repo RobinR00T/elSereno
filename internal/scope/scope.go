@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 
@@ -16,9 +17,9 @@ import (
 var ErrOutOfScope = errors.New("scope: target out of scope")
 
 // Scope is the parsed representation of scope.yaml (section 15 of the
-// project brief). Ranges and Ports are applied by Check, Dial by
-// CheckDial; Protocols, Binds and Canary are parsed (so KnownFields
-// accepts them) but no caller applies them.
+// project brief). Ranges and Ports are applied by Check, Protocols by
+// CheckPlugin, Dial by CheckDial; Binds and Canary are parsed (so
+// KnownFields accepts them) but no caller applies them.
 type Scope struct {
 	Version   int         `yaml:"version"`
 	Ranges    []RangeDecl `yaml:"ranges"`
@@ -83,15 +84,19 @@ func Load(path string) (*Scope, error) {
 	return &s, nil
 }
 
-// Check returns nil if the target is in scope; ErrOutOfScope otherwise.
+// Check returns nil if the target is in scope (its port and its
+// address); ErrOutOfScope otherwise.
 func (s *Scope) Check(target core.Target) error {
-	if s == nil {
-		return nil
-	}
-	if err := s.checkPort(int(target.Port)); err != nil {
+	if err := s.CheckPort(int(target.Port)); err != nil {
 		return err
 	}
-	if len(s.Ranges) == 0 {
+	return s.CheckAddr(target.Address)
+}
+
+// CheckAddr returns nil if the address is in one of the declared
+// ranges, or if none is declared.
+func (s *Scope) CheckAddr(addr netip.Addr) error {
+	if s == nil || len(s.Ranges) == 0 {
 		return nil
 	}
 	for _, r := range s.Ranges {
@@ -99,14 +104,58 @@ func (s *Scope) Check(target core.Target) error {
 		if err != nil {
 			continue
 		}
-		if prefix.Contains(target.Address.Unmap()) {
+		if prefix.Contains(addr.Unmap()) {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: %s not in any declared range", ErrOutOfScope, target.Address)
+	return fmt.Errorf("%w: %s not in any declared range", ErrOutOfScope, addr)
 }
 
-// CheckProtocol returns nil if proto is allowed by the scope.
+// CheckPort returns nil if the ports lists let the port through.
+func (s *Scope) CheckPort(p int) error {
+	if s == nil {
+		return nil
+	}
+	return s.checkPort(p)
+}
+
+// CheckPlugin returns nil if the scope's protocols lists let the named
+// plugin run. An entry matches the plugin's name or its protocol, the
+// part of the name before the first "-": "s7" covers s7 and
+// s7-exposure, "opcua" covers opcua and opcua-exposure, and
+// "s7-exposure" covers only that plugin (opcuahttps is a name of its
+// own). Entries are compared without regard to case. Deny wins over
+// allow; an empty allow list lets through every plugin not denied.
+func (s *Scope) CheckPlugin(name string) error {
+	if s == nil {
+		return nil
+	}
+	family := name
+	if i := strings.IndexByte(name, '-'); i > 0 {
+		family = name[:i]
+	}
+	matches := func(entry string) bool {
+		entry = strings.TrimSpace(entry)
+		return strings.EqualFold(entry, name) || strings.EqualFold(entry, family)
+	}
+	for _, d := range s.Protocols.Deny {
+		if matches(d) {
+			return fmt.Errorf("%w: protocol of plugin %q denied (%q)", ErrOutOfScope, name, d)
+		}
+	}
+	if len(s.Protocols.Allow) == 0 {
+		return nil
+	}
+	for _, a := range s.Protocols.Allow {
+		if matches(a) {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: plugin %q not in protocols allow list", ErrOutOfScope, name)
+}
+
+// CheckProtocol returns nil if proto is allowed by the scope, comparing
+// the exact string. Commands check plugins with CheckPlugin.
 func (s *Scope) CheckProtocol(proto string) error {
 	if s == nil {
 		return nil

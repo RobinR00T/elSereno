@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -45,7 +46,7 @@ func newScanCmd() *cobra.Command {
 		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query> | onyphe:<query>")
 	cmd.Flags().StringVar(&opts.apiCredsFile, "api-creds-file", "",
 		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:/onyphe:")
-	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "scope.yaml; targets outside its ranges or ports are dropped (no scope without this flag)")
+	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "scope.yaml; targets outside its ranges or ports are dropped and plugins outside its protocols do not run (no scope without this flag)")
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
 	cmd.Flags().IntVar(&opts.maxConcurrent, "max-concurrent", 0, "max concurrent targets (default from config)")
@@ -70,6 +71,8 @@ type scanOpts struct {
 	outputPath    string
 	noProgress    bool
 	plugins       []string
+	// scope is the loaded --scope (nil without one).
+	scope *scope.Scope
 }
 
 func runScan(cmd *cobra.Command, opts scanOpts) error {
@@ -95,6 +98,7 @@ func runScan(cmd *cobra.Command, opts scanOpts) error {
 	if len(targets) == 0 {
 		return fail(core.ExitNoInput, fmt.Errorf("no targets after scope filter"))
 	}
+	opts.scope = s
 
 	out, closer, err := openOutput(opts)
 	if err != nil {
@@ -109,6 +113,13 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 	plugins, err := resolvePlugins(opts.plugins)
 	if err != nil {
 		return fail(core.ExitUsage, err)
+	}
+	plugins, refused, err := scopePlugins(opts.scope, len(opts.plugins) > 0, plugins)
+	if err != nil {
+		return err
+	}
+	if len(refused) > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: scope protocols leave out %d plugins: %s\n", len(refused), strings.Join(refused, ", "))
 	}
 	runs, total := planScan(plugins, targets)
 	if len(runs) == 0 {

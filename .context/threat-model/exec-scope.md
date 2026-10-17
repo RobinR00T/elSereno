@@ -19,7 +19,7 @@ binary we're about to spawn actually the one we think it is?"
 |----------|--------------|
 | `internal/exec.SafeCommand` spawn path | sub-subprocess spawns (child's children) |
 | `--no-allowlist` bypass flow + audit | `fork` / `clone` from goroutine contexts (n/a) |
-| `internal/scope.Check` + `CheckProtocol` + `CheckDial` | scope.yaml editor hygiene |
+| `internal/scope.Check` + `CheckPlugin` + `CheckDial`, applied by `cmd/elsereno/scope_gate.go` | scope.yaml editor hygiene |
 | CIDR v4 / v6 matching | DNS resolution, handled at the scanner layer |
 
 ## S, Spoofing

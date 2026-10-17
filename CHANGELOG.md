@@ -486,6 +486,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A scope limited only `scan`, `serve` and `dial`, and its
+  `protocols` limited nothing (PITF-095).** Every command that connects
+  to a target now takes `--scope`: `discover`, `fingerprint probe`,
+  `plaintext-check`, `tui --input`, the `opcua` and `s7` probes, and in
+  the offensive build `write modbus send`, `exploit run`, `proxy listen`,
+  `harvest` and `creds-check http`. Ranges and ports apply to the address
+  each one connects to; a command with one `--target` refuses it with
+  exit 77 before connecting, and a name is resolved once and the checked
+  address is the one connected to (`creds-check http` pins its dialer and
+  keeps the name in the Host header). `write modbus send`, `exploit run`
+  and `proxy listen` need an IP:port with `--scope` (exit 64), since their
+  confirm token covers the target as typed. `protocols.allow/deny` now
+  decide which plugins run, matching a plugin's name or its protocol (the
+  part before the first "-", so `s7` covers `s7-exposure`): a named
+  plugin the scope refuses stops a scan with 77 or fails a dashboard job;
+  without names the refused plugins are left out and `scan` says which on
+  stderr. A scope file that does not parse stops any of them with 78.
+  The independent audit found two probes that followed HTTP redirects
+  out of the scope (`harvest http-basic`, which also used any
+  `HTTP_PROXY`, and the `opcuahttps` plugin, which `scan` and `serve`
+  run on 4843): neither follows a redirect now. It also found `tui
+  --input` turning every refusal into 64 (it keeps 77, 78 and 66 now)
+  and, in serve (PITF-094), a recovered probe panic that left no trace:
+  it is logged, quoted, and the job fails with the count. The
+  sample `scope.yaml` listed `"+34112"` in `blocked_numbers`, which
+  blocks nothing (PITF-087); it now lists digits only. `binds` and
+  `canary` are still parsed and not applied.
+
 - **A config file with a duration or a list did not load (PITF-096).**
   The loader merges the file over the defaults with koanf's strict merge,
   which refuses a key whose type differs, and the defaults kept their Go

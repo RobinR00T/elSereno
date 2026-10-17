@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"local/elsereno/internal/core"
 )
 
 // syncBuf is a tiny concurrency-safe wrapper around
@@ -482,8 +484,8 @@ func TestDriveProbeAgainstBytes_DefaultTimeout(t *testing.T) {
 	}
 }
 
-func TestParseProbeTarget_IPPort(t *testing.T) {
-	tgt, err := parseProbeTarget(context.Background(), "127.0.0.1:4843")
+func TestResolveHostPort_IPPort(t *testing.T) {
+	tgt, err := resolveHostPort(context.Background(), "127.0.0.1:4843")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -492,10 +494,10 @@ func TestParseProbeTarget_IPPort(t *testing.T) {
 	}
 }
 
-func TestParseProbeTarget_Bad(t *testing.T) {
+func TestResolveHostPort_Bad(t *testing.T) {
 	for _, s := range []string{"nohostport", "127.0.0.1:99999", "127.0.0.1:abc"} {
-		if _, err := parseProbeTarget(context.Background(), s); err == nil {
-			t.Errorf("parseProbeTarget(%q) = nil err, want error", s)
+		if _, err := resolveHostPort(context.Background(), s); exitCode(err) != core.ExitUsage {
+			t.Errorf("resolveHostPort(%q) = %v, want a usage error (64)", s, err)
 		}
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -35,9 +34,7 @@ func newS7Cmd() *cobra.Command {
 }
 
 func newS7ProbeCmd() *cobra.Command {
-	var target string
-	var timeout time.Duration
-	var jsonOut bool
+	var v targetVerb
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Full S7 CPU posture in one shot: identity + firmware + protection (read-only)",
@@ -54,16 +51,9 @@ captured S7-300 session.
 Examples:
 
   elsereno s7 probe --target plc.example:102`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if target == "" {
-				return errors.New("--target host:port is required")
-			}
-			return runS7Probe(cmd, target, timeout, jsonOut)
-		},
+		RunE: v.runE("s7-exposure", runS7Probe),
 	}
-	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
-	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Second, "overall probe timeout")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	v.register(cmd, "host:port of the S7 PLC (e.g. plc:102)", 20*time.Second, "overall probe timeout")
 	return cmd
 }
 
@@ -113,9 +103,7 @@ func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration, jsonOu
 }
 
 func newS7ProbeProtectionCmd() *cobra.Command {
-	var target string
-	var timeout time.Duration
-	var jsonOut bool
+	var v targetVerb
 	cmd := &cobra.Command{
 		Use:   "probe-protection",
 		Short: "Read a Siemens S7 CPU's protection level (read-only)",
@@ -139,23 +127,14 @@ Examples:
 
   elsereno s7 probe-protection --target plc.example:102
   elsereno s7 probe-protection --target 10.0.0.5:102 --timeout 15s`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if target == "" {
-				return errors.New("--target host:port is required")
-			}
-			return runS7ProbeProtection(cmd, target, timeout, jsonOut)
-		},
+		RunE: v.runE("s7-exposure", runS7ProbeProtection),
 	}
-	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
-	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	v.register(cmd, "host:port of the S7 PLC (e.g. plc:102)", 15*time.Second, "overall probe timeout")
 	return cmd
 }
 
 func newS7ProbeIdentityCmd() *cobra.Command {
-	var target string
-	var timeout time.Duration
-	var jsonOut bool
+	var v targetVerb
 	cmd := &cobra.Command{
 		Use:   "probe-identity",
 		Short: "Read a Siemens S7 CPU's exact model + firmware (read-only)",
@@ -179,16 +158,9 @@ real captured S7-300 session.
 Examples:
 
   elsereno s7 probe-identity --target plc.example:102`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if target == "" {
-				return errors.New("--target host:port is required")
-			}
-			return runS7ProbeIdentity(cmd, target, timeout, jsonOut)
-		},
+		RunE: v.runE("s7-exposure", runS7ProbeIdentity),
 	}
-	cmd.Flags().StringVar(&target, "target", "", "host:port of the S7 PLC (e.g. plc:102)")
-	cmd.Flags().DurationVar(&timeout, "timeout", 15*time.Second, "overall probe timeout")
-	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the result as JSON")
+	v.register(cmd, "host:port of the S7 PLC (e.g. plc:102)", 15*time.Second, "overall probe timeout")
 	return cmd
 }
 

@@ -96,7 +96,7 @@ func buildControls(offensiveOn bool) []securityControl {
 			Detail: "Library code, not wired: no command spawns a subprocess (SafeCommand + CommandSpec + path allowlist + `--` separator)",
 			Code:   "internal/exec/safecommand.go", ADR: "ADR-024"},
 		{Name: "Scope check", Status: "info",
-			Detail: "Only with --scope: CIDR v4/v6 + port allow/deny on scan targets (CLI and dashboard scans), and dial blocked_numbers in the offensive build; protocols, binds and canary are parsed but not applied",
+			Detail: "Only with --scope, on every command that connects to a target (scan, dashboard scans, discover, fingerprint probe, plaintext-check, tui --input, the opcua and s7 probes; write send, exploit run, proxy listen, harvest and creds-check in the offensive build): CIDR v4/v6 and port allow/deny on the target and the protocols lists on the plugin, plus dial blocked_numbers; binds and canary are parsed but not applied",
 			Code:   "internal/scope/scope.go", ADR: "ADR-038 (+ ADR-041 dial)"},
 		{Name: "Default-build writes", Status: "ok",
 			Detail: "No default-build command sends a write: probes are read-only and `proxy` is a stub (exit 75). The per-protocol write-ban proxy handlers are library code no command serves yet",

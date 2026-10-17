@@ -70,8 +70,8 @@ What the binary does today:
 
 - `elsereno legal` prints the acceptable-use disclaimer at any time, and
   the root help asks the operator to run it before first use.
-- A scope applies only when passed with `--scope`; without it nothing is
-  filtered.
+- A scope applies only when passed with `--scope` (every command that
+  connects to a target takes it); without it nothing is filtered.
 
 Planned, not implemented (until 2026-10-16 this section described them as
 if they were):

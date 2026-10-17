@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -31,7 +32,7 @@ func newCredsCheckCmd() *cobra.Command {
 }
 
 func newCredsCheckHTTPCmd() *cobra.Command {
-	var target string
+	var target, scopePath string
 	var timeout time.Duration
 	var jsonOut, confirmAuthorized bool
 	cmd := &cobra.Command{
@@ -62,7 +63,16 @@ Example:
 				return fail(core.ExitUsage, fmt.Errorf(
 					"--confirm-authorized is required: run this only against systems you are authorized to test"))
 			}
-			return runCredsCheckHTTP(cmd, target, timeout, jsonOut)
+			gate, err := loadScopeGate(scopePath)
+			if err != nil {
+				return err
+			}
+			// Counts as http-basic for the protocols lists (PITF-095).
+			dialAddr, err := gate.urlDialAddr(cmd.Context(), target, "http-basic")
+			if err != nil {
+				return err
+			}
+			return runCredsCheckHTTP(cmd, target, dialAddr, timeout, jsonOut)
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "device web UI URL (e.g. https://hmi.internal)")
@@ -70,18 +80,28 @@ Example:
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit the report as JSON")
 	cmd.Flags().BoolVar(&confirmAuthorized, "confirm-authorized", false,
 		"acknowledge you are authorized to test this target (required)")
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }
 
-func runCredsCheckHTTP(cmd *cobra.Command, target string, timeout time.Duration, jsonOut bool) error {
+// runCredsCheckHTTP checks target. A non-empty dialAddr (from --scope)
+// pins every connection to that checked address.
+func runCredsCheckHTTP(cmd *cobra.Command, target, dialAddr string, timeout time.Duration, jsonOut bool) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 	defer cancel()
 
+	// Device UIs commonly present self-signed certificates; this check
+	// classifies auth acceptance, it never trusts the peer.
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // #nosec G402 -- authorized audit of the operator's own device UI
+	if dialAddr != "" {
+		transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, network, dialAddr)
+		}
+	}
 	client := &http.Client{
-		Timeout: timeout,
-		// Device UIs commonly present self-signed certificates; this check
-		// classifies auth acceptance, it never trusts the peer.
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, // #nosec G402 -- authorized audit of the operator's own device UI
+		Timeout:   timeout,
+		Transport: transport,
 		// Do not follow redirects: a 3xx to an authenticated landing page
 		// reads as acceptance, not a rejection.
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },

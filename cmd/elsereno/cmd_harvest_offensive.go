@@ -37,7 +37,7 @@ type prober interface {
 }
 
 func newHarvestRunCmd(name string, p prober) *cobra.Command {
-	var target string
+	var target, scopePath string
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: fmt.Sprintf("Probe %s for default credentials on <target>", name),
@@ -47,6 +47,12 @@ func newHarvestRunCmd(name string, p prober) *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
+			// The probe connects to the checked address; the
+			// protocols lists see the sub-verb name (PITF-095).
+			dialTarget, err := scopedHostPort(cmd, scopePath, target, name)
+			if err != nil {
+				return err
+			}
 
 			// Install the harvest seccomp profile before any
 			// network I/O. ADR-042: harvest probes must not be
@@ -62,7 +68,7 @@ func newHarvestRunCmd(name string, p prober) *cobra.Command {
 				return fail(core.ExitSoftware, fmt.Errorf("sandbox: %w", err))
 			}
 
-			res, err := p.Probe(ctx, target, harvest.DefaultCredentials())
+			res, err := p.Probe(ctx, dialTarget, harvest.DefaultCredentials())
 			switch {
 			case errors.Is(err, harvest.ErrNoHit):
 				cmd.Printf("NO-HIT %s %s\n", name, target)
@@ -87,6 +93,7 @@ func newHarvestRunCmd(name string, p prober) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "host:port to probe")
+	addScopeFlag(cmd, &scopePath)
 	return cmd
 }
 

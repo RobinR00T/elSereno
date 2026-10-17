@@ -111,3 +111,42 @@ func TestCheckDialNilScope(t *testing.T) {
 		t.Fatalf("nil scope: %v", err)
 	}
 }
+
+// TestCheckPlugin: protocols allow/deny match a plugin's name or its
+// protocol (the part before the first "-"), deny wins, and a nil or
+// empty scope lets every plugin run.
+func TestCheckPlugin(t *testing.T) {
+	cases := []struct {
+		name   string
+		allow  []string
+		deny   []string
+		plugin string
+		ok     bool
+	}{
+		{"no lists", nil, nil, "modbus", true},
+		{"allowed by name", []string{"modbus"}, nil, "modbus", true},
+		{"not in allow", []string{"modbus"}, nil, "bacnet", false},
+		{"family allows variant", []string{"s7"}, nil, "s7-exposure", true},
+		{"variant does not allow family", []string{"s7-exposure"}, nil, "s7", false},
+		{"family deny blocks variant", nil, []string{"opcua"}, "opcua-exposure", false},
+		{"variant deny leaves family", nil, []string{"opcua-exposure"}, "opcua", true},
+		{"opcuahttps is its own name", nil, []string{"opcua"}, "opcuahttps", true},
+		{"deny wins over allow", []string{"modbus"}, []string{"modbus"}, "modbus", false},
+		{"case and spaces ignored", []string{" Modbus "}, nil, "modbus", true},
+		{"banner needs allowing too", []string{"modbus"}, nil, "banner", false},
+	}
+	for _, c := range cases {
+		s := &scope.Scope{Protocols: scope.ProtoDecl{Allow: c.allow, Deny: c.deny}}
+		err := s.CheckPlugin(c.plugin)
+		if c.ok && err != nil {
+			t.Errorf("%s: CheckPlugin(%q) = %v, want nil", c.name, c.plugin, err)
+		}
+		if !c.ok && !errors.Is(err, scope.ErrOutOfScope) {
+			t.Errorf("%s: CheckPlugin(%q) = %v, want ErrOutOfScope", c.name, c.plugin, err)
+		}
+	}
+	var nilScope *scope.Scope
+	if err := nilScope.CheckPlugin("modbus"); err != nil {
+		t.Errorf("nil scope: %v", err)
+	}
+}

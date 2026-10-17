@@ -43,7 +43,18 @@ func (h *HTTPBasicProber) DefaultPort() uint16 { return 80 }
 // Probe implements Prober.
 func (h *HTTPBasicProber) Probe(ctx context.Context, target string, creds []Credential) (*Result, error) {
 	base := fmt.Sprintf("%s://%s%s", h.Scheme, target, h.Path)
-	client := &http.Client{Timeout: h.DialTimeout + h.IOTimeout}
+	// Only target is contacted: no redirect is followed (a 3xx is the
+	// answer, and not a Basic challenge) and no proxy from the
+	// environment is used. Until 2026-10-17 the client followed up to
+	// ten redirects, so a device could send the probe, and its default
+	// credentials, to any port or host outside --scope (PITF-095).
+	client := &http.Client{
+		Timeout:   h.DialTimeout + h.IOTimeout,
+		Transport: &http.Transport{Proxy: nil, DisableKeepAlives: true},
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	// Probe once without credentials to confirm Basic is expected.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base, nil)
 	if err != nil {

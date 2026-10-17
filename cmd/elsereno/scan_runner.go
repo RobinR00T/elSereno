@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -116,7 +118,7 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 	if report == nil {
 		report = func(scanorch.Stats, map[string]int) {}
 	}
-	plugins, err := resolvePlugins(job.Plugins)
+	plugins, err := r.pluginsFor(job)
 	if err != nil {
 		return scanorch.Stats{}, nil, err
 	}
@@ -163,27 +165,63 @@ func (r *defaultScanRunner) Run(ctx context.Context, job scanorch.Job, report sc
 		runErr = ErrRunnerNoMatchingPlugins
 		return stats, nil, runErr
 	}
+	if n := state.panics.Load(); n > 0 {
+		// The other probes ran; the job says it is incomplete.
+		runErr = fmt.Errorf("scan runner: %d probes panicked (serve's log has each one)", n)
+		return stats, state.snapshotByPlugin(), runErr
+	}
 	runErr = nil
 	return stats, state.snapshotByPlugin(), nil
+}
+
+// pluginsFor resolves a job's plugins and applies the protocols lists
+// as the CLI does: a named plugin the scope refuses fails the job,
+// unnamed ones are left out and logged (PITF-095).
+func (r *defaultScanRunner) pluginsFor(job scanorch.Job) ([]core.Plugin, error) {
+	plugins, err := resolvePlugins(job.Plugins)
+	if err != nil {
+		return nil, err
+	}
+	plugins, refused, err := scopePlugins(r.scope, len(job.Plugins) > 0, plugins)
+	if err != nil {
+		return nil, fmt.Errorf("scan runner: %w", err)
+	}
+	if len(refused) > 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: job %s: scope protocols leave out %d plugins: %s\n",
+			job.ID, len(refused), strings.Join(refused, ", "))
+	}
+	return plugins, nil
 }
 
 // errRunAborted is the status a run is closed with when Run does not
 // reach its end (a panic outside the probes).
 var errRunAborted = errors.New("scan runner: run aborted")
 
-// safeProbe turns a panic in a probe into that probe's error. The
-// scanner runs probes in goroutines without recover, so one panic on
-// hostile bytes took the whole serve process down, every running job
-// with it (PITF-094 audit; PITF-080 had such a panic in slmp).
-func safeProbe(plugin string, probe scanner.Probe) scanner.Probe {
+// safeProbe turns a panic in a probe into that probe's error and calls
+// onPanic with it. The scanner runs probes in goroutines without
+// recover, so one panic on hostile bytes took the whole serve process
+// down, every running job with it (PITF-094 audit; PITF-080 had such a
+// panic in slmp). The panic value is quoted: it can carry bytes the
+// device sent.
+func safeProbe(plugin string, probe scanner.Probe, onPanic func(error)) scanner.Probe {
 	return func(ctx context.Context, t core.Target) (f *core.Finding, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				f, err = nil, fmt.Errorf("scan runner: %s probe panicked on %s: %v", plugin, netip.AddrPortFrom(t.Address, uint16(t.Port)), r)
+				f, err = nil, fmt.Errorf("scan runner: %s probe panicked on %s: %q", plugin, netip.AddrPortFrom(t.Address, uint16(t.Port)), fmt.Sprint(r))
+				if onPanic != nil {
+					onPanic(err)
+				}
 			}
 		}()
 		return probe(ctx, t)
 	}
+}
+
+// probePanicked logs a recovered probe panic and counts it, so the job
+// fails instead of reading completed (re-audit of PITF-094).
+func (s *runState) probePanicked(err error) {
+	s.panics.Add(1)
+	_, _ = fmt.Fprintf(os.Stderr, "elsereno serve: %v\n", err)
 }
 
 // anyPluginMatches reports whether some plugin would probe some target.
@@ -203,6 +241,7 @@ type runState struct {
 	concurrency    int
 	perHost        int
 	targetsTotal   int
+	panics         atomic.Int64
 	findingsCount  atomic.Int64
 	targetsScanned atomic.Int64
 	// byPlugin: each drainPluginRun owns its own atomic in this
@@ -326,7 +365,7 @@ func (s *runState) dispatchAll(ctx context.Context, plugins []core.Plugin, targe
 		s.byPlugin[plugin.Name] = &perPlugin
 		scn := scanner.New(scanner.Options{MaxConcurrentTargets: s.concurrency, MaxConcurrentPerHost: s.perHost})
 		runCtx, cancel := context.WithCancel(ctx)
-		findings, errs := scn.Run(runCtx, matching, s.recording(safeProbe(plugin.Name, plugin.Factory().Probe), cancel))
+		findings, errs := scn.Run(runCtx, matching, s.recording(safeProbe(plugin.Name, plugin.Factory().Probe, s.probePanicked), cancel))
 		drainPluginRun(findings, errs, &s.findingsCount, &s.targetsScanned, &perPlugin, emit)
 		cancel()
 		if s.recordErr() != nil {

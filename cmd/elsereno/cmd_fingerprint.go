@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/netip"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -72,15 +71,17 @@ and prints the Finding. Opens a real connection (contrast with
 	cmd.Flags().StringVar(&o.Target, "target", "", "host:port to probe (required)")
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", 8*time.Second, "upper bound on the probe")
 	cmd.Flags().BoolVar(&o.JSON, "json", false, "emit Finding as JSON")
+	addScopeFlag(cmd, &o.ScopePath)
 	return cmd
 }
 
 type fingerprintProbeOpts struct {
-	Plugin  string
-	Target  string
-	Timeout time.Duration
-	JSON    bool
-	Out     io.Writer
+	Plugin    string
+	Target    string
+	Timeout   time.Duration
+	JSON      bool
+	ScopePath string
+	Out       io.Writer
 }
 
 func runFingerprintProbe(ctx context.Context, o fingerprintProbeOpts) error {
@@ -90,13 +91,23 @@ func runFingerprintProbe(ctx context.Context, o fingerprintProbeOpts) error {
 	if o.Target == "" {
 		return fail(core.ExitUsage, errors.New("--target is required (host:port)"))
 	}
-	target, err := parseProbeTarget(ctx, o.Target)
+	gate, err := loadScopeGate(o.ScopePath)
 	if err != nil {
-		return fail(core.ExitUsage, err)
+		return err
+	}
+	// 64 for a malformed --target, 68 for a name that does not
+	// resolve, as in the other single-target commands.
+	target, err := resolveHostPort(ctx, o.Target)
+	if err != nil {
+		return err
 	}
 	plugin, err := lookupPlugin(o.Plugin)
 	if err != nil {
 		return fail(core.ExitUsage, err)
+	}
+	// The plugin connects to the address checked here (PITF-095).
+	if err := gate.target(target, plugin.Name); err != nil {
+		return err
 	}
 	cctx, cancel := context.WithTimeout(ctx, o.Timeout)
 	defer cancel()
@@ -105,28 +116,6 @@ func runFingerprintProbe(ctx context.Context, o fingerprintProbeOpts) error {
 		return fail(core.ExitError, fmt.Errorf("probe: %w", err))
 	}
 	return emitFingerprintFinding(o.Out, finding, o.JSON)
-}
-
-// parseProbeTarget resolves a host:port string into a core.Target. An
-// IP literal is used directly; a hostname is resolved to its first IP.
-func parseProbeTarget(ctx context.Context, s string) (core.Target, error) {
-	if ap, err := netip.ParseAddrPort(s); err == nil {
-		return core.Target{Address: ap.Addr().Unmap(), Port: core.Port(ap.Port())}, nil
-	}
-	host, portStr, err := net.SplitHostPort(s)
-	if err != nil {
-		return core.Target{}, fmt.Errorf("--target %q: want host:port", s)
-	}
-	p, err := strconv.Atoi(portStr)
-	if err != nil || p < 0 || p > 65535 {
-		return core.Target{}, fmt.Errorf("--target %q: bad port %q", s, portStr)
-	}
-	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil || len(addrs) == 0 {
-		return core.Target{}, fmt.Errorf("--target %q: resolve %q: %w", s, host, err)
-	}
-	// #nosec G115 -- p is bounds-checked to [0,65535] above.
-	return core.Target{Address: addrs[0].Unmap(), Port: core.Port(p)}, nil
 }
 
 // newFingerprintCaptureCmd returns the `elsereno fingerprint

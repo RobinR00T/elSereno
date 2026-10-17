@@ -67,7 +67,7 @@ that sends the scanner into a degenerate retry loop.
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Proxy ferries a write frame the operator didn't authorise | Default build: no command serves a proxy (`elsereno proxy` is a stub), so the wire-layer write-ban handlers (ADR-030 + ADR-040) are library code. Offensive build: `proxy listen` with the per-protocol write gates | `cmd/elsereno/cmd_stubs.go`, `cmd/elsereno/cmd_proxy_offensive.go:buildGatedHandler` |
-| Scanner plugin given wrong target scope | With `--scope`, `scope.Check` drops out-of-scope targets before any probe (CLI `scan` and dashboard scans); the scanner itself does not check scope, and commands without `--scope` are not limited (PITF-087) | `cmd/elsereno/cmd_scan.go:filterByScope` |
+| Scanner plugin given wrong target scope | With `--scope`, every network command checks the target (ranges, ports) and the plugin (protocols) before it connects, and a resolved name is checked and connected to as one address (PITF-095); the scanner itself does not check scope, and a run without `--scope` is not limited (PITF-087) | `cmd/elsereno/scope_gate.go`, `cmd/elsereno/cmd_scan.go:filterByScope` |
 | Non-loopback proxy bind without auth | Proxy framework binds `Listen` address caller-supplied; operator responsibility documented in proxy doc. F8 adds an explicit loopback-only default | `internal/proxy/framework.go:New` |
 
 ## Residual risk (accepted)

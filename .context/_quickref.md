@@ -14,7 +14,7 @@ token-budget: 950
 **Key invariants**:
 - Default build read-only. Writes require `-tags offensive` + triple-confirm.
 - Dialing is offensive-only and must be gated by `--dial-allowed` when a command first places calls; none does yet and the flag does not exist (dial validate validates; batch/wardial validate, classify and audit). ≤3-digit numbers blocked.
-- `scope.yaml` applies only with `--scope` (ranges + ports in scan/serve, blocked_numbers in dial, digits only: entries are not normalised); protocols/binds/canary parsed, not applied; no other command takes --scope (discover, fingerprint probe, plaintext-check, tui, per-protocol verbs, write/exploit/proxy/harvest/creds-check); no auto-load, no AUP prompt (PITF-087).
+- `scope.yaml` applies only with `--scope`, which every network command takes since 2026-10-17 (scan, serve, discover, fingerprint probe, plaintext-check, tui --input, opcua/s7 probes, write send, exploit run, proxy listen, harvest, creds-check, dial): ranges + ports on the target, protocols on the plugin (name or family before "-"), blocked_numbers in dial (digits only); single-target refusal = 77, write-class verbs need an IP literal; binds/canary parsed, not applied; no auto-load, no AUP prompt (PITF-087, PITF-095).
 - Parsers from scratch in `internal/protocols/<name>/wire/`.
 - Hexagonal: `core` only stdlib.
 - Plugins register in `init()` via `core.Register(...)`.

@@ -224,8 +224,10 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 :   Provider API keys for `--input <provider>:<q>`. 0600
     enforced at load.
 
-`./elsereno.yaml`, `./scope.yaml`
-:   Per-project config + scope.
+`./elsereno.yaml`
+:   Per-project config, last in the lookup order (see *elsereno.yaml*(5)).
+    A *scope.yaml* is read only when passed with **--scope**, which every
+    command that connects to a target accepts (*elsereno-scope*(5)).
 
 # EXIT CODES
 
@@ -233,10 +235,26 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 :   success.
 
 `1`
-:   error.
+:   error (also an unknown flag or a missing argument).
 
-`2`
-:   usage error.
+`64`
+:   usage error, *EX_USAGE* (also a name given as **--target** to a
+    write-class verb with **--scope**).
+
+`66`
+:   nothing left to do, *EX_NOINPUT* (no targets after the scope filter).
+
+`68`
+:   a **--target** name that does not resolve, *EX_NOHOST*: with
+    **--scope**, and always in **fingerprint probe**.
+
+`77`
+:   refused by **--scope**, *EX_NOPERM*: a target outside its ranges or
+    ports, or a plugin outside its protocols.
+
+`78`
+:   configuration error, *EX_CONFIG*: a config or scope file that does
+    not parse.
 
 `128 + signum`
 :   killed by a signal (e.g. SIGINT → **130**, SIGTERM → **143**).

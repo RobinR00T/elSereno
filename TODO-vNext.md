@@ -40,9 +40,8 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   banner en los comandos activos sin scope. No existe nada de eso; hoy solo
   `elsereno legal` imprime el texto. ¿Se construye, o se queda como
   responsabilidad del operador?
-- **`protocols` del scope.** `scope.CheckProtocol` existe y nadie lo llama:
-  `protocols.allow/deny` no limitan qué plugins corren. ¿Se aplica en el
-  reparto de plugins de `scan` y de los scans del dashboard?
+- **[RESUELTO 17-10, PITF-095] `protocols` del scope.** Ahora limita qué
+  plugins corren en todo comando de red (por nombre o por protocolo).
 - **`binds` y `canary` del scope.** Se parsean y no se aplican. ¿Se aplica
   `binds.allow` al bind no-loopback de `serve`, o se retiran del formato?
 - **Rastro de lo que el scope descarta.** Un target fuera de scope se descarta
@@ -56,10 +55,17 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   `+34112345678` (comprobado por la auditoría del 16-10). Los docs dicen
   ahora "solo dígitos". ¿Se normalizan las entradas al cargar, o `lint`
   las rechaza?
-- **Comandos de red sin scope.** Solo `scan`, `serve` y `dial` aceptan
-  `--scope`: `discover`, `fingerprint probe`, `plaintext-check`, `tui
-  --input`, los verbos por protocolo y, en el build ofensivo, `write`,
-  `exploit`, `proxy listen`, `harvest` y `creds-check` no. ¿Se les añade?
+- **[RESUELTO 17-10, PITF-095] Comandos de red sin scope.** Todos aceptan
+  ya `--scope`. Queda abierto el rastro de lo que se descarta (arriba).
+- **`lint --scope` no avisa de entradas de `protocols` que no casan con
+  ningún plugin** (`s7-`, `""`, un typo): no hacen nada, en silencio.
+  ¿Avisar en `lint` y al cargar? (Auditoría de PITF-095.)
+- **Las descargas de firmware de `cwmp firmware verify` no pasan por el
+  scope.** Van a un servidor de ficheros, no a un equipo; ¿deben? Decisión
+  de diseño. (Auditoría de PITF-095.)
+- **`--max-hosts` de `discover` cuenta antes del scope.** Con un CIDR
+  mayor que el scope, el tope se gasta en hosts que luego se descartan.
+  ¿Filtrar mientras se expande? (PITF-095.)
 - **Barrido de la documentación de seguridad contra el código.** PITF-087
   corrigió lo que el panel de seguridad muestra, pero `docs/SECURITY.md`,
   `.context/security-model.md`, `_quickref.md` y el threat model aún
