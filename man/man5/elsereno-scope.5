@@ -26,7 +26,10 @@ Nothing loads it on its own: a \f[I]scope.yaml\f[R] in the working
 directory is not read, and without \f[B]\-\-scope\f[R] nothing is
 filtered.
 A file that does not parse stops the command with exit 78.
-Keys other than the ones below are a parse error.
+Keys other than the ones below are a parse error, and a range
+\f[B]cidr\f[R] that does not parse or a port outside 0..65535 is
+rejected at load too (PITF\-097), so \f[B]lint \-\-scope\f[R] catches a
+typo that would otherwise narrow the scope in silence.
 .SH FORMAT
 .IP
 .EX

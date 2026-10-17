@@ -16,6 +16,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/inputs"
+	"local/elsereno/internal/inputs/httpclient"
 )
 
 // DefaultBaseURL is the FOFA API endpoint. Override via
@@ -57,7 +58,7 @@ func New(email, apiKey string, ratePerSec int) (*Client, error) {
 		Email:   email,
 		APIKey:  apiKey,
 		BaseURL: DefaultBaseURL,
-		HTTP:    &http.Client{Timeout: 30 * time.Second},
+		HTTP:    httpclient.New(30 * time.Second),
 	}
 	if ratePerSec > 0 {
 		c.Limiter = rate.NewLimiter(rate.Limit(ratePerSec), ratePerSec)

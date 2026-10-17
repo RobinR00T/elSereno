@@ -12,6 +12,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs/httpclient"
 )
 
 // DefaultBaseURL is the Shodan InternetDB endpoint. Override via
@@ -41,7 +42,7 @@ func New(ratePerSec int) *Client {
 	}
 	return &Client{
 		BaseURL: DefaultBaseURL,
-		HTTP:    &http.Client{Timeout: 30 * time.Second},
+		HTTP:    httpclient.New(30 * time.Second),
 		Limiter: rate.NewLimiter(rate.Limit(ratePerSec), ratePerSec),
 	}
 }

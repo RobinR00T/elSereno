@@ -114,15 +114,11 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   (`INSTALL.md`): `serve` escucha en 127.0.0.1 dentro del contenedor.
   Visto en la auditoría de PITF-092 (17-10); exponerlo fuera de loopback
   exige TLS y OIDC.
-- **Cabeceras con clave en redirecciones a otro host.** Go solo quita
-  `Authorization`, `Www-Authenticate`, `Cookie`, `Cookie2` y `Proxy-*` al
-  redirigir a un host que no es el mismo ni un subdominio suyo
-  (`net/http/client.go`), así que `X-Key` (BinaryEdge) y `API-KEY`
-  (ZoomEye) se reenviarían a donde apunte un `Location`, también por
-  `http://`; ningún cliente define `CheckRedirect`. Visto en la auditoría
-  de PITF-088 (16-10). ¿`CheckRedirect` que rechace cambiar de host?
-- **`lint --scope` no valida las CIDR.** `10.0.0.0/33` da "scope: ok" y en
-  ejecución se ignora en silencio.
+- **[RESUELTO 17-10, PITF-097] Cabeceras con clave en redirecciones a
+  otro host.** Los siete clientes comparten `internal/inputs/httpclient`,
+  que rechaza una redirección a otro `host:port`.
+- **[RESUELTO 17-10, PITF-097] `lint --scope` no validaba las CIDR.**
+  `scope.Load` rechaza ahora una CIDR mala o un puerto fuera de rango.
 
 ## Abierto (14-10-2026, gate DNP3): decisiones pendientes
 

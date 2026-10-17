@@ -1199,9 +1199,9 @@ que un typo no pasa en silencio. Cada CIDR es una entrada `cidr` (con
 Consecuencias que conviene saber:
 
 - Un `scope.yaml` con solo `version: 1` lo deja pasar todo.
-- Una CIDR mal escrita (`10.0.0.0/33`) se ignora sin error, y `lint
-  --scope` tampoco la detecta: lo que solo cubría ella queda fuera (falla
-  cerrado).
+- Una CIDR mal escrita (`10.0.0.0/33`) o un puerto fuera de 0..65535 es
+  un error al cargar: `lint --scope` y cualquier comando con `--scope`
+  salen con 78 (antes se ignoraba en silencio, PITF-097).
 - `scan`, `serve`, `discover` y `tui --input` descartan los targets fuera
   de scope antes de cualquier conexión, sin aviso por target ni entrada
   en la auditoría; si no queda ninguno, salen con 66 (`ExitNoInput`).
@@ -1238,7 +1238,7 @@ Consecuencias que conviene saber:
 ### Cómo se usa
 
 ```bash
-# Validar la sintaxis sin escanear (claves y tipos; no valida las CIDR):
+# Validar sin escanear (claves, tipos, CIDR y rango de puertos):
 elsereno lint --scope ./fleet-scope.yaml
 
 # Escanear solo lo que el scope permite:

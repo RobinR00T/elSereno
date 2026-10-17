@@ -81,7 +81,37 @@ func Load(path string) (*Scope, error) {
 	if err := dec.Decode(&s); err != nil {
 		return nil, fmt.Errorf("scope: parse %q: %w", path, err)
 	}
+	if err := s.Validate(); err != nil {
+		return nil, fmt.Errorf("scope: %q: %w", path, err)
+	}
 	return &s, nil
+}
+
+// Validate rejects a scope that would silently narrow coverage: a CIDR
+// that does not parse (Check skipped it, dropping whatever only it
+// covered) or a port outside 0..65535. Until 2026-10-17 Load accepted
+// them and Check dropped the bad CIDR without a word (PITF-097), so
+// "10.0.0.0/33" linted ok and then matched nothing.
+func (s *Scope) Validate() error {
+	if s == nil {
+		return nil
+	}
+	for _, r := range s.Ranges {
+		if _, err := netip.ParsePrefix(r.CIDR); err != nil {
+			return fmt.Errorf("range cidr %q: %w", r.CIDR, err)
+		}
+	}
+	for _, p := range s.Ports.Allow {
+		if p < 0 || p > 65535 {
+			return fmt.Errorf("ports.allow: %d out of range 0..65535", p)
+		}
+	}
+	for _, p := range s.Ports.Deny {
+		if p < 0 || p > 65535 {
+			return fmt.Errorf("ports.deny: %d out of range 0..65535", p)
+		}
+	}
+	return nil
 }
 
 // Check returns nil if the target is in scope (its port and its

@@ -13,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs/httpclient"
 )
 
 // DefaultBaseURL is the Censys Search v2 base URL.
@@ -41,7 +42,7 @@ func New(apiID, apiSecret string, ratePerSec int) (*Client, error) {
 		APIID:     apiID,
 		APISecret: apiSecret,
 		BaseURL:   DefaultBaseURL,
-		HTTP:      &http.Client{Timeout: 30 * time.Second},
+		HTTP:      httpclient.New(30 * time.Second),
 	}
 	if ratePerSec > 0 {
 		c.Limiter = rate.NewLimiter(rate.Limit(ratePerSec), ratePerSec)

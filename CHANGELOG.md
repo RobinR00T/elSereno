@@ -486,6 +486,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An input provider could leak its API key on a redirect, and a bad
+  CIDR in a scope passed lint then matched nothing (PITF-097).** The
+  seven search-input clients (Shodan, Censys, FOFA, ZoomEye, ONYPHE,
+  BinaryEdge, InternetDB) send the key in a header or query; Go strips
+  only Authorization, Cookie and WWW-Authenticate on a cross-host
+  redirect, so a 302 to another host (from the provider or a hijacked
+  DNS answer) would carry X-Key or API-KEY to it. They now share a
+  client that refuses a redirect that changes host, port or scheme
+  (a same-host downgrade to http would send the key in clear). And a scope with
+  a CIDR that does not parse (10.0.0.0/33) or a port outside 0..65535
+  loaded cleanly and Check dropped the bad range in silence, narrowing
+  coverage; Load now rejects it, so lint --scope and every command that
+  loads a scope catch it (exit 78).
+
 - **A scope limited only `scan`, `serve` and `dial`, and its
   `protocols` limited nothing (PITF-095).** Every command that connects
   to a target now takes `--scope`: `discover`, `fingerprint probe`,

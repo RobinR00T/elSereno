@@ -24,7 +24,7 @@ plus **dial** (which applies only **dial.blocked_numbers**).
 **serve** and **dial** took it. Nothing loads it on its own: a
 *scope.yaml* in the working directory is not read, and without
 **--scope** nothing is filtered. A file that does not parse stops the
-command with exit 78. Keys other than the ones below are a parse error.
+command with exit 78. Keys other than the ones below are a parse error, and a range **cidr** that does not parse or a port outside 0..65535 is rejected at load too (PITF-097), so **lint --scope** catches a typo that would otherwise narrow the scope in silence.
 
 # FORMAT
 

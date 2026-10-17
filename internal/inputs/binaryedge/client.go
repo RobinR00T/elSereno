@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/inputs/httpclient"
 )
 
 // DefaultBaseURL is the BinaryEdge API base URL. Override via
@@ -43,7 +44,7 @@ func New(apiKey string, ratePerSec int) (*Client, error) {
 	c := &Client{
 		APIKey:  apiKey,
 		BaseURL: DefaultBaseURL,
-		HTTP:    &http.Client{Timeout: 30 * time.Second},
+		HTTP:    httpclient.New(30 * time.Second),
 	}
 	if ratePerSec > 0 {
 		c.Limiter = rate.NewLimiter(rate.Limit(ratePerSec), ratePerSec)
