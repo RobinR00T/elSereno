@@ -42,7 +42,14 @@ qué orden, con qué argumentos**.
    15. [doctor, preflight](#715-doctor)
    16. [tui, terminal UI](#716-tui)
    17. [api, meta de la HTTP API](#717-api)
-   18. [legal · version · why · diff · proxy · repl · init · token](#718-otros-verbos)
+   18. [schedule, scans programados](#718-schedule)
+   19. [why, postura de scoring](#719-why)
+   20. [fmt, formato canónico YAML](#720-fmt)
+   21. [standards, trazabilidad al estándar](#721-standards)
+   22. [profinet, códec PROFINET DCP](#722-profinet)
+   23. [goose, disector GOOSE/SV](#723-goose)
+   24. [legal · version · diff · proxy · repl · init · token](#724-otros-verbos)
+   25. [Probes de exposición profunda](#725-probes-de-exposición-profunda-read-only-y-trazabilidad)
 8. [El dashboard web](#8-el-dashboard-web)
 9. [Workflows típicos](#9-workflows-típicos)
 10. [Troubleshooting](#10-troubleshooting)
@@ -179,21 +186,65 @@ elsereno version
 
 ### 2.3 Docker / Kubernetes
 
-```bash
-docker run --rm ghcr.io/robinr00t/elsereno:latest version
+No hay imagen pública que descargar: un `docker pull` anónimo de
+`ghcr.io/robinr00t/elsereno` responde `denied` (comprobado el
+18-10-2026 con `latest`, `2.62.0` y `1.49.0`). Se construye desde el
+repo; es distroless, corre como `nonroot` (uid 65532) y su comando por
+defecto es `serve`:
 
-# Para serve con Postgres externo (compose mínimo):
-docker run -d --name elsereno-serve \
-    -p 127.0.0.1:8787:8787 \
-    -e DATABASE_URL='postgres://user:pwd@db-host:5432/elsereno?sslmode=require' \
-    -v ~/.elsereno:/root/.elsereno:ro \
-    ghcr.io/robinr00t/elsereno:latest \
-    serve --scan-store=db
+```bash
+docker build -t elsereno .
+docker run --rm elsereno version
 ```
 
-> Las imágenes Docker oficiales se generan en CI cuando
-> GitHub Actions está activo. Si CI está pausado, el
-> tarball / paquete del sistema es la ruta canónica.
+**`serve` dentro de un contenedor.** `serve` se ata a `127.0.0.1:8787`
+por defecto y, dentro del contenedor, ese es el loopback del propio
+contenedor: `docker run -p 8787:8787 elsereno serve` publica un puerto
+en el que no escucha nadie (el host recibe una respuesta vacía, curl
+sale con 52). Para llegar desde fuera hay que atarlo a `0.0.0.0`, y un
+bind que no es loopback no arranca sin TLS, `--i-know-what-im-doing` y
+OIDC (sale con 64: primero `requires --tls-cert, --tls-key and
+--i-know-what-im-doing`, después `requires OIDC auth`). Además necesita
+el vault inicializado y un fichero de passphrase, porque un contenedor
+en segundo plano no tiene terminal donde pedirla. Receta probada, con
+el vault, la passphrase (0600), el par TLS y un `elsereno.yaml` con
+`auth.oidc.issuer`, `audience` y `jwks_url` en el host:
+
+```bash
+docker run -d --name elsereno-serve \
+    --user "$(id -u):$(id -g)" -e HOME=/data \
+    -v ~/.elsereno:/data/.elsereno \
+    -v /etc/elsereno/tls:/tls:ro \
+    -v /etc/elsereno/conf:/cfg:ro \
+    -p 127.0.0.1:8787:8787 \
+    elsereno --config /cfg/elsereno.yaml serve \
+        --addr 0.0.0.0:8787 \
+        --tls-cert /tls/cert.pem --tls-key /tls/key.pem \
+        --i-know-what-im-doing \
+        --vault-passphrase-file /data/.elsereno/vault.pass
+```
+
+`--user` y `HOME=/data` dejan que el contenedor lea un vault que es
+tuyo (en Linux, `nonroot` no puede leer un 0600 de tu usuario); `serve`
+sigue además `audit.jsonl` ahí, si existe, para el feed en vivo del
+dashboard. Los logs dicen `listening on
+0.0.0.0:8787` y `OIDC enforcement ENABLED`; `/healthz` responde 200 y
+`/api/v1/scans` sin Bearer, 401. Con el puerto publicado, en Docker
+Desktop, y en Linux para los clientes de la misma máquina, se llega
+desde la pasarela de Docker y no desde loopback, así que todos comparten
+el límite por IP (100/min; con `rate_limit_per_min_ip: 3`, cinco
+peticiones desde el host dan `200 200 200 429 429`). Un dashboard
+abierto consulta la API cada pocos segundos: con varios usuarios, sube
+`rate_limit_per_min_ip`. El prefijo
+`-p 127.0.0.1:` deja el puerto en el loopback del host; quítalo solo si
+otras máquinas tienen que llegar a la API. Para que los scans
+sobrevivan a un reinicio, añade `-e DATABASE_URL=...` y
+`--scan-store=db` (eso no está probado en contenedor; la receta de
+arriba, sin Postgres, sí).
+
+Para un solo operador sin OIDC, no metas `serve` en un contenedor:
+córrelo en el host (loopback, modo dev) o en una máquina remota con un
+túnel SSH (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ### 2.4 Verificación post-instalación
 
@@ -862,25 +913,348 @@ Meta-operaciones sobre la HTTP API.
 elsereno api openapi > openapi.yaml
 ```
 
-### 7.18 Otros verbos
+### 7.18 `schedule`
+
+Gestiona escaneos programados contra el `serve` local (v2.3+). Cada
+subcomando habla con la HTTP API, así que necesita un `serve` en marcha
+(salvo con `--dry-run`, que no lo contacta); sin él, la llamada sale con
+exit 1 y el error de conexión. Es uno de los
+pocos comandos que implementan `--dry-run` de verdad (en `delete`,
+`enable`, `disable`, `clone`, `import`, `pause-all` y `resume-all`).
+
+**Flags importantes (persistentes del grupo):**
+
+| Flag      | Para qué                                                           |
+|-----------|-------------------------------------------------------------------|
+| `--url`   | URL del serve (default `$ELSERENO_URL` o `http://127.0.0.1:8787`). |
+| `--token` | Bearer token (default `$ELSERENO_TOKEN` o `~/.elsereno/token`).    |
+
+**Subcomandos:**
+
+| Subcomando                 | CLI desde              | Para qué                                                            |
+|----------------------------|------------------------|--------------------------------------------------------------------|
+| `list`                     | v2.3+                  | Lista los horarios.                                                 |
+| `get <id>`                 | v2.3+                  | Muestra un horario.                                                 |
+| `stats <id>`               | v2.3+ (server v2.2+)   | Estadísticas de ejecución (`--days` 1..365, default 7).            |
+| `export`                   | v2.3+ (server v1.97+)  | Exporta (csv, ndjson, json; `--format`, default ndjson).           |
+| `import <file>`            | v2.8+                  | Importa (`--on-conflict` skip, overwrite o rename; default skip).  |
+| `delete <id>`              | v2.3+                  | Borra un horario. Exige `--yes` (o `--dry-run`): sin él sale con 1, `pass --yes to confirm (or --dry-run)`. |
+| `enable` / `disable`       | v2.8+                  | Activa o desactiva un horario.                                      |
+| `clone <id>`               | v2.8+                  | Duplica un horario (`--name`).                                      |
+| `pause-all` / `resume-all` | v2.8+ (server v1.95+)  | Pausa o reanuda todos.                                              |
+
+**Ejemplos:**
+
+```bash
+# Listar horarios (requiere serve en marcha):
+elsereno schedule list
+
+# Sin un serve en marcha, sale con exit 1 y el error de conexión:
+elsereno schedule list
+# elsereno: elsereno schedule: HTTP GET /api/v1/schedules: Get "http://127.0.0.1:8787/api/v1/schedules": dial tcp 127.0.0.1:8787: connect: connection refused
+
+# Exportar a NDJSON (formato por defecto del propio subcomando):
+elsereno schedule export > schedules.ndjson
+
+# Importar sin pisar lo que ya existe:
+elsereno schedule import schedules.ndjson --on-conflict skip
+
+# Simular un borrado sin tocar nada (schedule sí honra --dry-run):
+elsereno schedule delete 3f9a2b7c1d0e4f58 --dry-run
+# [dry-run] would DELETE 3f9a2b7c1d0e4f58
+```
+
+### 7.19 `why`
+
+Explica la postura de scoring para un target concreto: qué pesos de factor
+se aplican (ADR-006) y de dónde sale la severidad. No tiene flags propios;
+toma una dirección `host:puerto`.
+
+**Ejemplos:**
+
+```bash
+elsereno why 192.0.2.10:502
+```
+
+Salida:
+
+```
+target: 192.0.2.10:502
+
+Default factor weights (ADR-006):
+  protocol_risk   0.25
+  exposure        0.20
+  auth_state      0.20
+  capability      0.15
+  impact_class    0.10
+  cve_exposure    0.10
+
+Severity derives from the score (see `elsereno scoring show`).
+Run `elsereno explain` on an NDJSON finding to see a per-factor breakdown.
+```
+
+### 7.20 `fmt`
+
+Re-emite un fichero de configuración YAML con el formato canónico: claves
+ordenadas alfabéticamente e indentación de 4 espacios. Por defecto escribe
+el resultado a stdout; con `--write` lo guarda en el propio fichero. Los
+comentarios del YAML se pierden (`# comentario` y `name: demo # al lado`
+salen como `name: demo`), y `--write` sobre un fichero que ya existe
+conserva su modo.
+
+**Flags importantes:**
+
+| Flag      | Para qué                                            |
+|-----------|-----------------------------------------------------|
+| `--write` | Sobrescribe el fichero en vez de imprimir a stdout. |
+
+**Ejemplos:**
+
+```bash
+# Un YAML con claves desordenadas e indentación irregular:
+cat config.yaml
+# targets:
+#   -   192.0.2.10
+# profiles:
+#   quick:    true
+# name:   demo
+
+# fmt lo normaliza (claves alfabéticas, 4 espacios):
+elsereno fmt config.yaml
+```
+
+Salida:
+
+```
+name: demo
+profiles:
+    quick: true
+targets:
+    - 192.0.2.10
+```
+
+### 7.21 `standards`
+
+Vuelca la trazabilidad de cada plugin de protocolo a las tablas del NIST
+SP 800-82 r4. La salida no es una tabla alineada: es un bloque por
+protocolo, con cada vulnerabilidad del estándar indentada debajo. Con
+`--protocol` se filtra a uno solo.
+
+**Flags importantes:**
+
+| Flag         | Para qué                                         |
+|--------------|--------------------------------------------------|
+| `--protocol` | Filtra a un único plugin (p. ej. `s7-exposure`). |
+
+**Ejemplos:**
+
+```bash
+# Catálogo completo (34 plugins con mapeo):
+elsereno standards
+
+# Un solo protocolo, en JSON:
+elsereno standards --protocol s7-exposure --json
+```
+
+Salida (`--protocol s7-exposure --json`):
+
+```json
+{
+  "s7-exposure": [
+    {
+      "standard": "NIST SP 800-82 r4",
+      "table": "Table 16",
+      "vuln": "Authentication of users, data, or devices is substandard or nonexistent"
+    },
+    {
+      "standard": "NIST SP 800-82 r4",
+      "table": "Table 15",
+      "vuln": "Installed security capabilities are not enabled by default"
+    }
+  ]
+}
+```
+
+Un protocolo sin mapeo responde con un aviso, no con un error:
+
+```bash
+elsereno standards --protocol goose
+# No standards mapping for that protocol.
+```
+
+### 7.22 `profinet`
+
+Códec de PROFINET DCP a nivel de hilo (v2.41+): decodifica tramas offline
+y genera una trama Identify-All. Todo es offline; no toca la red. Tiene dos
+subcomandos: `decode` y `encode-identify`.
+
+**Subcomandos y flags:**
+
+| Subcomando        | Flag         | Para qué                                                    |
+|-------------------|--------------|-------------------------------------------------------------|
+| `decode`          | `--hex`      | Trama en hex (espacios, `0x` y `:` tolerados).              |
+| `decode`          | `--file`     | Lee la trama de un fichero binario.                         |
+| `decode`          | `--strip-l2` | Bytes de L2 a descartar (0 por defecto; 14 Ethernet, 18 VLAN). |
+| `decode`          | `--json`     | Salida JSON.                                                |
+| `encode-identify` | `--xid`      | Transaction ID (default `3405691582` = `0xCAFEBABE`).       |
+
+**Ejemplos:**
+
+```bash
+# Generar la trama Identify-All por defecto (18 bytes):
+elsereno profinet encode-identify
+# fefe0500cafebabe00010006ffff00020000
+
+# Con un XID propio:
+elsereno profinet encode-identify --xid 1
+# fefe05000000000100010006ffff00020000
+
+# Decodificar esa misma trama (no lleva cabecera L2, así que no se
+# descarta nada; --strip-l2 0 es el defecto):
+elsereno profinet decode --hex fefe0500cafebabe00010006ffff00020000 --strip-l2 0
+```
+
+Salida:
+
+```
+DCP Frame
+  FrameID:      0xFEFE
+  ServiceID:    0x05 (Identify)
+  ServiceType:  0x00 (Request)
+  XID:          0xCAFEBABE
+  DataLength:   6
+  Blocks: 1
+    [0] Option=0xFF(All) Sub=0xFF Length=2 BlockInfo=0x0000 DataLen=0
+```
+
+Con `--json`:
+
+```json
+{
+  "blocks": [
+    {
+      "Option": 255,
+      "Suboption": 255,
+      "Length": 2,
+      "BlockInfo": 0,
+      "Data": null
+    }
+  ],
+  "decode_error": "",
+  "header": {
+    "data_length": 6,
+    "frame_id": 65278,
+    "service_id": 5,
+    "service_type": 0,
+    "xid": 3405691582
+  }
+}
+```
+
+### 7.23 `goose`
+
+Disector L2 de IEC 61850 GOOSE/SV más un monitor pasivo de spoofing, todo
+offline. `decode` desarma una trama; `monitor` recorre un flujo de tramas y
+marca anomalías (saltos de `stNum`, bit de simulación/test, cambios de
+`ndsCom` o `confRev`, estancamiento de `sqNum`, regresiones de `smpCnt` en
+SV). `monitor --iface` abre un socket AF_PACKET de solo recepción en Linux
+(requiere CAP_NET_RAW) y nunca transmite.
+
+**Subcomandos y flags:**
+
+| Subcomando | Flag                     | Para qué                                                   |
+|------------|--------------------------|------------------------------------------------------------|
+| `decode`   | `--hex`                  | Trama en hex (espacios, `0x` y `:` tolerados).             |
+| `decode`   | `--file`                 | Lee la trama de un fichero binario (una trama Ethernet).   |
+| `decode`   | `--json`                 | Salida JSON.                                                |
+| `monitor`  | `--file`                 | Un frame hex por línea (líneas en blanco y `#` ignoradas). |
+| `monitor`  | `--iface`                | Interfaz AF_PACKET de solo recepción (Linux).              |
+| `monitor`  | `--count`                | Con `--iface`: para tras N tramas (0 = hasta Ctrl-C).      |
+| `monitor`  | `--stnum-jump-threshold` | Mayor salto de `stNum` que se toma por normal; por encima, `stnum_jump` (default 1). |
+| `monitor`  | `--json`                 | Salida NDJSON.                                              |
+
+**Ejemplos:**
+
+```bash
+# Decodificar una trama GOOSE (humano):
+elsereno goose decode --hex "010ccd010001001122334455 88b8 0001 0019 00000000 610f 830174 81010a 850101 860100 880101"
+# GOOSE appid=0x0001 goID="t" gocbRef="" stNum=1 sqNum=0 test=false confRev=1 ttl=10ms
+
+# La misma trama en JSON:
+elsereno goose decode --hex "010ccd010001001122334455 88b8 0001 0019 00000000 610f 830174 81010a 850101 860100 880101" --json
+```
+
+Salida JSON de `decode` (el binario la indenta un campo por línea, y
+`Timestamp` un byte por línea; aquí va compactada, mismos campos y
+valores):
+
+```json
+{
+  "Kind": "goose", "VLAN": false, "VLANID": 0,
+  "Goose": { "APPID": 1, "GocbRef": "", "TimeAllowedToLive": 10, "DatSet": "", "GoID": "t",
+    "Timestamp": [0,0,0,0,0,0,0,0], "StNum": 1, "SqNum": 0, "Test": false, "TestPresent": false,
+    "ConfRev": 1, "NdsCom": false, "NdsComPresent": false, "NumDatSetEntries": 0 },
+  "SV": null
+}
+```
+
+El monitor lee un fichero de tramas (una por línea) y reporta las anomalías:
+
+```bash
+# frames.txt: trama base + trama con stNum saltado
+elsereno goose monitor --file frames.txt
+# frame 2: [high] stnum_jump key="t" stNum jumped 1 -> 9 (+8)
+# processed 2 GOOSE/SV frames, 1 anomaly events
+
+# El mismo barrido en NDJSON:
+elsereno goose monitor --file frames.txt --json
+# {"Kind":"stnum_jump","Severity":"high","Key":"t","Detail":"stNum jumped 1 -\u003e 9 (+8)","StNum":9,"SqNum":0}
+```
+
+El script `scripts/demo-goose-monitor.sh` compila el binario y pasa un flujo
+de ejemplo con una inyección y un bit de test:
+
+```
+:: building elsereno
+
+:: decode the baseline frame
+GOOSE appid=0x0001 goID="t" gocbRef="" stNum=1 sqNum=0 test=false confRev=1 ttl=10ms
+
+:: run the anomaly monitor over the stream
+frame 3: [high] stnum_jump key="t" stNum jumped 1 -> 9 (+8)
+frame 4: [high] test_bit_set key="t" simulation/test bit set
+frame 4: [info] state_change key="t" state change stNum 9 -> 10
+processed 4 GOOSE/SV frames, 3 anomaly events
+
+:: expected: a stnum_jump on the injected frame and a test_bit_set on the last.
+```
+
+Para producir `frames.txt` desde una captura real:
+
+```bash
+tshark -r substation.pcap -Y 'goose || sv' -T fields -e frame.raw > frames.txt
+```
+
+### 7.24 Otros verbos
 
 | Verbo     | Estado    | Para qué sirve                                                    |
 |-----------|-----------|-------------------------------------------------------------------|
 | `legal`   | listo     | Imprime el disclaimer de uso autorizado.                          |
-| `version` | listo     | Imprime version, commit hash, build date.                         |
-| `why`     | listo     | Explica la postura de scoring para un target (planeado expansivo). |
+| `version` | listo     | Imprime versión, commit y fecha de build (`dev`/`none`/`unknown` en un build local sin ldflags). |
 | `diff`    | planned   | Comparar dos runs.                                                |
 | `proxy`   | planned   | Proxy de interception protocol-aware.                            |
 | `repl`    | planned   | REPL de protocolo interactivo.                                   |
 | `init`    | planned   | Wizard de primera ejecución.                                     |
 | `token`   | planned   | Operaciones de web token (rotate / show).                        |
 | `gen-man` | planned   | Generar man pages desde cobra; hoy las genera `scripts/gen-manpages.sh`. |
-| `fmt`     | listo     | Re-emite YAML con formato canónico.                               |
-| `lint`    | listo     | Valida `elsereno.yaml` + `scope.yaml`.                            |
+| `lint`    | listo     | Valida `elsereno.yaml` y, con `--scope`, un `scope.yaml`.         |
 | `help`    | listo     | Ayuda sobre cualquier comando.                                    |
 | `completion` | planned | Shell completions (bash/zsh/fish); hoy sale con 75.               |
 
-### 7.1 Probes de exposición profunda (read-only) y trazabilidad
+Todos los `planned` salen con código 75 y un aviso en stderr, por
+ejemplo `elsereno: "diff" is planned for a later phase`.
+
+### 7.25 Probes de exposición profunda (read-only) y trazabilidad
 
 Más allá del fingerprint, estos comandos confirman la exposición en el
 hilo. Todo es read-only salvo `creds-check`, que vive en el build
@@ -1090,7 +1464,9 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | Síntoma                                                          | Causa probable                                         | Solución                                                                  |
 |------------------------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------|
 | `vault: not initialised`                                         | Primera ejecución sin `vault init`                     | `elsereno vault init`                                                     |
-| `serve: bind 0.0.0.0:8787 requires --tls-cert/--tls-key`         | Non-loopback bind sin TLS                              | Añade certs + `--i-know-what-im-doing`                                    |
+| `non-loopback bind "0.0.0.0:8787" requires --tls-cert, --tls-key and --i-know-what-im-doing` (exit 64) | Bind que no es loopback sin TLS o sin el flag | Añade `--tls-cert`, `--tls-key` e `--i-know-what-im-doing` |
+| `non-loopback bind ... requires OIDC auth (cfg.Auth.OIDC)` (exit 64) | Bind que no es loopback sin `auth.oidc` completo | Configura `auth.oidc.issuer`, `audience` y `jwks_url` (§2.3) |
+| `curl` desde el host da respuesta vacía (exit 52) con `docker run -p 8787:8787 ... serve` | `serve` escucha en el loopback del contenedor | Receta del §2.3 (`--addr 0.0.0.0:8787` + TLS + OIDC) |
 | `failed to authenticate caller: error obtaining token: expired_token` (cosign) | Device flow OIDC expira en 300s              | Re-ejecuta + abre el URL inmediatamente, o `--skip=sign`                  |
 | `migrations failed, see output above`                           | Binario stale (no conoce las últimas migraciones)      | Rebuild: `go build -o elsereno ./cmd/elsereno && elsereno db migrate up`  |
 | `Did not find any relation named "scan_schedule_audit"`          | Idem (migration 00011/00012 no aplicada por binario stale) | Mismo fix de arriba                                                       |
@@ -1105,6 +1481,7 @@ elsereno serve --scan-store=db --audit-retention-days 90 \
 | `OCI image runtime: tzdata: cannot find zone "..."`              | Sistema sin tzdata bundle                              | `apt install tzdata` o equivalente                                        |
 | `elsereno serve: scheduler exited: ...`                          | Bug del scheduler, reportar issue                     | Captura stderr + abre issue                                               |
 | `401`/`403` en `/api/v1/*`                                        | `serve` con OIDC: falta el Bearer JWT o el rol          | Pasa `Authorization: Bearer <jwt>` del emisor configurado en `auth.oidc` |
+| `429 Too Many Requests` de `serve` (con `Retry-After: 60`)        | Te pasaste de `web.rate_limit_per_min_ip` (100/min, no loopback) o de `web.rate_limit_per_min_token` (300/min por Bearer o `X-Operator`) | Espera los segundos de `Retry-After` o sube el límite en `elsereno.yaml` (`0` lo apaga); PITF-100 |
 | `415` / `403` / `421` de `serve`                                   | Cuerpo o `Content-Type` que no es JSON/NDJSON, petición desde otro origen, o `Host` que no es loopback | Manda `-H 'Content-Type: application/json'` (curl `-d` manda form por defecto); llama a `127.0.0.1` o `localhost` (PITF-092) |
 
 ---
@@ -1319,8 +1696,8 @@ database:                         # lo lee todo comando con DATABASE_URL
 web:
     token_ttl_days: 30
     token_generation_cache_ttl: 5s
-    rate_limit_per_min_ip: 100
-    rate_limit_per_min_token: 300
+    rate_limit_per_min_ip: 100    # lo lee serve: por IP, loopback exento
+    rate_limit_per_min_token: 300 # lo lee serve: por token o X-Operator
     max_body_bytes: 1048576
     read_header_timeout: 5s       # los cuatro timeouts los lee serve;
     read_timeout: 30s             # 0 = el valor por defecto, uno
@@ -1345,7 +1722,7 @@ auth:
 
 Las claves sin comentario "lo lee" se aceptan pero nada las lee todavía
 (cambiarlas no cambia nada): `retention.*`, `evidence.*`, `log.*`,
-`shutdown.*`, `doctor.*`, `web.token_*`, `web.rate_limit_*`,
+`shutdown.*`, `doctor.*`, `web.token_*`,
 `web.max_body_bytes`, `readyz.*` (solo el stub `audit verify`),
 `exec.allowed_paths` (no limita qué binarios se ejecutan),
 `outbox.*` y `auth.oidc.clock_skew` (fijo en 60 s en el código).
@@ -1475,6 +1852,30 @@ escrituras (todo salvo GET, HEAD y OPTIONS) desde otro origen según
 lleva `Content-Type`, o lleva uno de esos dos. El CLI y curl con JSON o
 NDJSON no mandan `Origin` y pasan. Responden con `Content-Type:
 application/json` (excepto SSE).
+
+Desde el 18-10-2026 (PITF-100) `serve` limita las peticiones con dos
+cubos de tokens: por IP del cliente (`web.rate_limit_per_min_ip`, 100
+por minuto por defecto; loopback queda exento; una IPv6 cuenta por su
+/64) y por token, que es el
+Bearer o, en modo dev, el valor de `X-Operator`
+(`web.rate_limit_per_min_token`, 300 por minuto; también en loopback).
+Se puede gastar el minuto entero de golpe y luego se recarga poco a
+poco. Al pasarse de cualquiera de los dos, la respuesta es `429` con
+`Retry-After: 60`, y una petición rechazada no gasta el otro cubo.
+Cada cubo guarda como mucho 100.000 claves: lleno, una clave nueva
+recibe 429, y un cubo sin uso durante un minuto se olvida (ya está
+lleno otra vez). El token no se guarda tal cual, solo su SHA-256.
+`/healthz` y `/readyz` nunca se limitan, y un `0` apaga esa dimensión.
+`X-Forwarded-For` se ignora a propósito: detrás de un proxy inverso en
+la misma máquina todos los clientes llegan desde loopback y solo cuenta
+el límite por token. Al arrancar, `serve` escribe en stderr `elsereno
+serve: rate limits per IP 100/min (loopback exempt), per token
+300/min` (con los valores por defecto; un `0` sale como `off`).
+
+Con `rate_limit_per_min_token: 3` y la misma `X-Operator`, cuatro
+peticiones seguidas a `/api/v1/health` desde loopback devuelven `200
+200 200 429`; otro `X-Operator`, una petición sin cabecera y
+`/healthz` siguen en `200`.
 
 ### Scans
 
@@ -1779,89 +2180,70 @@ Logs: `journalctl -u elsereno -f`.
 
 ### Docker / OCI
 
-Para `docker compose`:
+Para `docker compose`, lo mismo que la receta del §2.3 (bind
+`0.0.0.0` dentro del contenedor, TLS, OIDC en `elsereno.yaml` y el
+vault montado). La imagen se construye en local (`docker build -t
+elsereno .`): no hay imagen pública. Probado el 18-10-2026 con Docker
+Desktop (`listening on 0.0.0.0:8787`, `OIDC enforcement ENABLED`,
+`/healthz` 200):
 
 ```yaml
 # compose.prod.yml
 services:
   elsereno:
-    image: ghcr.io/robinr00t/elsereno:1.88.0
+    image: elsereno
     restart: unless-stopped
-    network_mode: host    # o expone puertos: 127.0.0.1:8787:8787
+    user: "1000:1000"              # el dueño de ./state en el host
     environment:
-      DATABASE_URL: postgres://elsereno:****@db:5432/elsereno?sslmode=require
+      HOME: /data
     volumes:
-      - ./vault.pp:/etc/elsereno/vault.pp:ro
-      - elsereno-state:/var/lib/elsereno
+      - ./state:/data/.elsereno    # vault.v1.bin y vault.pass (0600)
+      - ./tls:/tls:ro
+      - ./conf:/cfg:ro             # elsereno.yaml con auth.oidc
+    ports:
+      - "127.0.0.1:8787:8787"
     command:
+      - --config=/cfg/elsereno.yaml
       - serve
-      - --scan-store=db
+      - --addr=0.0.0.0:8787
+      - --tls-cert=/tls/cert.pem
+      - --tls-key=/tls/key.pem
+      - --i-know-what-im-doing
+      - --vault-passphrase-file=/data/.elsereno/vault.pass
       - --audit-retention-days=90
-      - --vault-passphrase-file=/etc/elsereno/vault.pp
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8787/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-volumes:
-  elsereno-state:
 ```
 
-### Kubernetes (snippet mínimo)
+Sin `healthcheck` de Docker: la imagen es distroless y no trae `curl`
+ni shell (un `curl` dentro del contenedor falla con `executable file
+not found`). Comprueba `/healthz` desde fuera. Para Postgres, añade
+`DATABASE_URL` en `environment` y `--scan-store=db` (sin probar en
+contenedor).
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: elsereno
-spec:
-  replicas: 1
-  selector: { matchLabels: { app: elsereno } }
-  template:
-    metadata: { labels: { app: elsereno } }
-    spec:
-      serviceAccountName: elsereno
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        seccompProfile: { type: RuntimeDefault }
-      containers:
-        - name: elsereno
-          image: ghcr.io/robinr00t/elsereno:1.88.0
-          args:
-            - serve
-            - --scan-store=db
-            - --audit-retention-days=90
-            - --vault-passphrase-file=/etc/elsereno/vault.pp
-          env:
-            - name: DATABASE_URL
-              valueFrom: { secretKeyRef: { name: elsereno-db, key: url } }
-          volumeMounts:
-            - name: vault-passphrase
-              mountPath: /etc/elsereno
-              readOnly: true
-          ports:
-            - { containerPort: 8787, name: http }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8787 }
-          readinessProbe:
-            httpGet: { path: /readyz, port: 8787 }
-          securityContext:
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"] }
-            runAsNonRoot: true
-            runAsUser: 1000
-          resources:
-            requests: { cpu: 200m, memory: 128Mi }
-            limits:   { cpu: 1000m, memory: 512Mi }
-      volumes:
-        - name: vault-passphrase
-          secret:
-            secretName: elsereno-vault-passphrase
-            defaultMode: 0400
-```
+### Kubernetes (sin receta probada)
+
+No hay manifiesto probado. Lo que el pod necesita, sacado de la receta
+Docker del §2.3, que sí está probada:
+
+- Los mismos argumentos: `--addr=0.0.0.0:8787`, `--tls-cert`,
+  `--tls-key`, `--i-know-what-im-doing`, `--vault-passphrase-file` y
+  `--config` con un `elsereno.yaml` que lleve `auth.oidc` completo (sin
+  eso, `serve` sale con 64 antes de escuchar). Las sondas, con
+  `scheme: HTTPS` contra `/healthz` y `/readyz`.
+- `HOME` apuntando a un directorio escribible (con
+  `readOnlyRootFilesystem`, un `emptyDir`) con `vault.v1.bin` dentro de
+  `$HOME/.elsereno/`.
+- La passphrase en un fichero del uid del contenedor con modo 0600 o más
+  estricto: `serve` rechaza cualquier bit de grupo u otros (`passphrase
+  file must be mode 0600 or stricter`), y tiene que ser un fichero
+  regular: un Secret montado es un symlink de root, que `serve`
+  rechaza. Hace falta copiarlo a ese `emptyDir` como fichero, con el
+  dueño correcto, antes de arrancar (por ejemplo, un initContainer).
+- Una imagen construida por ti y subida a tu registro: no hay imagen
+  pública.
+
+Detrás de un Service, según el tipo y `externalTrafficPolicy`, los
+clientes pueden llegar con la IP del nodo o del proxy y compartir el
+límite por IP de `serve` (100/min).
 
 Sin réplicas múltiples por ahora: el Scheduler asume
 single-process; multi-replica race el carryover v1.90+
@@ -2049,11 +2431,15 @@ Sí desde v1.14. `targets.txt` acepta IPv6 entre brackets:
 `[2001:db8::5]:502`.
 
 **¿Tiene rate-limiting per-target?**
-No nativo. `scanner.max_concurrent_targets` y
+Por target no; global sí. `scan --rate N` limita a N sondas por
+segundo en todo el scan (los plugins corren uno tras otro, cada uno
+con ese tope; `0`, el defecto, es sin límite).
+`scanner.max_concurrent_targets` y
 `scanner.max_concurrent_per_host` (1 por defecto: nunca dos
 sondas a la vez contra un host) evitan el peor caso. Para
-rate-limiting estricto en networks frágiles, integra con
-un FRR/`tc` rule a nivel host.
+un tope por host en redes frágiles, integra con
+un FRR/`tc` rule a nivel host. El límite de peticiones de `serve`
+(`web.rate_limit_*`) es otra cosa: protege la API, no los targets.
 
 **¿Puede mandar findings directos a Splunk / SIEM?**
 No nativo (todavía). El patrón canónico es: scan →
@@ -2065,7 +2451,11 @@ No actualmente. Bloqueador: `syscall.*` por-plataforma en
 en TODO-vNext.md.
 
 **¿Soporta autenticación OIDC?**
-No actualmente. Single-operator por proceso. Item vNext.
+Sí, en la API de `serve` (desde v2.59): con `auth.oidc.issuer`,
+`audience` y `jwks_url` configurados, las rutas con rol piden
+`Authorization: Bearer <JWT>` (401 sin token, 403 con rol
+insuficiente), y fuera de loopback es obligatorio. Sin OIDC, modo dev
+solo en loopback con `X-Operator`. Detalle en el §15.
 
 **¿Cómo se renueva el master del vault?**
 `elsereno vault rotate` (planeado). De momento un backup no sirve

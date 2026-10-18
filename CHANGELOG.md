@@ -486,6 +486,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`serve` enforced no rate limit: `web.rate_limit_per_min_ip` and
+  `web.rate_limit_per_min_token` were accepted and read by nothing
+  (PITF-100).** `NewServer` now wraps the handler tree in a token bucket
+  per client IP (100/min by default, loopback exempt, `X-Forwarded-For`
+  ignored) and per Bearer token or, in dev mode, `X-Operator` name
+  (300/min, loopback included). Over either cap the reply is 429 with
+  `Retry-After: 60` and the security headers; a refusal by either bucket
+  does not spend the other, and a caller over its IP cap never creates a
+  token bucket; IPv6 clients count by /64; token keys are stored as
+  SHA-256, each map holds at most 100 000 keys (a full map refuses new
+  ones) and idle buckets are swept once a minute; `/healthz` and
+  `/readyz` are never limited; 0 turns a cap off. `serve` prints the caps at startup,
+  and the security panel gains a "Rate limits" row. Checked against the
+  binary: with `rate_limit_per_min_token: 3`, four calls with the same
+  `X-Operator` give 200 200 200 429, another operator still gets 200.
+  The MANUAL, `elsereno.yaml(5)`, `elsereno-security(7)` and SECURITY say
+  so; the MANUAL FAQ also stops saying there is no OIDC (there is since
+  v2.59) and no scan rate limit (`scan --rate` exists).
+
+- **The Docker recipes for `serve` could not work.** INSTALL taught
+  `docker run -p 8787:8787 ... serve`, but `serve` binds `127.0.0.1`,
+  which inside a container is the container's own loopback: the host got
+  an empty reply. The MANUAL compose had the same problem, a healthcheck
+  calling `curl` (the distroless image has none) and no vault mounted,
+  and its Kubernetes manifest also bound loopback. INSTALL and the
+  MANUAL now carry a recipe tested with Docker Desktop (bind `0.0.0.0`,
+  TLS, `--i-know-what-im-doing`, OIDC, the vault mounted with `--user`
+  and `HOME=/data`), say there is no public image (an anonymous pull of
+  `ghcr.io/robinr00t/elsereno` answers `denied`) and build it locally,
+  and replace the Kubernetes manifest with what a pod needs. The MANUAL
+  troubleshooting table quotes the real bind errors.
+
+- **MANUAL verb reference checked against the binary.** The new
+  sections for `schedule`, `why`, `fmt`, `standards`, `profinet`,
+  `goose` and the other verbs were run one by one: `profinet decode
+  --strip-l2` defaults to 0, not 14; `standards` lists 34 plugins, not
+  "about 36"; `goose monitor --count` applies only with `--iface`;
+  `schedule stats` and `export` date from the v2.3 CLI (v2.2 and v1.97
+  are the server endpoints); JSON outputs are shown as the binary
+  prints them.
+
 - **Logged secrets were not redacted: the binary logged through the
   standard library, and the redacting logger was library code nobody
   wired (PITF-099).** entrypoint now installs a RedactWriter on the
