@@ -120,21 +120,64 @@ syft scan elsereno -o cyclonedx-json | diff - elsereno_1.49.0_linux_amd64.tar.gz
 
 ### OCI image
 
-```sh
-docker run --rm -p 8787:8787 \
-  -v /etc/elsereno:/etc/elsereno:ro \
-  -v elsereno-state:/var/lib/elsereno \
-  ghcr.io/robinr00t/elsereno:1.49.0 serve
-```
-
-The image is **distroless** (`gcr.io/distroless/static-debian12:nonroot`). No shell, no package manager, no SUID binaries. Image is signed (cosign keyless) and ships a CycloneDX SBOM as an OCI referrer:
+There is no public image to pull today: an anonymous
+`docker pull ghcr.io/robinr00t/elsereno:<tag>` answers `denied` (checked
+2026-10-18 for `latest`, `2.62.0` and `1.49.0`). Build it from the
+checkout:
 
 ```sh
-cosign verify ghcr.io/robinr00t/elsereno:1.49.0 \
-  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
-  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
-cosign download sbom ghcr.io/robinr00t/elsereno:1.49.0
+docker build -t elsereno .
+docker run --rm elsereno version
 ```
+
+The image is **distroless** (`gcr.io/distroless/static-debian12:nonroot`):
+no shell, no package manager, no SUID binaries. It runs as `nonroot`
+(uid 65532), exposes 8787 and its default command is `serve`.
+
+**Running `serve` in a container.** `serve` binds `127.0.0.1:8787` by
+default, and inside a container that is the container's own loopback:
+`docker run -p 8787:8787 elsereno serve` publishes a port nothing listens
+on (the host gets an empty reply, curl exit 52). To reach it from outside
+the container, `serve` must bind `0.0.0.0`, and a non-loopback bind
+refuses to start without TLS, `--i-know-what-im-doing` and OIDC (exit 64,
+"requires --tls-cert, --tls-key and --i-know-what-im-doing", then
+"requires OIDC auth"). It also needs an initialised vault and a
+passphrase file, because a detached container has no terminal to prompt
+on. Tested recipe, with the vault, passphrase file (0600), TLS pair and
+an `elsereno.yaml` carrying `auth.oidc.issuer`, `audience` and
+`jwks_url` on the host:
+
+```sh
+docker run -d --name elsereno-serve \
+  --user "$(id -u):$(id -g)" -e HOME=/data \
+  -v ~/.elsereno:/data/.elsereno \
+  -v /etc/elsereno/tls:/tls:ro \
+  -v /etc/elsereno/conf:/cfg:ro \
+  -p 127.0.0.1:8787:8787 \
+  elsereno --config /cfg/elsereno.yaml serve \
+    --addr 0.0.0.0:8787 \
+    --tls-cert /tls/cert.pem --tls-key /tls/key.pem \
+    --i-know-what-im-doing \
+    --vault-passphrase-file /data/.elsereno/vault.pass
+```
+
+`--user` and `HOME=/data` let the container read a vault owned by your
+user (the image's `nonroot` cannot read a 0600 file you own on Linux);
+`serve` also follows `audit.jsonl` there, if it exists, for the
+dashboard's live feed. The logs then say `listening on
+0.0.0.0:8787` and `OIDC enforcement ENABLED`; `/healthz` answers 200 and
+`/api/v1/scans` without a Bearer token 401. Two side effects of the
+published port: with Docker Desktop, and on Linux for clients on the
+same host, they reach `serve` from the Docker gateway address, not
+loopback, so they all share the per-IP rate limit (100/min; an open
+dashboard polls every few seconds, so raise `rate_limit_per_min_ip` for
+several users); and
+the `-p 127.0.0.1:` prefix keeps the port on the host's loopback, drop
+it only if other hosts must reach the API.
+
+For a single operator without OIDC, skip the container for `serve`: run
+the binary on the host (loopback, dev mode), or on a remote host and
+reach it with an SSH tunnel (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ---
 
@@ -207,10 +250,11 @@ If you need fully-static + sandboxed on macOS at the same time: not possible (Ap
 
 ### OCI image
 
-The image runs in Docker Desktop / Colima / OrbStack identically:
+Tested on Docker Desktop (2026-10-18):
 
 ```sh
-docker run --rm ghcr.io/robinr00t/elsereno:1.49.0 doctor
+docker build -t elsereno .
+docker run --rm elsereno doctor
 ```
 
 ---

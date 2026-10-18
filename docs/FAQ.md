@@ -278,8 +278,13 @@ elsereno serve \
     # NO --tls-cert/key → ERROR. Serve rechaza esto.
 ```
 
-Serve **exige** TLS para non-loopback. Workaround: bindea
-loopback en el host + SSH tunnel:
+Serve **exige** TLS, `--i-know-what-im-doing` y OIDC
+(`auth.oidc.issuer`, `audience`, `jwks_url`) para non-loopback; sin
+cualquiera de los tres sale con 64 antes de escuchar. Lo mismo vale
+dentro de un contenedor, donde el `127.0.0.1` por defecto es el del
+contenedor: `docker run -p 8787:8787 ... serve` no llega (receta
+probada en el §2.3 del MANUAL). Workaround: bindea loopback en el
+host + SSH tunnel:
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 elsereno-host
