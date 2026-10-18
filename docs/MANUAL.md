@@ -2508,7 +2508,8 @@ mantenedor (`ACE3B86BACACE7D6`).
 - [`docs/FAQ.md`](FAQ.md), preguntas frecuentes
   expandidas.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md), diseño
-  interno.
+  interno, con el diagrama del flujo de datos (`scan` y `serve`,
+  del verbo a Postgres, SSE y `/metrics`) sacado del código.
 - [`docs/openapi.yaml`](openapi.yaml), spec de la API.
 - [`docs/protocols/`](protocols/), engineering notes por
   protocolo.

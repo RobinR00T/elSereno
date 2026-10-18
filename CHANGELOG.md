@@ -17,7 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `examples/run-examples.sh` reproduces all of them against the repo's
   simulators on loopback, with a throwaway HOME. The docs test now
   skips shown output lines such as `elsereno serve: listening ...`.
-
+- **Architecture diagram.** `docs/ARCHITECTURE.md` now has a Mermaid
+  data-flow diagram (with a plain-text summary) mapped from the code:
+  the CLI `scan` path to stdout, the `serve` path through
+  `securityHeaders`, the rate limiter, `browserGuard` and the mux with
+  OIDC per route, scan jobs into Postgres and SSE, the audit file and
+  `/metrics`. Every box names its package. The same page now says that
+  `internal/bus` has no code yet, that `serve` stores each finding with
+  one `INSERT` (the batched `pgx.CopyFrom` of ADR-008 is not built) and
+  that no command writes the audit chain to Postgres.
 - **DNP3 gate decisions in the audit chain.** The offensive DNP3 gate
   audited only the opening of a session: a refusal left no trace beyond
   the reply, and a discard only a stderr line. Now each refusal (with
