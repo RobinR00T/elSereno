@@ -342,6 +342,15 @@ allowlist + freshly minted confirm\-token (v1.15+).
 Emits a warning when a TTY is present; prefer \f[CR]vault unlock\f[R] or
 a 0600 file.
 .TP
+\f[B]NO_COLOR\f[R], \f[B]COLORTERM\f[R], \f[B]TERM\f[R]
+The root help (\f[B]elsereno\f[R], \f[B]elsereno \-\-help\f[R],
+\f[B]elsereno help\f[R]) starts with the elSereno ASCII logo when
+standard output is a terminal and \f[B]\-\-quiet\f[R] is not set.
+It is in colour when \f[B]COLORTERM\f[R] is \f[I]truecolor\f[R] or
+\f[I]24bit\f[R], \f[B]NO_COLOR\f[R] is unset and \f[B]TERM\f[R] is not
+\f[I]dumb\f[R]; otherwise plain ASCII.
+Off a terminal the help has no logo.
+.TP
 \f[B]DATABASE_URL\f[R]
 Postgres DSN.
 Optional; missing → DB\-backed panels degrade to \(dqbackend

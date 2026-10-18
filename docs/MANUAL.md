@@ -275,6 +275,15 @@ elsereno doctor
 §7.15). Un build local sin ldflags dice `elsereno dev`, `commit none`,
 `built unknown`.
 
+**El logo.** `elsereno` a secas, `elsereno --help` y `elsereno help`
+imprimen encima de la ayuda el logo de elSereno (un sereno esquelético
+con su farol, 28 líneas de ASCII). Solo en una terminal: si la salida va
+a una tubería o a un fichero, o con `--quiet`, la ayuda sale igual que
+antes, sin logo. Sale en color (marfil, azul y ámbar) cuando la terminal
+declara color de 24 bits (`COLORTERM=truecolor` o `24bit`) y no hay
+`NO_COLOR` ni `TERM=dumb`; si no, en ASCII plano. La ayuda de los
+subcomandos (`elsereno scan --help`) no lo lleva.
+
 ---
 
 ## 3. Primer arranque (5 minutos)

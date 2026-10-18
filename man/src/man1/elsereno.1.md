@@ -329,6 +329,14 @@ Seven of the 18 write-gated proxies accept the `--allow-file
 :   Emits a warning when a TTY is present; prefer `vault unlock`
     or a 0600 file.
 
+**NO_COLOR**, **COLORTERM**, **TERM**
+:   The root help (**elsereno**, **elsereno --help**, **elsereno
+    help**) starts with the elSereno ASCII logo when standard output
+    is a terminal and **--quiet** is not set. It is in colour when
+    **COLORTERM** is *truecolor* or *24bit*, **NO_COLOR** is unset and
+    **TERM** is not *dumb*; otherwise plain ASCII. Off a terminal the
+    help has no logo.
+
 **DATABASE_URL**
 :   Postgres DSN. Optional; missing → DB-backed panels degrade
     to "backend unavailable", dashboard scans keep their findings
