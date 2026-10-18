@@ -130,10 +130,12 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   total las cuenta como pares distintos. (Los otros dos detalles de esa
   nota, el aviso de nmap de `doctor` y el "(audited)" de `creds show`,
   quedaron corregidos el 18-10.)
-- **Releases sin binarios ni firma.** La última GitHub Release con
-  binarios es v2.37.0; los tags v2.38 a v2.62 no llevan assets, y solo
-  v1.0.0 y v1.0.1 llevan firma cosign (`checksums.txt.bundle`). Decidir
-  si se publica una release desde `main` y si vuelve la firma keyless.
+- **Releases sin firma.** v2.63.0 (18-10-2026) se publicó con binarios
+  pero construida en local, sin firma cosign ni atestación SLSA: el
+  workflow de release corrió un snapshot sobre el tag (PITF-102, ya
+  corregido en `release.yml`). Solo v1.0.0 y v1.0.1 llevan
+  `checksums.txt.bundle`. Falta probar el camino CI completo en la
+  próxima release y confirmar que vuelve la firma keyless.
 - **Métrica de rechazos del rate limit (PITF-100).** Hoy no hay métrica de los 429. Falta un
   contador Prometheus
   `elsereno_web_rate_limited_total` con etiqueta `reason` (`ip`, `token`,

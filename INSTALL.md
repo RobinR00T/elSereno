@@ -45,24 +45,24 @@ You can install **default + offensive together** on the same host (binaries have
 ### deb / rpm / apk packages (recommended for Linux servers)
 
 Three packages per format, for `amd64` and `arm64`. The newest GitHub
-Release with binaries is **v2.37.0** (2026-05-16; tags v2.38 to v2.62
-carry no release assets), so the examples use it; check the
+Release with binaries is **v2.63.0** (2026-10-18; before it, v2.37.0, as
+tags v2.38 to v2.62 carry no release assets), so the examples use it; check the
 [releases page](https://github.com/RobinR00T/elSereno/releases) for a
 newer one. File names follow `<package>_<version>_linux_<arch>.<ext>`:
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./elsereno_2.37.0_linux_amd64.deb
+sudo apt install ./elsereno_2.63.0_linux_amd64.deb
 # or:
-sudo dpkg -i elsereno_2.37.0_linux_amd64.deb && sudo apt-get install -f
+sudo dpkg -i elsereno_2.63.0_linux_amd64.deb && sudo apt-get install -f
 
 # RHEL / CentOS / Fedora / Rocky / Alma
-sudo dnf install ./elsereno_2.37.0_linux_amd64.rpm
+sudo dnf install ./elsereno_2.63.0_linux_amd64.rpm
 # or with rpm directly:
-sudo rpm -i elsereno_2.37.0_linux_amd64.rpm
+sudo rpm -i elsereno_2.63.0_linux_amd64.rpm
 
 # Alpine
-sudo apk add --allow-untrusted ./elsereno_2.37.0_linux_amd64.apk
+sudo apk add --allow-untrusted ./elsereno_2.63.0_linux_amd64.apk
 ```
 
 **Available package names**: `elsereno` (default), `elsereno-offensive`, `elsereno-mini`. They can coexist.
@@ -101,16 +101,17 @@ Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `P
 ### Tarball install (any Linux, no root)
 
 ```sh
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_linux_amd64.tar.gz
-tar -xzf elsereno_2.37.0_linux_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_linux_amd64.tar.gz
+tar -xzf elsereno_2.63.0_linux_amd64.tar.gz
 sudo mv elsereno /usr/local/bin/
 elsereno doctor
 ```
 
-For air-gapped / paranoid. Releases from v2.x ship `checksums.txt` and a
-CycloneDX SBOM per archive, but no cosign signature: only v1.0.0 and
-v1.0.1 carry `checksums.txt.bundle` (checked 2026-10-18), so the cosign
-step applies to those alone.
+For air-gapped / paranoid. Releases from v2.x, v2.63.0 included, ship
+`checksums.txt` and a CycloneDX SBOM per archive, but no cosign signature
+and no SLSA attestation: only v1.0.0 and v1.0.1 carry
+`checksums.txt.bundle` (checked 2026-10-18), so the cosign step applies to
+those alone. The v2.63.0 tag itself is GPG-signed (`git tag -v v2.63.0`).
 
 ```sh
 # Verify checksum
@@ -122,7 +123,7 @@ cosign verify-blob \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   checksums.txt
 # Verify SBOM (CycloneDX)
-syft scan elsereno -o cyclonedx-json | diff - elsereno_2.37.0_linux_amd64.tar.gz.cyclonedx.json
+syft scan elsereno -o cyclonedx-json | diff - elsereno_2.63.0_linux_amd64.tar.gz.cyclonedx.json
 ```
 
 ### OCI image
@@ -194,14 +195,14 @@ reach it with an SSH tunnel (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ```sh
 # Apple Silicon
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_darwin_arm64.tar.gz
-tar -xzf elsereno_2.37.0_darwin_arm64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_darwin_arm64.tar.gz
+tar -xzf elsereno_2.63.0_darwin_arm64.tar.gz
 sudo mv elsereno /usr/local/bin/
 xattr -d com.apple.quarantine /usr/local/bin/elsereno  # if downloaded via browser
 elsereno doctor
 
 # Intel
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_darwin_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_darwin_amd64.tar.gz
 …
 ```
 

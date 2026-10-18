@@ -100,9 +100,11 @@ operadores), tarball (laptops / kiosks), contenedor OCI (CI /
 K8s). El binario **es estático sin dependencias**: no instala
 nada en `/usr/lib`.
 
-La última release de GitHub con binarios es **v2.37.0** (16-5-2026;
-los tags v2.38 a v2.62 no llevan binarios), así que `releases/latest`
-instala esa versión, sin lo que hay en `main` después. Para lo último,
+La última release de GitHub con binarios es **v2.63.0** (18-10-2026;
+antes, v2.37.0, porque los tags v2.38 a v2.62 no llevan binarios), así que
+`releases/latest` instala esa versión, sin lo que hay en `main` después.
+Lleva `checksums.txt` y SBOM CycloneDX, sin firma cosign; el tag va firmado
+con GPG. Para lo último,
 compila desde el checkout (`INSTALL.md`, sección *Build from source*).
 
 ### 2.1 macOS

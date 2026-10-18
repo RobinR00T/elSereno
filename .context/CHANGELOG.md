@@ -8,6 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-18 (11): **v2.63.0 published** (43 assets, local goreleaser, no cosign): the tag-push release workflow built a snapshot (`cond && '' || 'x'` always picks 'x'); release.yml negates the condition, PITF-102; INSTALL/MANUAL/TODO/_quickref/STATE point at v2.63.0.
 - 2026-10-18 (10): **Release v2.63.0**: CHANGELOG [Unreleased] becomes [2.63.0] - 2026-10-18 (everything since the consolidated 1.89 to 2.62 block); first tag meant to carry a GitHub Release since v2.37.0.
 - 2026-10-18 (9): **Medium and low audit errata**: doctor stops claiming nmap/root are needed (code + test, [SKIP]); INSTALL/MANUAL point at the real v2.37.0 release assets (no cosign since v1.0.1, no Homebrew tap); man1 audit/config/verbs fixed; MANUAL documents modbus monitor and the missing §7 flags, audit verify/compact/purge exit 69; examples/elsereno.yaml comment; CopyFrom/DB writer gone from old manual (md+docx), ROADMAP, threat model; no hard-coded commit counts; local username out of OPERATIONS and two tests. PITF-101.
 - 2026-10-18 (8): **Doc errata from the audit**: SECURITY.md no longer lists audit events for vault/creds verbs (none emitted); creds show help, hint and MANUAL say --reveal is not in the audit chain; threat-model vault-audit marks it as a gap; MANUAL production serve example needs auth.oidc (exit 64); ARCHITECTURE scanner box says retries, not breaker.

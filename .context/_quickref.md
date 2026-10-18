@@ -41,9 +41,8 @@ token-budget: 950
 **First command when in doubt**: `elsereno doctor`.
 
 **Current phase**: see `.context/STATE.md` (authoritative). As of
-2026-10-18 the last tag is `v2.62.0` (2026-05-23) and `main` is past it,
-untagged (`git describe --tags` for the count); the last GitHub Release
-with binaries is `v2.37.0`.
+2026-10-18 the last tag is `v2.63.0`, with a GitHub Release with binaries
+(no cosign signature; built locally, PITF-102).
 
 **Counts** (authoritative: `elsereno plugins list`): **35
 protocol plugins** in the default build (2026-10-18); **24 offensive write-gated

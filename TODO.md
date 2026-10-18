@@ -81,9 +81,9 @@ identify, native Windows sandboxing, MITM routing, and the product
 decisions listed in `TODO-vNext.md` (Modbus constant score, notes that
 reach no output, the three orphan write-gates, and others).
 
-Releases are cut by the operator. The last tag, `v2.62.0`, is from
-2026-05-23; everything on `main` after it, from the 2026-08
-legacy-ICS write-gates to PITF-099 and the PITF-100 rate limit, is
-untagged (`git describe --tags` gives the commit count). The last
-GitHub Release with binaries is `v2.37.0` (2026-05-16): tags v2.38 to
-v2.62 were pushed without release assets.
+Releases are cut by the operator. The last tag is `v2.63.0`
+(2026-10-18), with a GitHub Release of 43 assets (checksums and
+CycloneDX SBOMs, no cosign signature, built locally because the CI
+release workflow ran a snapshot on the tag, PITF-102). Before it the last
+Release with binaries was `v2.37.0` (2026-05-16): tags v2.38 to v2.62
+were pushed without release assets.
