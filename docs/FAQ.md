@@ -167,8 +167,9 @@ recién está saliendo (Q1 2026), testing pendiente.
 
 No. La elección de Postgres se basa en:
 
-- `pgx.CopyFrom` para batch insert de findings (10× más
-  rápido que SQLite).
+- `pgx.CopyFrom` para insertar findings por lotes (diseño de
+  ADR-008, no construido: hoy `serve` escribe cada finding con un
+  `INSERT`).
 - Constraints CHECK con CASCADE/SET NULL.
 - JSONB indexing.
 - `serializable` isolation para concurrent updates.

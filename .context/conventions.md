@@ -85,8 +85,8 @@ token-budget: 2500
 ## Concurrency
 - `errgroup`, `semaphore`, `x/time/rate`.
 - No shared mutable state without lock justification in code.
-- Audit persistence single-threaded.
-- Findings persistence via `pgx.CopyFrom` batched.
+- Audit persistence single-threaded (today one writer appends to the JSONL file; the Postgres audit writer is not wired to any command).
+- Findings persistence: built today as one `INSERT` per finding (`internal/repo/runwriter.go`); the batched `pgx.CopyFrom` design (ADR-008) is not built.
 
 ## Observability
 - Timestamps RFC3339 up to 6 fractional digits.

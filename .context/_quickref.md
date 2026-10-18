@@ -18,7 +18,7 @@ token-budget: 950
 - Parsers from scratch in `internal/protocols/<name>/wire/`.
 - Hexagonal: `core` only stdlib.
 - Plugins register in `init()` via `core.Register(...)`.
-- Findings: CopyFrom batched. Audit: sequential INSERT single-threaded.
+- Findings: one `INSERT` per finding (`serve`, `internal/repo/runwriter.go`); the batched `pgx.CopyFrom` path of ADR-008 is not built. Audit: appended in order to `~/.elsereno/audit.jsonl` by one writer; the Postgres audit writer (`OpenDBWriter`) exists but no command wires it.
 - Scoring 0-100 multi-factor (ADR-006).
 - Audit JCS hash chain; genesis `prev_hash=0x00..00`; canonical `id/occurred_at/actor/event_type/payload/prev_hash`; tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries. `event_type` is CHECK enum.
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.

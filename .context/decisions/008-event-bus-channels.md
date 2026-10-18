@@ -8,6 +8,15 @@ phase: F0
 
 # ADR-008: Typed channel event bus with split persistence paths
 
+> **Implementation status (2026-10-18): not built.** The decision
+> stands, but `internal/bus` is a `doc.go` with no code. Today `serve`
+> stores each finding with one `INSERT` (`internal/repo/runwriter.go`),
+> the CLI `scan` writes none to the database, and no `pgx.CopyFrom`
+> call exists. Audit entries are appended in order to
+> `~/.elsereno/audit.jsonl` by one writer; `internal/audit` has a
+> Postgres writer (`OpenDBWriter`) that no command wires. See
+> `docs/ARCHITECTURE.md`, Data flow.
+
 ## Context
 Findings are produced in bursts; audit entries must form a strict hash
 chain. The same persistence path cannot serve both without dropping

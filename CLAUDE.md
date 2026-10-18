@@ -41,7 +41,7 @@ No future-phase work without owner approval.
 - Randomness only from `crypto/rand`.
 - Subprocess only via `internal/exec.SafeCommand` with `CommandSpec{Name, Flags, Positional}`; the `--` separator is inserted deterministically.
 - Audit: tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries (genesis/chain_rebase/purge_event).
-- Findings via pgx.CopyFrom batched. Audit via sequential INSERT single-threaded.
+- Findings: one INSERT per finding today (`internal/repo/runwriter.go`); pgx.CopyFrom batching (ADR-008) is designed, not built. Audit: one writer appends to `~/.elsereno/audit.jsonl`; the Postgres audit writer (`OpenDBWriter`) is not wired to any command.
 - Cookie Secure=true with TLS; false on HTTP loopback with comment rationale.
 - Token rotation bumps persisted `web_state.token_generation` with advisory lock; middleware caches generation TTL 5s (design; not built yet, PITF-087).
 - CSRF key HKDF from vault master key; `serve` requires vault unlocked (use `vault init` + `vault unlock`).

@@ -503,6 +503,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docs no longer claim batched `pgx.CopyFrom` or a Postgres audit
+  writer.** `.context/_quickref.md`, `.context/conventions.md`,
+  `CLAUDE.md`, `docs/FAQ.md` and `internal/bus/doc.go` now say what is
+  built: `serve` stores each finding with one `INSERT`
+  (`internal/repo/runwriter.go`) and the audit chain lives in
+  `~/.elsereno/audit.jsonl`. ADR-008 keeps its decision with a
+  "not built" status note.
+
 - **`serve` enforced no rate limit: `web.rate_limit_per_min_ip` and
   `web.rate_limit_per_min_token` were accepted and read by nothing
   (PITF-100).** `NewServer` now wraps the handler tree in a token bucket
