@@ -49,6 +49,14 @@ Read by the binary:
 **web.idle_timeout** (default **2m0s**)
 :   HTTP server timeouts of **serve**; zero means the built-in default.
 
+**web.rate_limit_per_min_ip** (default **100**)
+**web.rate_limit_per_min_token** (default **300**)
+:   Request caps of **serve**: a token bucket per client IP (loopback
+    exempt; IPv6 by /64) and per Bearer token or, in dev mode, **X-Operator** name
+    (loopback included). Over either cap: **429** with
+    **Retry-After: 60**; **/healthz** and **/readyz** are never limited;
+    **0** turns that cap off. **X-Forwarded-For** is ignored.
+
 **auth.oidc.issuer**, **auth.oidc.audience**, **auth.oidc.jwks_url**
 :   OIDC for **serve**; required on a non-loopback address.
 
@@ -57,7 +65,6 @@ Accepted but not read by anything yet (setting them changes nothing):
 **retention.runs_days**, **evidence.max_payload_bytes**, **log.level**,
 **log.output**, **shutdown.drain_timeout**, **doctor.ntp_server**,
 **web.token_ttl_days**, **web.token_generation_cache_ttl**,
-**web.rate_limit_per_min_ip**, **web.rate_limit_per_min_token**,
 **web.max_body_bytes**, **readyz.audit_tail_entries** (only the stub
 **audit verify**), **exec.allowed_paths** (it does not limit which
 binaries run), **outbox.max_attempts**, and **auth.oidc.clock_skew**

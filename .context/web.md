@@ -59,10 +59,20 @@ Default `127.0.0.1:8787`. Binding outside loopback requires: `--tls-cert`
 - Restrictive `Permissions-Policy`.
 - CSP with **per-request nonces**.
 
-## Rate limiting
-- Per-IP `rate_limit_per_min_ip = 100` (loopback exempt).
-- Per-token `rate_limit_per_min_token = 300`.
-- More restrictive limit wins.
+## Rate limiting (wired 2026-10-18, PITF-100)
+- `internal/web/middleware/ratelimit.go`, wrapped by `NewServer` inside
+  `securityHeaders` and before `browserGuard`; `cmd_serve` passes the caps.
+- Per-IP `rate_limit_per_min_ip = 100` (loopback exempt; RemoteAddr only,
+  `X-Forwarded-For` ignored; IPv6 keyed by /64).
+- Per-token `rate_limit_per_min_token = 300`, keyed by Bearer or, in dev
+  mode, `X-Operator`; applies on loopback too.
+- IP bucket checked first (a caller over its IP cap never creates a token
+  bucket), then the token bucket; a token reserved from the IP bucket is
+  handed back if the token bucket refuses. Either refusal: 429 +
+  `Retry-After: 60`.
+- Token keys stored as SHA-256; each map capped at 100 000 keys (full map:
+  unknown key gets 429); idle buckets swept once a minute, not per request.
+- `/healthz`, `/readyz` never limited; 0 disables a dimension.
 
 ## Endpoints (F4 close)
 - `GET /healthz`: liveness.

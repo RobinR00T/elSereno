@@ -60,8 +60,8 @@ loopback-only by default.
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Slowloris / slow-header attack | Full `http.Server` timeouts set in F1 chunk 3a | `internal/web/server.go` |
-| Per-IP flood | Rate limiter 100 req/min per IP (loopback exempt) | `internal/web/middleware/rate.go` |
-| Per-token flood | 300 req/min per Bearer token | `internal/web/middleware/rate.go` |
+| Per-IP flood | Token bucket 100 req/min per client IP (loopback exempt; `X-Forwarded-For` ignored), 429 + `Retry-After: 60` (PITF-100) | `internal/web/middleware/ratelimit.go` |
+| Per-token flood | Token bucket 300 req/min per Bearer token or `X-Operator` name, loopback included (PITF-100) | `internal/web/middleware/ratelimit.go` |
 | Session table growth | `web_state` is a singleton row; token generation bumps an integer, not a row count | migration 00001 |
 
 ## E, Elevation of privilege

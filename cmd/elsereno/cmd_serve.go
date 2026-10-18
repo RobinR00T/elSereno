@@ -179,11 +179,25 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 		_, _ = fmt.Fprintln(os.Stderr,
 			"elsereno serve: auth in DEV mode (X-Operator header; no OIDC)")
 	}
+	_, _ = fmt.Fprintln(os.Stderr, rateLimitBanner(cfg.Web))
 	if err := srv.Run(cmd.Context()); err != nil &&
 		!errors.Is(err, http.ErrServerClosed) && !errors.Is(err, context.Canceled) {
 		return fail(core.ExitSoftware, err)
 	}
 	return nil
+}
+
+// rateLimitBanner states the request caps serve enforces (PITF-100), so
+// an operator who changed or zeroed them sees it at startup.
+func rateLimitBanner(w config.WebConfig) string {
+	limit := func(n int, extra string) string {
+		if n <= 0 {
+			return "off"
+		}
+		return fmt.Sprintf("%d/min%s", n, extra)
+	}
+	return fmt.Sprintf("elsereno serve: rate limits per IP %s, per token %s",
+		limit(w.RateLimitPerMinIP, " (loopback exempt)"), limit(w.RateLimitPerMinToken, ""))
 }
 
 // buildWebOptions assembles the web.Options struct from the
@@ -200,6 +214,8 @@ func buildWebOptions(opts serveOpts, cfg config.Config, v *creds.Vault, pool *pg
 		ScheduleStore:      scheduleStore,
 		ScheduleAuditStore: auditStore,
 		Broadcaster:        broadcaster,
+		// Web carries rate_limit_per_min_ip/token; NewServer builds the
+		// limiter from it (PITF-100), the path its wiring test covers.
 	}
 	if pool != nil {
 		out.Querier = pool

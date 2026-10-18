@@ -17,6 +17,7 @@ import (
 	"local/elsereno/internal/web/auth"
 	"local/elsereno/internal/web/handlers"
 	"local/elsereno/internal/web/httpctx"
+	"local/elsereno/internal/web/middleware"
 	"local/elsereno/internal/web/stream"
 )
 
@@ -86,6 +87,13 @@ type Options struct {
 	// (PoolCollector etc.). Nil → no /metrics route is
 	// installed (operators can run without Prometheus).
 	MetricsHandler http.Handler
+
+	// RateLimiter caps requests per client IP and per auth token
+	// (PITF-100). Nil (what cmd_serve passes) -> NewServer builds one
+	// from Web.RateLimitPerMinIP / RateLimitPerMinToken: a
+	// config.Defaults() Web gets the 100/300 caps, a zero Web (some
+	// tests) no limit. Set it only to inject a limiter in a test.
+	RateLimiter *middleware.RateLimiter
 }
 
 // Server is the wrapped http.Server with the full set of timeouts and
@@ -155,10 +163,19 @@ func NewServer(opts Options) (*Server, error) {
 	mux.Handle("/admin/security", handlers.Security())
 	mux.Handle("/", handlers.Dashboard())
 
+	limiter := opts.RateLimiter
+	if limiter == nil {
+		limiter = middleware.NewRateLimiter(opts.Web.RateLimitPerMinIP, opts.Web.RateLimitPerMinToken)
+	}
+	// The limiter sits inside securityHeaders, so a 429 still carries
+	// the headers, and before the browser guard, so refused requests
+	// count against the caller's budget too.
+	handler := securityHeaders(limiter.Wrap(browserGuard(netutil.IsLoopbackHostPort(opts.Addr), mux)))
+
 	// #nosec G112 -- all timeouts are set explicitly below.
 	s.server = &http.Server{
 		Addr:              opts.Addr,
-		Handler:           securityHeaders(browserGuard(netutil.IsLoopbackHostPort(opts.Addr), mux)),
+		Handler:           handler,
 		ReadHeaderTimeout: nonzero(opts.Web.ReadHeaderTimeout, 5*time.Second),
 		ReadTimeout:       nonzero(opts.Web.ReadTimeout, 30*time.Second),
 		WriteTimeout:      nonzero(opts.Web.WriteTimeout, 30*time.Second),

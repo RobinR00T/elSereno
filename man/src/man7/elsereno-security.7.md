@@ -52,8 +52,11 @@ jump host. The primary adversaries are:
     **disable** is rejected at runtime on non-loopback hosts.
 
 **Rate limiting**
-:   Per-IP 100/min (loopback exempt) AND per-token 300/min; the more
-    restrictive limit wins.
+:   **serve** caps requests per client IP (**web.rate_limit_per_min_ip**,
+    100/min, loopback exempt, IPv6 by /64) AND per Bearer token or **X-Operator** name
+    (**web.rate_limit_per_min_token**, 300/min); whichever runs out first
+    answers **429** with **Retry-After: 60**. **/healthz** and **/readyz**
+    are never limited. Wired since 2026-10-18 (PITF-100).
 
 **HTTP server**
 :   Full timeouts (**5s**/**30s**/**30s**/**120s**) and 16 KiB header

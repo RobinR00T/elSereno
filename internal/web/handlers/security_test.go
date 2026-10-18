@@ -55,6 +55,9 @@ func TestBuildControls_UnwiredControlsAreNotOK(t *testing.T) {
 		if status["Redaction hook"] != "ok" {
 			t.Errorf("offensive=%v: Redaction status = %q, want ok (wired at the log sink, PITF-099)", offensive, status["Redaction hook"])
 		}
+		if status["Rate limits"] != "ok" {
+			t.Errorf("offensive=%v: Rate limits status = %q, want ok (wired in NewServer, PITF-100)", offensive, status["Rate limits"])
+		}
 		if !offensive && status["Offensive sandbox"] != "info" {
 			t.Errorf("default build: sandbox status = %q, want info (it is not compiled in)", status["Offensive sandbox"])
 		}

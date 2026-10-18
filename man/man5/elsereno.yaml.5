@@ -50,6 +50,16 @@ The connection itself comes from \f[B]DATABASE_URL\f[R].
 \f[B]web.write_timeout\f[R] (default \f[B]30s\f[R])
 \f[B]web.idle_timeout\f[R] (default \f[B]2m0s\f[R]) : HTTP server
 timeouts of \f[B]serve\f[R]; zero means the built\-in default.
+.PP
+\f[B]web.rate_limit_per_min_ip\f[R] (default \f[B]100\f[R])
+\f[B]web.rate_limit_per_min_token\f[R] (default \f[B]300\f[R]) : Request
+caps of \f[B]serve\f[R]: a token bucket per client IP (loopback exempt;
+IPv6 by /64) and per Bearer token or, in dev mode, \f[B]X\-Operator\f[R]
+name (loopback included).
+Over either cap: \f[B]429\f[R] with \f[B]Retry\-After: 60\f[R];
+\f[B]/healthz\f[R] and \f[B]/readyz\f[R] are never limited; \f[B]0\f[R]
+turns that cap off.
+\f[B]X\-Forwarded\-For\f[R] is ignored.
 .TP
 \f[B]auth.oidc.issuer\f[R], \f[B]auth.oidc.audience\f[R], \f[B]auth.oidc.jwks_url\f[R]
 OIDC for \f[B]serve\f[R]; required on a non\-loopback address.
@@ -60,11 +70,9 @@ Accepted but not read by anything yet (setting them changes nothing):
 \f[B]log.level\f[R], \f[B]log.output\f[R],
 \f[B]shutdown.drain_timeout\f[R], \f[B]doctor.ntp_server\f[R],
 \f[B]web.token_ttl_days\f[R], \f[B]web.token_generation_cache_ttl\f[R],
-\f[B]web.rate_limit_per_min_ip\f[R],
-\f[B]web.rate_limit_per_min_token\f[R], \f[B]web.max_body_bytes\f[R],
-\f[B]readyz.audit_tail_entries\f[R] (only the stub \f[B]audit
-verify\f[R]), \f[B]exec.allowed_paths\f[R] (it does not limit which
-binaries run), \f[B]outbox.max_attempts\f[R], and
+\f[B]web.max_body_bytes\f[R], \f[B]readyz.audit_tail_entries\f[R] (only
+the stub \f[B]audit verify\f[R]), \f[B]exec.allowed_paths\f[R] (it does
+not limit which binaries run), \f[B]outbox.max_attempts\f[R], and
 \f[B]auth.oidc.clock_skew\f[R] (fixed at 60s in the code).
 .SH SEE ALSO
 \f[I]elsereno\f[R](1), \f[I]elsereno\-scope\f[R](5),

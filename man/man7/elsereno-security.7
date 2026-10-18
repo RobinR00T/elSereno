@@ -57,8 +57,13 @@ Key derived from the vault master key via HKDF\-SHA256 with
 non\-loopback hosts.
 .TP
 \f[B]Rate limiting\f[R]
-Per\-IP 100/min (loopback exempt) AND per\-token 300/min; the more
-restrictive limit wins.
+\f[B]serve\f[R] caps requests per client IP
+(\f[B]web.rate_limit_per_min_ip\f[R], 100/min, loopback exempt, IPv6 by
+/64) AND per Bearer token or \f[B]X\-Operator\f[R] name
+(\f[B]web.rate_limit_per_min_token\f[R], 300/min); whichever runs out
+first answers \f[B]429\f[R] with \f[B]Retry\-After: 60\f[R].
+\f[B]/healthz\f[R] and \f[B]/readyz\f[R] are never limited.
+Wired since 2026\-10\-18 (PITF\-100).
 .TP
 \f[B]HTTP server\f[R]
 Full timeouts (\f[B]5s\f[R]/\f[B]30s\f[R]/\f[B]30s\f[R]/\f[B]120s\f[R])

@@ -43,7 +43,9 @@ surface includes:
   master key) for HTML (ADR-014, ADR-017).
 - Vault: AES-GCM + Argon2id, unlock-once in `memguard.LockedBuffer`,
   zeroised on SIGINT/SIGTERM or `vault lock` (ADR-018).
-- Rate limits per-IP (100/min, loopback exempt) **and** per-token (300/min).
+- `serve` rate limits per client IP (100/min, loopback exempt, IPv6 by /64) **and** per
+  Bearer token or `X-Operator` name (300/min): 429 with `Retry-After: 60`,
+  `/healthz` and `/readyz` exempt, `X-Forwarded-For` ignored (PITF-100).
 - Rand only via `crypto/rand`.
 - `http.Server` with full timeouts (5s/30s/30s/120s, 16 KiB header limit).
 - Audit entries are canonicalised with JCS (RFC 8785) over
