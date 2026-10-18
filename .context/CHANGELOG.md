@@ -8,7 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
-- 2026-10-18 (6): **STATE.md caught up**: EXAMPLES, the architecture diagram and the CopyFrom docs fix are pushed (dc8d8e0..37a3b69); commit count past v2.62.0 is 272.
+- 2026-10-18 (6): **STATE.md caught up**: EXAMPLES, the architecture diagram and the CopyFrom docs fix are pushed (dc8d8e0..37a3b69); commit count past v2.62.0 is 272. Batched pgx.CopyFrom for findings (ADR-008) added to TODO-vNext as designed, not built.
 - 2026-10-18 (5): **Docs stop claiming batched pgx.CopyFrom and a DB audit writer**: _quickref, conventions, CLAUDE.md, docs/FAQ.md and internal/bus/doc.go now say one INSERT per finding (runwriter.go) and audit to ~/.elsereno/audit.jsonl; ADR-008 keeps its decision with a "not built" status note. Closes the (4) follow-up.
 - 2026-10-18 (4): **docs/ARCHITECTURE.md gets a Mermaid data-flow diagram mapped from the code** (scan and serve paths, web middleware order, scanorch, repo.RunWriter, stream, audit file, telemetry); same pass fixes four claims the code contradicts: internal/bus is doc-only, findings go one INSERT each (no CopyFrom), plugins register with explicit core.Register, the redaction writer is wired (PITF-099). _quickref, conventions, ADR-008 and FAQ still say CopyFrom (follow-up).
 - 2026-10-18 (3): **docs/EXAMPLES.md: one recipe per feature with real

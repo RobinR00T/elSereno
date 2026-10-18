@@ -232,6 +232,12 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
 - **`scan` de la CLI tampoco recupera un pánico de sonda.** `serve` ya lo
   convierte en error (`safeProbe`); la CLI cae con él. Mover el `recover`
   al scanner lo cubriría para los dos. (Reauditoría de PITF-094.)
+- **Guardar findings por lotes con `pgx.CopyFrom` (ADR-008, diseñado, no
+  construido).** Hoy `serve` guarda cada finding con un `INSERT`
+  (`internal/repo/runwriter.go`, `RecordFinding`) y `internal/bus` es un
+  `doc.go` sin código. El diseño es un suscriptor que vacía cada 1.000
+  findings o cada segundo con `pgx.CopyFrom`. Decisión del 18-10-2026:
+  se documenta como no construido y se construye aquí, no antes.
 - **Plugins opt-in sin puerto contra cualquier puerto.** `s7-exposure`,
   `opcua-exposure` y `codesys-active` tienen `DefaultPort 0` (así quedan fuera
   de `discover` y `plugins by-port`), y `filterByPort` trata el 0 como "todos
