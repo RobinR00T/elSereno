@@ -45,7 +45,7 @@ catastrophic.
 
 | Threat | Mitigation | Code |
 |--------|------------|------|
-| Operator denies running a destructive command | Every vault + creds verb emits an audit event (`vault_init`, `vault_unlock`, `creds_reveal`, etc.); offensive_{allowed,denied,failed} emitted by `offensive/confirm.Authorize` | `internal/audit/events.go` |
+| Operator denies running a destructive command | Offensive actions are audited via `offensive/confirm`. GAP: the vault + creds event types (`vault_init`, `vault_unlock`, `creds_show_reveal`, ...) exist but no command emits them; `creds show --reveal` only prints a stderr notice | `internal/audit/events.go` |
 | Disputed chain integrity after incident | `elsereno audit verify` walks the chain; mismatched `entry_hash` returns typed `ErrChainBroken` | `internal/audit/errors.go` |
 
 ## I, Information disclosure

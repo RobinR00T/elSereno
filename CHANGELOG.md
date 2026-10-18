@@ -521,6 +521,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docs no longer claim vault and creds verbs are audited.**
+  `docs/SECURITY.md` listed an audit event for `vault init/unlock/lock`
+  and `creds store/rotate/show --reveal/purge`; the event types exist
+  but no command emits them, and the table now says so. `creds show`
+  said `(audited)` in its help, its hint and its `--reveal` flag, and
+  the MANUAL said the reveal wrote an audit entry: all now say it only
+  prints a stderr notice and is not in the audit chain yet.
+- **The production `serve` example in the MANUAL now passes
+  `--config` and says a non-loopback bind needs `auth.oidc`**
+  (issuer, audience, jwks_url); without it `serve` exits 64.
+- **The architecture diagram no longer puts a circuit breaker in the
+  scanner.** `scanner.CircuitBreaker` exists but nothing wires it; the
+  box and the package table now say retries.
 - **`scan --help` named five of the seven providers.** `binaryedge:`
   and `internetdb:` (with its `file:` and `-` forms) were accepted but
   not listed; `--api-creds-file` now says internetdb needs no key.

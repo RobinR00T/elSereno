@@ -205,7 +205,7 @@ stored "lab_demo" in <lab>/home/.elsereno/vault.v1.bin
 lab_demo                 created=2026-10-18T19:32:00Z
 name:       lab_demo
 created:    2026-10-18T19:32:00Z
-hint: pass --reveal to print the plaintext (audited)
+hint: pass --reveal to print the plaintext (not in the audit chain yet)
 ```
 
 `show` sin `--reveal` nunca imprime el valor. Para una clave real, por

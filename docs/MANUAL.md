@@ -512,8 +512,11 @@ elsereno serve --scan-store=memory
 export DATABASE_URL='postgres://elsereno@127.0.0.1:5433/elsereno?sslmode=disable'
 elsereno serve --scan-store=db --vault-passphrase-file ~/.elsereno/dev.pp
 
-# Producción (TLS + non-loopback + retención 90d):
+# Producción (TLS + non-loopback + OIDC + retención 90d). Fuera de
+# loopback, serve exige auth.oidc completo (issuer, audience, jwks_url)
+# en el elsereno.yaml; sin él sale con exit 64 (§2.3):
 elsereno serve \
+    --config /etc/elsereno/elsereno.yaml \
     --addr 10.0.0.5:8787 \
     --tls-cert /etc/elsereno/server.crt \
     --tls-key /etc/elsereno/server.key \
@@ -524,7 +527,9 @@ elsereno serve \
     --vault-passphrase-file /etc/elsereno/vault.pp
 ```
 
-Salida: una vez arrancado verás `elsereno serve: listening on 127.0.0.1:8787`.
+Salida: una vez arrancado verás `elsereno serve: listening on 127.0.0.1:8787`
+(en producción, la dirección de `--addr` y `elsereno serve: OIDC
+enforcement ENABLED (issuer=... aud=...)`).
 
 **Qué hace con los scans.** Desde el 17-10-2026 los jobs que se encolan
 desde el dashboard, la API o un schedule se ejecutan en el pool de
@@ -618,7 +623,7 @@ Sustituye a las env vars de `SHODAN_API_KEY` etc.
 |-------------|------------------------------------------------------------------|
 | `store`     | Guarda una credencial nueva. Lee plaintext de stdin (no argv, PITF-032). |
 | `rotate`    | Sobrescribe una existente.                                       |
-| `show`      | Imprime metadata (nombre, fecha). Con `--reveal` imprime también el plaintext + escribe entrada en audit. |
+| `show`      | Imprime metadata (nombre, fecha). Con `--reveal` imprime también el plaintext; solo avisa por stderr, no va a la cadena de auditoría. |
 | `list`      | Lista nombres de creds guardadas.                                |
 | `purge`     | Borra una cred.                                                  |
 

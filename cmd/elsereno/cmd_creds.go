@@ -99,7 +99,7 @@ func newCredsShowCmd() *cobra.Command {
 	var reveal bool
 	cmd := &cobra.Command{
 		Use:   "show <name>",
-		Short: "Print metadata for a credential; --reveal prints plaintext + audit entry",
+		Short: "Print metadata for a credential; --reveal also prints the plaintext",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, _, err := loadVault(cmd.Context())
@@ -126,7 +126,7 @@ func newCredsShowCmd() *cobra.Command {
 				cmd.Printf("rotated:    %s\n", md.RotatedAt.Format(time.RFC3339))
 			}
 			if !reveal {
-				cmd.Println("hint: pass --reveal to print the plaintext (audited)")
+				cmd.Println("hint: pass --reveal to print the plaintext (not in the audit chain yet)")
 				return nil
 			}
 			value, err := v.Retrieve(cmd.Context(), args[0])
@@ -134,16 +134,15 @@ func newCredsShowCmd() *cobra.Command {
 				return fail(core.ExitSoftware, err)
 			}
 			cmd.Printf("value:      %s\n", value)
-			// Audit entry for the reveal (no value captured). The audit
-			// chain writer hooks in when DB is wired; for now we print
-			// the intent so scripts can grep for it.
+			// Not written to the audit chain yet: only this stderr notice
+			// (no value captured), so scripts can grep for it.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 				"audit: creds_show_reveal name=%s at=%s (value not logged)\n",
 				md.Name, time.Now().UTC().Format(time.RFC3339))
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "also print the plaintext value (audited)")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "also print the plaintext value (stderr notice only; not in the audit chain yet)")
 	return cmd
 }
 

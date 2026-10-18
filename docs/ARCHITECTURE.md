@@ -31,7 +31,7 @@ flowchart TD
     SCOPE["internal/scope<br/>scope.yaml, only with --scope<br/>cmd/elsereno/scope_gate.go"]
     IN["internal/inputs/*<br/>list, nmapxml, stdin,<br/>shodan, censys, fofa, zoomeye, onyphe"]
     REG["internal/core registry<br/>core.Register in init()<br/>cmd/elsereno/plugins.go: 35 plugins"]
-    SCN["internal/scanner<br/>resolve, dedupe, per-host cap, breaker"]
+    SCN["internal/scanner<br/>resolve, dedupe, per-host cap, retries"]
     PROTO["internal/protocols/&lt;name&gt;<br/>parsers in &lt;name&gt;/wire/"]
     OUT["internal/outputs/{ndjson,csv,stix}<br/>stdout"]
 
@@ -143,7 +143,7 @@ What the diagram does not show, because the code does not do it yet:
 | `internal/web` | HTTP server, auth (dev mode or OIDC JWT), browser guard against cross-site requests and DNS rebinding (no CSRF token; PITF-092), per-IP and per-token rate limiter (PITF-100), health endpoints. |
 | `internal/repo` | Run, target and finding rows the dashboard reads; `RunWriter` records serve's scans. |
 | `internal/scanorch` | Scan jobs, schedules, cron, worker pool (`--scan-store` off, memory or db). |
-| `internal/scanner` | Resolve, dedupe, per-host concurrency cap and breaker around each probe. |
+| `internal/scanner` | Resolve, dedupe, per-host concurrency cap and retries around each probe. `CircuitBreaker` exists in the package but nothing wires it yet. |
 | `internal/scope` | Optional `scope.yaml`, applied with `--scope` by every network command (ranges, ports, protocols, dial blocked numbers). |
 | `internal/scoring` | Multi-factor scoring engine. |
 | `internal/triage` | Grouping (quick-wins, strategic). |

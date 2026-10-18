@@ -5,7 +5,8 @@
 // SIGINT/SIGTERM (ADR-018). HKDF-SHA256 derivations power the CSRF key
 // (ADR-017) and future key material.
 //
-// creds init creates the vault; creds show --reveal emits the stored
-// plaintext and logs an audit entry (creds_show_reveal) without the
-// value itself. Env-based passphrases emit a TTY warning (ADR-026).
+// vault init creates the vault; creds show --reveal prints the stored
+// plaintext and a stderr notice without the value. No vault or creds
+// verb writes to the audit chain yet: the creds_* and vault_* event
+// types exist in internal/audit but nothing emits them. Env-based passphrases emit a TTY warning (ADR-026).
 package creds

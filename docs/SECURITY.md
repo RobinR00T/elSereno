@@ -102,17 +102,24 @@ vault viejo. **Item vNext.**
 
 ### Operaciones expuestas
 
-| Verb              | Requiere unlocked? | Auditado?                       |
-|-------------------|--------------------|---------------------------------|
-| `vault init`     | no (crea)          | `vault_init` event              |
-| `vault unlock`   | no                 | `vault_unlock` event             |
-| `vault lock`     | sí                 | `vault_lock` event               |
-| `vault status`   | no                 | (read-only, no audit)            |
-| `creds store`    | sí                 | `creds_store` event              |
-| `creds rotate`   | sí                 | `creds_rotate` event             |
-| `creds show --reveal` | sí            | `creds_show_reveal` event        |
-| `creds list` / `show` (no reveal) | sí | (no audit, sólo metadata)     |
-| `creds purge`    | sí                 | `creds_purge` event              |
+Ningún verbo de `vault` ni de `creds` escribe todavía en la cadena de
+auditoría. Los tipos de evento (`vault_init`, `vault_unlock`,
+`vault_lock`, `creds_store`, `creds_rotate`, `creds_show_reveal`,
+`creds_purge`) existen en `internal/audit/events.go`, pero ningún
+comando los emite. `creds show --reveal` solo deja un aviso en stderr
+(`audit: creds_show_reveal name=... at=... (value not logged)`), sin el valor.
+
+| Verb              | Requiere unlocked? | Auditado?                                  |
+|-------------------|--------------------|--------------------------------------------|
+| `vault init`     | no (crea)          | no                                         |
+| `vault unlock`   | no                 | no                                         |
+| `vault lock`     | sí                 | no                                         |
+| `vault status`   | no                 | no (solo lectura)                          |
+| `creds store`    | sí                 | no                                         |
+| `creds rotate`   | sí                 | no                                         |
+| `creds show --reveal` | sí            | no: solo aviso en stderr, sin el valor     |
+| `creds list` / `show` (no reveal) | sí | no (solo metadata)                      |
+| `creds purge`    | sí                 | no                                         |
 
 ---
 
