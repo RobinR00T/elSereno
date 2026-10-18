@@ -28,8 +28,10 @@ jobs:
     # Scorecard's SARIF upload into the Security tab requires
     # GitHub Advanced Security, which is free on public repos
     # but paid for private personal repos. Gate on public to
-    # avoid noise on the private pre-1.0 period.
-    if: github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch'
+    # avoid noise on the private pre-1.0 period. Never on a tag push:
+    # scorecard-action accepts only the default branch and failed the
+    # v2.63.0 tag run ("Only the default branch main is supported").
+    if: github.ref_type != 'tag' && (github.event.repository.visibility == 'public' || github.event_name == 'workflow_dispatch')
     permissions:
       security-events: write
       id-token: write

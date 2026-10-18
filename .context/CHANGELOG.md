@@ -8,6 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-19 (1): **Scorecard skips tag pushes**: supply-chain.yml gates the scorecard job on `github.ref_type != 'tag'`; scorecard-action accepts only the default branch and failed the v2.63.0 tag run.
 - 2026-10-18 (12): **ASCII logo above the root help** (merged into main after the v2.63.0 tag; unreleased) (`internal/banner`, embedded plain + 24-bit ANSI copies; `cmd/elsereno/banner.go` wraps the root help func). Terminal only, never with --quiet; colour only with COLORTERM truecolor/24bit and no NO_COLOR or TERM=dumb. Tests: stripped ANSI == plain, only 3 palette SGRs + reset, Show matrix, root help with/without terminal, subcommand help untouched. Follow-up in TODO-vNext: every command queries the terminal at start (suspected lipgloss).
 - 2026-10-18 (11): **v2.63.0 published** (43 assets, local goreleaser, no cosign): the tag-push release workflow built a snapshot (`cond && '' || 'x'` always picks 'x'); release.yml negates the condition, PITF-102; INSTALL/MANUAL/TODO/_quickref/STATE point at v2.63.0.
 - 2026-10-18 (10): **Release v2.63.0**: CHANGELOG [Unreleased] becomes [2.63.0] - 2026-10-18 (everything since the consolidated 1.89 to 2.62 block); first tag meant to carry a GitHub Release since v2.37.0.
