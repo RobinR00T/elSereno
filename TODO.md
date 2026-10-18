@@ -1,8 +1,8 @@
 # ElSereno, Original brief checklist
 
-The original v1.0 brief checklist. **Closed 2026-04-25**: 
-v1.12.0 shipped, every brief item is delivered (some during F0-F7,
-some via the v1.1-v1.12 release cycles).
+The original v1.0 brief checklist. **Closed 2026-04-25** with
+v1.12.0; the items still open then are tracked in the table at the end,
+refreshed against `v2.62.0` on 2026-10-18.
 
 For the live state see `.context/STATE.md`. For the post-1.0
 backlog see [`ROADMAP.md`](ROADMAP.md). For the forward-looking
@@ -11,15 +11,20 @@ ideas list (PBX, Shodan paginación, IPv6, …) see
 
 ## Operator-pending (no coding involved)
 
+Status as of 2026-10-18 (latest tag `v2.62.0`; `main` is 264 commits past it).
+
 - [ ] **Revoke the bootstrap PAT**: 
   `https://github.com/settings/personal-access-tokens` +
-  `rm ~/.elsereno/gh-token`. Live since 2026-04-23 (~2 days
-  exposure window).
-- [ ] **Flip repo to public**: unlocks Scorecard / CodeQL /
-  OSV full suite. Post-v1.12 decision.
-- [ ] **Restore GitHub Actions billing**: re-enables cosign +
-  SLSA + GHCR supply-chain layer. Free-tier flow (since v1.8)
-  ships GPG-signed tag + SHA-256 + CycloneDX SBOMs locally.
+  `rm ~/.elsereno/gh-token`. Created 2026-04-23; revocation pending
+  (operator action).
+- [x] **Flip repo to public**: done; `gh repo view` reports
+  `"visibility":"PUBLIC"` (checked 2026-10-18).
+- [x] **GitHub Actions**: the April 2026 stop was the org
+  `allowed_actions=local_only` policy, not billing; fixed 2026-08-29,
+  and ci / release / supply-chain / nightly / benchmarks run on `main`
+  again (`.context/STATE.md`, 2026-08-31). Open part: no public OCI
+  image; an anonymous pull of `ghcr.io/robinr00t/elsereno` answers
+  `denied` (2026-10-18), and INSTALL builds the image locally.
 
 ## Brief delivery (compressed history)
 
@@ -54,33 +59,30 @@ forward-looking lists:
 | vNext: CWMP firmware pre-flight verifier + RPC case-warning + CWMP-over-TLS recipe | v1.13 chunks 2, 4, 5 |
 | vNext: triage `utility` bucket | v1.13 chunk 6 |
 
-## Brief items still open (moved to v1.13+ backlog)
+## Brief items: where they stand on `v2.62.0` (2026-10-18)
 
-| Item | Notes | Tracker |
-|------|-------|---------|
-| L2 PROFINET DCP/GOOSE/SV (gopacket) | Layer-2 + raw sockets; needs CAP_NET_RAW | ROADMAP.md |
-| 11 legacy ICS protocols (CoDeSys, Omron FINS, MELSEC SLMP, PCWorx, ProConOS, Crimson, GE-SRTP, IEC 61850 MMS, KNX, M-Bus, DLMS/COSEM) | One ciclo per protocol (~v1.4 sized) | ROADMAP.md |
-| Windows support | Replace `syscall.*` per-platform; AppContainer / Job Objects vs seccomp | ROADMAP.md |
-| Multi-user OIDC + roles | Auth system rewrite | ROADMAP.md |
-| Record & replay proxy sessions | New subsystem | TODO-vNext.md |
-| MITM transparent routing | Outside scope of "audited proxy", operator-mode decision | TODO-vNext.md |
-| STIX 2.1 export | Output sink, contained | ROADMAP.md |
-| TUI bubbletea | New UX layer | TODO-vNext.md |
-| IPv6 cross-cutting support | Operator-requested 2026-04-25 | ROADMAP.md |
+Checked against `elsereno plugins list` (35 protocol plugins in the
+default build), `elsereno --help` and `git log`.
 
-The CHANGELOG entry for **v1.12.0** (2026-04-25) closes every
-gate-tightening + input-pagination carry-over from v1.6-v1.11.
+| Item | State | Evidence |
+|------|-------|----------|
+| L2 PROFINET DCP/GOOSE/SV | **Partly done.** GOOSE/SV: offline decode and a passive monitor, live on Linux through an AF_PACKET socket (no gopacket). PROFINET DCP: offline codec only (`profinet decode`, `encode-identify`); no live identify | `goose`, `profinet` verbs; c4787af (2026-09-23), 1e919d0 (v2.39) |
+| 11 legacy ICS protocols (CoDeSys, Omron FINS, MELSEC SLMP, PCWorx, ProConOS, Crimson, GE-SRTP, IEC 61850 MMS, KNX, M-Bus, DLMS/COSEM) | **Done as fingerprint plugins**: codesys (+ opt-in codesys-active), finsudp, slmp (+ melsoft), pcworx, proconos, redlion, gesrtp, mms, knxip, mbustcp, dlms. Offensive write-gates wired in `proxy listen` for finsudp, slmp, gesrtp, codesys, redlion; the dlms, knxip and mbustcp gates exist but no command reaches them | `plugins list`; 42c60cf (2026-08-31); TODO-vNext "write-gates huérfanos" |
+| Windows support | **Cross-compile only** (default and mini builds, v2.34). No native sandbox (seccomp has no Windows twin; AppContainer / Job Objects not started) | `.goreleaser.yml` `goos: [linux, darwin, windows]`; 5ec0cab |
+| Multi-user OIDC + roles | **Done for the API**: OIDC Bearer JWT with viewer / operator / admin roles (v2.43 config, v2.48 routes, v2.59 serve wiring); required off loopback. The HTML dashboard has no login of its own | `internal/web/auth/roles.go`; da33edc |
+| Record & replay proxy sessions | **Done in the offensive build**: `proxy listen --record` and `proxy replay FILE` (v1.27-v1.30) | `cmd/elsereno/cmd_proxy_replay_offensive.go` |
+| MITM transparent routing | **Open**, outside "audited proxy"; operator-mode decision | TODO-vNext.md |
+| STIX 2.1 export | **Done**: `scan --output-format stix` (v1.15) | `internal/outputs/stix/` |
+| TUI bubbletea | **Done**: `elsereno tui` (v1.29) | dc15e69 |
+| IPv6 cross-cutting support | **Done** (v1.14) | MANUAL FAQ |
 
-**v1.13 in flight on `main`** (no tag yet), closes:
-- BACnet per-object scoping for WPM (svc 16) + DeleteObject
-  (svc 11), chunks 3 + 7.
-- InternetDB bulk lookup (file + stdin), chunk 1.
-- CWMP carry-overs from v1.11: firmware pre-flight verifier
-  (chunk 2), RPC case-warning (chunk 4), CWMP-over-TLS
-  operator recipe (chunk 5).
-- Triage `utility` bucket, chunk 6 (was on TODO-vNext as a
-  "Tools operativas" item).
-- `make sec` ratchet fix, `b611f5c` swapped 18
-  `//nolint:gosec` to native `// #nosec`.
+Still open beyond this table: DNP3 SAv5 gating, the live L2 PROFINET
+identify, native Windows sandboxing, MITM routing, and the product
+decisions listed in `TODO-vNext.md` (Modbus constant score, notes that
+reach no output, the three orphan write-gates, and others).
 
-Operator decides when to cut `v1.13.0`.
+Releases are cut by the operator. The last tag, `v2.62.0`, is from
+2026-05-23; `main` carries 264 commits after it (`git describe`:
+`v2.62.0-264-g3ef2637` on 2026-10-18), everything from the 2026-08
+legacy-ICS write-gates to PITF-099, all untagged; the PITF-100 rate
+limit comes on top.

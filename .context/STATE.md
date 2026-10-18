@@ -1,11 +1,13 @@
 ---
 phase: v2.63-closed; vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
-status: tags published through v2.62; CI green on main
-last-updated: 2026-10-17
+status: last tag v2.62.0 (2026-05-23), main 264 commits past it untagged; CI green on main
+last-updated: 2026-10-18
 token-budget: 320
 ---
 
 # Current state
+
+**2026-10-18 (committed locally, not pushed):** serve enforces web.rate_limit_per_min_ip/token (token bucket per IP, loopback exempt, and per Bearer/X-Operator; 429 + Retry-After: 60; startup line; panel row; PITF-100). Docker docs: serve in a container needs --addr 0.0.0.0 + TLS + --i-know-what-im-doing + OIDC + mounted vault (tested with Docker Desktop; no public GHCR image, anonymous pull = denied); compose healthcheck used curl (distroless has none); Kubernetes manifest replaced by requirements (Secret ownership vs 0600 passphrase), systemd recipe untested = TODO-vNext. MANUAL verbs section (schedule, why, fmt, standards, profinet, goose, other verbs) checked against the binary, 10 fixes. TODO.md / TODO-vNext / _quickref moved from the v1.x framing to v2.62 + 264 commits (35 plugins).
 
 **2026-09-28/30 OT-exposure probes** (from chrisdinozzi/opcua-recon;
 read-only). Signed on main: Modbus monitor, MQTT/Sparkplug, OPC UA
@@ -239,11 +241,9 @@ remains an option since v1.8.
   exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.
 - 7 attack-surface input providers: shodan, censys, fofa,
   zoomeye, onyphe, binaryedge, internetdb.
-**Deferred to v1.25+**:
-- cve_exposure for finsudp / slmp / gesrtp / knxip / mbustcp /
-  dlms once their CVE histories harden.
-- IEC 61850 MMS; PROFINET-RT (L2) live capture; DNP3 SAv5 gating;
-  PROFINET-RT live L2 capture (GOOSE/SV live capture done 28-9).
+**Still deferred (18-10)**: cve_exposure for knxip / mbustcp / dlms
+(finsudp, slmp, gesrtp have NVD-verified CVEs since 3/4-10; mms ships);
+PROFINET-RT live L2 capture; DNP3 SAv5 gating (GOOSE/SV live done 28-9).
 
 **Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
 127.0.0.1:5433 via `scripts/dev-db.sh`.

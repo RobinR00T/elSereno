@@ -70,9 +70,7 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
 - **Barrido de la documentación de seguridad contra el código.** PITF-087
   corrigió lo que el panel de seguridad muestra, pero `docs/SECURITY.md`,
   `.context/security-model.md`, `_quickref.md` y el threat model aún
-  describen controles sin comprobar o que no existen: los rate limits
-  per-IP y per-token (solo están en el comentario de
-  `internal/web/middleware/doc.go`, no hay código), el mlock de `memguard`
+  describen controles sin comprobar o que no existen: el mlock de `memguard`
   que verificaría `doctor`, el outbox con `outbox_dead`, entre otros. Hace
   falta un barrido como el de PITF-080, control por control, buscando
   quién lo llama.
@@ -111,10 +109,26 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   nuevo que lleve en claro la sal de Argon2id para derivar la clave de la
   passphrase, o retirar el verbo y quedarse con copiar `vault.v1.bin`.
   (PITF-093.)
-- **`docker run -p 8787:8787 ... serve` no llega al contenedor**
-  (`INSTALL.md`): `serve` escucha en 127.0.0.1 dentro del contenedor.
-  Visto en la auditoría de PITF-092 (17-10); exponerlo fuera de loopback
-  exige TLS y OIDC.
+- **[RESUELTO 18-10, docs] `docker run -p 8787:8787 ... serve` no llega
+  al contenedor.** `serve` escucha en 127.0.0.1 dentro del contenedor.
+  INSTALL y MANUAL §2.3 y "Docker / OCI" llevan ahora una receta probada
+  con Docker Desktop (bind `0.0.0.0` + TLS + `--i-know-what-im-doing` +
+  OIDC + vault montado con `--user` y `HOME=/data`); el compose quita el
+  healthcheck con `curl` (la imagen distroless no lo trae) y dice que no
+  hay imagen pública en GHCR (un pull anónimo da `denied`).
+- **Recetas de despliegue sin probar: Kubernetes y systemd.** El MANUAL
+  ya no trae un manifiesto de Kubernetes, solo los requisitos: un Secret
+  montado es de root y la passphrase debe ser 0600 del uid del proceso,
+  así que hace falta un initContainer o que `serve` acepte otro origen de
+  la passphrase. La unidad systemd del MANUAL usa `useradd -r` (sin home)
+  con `ProtectHome=true`, y el vault se busca en `$HOME/.elsereno/`: es
+  probable que `serve` no encuentre el vault. Probar en Linux y decidir
+  si el vault debe tener una ruta configurable.
+- **Métrica de rechazos del rate limit (PITF-100).** Hoy no hay métrica de los 429. Falta un
+  contador Prometheus
+  `elsereno_web_rate_limited_total` con etiqueta `reason` (`ip`, `token`,
+  `full`), nunca la IP ni el token como etiqueta (cardinalidad y datos
+  del cliente).
 - **[RESUELTO 17-10, PITF-097] Cabeceras con clave en redirecciones a
   otro host.** Los siete clientes comparten `internal/inputs/httpclient`,
   que rechaza una redirección a otro `host:port`.
@@ -515,8 +529,9 @@ captura None real (no fixtures propios): `internal/protocols/opcua/wire/`
 Luego el incremento aparte: Browse i=85 + Read UserAccessLevel (tags
 escribibles).
 
-Complementa a `TODO.md` (la checklist original del brief, closed
-tras v1.12.0) y a `ROADMAP.md` (el plan chunked). Aquí se apuntan
+Complementa a `TODO.md` (la checklist original del brief, cerrada
+tras v1.12.0; su tabla de pendientes se cotejó con `v2.62.0` el
+18-10-2026) y a `ROADMAP.md` (el plan chunked, desfasado). Aquí se apuntan
 ideas de features futuras, superficies de ataque a añadir y
 mejoras operativas que surgen en campo.
 
@@ -525,8 +540,11 @@ mejoras operativas que surgen en campo.
 > asignado + estimación. Cuando cierre, márkalo `✅` con la
 > versión y/o el commit.
 
-Last refresh: **2026-05-03** (post-v1.33). Items shipped during
-v1.3 → v1.33 archived to keep this file actionable.
+Last refresh de esta parte histórica: **2026-05-03** (post-v1.33). Las
+secciones "Abierto" de arriba son las vivas (hasta el 18-10-2026). La
+lista de abajo "siguiente ciclo (v1.26)", "Protocolos legacy", "UX" y
+"Plataforma" se cotejó con `v2.62.0` el 18-10-2026: cada ítem dice si
+salió y dónde.
 
 ---
 
@@ -1216,7 +1234,9 @@ if input starts with `@`, case-folded token is
 
 ## 🎯 High-leverage, siguiente ciclo (v1.26)
 
-- [ ] **Offensive plugin trio, FINS / SLMP / GE-SRTP**: 
+- ✅ **[18-10: entregado 2026-08/09] Offensive plugin trio, FINS / SLMP /
+  GE-SRTP**, cableado en `proxy listen` (42c60cf y siguientes). Texto
+  original: 
   v1.20 shipped read-only fingerprints; the offensive write
   paths (per-CIO write FINS / per-WriteCommand SLMP / per-PLC-
   service GE-SRTP) are pending. Each follows the ADR-040
@@ -1224,7 +1244,10 @@ if input starts with `@`, case-folded token is
   with allowlist + dry-run). Estimación: ~3-4 días total
   (1 chunk per protocol).
 
-- [ ] **Offensive plugin trio, KNX / M-Bus / DLMS**: 
+- [ ] **[18-10: construido, sin cablear] Offensive plugin trio, KNX /
+  M-Bus / DLMS**: los gates de knxip, mbustcp y dlms existen con tests,
+  pero ningún comando los alcanza (decisión abierta "write-gates
+  huérfanos"). Texto original: 
   same shape as the FINS/SLMP/SRTP trio above for the v1.21
   fingerprints. Estimación: ~3-4 días total.
 
@@ -1259,16 +1282,23 @@ if input starts with `@`, case-folded token is
 
 Cada uno = ~6-12h.
 
-- [ ] **PROFINET DCP / GOOSE / SV** (L2, con gopacket, 
+- [ ] **[18-10: parcial] PROFINET DCP / GOOSE / SV.** GOOSE/SV: decode
+  offline y monitor pasivo, en vivo en Linux por AF_PACKET sin gopacket
+  (c4787af, 2026-09-23). PROFINET DCP: solo códec offline (`profinet
+  decode` / `encode-identify`, v2.39-v2.41); falta el identify en vivo.
+  Texto original: (L2, con gopacket, 
   necesita `CAP_NET_RAW` + raw-packet capture infrastructure
   que aún no existe en el repo).
-- [ ] **OPC UA HTTPS** (additional transport for UA, distinct
+- ✅ **[18-10: entregado] OPC UA HTTPS**: fingerprint por GetEndpoints
+  (v2.35, plugin `opcuahttps`) y write-gate ofensivo del binding binario
+  (ef4a4a5, 2026-09-23). Texto original: (additional transport for UA, distinct
   from UA-TCP 4840). HTTP/JSON UA encoding parser needed, 
   ~12h.
 
 ## 🎨 UX
 
-- [ ] **TUI con bubbletea**: `elsereno tui` que agrupa scan +
+- ✅ **[18-10: entregado v1.29] TUI con bubbletea** (`elsereno tui`,
+  dc15e69). Texto original: `elsereno tui` que agrupa scan +
   finding stream + triage sin salir del terminal. Brief lo
   mencionó en F4 chunk 2. Decisión operador: aceptar la nueva
   dependencia bubbletea + tcell. ~2-3 días.
@@ -1279,13 +1309,18 @@ Cada uno = ~6-12h.
 
 ## 🪟 Plataforma
 
-- [ ] **Windows support**. Bloqueadores: `syscall.*` por-
+- [ ] **[18-10: parcial] Windows support.** Cross-compile de los builds
+  default y mini desde v2.34 (5ec0cab); sin sandbox nativo. Texto
+  original: Bloqueadores: `syscall.*` por-
   plataforma en `internal/audit` (file lock, v1.15 chunk 4
   ya cablea el stub `flock_windows.go`) + el sandbox (Windows
   no tiene seccomp; usaríamos AppContainer / Job Objects).
   Estimación: 3-5 días.
 
-- [ ] **Multi-user OIDC + roles**. Actualmente el dashboard
+- ✅ **[18-10: entregado en la API] Multi-user OIDC + roles**: Bearer
+  JWT con roles viewer / operator / admin (v2.43 config, v2.48 rutas,
+  v2.59 cableado en `serve`); obligatorio fuera de loopback. El HTML del
+  dashboard no tiene login propio. Texto original: Actualmente el dashboard
   tiene un solo operador por proceso. Para SOCs multi-analyst:
   OIDC (Keycloak/Azure AD) + roles (viewer / analyst / admin).
   Estimación: 2-3 días.

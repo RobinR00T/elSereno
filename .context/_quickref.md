@@ -1,7 +1,7 @@
 ---
 phase: any
 status: canonical
-last-updated: 2026-05-03
+last-updated: 2026-10-18
 token-budget: 950
 ---
 
@@ -24,7 +24,7 @@ token-budget: 950
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.
 - Web: OIDC Bearer JWT on the routes with a role when configured (required off loopback; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open); dev mode on loopback has no auth; a browser guard refuses cross-origin writes, non-JSON write bodies and DNS rebinding (PITF-092). Cookie, CSRF token, web token and `web_state` rotation are designed, not built (PITF-087).
 - Vault: `init` → `unlock` → ops; `lock` zeroizes. Unlock-once memguard.
-- Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min.
+- Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min, in serve since 2026-10-18 (PITF-100); 429 + Retry-After: 60.
 - `crypto/rand` only. Subprocess via `internal/exec.SafeCommand(ctx, CommandSpec)` with deterministic `--` separator (rule; no command spawns one yet).
 - Timestamps RFC3339 up to 6 fractional digits (microseconds). Logs stderr, data stdout.
 - IPv4+IPv6 first-class; IDN via `x/net/idna`.
@@ -40,21 +40,12 @@ token-budget: 950
 
 **First command when in doubt**: `elsereno doctor`.
 
-**Current phase (2026-04-29)**: **v1.23 cycle closed on `main`,
-tag pending operator**. 2 chunks (refinement cycle): CVE-
-exposure factor expansion across 7 plugins (cwmp=15, dnp3=12,
-iec104=10, bacnet=8, opcua=8, hartip=7, atg=6) plus banner
-dictionary expansion +21 vendors (industrial controllers +
-HMIs + RTUs + adjacent network gear). Default build still
-**25 protocol plugins**; banner-dictionary vendor count
-climbs 9→30; non-zero cve_exposure plugin count climbs 2→9.
-Snapshot:
-`.context/snapshots/v1.23.0-scoring-refinements.md`.
-v1.16-v1.22 cycles also closed (tags pending). v1.15.0 still
-the latest published release.
+**Current phase**: see `.context/STATE.md` (authoritative). As of
+2026-10-18 the last tag is `v2.62.0` (2026-05-23) and `main` is 264
+commits past it, untagged.
 
-**Counts** (authoritative: `elsereno plugins list`): **30
-protocol plugins** in the default build; **24 offensive write-gated
+**Counts** (authoritative: `elsereno plugins list`): **35
+protocol plugins** in the default build (2026-10-18); **24 offensive write-gated
 proxies** (incl. the legacy-ICS set finsudp/slmp/gesrtp/codesys/
 redlion, landed 2026-08/09); **7 attack-surface input clients**
 (shodan, censys, fofa, zoomeye, onyphe, binaryedge, internetdb;

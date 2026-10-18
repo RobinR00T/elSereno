@@ -1,12 +1,22 @@
 ---
 phase: any
 status: living
-last-updated: 2026-10-17
+last-updated: 2026-10-18
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
+
+- 2026-10-18 (2): **Docker serve docs fixed and tested (bind 0.0.0.0 + TLS
+  + OIDC + vault in the container; no public image); MANUAL verb section
+  checked against the binary; TODO/TODO-vNext/_quickref brought to
+  v2.62 + 264 untagged commits.**
+
+- 2026-10-18 (1): **serve now enforces web.rate_limit_per_min_ip/token
+  (token bucket per IP, loopback exempt, and per token; 429 + Retry-After:
+  60); docs that called the keys unread or the control built now match
+  (PITF-100).**
 
 - 2026-10-17 (7b): **a config file with a duration or a list failed to
   load (strict merge against Go-typed defaults); MANUAL §13 rebuilt from
