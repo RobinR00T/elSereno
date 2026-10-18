@@ -8,6 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-18 (7): **Rate limiter fails open on a full map (PITF-100 addendum)**: an unverified token filled the 100 000-key map and locked out new operators; now an unknown key skips that limit. Docs stop claiming the token cap protects behind a same-host proxy. Tests: refill (fake clock), no token, cap <= 0, token sweep; mutations killed.
 - 2026-10-18 (6): **STATE.md caught up**: EXAMPLES, the architecture diagram and the CopyFrom docs fix are pushed (dc8d8e0..37a3b69); commit count past v2.62.0 is 272. Batched pgx.CopyFrom for findings (ADR-008) added to TODO-vNext as designed, not built.
 - 2026-10-18 (5): **Docs stop claiming batched pgx.CopyFrom and a DB audit writer**: _quickref, conventions, CLAUDE.md, docs/FAQ.md and internal/bus/doc.go now say one INSERT per finding (runwriter.go) and audit to ~/.elsereno/audit.jsonl; ADR-008 keeps its decision with a "not built" status note. Closes the (4) follow-up.
 - 2026-10-18 (5): **OSINT recipe (EXAMPLES §16, internetdb, opt-in in

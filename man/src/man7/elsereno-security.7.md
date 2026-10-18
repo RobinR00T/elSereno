@@ -56,7 +56,10 @@ jump host. The primary adversaries are:
     100/min, loopback exempt, IPv6 by /64) AND per Bearer token or **X-Operator** name
     (**web.rate_limit_per_min_token**, 300/min); whichever runs out first
     answers **429** with **Retry-After: 60**. **/healthz** and **/readyz**
-    are never limited. Wired since 2026-10-18 (PITF-100).
+    are never limited. The token is counted before auth, so its cap only
+    slows one runaway token; behind a same-host reverse proxy every client
+    is exempt loopback: rate limit in that proxy. Wired since 2026-10-18
+    (PITF-100).
 
 **HTTP server**
 :   Full timeouts (**5s**/**30s**/**30s**/**120s**) and 16 KiB header

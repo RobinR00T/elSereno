@@ -46,6 +46,9 @@ surface includes:
 - `serve` rate limits per client IP (100/min, loopback exempt, IPv6 by /64) **and** per
   Bearer token or `X-Operator` name (300/min): 429 with `Retry-After: 60`,
   `/healthz` and `/readyz` exempt, `X-Forwarded-For` ignored (PITF-100).
+  The token is counted before auth, so the token cap only slows one
+  runaway token; behind a same-host reverse proxy every client is
+  exempt loopback, so rate limit in that proxy.
 - Rand only via `crypto/rand`.
 - `http.Server` with full timeouts (5s/30s/30s/120s, 16 KiB header limit).
 - Audit entries are canonicalised with JCS (RFC 8785) over

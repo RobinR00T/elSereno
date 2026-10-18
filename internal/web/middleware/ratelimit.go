@@ -11,9 +11,11 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// maxKeys caps each bucket map. A full map refuses callers it does not
-// already know (429) instead of growing, so rotating keys cannot exhaust
-// memory.
+// maxKeys caps each bucket map so rotating keys cannot exhaust memory.
+// A full map does not refuse a caller it does not know: that caller is
+// left out of that one limit (fail open) until the sweep frees room.
+// Refusing instead let anyone without credentials lock out every new
+// operator by sending 100 000 made-up tokens (PITF-100 audit).
 const maxKeys = 100_000
 
 // RateLimiter caps requests per client IP and per auth token, the two
@@ -30,6 +32,12 @@ const maxKeys = 100_000
 // are keyed by their /64, the block a single host usually controls.
 // /healthz and /readyz are never limited, so a load balancer's probes
 // are not throttled.
+//
+// The token is not verified here (the limiter runs before auth), so the
+// per-token cap only slows one token that runs away. A client that
+// rotates tokens, or sends none, is bounded by the per-IP cap alone, and
+// behind a reverse proxy on the same host (every client loopback, so
+// exempt) by nothing: rate limiting belongs in that proxy.
 type RateLimiter struct {
 	perMinIP    int
 	perMinToken int
@@ -42,6 +50,7 @@ type RateLimiter struct {
 	toks      map[[sha256.Size]byte]*bucket
 	sweep     time.Duration
 	lastSweep time.Time
+	now       func() time.Time // time.Now; tests move the clock
 }
 
 type bucket struct {
@@ -50,8 +59,8 @@ type bucket struct {
 }
 
 // NewRateLimiter builds a limiter from the two per-minute caps. A cap
-// of zero disables that dimension. A nil *RateLimiter (never built) is
-// a pass-through via Wrap.
+// of zero (or below) disables that dimension. A nil *RateLimiter (never
+// built) is a pass-through via Wrap.
 func NewRateLimiter(perMinIP, perMinToken int) *RateLimiter {
 	return &RateLimiter{
 		perMinIP:    perMinIP,
@@ -59,6 +68,7 @@ func NewRateLimiter(perMinIP, perMinToken int) *RateLimiter {
 		ips:         map[string]*bucket{},
 		toks:        map[[sha256.Size]byte]*bucket{},
 		sweep:       time.Minute,
+		now:         time.Now,
 	}
 }
 
@@ -88,31 +98,30 @@ func (rl *RateLimiter) Wrap(next http.Handler) http.Handler {
 // bucket is handed back if the token bucket then refuses, so a refusal
 // costs the caller nothing.
 func (rl *RateLimiter) allow(r *http.Request) bool {
-	now := time.Now()
 	ip := clientKey(r.RemoteAddr)
 	tok := requestToken(r)
 
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+	now := rl.now()
 	if now.Sub(rl.lastSweep) >= rl.sweep {
 		rl.sweepLocked(now)
 	}
 
 	var held *rate.Reservation
 	if rl.perMinIP > 0 && ip != "" && !isLoopback(ip) {
-		b := bucketLocked(rl.ips, ip, rl.perMinIP, now)
-		if b == nil {
-			return false
-		}
-		held = b.ReserveN(now, 1)
-		if !held.OK() || held.DelayFrom(now) > 0 {
-			held.CancelAt(now)
-			return false
+		// nil: map full and caller unknown, so no IP limit this time.
+		if b := bucketLocked(rl.ips, ip, rl.perMinIP, now); b != nil {
+			held = b.ReserveN(now, 1)
+			if !held.OK() || held.DelayFrom(now) > 0 {
+				held.CancelAt(now)
+				return false
+			}
 		}
 	}
 	if rl.perMinToken > 0 && tok != "" {
 		b := bucketLocked(rl.toks, sha256.Sum256([]byte(tok)), rl.perMinToken, now)
-		if b == nil || !b.AllowN(now, 1) {
+		if b != nil && !b.AllowN(now, 1) {
 			if held != nil {
 				held.CancelAt(now)
 			}
@@ -123,7 +132,8 @@ func (rl *RateLimiter) allow(r *http.Request) bool {
 }
 
 // bucketLocked returns the limiter for key, creating it unless the map
-// is full; nil means full and unknown, which the caller refuses.
+// is full; nil means full and unknown, and the caller then skips that
+// limit for this request (see maxKeys).
 func bucketLocked[K comparable](m map[K]*bucket, key K, perMin int, now time.Time) *rate.Limiter {
 	b := m[key]
 	if b == nil {

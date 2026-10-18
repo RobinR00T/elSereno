@@ -63,6 +63,9 @@ non\-loopback hosts.
 (\f[B]web.rate_limit_per_min_token\f[R], 300/min); whichever runs out
 first answers \f[B]429\f[R] with \f[B]Retry\-After: 60\f[R].
 \f[B]/healthz\f[R] and \f[B]/readyz\f[R] are never limited.
+The token is counted before auth, so its cap only slows one runaway
+token; behind a same\-host reverse proxy every client is exempt
+loopback: rate limit in that proxy.
 Wired since 2026\-10\-18 (PITF\-100).
 .TP
 \f[B]HTTP server\f[R]

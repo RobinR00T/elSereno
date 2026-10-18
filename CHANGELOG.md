@@ -335,6 +335,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **A full rate-limit map no longer locks operators out (PITF-100).**
+  Each map of `serve`'s limiter holds at most 100,000 keys, and a full
+  map refused every key it did not hold. The token is counted before
+  authentication, so anyone without credentials could fill the token map
+  with made-up Bearer values and every new operator got 429. A full map
+  now lets a key it does not hold through without that one limit; keys
+  already in it keep theirs. The docs (MANUAL, SECURITY,
+  `elsereno-security(7)`, `elsereno.yaml(5)`, the security panel) no
+  longer say the token cap protects a deployment behind a same-host
+  reverse proxy: every client then arrives from exempt loopback, so the
+  rate limit belongs in that proxy. New tests cover refill with a fake
+  clock, a request without a token, caps of zero or below, and the sweep
+  of idle tokens.
 - **`serve` refuses requests a web page could send without the operator
   meaning to (PITF-092).** In dev mode (loopback bind, no OIDC, the
   default) the API has no authentication and no CSRF protection, so any

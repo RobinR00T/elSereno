@@ -58,8 +58,9 @@ IPv6 by /64) and per Bearer token or, in dev mode, \f[B]X\-Operator\f[R]
 name (loopback included).
 Over either cap: \f[B]429\f[R] with \f[B]Retry\-After: 60\f[R];
 \f[B]/healthz\f[R] and \f[B]/readyz\f[R] are never limited; \f[B]0\f[R]
-turns that cap off.
-\f[B]X\-Forwarded\-For\f[R] is ignored.
+turns that cap off (so does a negative value).
+\f[B]X\-Forwarded\-For\f[R] is ignored, so behind a same\-host reverse
+proxy every client is exempt loopback: rate limit in that proxy.
 .TP
 \f[B]auth.oidc.issuer\f[R], \f[B]auth.oidc.audience\f[R], \f[B]auth.oidc.jwks_url\f[R]
 OIDC for \f[B]serve\f[R]; required on a non\-loopback address.

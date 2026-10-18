@@ -71,7 +71,9 @@ Default `127.0.0.1:8787`. Binding outside loopback requires: `--tls-cert`
   handed back if the token bucket refuses. Either refusal: 429 +
   `Retry-After: 60`.
 - Token keys stored as SHA-256; each map capped at 100 000 keys (full map:
-  unknown key gets 429); idle buckets swept once a minute, not per request.
+  a key not in it passes without that limit, so nobody can fill it and
+  lock out operators; the token is unverified, so the token cap only slows
+  one runaway token); idle buckets swept once a minute, not per request.
 - `/healthz`, `/readyz` never limited; 0 disables a dimension.
 
 ## Endpoints (F4 close)

@@ -55,7 +55,9 @@ Read by the binary:
     exempt; IPv6 by /64) and per Bearer token or, in dev mode, **X-Operator** name
     (loopback included). Over either cap: **429** with
     **Retry-After: 60**; **/healthz** and **/readyz** are never limited;
-    **0** turns that cap off. **X-Forwarded-For** is ignored.
+    **0** turns that cap off (so does a negative value). **X-Forwarded-For**
+    is ignored, so behind a same-host reverse proxy every client is exempt
+    loopback: rate limit in that proxy.
 
 **auth.oidc.issuer**, **auth.oidc.audience**, **auth.oidc.jwks_url**
 :   OIDC for **serve**; required on a non-loopback address.

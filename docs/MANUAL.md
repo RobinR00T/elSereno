@@ -1862,13 +1862,18 @@ Bearer o, en modo dev, el valor de `X-Operator`
 Se puede gastar el minuto entero de golpe y luego se recarga poco a
 poco. Al pasarse de cualquiera de los dos, la respuesta es `429` con
 `Retry-After: 60`, y una petición rechazada no gasta el otro cubo.
-Cada cubo guarda como mucho 100.000 claves: lleno, una clave nueva
-recibe 429, y un cubo sin uso durante un minuto se olvida (ya está
-lleno otra vez). El token no se guarda tal cual, solo su SHA-256.
+Cada cubo guarda como mucho 100.000 claves: lleno, una clave que no
+está dentro pasa sin ese límite (las que ya están lo conservan), para
+que nadie sin credenciales pueda llenar el mapa y dejar fuera a los
+operadores; un cubo sin uso durante un minuto se olvida (ya está lleno
+otra vez). El token no se guarda tal cual, solo su SHA-256.
 `/healthz` y `/readyz` nunca se limitan, y un `0` apaga esa dimensión.
-`X-Forwarded-For` se ignora a propósito: detrás de un proxy inverso en
-la misma máquina todos los clientes llegan desde loopback y solo cuenta
-el límite por token. Al arrancar, `serve` escribe en stderr `elsereno
+El token se cuenta antes de comprobar la autenticación, así que el
+límite por token solo frena a un token desbocado: quien rota tokens, o
+no manda ninguno, solo choca con el límite por IP. `X-Forwarded-For` se
+ignora a propósito: detrás de un proxy inverso en la misma máquina todos
+los clientes llegan desde loopback, que está exento, y entonces no hay
+límite útil; el límite va en ese proxy. Al arrancar, `serve` escribe en stderr `elsereno
 serve: rate limits per IP 100/min (loopback exempt), per token
 300/min` (con los valores por defecto; un `0` sale como `off`).
 
