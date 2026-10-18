@@ -43,9 +43,9 @@ func newScanCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&opts.inputKind, "input", "",
-		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query> | onyphe:<query>")
+		"input source: list:<path> | nmap:<path> | stdin | shodan:<query> | censys:<query> | fofa:<query> | zoomeye:<query> | onyphe:<query> | binaryedge:<query> | internetdb:<ip> | internetdb:file:<path> | internetdb:- (no API key; one IP per lookup, no CIDR)")
 	cmd.Flags().StringVar(&opts.apiCredsFile, "api-creds-file", "",
-		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:/onyphe:")
+		"YAML file with provider credentials (0600 required); needed when --input uses shodan:/censys:/fofa:/zoomeye:/onyphe:/binaryedge: (not internetdb:)")
 	cmd.Flags().StringVar(&opts.scopePath, "scope", "", "scope.yaml; targets outside its ranges or ports are dropped and plugins outside its protocols do not run (no scope without this flag)")
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
@@ -99,7 +99,7 @@ func runScan(cmd *cobra.Command, opts scanOpts) error {
 		_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: scope dropped %d of %d targets\n", dropped, dropped+len(targets))
 	}
 	if len(targets) == 0 {
-		return fail(core.ExitNoInput, fmt.Errorf("no targets after scope filter"))
+		return fail(core.ExitNoInput, noTargetsErr(opts.inputKind, dropped))
 	}
 	opts.scope = s
 
@@ -385,4 +385,15 @@ func portForInput(n int) (core.Port, error) {
 		return 0, nil
 	}
 	return core.NewPort(n)
+}
+
+// noTargetsErr names why scan has nothing to probe: the scope when it
+// dropped targets, otherwise the input itself (a provider such as
+// InternetDB answering "no data" for the IP). Until 2026-10-18 both
+// cases said "after scope filter", even with no --scope.
+func noTargetsErr(inputKind string, dropped int) error {
+	if dropped > 0 {
+		return fmt.Errorf("no targets after scope filter")
+	}
+	return fmt.Errorf("--input %s gave no targets", inputKind)
 }

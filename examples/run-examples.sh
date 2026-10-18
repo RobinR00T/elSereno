@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # run-examples.sh: reproduce every recipe of docs/EXAMPLES.md against a
-# throwaway lab on this machine. Nothing leaves loopback: the targets are
-# the simulators under simulators/, the captures are inline hex, and
-# HOME points at a temporary directory, so your real ~/.elsereno is
-# never read or written.
+# throwaway lab on this machine. Except the opt-in osint recipe, nothing
+# leaves loopback: the targets are the simulators under simulators/, the
+# captures are inline hex, and HOME points at a temporary directory, so
+# your real ~/.elsereno is never read or written.
 #
 # Usage:
 #   examples/run-examples.sh            # every recipe
 #   examples/run-examples.sh scan       # only recipes whose id starts with "scan"
+#   examples/run-examples.sh osint      # the one recipe that queries the internet
+#                                       # (Shodan InternetDB); never run by default
 #
 # Needs: Go (to build the binary and the simulators), curl, python3.
 set -euo pipefail
@@ -44,6 +46,8 @@ umask 077
 python3 -c 'import secrets; print(secrets.token_urlsafe(24))' > "$lab/pp"
 
 recipe() { # recipe <id> <title>
+	# osint leaves loopback, so it runs only when asked for by name.
+	if [ "$1" = osint ] && [ "$only" != osint ]; then return 1; fi
 	case "$1" in "$only"*) ;; *) return 1 ;; esac
 	printf '\n==== %s: %s\n' "$1" "$2"
 }
@@ -183,6 +187,16 @@ fi
 if recipe api "API description"; then
 	printf '$ elsereno api openapi | head -5\n'
 	{ elsereno api openapi || true; } | head -5
+fi
+
+if recipe osint "Passive OSINT with Shodan InternetDB (queries the internet)"; then
+	# 192.0.2.10 is a documentation address (RFC 5737): InternetDB has no
+	# data for it. Put an address you are authorised to test in its place.
+	printf '$ curl -s https://internetdb.shodan.io/192.0.2.10\n'
+	curl -s https://internetdb.shodan.io/192.0.2.10
+	echo
+	run elsereno scan --input internetdb:192.0.2.10 --scope scope.yaml --no-progress
+	run elsereno scan --input internetdb:192.0.2.0/24 --no-progress
 fi
 
 echo

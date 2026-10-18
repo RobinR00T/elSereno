@@ -474,7 +474,7 @@ const overviewHTML = `<!doctype html>
       </div>
       <form id="scan-submit-form" onsubmit="return submitScan(event);" style="margin: 0.5em 0; display: flex; flex-wrap: wrap; gap: 0.5em; align-items: end;">
         <label>input:
-          <input type="text" id="scan-input" placeholder="list:targets.txt | stdin | internetdb:1.2.3.4" size="40" required />
+          <input type="text" id="scan-input" placeholder="list:targets.txt | stdin | internetdb:192.0.2.10" size="40" required />
         </label>
         <label>plugin(s):
           <input type="text" id="scan-plugin" placeholder="modbus,s7  (blank = all)" size="22"
@@ -501,7 +501,7 @@ const overviewHTML = `<!doctype html>
           inputs) are reported in the response.
         </div>
         <textarea id="scan-bulk-inputs" rows="6" cols="60"
-          placeholder="list:t1.txt&#10;list:t2.txt&#10;internetdb:1.2.3.0/24" style="font-family: monospace;"></textarea>
+          placeholder="list:t1.txt&#10;list:t2.txt&#10;internetdb:file:ips.txt" style="font-family: monospace;"></textarea>
         <div style="margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center;">
           <button type="button" onclick="bulkSubmitScan()">Bulk submit</button>
           <span id="scan-bulk-status" class="sub"></span>

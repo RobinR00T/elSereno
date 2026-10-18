@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -89,7 +90,21 @@ func TestRunScan_ScopeOnlyWithFlag(t *testing.T) {
 	if !errors.As(err, &ce) || ce.code != core.ExitNoInput {
 		t.Fatalf("with --scope: err = %v, want ExitNoInput (target outside the scope)", err)
 	}
+	if !strings.Contains(err.Error(), "scope") {
+		t.Fatalf("with --scope: err = %v, want it to name the scope", err)
+	}
 	if got := accepted.Load() - before; got != 0 {
 		t.Fatalf("with --scope the out-of-scope target got %d connections, want 0", got)
+	}
+}
+
+// TestNoTargetsErr: an input that gave nothing (an InternetDB IP with no
+// data) is not blamed on the scope; one the scope emptied is.
+func TestNoTargetsErr(t *testing.T) {
+	if got := noTargetsErr("internetdb:192.0.2.10", 0).Error(); got != "--input internetdb:192.0.2.10 gave no targets" {
+		t.Fatalf("no scope drop: %q", got)
+	}
+	if got := noTargetsErr("list:t.txt", 3).Error(); !strings.Contains(got, "scope") {
+		t.Fatalf("scope drop: %q, want it to name the scope", got)
 	}
 }

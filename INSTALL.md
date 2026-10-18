@@ -804,7 +804,7 @@ protect the worker pool from a single-request DoS.
 curl -X POST http://127.0.0.1:8787/api/v1/scans/bulk \
   -H "Content-Type: application/json" \
   -H "X-Operator: alice" \
-  -d '{"inputs":["list:t1.txt","list:t2.txt","internetdb:1.2.3.0/24"],
+  -d '{"inputs":["list:t1.txt","list:t2.txt","internetdb:file:ips.txt"],
        "plugins":["modbus","s7"]}'
 ```
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Passive OSINT recipe.** `docs/EXAMPLES.md` section 16 shows
+  `--input internetdb:` (Shodan InternetDB, no API key): the passive
+  lookup, then the active scan of what it returns, behind a scope.
+  `examples/run-examples.sh osint` reproduces it; it is the only recipe
+  that leaves loopback and never runs by default.
 - **Practical examples for every feature.** `docs/EXAMPLES.md` has one
   recipe per feature (configuration, vault and credentials, scope,
   scan, triage and scoring, standards, discover, single-service probes,
@@ -502,6 +507,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reassembly buffer. Found by fuzzing.
 
 ### Fixed
+
+- **`scan --help` named five of the seven providers.** `binaryedge:`
+  and `internetdb:` (with its `file:` and `-` forms) were accepted but
+  not listed; `--api-creds-file` now says internetdb needs no key.
+- **An empty provider answer was blamed on the scope.** An InternetDB
+  IP with no data made `scan` exit 66 with "no targets after scope
+  filter", even with no `--scope`. It now says `--input ... gave no
+  targets`; the scope message stays for targets a scope dropped.
+- **InternetDB examples that could not work.** The MANUAL said
+  `internetdb:` took a CIDR (it takes one IP, `file:` or `-`, and a
+  CIDR exits 65); INSTALL, the dashboard placeholders and a code
+  comment passed one. README and the cheat sheet looked up public
+  third-party addresses; they now use the documentation range
+  192.0.2.0/24.
 
 - **Docs no longer claim batched `pgx.CopyFrom` or a Postgres audit
   writer.** `.context/_quickref.md`, `.context/conventions.md`,

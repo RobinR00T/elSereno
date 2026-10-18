@@ -218,14 +218,17 @@ Shodan InternetDB is **no-key** for low-volume IP lookups. Usage:
 elsereno scan --input fofa:'protocol="iax2"' \
     --api-creds-file ~/.elsereno/api-creds.yaml
 
-# No-key lookup-by-IP (rate-limited upstream to ~10 rps):
-elsereno scan --input internetdb:8.8.8.8
+# No-key lookup by IP, for an address you are authorised to test
+# (elsereno limits itself to 5 lookups per second). One IP, a file
+# of IPs (internetdb:file:ips.txt) or stdin (internetdb:-); no CIDR.
+elsereno scan --input internetdb:192.0.2.10 --scope scope.yaml
 ```
 
 Credentials live in a single YAML (0600 enforced at load) with
 a per-provider block. Other accepted `--input` prefixes:
 `shodan:<q>`, `censys:<q>`, `zoomeye:<q>`, `onyphe:<q>`,
-`binaryedge:<q>`, `internetdb:<ip>` + the file-based `list:`,
+`binaryedge:<q>`, `internetdb:<ip>` (or `internetdb:file:<path>`,
+`internetdb:-`) + the file-based `list:`,
 `nmap:`, `stdin`.
 
 See `.context/protocols/` for per-protocol notes and
@@ -252,7 +255,8 @@ See `.context/protocols/` for per-protocol notes and
   file for persistent use.
 - **Never** run `shodan init <KEY>` with the key as an argument, it leaks
   to shell history and to `ps`.
-- InternetDB (free): `curl -s https://internetdb.shodan.io/1.2.3.4 | jq`.
+- InternetDB (free): `curl -s https://internetdb.shodan.io/192.0.2.10 | jq`
+  (replace the documentation address with one you are authorised to look up).
 
 **Queries by protocol**:
 

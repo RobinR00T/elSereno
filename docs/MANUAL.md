@@ -408,7 +408,7 @@ vacío y `port` a 0.
 
 | Flag                       | Por defecto    | Uso                                                                   |
 |----------------------------|----------------|-----------------------------------------------------------------------|
-| `--input KIND`             | (requerido)    | `list:FILE`, `nmap:FILE`, `stdin`, `shodan:Q`, `censys:Q`, `fofa:Q`, `zoomeye:Q`, `onyphe:Q`, `internetdb:IP_o_CIDR` |
+| `--input KIND`             | (requerido)    | `list:FILE`, `nmap:FILE`, `stdin`, `shodan:Q`, `censys:Q`, `fofa:Q`, `zoomeye:Q`, `onyphe:Q`, `binaryedge:Q`, `internetdb:IP` (o `internetdb:file:F`, `internetdb:-`; sin CIDR) |
 | `--plugin NAME[,NAME]`     | (todos)        | solo esos plugins (repetible); cada uno limitado a su puerto, salvo los opt-in sin puerto (abajo) |
 | `--output-format`          | `ndjson`       | `ndjson`, `csv` o `stix`                                              |
 | `--output FILE`            | `-` (stdout)   | path al fichero de salida                                             |

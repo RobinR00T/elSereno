@@ -89,7 +89,7 @@ type Job struct {
 	// Zero until then.
 	FinishedAt time.Time `json:"finished_at,omitempty"`
 	// Input is the scan-input descriptor (kind:value), e.g.
-	// `list:targets.txt`, `stdin`, `internetdb:185.220.0.0/24`.
+	// `list:targets.txt`, `stdin`, `internetdb:192.0.2.10` (one IP, no CIDR).
 	Input string `json:"input"`
 	// Plugins is the explicit plugin allowlist. Empty means
 	// "every registered plugin" (matches the CLI default).

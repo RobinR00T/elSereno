@@ -63,8 +63,8 @@ elsereno scan --input zoomeye:'app:"Asterisk"' \
 elsereno scan --input onyphe:'category:datascan product:freepbx' \
   --api-creds-file ~/.elsereno/api-creds.yaml
 
-# Shodan InternetDB (v1.12+), sin API key, lookup-by-IP:
-elsereno scan --input internetdb:8.8.8.8
+# Shodan InternetDB (v1.12+), sin API key, una IP que puedas auditar (sin CIDR):
+elsereno scan --input internetdb:192.0.2.10
 
 # InternetDB bulk lookup (v1.13+):
 elsereno scan --input internetdb:file:./ips.txt

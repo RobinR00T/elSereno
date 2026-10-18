@@ -26,7 +26,8 @@ enseña para qué sirve cada cosa y qué hay que mirar en la salida.
 13. [Cadena de auditoría](#13-cadena-de-auditoría)
 14. [Backup y restauración](#14-backup-y-restauración)
 15. [Dashboard, API y schedules](#15-dashboard-api-y-schedules)
-16. [Lo que esta página no cubre](#16-lo-que-esta-página-no-cubre)
+16. [OSINT pasivo con InternetDB](#16-osint-pasivo-con-internetdb)
+17. [Lo que esta página no cubre](#17-lo-que-esta-página-no-cubre)
 
 ## 1. El laboratorio
 
@@ -52,7 +53,8 @@ examples/run-examples.sh
 
 O solo una receta, por el prefijo de su id (`info`, `plugins`, `config`,
 `vault`, `scan`, `triage`, `standards`, `discover`, `probe`, `offline`,
-`audit`, `backup`, `serve`, `api`):
+`audit`, `backup`, `serve`, `api`). La receta `osint` es la única que sale
+a internet y solo corre si la pides por su nombre:
 
 ```bash
 examples/run-examples.sh scan
@@ -289,8 +291,9 @@ csv:v1,,,127.0.0.1,5007,slmp,high,77,2026-10-18T19:32:54.022534Z
 `--output-format stix` da un bundle STIX 2.1. Otras entradas:
 `--input nmap:<fichero>` lee una salida XML de nmap y `--input stdin`
 lee targets por tubería. `--input shodan:<query>` (y censys, fofa,
-zoomeye, onyphe) necesita `--api-creds-file`; no se ejecuta aquí porque
-pide claves reales.
+zoomeye, onyphe, binaryedge) necesita `--api-creds-file`; no se ejecuta
+aquí porque pide claves reales. `--input internetdb:` no necesita clave:
+sección 16.
 
 ## 8. Leer los findings: triage, explain, why, scoring
 
@@ -654,13 +657,75 @@ La especificación OpenAPI 3.1 completa de la API:
 elsereno api openapi > openapi.yaml
 ```
 
-## 16. Lo que esta página no cubre
+## 16. OSINT pasivo con InternetDB
+
+Antes de tocar un equipo puedes preguntar qué sabe ya internet de él.
+Shodan InternetDB responde, sin clave de API, con los puertos abiertos
+que Shodan vio en una IP. ElSereno lo usa como entrada de `scan`.
+
+**Paso 1, solo mirar.** La consulta a InternetDB es pasiva: la recibe
+Shodan, no el equipo. Con `curl`:
+
+```bash
+curl -s https://internetdb.shodan.io/192.0.2.10
+```
+
+```text
+{"detail":"No information available"}
+```
+
+`192.0.2.10` es una dirección reservada para documentación (RFC 5737), así
+que Shodan no tiene nada y responde 404. Con una IP pública tuya, la
+respuesta trae `ip`, `ports`, `hostnames`, `cpes`, `tags` y `vulns`. De
+todo eso, ElSereno usa `ports`, que convierte en un target por puerto.
+
+**Paso 2, sondear lo que Shodan vio.** Esto ya no es pasivo: `scan`
+conecta a cada puerto que devuelva InternetDB. Hace falta autorización
+del dueño, y conviene pasar un `--scope` con tu rango para que una IP
+mal escrita no acabe en un equipo ajeno.
+
+```bash
+elsereno scan --input internetdb:192.0.2.10 --scope scope.yaml --no-progress
+```
+
+```text
+elsereno: --input internetdb:192.0.2.10 gave no targets
+```
+
+Sale con 66: InternetDB no tenía puertos para esa IP, así que no hay nada
+que sondear. Con datos, la salida es la de la sección 7.
+
+Tres formas de pasar direcciones:
+
+| Entrada                   | Qué hace                                     |
+|---------------------------|----------------------------------------------|
+| `internetdb:<ip>`         | Una IP (IPv6 también, con o sin corchetes).  |
+| `internetdb:file:ips.txt` | Una IP por línea; `#` empieza un comentario. |
+| `internetdb:-`            | Una IP por línea desde stdin.                |
+
+No acepta rangos. Un CIDR es un error de datos, con salida 65:
+
+```text
+elsereno: internetdb: query must be a parseable IP address: "192.0.2.0/24"
+```
+
+ElSereno hace como mucho 5 consultas por segundo a InternetDB. Si una IP
+de un fichero falla (por ejemplo, porque Shodan limita el ritmo), el scan
+se para y dice cuál fue.
+
+Para reproducir esta receta (la única que sale a internet):
+
+```bash
+examples/run-examples.sh osint
+```
+
+## 17. Lo que esta página no cubre
 
 | Qué | Por qué no está aquí |
 |---|---|
 | `tui` | Es interactiva; ver MANUAL §7. |
 | `db migrate`, `db status`, `db verify` | Necesitan Postgres (`DATABASE_URL`). |
-| Inputs shodan, censys, fofa, zoomeye, onyphe | Necesitan claves reales de esos servicios. |
+| Inputs shodan, censys, fofa, zoomeye, onyphe, binaryedge | Necesitan claves reales de esos servicios (InternetDB no: sección 16). |
 | `s7 probe` | No hay simulador de S7 en el repo. |
 | Comandos del build offensive (`write`, `exploit`, `proxy listen`, `harvest`, `dial`) | Escriben en equipos o marcan números; ver MANUAL §17. |
 | `diff`, `init`, `proxy`, `repl`, `token` | Planificados: salen con 75 sin hacer nada. |
