@@ -682,5 +682,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: INSTALL/MANUAL con `elsereno_<ver>_linux_<arch>.<ext>` y la versión real; `doctor` con `[SKIP]` y un test que fija sus seis comprobaciones (`cmd/elsereno/cmd_doctor_test.go`).
 **Ver**: `INSTALL.md`, `docs/MANUAL.md` §2 y §7.15, `cmd/elsereno/cmd_doctor.go`, `internal/doctor/doc.go`; 18-10-2026.
 
+## PITF-102: el workflow de release nunca publicaba al empujar un tag
+**Síntoma**: el tag v2.63.0 disparó `release.yml`, que acabó en verde sin crear ninguna release: los artefactos salían como `v2.63.0-next`, la marca de `goreleaser --snapshot`.
+**Causa**: `args: release --clean ${{ github.ref_type == 'tag' && '' || '--snapshot ...' }}`. En las expresiones de Actions `''` es falso, así que `cond && '' || 'x'` da siempre `'x'`: el truco del ternario solo vale cuando el valor del medio es verdadero.
+**Regla**: en un ternario de Actions el valor del medio nunca es vacío ni falso; si una rama es vacía, se niega la condición para que la cadena vacía quede al final. Un workflow de release "verde" no prueba nada: se comprueba que exista la release (`gh release view <tag>`).
+**Implementación correcta**: `${{ github.ref_type != 'tag' && '--snapshot --skip=docker,sign' || '' }}`.
+**Ver**: `.github/workflows/release.yml`, `RELEASING.md`; run 39168213393; 18-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

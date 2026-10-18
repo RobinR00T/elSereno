@@ -86,7 +86,10 @@ jobs:
           # cannot be exported to the local daemon (only pushed to a
           # registry), and signing needs the pushed refs, so both are
           # only exercisable in a real tag release.
-          args: release --clean ${{ github.ref_type == 'tag' && '' || '--snapshot --skip=docker,sign' }}
+          # The condition is negated on purpose: `cond && '' || 'x'`
+          # always yields 'x' because '' is falsy, which made the
+          # v2.63.0 tag run a snapshot and publish nothing (PITF-102).
+          args: release --clean ${{ github.ref_type != 'tag' && '--snapshot --skip=docker,sign' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
