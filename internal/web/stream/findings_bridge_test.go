@@ -56,7 +56,7 @@ func TestPublishRun_StartAndEnd(t *testing.T) {
 	defer cancel()
 
 	now := time.Now().UTC()
-	stream.PublishRunStart(b, "run-1", "danielsolisagea", now)
+	stream.PublishRunStart(b, "run-1", "alice", now)
 	stream.PublishRunEnd(b, "run-1", "completed", now.Add(time.Second),
 		map[string]int{"high": 3, "medium": 7})
 

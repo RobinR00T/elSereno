@@ -39,8 +39,11 @@ The default-build subcommand list is below. Run
     OpenAPI 3.1 spec.
 
 **audit**
-:   Audit-log operations: **show**, **verify-file**, **import**,
-    **rebase**, **purge**.
+:   Audit-chain operations on `~/.elsereno/audit.jsonl`:
+    **verify-file** walks the chain, **export** writes events for a
+    SIEM (ndjson, cef, syslog), **serve** runs the fan-in daemon on a
+    Unix socket. **verify**, **purge** and **compact** check their flags
+    and then do nothing yet (exit 69).
 
 **backup**
 :   Encrypted backup + restore (vault-keyed AES-256-GCM).
@@ -50,8 +53,8 @@ The default-build subcommand list is below. Run
     `--help` until cobra's generator is wired).
 
 **config**
-:   Inspect and validate configuration. Subcommands include
-    **show**, **lint**, **fmt**.
+:   Inspect and validate configuration: **show**, **lint**. (Canonical
+    formatting is the top-level **fmt**.)
 
 **creds**
 :   Manage stored credentials inside the vault.
@@ -61,14 +64,25 @@ The default-build subcommand list is below. Run
     **verify**.
 
 **doctor**
-:   Run cross-platform preflight checks (Go runtime, capabilities,
-    nmap, IPv6, DNS, disk).
+:   Run six local preflight checks: Go runtime, platform, raw-socket
+    privilege, nmap on PATH, IPv6, free disk. Neither root nor nmap is
+    needed to scan; reads no config, vault or database.
 
 **explain**
 :   Explain how a finding's score was computed (ADR-006 factors).
 
+**fingerprint**
+:   Debug one plugin: **probe** a live host:port, **capture** one TCP
+    connection's bytes to a file, **validate** a plugin against
+    captured bytes (offline).
+
 **fmt**
 :   Re-emit a YAML config with canonical formatting.
+
+**goose**
+:   IEC 61850 GOOSE/SV dissector, offline: **decode** one frame,
+    **monitor** a frame stream for spoofing signs; **monitor --iface**
+    reads a receive-only AF_PACKET socket on Linux (CAP_NET_RAW).
 
 **gen-man**
 :   Generate man1 pages via cobra/doc (placeholder; current man1
@@ -80,6 +94,20 @@ The default-build subcommand list is below. Run
 **lint**
 :   Validate **elsereno.yaml** and optional **scope.yaml**.
 
+**modbus**
+:   **modbus monitor --file**: passive, offline; reports the writes and
+    mutating diagnostics in a Modbus/TCP frame stream (one hex frame per
+    line).
+
+**opcua**
+:   Read-only OPC UA recon: **probe-anon** confirms an anonymous session
+    opens; **probe-write** walks the address space as that user and
+    flags writeable tags.
+
+**plaintext-check**
+:   Tests whether a reachable service negotiates TLS; one that does not
+    is flagged as cleartext.
+
 **plugins**
 :   Manage protocol plugins. **plugins list** prints the
     compiled-in set (35 in the default build).
@@ -89,6 +117,10 @@ The default-build subcommand list is below. Run
     the CIDR + the well-known port of every registered plugin.
     Pipe-friendly: `--format list` emits `host:port` lines for
     `scan --input list:-` (`list:-` reads stdin).
+
+**profinet**
+:   PROFINET DCP codec, offline: **decode** a frame, **encode-identify**
+    prints an Identify-All request.
 
 **proxy**
 :   Protocol-aware interception proxy. **proxy listen** runs a
@@ -101,8 +133,11 @@ The default-build subcommand list is below. Run
 :   Scan a set of targets and emit findings.
     `--input <provider>:<query>` accepts `list:`, `nmap:`,
     `stdin`, `shodan:`, `censys:`, `fofa:`, `zoomeye:`,
-    `onyphe:`, `internetdb:`. The first 5 require
-    `--api-creds-file <0600.yaml>`; **internetdb** is no-key.
+    `onyphe:`, `binaryedge:`, `internetdb:`. **shodan**, **censys**,
+    **fofa**, **zoomeye**, **onyphe** and **binaryedge** need
+    `--api-creds-file <0600.yaml>`;
+    **internetdb** needs no key and takes an IP, `file:<path>` or `-`
+    (no CIDR).
     Each target goes to every plugin whose default port it is on
     (**banner** probes every target; opt-in plugins run only when
     named, and then probe every listed target, having no default
@@ -112,6 +147,15 @@ The default-build subcommand list is below. Run
     bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
     <file>` writes to a file instead of stdout. To probe one
     plugin on another port, use **fingerprint probe**.
+
+**s7**
+:   Read-only S7comm recon of a Siemens CPU: **probe-identity** (model,
+    firmware), **probe-protection** (protection level), **probe** (both).
+
+**schedule**
+:   Manage scheduled scans through a running **serve** (**list**,
+    **get**, **enable**, **disable**, **delete**, **clone**, **import**,
+    **export**, **pause-all**, **resume-all**, **stats**).
 
 **scoring**
 :   Inspect the scoring weights and severity thresholds.
@@ -124,18 +168,30 @@ The default-build subcommand list is below. Run
     when serve starts do not run. Findings go to the SSE stream and,
     with **DATABASE_URL**, to the runs and findings tables.
 
+**standards**
+:   Prints the mapping from plugins to the security-standard
+    weaknesses their findings evidence (NIST SP 800-82 Rev. 4).
+
 **triage**
 :   Group NDJSON findings into quick-win / strategic / routine.
 
+**tui**
+:   Interactive terminal UI: empty panes, **--input** (scan from the
+    TUI), **--replay** a recorded NDJSON, **--feed -** from stdin, or
+    **--watch** a remote SSE stream.
+
 **vault**
-:   Manage the encrypted credential vault. **vault init**,
-    **unlock**, **lock**.
+:   Manage the encrypted credential vault: **init**, **unlock**,
+    **lock**, **status**.
 
 **version**
 :   Print binary version, commit, and build date.
 
 **why**
 :   Explain the scoring posture for a target.
+
+**diff**, **init**, **repl**, **token**
+:   Planned: each exits 75 with a notice on stderr.
 
 # OFFENSIVE-ONLY COMMANDS
 

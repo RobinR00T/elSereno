@@ -78,17 +78,17 @@ dueño de los sistemas. `doctor` comprueba el entorno:
 ```text
 [OK]    go runtime, go1.26.9
 [OK]    platform, darwin/arm64
-[WARN]  privileged scan, not root, use nmap -sT for unprivileged scans
-[WARN]  nmap, not found on PATH; scan requires nmap >= 7.80
+[SKIP]  privileged scan, not root; not needed: scan and discover use ordinary TCP/UDP sockets
+[SKIP]  nmap, not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere
 [OK]    ipv6, at least one IPv6 address present
-[OK]    disk, 238227 MiB free
+[OK]    disk, 239340 MiB free
 
 6 checks, 0 failed
 ```
 
-Los dos WARN no impiden nada de esta página: `scan` con `--input list:`
-funciona sin nmap. nmap solo hace falta para leer su salida con
-`--input nmap:<fichero>`. Un binario compilado a mano dice `dev` como
+Los dos SKIP no impiden nada: los probes usan sockets normales, sin
+root, y elsereno nunca ejecuta nmap; `--input nmap:<fichero>` lee un XML
+que generaste tú con nmap en otra parte. Un binario compilado a mano dice `dev` como
 versión; los de release llevan versión, commit y fecha.
 
 ## 3. Qué protocolos sabe hablar el binario
@@ -117,8 +117,10 @@ plugins:
 
 ## 4. Configuración: lint, config show, fmt
 
-[`examples/elsereno.yaml`](../examples/elsereno.yaml) solo lleva las
-claves que cambian respecto a los valores por defecto.
+En [`examples/elsereno.yaml`](../examples/elsereno.yaml) solo
+`scanner.max_concurrent_targets` cambia el valor por defecto (10 en vez
+de 100); el resto de claves lleva su valor por defecto para enseñar
+dónde va cada una.
 
 ```bash
 elsereno --config elsereno.yaml config lint

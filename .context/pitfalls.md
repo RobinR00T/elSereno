@@ -675,5 +675,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Regla**: una clave de config con default no es un control: el test que la da por buena pasa la clave por la misma ruta que el binario (config -> `NewServer` -> handler) y comprueba el efecto.
 **Ver**: `internal/web/middleware/{ratelimit.go,ratelimit_test.go,ratelimit_internal_test.go,doc.go}`, `internal/web/{server.go,ratelimit_wiring_test.go}`, `cmd/elsereno/{cmd_serve.go,cmd_serve_ratelimit_test.go}`, `internal/web/handlers/security.go`; 18-10-2026.
 
+## PITF-101: docs de instalación y de `doctor` heredadas sin comprobar contra lo publicado
+**Síntoma**: INSTALL daba nombres de paquete de una release v1.49.0 que no existe en GitHub y prometía firma cosign en cada artefacto (solo v1.0.0 y v1.0.1 la llevan); la última release con binarios es v2.37.0 aunque hay tags hasta v2.62.0. El MANUAL bajaba un tarball de macOS sin versión en el nombre (404) y ofrecía un tap de Homebrew inexistente. `doctor` avisaba "scan requires nmap" y "use nmap -sT", y los docs decían que validaba la config, Postgres y el vault: corre seis comprobaciones locales y elsereno nunca ejecuta nmap.
+**Causa**: el texto se escribió con el diseño (F1) o con una release concreta y nadie lo volvió a contrastar con `gh release view` ni con la salida del binario.
+**Regla**: un nombre de fichero, una URL de descarga o una garantía de firma en los docs se comprueba contra la release publicada (`gh release view <tag> --json assets`) el día que se escribe, y se fecha; lo que un comando "comprueba" se copia de su salida real, no de su doc.go.
+**Implementación correcta**: INSTALL/MANUAL con `elsereno_<ver>_linux_<arch>.<ext>` y la versión real; `doctor` con `[SKIP]` y un test que fija sus seis comprobaciones (`cmd/elsereno/cmd_doctor_test.go`).
+**Ver**: `INSTALL.md`, `docs/MANUAL.md` §2 y §7.15, `cmd/elsereno/cmd_doctor.go`, `internal/doctor/doc.go`; 18-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

@@ -1616,7 +1616,7 @@ stub (Windows support es backlog v1.16+).
                ▼                 ▼
         ┌──────────────┐  ┌──────────────┐
         │  Findings    │  │  Audit chain │
-        │  pgx.CopyFrom│  │ JCS+SHA256   │
+        │ INSERT x fila│  │ audit.jsonl  │
         └──────┬───────┘  └──────┬───────┘
                │                 │
                └────────┬────────┘

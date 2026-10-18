@@ -36,8 +36,12 @@ HTTP API meta\-operations.
 \f[CR]api openapi\f[R] prints the live OpenAPI 3.1 spec.
 .TP
 \f[B]audit\f[R]
-Audit\-log operations: \f[B]show\f[R], \f[B]verify\-file\f[R],
-\f[B]import\f[R], \f[B]rebase\f[R], \f[B]purge\f[R].
+Audit\-chain operations on \f[CR]\(ti/.elsereno/audit.jsonl\f[R]:
+\f[B]verify\-file\f[R] walks the chain, \f[B]export\f[R] writes events
+for a SIEM (ndjson, cef, syslog), \f[B]serve\f[R] runs the fan\-in
+daemon on a Unix socket.
+\f[B]verify\f[R], \f[B]purge\f[R] and \f[B]compact\f[R] check their
+flags and then do nothing yet (exit 69).
 .TP
 \f[B]backup\f[R]
 Encrypted backup + restore (vault\-keyed AES\-256\-GCM).
@@ -47,8 +51,8 @@ Generate shell completions (placeholder; see \f[CR]\-\-help\f[R] until
 cobra\(aqs generator is wired).
 .TP
 \f[B]config\f[R]
-Inspect and validate configuration.
-Subcommands include \f[B]show\f[R], \f[B]lint\f[R], \f[B]fmt\f[R].
+Inspect and validate configuration: \f[B]show\f[R], \f[B]lint\f[R].
+(Canonical formatting is the top\-level \f[B]fmt\f[R].)
 .TP
 \f[B]creds\f[R]
 Manage stored credentials inside the vault.
@@ -58,14 +62,27 @@ Database operations: \f[B]migrate up/down\f[R], \f[B]status\f[R],
 \f[B]verify\f[R].
 .TP
 \f[B]doctor\f[R]
-Run cross\-platform preflight checks (Go runtime, capabilities, nmap,
-IPv6, DNS, disk).
+Run six local preflight checks: Go runtime, platform, raw\-socket
+privilege, nmap on PATH, IPv6, free disk.
+Neither root nor nmap is needed to scan; reads no config, vault or
+database.
 .TP
 \f[B]explain\f[R]
 Explain how a finding\(aqs score was computed (ADR\-006 factors).
 .TP
+\f[B]fingerprint\f[R]
+Debug one plugin: \f[B]probe\f[R] a live host:port, \f[B]capture\f[R]
+one TCP connection\(aqs bytes to a file, \f[B]validate\f[R] a plugin
+against captured bytes (offline).
+.TP
 \f[B]fmt\f[R]
 Re\-emit a YAML config with canonical formatting.
+.TP
+\f[B]goose\f[R]
+IEC 61850 GOOSE/SV dissector, offline: \f[B]decode\f[R] one frame,
+\f[B]monitor\f[R] a frame stream for spoofing signs; \f[B]monitor
+\-\-iface\f[R] reads a receive\-only AF_PACKET socket on Linux
+(CAP_NET_RAW).
 .TP
 \f[B]gen\-man\f[R]
 Generate man1 pages via cobra/doc (placeholder; current man1 lives under
@@ -76,6 +93,20 @@ Print the acceptable\-use policy disclaimer.
 .TP
 \f[B]lint\f[R]
 Validate \f[B]elsereno.yaml\f[R] and optional \f[B]scope.yaml\f[R].
+.TP
+\f[B]modbus\f[R]
+\f[B]modbus monitor \-\-file\f[R]: passive, offline; reports the writes
+and mutating diagnostics in a Modbus/TCP frame stream (one hex frame per
+line).
+.TP
+\f[B]opcua\f[R]
+Read\-only OPC UA recon: \f[B]probe\-anon\f[R] confirms an anonymous
+session opens; \f[B]probe\-write\f[R] walks the address space as that
+user and flags writeable tags.
+.TP
+\f[B]plaintext\-check\f[R]
+Tests whether a reachable service negotiates TLS; one that does not is
+flagged as cleartext.
 .TP
 \f[B]plugins\f[R]
 Manage protocol plugins.
@@ -89,6 +120,10 @@ Pipe\-friendly: \f[CR]\-\-format list\f[R] emits \f[CR]host:port\f[R]
 lines for \f[CR]scan \-\-input list:\-\f[R] (\f[CR]list:\-\f[R] reads
 stdin).
 .TP
+\f[B]profinet\f[R]
+PROFINET DCP codec, offline: \f[B]decode\f[R] a frame,
+\f[B]encode\-identify\f[R] prints an Identify\-All request.
+.TP
 \f[B]proxy\f[R]
 Protocol\-aware interception proxy.
 \f[B]proxy listen\f[R] runs a write\-gated proxy in the offensive build.
@@ -101,9 +136,12 @@ Scan a set of targets and emit findings.
 \f[CR]\-\-input <provider>:<query>\f[R] accepts \f[CR]list:\f[R],
 \f[CR]nmap:\f[R], \f[CR]stdin\f[R], \f[CR]shodan:\f[R],
 \f[CR]censys:\f[R], \f[CR]fofa:\f[R], \f[CR]zoomeye:\f[R],
-\f[CR]onyphe:\f[R], \f[CR]internetdb:\f[R].
-The first 5 require \f[CR]\-\-api\-creds\-file <0600.yaml>\f[R];
-\f[B]internetdb\f[R] is no\-key.
+\f[CR]onyphe:\f[R], \f[CR]binaryedge:\f[R], \f[CR]internetdb:\f[R].
+\f[B]shodan\f[R], \f[B]censys\f[R], \f[B]fofa\f[R], \f[B]zoomeye\f[R],
+\f[B]onyphe\f[R] and \f[B]binaryedge\f[R] need
+\f[CR]\-\-api\-creds\-file <0600.yaml>\f[R]; \f[B]internetdb\f[R] needs
+no key and takes an IP, \f[CR]file:<path>\f[R] or \f[CR]\-\f[R] (no
+CIDR).
 Each target goes to every plugin whose default port it is on
 (\f[B]banner\f[R] probes every target; opt\-in plugins run only when
 named, and then probe every listed target, having no default port);
@@ -114,6 +152,17 @@ and \f[CR]stix\f[R] (STIX 2.1 bundle for MISP / OpenCTI / ThreatBus,
 v1.15+); \f[CR]\-\-output <file>\f[R] writes to a file instead of
 stdout.
 To probe one plugin on another port, use \f[B]fingerprint probe\f[R].
+.TP
+\f[B]s7\f[R]
+Read\-only S7comm recon of a Siemens CPU: \f[B]probe\-identity\f[R]
+(model, firmware), \f[B]probe\-protection\f[R] (protection level),
+\f[B]probe\f[R] (both).
+.TP
+\f[B]schedule\f[R]
+Manage scheduled scans through a running \f[B]serve\f[R]
+(\f[B]list\f[R], \f[B]get\f[R], \f[B]enable\f[R], \f[B]disable\f[R],
+\f[B]delete\f[R], \f[B]clone\f[R], \f[B]import\f[R], \f[B]export\f[R],
+\f[B]pause\-all\f[R], \f[B]resume\-all\f[R], \f[B]stats\f[R]).
 .TP
 \f[B]scoring\f[R]
 Inspect the scoring weights and severity thresholds.
@@ -128,18 +177,31 @@ do not run.
 Findings go to the SSE stream and, with \f[B]DATABASE_URL\f[R], to the
 runs and findings tables.
 .TP
+\f[B]standards\f[R]
+Prints the mapping from plugins to the security\-standard weaknesses
+their findings evidence (NIST SP 800\-82 Rev.
+4).
+.TP
 \f[B]triage\f[R]
 Group NDJSON findings into quick\-win / strategic / routine.
 .TP
+\f[B]tui\f[R]
+Interactive terminal UI: empty panes, \f[B]\-\-input\f[R] (scan from the
+TUI), \f[B]\-\-replay\f[R] a recorded NDJSON, \f[B]\-\-feed \-\f[R] from
+stdin, or \f[B]\-\-watch\f[R] a remote SSE stream.
+.TP
 \f[B]vault\f[R]
-Manage the encrypted credential vault.
-\f[B]vault init\f[R], \f[B]unlock\f[R], \f[B]lock\f[R].
+Manage the encrypted credential vault: \f[B]init\f[R], \f[B]unlock\f[R],
+\f[B]lock\f[R], \f[B]status\f[R].
 .TP
 \f[B]version\f[R]
 Print binary version, commit, and build date.
 .TP
 \f[B]why\f[R]
 Explain the scoring posture for a target.
+.TP
+\f[B]diff\f[R], \f[B]init\f[R], \f[B]repl\f[R], \f[B]token\f[R]
+Planned: each exits 75 with a notice on stderr.
 .SH OFFENSIVE\-ONLY COMMANDS
 The \f[CR]\-tags offensive\f[R] build adds:
 .TP

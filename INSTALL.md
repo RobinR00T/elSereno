@@ -15,7 +15,7 @@ This document covers every supported install method, the per-platform feature ma
 | **Pen-test laptop with offensive verbs** | `elsereno-offensive` package or tarball | macOS or Linux |
 | **Embedded / jump host / restricted device** | `elsereno-mini` package | Linux (typical) |
 | **Air-gapped lab / kiosk** | Tarball + `cosign verify-blob` | either |
-| **CI / build pipeline** | OCI image `ghcr.io/robinr00t/elsereno` | container |
+| **CI / build pipeline** | OCI image built from the checkout (none is published) | container |
 | **K8s / Nomad / fleet rollout** | OCI image (distroless) + manifests | container |
 
 ---
@@ -44,21 +44,25 @@ You can install **default + offensive together** on the same host (binaries have
 
 ### deb / rpm / apk packages (recommended for Linux servers)
 
-Available since **v1.49**. Three packages per format:
+Three packages per format, for `amd64` and `arm64`. The newest GitHub
+Release with binaries is **v2.37.0** (2026-05-16; tags v2.38 to v2.62
+carry no release assets), so the examples use it; check the
+[releases page](https://github.com/RobinR00T/elSereno/releases) for a
+newer one. File names follow `<package>_<version>_linux_<arch>.<ext>`:
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./elsereno_1.49.0_amd64.deb
+sudo apt install ./elsereno_2.37.0_linux_amd64.deb
 # or:
-sudo dpkg -i elsereno_1.49.0_amd64.deb && sudo apt-get install -f
+sudo dpkg -i elsereno_2.37.0_linux_amd64.deb && sudo apt-get install -f
 
 # RHEL / CentOS / Fedora / Rocky / Alma
-sudo dnf install ./elsereno-1.49.0-1.x86_64.rpm
+sudo dnf install ./elsereno_2.37.0_linux_amd64.rpm
 # or with rpm directly:
-sudo rpm -i elsereno-1.49.0-1.x86_64.rpm
+sudo rpm -i elsereno_2.37.0_linux_amd64.rpm
 
 # Alpine
-sudo apk add --allow-untrusted ./elsereno-1.49.0.apk
+sudo apk add --allow-untrusted ./elsereno_2.37.0_linux_amd64.apk
 ```
 
 **Available package names**: `elsereno` (default), `elsereno-offensive`, `elsereno-mini`. They can coexist.
@@ -97,25 +101,28 @@ Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `P
 ### Tarball install (any Linux, no root)
 
 ```sh
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_linux_amd64.tar.gz
-tar -xzf elsereno_1.49.0_linux_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_linux_amd64.tar.gz
+tar -xzf elsereno_2.37.0_linux_amd64.tar.gz
 sudo mv elsereno /usr/local/bin/
 elsereno doctor
 ```
 
-For air-gapped / paranoid:
+For air-gapped / paranoid. Releases from v2.x ship `checksums.txt` and a
+CycloneDX SBOM per archive, but no cosign signature: only v1.0.0 and
+v1.0.1 carry `checksums.txt.bundle` (checked 2026-10-18), so the cosign
+step applies to those alone.
 
 ```sh
 # Verify checksum
-sha256sum -c checksums.txt
-# Verify cosign signature (sigstore keyless)
+sha256sum --ignore-missing -c checksums.txt
+# Verify cosign signature (sigstore keyless; v1.0.x releases only)
 cosign verify-blob \
   --bundle checksums.txt.bundle \
   --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   checksums.txt
 # Verify SBOM (CycloneDX)
-syft scan elsereno -o cyclonedx-json | diff - elsereno_1.49.0_linux_amd64.tar.gz.cyclonedx.json
+syft scan elsereno -o cyclonedx-json | diff - elsereno_2.37.0_linux_amd64.tar.gz.cyclonedx.json
 ```
 
 ### OCI image
@@ -187,14 +194,14 @@ reach it with an SSH tunnel (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ```sh
 # Apple Silicon
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_darwin_arm64.tar.gz
-tar -xzf elsereno_1.49.0_darwin_arm64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_darwin_arm64.tar.gz
+tar -xzf elsereno_2.37.0_darwin_arm64.tar.gz
 sudo mv elsereno /usr/local/bin/
 xattr -d com.apple.quarantine /usr/local/bin/elsereno  # if downloaded via browser
 elsereno doctor
 
 # Intel
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v1.49.0/elsereno_1.49.0_darwin_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.37.0/elsereno_2.37.0_darwin_amd64.tar.gz
 …
 ```
 
@@ -272,8 +279,8 @@ docker run --rm elsereno doctor
 | systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
 | deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
 | Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |
-| Cosign signature on artefacts | ✅ | ✅ | ✅ | sigstore keyless |
-| CycloneDX SBOM | ✅ | ✅ | ✅ (OCI referrer) | per-archive + per-image |
+| Cosign signature on artefacts | ❌ | ❌ | ❌ | only the v1.0.0 and v1.0.1 releases carry one; v2.x releases ship `checksums.txt` alone |
+| CycloneDX SBOM | ✅ | ✅ | ✅ | per-archive (`<archive>.cyclonedx.json`); no public image |
 | SLSA v1.0 build provenance | ✅ | ✅ | ✅ | GitHub Attestations API |
 
 ### Linux advantages
@@ -297,12 +304,13 @@ docker run --rm elsereno doctor
 After install, regardless of method:
 
 ```sh
-elsereno doctor          # validates config + reachability + version
+elsereno doctor          # six local checks: Go runtime, platform, raw-socket privilege, nmap, IPv6, disk
 elsereno legal           # required acknowledgement on first use
-elsereno version         # version, commit and build date
+elsereno version         # three lines: elsereno <version>, commit, build date
+elsereno config lint     # validates the config (doctor does not read it)
 ```
 
-`elsereno doctor` returns non-zero on any environmental issue (missing config, unreachable Postgres, vault locked, etc.) so it's safe in CI.
+`elsereno doctor` exits 69 only when a check reports `[FAIL]`; `[WARN]` and `[SKIP]` keep exit 0. It reads no config and does not reach Postgres or the vault. Neither root nor nmap is needed to scan.
 
 ---
 
@@ -327,7 +335,7 @@ elsereno version
 
 ### OCI image
 
-Pin to a specific tag in your manifest. `latest` is a convenience tag; production should pin to `1.49.0` etc.
+No image is published (see the OCI section above): build it, tag it with the commit you built (`docker build -t elsereno:$(git rev-parse --short HEAD) .`) and pin that tag in your manifest.
 
 ---
 
@@ -352,7 +360,7 @@ sudo rm -rf /etc/elsereno /var/lib/elsereno /var/log/elsereno   # if applicable
 
 ### OCI image
 
-`docker rmi ghcr.io/robinr00t/elsereno:1.49.0`. Volumes (state) survive image removal.
+`docker rmi elsereno` (or the tag you built). Volumes (state) survive image removal.
 
 ---
 
@@ -385,7 +393,7 @@ ls dist/*.deb dist/*.rpm dist/*.apk
 | `command not found: elsereno` | not on `$PATH` | move binary to `/usr/local/bin/` or `~/bin/` (latter must be in PATH) |
 | Gatekeeper blocks first run on macOS | quarantine xattr | `xattr -d com.apple.quarantine /path/to/elsereno` |
 | `elsereno serve` exits with `vault locked` | vault not unlocked | `elsereno vault init && elsereno vault unlock`; for unattended: stage 0600 passphrase file + set `ELSERENO_VAULT_PASSPHRASE_FILE` |
-| systemd unit refuses to start with `code=exited, status=64/USAGE` | invalid config | `elsereno doctor` to find the offending field; check `journalctl -u elsereno-serve` |
+| systemd unit refuses to start with `code=exited, status=64/USAGE` | invalid config | `elsereno --config /etc/elsereno/elsereno.yaml config lint` to find the offending field; check `journalctl -u elsereno-serve` |
 | `permission denied` on `/run/elsereno/audit.sock` | socket dir not yet created | `systemctl restart systemd-tmpfiles-setup` or reboot; the unit's `RuntimeDirectory=` covers this on start |
 | Mini binary missing `tui` | by design | `tui` not available in mini; install the default package alongside (`elsereno tui`) or switch variants |
 | OCI image `permission denied` writing audit | distroless `nonroot` user | mount a writable volume at `/var/lib/elsereno` owned by uid 65532 |

@@ -72,7 +72,7 @@ catastrophic.
 |--------|------------|------|
 | Vault unlocked by attacker on same machine | Vault zeroised on process exit; re-unlock requires passphrase + file access | `internal/creds/vault.go:Lock` |
 | HKDF sub-key leak gives offensive-confirm-token forging | Master key + HKDF sub-keys live only in memguard buffer; ExpectedToken zeroes the derived 32-byte HMAC key on defer | `offensive/confirm/confirm.go:ExpectedToken` |
-| Audit writer forged to emit fake "offensive_allowed" rows | Writer is a single sequential INSERT path guarded by the process's DB credentials; cross-process tampering requires DB access, which the audit table's CHECK constraint + chain verification catches | ADR-023 |
+| Audit writer forged to emit fake offensive rows | The writer appends to `~/.elsereno/audit.jsonl` (file-backed, `audit.OpenFileWriter`); the offensive runtime keys the chain with a vault-derived HMAC (`OpenFileWriterKeyed`), so forging those entries needs the vault. Unkeyed entries (harvest, sandbox) are only tamper-evident: someone with write access as the operator's uid can rewrite them. The Postgres writer (`OpenDBWriter`) is not wired to any command | `cmd/elsereno/offensive_runtime.go`, ADR-023 |
 
 ## Residual risk (accepted)
 

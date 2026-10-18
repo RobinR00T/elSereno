@@ -1,4 +1,6 @@
-# Lab configuration: only the keys that differ from the defaults.
+# Lab configuration. Only scanner.max_concurrent_targets differs from
+# the default (10 instead of 100, gentle on a laptop lab); the other
+# keys carry their default values to show where each one goes.
 # Print every key with: elsereno config show
 scanner:
     max_concurrent_targets: 10

@@ -64,10 +64,11 @@ func (r doctorResult) String() string {
 	return fmt.Sprintf("%-7s %s, %s", sym, r.name, r.message)
 }
 
-// runDoctor performs the preflight checks that have no external
-// dependencies. Full checks (Postgres, nmap, Shodan/Censys endpoints,
-// NTP drift, memguard mlock) are added in later F1 chunks once the
-// relevant adapters are wired.
+// runDoctor performs the six preflight checks that need nothing
+// external: Go runtime, platform, raw-socket privilege, nmap on PATH,
+// IPv6 and free disk. It reads no config and touches no vault or
+// database (Postgres, provider endpoints, NTP and memguard checks are
+// not built).
 func runDoctor() []doctorResult {
 	var out []doctorResult
 
@@ -102,8 +103,8 @@ func checkNmap() doctorResult {
 	if err != nil {
 		return doctorResult{
 			name:    "nmap",
-			status:  doctorWarn,
-			message: "not found on PATH; scan requires nmap >= 7.80",
+			status:  doctorSkip,
+			message: "not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere",
 		}
 	}
 	return doctorResult{
@@ -113,9 +114,10 @@ func checkNmap() doctorResult {
 	}
 }
 
-// checkPrivilegedScan reports whether the current process can do raw-socket
-// scans. Linux: CAP_NET_RAW; macOS: euid==0. When missing, a warning
-// points at the connect-scan fallback.
+// checkPrivilegedScan reports whether the current process can open raw
+// sockets. Linux: CAP_NET_RAW; macOS: euid==0. Probes and discover use
+// ordinary TCP/UDP sockets, so a missing privilege is a skip, not a
+// warning; only `goose monitor --iface` (Linux) needs CAP_NET_RAW.
 func checkPrivilegedScan() doctorResult {
 	switch runtime.GOOS {
 	case "linux":
@@ -134,8 +136,8 @@ func checkPrivilegedScan() doctorResult {
 				}
 				return doctorResult{
 					name:    "privileged scan",
-					status:  doctorWarn,
-					message: "CAP_NET_RAW missing, use nmap -sT or `sudo setcap cap_net_raw=+ep $(which nmap)`",
+					status:  doctorSkip,
+					message: "CAP_NET_RAW missing; not needed by scan or discover (only goose monitor --iface)",
 				}
 			}
 		}
@@ -146,8 +148,8 @@ func checkPrivilegedScan() doctorResult {
 		}
 		return doctorResult{
 			name:    "privileged scan",
-			status:  doctorWarn,
-			message: "not root, use nmap -sT for unprivileged scans",
+			status:  doctorSkip,
+			message: "not root; not needed: scan and discover use ordinary TCP/UDP sockets",
 		}
 	default:
 		return doctorResult{name: "privileged scan", status: doctorSkip, message: "only linux/darwin are supported in v1"}

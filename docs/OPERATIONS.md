@@ -46,7 +46,7 @@ publicar release.
 ### Flujo
 
 ```bash
-cd "/Users/danielsolisagea/AI projects/elsereno"
+cd elsereno                     # tu checkout
 
 # 1. Asegúrate de estar al día:
 git status -s     # vacío

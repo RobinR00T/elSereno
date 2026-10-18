@@ -521,6 +521,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`doctor` no longer says scan needs nmap or root.** It warned
+  "scan requires nmap >= 7.80" and "use nmap -sT for unprivileged
+  scans", but elsereno never runs nmap and its probes use ordinary
+  TCP/UDP sockets. Both checks are now `[SKIP]` with a message that
+  says so (only `goose monitor --iface` needs CAP_NET_RAW). The MANUAL,
+  INSTALL and `elsereno(1)` no longer say doctor validates the config
+  or reaches Postgres or the vault: it runs six local checks.
+- **Install docs point at releases that exist.** INSTALL used v1.49.0
+  file names (no such release) and promised cosign signatures; the
+  newest GitHub Release with binaries is v2.37.0, its files are named
+  `elsereno_2.37.0_linux_amd64.deb` and so on, and only v1.0.0 and
+  v1.0.1 are signed. The MANUAL's macOS tarball URL had no version in
+  the file name and its Fedora example used `x86_64` where the asset
+  says `amd64`; there is no Homebrew tap.
+- **Doc errata from the audit, medium and low.** `elsereno(1)` lists
+  the real `audit` subcommands (it named show, import and rebase,
+  which do not exist), the `config` subcommands, `binaryedge:` and
+  ten verbs it left out (fingerprint, goose, modbus, opcua,
+  plaintext-check, profinet, s7, schedule, standards, tui). The MANUAL
+  documents `modbus monitor` (section 7.26, output from the binary),
+  says `audit verify`, `compact` and `purge` exit 69 without doing
+  anything, adds `audit export` and the missing flags of scan,
+  discover, backup, fingerprint, tui and api, and describes tui
+  `--rate` as events per second. `examples/elsereno.yaml` no longer
+  says it holds only non-default keys. The old manual's diagram (md
+  and docx), ROADMAP and the threat model no longer claim batched
+  `pgx.CopyFrom` or a Postgres audit writer. Commit counts past
+  v2.62.0 are no longer hard-coded.
 - **Docs no longer claim vault and creds verbs are audited.**
   `docs/SECURITY.md` listed an audit event for `vault init/unlock/lock`
   and `creds store/rotate/show --reveal/purge`; the event types exist

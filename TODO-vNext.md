@@ -124,14 +124,16 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   con `ProtectHome=true`, y el vault se busca en `$HOME/.elsereno/`: es
   probable que `serve` no encuentre el vault. Probar en Linux y decidir
   si el vault debe tener una ruta configurable.
-- **Tres detalles vistos al escribir docs/EXAMPLES.md (18-10).**
-  `discover` imprime una línea por plugin cuando dos comparten puerto
-  (el 5007 sale dos veces, `slmp` y `melsoft`) y el total las cuenta
-  como pares distintos. `doctor` avisa "scan requires nmap >= 7.80"
-  aunque `scan --input list:` funciona sin nmap (solo `--input nmap:`
-  lee su salida). `creds show` sugiere "--reveal ... (audited)", pero
-  el MANUAL dice que `--reveal` todavía no escribe en la auditoría:
-  comprobar cuál es cierto y alinear el otro.
+- **`discover` repite un puerto compartido (visto al escribir
+  docs/EXAMPLES.md, 18-10).** Imprime una línea por plugin cuando dos
+  comparten puerto (el 5007 sale dos veces, `slmp` y `melsoft`) y el
+  total las cuenta como pares distintos. (Los otros dos detalles de esa
+  nota, el aviso de nmap de `doctor` y el "(audited)" de `creds show`,
+  quedaron corregidos el 18-10.)
+- **Releases sin binarios ni firma.** La última GitHub Release con
+  binarios es v2.37.0; los tags v2.38 a v2.62 no llevan assets, y solo
+  v1.0.0 y v1.0.1 llevan firma cosign (`checksums.txt.bundle`). Decidir
+  si se publica una release desde `main` y si vuelve la firma keyless.
 - **Métrica de rechazos del rate limit (PITF-100).** Hoy no hay métrica de los 429. Falta un
   contador Prometheus
   `elsereno_web_rate_limited_total` con etiqueta `reason` (`ip`, `token`,

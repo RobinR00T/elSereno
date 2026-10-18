@@ -11,7 +11,7 @@ ideas list (PBX, Shodan paginación, IPv6, …) see
 
 ## Operator-pending (no coding involved)
 
-Status as of 2026-10-18 (latest tag `v2.62.0`; `main` is 264 commits past it).
+Status as of 2026-10-18 (latest tag `v2.62.0`; `main` is well past it, untagged: `git describe --tags` gives the count).
 
 - [ ] **Revoke the bootstrap PAT**: 
   `https://github.com/settings/personal-access-tokens` +
@@ -82,7 +82,8 @@ decisions listed in `TODO-vNext.md` (Modbus constant score, notes that
 reach no output, the three orphan write-gates, and others).
 
 Releases are cut by the operator. The last tag, `v2.62.0`, is from
-2026-05-23; `main` carries 264 commits after it (`git describe`:
-`v2.62.0-264-g3ef2637` on 2026-10-18), everything from the 2026-08
-legacy-ICS write-gates to PITF-099, all untagged; the PITF-100 rate
-limit comes on top.
+2026-05-23; everything on `main` after it, from the 2026-08
+legacy-ICS write-gates to PITF-099 and the PITF-100 rate limit, is
+untagged (`git describe --tags` gives the commit count). The last
+GitHub Release with binaries is `v2.37.0` (2026-05-16): tags v2.38 to
+v2.62 were pushed without release assets.

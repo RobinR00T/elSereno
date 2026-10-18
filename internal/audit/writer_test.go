@@ -37,7 +37,7 @@ func TestFileWriter_GenesisPlusAppend(t *testing.T) {
 
 	e2, err := w.Append(context.Background(), audit.Entry{
 		EventType: audit.EventVaultInit,
-		Actor:     "danielsolisagea",
+		Actor:     "alice",
 		Payload:   json.RawMessage(`{"path":"/tmp/vault"}`),
 	})
 	if err != nil {

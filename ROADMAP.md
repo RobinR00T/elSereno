@@ -230,6 +230,13 @@ write|exploit|harvest|dial` lands when the DB-backed audit writer
 ships (so every `offensive_allowed` event lands on a tamper-
 evident chain row, not just stdout).
 
+Status 2026-10-18: the offensive verbs already write their events to
+the file-backed chain (`~/.elsereno/audit.jsonl`,
+`cmd/elsereno/offensive_runtime.go`; HMAC-keyed from the vault for the
+write verbs, plain SHA-256 for harvest and sandbox). The Postgres writer
+(`audit.OpenDBWriter`) exists but no command uses it; item 1 below is
+still open.
+
 **Work to land**:
 1. `internal/audit.Writer` (pgx-backed, single-goroutine
    INSERT). Carry-over from F1.

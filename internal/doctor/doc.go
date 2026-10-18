@@ -1,16 +1,14 @@
-// Package doctor implements cross-platform preflight checks:
+// Package doctor documents the preflight checks of `elsereno doctor`.
+// The checks live in cmd/elsereno/cmd_doctor.go and are six, none of
+// them external:
 //
-//   - Go runtime version.
-//   - Postgres connectivity and TLS per ADR-021 (.pgpass/PGSERVICEFILE
-//     detected).
-//   - nmap installed and version >= 7.80.
-//   - Privileged scan per platform: CAP_NET_RAW on Linux, root on
-//     macOS; suggestions when missing.
-//   - DNS + IDN smoke tests.
-//   - Credential endpoints for Shodan (/api-info) and Censys
-//     (/api/v1/account) when set.
-//   - NTP drift when doctor.ntp_server is configured.
-//   - memguard mlock allocation test (warning on macOS fallback).
-//   - Vault status (not-initialised / initialised-locked / unlocked).
-//   - Disk >= 1 GiB and IPv6 availability.
+//   - Go runtime version and platform.
+//   - Raw-socket privilege (CAP_NET_RAW on Linux, root on macOS): a
+//     skip when missing, since probes use ordinary sockets.
+//   - nmap on PATH: optional, elsereno never runs it.
+//   - IPv6 availability and free disk.
+//
+// Not built: Postgres connectivity and TLS, DNS/IDN smoke tests,
+// provider endpoints (Shodan, Censys), NTP drift, memguard mlock and
+// vault status.
 package doctor

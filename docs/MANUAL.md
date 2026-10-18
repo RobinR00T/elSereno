@@ -50,6 +50,7 @@ qué orden, con qué argumentos**.
    23. [goose, disector GOOSE/SV](#723-goose)
    24. [legal · version · diff · proxy · repl · init · token](#724-otros-verbos)
    25. [Probes de exposición profunda](#725-probes-de-exposición-profunda-read-only-y-trazabilidad)
+   26. [modbus monitor, escrituras en una captura](#726-modbus-monitor)
 8. [El dashboard web](#8-el-dashboard-web)
 9. [Workflows típicos](#9-workflows-típicos)
 10. [Troubleshooting](#10-troubleshooting)
@@ -99,17 +100,22 @@ operadores), tarball (laptops / kiosks), contenedor OCI (CI /
 K8s). El binario **es estático sin dependencias**: no instala
 nada en `/usr/lib`.
 
+La última release de GitHub con binarios es **v2.37.0** (16-5-2026;
+los tags v2.38 a v2.62 no llevan binarios), así que `releases/latest`
+instala esa versión, sin lo que hay en `main` después. Para lo último,
+compila desde el checkout (`INSTALL.md`, sección *Build from source*).
+
 ### 2.1 macOS
 
 Apple Silicon (M1/M2/M3/M4) y Intel ambos soportados.
 
 ```bash
-# Opción A, Homebrew tap (si está publicado):
-brew install RobinR00T/tap/elsereno
-
-# Opción B, Tarball manual:
+# No hay tap de Homebrew publicado (comprobado el 18-10-2026): tarball.
+# Los nombres llevan la versión, así que se pregunta cuál es la última:
 ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
-curl -L "https://github.com/RobinR00T/elSereno/releases/latest/download/elsereno_darwin_${ARCH}.tar.gz" \
+VER=$(curl -s https://api.github.com/repos/RobinR00T/elSereno/releases/latest \
+        | grep tag_name | cut -d '"' -f 4 | sed 's/^v//')
+curl -L "https://github.com/RobinR00T/elSereno/releases/download/v${VER}/elsereno_${VER}_darwin_${ARCH}.tar.gz" \
     | tar -xz -C /tmp
 sudo mv /tmp/elsereno /usr/local/bin/
 sudo chown root:wheel /usr/local/bin/elsereno
@@ -140,7 +146,7 @@ elsereno version
 #### Fedora / RHEL / Rocky / Alma
 
 ```bash
-ARCH=$(uname -m)                               # x86_64 o aarch64
+ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')   # el .rpm se llama _linux_amd64 / _linux_arm64
 VER=$(curl -s https://api.github.com/repos/RobinR00T/elSereno/releases/latest \
         | grep tag_name | cut -d '"' -f 4 | sed 's/^v//')
 sudo dnf install -y "https://github.com/RobinR00T/elSereno/releases/download/v${VER}/elsereno_${VER}_linux_${ARCH}.rpm"
@@ -255,17 +261,19 @@ Cuatro comandos para confirmar que la instalación es correcta:
 which elsereno                  # /usr/local/bin/elsereno (o similar)
 
 # 2) Versión y commit:
-elsereno version                # vX.Y.Z (commit ABC123, built YYYY-MM-DDTHH:MM:SSZ)
+elsereno version                # tres líneas: elsereno X.Y.Z / commit <sha> / built <fecha>
 
 # 3) Disclaimer legal, debe mostrarse al menos una vez:
 elsereno legal
 
-# 4) Preflight: comprueba paths, perms, vault, db reachability:
+# 4) Preflight: seis comprobaciones locales (runtime, plataforma,
+#    privilegio de raw sockets, nmap, IPv6, disco):
 elsereno doctor
 ```
 
-Si `doctor` reporta problemas, los detalla con el path /
-permiso esperado vs. el observado.
+`doctor` no lee la config ni toca el vault ni la base de datos (ver
+§7.15). Un build local sin ldflags dice `elsereno dev`, `commit none`,
+`built unknown`.
 
 ---
 
@@ -414,9 +422,11 @@ vacío y `port` a 0.
 | `--output FILE`            | `-` (stdout)   | path al fichero de salida                                             |
 | `--default-port N`         | (sin)          | si las líneas no traen `:port`, se aplica este                        |
 | `--max-concurrent N`       | (config)       | targets paralelos                                                     |
-| `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe                 |
+| `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe/binaryedge      |
 | `--scope FILE.yaml`        | (sin)          | scope.yaml; descarta los targets fuera de sus rangos o puertos, y no lanza los plugins fuera de `protocols` (§12) |
 | `--no-progress`            | `false`        | desactiva barra de progreso (CI-friendly)                             |
+| `--rate N`                 | `0` (sin tope) | probes por segundo como mucho                                         |
+| `--retries N`              | `2`            | reintentos cuando un probe vence por timeout                          |
 
 **Ejemplos:**
 
@@ -463,6 +473,10 @@ no fingerprint, el output suele encadenarse a `scan`.
 |----------------|-------------|-----------------------------------------------------------|
 | `--auto CIDR`  | (sin)       | sweep automático sobre el CIDR                            |
 | `--hosts FILE` | (sin)       | sweep contra una lista de IPs (un IP por línea, `#` comments) |
+| `--max-hosts N` | `256`      | tope de hosts recorridos (CIDR o fichero; cuenta antes del scope) |
+| `--parallel N` | `64`        | TCP-connects simultáneos                                  |
+| `--dial-timeout D` | `1s`    | timeout de cada connect (host, puerto)                    |
+| `--scope FILE.yaml` | (sin)  | rechaza los targets fuera de sus rangos y puertos         |
 
 `--auto` y `--hosts` son mutuamente exclusivos.
 
@@ -688,11 +702,12 @@ la chain y `verify` lo detecta.
 
 | Sub-comando     | Uso                                                                   |
 |-----------------|-----------------------------------------------------------------------|
-| `verify`        | Verifica la chain (tail o full). Exit-0 si íntegro.                   |
-| `verify-file`   | Idem pero contra el chain file-backed (`~/.elsereno/audit.jsonl`).    |
-| `compact`       | Borra entradas anteriores a cutoff; inserta `chain_rebase` marker.   |
-| `purge`         | Tombstone-purge antes de cutoff (preserva chain).                     |
-| `serve`         | Daemon UDS centralizado (v1.26+, para múltiples processes).           |
+| `verify-file`   | Recorre la cadena del fichero (`--path`, por defecto `~/.elsereno/audit.jsonl`); `--vault-passphrase-file` para las entradas con HMAC. |
+| `export`        | Saca eventos para un SIEM: `--format ndjson\|cef\|syslog`, `--since 24h`, `--event-type`, `--path`. |
+| `serve`         | Daemon UDS centralizado (v1.26+, para múltiples processes); `--output` (ruta absoluta del JSONL, obligatoria). |
+| `verify`        | Sin implementar: valida flags y sale con 69.                          |
+| `compact`       | Sin implementar: valida flags y sale con 69.                          |
+| `purge`         | Sin implementar: valida flags (`--before`, `--i-understand-this-is-forensic-data`) y sale con 69. |
 
 `audit verify`, `audit compact` y `audit purge` están declarados pero
 no hacen nada todavía: tras validar sus flags salen con 69 (el escritor
@@ -718,9 +733,12 @@ backup envelope).
 
 | Sub-comando | Uso                                                            |
 |-------------|----------------------------------------------------------------|
-| `create`    | Crea un fichero cifrado con `vault.v1.bin` (solo eso).         |
+| `create`    | Crea un fichero cifrado con `vault.v1.bin` (solo eso); `--out` (obligatorio, 0600). |
 | `inspect`   | Describe el envelope SIN descifrar: magic, versión, sal, nonce, tamaño y modo. |
 | `restore`   | Descifra a un directorio que ya existe; solo donde el vault original existe. |
+
+`create` y `restore` aceptan `--vault-passphrase-file` (fichero 0600) en
+vez de preguntar la passphrase.
 
 Ojo: la clave del backup se deriva del propio vault, así que no sirve
 para recuperarse de perderlo (§20, PITF-093).
@@ -743,7 +761,7 @@ elsereno backup restore --in /backups/elsereno-2026-05-11.tar.gz.enc --to /tmp/r
 
 | Sub-comando | Uso                                              |
 |-------------|--------------------------------------------------|
-| `show`      | Imprime la config efectiva (defaults + overrides). |
+| `show`      | Imprime la config efectiva (defaults + overrides); `--unsafe` está reservado (hoy no hay campos ocultos). |
 | `lint`      | Valida `elsereno.yaml` + scope opcional.         |
 
 **Ejemplos:**
@@ -770,7 +788,7 @@ binario.
 | Sub-comando | Uso                                                                    |
 |-------------|------------------------------------------------------------------------|
 | `list`      | Lista todos los plugins (nombre, puertos default, write-gated?).        |
-| `ports`     | Mapa inverso: puerto → plugins. Útil para "qué probe va al 502?".      |
+| `ports`     | Mapa inverso: puerto → plugins. Útil para "qué probe va al 502?"; `--json` lo da en JSON. |
 
 **Ejemplos:**
 
@@ -792,9 +810,9 @@ ellos.
 
 | Sub-comando | Uso                                                                |
 |-------------|--------------------------------------------------------------------|
-| `capture`   | Escucha en `--listen` y guarda los bytes del cliente en `--output`. |
-| `validate`  | Corre `Probe()` de un plugin contra bytes capturados (offline); muestra match score. |
-| `probe`     | Fingerprint EN VIVO de un solo target con un plugin: abre una conexión real a `--target host:port` y muestra el Finding. |
+| `capture`   | Escucha en `--listen` y guarda los bytes del cliente en `--output` (0600); `--timeout` (1m). |
+| `validate`  | Corre `Probe()` de un plugin contra bytes capturados (offline, `--file` o `--hex`); muestra match score; `--json`, `--timeout` (5s). |
+| `probe`     | Fingerprint EN VIVO de un solo target con un plugin: abre una conexión real a `--target host:port` y muestra el Finding; `--scope`, `--json`, `--timeout` (8s). |
 
 **Ejemplos:**
 
@@ -865,15 +883,29 @@ elsereno scoring
 
 ### 7.15 `doctor`
 
-Preflight cross-platform: paths, perms, vault, DB
-reachability, build variant, etc.
+Preflight local con seis comprobaciones, ninguna externa: versión del
+runtime de Go, plataforma, privilegio de raw sockets (CAP_NET_RAW en
+Linux, root en macOS), nmap en el PATH, alguna dirección IPv6 y disco
+libre. No lee la config ni toca el vault, la base de datos ni la red.
 
 ```bash
 elsereno doctor
-# Exit-0 si todo OK. Si algo falla, dice exactamente qué.
+# [OK]    go runtime, go1.26.9
+# [OK]    platform, darwin/arm64
+# [SKIP]  privileged scan, not root; not needed: scan and discover use ordinary TCP/UDP sockets
+# [SKIP]  nmap, not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere
+# [OK]    ipv6, at least one IPv6 address present
+# [OK]    disk, 239340 MiB free
+#
+# 6 checks, 0 failed
 ```
 
-Buen primer comando tras instalar o tras tocar la config.
+Sale con 69 solo si alguna comprobación da `[FAIL]`; `[WARN]` y `[SKIP]`
+no cambian el código de salida. Ni root ni nmap hacen falta para
+escanear: los probes usan sockets TCP/UDP normales y `--input nmap:`
+lee un XML que se generó en otra parte. Solo `goose monitor --iface`
+(Linux) necesita CAP_NET_RAW. Para validar la config está `config
+lint` (§7.9).
 
 ### 7.16 `tui`
 
@@ -890,8 +922,10 @@ default + offensive (no en mini).
 | `--feed -`            | consume NDJSON desde stdin                                          |
 | `--watch URL --bearer T` | suscribirse a SSE stream remoto                                   |
 | `--record FILE.ndjson`| (v1.41+) graba el feed para replay                                  |
-| `--rate FLOAT`        | (v1.43+) velocidad de replay (1.0 = tiempo real, 2.0 = 2× rápido)   |
+| `--rate FLOAT`        | (v1.43+) eventos por segundo al reproducir `--replay` o `--feed -` (0 = lo más rápido posible) |
 | `--api-creds-file F`  | para inputs API-keyed                                               |
+| `--default-port N`    | con `--input list`/`stdin`, puerto para las líneas sin `:port`      |
+| `--scope FILE.yaml`   | con `--input`: no prueba targets fuera de sus rangos y puertos      |
 
 **Ejemplos:**
 
@@ -916,6 +950,8 @@ Meta-operaciones sobre la HTTP API.
 ```bash
 # Imprimir el OpenAPI 3.1 spec generado del código:
 elsereno api openapi > openapi.yaml
+# o directamente a un fichero:
+elsereno api openapi --out openapi.yaml
 ```
 
 ### 7.18 `schedule`
@@ -1292,6 +1328,44 @@ en todas las salidas (ndjson, informe HTML, GitHub/Jira, CEF, syslog,
 STIX, webhook). Guía completa: [`exposure-auditing.md`](exposure-auditing.md);
 estado de validación de cada parser contra captura real:
 [`parser-validation.md`](parser-validation.md).
+
+
+### 7.26 `modbus monitor`
+
+Monitor pasivo y offline de Modbus/TCP: lee un flujo de tramas (una trama
+MBAP+PDU en hex por línea; las líneas en blanco y las que empiezan por `#`
+se ignoran) y reporta las escrituras y los diagnósticos que cambian el
+estado del equipo. Modbus no autentica nada, así que cada escritura es un
+evento de exposición: quien la mandó nunca tuvo que demostrar quién era.
+No abre ningún socket.
+
+| Flag     | Para qué                                              |
+|----------|-------------------------------------------------------|
+| `--file` | Flujo de tramas, una trama Modbus/TCP en hex por línea. |
+| `--json` | Un evento por línea en JSON (NDJSON).                  |
+
+```bash
+# modbus-frames.txt: lectura de registros (benigna), escritura de un
+# registro, y diagnóstico 0x08 sub-función 0x0001 (reiniciar comunicaciones)
+elsereno modbus monitor --file modbus-frames.txt
+# frame 2: [medium] write_observed unit=1 fc=0x06 write fc=0x06 addr=1 value=0x00ff
+# frame 3: [high] dangerous_diagnostic unit=1 fc=0x08 mutating diagnostic sub-function 0x0001
+# processed 3 Modbus frames, 2 events
+
+elsereno modbus monitor --file modbus-frames.txt --json
+# {"Kind":"write_observed","Severity":"medium","Unit":1,"FC":6,"Detail":"write fc=0x06 addr=1 value=0x00ff"}
+# {"Kind":"dangerous_diagnostic","Severity":"high","Unit":1,"FC":8,"Detail":"mutating diagnostic sub-function 0x0001"}
+```
+
+Sale con 0 aunque encuentre eventos. Para sacar el flujo de una captura
+real:
+
+```bash
+tshark -r planta.pcap -Y mbtcp -T fields -e tcp.payload > modbus-frames.txt
+```
+
+El fichero de tramas de arriba es el de la receta offline de
+[EXAMPLES](EXAMPLES.md) (`examples/run-examples.sh offline`).
 
 ---
 
