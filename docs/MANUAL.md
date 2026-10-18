@@ -2502,6 +2502,9 @@ mantenedor (`ACE3B86BACACE7D6`).
 - [`docs/OPERATIONS.md`](OPERATIONS.md), runbooks
   operacionales: release flow, Dependabot policy, post-public-
   flip checklist, troubleshooting CI, admin handoff.
+- [`docs/EXAMPLES.md`](EXAMPLES.md), una receta práctica por
+  feature con su salida real, contra simuladores en loopback
+  (`examples/run-examples.sh` las reproduce todas).
 - [`docs/FAQ.md`](FAQ.md), preguntas frecuentes
   expandidas.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md), diseño

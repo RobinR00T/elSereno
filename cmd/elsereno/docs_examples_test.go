@@ -108,6 +108,9 @@ func docExamples(t *testing.T, path string) []docExample {
 		if loc == nil || !commandPosition(l[:loc[0]]) {
 			continue // no command, or a mention in prose, a comment or a diagram
 		}
+		if loc[1] < len(l) && l[loc[1]] == ':' {
+			continue // "elsereno scan: ..." is the binary's own message prefix in shown output
+		}
 		start, cmd := i, l[loc[0]:]
 		for strings.HasSuffix(strings.TrimRight(cmd, " "), `\`) && i+1 < len(lines) {
 			i++

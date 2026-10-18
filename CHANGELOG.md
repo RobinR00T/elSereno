@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Practical examples for every feature.** `docs/EXAMPLES.md` has one
+  recipe per feature (configuration, vault and credentials, scope,
+  scan, triage and scoring, standards, discover, single-service probes,
+  offline Modbus, GOOSE and PROFINET analysis, audit, backup, and the
+  dashboard, API and schedules), each with the output the binary gave.
+  `examples/run-examples.sh` reproduces all of them against the repo's
+  simulators on loopback, with a throwaway HOME. The docs test now
+  skips shown output lines such as `elsereno serve: listening ...`.
+
 - **DNP3 gate decisions in the audit chain.** The offensive DNP3 gate
   audited only the opening of a session: a refusal left no trace beyond
   the reply, and a discard only a stderr line. Now each refusal (with

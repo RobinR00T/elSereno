@@ -8,6 +8,10 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-18 (3): **docs/EXAMPLES.md: one recipe per feature with real
+  output; examples/run-examples.sh reproduces them on loopback
+  simulators with a throwaway HOME; TestDocsExamples skips shown
+  "elsereno <cmd>:" output lines.**
 - 2026-10-18 (2): **Docker serve docs fixed and tested (bind 0.0.0.0 + TLS
   + OIDC + vault in the container; no public image); MANUAL verb section
   checked against the binary; TODO/TODO-vNext/_quickref brought to

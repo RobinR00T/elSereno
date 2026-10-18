@@ -1,0 +1,11 @@
+# Lab scope: loopback only, the three simulator ports, no telnet.
+# Pass it with --scope; nothing loads it on its own.
+version: 1
+ranges:
+  - cidr: 127.0.0.1/32
+    note: "local lab, simulators only"
+ports:
+  allow: [1502, 4840, 5007]
+  deny: [23]
+protocols:
+  allow: [modbus, opcua, slmp, melsoft, banner]

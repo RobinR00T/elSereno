@@ -124,6 +124,14 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   con `ProtectHome=true`, y el vault se busca en `$HOME/.elsereno/`: es
   probable que `serve` no encuentre el vault. Probar en Linux y decidir
   si el vault debe tener una ruta configurable.
+- **Tres detalles vistos al escribir docs/EXAMPLES.md (18-10).**
+  `discover` imprime una línea por plugin cuando dos comparten puerto
+  (el 5007 sale dos veces, `slmp` y `melsoft`) y el total las cuenta
+  como pares distintos. `doctor` avisa "scan requires nmap >= 7.80"
+  aunque `scan --input list:` funciona sin nmap (solo `--input nmap:`
+  lee su salida). `creds show` sugiere "--reveal ... (audited)", pero
+  el MANUAL dice que `--reveal` todavía no escribe en la auditoría:
+  comprobar cuál es cierto y alinear el otro.
 - **Métrica de rechazos del rate limit (PITF-100).** Hoy no hay métrica de los 429. Falta un
   contador Prometheus
   `elsereno_web_rate_limited_total` con etiqueta `reason` (`ip`, `token`,

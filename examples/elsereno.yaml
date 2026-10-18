@@ -1,0 +1,10 @@
+# Lab configuration: only the keys that differ from the defaults.
+# Print every key with: elsereno config show
+scanner:
+    max_concurrent_targets: 10
+    max_concurrent_per_host: 1
+log:
+    level: info
+web:
+    rate_limit_per_min_ip: 100
+    rate_limit_per_min_token: 300

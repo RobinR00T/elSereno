@@ -1,0 +1,7 @@
+# Lab targets: the simulators that examples/run-examples.sh starts on
+# loopback. One host:port per line; "#" starts a comment.
+127.0.0.1:1502
+127.0.0.1:4840
+127.0.0.1:5007
+# Outside scope.yaml on purpose: scan drops it before connecting.
+127.0.0.1:23
