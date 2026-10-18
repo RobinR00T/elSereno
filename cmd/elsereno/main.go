@@ -180,7 +180,7 @@ func fail(code core.ExitCode, err error) error { return cliError{code: code, err
 var errUsage = errors.New("usage error")
 
 func newRootCmd() *cobra.Command {
-	root := &cobra.Command{
+	root := installBanner(&cobra.Command{
 		Use:   "elsereno",
 		Short: "ICS/OT legacy exposure auditor",
 		Long: "elsereno, ICS/OT and legacy-network exposure auditor.\n" +
@@ -188,7 +188,7 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors:     true,
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
-	}
+	})
 
 	root.PersistentFlags().StringVar(&flagConfig, "config", "", "path to elsereno.yaml (overrides lookup order)")
 	root.PersistentFlags().StringVar(&flagFormat, "format", "", "output format (yaml|json|table|ndjson|csv)")

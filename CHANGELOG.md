@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The elSereno logo above the root help.** `elsereno`, `elsereno
+  --help` and `elsereno help` start with an ASCII skeleton night
+  watchman and his lantern (28 lines, 33 columns; package
+  `internal/banner`). Only on a terminal and never with `--quiet`, so
+  pipes and scripts that read the help get the same text as before.
+  In 24-bit colour when `COLORTERM` says so and `NO_COLOR` and
+  `TERM=dumb` do not forbid it; plain ASCII otherwise. Subcommand help
+  is unchanged.
+
 ## [2.63.0] - 2026-10-18
 
 ### Added

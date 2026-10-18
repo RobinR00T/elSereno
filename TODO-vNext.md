@@ -130,6 +130,13 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   total las cuenta como pares distintos. (Los otros dos detalles de esa
   nota, el aviso de nmap de `doctor` y el "(audited)" de `creds show`,
   quedaron corregidos el 18-10.)
+- **Consulta a la terminal en cada arranque (visto el 18-10 al probar el
+  logo).** En una terminal, cualquier comando (también `elsereno --quiet`)
+  emite `ESC ]11;?` y `ESC [6n` antes de su salida (el binario de `main`
+  sin el logo también). Sospecha sin confirmar: lipgloss/termenv
+  preguntando el color de fondo, por los estilos que `internal/tui/view.go`
+  crea a nivel de paquete. Confirmarlo y, si es eso, crearlos dentro del
+  TUI para que solo `tui` toque la terminal.
 - **Releases sin firma.** v2.63.0 (18-10-2026) se publicó con binarios
   pero construida en local, sin firma cosign ni atestación SLSA: el
   workflow de release corrió un snapshot sobre el tag (PITF-102, ya
