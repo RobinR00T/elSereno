@@ -45,24 +45,24 @@ You can install **default + offensive together** on the same host (binaries have
 ### deb / rpm / apk packages (recommended for Linux servers)
 
 Three packages per format, for `amd64` and `arm64`. The newest GitHub
-Release with binaries is **v2.63.0** (2026-10-18; before it, v2.37.0, as
+Release with binaries is **v2.63.2** (2026-10-19, signed; v2.63.0 shipped unsigned and v2.63.1 has no release; before them, v2.37.0, as
 tags v2.38 to v2.62 carry no release assets), so the examples use it; check the
 [releases page](https://github.com/RobinR00T/elSereno/releases) for a
 newer one. File names follow `<package>_<version>_linux_<arch>.<ext>`:
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./elsereno_2.63.0_linux_amd64.deb
+sudo apt install ./elsereno_2.63.2_linux_amd64.deb
 # or:
-sudo dpkg -i elsereno_2.63.0_linux_amd64.deb && sudo apt-get install -f
+sudo dpkg -i elsereno_2.63.2_linux_amd64.deb && sudo apt-get install -f
 
 # RHEL / CentOS / Fedora / Rocky / Alma
-sudo dnf install ./elsereno_2.63.0_linux_amd64.rpm
+sudo dnf install ./elsereno_2.63.2_linux_amd64.rpm
 # or with rpm directly:
-sudo rpm -i elsereno_2.63.0_linux_amd64.rpm
+sudo rpm -i elsereno_2.63.2_linux_amd64.rpm
 
 # Alpine
-sudo apk add --allow-untrusted ./elsereno_2.63.0_linux_amd64.apk
+sudo apk add --allow-untrusted ./elsereno_2.63.2_linux_amd64.apk
 ```
 
 **Available package names**: `elsereno` (default), `elsereno-offensive`, `elsereno-mini`. They can coexist.
@@ -101,37 +101,49 @@ Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `P
 ### Tarball install (any Linux, no root)
 
 ```sh
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_linux_amd64.tar.gz
-tar -xzf elsereno_2.63.0_linux_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_linux_amd64.tar.gz
+tar -xzf elsereno_2.63.2_linux_amd64.tar.gz
 sudo mv elsereno /usr/local/bin/
 elsereno doctor
 ```
 
-For air-gapped / paranoid. Releases from v2.x, v2.63.0 included, ship
-`checksums.txt` and a CycloneDX SBOM per archive, but no cosign signature
-and no SLSA attestation: only v1.0.0 and v1.0.1 carry
-`checksums.txt.bundle` (checked 2026-10-18), so the cosign step applies to
-those alone. The v2.63.0 tag itself is GPG-signed (`git tag -v v2.63.0`).
+For air-gapped / paranoid. v2.63.2 ships `checksums.txt` signed with
+cosign keyless (`checksums.txt.bundle`), a CycloneDX SBOM per archive and
+SLSA v1 provenance (checked 2026-10-19). Earlier v2.x releases, v2.63.0
+included, carry no signature (only v1.0.0 and v1.0.1 do). The tag is
+also GPG-signed (`git tag -v v2.63.2`).
 
 ```sh
 # Verify checksum
 sha256sum --ignore-missing -c checksums.txt
-# Verify cosign signature (sigstore keyless; v1.0.x releases only)
+# Verify cosign signature (sigstore keyless; v2.63.2+ and v1.0.x)
 cosign verify-blob \
   --bundle checksums.txt.bundle \
   --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   checksums.txt
+# Verify SLSA build provenance (v2.63.2+)
+gh attestation verify elsereno_2.63.2_linux_amd64.tar.gz --repo RobinR00T/elSereno
 # Verify SBOM (CycloneDX)
-syft scan elsereno -o cyclonedx-json | diff - elsereno_2.63.0_linux_amd64.tar.gz.cyclonedx.json
+syft scan elsereno -o cyclonedx-json | diff - elsereno_2.63.2_linux_amd64.tar.gz.cyclonedx.json
 ```
 
 ### OCI image
 
-There is no public image to pull today: an anonymous
-`docker pull ghcr.io/robinr00t/elsereno:<tag>` answers `denied` (checked
-2026-10-18 for `latest`, `2.62.0` and `1.49.0`). Build it from the
-checkout:
+Since v2.63.2 the release workflow publishes a multi-arch image
+(linux/amd64, linux/arm64), public and signed with cosign keyless; tags
+are the version without `v` and `latest` (checked 2026-10-19 with an
+anonymous pull; no older version has an image):
+
+```sh
+docker pull ghcr.io/robinr00t/elsereno:2.63.2
+cosign verify ghcr.io/robinr00t/elsereno:2.63.2 \
+  --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+docker run --rm ghcr.io/robinr00t/elsereno:2.63.2 version
+```
+
+Or build it from the checkout:
 
 ```sh
 docker build -t elsereno .
@@ -195,14 +207,14 @@ reach it with an SSH tunnel (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ```sh
 # Apple Silicon
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_darwin_arm64.tar.gz
-tar -xzf elsereno_2.63.0_darwin_arm64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_darwin_arm64.tar.gz
+tar -xzf elsereno_2.63.2_darwin_arm64.tar.gz
 sudo mv elsereno /usr/local/bin/
 xattr -d com.apple.quarantine /usr/local/bin/elsereno  # if downloaded via browser
 elsereno doctor
 
 # Intel
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.0/elsereno_2.63.0_darwin_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_darwin_amd64.tar.gz
 …
 ```
 
@@ -280,8 +292,8 @@ docker run --rm elsereno doctor
 | systemd integration | ✅ deb/rpm | ❌ | ❌ | use launchd manually on macOS |
 | deb / rpm / apk packages | ✅ v1.49+ | ❌ | n/a | |
 | Static binary (no libc) | ✅ | ✅ | ✅ | `CGO_ENABLED=0`; verifiable with `file` |
-| Cosign signature on artefacts | ❌ | ❌ | ❌ | only the v1.0.0 and v1.0.1 releases carry one; v2.x releases ship `checksums.txt` alone |
-| CycloneDX SBOM | ✅ | ✅ | ✅ | per-archive (`<archive>.cyclonedx.json`); no public image |
+| Cosign signature on artefacts | ✅ | ✅ | ✅ | v2.63.2+ (`checksums.txt.bundle` and the GHCR image) and v1.0.x; v2.x before v2.63.2 ship `checksums.txt` alone |
+| CycloneDX SBOM | ✅ | ✅ | ✅ | per-archive (`<archive>.cyclonedx.json`); the image carries an SPDX SBOM attestation (buildx) |
 | SLSA v1.0 build provenance | ✅ | ✅ | ✅ | GitHub Attestations API |
 
 ### Linux advantages
@@ -336,7 +348,7 @@ elsereno version
 
 ### OCI image
 
-No image is published (see the OCI section above): build it, tag it with the commit you built (`docker build -t elsereno:$(git rev-parse --short HEAD) .`) and pin that tag in your manifest.
+Pull `ghcr.io/robinr00t/elsereno:<version>` (v2.63.2+, see the OCI section above) and pin it by digest, or build it, tag it with the commit you built (`docker build -t elsereno:$(git rev-parse --short HEAD) .`) and pin that tag in your manifest.
 
 ---
 

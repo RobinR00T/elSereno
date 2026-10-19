@@ -11,7 +11,7 @@ ideas list (PBX, Shodan paginación, IPv6, …) see
 
 ## Operator-pending (no coding involved)
 
-Status as of 2026-10-19 (latest tag `v2.63.0`, 2026-10-18; `git describe --tags` gives the commits since).
+Status as of 2026-10-19 (latest tag `v2.63.2`, 2026-10-19; `git describe --tags` gives the commits since).
 
 - [ ] **Revoke the bootstrap PAT**: 
   `https://github.com/settings/personal-access-tokens` +
@@ -22,9 +22,9 @@ Status as of 2026-10-19 (latest tag `v2.63.0`, 2026-10-18; `git describe --tags`
 - [x] **GitHub Actions**: the April 2026 stop was the org
   `allowed_actions=local_only` policy, not billing; fixed 2026-08-29,
   and ci / release / supply-chain / nightly / benchmarks run on `main`
-  again (`.context/STATE.md`, 2026-08-31). Open part: no public OCI
-  image; an anonymous pull of `ghcr.io/robinr00t/elsereno` answers
-  `denied` (2026-10-18), and INSTALL builds the image locally.
+  again (`.context/STATE.md`, 2026-08-31). The public OCI
+  image exists since v2.63.2 (anonymous pull and `cosign verify` OK,
+  2026-10-19).
 
 ## Brief delivery (compressed history)
 
@@ -81,9 +81,10 @@ identify, native Windows sandboxing, MITM routing, and the product
 decisions listed in `TODO-vNext.md` (Modbus constant score, notes that
 reach no output, the three orphan write-gates, and others).
 
-Releases are cut by the operator. The last tag is `v2.63.0`
-(2026-10-18), with a GitHub Release of 43 assets (checksums and
-CycloneDX SBOMs, no cosign signature, built locally because the CI
-release workflow ran a snapshot on the tag, PITF-102). Before it the last
+Releases are cut by the operator. The last tag is `v2.63.2`
+(2026-10-19), published by the CI release workflow: 45 assets,
+`checksums.txt` signed with cosign keyless, SLSA v1 provenance and a
+signed GHCR image. v2.63.0 (2026-10-18) was built locally without a
+signature (PITF-102) and v2.63.1 has no release (PITF-103). Before it the last
 Release with binaries was `v2.37.0` (2026-05-16): tags v2.38 to v2.62
 were pushed without release assets.

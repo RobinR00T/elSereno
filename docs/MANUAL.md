@@ -100,11 +100,11 @@ operadores), tarball (laptops / kiosks), contenedor OCI (CI /
 K8s). El binario **es estático sin dependencias**: no instala
 nada en `/usr/lib`.
 
-La última release de GitHub con binarios es **v2.63.0** (18-10-2026;
-antes, v2.37.0, porque los tags v2.38 a v2.62 no llevan binarios), así que
-`releases/latest` instala esa versión, sin lo que hay en `main` después.
-Lleva `checksums.txt` y SBOM CycloneDX, sin firma cosign; el tag va firmado
-con GPG. Para lo último,
+La última release de GitHub es **v2.63.2** (19-10-2026), publicada por
+el workflow de CI: `checksums.txt` firmado con cosign keyless, SBOM
+CycloneDX, procedencia SLSA v1 e imagen en GHCR; el tag va firmado con
+GPG. v2.63.0 salió sin firma y v2.63.1 no tiene release. `releases/latest`
+instala esa versión, sin lo que hay en `main` después. Para lo último,
 compila desde el checkout (`INSTALL.md`, sección *Build from source*).
 
 ### 2.1 macOS
@@ -194,10 +194,11 @@ elsereno version
 
 ### 2.3 Docker / Kubernetes
 
-No hay imagen pública que descargar: un `docker pull` anónimo de
-`ghcr.io/robinr00t/elsereno` responde `denied` (comprobado el
-18-10-2026 con `latest`, `2.62.0` y `1.49.0`). Se construye desde el
-repo; es distroless, corre como `nonroot` (uid 65532) y su comando por
+Desde v2.63.2 hay imagen pública y firmada (amd64 y arm64):
+`docker pull ghcr.io/robinr00t/elsereno:2.63.2` (las tags son la versión
+sin `v` y `latest`; comprobado el 19-10-2026 con un pull anónimo, y se
+verifica con `cosign verify`, ver `INSTALL.md`). Versiones anteriores no
+tienen imagen. También se construye desde el repo; es distroless, corre como `nonroot` (uid 65532) y su comando por
 defecto es `serve`:
 
 ```bash

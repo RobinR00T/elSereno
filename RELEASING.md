@@ -42,8 +42,9 @@ gh auth login                           # or export GH_TOKEN=…
 2. `make release-gate` exits 0 (goreleaser snapshot build +
    govulncheck + gitleaks + benchmarks baseline check). The gate
    only builds binaries, so also run
-   `goreleaser release --snapshot --clean --skip=sign,publish` with
-   Docker running: it builds the release image from
+   `GITHUB_REPOSITORY=RobinR00T/elSereno goreleaser release --snapshot --clean --skip=sign,publish`
+   with Docker running (the image labels read `GITHUB_REPOSITORY`,
+   which only Actions sets): it builds the release image from
    `Dockerfile.goreleaser`, the stage that failed on v2.63.1
    (PITF-103).
 3. `.context/STATE.md` phase line reflects the closed phase.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.
+
 ## [2.63.2] - 2026-10-19
 
 ### Fixed

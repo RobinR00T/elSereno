@@ -115,7 +115,7 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   con Docker Desktop (bind `0.0.0.0` + TLS + `--i-know-what-im-doing` +
   OIDC + vault montado con `--user` y `HOME=/data`); el compose quita el
   healthcheck con `curl` (la imagen distroless no lo trae) y dice que no
-  hay imagen pública en GHCR (un pull anónimo da `denied`).
+  había imagen pública en GHCR (la hay desde v2.63.2, 19-10-2026).
 - **Recetas de despliegue sin probar: Kubernetes y systemd.** El MANUAL
   ya no trae un manifiesto de Kubernetes, solo los requisitos: un Secret
   montado es de root y la passphrase debe ser 0600 del uid del proceso,
@@ -137,12 +137,6 @@ docs ya dicen lo que hay; queda decidir cuáles se construyen:
   preguntando el color de fondo, por los estilos que `internal/tui/view.go`
   crea a nivel de paquete. Confirmarlo y, si es eso, crearlos dentro del
   TUI para que solo `tui` toque la terminal.
-- **Releases sin firma.** v2.63.0 (18-10-2026) se publicó con binarios
-  pero construida en local, sin firma cosign ni atestación SLSA: el
-  workflow de release corrió un snapshot sobre el tag (PITF-102, ya
-  corregido en `release.yml`). Solo v1.0.0 y v1.0.1 llevan
-  `checksums.txt.bundle`. Falta probar el camino CI completo en la
-  próxima release y confirmar que vuelve la firma keyless.
 - **Métrica de rechazos del rate limit (PITF-100).** Hoy no hay métrica de los 429. Falta un
   contador Prometheus
   `elsereno_web_rate_limited_total` con etiqueta `reason` (`ip`, `token`,
