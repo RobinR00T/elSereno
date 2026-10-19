@@ -54,8 +54,8 @@ timeouts of \f[B]serve\f[R]; zero means the built\-in default.
 \f[B]web.rate_limit_per_min_ip\f[R] (default \f[B]100\f[R])
 \f[B]web.rate_limit_per_min_token\f[R] (default \f[B]300\f[R]) : Request
 caps of \f[B]serve\f[R]: a token bucket per client IP (loopback exempt;
-IPv6 by /64) and per Bearer token or, in dev mode, \f[B]X\-Operator\f[R]
-name (loopback included).
+IPv6 by /64) and per Bearer token or, without one, \f[B]X\-Operator\f[R]
+name (in any auth mode; loopback included).
 Over either cap: \f[B]429\f[R] with \f[B]Retry\-After: 60\f[R];
 \f[B]/healthz\f[R] and \f[B]/readyz\f[R] are never limited; \f[B]0\f[R]
 turns that cap off (so does a negative value).

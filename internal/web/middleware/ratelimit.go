@@ -180,10 +180,11 @@ func clientKey(remoteAddr string) string {
 	return ip.Mask(net.CIDRMask(64, 128)).String() + "/64"
 }
 
-// requestToken keys the per-token limit by the bearer token or, in dev
-// mode, the X-Operator header. It is not verified here: rate limiting
-// only needs a stable key per caller. allow stores only its SHA-256, so
-// a token never sits in the limiter's maps.
+// requestToken keys the per-token limit by the bearer token or, without
+// one, the X-Operator header, in any auth mode (OIDC included). It is
+// not verified here: rate limiting only needs a stable key per caller.
+// allow stores only its SHA-256, so a token never sits in the limiter's
+// maps.
 func requestToken(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))

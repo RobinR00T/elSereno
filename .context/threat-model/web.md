@@ -60,8 +60,8 @@ loopback-only by default.
 | Threat | Mitigation | Code |
 |--------|------------|------|
 | Slowloris / slow-header attack | Full `http.Server` timeouts set in F1 chunk 3a | `internal/web/server.go` |
-| Per-IP flood | Token bucket 100 req/min per client IP (loopback exempt; `X-Forwarded-For` ignored), 429 + `Retry-After: 60` (PITF-100) | `internal/web/middleware/ratelimit.go` |
-| Per-token flood | Token bucket 300 req/min per Bearer token or `X-Operator` name, loopback included (PITF-100) | `internal/web/middleware/ratelimit.go` |
+| Per-IP flood | Token bucket 100 req/min per client IP (loopback exempt; `X-Forwarded-For` ignored), 429 + `Retry-After: 60` (PITF-100). The map holds 100 000 keys; full, an unknown address passes without the IP limit (fail open, so made-up keys cannot lock operators out); known addresses keep it. Residual: whoever fills it (over 100 000 /64s) is unlimited per IP for new addresses until the 1-minute sweep frees room | `internal/web/middleware/ratelimit.go` |
+| Per-token flood | Token bucket 300 req/min per Bearer token or `X-Operator` name (in any auth mode), loopback included (PITF-100). Only slows one runaway token: the token is counted before auth, so rotating tokens sidesteps it and the per-IP cap is the real bound. Same 100 000-key fail-open map | `internal/web/middleware/ratelimit.go` |
 | Session table growth | `web_state` is a singleton row; token generation bumps an integer, not a row count | migration 00001 |
 
 ## E, Elevation of privilege

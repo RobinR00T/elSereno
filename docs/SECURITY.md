@@ -130,23 +130,24 @@ log append-only con **hash chain HMAC** que provee
 **tamper-evidence**:
 
 ```
-entry N:
-{
-  "id": "01HW...",
-  "ts": "2026-05-11T12:34:56.123456Z",
-  "actor": "alice@host",
-  "event_type": "vault_unlock",
-  "prev_hash": "<hash de entry N-1>",
-  "data": {...},
-  "hmac": "<HMAC-SHA256(master_key, prev_hash + body)>"
-}
+entry N (una línea JSON; ejemplo real, build offensive):
+{"ID":1,"OccurredAt":"2026-10-19T09:02:46.188975Z","Actor":"alice",
+ "EventType":"offensive_sandbox","Payload":{"profile":"strict"},
+ "PrevHash":"<EntryHash de la entry N-1, base64>",
+ "EntryHash":"<SHA-256, o HMAC-SHA256 con clave, sobre la forma
+              canónica JCS de id, occurred_at, actor, event_type,
+              payload y prev_hash; base64>"}
 ```
 
 ### Garantías
 
 - **Detección de inserción**: editar / añadir entries con
   HMAC fake requiere conocer la master key → `verify-file`
-  detecta.
+  detecta. Vale para las entries con clave (las del runtime
+  offensive, con el vault abierto); las de `harvest`, `dial batch`, `dial wardial` y
+  `audit serve` llevan SHA-256 sin clave, y quien puede escribir
+  el fichero puede reescribir la chain desde ese punto
+  recalculando los hashes.
 - **Detección de borrado**: la chain se rompe → `verify`
   reporta `ErrChainBroken` con el offset.
 - **Detección de reordering**: cada entry hashea el
@@ -164,8 +165,8 @@ entry N:
 
 ### Tombstone purge vs compact
 
-- `purge --before T`: borra el `data` de entries antiguas
-  pero **mantiene los HMAC** → chain intacta.
+- `purge --before T`: borra el `Payload` de entries antiguas
+  pero **mantiene los hashes** → chain intacta.
 - `compact --before T`: hard-delete + inserta un
   `chain_rebase` marker con el nuevo anchor. Útil para
   reducir tamaño; rompe verification de períodos previos

@@ -8,6 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-19 (2): **Re-audit leftovers**: 3 rate-limiter tests (active bucket survives the sweep, full IP map keeps the token limit, maxKeys value and boundary), each checked by mutation; threat model web.md (token cap only slows one token; fail-open full map with residual), SECURITY.md real audit line, scanner/doc.go breaker not wired, X-Operator in any auth mode (MANUAL, man5, ratelimit.go); STATE/TODO/CHANGELOG stale v2.37/v2.62/"never tagged" lines.
 - 2026-10-19 (1): **Scorecard skips tag pushes**: supply-chain.yml gates the scorecard job on `github.ref_type != 'tag'`; scorecard-action accepts only the default branch and failed the v2.63.0 tag run.
 - 2026-10-18 (12): **ASCII logo above the root help** (merged into main after the v2.63.0 tag; unreleased) (`internal/banner`, embedded plain + 24-bit ANSI copies; `cmd/elsereno/banner.go` wraps the root help func). Terminal only, never with --quiet; colour only with COLORTERM truecolor/24bit and no NO_COLOR or TERM=dumb. Tests: stripped ANSI == plain, only 3 palette SGRs + reset, Show matrix, root help with/without terminal, subcommand help untouched. Follow-up in TODO-vNext: every command queries the terminal at start (suspected lipgloss).
 - 2026-10-18 (11): **v2.63.0 published** (43 assets, local goreleaser, no cosign): the tag-push release workflow built a snapshot (`cond && '' || 'x'` always picks 'x'); release.yml negates the condition, PITF-102; INSTALL/MANUAL/TODO/_quickref/STATE point at v2.63.0.
@@ -29,7 +30,7 @@ One-liner per significant change to `.context/` or the codebase.
 - 2026-10-18 (2): **Docker serve docs fixed and tested (bind 0.0.0.0 + TLS
   + OIDC + vault in the container; no public image); MANUAL verb section
   checked against the binary; TODO/TODO-vNext/_quickref brought to
-  v2.62 + 264 untagged commits.**
+  v2.62 + 264 untagged commits (as of that entry; superseded by the v2.63.0 tag).**
 
 - 2026-10-18 (1): **serve now enforces web.rate_limit_per_min_ip/token
   (token bucket per IP, loopback exempt, and per token; 429 + Retry-After:

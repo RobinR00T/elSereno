@@ -11,7 +11,7 @@ ideas list (PBX, Shodan paginación, IPv6, …) see
 
 ## Operator-pending (no coding involved)
 
-Status as of 2026-10-18 (latest tag `v2.62.0`; `main` is well past it, untagged: `git describe --tags` gives the count).
+Status as of 2026-10-19 (latest tag `v2.63.0`, 2026-10-18; `git describe --tags` gives the commits since).
 
 - [ ] **Revoke the bootstrap PAT**: 
   `https://github.com/settings/personal-access-tokens` +

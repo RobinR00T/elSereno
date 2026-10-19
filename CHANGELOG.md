@@ -18,6 +18,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TERM=dumb` do not forbid it; plain ASCII otherwise. Subcommand help
   is unchanged.
 
+### Fixed
+
+- **The release workflow published nothing on a tag push (PITF-102).**
+  `release.yml` chose its goreleaser flags with
+  `ref_type == 'tag' && '' || '--snapshot ...'`, which always picks
+  `--snapshot` in Actions expressions because `''` is falsy: the
+  v2.63.0 tag built a snapshot and went green without a release, so
+  v2.63.0 was built locally and carries no cosign signature or SLSA
+  attestation. The condition is negated, and OpenSSF Scorecard no
+  longer runs (and fails) on tag pushes.
+- **Docs that still described the old state.** The web threat model
+  says the per-token cap only slows one runaway token and that a full
+  key map fails open; `SECURITY.md` shows a real audit-chain line
+  instead of an invented one with an event that is never emitted;
+  the scanner package doc no longer claims a circuit breaker that no
+  command wires in; `X-Operator` keys the token limit in every auth
+  mode, not only in dev mode (MANUAL, `elsereno.yaml(5)`).
+
+### Tests
+
+- **Rate-limiter gaps closed.** New tests fail if a request stops
+  refreshing its bucket (the sweep would hand a capped caller a fresh
+  burst), if a full IP map also lifts the token limit, or if the
+  100 000-key cap or its boundary changes.
+
 ## [2.63.0] - 2026-10-18
 
 ### Added
@@ -542,10 +567,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   INSTALL and `elsereno(1)` no longer say doctor validates the config
   or reaches Postgres or the vault: it runs six local checks.
 - **Install docs point at releases that exist.** INSTALL used v1.49.0
-  file names (no such release) and promised cosign signatures; the
-  newest GitHub Release with binaries is v2.37.0, its files are named
-  `elsereno_2.37.0_linux_amd64.deb` and so on, and only v1.0.0 and
-  v1.0.1 are signed. The MANUAL's macOS tarball URL had no version in
+  file names (no such release) and promised cosign signatures; before
+  this release the newest GitHub Release with binaries was v2.37.0, its
+  files are named `elsereno_<version>_linux_amd64.deb` and so on, and
+  only v1.0.0 and v1.0.1 are signed. INSTALL and the MANUAL now use the
+  v2.63.0 assets. The MANUAL's macOS tarball URL had no version in
   the file name and its Fedora example used `x86_64` where the asset
   says `amd64`; there is no Homebrew tap.
 - **Doc errata from the audit, medium and low.** `elsereno(1)` lists

@@ -52,8 +52,8 @@ Read by the binary:
 **web.rate_limit_per_min_ip** (default **100**)
 **web.rate_limit_per_min_token** (default **300**)
 :   Request caps of **serve**: a token bucket per client IP (loopback
-    exempt; IPv6 by /64) and per Bearer token or, in dev mode, **X-Operator** name
-    (loopback included). Over either cap: **429** with
+    exempt; IPv6 by /64) and per Bearer token or, without one, **X-Operator** name
+    (in any auth mode; loopback included). Over either cap: **429** with
     **Retry-After: 60**; **/healthz** and **/readyz** are never limited;
     **0** turns that cap off (so does a negative value). **X-Forwarded-For**
     is ignored, so behind a same-host reverse proxy every client is exempt

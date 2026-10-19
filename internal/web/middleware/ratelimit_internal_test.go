@@ -242,3 +242,88 @@ func TestClientKey(t *testing.T) {
 		}
 	}
 }
+
+// TestAllow_ActiveBucketSurvivesSweep: a bucket in use is not dropped by
+// the sweep. If a request did not refresh bucket.seen, the sweep would
+// forget a caller at its cap and hand it a full burst again, twice its
+// limit (re-audit 19-10-2026).
+func TestAllow_ActiveBucketSurvivesSweep(t *testing.T) {
+	rl := NewRateLimiter(2, 0)
+	t0 := time.Now()
+	now := t0
+	rl.now = func() time.Time { return now }
+	for i := 0; i < 2; i++ {
+		if !rl.allow(req("10.0.0.9:1", "")) {
+			t.Fatalf("request %d of the burst refused", i)
+		}
+	}
+	b := rl.ips["10.0.0.9"]
+	now = t0.Add(50 * time.Second) // 1.67 tokens back: one request
+	if !rl.allow(req("10.0.0.9:1", "")) {
+		t.Fatal("request after 50 s refused")
+	}
+	now = t0.Add(61 * time.Second) // the sweep runs on this request
+	allowed := 0
+	for i := 0; i < 3; i++ {
+		if rl.allow(req("10.0.0.9:1", "")) {
+			allowed++
+		}
+	}
+	if !rl.lastSweep.Equal(now) {
+		t.Fatal("the sweep did not run")
+	}
+	if rl.ips["10.0.0.9"] != b {
+		t.Fatal("the sweep dropped a bucket used 11 s earlier")
+	}
+	if allowed != 1 {
+		t.Fatalf("after the sweep %d requests allowed, want 1 (the refill, not a new burst)", allowed)
+	}
+}
+
+// TestAllow_FullIPMapKeepsTokenLimit: a full IP map only lifts the IP
+// limit for an unknown address; the token limit still applies to it.
+func TestAllow_FullIPMapKeepsTokenLimit(t *testing.T) {
+	rl := NewRateLimiter(1, 1)
+	now := time.Now()
+	rl.now = func() time.Time { return now }
+	for i := 0; len(rl.ips) < maxKeys; i++ {
+		rl.ips[fmt.Sprintf("2001:db8:%x:%x::/64", i>>16, i&0xffff)] = &bucket{lim: rate.NewLimiter(1, 1), seen: now}
+	}
+	rl.lastSweep = now
+	if !rl.allow(req("10.0.0.10:1", "alice")) {
+		t.Fatal("first request from a new address refused")
+	}
+	if rl.allow(req("10.0.0.10:1", "alice")) {
+		t.Fatal("a full IP map also lifted the token limit")
+	}
+	if rl.allow(req("10.0.0.11:1", "alice")) {
+		t.Fatal("another new address dodged alice's token limit")
+	}
+}
+
+// TestMaxKeys_Boundary: the cap is the documented 100 000, and the map
+// takes new keys up to it, not fewer: the last free slot still gets a
+// limited bucket, and only the key after it is left out.
+func TestMaxKeys_Boundary(t *testing.T) {
+	if maxKeys != 100_000 {
+		t.Fatalf("maxKeys = %d; MANUAL §15 and the threat model say 100 000", maxKeys)
+	}
+	rl := NewRateLimiter(1, 0)
+	now := time.Now()
+	rl.now = func() time.Time { return now }
+	for i := 0; len(rl.ips) < maxKeys-1; i++ {
+		rl.ips[fmt.Sprintf("2001:db8:%x:%x::/64", i>>16, i&0xffff)] = &bucket{lim: rate.NewLimiter(1, 1), seen: now}
+	}
+	rl.lastSweep = now
+	if !rl.allow(req("10.0.0.9:1", "")) || rl.allow(req("10.0.0.9:1", "")) {
+		t.Fatal("the last free slot did not get a limited bucket")
+	}
+	if len(rl.ips) != maxKeys {
+		t.Fatalf("IP map = %d entries, want %d", len(rl.ips), maxKeys)
+	}
+	for i := 0; i < 2; i++ {
+		if !rl.allow(req("10.0.0.10:1", "")) {
+			t.Fatalf("request %d from the key past the cap refused: limited instead of left out", i)
+		}
+	}
+}

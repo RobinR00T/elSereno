@@ -66,7 +66,7 @@ func TestRateLimiter_PerToken(t *testing.T) {
 	if code := do(h, "127.0.0.1:1", "Bearer tok-other", "", "/api/v1/scans"); code != http.StatusOK {
 		t.Fatalf("other token: %d, want 200", code)
 	}
-	// X-Operator keys the token limit in dev mode.
+	// X-Operator keys the token limit (in any auth mode).
 	ho := middleware.NewRateLimiter(0, 1).Wrap(okHandler())
 	if code := do(ho, "127.0.0.1:1", "", "alice", "/api/v1/scans"); code != http.StatusOK {
 		t.Fatalf("operator first: %d", code)

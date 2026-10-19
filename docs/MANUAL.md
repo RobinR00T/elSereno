@@ -1947,7 +1947,7 @@ Desde el 18-10-2026 (PITF-100) `serve` limita las peticiones con dos
 cubos de tokens: por IP del cliente (`web.rate_limit_per_min_ip`, 100
 por minuto por defecto; loopback queda exento; una IPv6 cuenta por su
 /64) y por token, que es el
-Bearer o, en modo dev, el valor de `X-Operator`
+Bearer o, si no hay, el valor de `X-Operator` (en cualquier modo de auth)
 (`web.rate_limit_per_min_token`, 300 por minuto; también en loopback).
 Se puede gastar el minuto entero de golpe y luego se recarga poco a
 poco. Al pasarse de cualquiera de los dos, la respuesta es `429` con
