@@ -40,7 +40,12 @@ gh auth login                           # or export GH_TOKEN=…
    cover, fuzz (30s per target), sec suite, context-check). A failing CI
    blocks the tag.
 2. `make release-gate` exits 0 (goreleaser snapshot build +
-   govulncheck + gitleaks + benchmarks baseline check).
+   govulncheck + gitleaks + benchmarks baseline check). The gate
+   only builds binaries, so also run
+   `goreleaser release --snapshot --clean --skip=sign,publish` with
+   Docker running: it builds the release image from
+   `Dockerfile.goreleaser`, the stage that failed on v2.63.1
+   (PITF-103).
 3. `.context/STATE.md` phase line reflects the closed phase.
 4. `CHANGELOG.md` has a populated `[X.Y.Z]` section with date.
 5. `.context/snapshots/vX.Y.Z-<name>.md` cycle close snapshot

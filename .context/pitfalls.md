@@ -689,5 +689,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `${{ github.ref_type != 'tag' && '--snapshot --skip=docker,sign' || '' }}`.
 **Ver**: `.github/workflows/release.yml`, `RELEASING.md`; run 39168213393; 18-10-2026.
 
+## PITF-103: la imagen del release se construía con el Dockerfile de fuentes
+**Síntoma**: el tag v2.63.1 disparó `release.yml` y goreleaser falló a los 4m36s en `dockers_v2`: `"/go.mod": not found`. No se creó release, ni imagen, ni firma; el tag quedó publicado sin release.
+**Causa**: `dockers_v2` no construye desde el repo: pasa a buildx un contexto con solo los binarios ya compilados, en `$TARGETPLATFORM/<binario>`. El `Dockerfile` del repo compila desde fuentes (`COPY go.mod`, `go build`) y no tiene nada que copiar. Hasta PITF-102 el workflow nunca llegó a esta fase, y el snapshot local de las reglas del repo usa `--skip=docker`, así que nadie lo había ejecutado.
+**Regla**: la imagen del release usa su propio `Dockerfile.goreleaser` (solo `COPY ${TARGETPLATFORM}/elsereno`), con `ids:` acotado a la variante default; `Dockerfile` sigue siendo el build desde fuentes. Antes de etiquetar, un snapshot local SIN `--skip=docker` (`goreleaser release --snapshot --clean --skip=sign,publish`) tiene que construir la imagen.
+**Implementación correcta**: `.goreleaser.yml` `dockers_v2[0]`: `ids: [elsereno-default]`, `dockerfile: Dockerfile.goreleaser`.
+**Ver**: `Dockerfile.goreleaser`, `.goreleaser.yml`; run 39285268165; 19-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

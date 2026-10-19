@@ -276,7 +276,14 @@ dockers_v2:
     tags:
       - "{{ .Version }}"
       - latest
-    dockerfile: Dockerfile
+    # Only the default variant goes in the image. goreleaser builds it
+    # first and passes the binaries in as the whole build context
+    # (under $TARGETPLATFORM/), so the release image uses its own
+    # Dockerfile: the from-source Dockerfile needs go.mod and the
+    # sources, which that context does not hold (PITF-103: v2.63.1
+    # failed here and published nothing).
+    ids: [elsereno-default]
+    dockerfile: Dockerfile.goreleaser
     platforms:
       - linux/amd64
       - linux/arm64

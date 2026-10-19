@@ -8,6 +8,7 @@ last-updated: 2026-10-18
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-19 (4): **v2.63.1 published nothing; release image fixed (PITF-103)**: the tag-push workflow failed at `dockers_v2` (`COPY go.mod`: the goreleaser context holds only built binaries); new `Dockerfile.goreleaser` copies `$TARGETPLATFORM/elsereno` into distroless, `ids: [elsereno-default]`; CHANGELOG [2.63.2]; v2.63.1 stays a tag without release.
 - 2026-10-19 (3): **Release v2.63.1**: CHANGELOG [Unreleased] becomes [2.63.1] - 2026-10-19 (logo, PITF-102 release.yml fix, Scorecard on tags, re-audit tests and docs); published by the tag-push release workflow, not by hand.
 - 2026-10-19 (2): **Re-audit leftovers**: 3 rate-limiter tests (active bucket survives the sweep, full IP map keeps the token limit, maxKeys value and boundary), each checked by mutation; threat model web.md (token cap only slows one token; fail-open full map with residual), SECURITY.md real audit line, scanner/doc.go breaker not wired, X-Operator in any auth mode (MANUAL, man5, ratelimit.go); STATE/TODO/CHANGELOG stale v2.37/v2.62/"never tagged" lines.
 - 2026-10-19 (1): **Scorecard skips tag pushes**: supply-chain.yml gates the scorecard job on `github.ref_type != 'tag'`; scorecard-action accepts only the default branch and failed the v2.63.0 tag run.

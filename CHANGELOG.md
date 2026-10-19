@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.63.1] - 2026-10-19
+## [2.63.2] - 2026-10-19
+
+### Fixed
+
+- **The release image could not build, so v2.63.1 published nothing
+  (PITF-103).** goreleaser's `dockers_v2` passes buildx a context that
+  holds only the binaries it already built, under `$TARGETPLATFORM/`,
+  and the release used the from-source `Dockerfile`, whose
+  `COPY go.mod` found nothing. The tag v2.63.1 exists but has no
+  GitHub Release, image or signature. The release image now uses
+  `Dockerfile.goreleaser`, which copies the default-variant binary into
+  the same distroless runtime; `Dockerfile` stays the from-source
+  build for `docker build .`. Everything listed under 2.63.1 ships in
+  2.63.2.
+
+## [2.63.1] - 2026-10-19 (tagged, never released)
 
 ### Added
 

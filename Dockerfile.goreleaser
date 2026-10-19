@@ -1,0 +1,14 @@
+# Release image, built by goreleaser (dockers_v2 in .goreleaser.yml).
+# goreleaser hands buildx a context that holds only the binaries it
+# already built and checksummed, one per platform under
+# $TARGETPLATFORM/, so this file copies the default-variant binary in
+# instead of compiling from source. The plain Dockerfile next to it
+# stays the from-source build for `docker build .` (INSTALL.md).
+# Keep the runtime stage in sync with that file.
+FROM gcr.io/distroless/static-debian12:nonroot
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/elsereno /usr/local/bin/elsereno
+USER nonroot:nonroot
+EXPOSE 8787
+ENTRYPOINT ["/usr/local/bin/elsereno"]
+CMD ["serve"]
