@@ -902,7 +902,7 @@ libre. No lee la config ni toca el vault, la base de datos ni la red.
 
 ```bash
 elsereno doctor
-# [OK]    go runtime, go1.26.9
+# [OK]    go runtime, go1.26.10
 # [OK]    platform, darwin/arm64
 # [SKIP]  privileged scan, not root; not needed: scan and discover use ordinary TCP/UDP sockets
 # [SKIP]  nmap, not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere

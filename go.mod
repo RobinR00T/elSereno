@@ -2,16 +2,19 @@ module local/elsereno
 
 go 1.26.0
 
-// Toolchain pin: forces Go ≥1.26.9 at build time. 1.26.3 parcheó
+// Toolchain pin: forces Go ≥1.26.10 at build time. 1.26.3 parcheó
 // las 6 CVEs de net/http stdlib que govulncheck reportó contra
 // Go 1.26.2 (GO-2026-4918, -4971, -4977, -4980, -4982, -4986);
 // 1.26.9 (fijado desde el 14-10-2026) parchea GO-2026-6599, -6600,
 // -6605, -6607, -6608 y -6613 de la stdlib, y la copia de HTTP/2 que
-// net/http lleva dentro (GO-2026-6603, -6610, -6611, -6612, -6617).
+// net/http lleva dentro (GO-2026-6603, -6610, -6611, -6612, -6617);
+// 1.26.10 (fijado desde el 21-10-2026) parchea GO-2026-6809
+// (crypto/x509 confiaba en intermedios comprometidos; lo alcanza la
+// verificación TLS de plaintext-check).
 // `go 1.26.0` arriba sigue siendo la versión MÍNIMA de Go
 // lenguaje requerida; `toolchain` selecciona qué compilador
 // real se usa.
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/awnumar/memguard v0.23.0

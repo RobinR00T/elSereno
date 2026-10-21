@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Toolchain go1.26.10 for GO-2026-6809.** `crypto/x509` in go1.26.9
+  kept trusting a set of compromised intermediate certificates;
+  govulncheck reaches it through the TLS handshake of
+  `plaintext-check` (`internal/exposure/cleartext.go`). `go.mod` pins
+  `toolchain go1.26.10` and the Dockerfile builds on
+  `golang:1.26.10-alpine3.24`. The remaining govulncheck module note
+  (GO-2026-5932, `x/crypto/openpgp`, no fix) is not called.
+
+### Fixed
+
+- `scripts/audit.sh` failed its sync check on any work branch with a
+  commit ("Local main diverged"): it compared HEAD as if it were main.
+  On a branch it now fails only when the branch is behind origin/main.
+
 ### Documentation
 
 - Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.
