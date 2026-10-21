@@ -74,9 +74,9 @@ Nada de esto tiene aprobación del mantenedor (disciplina de fases).
   `--inter-probe-delay` y `--max-conns-per-host` (`scanner.HostPacer`,
   tests con reloj simulado; PITF-104). Falta: (a) `fingerprint` y los
   escaneos del dashboard, la API y la TUI no toman perfil; (b) `fragile`
-  asignable por rango en el scope; (c) `--probe-timeout`, que exige antes
-  que los plugins respeten el deadline del contexto (hoy fijan el suyo);
-  (d) validar las cifras de `safe` y `fragile` contra equipos delicados
+  asignable por rango en el scope; (c) `--probe-timeout` existe en
+  `scan` desde el 21-10 (PITF-105 lo hizo posible), no en `discover` (que
+  tiene `--dial-timeout`) ni en los perfiles; (d) validar las cifras de `safe` y `fragile` contra equipos delicados
   reales: hoy son puntos de partida.
 - **Mapeo a MITRE ATT&CK for ICS e IEC 62443 (P2).** `internal/standards`
   solo lleva NIST SP 800-82 r4 (grep 18-10: cero de ATT&CK y de 62443).

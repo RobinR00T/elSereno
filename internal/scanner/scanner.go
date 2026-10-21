@@ -48,6 +48,10 @@ type Options struct {
 	// command (one per plugin in scan) keep the per-host pace between
 	// them instead of starting each run from a clean slate.
 	Pacer *HostPacer
+	// ProbeTimeout bounds each probe attempt, dial and IO together.
+	// Zero leaves each plugin's own deadlines. An attempt that runs out
+	// yields no finding and counts as a timeout (retryable).
+	ProbeTimeout time.Duration
 }
 
 // Probe is the function the Scanner invokes per target. Plugins will
@@ -180,7 +184,7 @@ func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (
 	delay := s.opts.BaseBackoff
 
 	for attempt := 0; attempt <= s.opts.MaxRetries; attempt++ {
-		f, err := probe(ctx, t)
+		f, err := s.attempt(ctx, probe, t)
 		if ctx.Err() != nil {
 			// The probe was cut short by the cancel (plugins close their
 			// connection when the context is done): what it returned is
@@ -211,6 +215,22 @@ func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (
 	}
 	span.SetStatus(codes.Error, lastErr.Error())
 	return nil, fmt.Errorf("scanner: target %s:%d: %w", t.Address, t.Port, lastErr)
+}
+
+// attempt runs one probe, bounded by ProbeTimeout when it is set. An
+// attempt that ran out of time returns ErrTimeout and no finding: the
+// plugin's connection was closed under it, so what it saw is partial.
+func (s *Scanner) attempt(ctx context.Context, probe Probe, t core.Target) (*core.Finding, error) {
+	if s.opts.ProbeTimeout <= 0 {
+		return probe(ctx, t)
+	}
+	actx, cancel := context.WithTimeout(ctx, s.opts.ProbeTimeout)
+	defer cancel()
+	f, err := probe(actx, t)
+	if actx.Err() != nil && ctx.Err() == nil {
+		return nil, fmt.Errorf("probe ran past %s: %w", s.opts.ProbeTimeout, core.ErrTimeout)
+	}
+	return f, err
 }
 
 // isRetryable treats ErrTimeout and context.DeadlineExceeded as

@@ -439,6 +439,7 @@ vacío y `port` a 0.
 | `--no-progress`            | `false`        | desactiva barra de progreso (CI-friendly)                             |
 | `--rate N`                 | `0` (sin tope) | probes por segundo como mucho (gana al perfil)                        |
 | `--retries N`              | `2`            | reintentos cuando un probe vence por timeout; sin el flag, los del perfil |
+| `--probe-timeout D`        | `0` (del plugin) | tope de cada intento de sonda, connect y lecturas juntos           |
 | `--profile NAME`           | `normal`       | perfil de ritmo: `aggressive`, `normal`, `safe`, `fragile` (abajo)    |
 | `--inter-probe-delay D`    | (del perfil)   | pausa mínima entre el inicio de dos sondas al mismo host; `0s` la quita |
 | `--max-conns-per-host N`   | (del perfil)   | sondas a la vez contra un host; gana a `scanner.max_concurrent_per_host` |
@@ -461,9 +462,23 @@ ajusta con los flags sueltos. La pausa por host vale entre plugins: los
 plugins corren uno tras otro y comparten el mismo ritmo, así que el
 segundo plugin no llega al host justo cuando el primero acaba.
 
-No hay `--probe-timeout`: cada plugin fija su propio plazo de lectura
-y no toma el del contexto, así que un plazo global no acortaría una
-lectura colgada. Está en `TODO-vNext.md`.
+`--probe-timeout D` corta cada intento de sonda a los `D`, connect y
+lecturas juntos (sin el flag manda el plazo de cada plugin, de 2 a 5 s).
+Un intento cortado no deja finding (lo que vio está a medias), cuenta
+como timeout y se reintenta según `--retries`. Contra un servicio que
+acepta y no habla:
+
+```text
+$ elsereno scan --input list:t.txt --plugin banner --no-progress --retries 0 --probe-timeout 300ms --output /dev/null
+elsereno scan: pacing normal: 100 in flight, 1 per host, no pause between probes to a host, no overall rate cap, 0 retries
+elsereno scan: each probe attempt ends after 300ms
+warn: scanner: target 127.0.0.1:18502: probe ran past 300ms: elsereno: operation timed out
+scan complete: 0 findings (from 1 targets, 1 probes across 1 plugins)
+```
+
+Sin el flag, el mismo scan tarda 5,6 s y deja un finding de banner
+vacío. Desde el 21-10-2026 una sonda en vuelo también se para al
+momento con Ctrl-C (antes esperaba a su plazo).
 
 **Ejemplos:**
 

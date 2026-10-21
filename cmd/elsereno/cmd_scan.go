@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -51,6 +52,8 @@ func newScanCmd() *cobra.Command {
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
 	cmd.Flags().IntVar(&opts.maxConcurrent, "max-concurrent", 0, "max concurrent targets (default from config)")
 	cmd.Flags().IntVar(&opts.retries, "retries", 2, "retries on ErrTimeout; without the flag, the profile's (2 for normal)")
+	cmd.Flags().DurationVar(&opts.probeTimeout, "probe-timeout", 0,
+		"upper bound on each probe attempt, connect and reads together (0 = each plugin's own deadlines)")
 	addPacingFlags(cmd, &opts.pacingFlags)
 	cmd.Flags().StringSliceVar(&opts.plugins, "plugin", nil,
 		"plugins to run, repeatable or comma-separated (see `elsereno plugins list`); default: every non-opt-in plugin, each on the targets whose port is its default port")
@@ -68,6 +71,7 @@ type scanOpts struct {
 	ratePerSec    int
 	maxConcurrent int
 	retries       int
+	probeTimeout  time.Duration
 	outputFormat  string
 	outputPath    string
 	noProgress    bool
@@ -98,6 +102,9 @@ func runScan(cmd *cobra.Command, opts scanOpts) error {
 	})
 	if err != nil {
 		return err
+	}
+	if opts.probeTimeout < 0 {
+		return fail(core.ExitUsage, errors.New("--probe-timeout cannot be negative"))
 	}
 
 	s, err := scope.Load(opts.scopePath)
@@ -147,6 +154,9 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 	warnOptInAnyPort(os.Stderr, runs)
 	if opts.pace.profile != "" {
 		_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: %s\n", opts.pace)
+		if opts.probeTimeout > 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: each probe attempt ends after %s\n", opts.probeTimeout)
+		}
 	}
 
 	write, cleanup, err := scanOutput(out, opts.outputFormat)
@@ -205,6 +215,7 @@ func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []plug
 	// One pacer for every plugin run: plugins run one after another,
 	// so without it the next plugin would hit a host right after the
 	// previous one finished with it, whatever --inter-probe-delay says.
+	sopts.ProbeTimeout = opts.probeTimeout
 	sopts.Pacer = scanner.NewHostPacer(pickPositive(opts.pace.maxPerHost, cfg.Scanner.MaxConcurrentPerHost), opts.pace.interval)
 	for _, r := range runs {
 		scn := scanner.New(sopts)

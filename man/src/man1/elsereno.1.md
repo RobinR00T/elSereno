@@ -152,6 +152,9 @@ The default-build subcommand list is below. Run
     `--max-conns-per-host <n>`, `--rate`, `--max-concurrent` and
     `--retries` override it. The profile numbers are conservative
     starting points, not vendor-validated values.
+    `--probe-timeout <dur>` bounds each probe attempt, connect and
+    reads together (default 0: each plugin's own deadlines); an
+    attempt cut short leaves no finding and counts as a timeout.
     `--output-format` accepts `ndjson`, `csv` and `stix` (STIX 2.1
     bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
     <file>` writes to a file instead of stdout. To probe one

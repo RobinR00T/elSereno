@@ -148,3 +148,43 @@ func TestRunDropsFindingOfCancelledProbe(t *testing.T) {
 		t.Fatalf("%d findings from a probe cut short by the cancel, want 0", n)
 	}
 }
+
+// ProbeTimeout ends an attempt that hangs: no finding, a timeout error,
+// and the attempt is retried.
+func TestProbeTimeoutEndsHungAttempt(t *testing.T) {
+	t.Parallel()
+	var (
+		mu       sync.Mutex
+		attempts int
+	)
+	probe := func(ctx context.Context, _ core.Target) (*core.Finding, error) {
+		mu.Lock()
+		attempts++
+		mu.Unlock()
+		<-ctx.Done() // a plugin whose connection was closed under it
+		return &core.Finding{Protocol: "partial"}, nil
+	}
+	s := scanner.New(scanner.Options{MaxConcurrentTargets: 1, MaxRetries: 1, BaseBackoff: time.Millisecond, ProbeTimeout: 30 * time.Millisecond})
+	start := time.Now()
+	findings, errs := s.Run(context.Background(), []core.Target{target("10.0.0.6", 502)}, probe)
+	n := 0
+	for range findings {
+		n++
+	}
+	var gotErr error
+	for e := range errs {
+		gotErr = e
+	}
+	if n != 0 {
+		t.Fatalf("%d findings from attempts that ran out of time, want 0", n)
+	}
+	if !errors.Is(gotErr, core.ErrTimeout) {
+		t.Fatalf("err = %v, want core.ErrTimeout", gotErr)
+	}
+	if attempts != 2 {
+		t.Fatalf("%d attempts, want 2 (the timeout is retryable)", attempts)
+	}
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("run took %v with a 30ms probe timeout", d)
+	}
+}

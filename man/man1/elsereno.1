@@ -159,6 +159,9 @@ to one host, across plugins), \f[CR]\-\-max\-conns\-per\-host <n>\f[R],
 \f[CR]\-\-retries\f[R] override it.
 The profile numbers are conservative starting points, not
 vendor\-validated values.
+\f[CR]\-\-probe\-timeout <dur>\f[R] bounds each probe attempt, connect
+and reads together (default 0: each plugin\(aqs own deadlines); an
+attempt cut short leaves no finding and counts as a timeout.
 \f[CR]\-\-output\-format\f[R] accepts \f[CR]ndjson\f[R], \f[CR]csv\f[R]
 and \f[CR]stix\f[R] (STIX 2.1 bundle for MISP / OpenCTI / ThreatBus,
 v1.15+); \f[CR]\-\-output <file>\f[R] writes to a file instead of

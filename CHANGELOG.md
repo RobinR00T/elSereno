@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pace holds across plugins within one scan. The profile values are
   starting points, not values validated against any vendor's device.
 
+- **`scan --probe-timeout D`** bounds each probe attempt, connect and
+  reads together (default 0: each plugin's own 2 to 5 s deadlines). An
+  attempt cut short leaves no finding and counts as a retryable
+  timeout.
+
 ### Changed
 
 - **`discover` is gentler on each host (PITF-104).** It dials one port
