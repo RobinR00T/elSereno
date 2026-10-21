@@ -181,6 +181,13 @@ func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (
 
 	for attempt := 0; attempt <= s.opts.MaxRetries; attempt++ {
 		f, err := probe(ctx, t)
+		if ctx.Err() != nil {
+			// The probe was cut short by the cancel (plugins close their
+			// connection when the context is done): what it returned is
+			// not an observation of the target.
+			span.SetStatus(codes.Error, "context cancelled")
+			return nil, ctx.Err()
+		}
 		if err == nil {
 			span.SetAttributes(attribute.Int("scanner.attempts", attempt+1))
 			return f, nil

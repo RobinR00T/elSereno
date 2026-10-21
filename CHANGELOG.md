@@ -39,6 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A cancelled scan stopped only when each probe's IO deadline passed
+  (PITF-105).** Plugins set a fixed deadline (2 to 5 s) after dialling
+  and ignored the context, so Ctrl-C, a dashboard job cancel or a
+  verb's `--timeout` waited for it on every probe in flight. Every
+  plugin now closes its connection when the context is done
+  (`netutil.CloseOnDone`), and the scanner drops what a probe returns
+  after the cancel instead of recording it as a finding.
+- **Ctrl-C exited 143, as if it were SIGTERM (PITF-106).** A clean
+  completion after the first signal always returned 143; it now
+  returns 130 for SIGINT and 143 for SIGTERM.
 - `discover` dialled a port declared by several plugins (5007: melsoft
   and slmp) once per plugin and printed it twice. It now dials it once
   and lists every plugin in `protocol_hints`.
@@ -48,6 +58,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Security docs said things the code does not do (PITF-106):
+  `serve` is not TLS 1.3 only (Go's TLS 1.2 minimum) and sends HSTS
+  with `max-age=63072000` on every TLS response; no signal handler
+  zeroes the vault key and the one-shot `vault lock` is a no-op;
+  `audit verify`, `purge` and `compact` are stubs that exit 69; nothing
+  reads `ELSERENO_VAULT_PASSPHRASE`; `database.tls_required` applies to
+  the `db` commands, the only ones that open Postgres; `SafeCommand`
+  returns an `*exec.Cmd`. Also: `doctor` does not check mlock, the
+  redaction hook is wired since 17-10, the outbox worker is not wired,
+  the default build has 35 plugins (not 28), and the FAQ's
+  plugin-writing steps pointed at `internal/plugins/`.
 - Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.
 
 ## [2.63.2] - 2026-10-19

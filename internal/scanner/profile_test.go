@@ -126,3 +126,25 @@ func TestSharedPacerSpansRuns(t *testing.T) {
 		t.Fatalf("second run probed the host %v after the first, want >= %v", d, gap)
 	}
 }
+
+// A probe that returns after the run was cancelled yields no finding:
+// it was cut short, so what it saw is not an observation of the target.
+func TestRunDropsFindingOfCancelledProbe(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	probe := func(context.Context, core.Target) (*core.Finding, error) {
+		cancel()
+		return &core.Finding{Protocol: "fake"}, nil
+	}
+	s := scanner.New(scanner.Options{MaxConcurrentTargets: 1})
+	findings, errs := s.Run(ctx, []core.Target{target("10.0.0.5", 502)}, probe)
+	n := 0
+	for range findings {
+		n++
+	}
+	for range errs {
+	}
+	if n != 0 {
+		t.Fatalf("%d findings from a probe cut short by the cancel, want 0", n)
+	}
+}

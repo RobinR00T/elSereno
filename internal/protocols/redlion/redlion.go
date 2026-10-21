@@ -61,7 +61,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("redlion: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	// A panel says nothing until asked: read the manufacturer register

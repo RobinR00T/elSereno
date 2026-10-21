@@ -67,7 +67,7 @@ func (p *ActivePlugin) Probe(ctx context.Context, target core.Target) (*core.Fin
 	if err != nil {
 		return nil, fmt.Errorf("codesys-active: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	probe := wire.BuildChannelOpen(randomChannelID())

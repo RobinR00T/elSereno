@@ -47,17 +47,17 @@ token-budget: 2500
 - Every parser has length checks before slicing.
 - Every target-controlled string via `telemetry.SafeField` before logging.
 - Every target-controlled bytes via `internal/render.SafeBytes` before rendering.
-- Secrets in `memguard.LockedBuffer`, zeroized; doctor verifies mlock.
-- No credentials in logs. Redaction hook with specific patterns (api_key/secret_key/private_key/access_key/session_key/encryption_key/auth_token/refresh_token/bearer_token/password/passphrase/secret/authorization/cookie) + entropy heuristic excluding UUID format.
+- Secrets in `memguard.LockedBuffer`, zeroized. `doctor` does not check mlock (not built; its six checks are local, see `internal/doctor/doc.go`).
+- No credentials in logs. Redaction hook with specific patterns (api_key/secret_key/private_key/access_key/session_key/encryption_key/auth_token/refresh_token/bearer_token/password/passphrase/secret/authorization/cookie) + entropy heuristic excluding UUID format, applied per field (`telemetry.Redact`) and at the standard logger's sink (`telemetry.RedactWriter`, PITF-099).
 - TLS verification always on. `--insecure-*` per call site only.
 - Postgres TLS required when not loopback; prefer `.pgpass`/`PGSERVICEFILE` over DSN password.
 - Audit: tombstone preserves chain; compact inserts rebase marker and **skips** entries `event_type IN ('genesis','chain_rebase','purge_event')`. Canonical JCS fields: id/occurred_at/actor/event_type/payload/prev_hash. Genesis `prev_hash=0x00..00`. Actor `'system'` for non-attributable.
 - AT dialing / SMS requires `-tags offensive`; recording delivery intent (`--disposition delivery-requested`) requires `--dial-allowed` (PITF-098). No command dials hardware yet (vNext). Numbers ≤3 digits blocked hard. Proxy read-only blocks: ATD*, ATA, AT+CMGS, AT+CMGW, AT+CMSS, AT+CMGD, AT+CFUN, AT+CPWROFF, +++.
-- Offensive subprocess with seccomp-bpf on Linux (lib decision deferred to F5).
+- Offensive operations load a seccomp-bpf profile on Linux (`offensive/sandbox`, TSYNC over the whole process, audited as `offensive_sandbox`); macOS `sandbox_init` only in the opt-in cgo build; elsewhere a no-op recorded as unavailable.
 - `crypto/rand` only.
 - Web tokens 32B crypto/rand base64url, and `token_generation` persisted in `web_state` (bumped with advisory lock on rotate, cached 5s): the design; not built, nothing issues a web token or bumps the generation (PITF-087).
 - CSRF key HKDF from vault; `serve` requires vault unlocked.
-- Vault unlock-once memguard; zeroized on SIGINT/SIGTERM or `vault lock`.
+- Vault master key in memguard inside the process that opened it; destroyed by `Vault.Lock` or exit (no signal handler zeroizes it; one-shot `vault lock` is a no-op).
 - `http.Server` with full timeouts (5s/30s/30s/120s/16KiB).
 - `config show` redacts secrets; `--unsafe` shows.
 - Cookie Secure=true with TLS; false on HTTP loopback with rationale comment.

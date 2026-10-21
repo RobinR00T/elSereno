@@ -703,5 +703,19 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `cmd/elsereno/cmd_discover.go` `sweepPaced` + `uniquePorts`; tests `TestSweepPacedSpreadsAcrossHosts`, `TestSweepDialsSharedPortOnce`.
 **Ver**: `internal/scanner/pacer.go`, `cmd/elsereno/pacing.go`; 21-10-2026.
 
+## PITF-105: un scan cancelado esperaba al deadline de IO de cada sonda
+**Síntoma**: Ctrl-C, la cancelación de un job del dashboard o el `--timeout` de un verbo no paraban las sondas en vuelo: cada una seguía hasta su deadline de IO (2 a 5 s según el plugin). Con un servicio que acepta y calla, el test guardia medía 3 a 5 s tras el cancel.
+**Causa**: los plugins marcan el dial con el contexto (`DialContext`) pero después fijan `conn.SetDeadline(time.Now().Add(IOTimeout))`, que no sabe nada del contexto. Un `Read` bloqueado no se despierta con el cancel.
+**Regla**: toda conexión de una sonda se ata a su contexto: `defer netutil.CloseOnDone(ctx, conn)()` en lugar de un `Close` a secas. Cerrar despierta cualquier `Read`/`Write` bloqueado. Y lo que una sonda devuelve después del cancel no es una observación del objetivo: el scanner lo descarta.
+**Implementación correcta**: `internal/netutil/conn.go`; `internal/scanner/scanner.go` `withRetries`; guardia `cmd/elsereno/cancel_guard_test.go` (todos los plugins, servidor mudo, cancel a 150 ms, máximo 1 s; mutante sin el AfterFunc: 9 plugins fallan).
+**Ver**: 21-10-2026.
+
+## PITF-106: la doc de seguridad afirmaba controles que el código no hace
+**Síntoma**: SECURITY.md decía TLS 1.3 only, HSTS solo fuera de loopback con `max-age=31536000`, master key borrada con SIGINT/SIGTERM y `vault lock`, `audit verify` con offset, purge/compact funcionando, aviso por `ELSERENO_VAULT_PASSPHRASE` y `SafeCommand.Run()` con `Execve`; CLAUDE.md y conventions repetían parte; `_quickref` decía que la redacción no estaba cableada (lo está desde PITF-099) y conventions que `doctor` comprueba mlock. Y un Ctrl-C salía con 143, no con 130.
+**Causa**: la doc se escribió con el diseño y no se volvió a comprobar cuando el código tomó otro camino; el 143 venía de un `return 143` fijo para "cualquier señal".
+**Regla**: una frase de seguridad en la doc lleva el sitio del código que la cumple, o dice "diseño, no construido". Cada pasada de auditoría coteja SECURITY.md, CLAUDE.md, `_quickref` y conventions contra el código, no contra la doc anterior.
+**Implementación correcta**: `cmd/elsereno/main.go` `signalExitCode` (guarda la primera señal); `signal_exit_test.go`; comprobado a mano: `serve` y `discover` salen 130 con SIGINT y 143 con SIGTERM (antes, 143 y 143).
+**Ver**: `docs/SECURITY.md`, `CLAUDE.md`; 21-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
