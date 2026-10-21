@@ -2,7 +2,8 @@
 
 Una receta por feature, con el comando y la salida que da de verdad. Toda
 la salida de esta página sale de `examples/run-examples.sh`, ejecutado el
-18-10-2026 en macOS arm64 con el binario de `main`. Las rutas del
+18-10-2026 en macOS arm64 con el binario de `main` (las recetas `scan`,
+`scan-pacing` y `discover`, el 21-10-2026, con los perfiles de ritmo). Las rutas del
 laboratorio se acortan a `<lab>`; las horas, los IDs, las sales y el
 tamaño del vault cambian en cada ejecución.
 
@@ -52,7 +53,7 @@ examples/run-examples.sh
 ```
 
 O solo una receta, por el prefijo de su id (`info`, `plugins`, `config`,
-`vault`, `scan`, `triage`, `standards`, `discover`, `probe`, `offline`,
+`vault`, `scan` (también corre `scan-pacing`), `triage`, `standards`, `discover`, `probe`, `offline`,
 `audit`, `backup`, `serve`, `api`). La receta `osint` es la única que sale
 a internet y solo corre si la pides por su nombre:
 
@@ -248,6 +249,7 @@ elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --output
 ```text
 elsereno scan: scope dropped 1 of 4 targets
 elsereno scan: scope protocols leave out 27 plugins: atg, atmodem, bacnet, codesys, cwmp, dlms, dnp3, enip, finsudp, fox, gesrtp, hartip, iax2, iec104, knxip, mbustcp, mms, mqtt, opcuahttps, pbxhttp, pcworx, proconos, redlion, s7, sip, twincat, xot
+elsereno scan: pacing normal: 10 in flight, 1 per host, no pause between probes to a host, no overall rate cap, 2 retries
 scan complete: 6 findings (from 3 targets, 6 probes across 4 plugins)
 ```
 
@@ -255,6 +257,8 @@ Qué mirar:
 
 - El scope descartó el puerto 23 antes de conectar y dejó fuera 27
   plugins. Lo dice por stderr; el fichero de findings no lo recoge.
+- La línea `pacing` dice a qué ritmo se sondea: el perfil `normal` con
+  los topes de `examples/elsereno.yaml` (10 en vuelo, 1 por host).
 - 6 findings, uno por línea en NDJSON. Resumidos (puerto, protocolo,
   severidad, score):
 
@@ -287,8 +291,32 @@ elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --plugin
 
 ```text
 schema,run_id,target_id,address,port,protocol,severity,score,created_at
-csv:v1,,,127.0.0.1,5007,slmp,high,77,2026-10-18T19:32:54.022534Z
+csv:v1,,,127.0.0.1,5007,slmp,high,77,2026-10-21T20:13:17.07315Z
 ```
+
+### Scan a un ritmo suave (receta `scan-pacing`)
+
+En una planta en producción no se sondea al ritmo de un laboratorio.
+`--profile safe` deja 1 s entre dos sondas al mismo host, también de un
+plugin al siguiente, y no más de 10 sondas por segundo en total:
+
+```bash
+elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --profile safe --plugin banner,slmp --output /dev/null
+```
+
+```text
+elsereno scan: scope dropped 1 of 4 targets
+elsereno scan: pacing safe: 16 in flight, 1 per host, 1s between probes to a host, 10 probes/s overall, 1 retry
+scan complete: 4 findings (from 3 targets, 4 probes across 2 plugins)
+(took 15s)
+```
+
+Los tres targets son el mismo host (127.0.0.1), así que las cuatro
+sondas van una detrás de otra con al menos 1 s entre ellas; el resto
+del tiempo es la espera de `banner` a que el servicio hable. `fragile`
+deja 10 s; `--inter-probe-delay` y `--max-conns-per-host` afinan sin
+cambiar de perfil. Las cifras de los perfiles son puntos de partida,
+no valores validados contra ningún fabricante (MANUAL §7.1).
 
 `--output-format stix` da un bundle STIX 2.1. Otras entradas:
 `--input nmap:<fichero>` lee una salida XML de nmap y `--input stdin`
@@ -393,15 +421,17 @@ elsereno discover --auto 127.0.0.1/32 --scope scope.yaml
 ```
 
 ```text
+elsereno discover: 64 parallel, 1 per host, no pause between connects to a host
 {"address":"127.0.0.1","port":4840,"protocol_hints":["opcua"],"latency_ms":0}
 {"address":"127.0.0.1","port":5007,"protocol_hints":["melsoft","slmp"],"latency_ms":0}
-{"address":"127.0.0.1","port":5007,"protocol_hints":["melsoft","slmp"],"latency_ms":0}
-discover: 3 responsive (host, port) pairs
+discover: 2 responsive (host, port) pairs
 ```
 
 El 1502 no aparece porque no es puerto por defecto de ningún plugin. El
-5007 sale dos veces porque dos plugins lo declaran, y el total cuenta las
-dos líneas. Para una lista de IPs en vez de un CIDR: `--hosts fichero`.
+5007 lo declaran dos plugins: se conecta una vez y la línea lleva los
+dos. (Hasta el 21-10-2026 se conectaba una vez por plugin y salía dos
+veces.) Un host recibe un connect a la vez; `--profile` y
+`--inter-probe-delay` lo frenan más, como en `scan`. Para una lista de IPs en vez de un CIDR: `--hosts fichero`.
 `--max-hosts` (256 por defecto) limita cuántas direcciones recorre.
 
 ## 11. Sondear un solo servicio

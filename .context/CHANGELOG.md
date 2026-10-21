@@ -8,6 +8,7 @@ last-updated: 2026-10-21
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-21 (2): **pacing profiles** for scan + discover (scanner.HostPacer replaces hostsem, scanner.Profile, cmd pacing.go); discover per-host cap + port-major order + shared port dialled once (PITF-104); MANUAL §7.1/§7.2, EXAMPLES §7/§10 + scan-pacing recipe, man1/man5, CHANGELOG.
 - 2026-10-21 (1): **go1.26.10 for GO-2026-6809** (crypto/x509 trusted compromised intermediates; reached via plaintext-check's TLS handshake): go.mod toolchain, Dockerfile GO_VERSION, doctor output in EXAMPLES/MANUAL, DEV-SETUP; audit.sh sync check no longer fails on a work branch that is ahead (only behind).
 - 2026-10-19 (5): **v2.63.2 released by CI**: 45 assets, cosign bundle, SLSA v1 provenance and a public signed multi-arch GHCR image (`2.63.2`, `latest`), all verified; INSTALL, MANUAL, TODO, TODO-vNext, _quickref and STATE move to v2.63.2; RELEASING snapshot command sets `GITHUB_REPOSITORY`.
 - 2026-10-19 (4): **v2.63.1 published nothing; release image fixed (PITF-103)**: the tag-push workflow failed at `dockers_v2` (`COPY go.mod`: the goreleaser context holds only built binaries); new `Dockerfile.goreleaser` copies `$TARGETPLATFORM/elsereno` into distroless, `ids: [elsereno-default]`; CHANGELOG [2.63.2]; v2.63.1 stays a tag without release.

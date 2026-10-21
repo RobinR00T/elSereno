@@ -40,6 +40,14 @@ type Options struct {
 	// JitterFraction is applied to each retry wait: delay *= (1 + rand
 	// in [-jitter, +jitter]). Defaults to 0.25 (±25%).
 	JitterFraction float64
+	// MinHostInterval is the minimum gap between the start of one probe
+	// and the next against the same address. Zero means no pause.
+	MinHostInterval time.Duration
+	// Pacer, when set, replaces MaxConcurrentPerHost and MinHostInterval
+	// with a pacer shared across runs, so consecutive runs of one
+	// command (one per plugin in scan) keep the per-host pace between
+	// them instead of starting each run from a clean slate.
+	Pacer *HostPacer
 }
 
 // Probe is the function the Scanner invokes per target. Plugins will
@@ -97,7 +105,10 @@ func (s *Scanner) runAll(ctx context.Context, targets []core.Target, probe Probe
 	defer close(errs)
 
 	global := semaphore.NewWeighted(int64(s.opts.MaxConcurrentTargets))
-	perHost := newHostSemaphore(s.opts.MaxConcurrentPerHost)
+	pacer := s.opts.Pacer
+	if pacer == nil {
+		pacer = NewHostPacer(s.opts.MaxConcurrentPerHost, s.opts.MinHostInterval)
+	}
 
 	var limiter *rate.Limiter
 	if s.opts.RatePerSecond > 0 {
@@ -114,16 +125,20 @@ func (s *Scanner) runAll(ctx context.Context, targets []core.Target, probe Probe
 			}
 			defer global.Release(1)
 
-			if err := perHost.Acquire(gctx, t.Address.String()); err != nil {
-				return err
-			}
-			defer perHost.Release(t.Address.String())
-
 			if limiter != nil {
 				if err := limiter.Wait(gctx); err != nil {
 					return err
 				}
 			}
+
+			// The host pacer goes last, right before the probe, so its
+			// MinHostInterval is measured between real probe starts and no
+			// later wait can push one start into the next one's slot.
+			release, err := pacer.Acquire(gctx, t.Address.String())
+			if err != nil {
+				return err
+			}
+			defer release()
 
 			f, err := s.withRetries(gctx, probe, t)
 			if err != nil {

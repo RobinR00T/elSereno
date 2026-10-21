@@ -102,6 +102,13 @@ for l in open("findings.ndjson"):
 	run elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --plugin slmp --output-format csv
 fi
 
+if recipe scan-pacing "Scan at a gentle pace"; then
+	printf '$ time elsereno scan ... --profile safe --plugin banner,slmp\n'
+	start=$(date +%s)
+	elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --profile safe --plugin banner,slmp --output /dev/null 2>&1
+	printf '(took %ss)\n' "$(($(date +%s) - start))"
+fi
+
 if recipe triage "Triage, explain and why"; then
 	run elsereno triage --from-file findings.ndjson
 	printf '$ grep slmp findings.ndjson | elsereno explain\n'

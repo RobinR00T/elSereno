@@ -17,8 +17,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `golang:1.26.10-alpine3.24`. The remaining govulncheck module note
   (GO-2026-5932, `x/crypto/openpgp`, no fix) is not called.
 
+### Added
+
+- **Pacing profiles for `scan` and `discover`.** `--profile`
+  aggressive | normal | safe | fragile sets probes in flight, probes
+  per host, a pause between probe starts on one host, an overall rate
+  cap and retries. `--inter-probe-delay` and `--max-conns-per-host`
+  override the per-host part; explicit flags beat the profile, which
+  beats the config. `normal` is the default and keeps the previous
+  pace. Each run prints the pace it applies on stderr. The per-host
+  pace holds across plugins within one scan. The profile values are
+  starting points, not values validated against any vendor's device.
+
+### Changed
+
+- **`discover` is gentler on each host (PITF-104).** It dials one port
+  of a host at a time (or `--max-conns-per-host`), in port-major order
+  so hosts are visited in turn. Before, its 64 workers took jobs
+  host-major and could open about 30 connections to one PLC at once.
+  A sweep of one host is slower than before.
+
 ### Fixed
 
+- `discover` dialled a port declared by several plugins (5007: melsoft
+  and slmp) once per plugin and printed it twice. It now dials it once
+  and lists every plugin in `protocol_hints`.
 - `scripts/audit.sh` failed its sync check on any work branch with a
   commit ("Local main diverged"): it compared HEAD as if it were main.
   On a branch it now fails only when the branch is behind origin/main.

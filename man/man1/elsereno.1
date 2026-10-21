@@ -119,6 +119,10 @@ CIDR + the well\-known port of every registered plugin.
 Pipe\-friendly: \f[CR]\-\-format list\f[R] emits \f[CR]host:port\f[R]
 lines for \f[CR]scan \-\-input list:\-\f[R] (\f[CR]list:\-\f[R] reads
 stdin).
+The sweep goes port by port across the hosts, and one host gets at most
+\f[B]scanner.max_concurrent_per_host\f[R] connects at a time;
+\f[CR]\-\-profile\f[R], \f[CR]\-\-inter\-probe\-delay\f[R] and
+\f[CR]\-\-max\-conns\-per\-host\f[R] work as in \f[B]scan\f[R].
 .TP
 \f[B]profinet\f[R]
 PROFINET DCP codec, offline: \f[B]decode\f[R] a frame,
@@ -147,6 +151,14 @@ Each target goes to every plugin whose default port it is on
 named, and then probe every listed target, having no default port);
 \f[CR]\-\-plugin <name>[,<name>]\f[R] restricts the set.
 Each finding carries the target\(aqs address and port.
+\f[CR]\-\-profile\f[R] \f[B]aggressive\f[R], \f[B]normal\f[R] (default),
+\f[B]safe\f[R] or \f[B]fragile\f[R] sets the pace;
+\f[CR]\-\-inter\-probe\-delay <dur>\f[R] (minimum gap between two probes
+to one host, across plugins), \f[CR]\-\-max\-conns\-per\-host <n>\f[R],
+\f[CR]\-\-rate\f[R], \f[CR]\-\-max\-concurrent\f[R] and
+\f[CR]\-\-retries\f[R] override it.
+The profile numbers are conservative starting points, not
+vendor\-validated values.
 \f[CR]\-\-output\-format\f[R] accepts \f[CR]ndjson\f[R], \f[CR]csv\f[R]
 and \f[CR]stix\f[R] (STIX 2.1 bundle for MISP / OpenCTI / ThreatBus,
 v1.15+); \f[CR]\-\-output <file>\f[R] writes to a file instead of

@@ -69,15 +69,15 @@ Nada de esto tiene aprobación del mantenedor (disciplina de fases).
   su CVE en KEV puntúa estrictamente más que sin KEV, y `cve sync` funciona
   offline desde la caché. **Decisión:** ¿descarga con `cve sync` (red
   allowlisted) o snapshots empaquetados con cada release?
-- **Perfiles de ritmo para el escaneo activo (P1).** Hoy hay `--timeout`,
-  `--retries`, `--workers`, `--parallel` y `--max-hosts` sueltos según el
-  comando, y `--rate` solo en `dial`; no hay tope por equipo ni pausa entre
-  sondas al mismo destino. Propuesta: perfiles `safe`, `normal`,
-  `aggressive` y `fragile` (una sonda cada vez, un intento, pausa larga),
-  más `--inter-probe-delay` y `--max-conns-per-host`, en `scan`,
-  `discover` y `fingerprint`; `fragile` asignable por rango en el scope.
-  Es un limitador antes del dial, no un refactor. Aceptación: test con
-  reloj simulado de que `safe` respeta el intervalo y el tope por equipo.
+- **Perfiles de ritmo: lo que falta (P1).** Hecho el 21-10-2026 en `scan`
+  y `discover`: `--profile` aggressive / normal / safe / fragile,
+  `--inter-probe-delay` y `--max-conns-per-host` (`scanner.HostPacer`,
+  tests con reloj simulado; PITF-104). Falta: (a) `fingerprint` y los
+  escaneos del dashboard, la API y la TUI no toman perfil; (b) `fragile`
+  asignable por rango en el scope; (c) `--probe-timeout`, que exige antes
+  que los plugins respeten el deadline del contexto (hoy fijan el suyo);
+  (d) validar las cifras de `safe` y `fragile` contra equipos delicados
+  reales: hoy son puntos de partida.
 - **Mapeo a MITRE ATT&CK for ICS e IEC 62443 (P2).** `internal/standards`
   solo lleva NIST SP 800-82 r4 (grep 18-10: cero de ATT&CK y de 62443).
   Propuesta: tabla estática tipo de finding a técnica (por ejemplo T0836

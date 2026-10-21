@@ -696,5 +696,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `.goreleaser.yml` `dockers_v2[0]`: `ids: [elsereno-default]`, `dockerfile: Dockerfile.goreleaser`.
 **Ver**: `Dockerfile.goreleaser`, `.goreleaser.yml`; run 39285268165; 19-10-2026.
 
+## PITF-104: discover abría ~30 conexiones a la vez contra un mismo PLC
+**Síntoma**: `discover --auto` sobre un rango repartía los trabajos host a host (todos los puertos del host 1, luego los del host 2) entre 64 workers, así que los primeros ~30 connects iban contra el mismo host a la vez. El 5007 (melsoft y slmp) se conectaba una vez por plugin y salía dos veces en la salida.
+**Causa**: el barrido se escribió pensando en el rendimiento de un laboratorio y nunca tuvo un tope por host; `scan` sí lo tenía (`max_concurrent_per_host`) y nadie lo trasladó. La lista de puertos salía de los plugins sin deduplicar.
+**Regla**: todo barrido que toque varios puertos de un host pasa por `scanner.HostPacer` (tope por host y pausa entre inicios) y reparte los trabajos puerto a puerto, para que los hosts se turnen. Un puerto se conecta una vez aunque lo declaren varios plugins. Un cambio de orden se prueba con un test que mida el tiempo total con pausa por host (el orden host a host lo dobla).
+**Implementación correcta**: `cmd/elsereno/cmd_discover.go` `sweepPaced` + `uniquePorts`; tests `TestSweepPacedSpreadsAcrossHosts`, `TestSweepDialsSharedPortOnce`.
+**Ver**: `internal/scanner/pacer.go`, `cmd/elsereno/pacing.go`; 21-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
