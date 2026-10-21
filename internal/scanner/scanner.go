@@ -144,7 +144,7 @@ func (s *Scanner) runAll(ctx context.Context, targets []core.Target, probe Probe
 			}
 			defer release()
 
-			f, err := s.withRetries(gctx, probe, t)
+			f, err := s.withRetries(gctx, probe, t, pacer)
 			if err != nil {
 				select {
 				case errs <- err:
@@ -172,7 +172,7 @@ func (s *Scanner) runAll(ctx context.Context, targets []core.Target, probe Probe
 // wrapped in an OpenTelemetry span so operators running with
 // OTEL_TRACES_EXPORTER=otlp (or stdout) see per-target latency +
 // retry history without any code change.
-func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (*core.Finding, error) {
+func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target, pacer *HostPacer) (*core.Finding, error) {
 	ctx, span := telemetry.Tracer().Start(ctx, "scanner.probe")
 	defer span.End()
 	span.SetAttributes(
@@ -210,6 +210,12 @@ func (s *Scanner) withRetries(ctx context.Context, probe Probe, t core.Target) (
 			span.SetStatus(codes.Error, "context cancelled")
 			return nil, ctx.Err()
 		case <-time.After(wait):
+		}
+		// A retry is another probe of the same host: it keeps the
+		// host's MinHostInterval from the previous start.
+		if err := pacer.Respace(ctx, t.Address.String()); err != nil {
+			span.SetStatus(codes.Error, "context cancelled")
+			return nil, err
 		}
 		delay *= 2
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"sync/atomic"
+	"os"
 	"syscall"
 	"testing"
 )
@@ -11,16 +11,17 @@ import (
 // looked like a SIGTERM to the caller.
 func TestSignalExitCode(t *testing.T) {
 	t.Parallel()
-	var intr, term, none atomic.Value
-	intr.Store(syscall.SIGINT)
-	term.Store(syscall.SIGTERM)
-	if got := signalExitCode(&intr); got != 130 {
-		t.Errorf("SIGINT: exit %d, want 130", got)
+	for _, c := range []struct {
+		sig  os.Signal
+		want int
+	}{{syscall.SIGINT, 130}, {syscall.SIGTERM, 143}} {
+		first := make(chan os.Signal, 1)
+		first <- c.sig
+		if got := signalExitCode(first); got != c.want {
+			t.Errorf("%v: exit %d, want %d", c.sig, got, c.want)
+		}
 	}
-	if got := signalExitCode(&term); got != 143 {
-		t.Errorf("SIGTERM: exit %d, want 143", got)
-	}
-	if got := signalExitCode(&none); got != 143 {
-		t.Errorf("no signal stored: exit %d, want the 143 fallback", got)
+	if got := signalExitCode(make(chan os.Signal)); got != 143 {
+		t.Errorf("no signal passed on: exit %d, want the 143 fallback", got)
 	}
 }

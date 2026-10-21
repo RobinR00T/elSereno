@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   override the per-host part; explicit flags beat the profile, which
   beats the config. `normal` is the default and keeps the previous
   pace. Each run prints the pace it applies on stderr. The per-host
-  pace holds across plugins within one scan. The profile values are
+  pace holds across plugins within one scan, and a retry waits the
+  host's pause too, not just the retry backoff. The profile values are
   starting points, not values validated against any vendor's device.
 
 - **`scan --probe-timeout D`** bounds each probe attempt, connect and

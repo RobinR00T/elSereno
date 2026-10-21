@@ -168,3 +168,25 @@ func TestNewHostPacerClampsValues(t *testing.T) {
 		t.Fatalf("got %d/%v, want 1/0", p.MaxPerHost(), p.MinInterval())
 	}
 }
+
+// A wait cut short by the context gives its reserved slot back, so the
+// next probe on that host does not wait an extra interval.
+func TestHostPacerCancelledWaitRefundsSlot(t *testing.T) {
+	t.Parallel()
+	p, c := pacerWithClock(1, time.Second)
+	t0 := c.now()
+	release, _ := p.Acquire(context.Background(), "h") // start at t0, next = t0+1s
+	release()
+	c.failOn = 1
+	if _, err := p.Acquire(context.Background(), "h"); err == nil {
+		t.Fatal("want the cancelled wait's error")
+	}
+	release, err := p.Acquire(context.Background(), "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if got := c.now().Sub(t0); got != time.Second {
+		t.Fatalf("third probe started %v after the first, want 1s (the cancelled slot refunded)", got)
+	}
+}

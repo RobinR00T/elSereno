@@ -8,6 +8,7 @@ last-updated: 2026-10-21
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-10-21 (5): code review of the night's diff: retries now keep the host's MinHostInterval (HostPacer.Respace; before, a `safe` retry hit the host ~250ms after the first attempt); a cancelled pacer wait refunds its slot; signalExitCode reads a channel instead of polling. Tests + mutants for both pacer fixes.
 - 2026-10-21 (4): **scan --probe-timeout** (scanner.Options.ProbeTimeout, attempt bounded by ctx; cut attempt = ErrTimeout, no finding, retryable); MANUAL §7.1 with real output, man1, CHANGELOG, TODO-vNext.
 - 2026-10-21 (3): **probes stop on cancel** (netutil.CloseOnDone in all 33 plugin probes; scanner drops results returned after cancel; guard TestEveryPluginStopsOnCancel, PITF-105); **SIGINT exits 130** (was 143, PITF-106); security doc-vs-code sweep: SECURITY.md (TLS, HSTS, vault zeroize, audit stubs, env passphrase, Postgres TLS scope, SafeCommand), CLAUDE.md, _quickref, conventions, FAQ, INSTALL plugin count, outbox doc.
 - 2026-10-21 (2): **pacing profiles** for scan + discover (scanner.HostPacer replaces hostsem, scanner.Profile, cmd pacing.go); discover per-host cap + port-major order + shared port dialled once (PITF-104); MANUAL §7.1/§7.2, EXAMPLES §7/§10 + scan-pacing recipe, man1/man5, CHANGELOG.

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -82,18 +81,17 @@ func dryRunCommands(root *cobra.Command) []string {
 	return out
 }
 
-// signalExitCode is the exit code for the first signal stored in first.
-// signal.NotifyContext and the trap's channel get the same signal, but
-// the trap's goroutine may not have stored it yet when the command
-// returns; it waits a moment, then falls back to SIGTERM's 143.
-func signalExitCode(first *atomic.Value) int {
-	for i := 0; i < 100; i++ {
-		if sig, ok := first.Load().(os.Signal); ok {
-			return exitCodeForSignal(sig)
-		}
-		time.Sleep(time.Millisecond)
+// signalExitCode is the exit code for the first signal, which the trap
+// goroutine passes on first. signal.NotifyContext and the trap get the
+// same signal, but the trap may not have passed it on yet when the
+// command returns; it waits a moment, then falls back to SIGTERM's 143.
+func signalExitCode(first <-chan os.Signal) int {
+	select {
+	case sig := <-first:
+		return exitCodeForSignal(sig)
+	case <-time.After(100 * time.Millisecond):
+		return 143
 	}
-	return 143
 }
 
 // exitCodeForSignal returns 128+signum for SIGINT and SIGTERM; 1 otherwise.
@@ -134,9 +132,9 @@ func entrypoint(args []string) int {
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigs)
-	var first atomic.Value
+	first := make(chan os.Signal, 1)
 	go func() {
-		first.Store(<-sigs)
+		first <- <-sigs
 		second := <-sigs
 		os.Exit(exitCodeForSignal(second))
 	}()
@@ -151,7 +149,7 @@ func entrypoint(args []string) int {
 		// Context was cancelled by a signal; honour 128+signum on a clean
 		// completion (130 for SIGINT, 143 for SIGTERM).
 		if err == nil {
-			return signalExitCode(&first)
+			return signalExitCode(first)
 		}
 	}
 

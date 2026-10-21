@@ -67,12 +67,29 @@ func (p *HostPacer) Acquire(ctx context.Context, host string) (func(), error) {
 		return nil, err
 	}
 	release := func() { hp.sem.Release(1) }
-	if p.minInterval <= 0 {
-		return release, nil
+	if err := p.waitTurn(ctx, hp); err != nil {
+		release()
+		return nil, err
 	}
-	// Reserve the next start slot under the lock, then wait for it
-	// outside the lock, so concurrent holders of the same host (with
-	// MaxPerHost > 1) are spaced MinInterval apart too.
+	return release, nil
+}
+
+// Respace waits for host's next start slot without taking another
+// per-host slot: a caller that already holds one (a retry of the same
+// probe) calls it before each new attempt, so retries keep MinInterval
+// from the previous start too.
+func (p *HostPacer) Respace(ctx context.Context, host string) error {
+	return p.waitTurn(ctx, p.host(host))
+}
+
+// waitTurn reserves hp's next start slot under the lock, then waits for
+// it outside the lock, so concurrent holders of the same host (with
+// MaxPerHost > 1) are spaced MinInterval apart too. A wait cut short by
+// ctx gives its slot back when no later start was reserved after it.
+func (p *HostPacer) waitTurn(ctx context.Context, hp *hostPace) error {
+	if p.minInterval <= 0 {
+		return nil
+	}
 	p.mu.Lock()
 	now := p.now()
 	start := hp.next
@@ -81,13 +98,19 @@ func (p *HostPacer) Acquire(ctx context.Context, host string) (func(), error) {
 	}
 	hp.next = start.Add(p.minInterval)
 	p.mu.Unlock()
-	if wait := start.Sub(now); wait > 0 {
-		if err := p.sleep(ctx, wait); err != nil {
-			release()
-			return nil, err
-		}
+	wait := start.Sub(now)
+	if wait <= 0 {
+		return nil
 	}
-	return release, nil
+	if err := p.sleep(ctx, wait); err != nil {
+		p.mu.Lock()
+		if hp.next.Equal(start.Add(p.minInterval)) {
+			hp.next = start
+		}
+		p.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (p *HostPacer) host(host string) *hostPace {

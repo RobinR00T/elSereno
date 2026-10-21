@@ -188,3 +188,34 @@ func TestProbeTimeoutEndsHungAttempt(t *testing.T) {
 		t.Fatalf("run took %v with a 30ms probe timeout", d)
 	}
 }
+
+// A retry is another probe of the same host: it waits MinHostInterval
+// from the previous attempt's start, not just the retry backoff.
+func TestRetriesKeepHostInterval(t *testing.T) {
+	t.Parallel()
+	const gap = 60 * time.Millisecond
+	var (
+		mu     sync.Mutex
+		starts []time.Time
+	)
+	probe := func(context.Context, core.Target) (*core.Finding, error) {
+		mu.Lock()
+		starts = append(starts, time.Now())
+		mu.Unlock()
+		return nil, core.ErrTimeout
+	}
+	s := scanner.New(scanner.Options{MaxConcurrentTargets: 1, MaxRetries: 2, BaseBackoff: time.Millisecond, MinHostInterval: gap})
+	findings, errs := s.Run(context.Background(), []core.Target{target("10.0.0.8", 502)}, probe)
+	for range findings {
+	}
+	for range errs {
+	}
+	if len(starts) != 3 {
+		t.Fatalf("%d attempts, want 3", len(starts))
+	}
+	for i := 1; i < len(starts); i++ {
+		if d := starts[i].Sub(starts[i-1]); d < gap-5*time.Millisecond {
+			t.Fatalf("attempt %d started %v after attempt %d, want >= %v", i, d, i-1, gap)
+		}
+	}
+}
