@@ -26,7 +26,7 @@ ElSereno ships **three variants** in every release. Operators install the one th
 
 | Variant | Build tag | Binary name | Includes | Excludes | Size (stripped) |
 |---|---|---|---|---|---|
-| **default** | (none) | `elsereno` | All read-only verbs (scan, discover, explain, triage, audit, …) + dashboard (`serve`) + TUI (`tui`) + 28 fingerprint plugins | offensive verbs (write/exploit/harvest/dial) | **23.0 MB** |
+| **default** | (none) | `elsereno` | All read-only verbs (scan, discover, explain, triage, audit, …) + dashboard (`serve`) + TUI (`tui`) + 35 plugins | offensive verbs (write/exploit/harvest/dial) | **23.0 MB** |
 | **offensive** | `offensive` | `elsereno-offensive` | Everything in default + writes/exploits/harvest/dial behind triple-confirm fences | nothing | **23.7 MB** |
 | **mini** | `mini` | `elsereno-mini` | Everything in default minus the dashboard + OpenAPI machinery + TUI | `serve`, `api`, `tui` (stub error → use default) | **21.3 MB** |
 

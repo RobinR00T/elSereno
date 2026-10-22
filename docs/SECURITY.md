@@ -61,10 +61,13 @@ Garantías de boundary:
   del vault no se persiste en disco salvo en un archivo
   0600 explícito (`--vault-passphrase-file`). No hay
   recuperación si se pierde.
-- **Vault unlock-once**: una vez desbloqueada, la master
-  key vive en memguard (mlocked, zeroed on SIGINT/SIGTERM
-  + en `vault lock`). Otras invocaciones del binario
-  necesitan re-unlock.
+- **Vault unlock-once**: dentro de un proceso que abre el
+  vault (`serve`, el runtime offensive), la master key vive
+  en memguard (mlocked) y se destruye con `Vault.Lock` o al
+  salir el proceso; ningún manejador de señal la borra antes.
+  Cada invocación del binario necesita su propio unlock: en
+  la CLI de un solo uso, `vault unlock` solo comprueba la
+  passphrase y `vault lock` no tiene nada que borrar.
 - **No hay backdoor admin**: no existe un modo "skip
   vault" o "skip audit". Vault locked → operations que
   requieren key fallan con error explícito.
@@ -79,7 +82,7 @@ Garantías de boundary:
 |-----------------------|------------------------------------------------------|
 | KDF passphrase → master key | Argon2id (time=3, memory=64 MiB, threads=4)      |
 | Encryption envelope   | AES-256-GCM con random nonce per write              |
-| Master key storage    | en memoria con `memguard` (mlocked, zeroed on signal) |
+| Master key storage    | en memoria con `memguard` (mlocked; se destruye con `Vault.Lock` o al salir) |
 | Backup encryption     | AES-256-GCM con HKDF-derived key (`info=backup/v1`) |
 | CSRF key derivation   | HKDF master key (`info=csrf/v1`); sin uso (la defensa es el browser guard, PITF-092) |
 | Audit HMAC key        | HKDF master key (`info=audit/v1`)                   |
@@ -113,7 +116,7 @@ comando los emite. `creds show --reveal` solo deja un aviso en stderr
 |-------------------|--------------------|--------------------------------------------|
 | `vault init`     | no (crea)          | no                                         |
 | `vault unlock`   | no                 | no                                         |
-| `vault lock`     | sí                 | no                                         |
+| `vault lock`     | no (no-op en la CLI de un solo uso) | no                        |
 | `vault status`   | no                 | no (solo lectura)                          |
 | `creds store`    | sí                 | no                                         |
 | `creds rotate`   | sí                 | no                                         |
@@ -148,22 +151,26 @@ entry N (una línea JSON; ejemplo real, build offensive):
   `audit serve` llevan SHA-256 sin clave, y quien puede escribir
   el fichero puede reescribir la chain desde ese punto
   recalculando los hashes.
-- **Detección de borrado**: la chain se rompe → `verify`
-  reporta `ErrChainBroken` con el offset.
+- **Detección de borrado**: la chain se rompe → `verify-file`
+  lo detecta (`ErrChainBroken`). `audit verify`, contra la
+  base de datos, es un stub que sale con 69.
 - **Detección de reordering**: cada entry hashea el
   `prev_hash` del anterior → reordenar rompe la chain.
 
 ### Lo que **NO** garantiza
 
 - **Disponibilidad** del archivo (rm sería detectado por
-  `verify`, no impedido).
+  `verify-file`, no impedido).
 - **Read-once semantics**: un atacante con read access ve
   todo el histórico.
 - **Forward-secrecy**: capturar la master key permite
   fabricar entries falsificadas hacia adelante (pero no
   retroactivas sin recomputar toda la chain).
 
-### Tombstone purge vs compact
+### Tombstone purge vs compact (diseño, no construido)
+
+`audit purge` y `audit compact` comprueban sus flags y salen
+con 69: el writer que haría esto no existe todavía. El diseño:
 
 - `purge --before T`: borra el `Payload` de entries antiguas
   pero **mantiene los hashes** → chain intacta.
@@ -211,12 +218,12 @@ Sin las tres flags, serve aborta con un mensaje explícito.
 
 ### TLS
 
-- TLS 1.3 only (Go default since 1.22 con `MinVersion =
-  TLS13`).
+- TLS 1.2 o superior: el mínimo por defecto del servidor de
+  Go. `serve` no fija `MinVersion` (no es "solo 1.3").
 - Soporta keys RSA / ECDSA / Ed25519.
 - HTTP/2 sobre h2 (ALPN).
-- HSTS header agregado en non-loopback (`max-age=31536000;
-  includeSubDomains`).
+- HSTS (`max-age=63072000; includeSubDomains`) en toda
+  respuesta servida por TLS, sea o no loopback.
 
 ### Autenticación
 
@@ -262,11 +269,11 @@ como código sin conectar). El que lo haga tiene que usar
 **`internal/exec.SafeCommand`**:
 
 ```go
-exec.SafeCommand{
+cmd, err := exec.SafeCommand(ctx, exec.CommandSpec{
     Name:       "ssh",                          // binario
     Flags:      []string{"-o", "BatchMode=yes"},
     Positional: []string{user_host, "uptime"},
-}
+})
 ```
 
 `SafeCommand` inyecta el separador `--` **automáticamente**
@@ -274,9 +281,10 @@ entre flags y positional. Esto previene la clase de bugs
 "primer positional empieza por `-` y se interpreta como
 flag", el equivalente a SQL injection para shell.
 
-`SafeCommand.Run()` NO usa `sh -c`. Va directo a
-`syscall.Execve` (`os/exec`) con un argv array. Imposible
-inyectar metacaracteres shell.
+`SafeCommand` devuelve un `*exec.Cmd` de `os/exec` con un
+argv array, nunca `sh -c`: no hay shell que interprete
+metacaracteres. Además solo acepta binarios de la lista de
+rutas permitidas.
 
 ---
 
@@ -293,7 +301,7 @@ Por tanto:
 
 | ❌ Evita | ✅ Usa |
 |---|---|
-| `ELSERENO_VAULT_PASSPHRASE=...` env (long-lived) | `--vault-passphrase-file ~/.elsereno/dev.pp` (0600) |
+| `ELSERENO_VAULT_PASSPHRASE=...` env (long-lived; el binario no la lee) | `--vault-passphrase-file ~/.elsereno/dev.pp` (0600) |
 | `./elsereno creds store --plaintext '<api-key>'` | `./elsereno creds store <name>` (pide passphrase y valor sin eco; por stdin, dos líneas: passphrase y valor) |
 | `curl -d "key=$API_KEY" ...` | `curl --header "@/path/to/0600.header" ...` |
 | `goreleaser ... GITHUB_TOKEN=$(...)` repetido | `set` shell + leer de file |
@@ -307,19 +315,12 @@ canónica):
 - `GITHUB_TOKEN` para CI runs de goreleaser (Actions inyecta
   por job).
 
-### PITF-032 enforce
+### PITF-032 enforce (no construido)
 
-Si lanzas `serve` con `ELSERENO_VAULT_PASSPHRASE` set
-**y** stdin es TTY → warning a stderr al arrancar:
-
-```
-WARN: ELSERENO_VAULT_PASSPHRASE detected in environment.
-      Long-lived secrets leak via /proc/<pid>/environ + `ps e`.
-      Prefer --vault-passphrase-file (0600). See PITF-032.
-```
-
-(En CI/cron sin TTY el warning no aparece, esos
-contextos son los aceptables.)
+El binario no lee `ELSERENO_VAULT_PASSPHRASE` ni avisa
+si está puesta: el aviso al arrancar `serve` es diseño. La
+passphrase entra por `--vault-passphrase-file` (0600) o por
+el prompt sin eco.
 
 ---
 
@@ -576,8 +577,9 @@ Para deployments productivos:
       dashboard a IPs de SOC.
 - [ ] Postgres en private network o socket UDS.
 - [ ] Postgres TLS habilitado (`sslmode=require` o
-      `verify-full`) cuando no es loopback. `database.tls_required: true`
-      en config lo enforce.
+      `verify-full`) cuando no es loopback. `database.tls_required`
+      lo impone en los comandos `db` (`internal/db.New`), los únicos
+      que abren Postgres hoy.
 
 ### Aplicación
 

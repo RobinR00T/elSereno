@@ -37,16 +37,16 @@ No future-phase work without owner approval.
 - Writes to ICS require `-tags offensive`. Dial/SMS require `-tags offensive`; recording delivery intent (`--disposition delivery-requested`) requires `--dial-allowed` (PITF-098). No command dials hardware yet (vNext). Numbers ≤3 digits blocked hard. Wardialing batch is vNext.
 - Sanitize target-controlled bytes via `internal/render.SafeBytes`.
 - Sanitize target-controlled strings via `internal/telemetry.SafeField`.
-- Postgres TLS required when not loopback (`database.tls_required`).
+- Postgres TLS required when not loopback (`database.tls_required`, enforced in `internal/db.New`; only the `db` commands open Postgres today).
 - Randomness only from `crypto/rand`.
 - Subprocess only via `internal/exec.SafeCommand` with `CommandSpec{Name, Flags, Positional}`; the `--` separator is inserted deterministically.
-- Audit: tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries (genesis/chain_rebase/purge_event).
+- Audit: tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries (genesis/chain_rebase/purge_event). Design: `audit purge`/`compact`/`verify` are stubs that exit 69; `audit verify-file` is what runs.
 - Findings: one INSERT per finding today (`internal/repo/runwriter.go`); pgx.CopyFrom batching (ADR-008) is designed, not built. Audit: one writer appends to `~/.elsereno/audit.jsonl`; the Postgres audit writer (`OpenDBWriter`) is not wired to any command.
-- Cookie Secure=true with TLS; false on HTTP loopback with comment rationale.
+- Cookie Secure=true with TLS; false on HTTP loopback with comment rationale (design: `serve` sets no cookies today, PITF-087).
 - Token rotation bumps persisted `web_state.token_generation` with advisory lock; middleware caches generation TTL 5s (design; not built yet, PITF-087).
-- CSRF key HKDF from vault master key; `serve` requires vault unlocked (use `vault init` + `vault unlock`).
-- Vault unlock-once cached in memguard; `vault lock` zeroizes; zeroized on SIGINT/SIGTERM.
-- Exit codes: 128+signum (SIGINT=130, SIGTERM=143).
+- CSRF key HKDF from vault master key (derived, nothing uses it yet); `serve` requires vault unlocked (use `vault init` + `vault unlock`).
+- Vault master key in memguard (mlocked) inside the process that opened it; destroyed by `Vault.Lock` or process exit. No signal handler zeroizes it, and in the one-shot CLI `vault lock` is a no-op.
+- Exit codes: 128+signum (SIGINT=130, SIGTERM=143), for the first signal on a clean completion and for the second-signal hard exit.
 - Errors live in the emitting package (ErrChainBroken in `internal/audit/`, ErrUnknownConfigField in `internal/config/`, domain errors in `internal/core/`).
 - Timestamps RFC3339 with up to 6 fractional digits (microseconds; Postgres TIMESTAMPTZ).
 - Audit `event_type` enumerated CHECK; source of truth is SQL DDL.

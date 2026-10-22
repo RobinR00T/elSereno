@@ -30,6 +30,77 @@
 > captura byte-a-byte (sin fuente pública al 3-10-2026, no está en
 > automayt/ICS-pcap). No se fabrica fixture (PITF-064).
 
+## Propuesto (18-10-2026, spec externo de mejoras y modo pasivo): sin construir
+
+Spec recibido el 17-10-2026, escrito sobre `main` @ 919de14. Su sección P0
+(controles documentados que no existían) ya está en la sección siguiente y
+casi toda cerrada por PITF-095 a 099; el proxy del build por defecto ya está
+en "gate DNP3" (abajo). Aquí va solo lo que no estaba en ningún backlog.
+Contrastado con el código el 18-10 por grep sobre `internal/` y `cmd/`.
+Nada de esto tiene aprobación del mantenedor (disciplina de fases).
+
+- **Modo pasivo (P1).** Pasar tráfico ya capturado por los mismos parsers
+  `wire` del modo activo, sin emitir un byte. Hoy solo hay piezas sueltas:
+  `goose decode`/`goose monitor` (L2, `--file` o `--iface`) y el monitor
+  de Modbus (`internal/protocols/modbus/monitor.go`). Propuesta en fases:
+  - A: `passive analyze <pcap|pcapng>` offline, sin privilegios, para
+    Modbus, DNP3, GOOSE y SV, más un grafo básico de quién habla con quién
+    (exportable a GraphML o JSON).
+  - B: interfaz `core.PassiveDecoder` sobre el classify/parse existente,
+    extensión al resto de parsers TCP/UDP con `gopacket/reassembly`, y
+    `passive capture --iface --duration` acotado (BPF con los puertos del
+    scope, `CAP_NET_RAW` como GOOSE).
+  - C: descubrimiento L2 escuchado (LLDP, mDNS, CDP, PROFINET DCP).
+  Aceptación: sobre las capturas de `*/wire/realcap_test.go` da los mismos
+  fingerprints que el modo activo, y un test demuestra cero paquetes
+  emitidos. **Decisiones:** (1) ¿basta el pcap offline para la primera
+  entrega? (2) ¿build por defecto o aparte? (3) NON-GOALS: debe ser por
+  ejecución, nunca monitorización continua (no es un IDS), y el grafo de
+  activos roza "Not a corporate asset inventory": hay que decidir si el
+  grafo es un artefacto del run o se retira.
+- **Priorización de CVE por explotabilidad (P1).** `internal/cve` casa por
+  familia y no sabe si un CVE se explota (grep 18-10: cero de EPSS; KEV solo
+  en comentarios de `enip.go` y `pbxhttp.go`). Propuesta: `cve sync` que baja
+  CISA KEV (JSON), EPSS (CSV diario) y los ICS Advisories a una caché local
+  versionada, y dos subfactores de scoring (`kev_listed`, `epss_score`) con
+  peso en el YAML de scoring (ADR-006). Prerrequisito parcial: sacar CPE
+  (fabricante, producto, versión) del fingerprint, protocolo a protocolo
+  (hoy no hay ningún `cpe:` en el árbol). Aceptación: el mismo finding con
+  su CVE en KEV puntúa estrictamente más que sin KEV, y `cve sync` funciona
+  offline desde la caché. **Decisión:** ¿descarga con `cve sync` (red
+  allowlisted) o snapshots empaquetados con cada release?
+- **Perfiles de ritmo: lo que falta (P1).** Hecho el 21-10-2026 en `scan`
+  y `discover`: `--profile` aggressive / normal / safe / fragile,
+  `--inter-probe-delay` y `--max-conns-per-host` (`scanner.HostPacer`,
+  tests con reloj simulado; PITF-104). Falta: (a) `fingerprint` y los
+  escaneos del dashboard, la API y la TUI no toman perfil; (b) `fragile`
+  asignable por rango en el scope; (c) `--probe-timeout` existe en
+  `scan` desde el 21-10 (PITF-105 lo hizo posible), no en `discover` (que
+  tiene `--dial-timeout`) ni en los perfiles; (d) validar las cifras de `safe` y `fragile` contra equipos delicados
+  reales: hoy son puntos de partida.
+- **Mapeo a MITRE ATT&CK for ICS e IEC 62443 (P2).** `internal/standards`
+  solo lleva NIST SP 800-82 r4 (grep 18-10: cero de ATT&CK y de 62443).
+  Propuesta: tabla estática tipo de finding a técnica (por ejemplo T0836
+  Modify Parameter, T0886 Remote Services) y a SR de 62443-3-3, en las
+  mismas salidas que ya llevan NIST, y un guard como el de
+  `internal/standards` que obligue a declarar el mapeo o N/A.
+  **Decisión:** ¿lo piden los clientes, o 800-82 ya cubre?
+- **Salida VEX (P2).** Un sink más (CycloneDX VEX u OpenVEX): un statement
+  por CVE con estado y justificación sacada del run (versión detectada,
+  exposición real, KEV). Depende de la priorización de CVE. Aceptación:
+  valida contra el esquema y no inventa justificaciones. (CycloneDX hoy
+  solo aparece como SBOM de release.)
+- **Protocolos nuevos (P2).**
+  - S7comm-plus (S7-1200/1500): sin nada en el árbol; el `s7` actual es
+    S7comm clásico sobre COTP.
+  - EtherCAT y POWERLINK: L2 y tiempo real; encajan con la fase C del modo
+    pasivo, no con sondeo activo.
+  - Sparkplug B: el spec lo da por ausente, pero `internal/protocols/mqtt`
+    ya lo detecta por el namespace del topic. Lo que falta, si se quiere,
+    es decodificar el payload (protobuf de Eclipse Tahu) para sacar nodos y
+    métricas.
+  **Decisión:** ¿hay demanda de Siemens moderno o de IIoT que fije el orden?
+
 ## Abierto (16-10-2026, controles de seguridad documentados que no existían): decisiones pendientes
 
 La documentación describía controles que el código no tiene (PITF-087). Los

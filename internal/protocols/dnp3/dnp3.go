@@ -52,7 +52,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("dnp3: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	// Request Link Status to destinations 0..100 from master address 0,
 	// as nmap's dnp3-info.nse: an outstation answers only its own link

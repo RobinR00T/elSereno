@@ -11,7 +11,7 @@ preguntas rápidas con un párrafo de respuesta, ver el
 ### ¿Qué binario instalo: default, offensive o mini?
 
 - **default** (`elsereno`): el 90% de los casos. Scan
-  read-only, dashboard, TUI, 28 plugins. Lo que querés si
+  read-only, dashboard, TUI, 35 plugins. Lo que querés si
   no sabes cuál elegir.
 - **offensive** (`elsereno-offensive`): SÓLO si haces
   pen-test autorizado con escrituras a ICS. Activa los
@@ -315,12 +315,13 @@ Causas comunes:
 
 ### ¿Cómo cierro `serve`?
 
-Ctrl+C envía SIGINT → exit 130 (graceful, zeroiza vault,
-flushea audit).
-`kill -TERM <pid>` → exit 143 (idem).
-`kill -9 <pid>` → exit forzado; el vault zeroiza por
-finalizers pero `audit.jsonl` puede quedar mid-write.
-**No recomendado.**
+Ctrl+C envía SIGINT → exit 130 (cierre ordenado del
+servidor). `kill -TERM <pid>` → exit 143 (idem). Ningún
+manejador de señal borra la master key: la memoria de
+memguard se libera al terminar el proceso. (Hasta el
+21-10-2026 un SIGINT salía también con 143.)
+`kill -9 <pid>` → exit forzado; `audit.jsonl` puede quedar
+a medio escribir. **No recomendado.**
 
 ### ¿Soporta autenticación OIDC / SAML / LDAP?
 
@@ -424,16 +425,17 @@ arriba). Ver [`DEV-SETUP.md`](DEV-SETUP.md).
 ### ¿Cómo escribo un plugin nuevo?
 
 1. Lee 2-3 plugins existentes pequeños:
-   `internal/plugins/banner/`, `internal/plugins/atmodem/`.
-2. Crea `internal/plugins/myplugin/` con `probe.go` +
-   `init.go`.
-3. Sigue la interface `core.Plugin`.
+   `internal/protocols/banner/`, `internal/protocols/atmodem/`.
+2. Crea `internal/protocols/myplugin/` con un `Default()` que
+   devuelva el `core.Protocol` y su `Metadata()`.
+3. Regístralo con `core.Register` en `cmd/elsereno/plugins.go`
+   (ahí están los 35).
 4. Añade tests con un protocol simulator si es factible
    (`simulators/<name>/`).
 5. Documenta en `docs/protocols/<name>.md`.
 6. `make build` + `make ci`.
 
-Ver [`.context/protocols/_template.md`](../.context/protocols/)
+Ver [`.context/templates/protocol.md`](../.context/templates/protocol.md)
 para plantilla.
 
 ### ¿Cómo corro los tests?

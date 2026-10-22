@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +38,7 @@ func newScanCmd() *cobra.Command {
 			"outside the scope file's ranges or ports are dropped before " +
 			"any probe; without it no scope applies (a scope.yaml in the " +
 			"working directory is not read). To probe one plugin on a " +
-			"non-default port, use `fingerprint probe`.",
+			"non-default port, use `fingerprint probe`.\n\n" + profilesHelp(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runScan(cmd, opts)
 		},
@@ -50,7 +51,10 @@ func newScanCmd() *cobra.Command {
 	cmd.Flags().IntVar(&opts.defaultPort, "default-port", 0, "port applied when a list line has no ':port'")
 	cmd.Flags().IntVar(&opts.ratePerSec, "rate", 0, "probe rate limit per second (0 = unlimited)")
 	cmd.Flags().IntVar(&opts.maxConcurrent, "max-concurrent", 0, "max concurrent targets (default from config)")
-	cmd.Flags().IntVar(&opts.retries, "retries", 2, "retries on ErrTimeout (default 2)")
+	cmd.Flags().IntVar(&opts.retries, "retries", 2, "retries on ErrTimeout; without the flag, the profile's (2 for normal)")
+	cmd.Flags().DurationVar(&opts.probeTimeout, "probe-timeout", 0,
+		"upper bound on each probe attempt, connect and reads together (0 = each plugin's own deadlines)")
+	addPacingFlags(cmd, &opts.pacingFlags)
 	cmd.Flags().StringSliceVar(&opts.plugins, "plugin", nil,
 		"plugins to run, repeatable or comma-separated (see `elsereno plugins list`); default: every non-opt-in plugin, each on the targets whose port is its default port")
 	cmd.Flags().StringVar(&opts.outputFormat, "output-format", "ndjson", "ndjson|csv|stix")
@@ -67,12 +71,19 @@ type scanOpts struct {
 	ratePerSec    int
 	maxConcurrent int
 	retries       int
+	probeTimeout  time.Duration
 	outputFormat  string
 	outputPath    string
 	noProgress    bool
 	plugins       []string
 	// scope is the loaded --scope (nil without one).
 	scope *scope.Scope
+	// pacingFlags are --profile, --inter-probe-delay and
+	// --max-conns-per-host; pace is what runScan resolved from them,
+	// the config and the global flags (zero when execScan is called
+	// directly, which keeps the global flags and config caps).
+	pacingFlags pacingFlags
+	pace        pacing
 }
 
 func runScan(cmd *cobra.Command, opts scanOpts) error {
@@ -83,6 +94,17 @@ func runScan(cmd *cobra.Command, opts scanOpts) error {
 	cfg, _, err := loadConfig()
 	if err != nil {
 		return fail(core.ExitConfig, err)
+	}
+	opts.pace, err = resolvePacing(cmd, opts.pacingFlags, cfg.Scanner, pacingOverrides{
+		maxConcurrent: opts.maxConcurrent, maxConcurrentSet: cmd.Flags().Changed("max-concurrent"),
+		ratePerSec: opts.ratePerSec, rateSet: cmd.Flags().Changed("rate"),
+		retries: opts.retries, retriesSet: cmd.Flags().Changed("retries"),
+	})
+	if err != nil {
+		return err
+	}
+	if opts.probeTimeout < 0 {
+		return fail(core.ExitUsage, errors.New("--probe-timeout cannot be negative"))
 	}
 
 	s, err := scope.Load(opts.scopePath)
@@ -130,6 +152,12 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 	}
 
 	warnOptInAnyPort(os.Stderr, runs)
+	if opts.pace.profile != "" {
+		_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: %s\n", opts.pace)
+		if opts.probeTimeout > 0 {
+			_, _ = fmt.Fprintf(os.Stderr, "elsereno scan: each probe attempt ends after %s\n", opts.probeTimeout)
+		}
+	}
 
 	write, cleanup, err := scanOutput(out, opts.outputFormat)
 	if err != nil {
@@ -171,13 +199,26 @@ func runPlans(ctx context.Context, cfg config.Config, opts scanOpts, runs []plug
 		produced int64
 	)
 	countOnly := func(core.Finding) error { return nil }
+	sopts := scanner.Options{
+		MaxConcurrentTargets: pickPositive(opts.maxConcurrent, cfg.Scanner.MaxConcurrentTargets),
+		MaxConcurrentPerHost: cfg.Scanner.MaxConcurrentPerHost,
+		RatePerSecond:        opts.ratePerSec,
+		MaxRetries:           opts.retries,
+	}
+	if p := opts.pace; p.profile != "" {
+		sopts = scanner.Options{
+			MaxConcurrentTargets: p.maxConcurrent,
+			RatePerSecond:        p.ratePerSec,
+			MaxRetries:           p.retries,
+		}
+	}
+	// One pacer for every plugin run: plugins run one after another,
+	// so without it the next plugin would hit a host right after the
+	// previous one finished with it, whatever --inter-probe-delay says.
+	sopts.ProbeTimeout = opts.probeTimeout
+	sopts.Pacer = scanner.NewHostPacer(pickPositive(opts.pace.maxPerHost, cfg.Scanner.MaxConcurrentPerHost), opts.pace.interval)
 	for _, r := range runs {
-		scn := scanner.New(scanner.Options{
-			MaxConcurrentTargets: pickPositive(opts.maxConcurrent, cfg.Scanner.MaxConcurrentTargets),
-			MaxConcurrentPerHost: cfg.Scanner.MaxConcurrentPerHost,
-			RatePerSecond:        opts.ratePerSec,
-			MaxRetries:           opts.retries,
-		})
+		scn := scanner.New(sopts)
 		probe := r.plugin.Factory().Probe
 		// The first failed write cancels the run: probing on while
 		// nothing can be recorded (a full disk on a /16) is wasted

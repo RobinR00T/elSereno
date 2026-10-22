@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.7
 # Stay in sync with go.mod (go 1.26.0 since the pgx 5.11 update;
-# toolchain go1.26.9 since 2026-10-14, for six stdlib vulnerabilities)
-# and the CI matrix. 1.26.9 on Alpine 3.24 is the library/golang tag
+# toolchain go1.26.10 since 2026-10-21, for GO-2026-6809 in crypto/x509)
+# and the CI matrix. 1.26.10 on Alpine 3.24 is the library/golang tag
 # that carries both the toolchain Go version AND a patched Alpine
 # userland (the 1.26 patches moved off Alpine 3.22, whose newest 1.26
 # tag is only 1.26.0).
-ARG GO_VERSION=1.26.9
+ARG GO_VERSION=1.26.10
 ARG ALPINE_VERSION=3.24
 FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
 

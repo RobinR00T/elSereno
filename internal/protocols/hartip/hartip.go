@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/hartip/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -50,7 +51,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("hartip: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	if _, err := conn.Write(wire.BuildSessionInitiate(1)); err != nil {
 		return nil, fmt.Errorf("hartip: write: %w", err)

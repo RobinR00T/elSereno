@@ -23,15 +23,15 @@ token-budget: 950
 - Audit JCS hash chain; genesis `prev_hash=0x00..00`; canonical `id/occurred_at/actor/event_type/payload/prev_hash`; tombstone purge preserves chain; compact inserts rebase marker and skips metadata entries. `event_type` is CHECK enum.
 - Postgres TLS per `database.tls_required` ∈ {auto, always, disable}.
 - Web: OIDC Bearer JWT on the routes with a role when configured (required off loopback; `/`, `/admin/security`, `/metrics`, `/healthz`, `/readyz` and `GET /api/v1/{plugins,scoring,health,health/pool,openapi.yaml}` stay open); dev mode on loopback has no auth; a browser guard refuses cross-origin writes, non-JSON write bodies and DNS rebinding (PITF-092). Cookie, CSRF token, web token and `web_state` rotation are designed, not built (PITF-087).
-- Vault: `init` → `unlock` → ops; `lock` zeroizes. Unlock-once memguard.
+- Vault: `init` → `unlock` → ops. Key in memguard inside the process that opened it (`serve`, offensive runtime); one-shot `unlock` only checks the passphrase, `lock` is a no-op.
 - Rate limit per-IP 100/min (loopback exempt) AND per-token 300/min, in serve since 2026-10-18 (PITF-100); 429 + Retry-After: 60.
 - `crypto/rand` only. Subprocess via `internal/exec.SafeCommand(ctx, CommandSpec)` with deterministic `--` separator (rule; no command spawns one yet).
 - Timestamps RFC3339 up to 6 fractional digits (microseconds). Logs stderr, data stdout.
 - IPv4+IPv6 first-class; IDN via `x/net/idna`.
 - SIGINT→130, SIGTERM→143. Second signal immediate same code.
 - Evidence truncated with `original_sha256` (populated only when truncated); retention keep-if-referenced.
-- Outbox with max_attempts + `outbox_dead`.
-- Redaction hook: specific patterns + entropy heuristic excluding UUID format (exists, not wired: the binary logs through the standard library; PITF-087).
+- Outbox: `internal/outbox` has a retry worker (max_attempts, dead-letter) and an in-memory store; the `outbox`/`outbox_dead` tables exist in the schema, but no Postgres store and no command wires it (webhooks and exports deliver inline).
+- Redaction hook: specific patterns + entropy heuristic excluding UUID format (`telemetry.Redact` per field; `telemetry.RedactWriter` on the standard logger's sink since 17-10, so every `log.Printf` is redacted; PITF-099).
 - Errors in emitting package.
 - Never secrets via argv, herestring, or unwarned env.
 - `make ci` must include build variants to catch bitrot.

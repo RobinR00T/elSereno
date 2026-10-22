@@ -7,8 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Toolchain go1.26.10 for GO-2026-6809.** `crypto/x509` in go1.26.9
+  kept trusting a set of compromised intermediate certificates;
+  govulncheck reaches it through the TLS handshake of
+  `plaintext-check` (`internal/exposure/cleartext.go`). `go.mod` pins
+  `toolchain go1.26.10` and the Dockerfile builds on
+  `golang:1.26.10-alpine3.24`. The remaining govulncheck module note
+  (GO-2026-5932, `x/crypto/openpgp`, no fix) is not called.
+
+### Added
+
+- **Pacing profiles for `scan` and `discover`.** `--profile`
+  aggressive | normal | safe | fragile sets probes in flight, probes
+  per host, a pause between probe starts on one host, an overall rate
+  cap and retries. `--inter-probe-delay` and `--max-conns-per-host`
+  override the per-host part; explicit flags beat the profile, which
+  beats the config. `normal` is the default and keeps the previous
+  pace. Each run prints the pace it applies on stderr. The per-host
+  pace holds across plugins within one scan, and a retry waits the
+  host's pause too, not just the retry backoff. The profile values are
+  starting points, not values validated against any vendor's device.
+
+- **`scan --probe-timeout D`** bounds each probe attempt, connect and
+  reads together (default 0: each plugin's own 2 to 5 s deadlines). An
+  attempt cut short leaves no finding and counts as a retryable
+  timeout.
+
+### Changed
+
+- **`discover` is gentler on each host (PITF-104).** It dials one port
+  of a host at a time (or `--max-conns-per-host`), in port-major order
+  so hosts are visited in turn. Before, its 64 workers took jobs
+  host-major and could open about 30 connections to one PLC at once.
+  A sweep of one host is slower than before.
+
+### Fixed
+
+- **A cancelled scan stopped only when each probe's IO deadline passed
+  (PITF-105).** Plugins set a fixed deadline (2 to 5 s) after dialling
+  and ignored the context, so Ctrl-C, a dashboard job cancel or a
+  verb's `--timeout` waited for it on every probe in flight. Every
+  plugin now closes its connection when the context is done
+  (`netutil.CloseOnDone`), and the scanner drops what a probe returns
+  after the cancel instead of recording it as a finding.
+- **Ctrl-C exited 143, as if it were SIGTERM (PITF-106).** A clean
+  completion after the first signal always returned 143; it now
+  returns 130 for SIGINT and 143 for SIGTERM.
+- `discover` dialled a port declared by several plugins (5007: melsoft
+  and slmp) once per plugin and printed it twice. It now dials it once
+  and lists every plugin in `protocol_hints`.
+- `scripts/audit.sh` failed its sync check on any work branch with a
+  commit ("Local main diverged"): it compared HEAD as if it were main.
+  On a branch it now fails only when the branch is behind origin/main.
+
 ### Documentation
 
+- Security docs said things the code does not do (PITF-106):
+  `serve` is not TLS 1.3 only (Go's TLS 1.2 minimum) and sends HSTS
+  with `max-age=63072000` on every TLS response; no signal handler
+  zeroes the vault key and the one-shot `vault lock` is a no-op;
+  `audit verify`, `purge` and `compact` are stubs that exit 69; nothing
+  reads `ELSERENO_VAULT_PASSPHRASE`; `database.tls_required` applies to
+  the `db` commands, the only ones that open Postgres; `SafeCommand`
+  returns an `*exec.Cmd`. Also: `doctor` does not check mlock, the
+  redaction hook is wired since 17-10, the outbox worker is not wired,
+  the default build has 35 plugins (not 28), and the FAQ's
+  plugin-writing steps pointed at `internal/plugins/`.
 - Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.
 
 ## [2.63.2] - 2026-10-19

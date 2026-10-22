@@ -437,8 +437,48 @@ vacío y `port` a 0.
 | `--api-creds-file YAML`    | (sin)          | 0600 YAML con creds shodan/censys/fofa/zoomeye/onyphe/binaryedge      |
 | `--scope FILE.yaml`        | (sin)          | scope.yaml; descarta los targets fuera de sus rangos o puertos, y no lanza los plugins fuera de `protocols` (§12) |
 | `--no-progress`            | `false`        | desactiva barra de progreso (CI-friendly)                             |
-| `--rate N`                 | `0` (sin tope) | probes por segundo como mucho                                         |
-| `--retries N`              | `2`            | reintentos cuando un probe vence por timeout                          |
+| `--rate N`                 | `0` (sin tope) | probes por segundo como mucho (gana al perfil)                        |
+| `--retries N`              | `2`            | reintentos cuando un probe vence por timeout; sin el flag, los del perfil |
+| `--probe-timeout D`        | `0` (del plugin) | tope de cada intento de sonda, connect y lecturas juntos           |
+| `--profile NAME`           | `normal`       | perfil de ritmo: `aggressive`, `normal`, `safe`, `fragile` (abajo)    |
+| `--inter-probe-delay D`    | (del perfil)   | pausa mínima entre el inicio de dos sondas al mismo host; `0s` la quita |
+| `--max-conns-per-host N`   | (del perfil)   | sondas a la vez contra un host; gana a `scanner.max_concurrent_per_host` |
+
+**Perfiles de ritmo** (desde el 21-10-2026). Un flag explícito gana
+siempre al perfil, y el perfil gana a la config (`scanner.*`). `scan`
+imprime por stderr el ritmo que aplica al arrancar:
+
+| Perfil       | En vuelo | Por host | Pausa por host | Tope global | Reintentos | Para qué                         |
+|--------------|----------|----------|----------------|-------------|------------|----------------------------------|
+| `aggressive` | 256      | 4        | no             | no          | 2          | laboratorio o redes IT           |
+| `normal`     | config (100) | config (1) | no       | no          | 2          | el ritmo de siempre (defecto)    |
+| `safe`       | 16       | 1        | 1 s            | 10 sondas/s | 1          | OT en producción                 |
+| `fragile`    | 4        | 1        | 10 s           | 2 sondas/s  | 0          | equipos que se cuelgan con sondas |
+
+Las cifras son puntos de partida prudentes elegidos para esta
+herramienta, **no valores validados contra el equipo de ningún
+fabricante**: ante un equipo que se sabe delicado, mide primero y
+ajusta con los flags sueltos. La pausa por host vale entre plugins: los
+plugins corren uno tras otro y comparten el mismo ritmo, así que el
+segundo plugin no llega al host justo cuando el primero acaba.
+
+`--probe-timeout D` corta cada intento de sonda a los `D`, connect y
+lecturas juntos (sin el flag manda el plazo de cada plugin, de 2 a 5 s).
+Un intento cortado no deja finding (lo que vio está a medias), cuenta
+como timeout y se reintenta según `--retries`. Contra un servicio que
+acepta y no habla:
+
+```text
+$ elsereno scan --input list:t.txt --plugin banner --no-progress --retries 0 --probe-timeout 300ms --output /dev/null
+elsereno scan: pacing normal: 100 in flight, 1 per host, no pause between probes to a host, no overall rate cap, 0 retries
+elsereno scan: each probe attempt ends after 300ms
+warn: scanner: target 127.0.0.1:18502: probe ran past 300ms: elsereno: operation timed out
+scan complete: 0 findings (from 1 targets, 1 probes across 1 plugins)
+```
+
+Sin el flag, el mismo scan tarda 5,6 s y deja un finding de banner
+vacío. Desde el 21-10-2026 una sonda en vuelo también se para al
+momento con Ctrl-C (antes esperaba a su plazo).
 
 **Ejemplos:**
 
@@ -471,6 +511,10 @@ elsereno scan --input list:targets.txt --plugin dnp3,modbus
 
 # Stdin (encadenable):
 echo -e "10.0.0.1:502\n10.0.0.2:44818" | elsereno scan --input stdin > findings.ndjson
+
+# Planta en producción: perfil safe, y aún más lento contra un host:
+elsereno scan --input list:planta.txt --profile safe --inter-probe-delay 3s > findings.ndjson
+# stderr: elsereno scan: pacing safe: 16 in flight, 1 per host, 3s between probes to a host, 10 probes/s overall, 1 retry
 ```
 
 ### 7.2 `discover`
@@ -489,8 +533,21 @@ no fingerprint, el output suele encadenarse a `scan`.
 | `--parallel N` | `64`        | TCP-connects simultáneos                                  |
 | `--dial-timeout D` | `1s`    | timeout de cada connect (host, puerto)                    |
 | `--scope FILE.yaml` | (sin)  | rechaza los targets fuera de sus rangos y puertos         |
+| `--profile NAME` | `normal`  | perfil de ritmo (los de `scan`, §7.1); su tope en vuelo solo baja `--parallel` si no lo pasas |
+| `--inter-probe-delay D` | (del perfil) | pausa mínima entre dos connects al mismo host     |
+| `--max-conns-per-host N` | (del perfil) | connects a la vez contra un host (por defecto `scanner.max_concurrent_per_host`, 1) |
 
 `--auto` y `--hosts` son mutuamente exclusivos.
+
+Un host recibe como mucho un connect a la vez (con el perfil `normal`
+y la config por defecto), y el barrido va puerto a puerto recorriendo
+los hosts, así que los 64 connects se reparten entre 64 hosts. **Hasta
+el 21-10-2026 los puertos de un mismo host se abrían todos a la vez**
+(unos 30 connects simultáneos contra un PLC): contra un solo host, el
+barrido es ahora más lento y más suave. Un puerto que declaran varios
+plugins (5007, 102) se conecta una sola vez y su línea lleva todos los
+plugins; antes salía una vez por plugin. `discover` imprime por stderr
+el ritmo que aplica y, con pausa, la duración mínima.
 
 **Ejemplos:**
 
@@ -498,6 +555,11 @@ no fingerprint, el output suele encadenarse a `scan`.
 # Discover una /24 y luego scan sobre lo vivo:
 elsereno discover --auto 10.0.0.0/24 --format list \
     | elsereno scan --input list:- > findings.ndjson
+
+# Un equipo que se sabe frágil: un connect cada 10 s (stderr real):
+elsereno discover --auto 10.0.0.7/32 --profile fragile --format list
+# elsereno discover: 4 parallel, 1 per host, 10s between connects to a host, 2 connects/s overall
+# elsereno discover: 28 ports per host, so at least 4m30s
 
 # Discover sobre lista curada de hosts:
 cat > hosts.txt <<EOF
@@ -902,7 +964,7 @@ libre. No lee la config ni toca el vault, la base de datos ni la red.
 
 ```bash
 elsereno doctor
-# [OK]    go runtime, go1.26.9
+# [OK]    go runtime, go1.26.10
 # [OK]    platform, darwin/arm64
 # [SKIP]  privileged scan, not root; not needed: scan and discover use ordinary TCP/UDP sockets
 # [SKIP]  nmap, not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere
@@ -2527,15 +2589,16 @@ Sí desde v1.14. `targets.txt` acepta IPv6 entre brackets:
 `[2001:db8::5]:502`.
 
 **¿Tiene rate-limiting per-target?**
-Por target no; global sí. `scan --rate N` limita a N sondas por
-segundo en todo el scan (los plugins corren uno tras otro, cada uno
-con ese tope; `0`, el defecto, es sin límite).
-`scanner.max_concurrent_targets` y
-`scanner.max_concurrent_per_host` (1 por defecto: nunca dos
-sondas a la vez contra un host) evitan el peor caso. Para
-un tope por host en redes frágiles, integra con
-un FRR/`tc` rule a nivel host. El límite de peticiones de `serve`
-(`web.rate_limit_*`) es otra cosa: protege la API, no los targets.
+Sí, desde el 21-10-2026. `--inter-probe-delay D` (en `scan` y
+`discover`) pone una pausa mínima entre dos sondas al mismo host,
+también de un plugin al siguiente, y `--max-conns-per-host N` limita
+cuántas van a la vez contra él (por defecto
+`scanner.max_concurrent_per_host`, 1). `--profile safe` o `fragile`
+los fija de una vez (§7.1). `scan --rate N` sigue siendo el tope
+global de sondas por segundo. Los scans del dashboard y de `tui` no
+toman perfil todavía: usan la config. El límite de peticiones de
+`serve` (`web.rate_limit_*`) es otra cosa: protege la API, no los
+targets.
 
 **¿Puede mandar findings directos a Splunk / SIEM?**
 No nativo (todavía). El patrón canónico es: scan →

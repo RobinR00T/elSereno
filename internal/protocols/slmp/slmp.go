@@ -13,6 +13,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/cve"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/slmp/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -66,7 +67,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("slmp: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	if _, err := conn.Write(wire.BuildReadCPUModelName()); err != nil {

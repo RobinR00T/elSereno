@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -80,6 +81,19 @@ func dryRunCommands(root *cobra.Command) []string {
 	return out
 }
 
+// signalExitCode is the exit code for the first signal, which the trap
+// goroutine passes on first. signal.NotifyContext and the trap get the
+// same signal, but the trap may not have passed it on yet when the
+// command returns; it waits a moment, then falls back to SIGTERM's 143.
+func signalExitCode(first <-chan os.Signal) int {
+	select {
+	case sig := <-first:
+		return exitCodeForSignal(sig)
+	case <-time.After(100 * time.Millisecond):
+		return 143
+	}
+}
+
 // exitCodeForSignal returns 128+signum for SIGINT and SIGTERM; 1 otherwise.
 func exitCodeForSignal(sig os.Signal) int {
 	switch sig {
@@ -113,11 +127,14 @@ func entrypoint(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Second-signal hard-exit trap.
-	sigs := make(chan os.Signal, 1)
+	// Second-signal hard-exit trap. The first signal is kept so a clean
+	// completion after it exits 128+signum of that signal.
+	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigs)
+	first := make(chan os.Signal, 1)
 	go func() {
-		<-sigs
+		first <- <-sigs
 		second := <-sigs
 		os.Exit(exitCodeForSignal(second))
 	}()
@@ -130,9 +147,9 @@ func entrypoint(args []string) int {
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		// Context was cancelled by a signal; honour 128+signum on a clean
-		// completion. Default to SIGTERM (143).
+		// completion (130 for SIGINT, 143 for SIGTERM).
 		if err == nil {
-			return 143
+			return signalExitCode(first)
 		}
 	}
 
