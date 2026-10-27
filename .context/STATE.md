@@ -1,11 +1,28 @@
 ---
 phase: v2.63.2 released by CI 2026-10-19 (cosign keyless, SLSA v1, public signed GHCR image; v2.63.1 tag without release, PITF-103; v2.63.0 2026-10-18, no cosign); vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
 status: last tag v2.63.2 (2026-10-19), GitHub Release with 45 assets published by the release workflow; signature and attestation verified; CI green on main
-last-updated: 2026-10-19
+last-updated: 2026-10-27
 token-budget: 320
 ---
 
 # Current state
+
+**2026-10-27 OT-exposure probes, IT ports, standards and creds-reuse (on main, unreleased).**
+37 plugins now (32 default sweep + 5 opt-in). Transport-keyed port catalogue
+`internal/exposure/ports.go` (categories it-cleartext/it-encrypted/it-management/ot,
+PITF-105 for UDP-in-a-TCP-table); `discover --it-ports` adds IT mgmt ports one hop
+from OT, `plaintext-check --list-ports` prints it. New opt-in probes (OptIn+DefaultPort 0):
+**tristation** (UDP 1502, `tristation --active|--passive`, CONNECT/classify/DISCONNECT +
+`--status`, passive reads pcap/pcapng via new `internal/pcapfile`; TCM/TS wire + CRC-16/ARC
+validated vs synthetic capture in `examples/captures/`, critical on a SIS hit) and
+**profinet-cm** (UDP 34964, DCE/RPC EPM lookup = nmap byte for byte, spec-grounded).
+S7 probe carries a Conpot honeypot verdict (`internal/honeypot`). `scan --vantage` on
+NDJSON+STIX (CSV refuses it). `internal/standards` gains ATT&CK-ICS (v20, current IDs,
+PITF-104) + IEC 62443-3-3; `standards --standard <key>` filters. Offensive
+`creds-check reuse` (`offensive/creds/`): creds from a 0600 file / Vault KV v2 / JSON
+endpoint, HTTP-Basic or SSH auth-only (SSH opens no session), baseline-gated,
+`--confirm-authorized`, each attempt audited `offensive_creds_reuse` (migration 00022)
+with a salted fingerprint, never the password.
 
 **2026-10-19:** re-audit leftovers closed (3 limiter tests checked by mutation; threat model, SECURITY audit line, scanner doc, X-Operator wording; stale release lines); tagged v2.63.1 for the CI release workflow: PITF-102 held (it ran a real release) but goreleaser failed building the image (`COPY go.mod` in a binaries-only context) and published nothing; the release image now uses Dockerfile.goreleaser (PITF-103); v2.63.2 released by CI: cosign verify-blob, gh attestation verify and cosign verify of ghcr.io/robinr00t/elsereno:2.63.2 all pass, anonymous pull OK; install docs updated. **2026-10-18 (pushed dc8d8e0..39c62ff; v2.63.0 released):** v2.63.0 is a GitHub Release (43 assets, checksums + CycloneDX, no cosign/SLSA): the tag-push workflow built a snapshot because `cond && '' || 'x'` always yields 'x' in Actions expressions, so it was built locally per RELEASING.md and uploaded with `gh release create`; release.yml now negates the condition (PITF-102). Merged after the tag, unreleased: the root help (`elsereno`, `--help`, `help`) starts with the elSereno ASCII logo on a terminal (internal/banner; colour only with COLORTERM truecolor/24bit; never off a terminal or with --quiet). The audit found the limiter's full map refused unknown keys, a lockout without credentials: it now fails open, and the docs stop claiming the token cap protects behind a same-host proxy (PITF-100 addendum). Doc errata fixed: SECURITY.md audit-event list, creds show --reveal not audited, production serve needs auth.oidc, no breaker in the architecture diagram. Medium/low errata (PITF-101): doctor no longer claims nmap/root are needed; install docs used the real v2.37.0 assets, then v2.63.0 once it shipped (no cosign since v1.0.1); man1 and MANUAL §7 match the binary. EXAMPLES §16 covers `--input internetdb:` (opt-in `run-examples.sh osint`); scan --help lists binaryedge and internetdb; an empty provider answer says `--input ... gave no targets` instead of blaming the scope. docs/EXAMPLES.md + examples/run-examples.sh give one recipe per feature with real output on loopback simulators (e9ea832). docs/ARCHITECTURE.md has a Mermaid data-flow diagram mapped from the code (1366fa7). _quickref, conventions, CLAUDE.md, FAQ and internal/bus/doc.go no longer claim batched pgx.CopyFrom or a Postgres audit writer: findings go one INSERT each (internal/repo/runwriter.go), audit lives in ~/.elsereno/audit.jsonl, ADR-008 carries a "not built" note (37a3b69). serve enforces web.rate_limit_per_min_ip/token (token bucket per IP, loopback exempt, and per Bearer/X-Operator; 429 + Retry-After: 60; startup line; panel row; PITF-100). Docker docs: serve in a container needs --addr 0.0.0.0 + TLS + --i-know-what-im-doing + OIDC + mounted vault (tested with Docker Desktop; no public GHCR image, anonymous pull = denied); compose healthcheck used curl (distroless has none); Kubernetes manifest replaced by requirements (Secret ownership vs 0600 passphrase), systemd recipe untested = TODO-vNext. MANUAL verbs section (schedule, why, fmt, standards, profinet, goose, other verbs) checked against the binary, 10 fixes. TODO.md / TODO-vNext / _quickref moved from the v1.x framing to the then-current tag (35 plugins).
 
@@ -207,40 +224,22 @@ mini build, record-replay across 9 gates + proxy listen/replay, TUI --input.
 **v1.0 → v1.88 published** on github.com/RobinR00T/elSereno/releases
 (`v1.88.0`, 2026-05-11, 35 assets via goreleaser).
 
-GitHub Actions: all workflows live since 2026-08-31 (ci, audit,
-codeql, supply-chain, nightly, benchmarks, release,
-auto-approve-dependabot). The 2026-04 `workflow_dispatch`-only
-gating was the org `allowed_actions=local_only` policy (fixed
-2026-08-29), not billing. `release.yml` runs a real goreleaser
-release on tag push and a `--snapshot` on dispatch; nightly runs
-30-min deep fuzz. Local goreleaser + syft + `gh release upload`
-remains an option since v1.8.
+GitHub Actions: all workflows live since 2026-08-31 (ci, audit, codeql,
+supply-chain, nightly, benchmarks, release, auto-approve-dependabot).
+`release.yml` runs a real goreleaser release on tag push and a
+`--snapshot` on dispatch; nightly runs 30-min deep fuzz. Local
+goreleaser + syft + `gh release upload` remains an option since v1.8.
 
-**Counts now** (authoritative: `elsereno plugins list`):
-- **30 protocol plugins** (default build); adds opcuahttps, proconos,
-  twincat, atg/atmodem/dlms/dnp3/hartip/iec104/knxip/mbustcp/mms over
-  the old 25-list. (profinet is CLI decode-only, not a probe plugin.)
-- 24 offensive write-gated proxies (`-tags offensive`). GE-SRTP,
-  CoDeSys and Red Lion landed 2026-09-01 on validated public
-  dissectors; finsudp (UDP/9600), slmp (TCP/5007) + a UDP transport
-  (Options.Network) landed 2026-08-31. Refusal: FINS/SLMP native error;
-  GE-SRTP/CoDeSys/Red Lion close-on-refuse; OPC UA ServiceFault. Each
-  ships `write <p> [proxy-]dry-run` token minting + a simulator demo
-  (scripts/demo-*-proxy.sh, 8 of them). CoDeSys is a fail-closed L7
-  magic-scan (no trustworthy L3/L4 length).
-- **Modbus FC 8 Diagnostics sub-function gate (2026-09-03):** reads
-  forward; mutating (Force Listen Only 0x04 DoS, Clear Counters 0x0A,
-  ...) default-deny unless `--diag-subfunction` (token-bound, compat-
-  preserving). Closes the "permissive FC 8" gap. PITF-058.
-- **DNP3 write-gate wired + deepened (2026-09-22):** CLI-reachable;
-  gates app-FC + CROB (TRIP/CLOSE) + g41 analog (value-clamp) +
-  broadcast deny + link pin, token-bound; + IIN monitor
-  -> audit (dnp3_iin_alert, 00019; was a duplicate 00005, PITF-084) -> `audit export` CEF/syslog. PITF-059.
-- **OPC UA HTTPS deep fingerprint**: `opcuahttps` (4843) POSTs a real
-  GetEndpointsRequest + enumerates endpoints (SecurityMode=None raises
-  exposure/auth_state). New verb `fingerprint probe --plugin P --target H:P`.
-- 7 attack-surface input providers: shodan, censys, fofa,
-  zoomeye, onyphe, binaryedge, internetdb.
+**Counts now** (authoritative: `elsereno plugins list`): **37 plugins**
+(32 default sweep + 5 opt-in: s7-exposure, opcua-exposure, codesys-active,
+tristation, profinet-cm). 24 offensive write-gated proxies (`-tags offensive`),
+18 wired in `proxy listen`, each with `write <p> [proxy-]dry-run` token minting +
+a `scripts/demo-*-proxy.sh`. Deep write-gates: Modbus FC 8 Diagnostics sub-function
+(reads forward, mutating default-deny unless `--diag-subfunction`, PITF-058); DNP3
+app-FC + CROB + g41 + broadcast deny + link pin + IIN monitor -> audit
+(dnp3_iin_alert 00019, PITF-059/084). OPC UA HTTPS deep fingerprint `opcuahttps`
+(4843). 7 attack-surface input providers: shodan, censys, fofa, zoomeye, onyphe,
+binaryedge, internetdb.
 **Still deferred (18-10)**: cve_exposure for knxip / mbustcp / dlms
 (finsudp, slmp, gesrtp have NVD-verified CVEs since 3/4-10; mms ships);
 PROFINET-RT live L2 capture; DNP3 SAv5 gating (GOOSE/SV live done 28-9).

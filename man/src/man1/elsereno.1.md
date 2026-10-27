@@ -110,11 +110,14 @@ The default-build subcommand list is below. Run
 
 **plugins**
 :   Manage protocol plugins. **plugins list** prints the
-    compiled-in set (35 in the default build).
+    compiled-in set (37 in the default build: 32 in the default sweep
+    plus 5 opt-in deep probes).
 
 **discover**
 :   `discover --auto <CIDR>` runs a TCP-connect sweep across
     the CIDR + the well-known port of every registered plugin.
+    **--it-ports** adds the IT management ports that commonly sit one
+    hop from an OT cell (RDP, MSSQL, SSH, ...).
     Pipe-friendly: `--format list` emits `host:port` lines for
     `scan --input list:-` (`list:-` reads stdin).
 
@@ -147,6 +150,8 @@ The default-build subcommand list is below. Run
     bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
     <file>` writes to a file instead of stdout. To probe one
     plugin on another port, use **fingerprint probe**.
+    **--vantage <label>** records the observation point on every
+    finding (NDJSON and STIX; CSV refuses it).
 
 **s7**
 :   Read-only S7comm recon of a Siemens CPU: **probe-identity** (model,
@@ -170,10 +175,19 @@ The default-build subcommand list is below. Run
 
 **standards**
 :   Prints the mapping from plugins to the security-standard
-    weaknesses their findings evidence (NIST SP 800-82 Rev. 4).
+    weaknesses their findings evidence (NIST SP 800-82 Rev. 4,
+    MITRE ATT&CK for ICS, IEC 62443-3-3). **--standard <key>** filters
+    to one framework.
 
 **triage**
 :   Group NDJSON findings into quick-win / strategic / routine.
+
+**tristation**
+:   Read-only Triconex SIS recon over the TriStation protocol
+    (UDP 1502). Exactly one of **--active** (CONNECT, classify,
+    DISCONNECT, with **--status** for a CP status read) or **--passive**
+    (**--file <pcap>** classifies TriStation datagrams off a capture).
+    A hit on a safety instrumented system scores critical.
 
 **tui**
 :   Interactive terminal UI: empty panes, **--input** (scan from the

@@ -263,6 +263,36 @@ accidente. Con `--scope`, `write modbus send`, `exploit run` y
 `proxy listen` rechazan un target fuera del scope (77) y exigen
 una IP, no un nombre.
 
+### ¿ElSereno comprueba reutilización de credenciales IT en OT?
+
+Sí, en el build offensive: `creds-check reuse` prueba credenciales que ya
+tienes en tu almacén (un fichero 0600, un secreto de HashiCorp Vault KV v2
+o un endpoint JSON) contra un objetivo OT por HTTP Basic o SSH. **No es un
+diccionario ni fuerza bruta**: solo usa las credenciales que le das, solo
+verifica autenticación (un login SSH correcto se cierra sin abrir sesión
+ni ejecutar nada, y cada sondeo HTTP es un GET), exige
+`--confirm-authorized` y `--vault-passphrase-file`, y escribe cada intento
+en el log de auditoría. La contraseña nunca se imprime ni se audita: solo
+su origen y una huella con sal por ejecución. El almacén de credenciales
+se contacta con verificación TLS activada; la UI del dispositivo, sin
+verificar (suelen tener certificados autofirmados).
+
+```bash
+elsereno creds-check reuse --protocol ssh --target plc.internal:22 \
+  --creds-file ./ad-service-accounts.600 \
+  --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
+```
+
+### ¿Detecta un Active Directory compartido entre IT y OT?
+
+Parcialmente, y nunca las relaciones de confianza (trusts): un escáner de
+red no las ve. Lo que sí hace: `discover --it-ports` y
+`plaintext-check --list-ports` señalan Kerberos (88), LDAP (389/636) y el
+global catalog (3268/3269) en un segmento OT como `it-management`, es
+decir "hay un controlador de dominio alcanzable desde aquí". Mantener los
+bosques de IT y OT separados y sin trusts es una decisión de arquitectura
+que la herramienta no puede verificar; solo marca el controlador expuesto.
+
 ---
 
 ## Dashboard y serve

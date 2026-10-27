@@ -46,6 +46,7 @@ func newDiscoverCmd() *cobra.Command {
 		parallel     int
 		outputFormat string
 		scopePath    string
+		itPorts      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "discover",
@@ -74,9 +75,16 @@ sized) and --parallel (default 64 concurrent connects). Use
 
 With --scope, only the hosts in its ranges are swept, and only the
 ports its ports lists allow for the plugins its protocols lists allow.
---max-hosts counts before that filter.`,
+--max-hosts counts before that filter.
+
+--it-ports also sweeps the TCP IT ports of the port catalogue
+(` + "`elsereno plaintext-check --list-ports`" + `): SSH, RDP, VNC, SMB,
+MS SQL, Kerberos, LDAP, HTTP(S), WinRM and the rest. On an OT segment
+those are the paths from IT into the plant. Their hits carry the
+catalogue protocol as hint (rdp, smb, mssql, ...) and a "category"
+field; with --scope, the protocols lists filter them by that name.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDiscover(cmd, auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat, scopePath)
+			return runDiscover(cmd, discoverOpts{auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat, scopePath, itPorts})
 		},
 	}
 	cmd.Flags().StringVar(&auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
@@ -86,25 +94,41 @@ ports its ports lists allow for the plugins its protocols lists allow.
 	cmd.Flags().DurationVar(&dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
 	cmd.Flags().IntVar(&parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
 	cmd.Flags().StringVar(&outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
+	cmd.Flags().BoolVar(&itPorts, "it-ports", false, "also sweep the TCP IT ports of the port catalogue (SSH, RDP, SMB, MS SQL, ...)")
 	addScopeFlag(cmd, &scopePath)
 	return cmd
+}
+
+// discoverOpts carries the discover flags into runDiscover.
+type discoverOpts struct {
+	auto, hostsFile string
+	maxHosts        int
+	parallel        int
+	dialTimeout     time.Duration
+	outputFormat    string
+	scopePath       string
+	itPorts         bool
 }
 
 // runDiscover dispatches the actual discover work. Extracted
 // from newDiscoverCmd's RunE so the parent stays under funlen
 // as new flags land.
-func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel int, dialTimeout time.Duration, outputFormat, scopePath string) error {
+func runDiscover(cmd *cobra.Command, o discoverOpts) error {
+	auto, hostsFile, maxHosts := o.auto, o.hostsFile, o.maxHosts
 	if (auto == "") == (hostsFile == "") {
 		return fail(core.ExitUsage,
 			errors.New("exactly one of --auto <CIDR> or --hosts <file> is required"))
 	}
-	gate, err := loadScopeGate(scopePath)
+	gate, err := loadScopeGate(o.scopePath)
 	if err != nil {
 		return err
 	}
 	ports := registeredPluginPorts()
 	if len(ports) == 0 {
 		return fail(core.ExitSoftware, errors.New("no plugins registered, link with the protocol packages"))
+	}
+	if o.itPorts {
+		ports = append(ports, catalogueITPorts()...)
 	}
 	var hosts []netip.Addr
 	if auto != "" {
@@ -123,8 +147,8 @@ func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel 
 		}
 	}
 	ctx := cmd.Context()
-	results := sweep(ctx, hosts, ports, parallel, dialTimeout)
-	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, outputFormat)
+	results := sweep(ctx, hosts, ports, o.parallel, o.dialTimeout)
+	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, o.outputFormat)
 }
 
 // scopeDiscover keeps the hosts in the scope's ranges and the
@@ -203,7 +227,10 @@ type discoverHit struct {
 	Address       string   `json:"address"`
 	Port          int      `json:"port"`
 	ProtocolHints []string `json:"protocol_hints"`
-	LatencyMS     int64    `json:"latency_ms"`
+	// Category is set for an --it-ports hit: the port catalogue's
+	// category (it-cleartext, it-encrypted, it-management).
+	Category  string `json:"category,omitempty"`
+	LatencyMS int64  `json:"latency_ms"`
 }
 
 // pluginPort is one entry in the auto-discover port-list.
@@ -212,6 +239,9 @@ type discoverHit struct {
 type pluginPort struct {
 	Port     int
 	PluginID string
+	// Category is the port catalogue category of an --it-ports entry;
+	// empty for a plugin port.
+	Category string
 }
 
 // registeredPluginPorts returns the unique well-known ports
@@ -300,6 +330,7 @@ func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel
 					Address:       j.addr.String(),
 					Port:          j.port,
 					ProtocolHints: pluginsForPort(ports, j.port),
+					Category:      categoryForPort(ports, j.port),
 					LatencyMS:     latency,
 				}
 			}
@@ -308,7 +339,7 @@ func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel
 	go func() {
 		defer close(jobs)
 		for _, h := range hosts {
-			for _, p := range ports {
+			for _, p := range uniquePorts(ports) {
 				select {
 				case <-ctx.Done():
 					return

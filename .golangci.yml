@@ -111,6 +111,12 @@ linters:
       - path: internal/tui/
         linters:
           - misspell
+      # MITRE ATT&CK for ICS technique names are proper nouns with US
+      # spelling ("Unauthorized Command Message", T0855); anglicising
+      # them would misquote the matrix. Same locale-invariant case.
+      - path: internal/standards/attackics\.go
+        linters:
+          - misspell
       # Linux-only sandbox plumbing: BPF/seccomp + syscall maps.
       # Field names mirror the kernel header (Pivot_root, Kexec_load,
       # …); G115 conversions are BPF imm-field bit shuffling; G103

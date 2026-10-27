@@ -179,6 +179,19 @@ func fail(code core.ExitCode, err error) error { return cliError{code: code, err
 
 var errUsage = errors.New("usage error")
 
+// registerProtocolVerbs adds the protocol decoders and read-only recon
+// verbs (offline codecs plus the per-protocol probes) to the root.
+func registerProtocolVerbs(root *cobra.Command) {
+	root.AddCommand(newProfinetCmd())
+	root.AddCommand(newGooseCmd())
+	root.AddCommand(newModbusCmd())
+	root.AddCommand(newOPCUACmd())
+	root.AddCommand(newS7Cmd())
+	root.AddCommand(newPlaintextCheckCmd())
+	root.AddCommand(newTriStationCmd())
+	root.AddCommand(newStandardsCmd())
+}
+
 func newRootCmd() *cobra.Command {
 	root := installBanner(&cobra.Command{
 		Use:   "elsereno",
@@ -219,13 +232,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTUICmd())
 	root.AddCommand(newFingerprintCmd())
 	root.AddCommand(newScheduleCmd())
-	root.AddCommand(newProfinetCmd())
-	root.AddCommand(newGooseCmd())
-	root.AddCommand(newModbusCmd())
-	root.AddCommand(newOPCUACmd())
-	root.AddCommand(newS7Cmd())
-	root.AddCommand(newPlaintextCheckCmd())
-	root.AddCommand(newStandardsCmd())
+	registerProtocolVerbs(root)
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

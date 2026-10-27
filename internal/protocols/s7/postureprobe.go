@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"local/elsereno/internal/honeypot"
 	"local/elsereno/internal/protocols/s7/wire"
 )
 
@@ -22,6 +23,10 @@ type PostureResult struct {
 	SerialNumber     string `json:"serial_number"`
 	StationName      string `json:"station_name"`
 	PlantDesignation string `json:"plant_designation"`
+
+	// Honeypot flags identities matching the published defaults of an
+	// ICS honeypot (internal/honeypot): evidence, not proof.
+	Honeypot honeypot.Verdict `json:"honeypot"`
 
 	// Protection (SZL 0x0132 index 4).
 	ProtectionRead bool                  `json:"protection_read"`
@@ -61,6 +66,7 @@ func ProbePosture(ctx context.Context, conn io.ReadWriter) (PostureResult, error
 	res.SerialNumber = ci.serialNumber
 	res.StationName = ci.stationName
 	res.PlantDesignation = ci.plantDesignation
+	res.Honeypot = ci.honeypot()
 
 	rec, ok, err := readProtectionRecord(conn)
 	if err != nil {

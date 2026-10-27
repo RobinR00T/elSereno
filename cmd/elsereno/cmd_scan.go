@@ -56,6 +56,7 @@ func newScanCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.outputFormat, "output-format", "ndjson", "ndjson|csv|stix")
 	cmd.Flags().StringVar(&opts.outputPath, "output", "-", "output file (`-` for stdout)")
 	cmd.Flags().BoolVar(&opts.noProgress, "no-progress", false, "disable the progress bar")
+	cmd.Flags().StringVar(&opts.vantage, "vantage", "", "label for where this scan runs from (e.g. it-office-vlan), added to every ndjson/stix finding; letters, digits and . _ : - only")
 	return cmd
 }
 
@@ -71,6 +72,8 @@ type scanOpts struct {
 	outputPath    string
 	noProgress    bool
 	plugins       []string
+	// vantage labels every finding with where the scan ran from.
+	vantage string
 	// scope is the loaded --scope (nil without one).
 	scope *scope.Scope
 }
@@ -78,6 +81,9 @@ type scanOpts struct {
 func runScan(cmd *cobra.Command, opts scanOpts) error {
 	if opts.inputKind == "" {
 		return fail(core.ExitUsage, fmt.Errorf("--input required; e.g. list:targets.txt, nmap:out.xml, stdin"))
+	}
+	if !validVantage(opts.vantage) {
+		return fail(core.ExitUsage, fmt.Errorf("--vantage %q: use 1-64 letters, digits, '.', '_', ':' or '-'", opts.vantage))
 	}
 
 	cfg, _, err := loadConfig()
@@ -131,7 +137,7 @@ func execScan(ctx context.Context, cfg config.Config, opts scanOpts, targets []c
 
 	warnOptInAnyPort(os.Stderr, runs)
 
-	write, cleanup, err := scanOutput(out, opts.outputFormat)
+	write, cleanup, err := scanOutput(out, opts.outputFormat, opts.vantage)
 	if err != nil {
 		return err
 	}
@@ -256,14 +262,18 @@ func planScan(plugins []core.Plugin, targets []core.Target) ([]pluginRun, int64)
 // scanOutput builds the writer for the selected output format: it
 // receives each finding with the target it was probed on. cleanup must
 // be called when draining is done (csv flushes on Close).
-func scanOutput(out io.Writer, format string) (func(core.Finding, core.Target) error, func(), error) {
+func scanOutput(out io.Writer, format, vantage string) (func(core.Finding, core.Target) error, func(), error) {
 	switch format {
 	case "ndjson":
 		w := ndjsonout.NewWriter(out)
+		w.Vantage = vantage
 		return func(f core.Finding, t core.Target) error {
 			return w.WriteFinding(f, targetAddr(t), int(t.Port))
 		}, func() {}, nil
 	case "csv":
+		if vantage != "" {
+			return nil, nil, fail(core.ExitUsage, errors.New("--vantage is carried by ndjson and stix; the csv column set is a stable contract"))
+		}
 		w := csvout.NewWriter(out)
 		return func(f core.Finding, t core.Target) error {
 				return w.WriteFinding(f, targetAddr(t), t.Port)
@@ -274,6 +284,7 @@ func scanOutput(out io.Writer, format string) (func(core.Finding, core.Target) e
 		// STIX 2.1 bundle: buffered in memory + flushed on
 		// cleanup. v1.15 chunk 3.
 		w := stixout.NewWriter(out)
+		w.Vantage = vantage
 		return func(f core.Finding, t core.Target) error {
 				return w.WriteFinding(f, targetAddr(t), int(t.Port))
 			}, func() {
@@ -396,4 +407,20 @@ func noTargetsErr(inputKind string, dropped int) error {
 		return fmt.Errorf("no targets after scope filter")
 	}
 	return fmt.Errorf("--input %s gave no targets", inputKind)
+}
+
+// validVantage accepts "" or a 1-64 character label of letters, digits
+// and . _ : - so it lands verbatim in ndjson, stix labels and tickets.
+func validVantage(v string) bool {
+	if len(v) > 64 {
+		return false
+	}
+	for _, r := range v {
+		ok := r == '.' || r == '_' || r == ':' || r == '-' ||
+			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !ok {
+			return false
+		}
+	}
+	return true
 }

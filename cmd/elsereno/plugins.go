@@ -28,10 +28,12 @@ import (
 	"local/elsereno/internal/protocols/pbxhttp"
 	"local/elsereno/internal/protocols/pcworx"
 	"local/elsereno/internal/protocols/proconos"
+	"local/elsereno/internal/protocols/profinetcm"
 	"local/elsereno/internal/protocols/redlion"
 	"local/elsereno/internal/protocols/s7"
 	"local/elsereno/internal/protocols/sip"
 	"local/elsereno/internal/protocols/slmp"
+	"local/elsereno/internal/protocols/tristation"
 	"local/elsereno/internal/protocols/twincat"
 	"local/elsereno/internal/protocols/xot"
 )
@@ -84,6 +86,11 @@ func init() {
 	// of the default read-only sweep; sends the channel-open PDU only when
 	// named via --plugin codesys-active).
 	core.Register(core.Plugin{PluginMetadata: codesys.DefaultActive().Metadata(), Factory: func() core.Protocol { return codesys.DefaultActive() }})
+	// profinet-cm: opt-in (spec-grounded, not capture-validated).
+	core.Register(core.Plugin{PluginMetadata: profinetcm.Default().Metadata(), Factory: func() core.Protocol { return profinetcm.Default() }})
+	// tristation: opt-in (DefaultPort 0 / OptIn). A Triconex safety
+	// controller is never touched by the default sweep.
+	core.Register(core.Plugin{PluginMetadata: tristation.Default().Metadata(), Factory: func() core.Protocol { return tristation.Default() }})
 	core.Register(core.Plugin{PluginMetadata: redlion.Default().Metadata(), Factory: func() core.Protocol { return redlion.Default() }})
 	core.Register(core.Plugin{PluginMetadata: pcworx.Default().Metadata(), Factory: func() core.Protocol { return pcworx.Default() }})
 	core.Register(core.Plugin{PluginMetadata: mms.Default().Metadata(), Factory: func() core.Protocol { return mms.Default() }})

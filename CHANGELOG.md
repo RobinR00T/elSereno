@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Go toolchain bumped to 1.26.10 for GO-2026-6809** (crypto/x509
+  distrusts compromised intermediate certificates). govulncheck reached
+  it through the TLS handshake in `plaintext-check`; the stdlib fix lands
+  in go1.26.10. `go.mod` `toolchain` and the Dockerfile builder image
+  move together; the `go` directive (minimum 1.26.0) is unchanged.
+
+### Added
+
+- **Port catalogue and IT-port sweep.** `internal/exposure/ports.go`
+  catalogues each port with its transport, category
+  (it-cleartext/it-encrypted/it-management/ot), secure alternative and
+  TLS-check hint. `elsereno discover --it-ports` extends discovery with
+  the IT management ports that commonly sit one hop from an OT cell
+  (RDP 3389, MSSQL 1433, SSH 22, ...); `elsereno plaintext-check --list-ports`
+  prints the catalogue. UDP entries (SNMP 161, TriStation 1502,
+  PROFINET-CM 34964, BACnet 47808) carry their own transport, so a UDP
+  service is no longer mistaken for the TCP port of the same number
+  (PITF-105).
+- **TriStation (Triconex SIS) probe**, opt-in UDP 1502, in two modes
+  selected by exactly one of `--active`/`--passive`. Active sends TCM
+  CONNECT, classifies, then DISCONNECT (no command); `--status` reads
+  the CP status (key switch, run state, firmware, project name).
+  Passive reads a pcap/pcapng with `--file` and classifies TriStation
+  datagrams without touching the network. A hit on a safety
+  instrumented system scores critical. Wire format and CRC-16/ARC
+  validated against a synthetic capture (`examples/captures/`); the
+  plugin registers as `tristation` and stays out of the default sweep.
+- **PROFINET-CM probe**, opt-in UDP 34964: a DCE/RPC endpoint-mapper
+  lookup that matches `profinet-cm-lookup.nse` byte for byte and
+  classifies the reply (device type, order ID, HW/SW revision).
+  Spec-grounded, not yet capture-validated; registers as `profinet-cm`.
+- **Conpot honeypot detection in the S7 probe.** `s7 probe-identity`
+  and `probe-posture` now carry a honeypot verdict built from the
+  Conpot default signatures (serial numbers, plant identifiers); a
+  strong match flags the target as a likely decoy so findings are not
+  read as a real PLC.
+- **`scan --vantage <label>`** records the observation point on every
+  finding and in the NDJSON and STIX output (STIX adds a
+  `vantage:<label>` label), so scans from different network segments
+  stay distinguishable. CSV keeps its frozen `csv:v1` contract and
+  refuses the flag.
+- **Standards traceability for ATT&CK for ICS and IEC 62443-3-3.**
+  `elsereno standards --standard <key>` filters the catalogue to one
+  framework; `internal/standards` now maps protocols to MITRE ATT&CK
+  for ICS (matrix v20, current IDs only, PITF-104) and
+  IEC 62443-3-3 system requirements alongside the existing
+  NIST SP 800-82r4 mapping.
+- **`creds-check reuse`** (offensive build): checks whether credentials
+  from your own store (a 0600 file, Vault KV v2 or a JSON endpoint) are
+  reused on an OT device's HTTP-Basic or SSH service. It only verifies
+  authentication (SSH opens no session and runs no command), gates on a
+  baseline unauthenticated probe, needs `--confirm-authorized`, and
+  audits every attempt as `offensive_creds_reuse` with a salted
+  fingerprint of the password, never the password itself.
+
 ### Documentation
 
 - Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.

@@ -3,6 +3,8 @@ package s7
 import (
 	"context"
 	"io"
+
+	"local/elsereno/internal/honeypot"
 )
 
 // pduRefs for the two identity SZL reads (opaque, echoed by the PLC).
@@ -27,6 +29,10 @@ type IdentityResult struct {
 	SerialNumber     string `json:"serial_number"`
 	StationName      string `json:"station_name"`
 	PlantDesignation string `json:"plant_designation"`
+
+	// Honeypot flags identities matching the published defaults of an
+	// ICS honeypot (internal/honeypot): evidence, not proof.
+	Honeypot honeypot.Verdict `json:"honeypot"`
 }
 
 // ProbeIdentity drives the S7 handshake and reads the two identity SZL
@@ -62,5 +68,16 @@ func ProbeIdentity(ctx context.Context, conn io.ReadWriter) (IdentityResult, err
 	res.SerialNumber = ci.serialNumber
 	res.StationName = ci.stationName
 	res.PlantDesignation = ci.plantDesignation
+	res.Honeypot = ci.honeypot()
 	return res, nil
+}
+
+// honeypot checks the component identity against the honeypot catalogue.
+func (ci componentIdentInfo) honeypot() honeypot.Verdict {
+	return honeypot.Check("s7", map[string]string{
+		honeypot.FieldSerial:     ci.serialNumber,
+		honeypot.FieldStation:    ci.stationName,
+		honeypot.FieldModuleType: ci.moduleType,
+		honeypot.FieldPlant:      ci.plantDesignation,
+	})
 }

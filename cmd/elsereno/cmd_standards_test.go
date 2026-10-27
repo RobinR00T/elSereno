@@ -32,6 +32,9 @@ func TestStandardsMappingMatchesRegisteredPlugins(t *testing.T) {
 	for _, p := range core.RegisteredPlugins() {
 		registered[p.Name] = true
 	}
+	// Not plugins: exposure categories reported by plaintext-check and
+	// discover --it-ports.
+	registered["it-management"] = true
 	for _, proto := range standards.Protocols() {
 		if !registered[proto] {
 			t.Errorf("standards maps %q but no plugin with that name is registered", proto)

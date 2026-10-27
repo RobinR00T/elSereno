@@ -696,5 +696,19 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `.goreleaser.yml` `dockers_v2[0]`: `ids: [elsereno-default]`, `dockerfile: Dockerfile.goreleaser`.
 **Ver**: `Dockerfile.goreleaser`, `.goreleaser.yml`; run 39285268165; 19-10-2026.
 
+## PITF-104: IDs de ATT&CK for ICS revocados o deprecados en el mapeo
+**Síntoma**: un mapeo a MITRE ATT&CK for ICS cita un ID (p. ej. T0812 Default Credentials, T0855, T0856, T0891, o el deprecado T0807) que una versión de la matriz ya retiró; el operador acaba apuntado a un comportamiento que la matriz ya no describe.
+**Causa**: ATT&CK revoca y depreca IDs entre versiones (los revocados se pliegan en Enterprise ATT&CK). Un ID copiado de memoria o de un mapeo viejo no se nota roto: sigue pareciendo un ID válido.
+**Regla**: el mapeo se fija a una versión concreta de la matriz (hoy v20) y solo usa IDs vigentes en esa versión. Antes de escribir un ID se comprueba su estado en la matriz de esa versión; un revocado/deprecado se sustituye por el vigente (Default/Hardcoded Credentials -> T0859 Valid Accounts). `internal/standards/attackics.go` es la única fuente de los IDs; la tabla de higiene vive en `docs/standards/mitre-attack-ics.md`.
+**Implementación correcta**: IDs vigentes usados: T0888, T0843, T0858, T0886, T0859, T0836, T0801, T0861, T0822. Evitados: T0812, T0855, T0856, T0891 (revocados), T0807 (deprecado).
+**Ver**: `internal/standards/attackics.go`, `docs/standards/mitre-attack-ics.md`; 27-10-2026.
+
+## PITF-105: puertos UDP metidos en una tabla que asumía TCP
+**Síntoma**: un plugin UDP (TriStation 1502/udp, PROFINET-CM 34964/udp, SNMP 161/udp) resuelto por número de puerto en una tabla que solo guardaba el transporte implícito TCP se clasifica como el servicio TCP homónimo o no se encuentra.
+**Causa**: el catálogo de puertos original indexaba solo por número y daba por supuesto TCP. El mismo número vive en TCP y en UDP con servicios distintos; sin el transporte en la clave, el lookup es ambiguo.
+**Regla**: `PortEntry` lleva `Transport` explícito y `Lookup(port)` prefiere TCP pero conserva ambas entradas; cualquier consumidor que pregunte por un servicio UDP pasa el transporte. Un puerto nuevo UDP se añade con su `Transport: TransportUDP`, nunca reutilizando la fila TCP.
+**Implementación correcta**: `internal/exposure/ports.go`: filas separadas 161/udp, 1502/udp, 34964/udp, 47808/udp con `Transport` propio.
+**Ver**: `internal/exposure/ports.go`, `internal/exposure/ports_test.go`; 27-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

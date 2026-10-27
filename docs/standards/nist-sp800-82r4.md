@@ -95,3 +95,10 @@ NIST SP 800-82r4 ipd (Initial Public Draft), September 2026,
 `https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-82r4.ipd.pdf`.
 Quotations are from Appendix C.2.2. This is a draft; re-check the table
 numbering and wording against the final publication.
+
+## Related mappings
+
+The same findings also carry MITRE ATT&CK for ICS and ISA/IEC 62443-3-3
+references; see [mitre-attack-ics.md](mitre-attack-ics.md) and
+[iec62443-3-3.md](iec62443-3-3.md). Select one catalogue with
+`elsereno standards --standard nist|attack-ics|iec62443`.

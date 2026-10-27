@@ -51,6 +51,7 @@ qué orden, con qué argumentos**.
    24. [legal · version · diff · proxy · repl · init · token](#724-otros-verbos)
    25. [Probes de exposición profunda](#725-probes-de-exposición-profunda-read-only-y-trazabilidad)
    26. [modbus monitor, escrituras en una captura](#726-modbus-monitor)
+   27. [tristation, SIS Triconex (pasivo y activo)](#727-tristation)
 8. [El dashboard web](#8-el-dashboard-web)
 9. [Workflows típicos](#9-workflows-típicos)
 10. [Troubleshooting](#10-troubleshooting)
@@ -378,7 +379,7 @@ sólo está admitido para CI / cron con rationale documentado.
 
 | Variant       | Binary name           | Incluye                                                 | Excluye                          | Tamaño   |
 |---------------|-----------------------|---------------------------------------------------------|----------------------------------|----------|
-| **default**   | `elsereno`            | scan, discover, dashboard, TUI, 35 plugins read-only    | writes / dial / harvest          | ~23.2 MB |
+| **default**   | `elsereno`            | scan, discover, dashboard, TUI, 37 plugins read-only    | writes / dial / harvest          | ~23.2 MB |
 | **offensive** | `elsereno-offensive`  | todo lo anterior + 18 proxies write-gated + dial + SMS  | nada                             | ~23.9 MB |
 | **mini**      | `elsereno-mini`       | todo default menos `serve` / `api` / `tui`              | dashboard + OpenAPI + TUI        | ~21.5 MB |
 
@@ -1088,16 +1089,18 @@ targets:
 
 ### 7.21 `standards`
 
-Vuelca la trazabilidad de cada plugin de protocolo a las tablas del NIST
-SP 800-82 r4. La salida no es una tabla alineada: es un bloque por
-protocolo, con cada vulnerabilidad del estándar indentada debajo. Con
-`--protocol` se filtra a uno solo.
+Vuelca la trazabilidad de cada plugin de protocolo a tres estándares:
+NIST SP 800-82 r4, MITRE ATT&CK for ICS v20 e ISA/IEC 62443-3-3. La
+salida no es una tabla alineada: es un bloque por protocolo, con cada
+referencia indentada debajo. Con `--protocol` se filtra a uno solo; con
+`--standard` se elige un único catálogo.
 
 **Flags importantes:**
 
-| Flag         | Para qué                                         |
-|--------------|--------------------------------------------------|
-| `--protocol` | Filtra a un único plugin (p. ej. `s7-exposure`). |
+| Flag         | Para qué                                                  |
+|--------------|-----------------------------------------------------------|
+| `--protocol` | Filtra a un único plugin (p. ej. `s7-exposure`).          |
+| `--standard` | `nist` (por defecto el conjunto), `attack-ics` o `iec62443`; un valor inválido sale con 64. |
 
 **Ejemplos:**
 
@@ -1331,6 +1334,10 @@ elsereno fingerprint probe --plugin s7-exposure    --target plc:102  --json
 elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
 # Credenciales por defecto (build offensive, USO AUTORIZADO):
 elsereno-offensive creds-check http --target https://hmi.internal --confirm-authorized
+# Reutilización de credenciales IT en OT (build offensive, USO AUTORIZADO):
+# credenciales de tu almacén (fichero 0600, Vault o endpoint JSON), solo
+# verifica auth, cada intento auditado:
+elsereno-offensive creds-check reuse --protocol ssh --target plc:22 --creds-file ./svc.600 --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
 # Catálogo de trazabilidad al estándar:
 elsereno standards --protocol opcua-exposure --json
 ```
@@ -1378,6 +1385,43 @@ tshark -r planta.pcap -Y mbtcp -T fields -e tcp.payload > modbus-frames.txt
 
 El fichero de tramas de arriba es el de la receta offline de
 [EXAMPLES](EXAMPLES.md) (`examples/run-examples.sh offline`).
+
+### 7.27 `tristation`
+
+Triconex / TriStation (sistema instrumentado de seguridad, UDP 1502): el
+protocolo que usó TRITON en 2017. Un controlador de seguridad es la última
+capa entre un proceso descontrolado y el daño a personas, así que el verbo
+pide exactamente un modo:
+
+| Flag        | Para qué                                                       |
+|-------------|----------------------------------------------------------------|
+| `--passive` | Decodifica una captura (`--file` pcap/pcapng). No toca la red.  |
+| `--active`  | Manda CONNECT y DISCONNECT a `--target host:1502`; sin comando. |
+| `--status`  | Con `--active`: manda un Get CP status de solo lectura.         |
+| `--file`    | Captura para `--passive`.                                       |
+| `--json`    | Informe en JSON.                                                |
+
+```bash
+# Offline, captura de ejemplo sintética del repo:
+elsereno tristation --passive --file examples/captures/tristation-demo.pcap
+
+# Contra un controlador en vivo (solo con autorización, en ventana):
+elsereno tristation --active --target sis.example:1502 --status
+```
+
+El modo pasivo marca cada comando que cambia el programa de seguridad o el
+estado de ejecución y decodifica el estado del CP (posición de la llave,
+run state, proyecto y versión). El plugin es opt-in (`DefaultPort 0`): no
+entra en un `discover`/`scan` por defecto. Detalle en
+[docs/protocols/tristation.md](protocols/tristation.md). El sondeo
+PROFINET-CM (UDP 34964, también opt-in, "spec-grounded") se lanza con
+`fingerprint probe --plugin profinet-cm --target host:34964`.
+
+**Otros añadidos de exposición:** `discover --it-ports` añade al barrido
+los puertos TCP de IT (SSH, RDP, VNC, SMB, MS SQL, Kerberos, LDAP);
+`plaintext-check --list-ports` imprime el catálogo de puertos con su
+categoría; `scan --vantage <etiqueta>` marca cada finding (ndjson y STIX)
+con el punto de red desde el que se vio.
 
 ---
 
@@ -2190,6 +2234,9 @@ descuido. Números ≤3 dígitos están **bloqueados duro** (evita marcar
 Cada escritura ofensiva produce en el audit log:
 - `offensive_write` con todos los parámetros + hash del
   payload.
+- `offensive_creds_reuse`, un apunte por credencial probada por
+  `creds-check reuse`: usuario, destino, veredicto y la huella salada
+  de la contraseña (nunca la contraseña en claro).
 
 (El catálogo tiene un tipo `scope_applied`, pero nada lo emite: las
 escrituras ofensivas no pasan por el scope.)

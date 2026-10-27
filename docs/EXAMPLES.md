@@ -76,7 +76,7 @@ elsereno doctor
 dueño de los sistemas. `doctor` comprueba el entorno:
 
 ```text
-[OK]    go runtime, go1.26.9
+[OK]    go runtime, go1.26.10
 [OK]    platform, darwin/arm64
 [SKIP]  privileged scan, not root; not needed: scan and discover use ordinary TCP/UDP sockets
 [SKIP]  nmap, not on PATH; optional: elsereno never runs it, --input nmap:FILE reads XML made elsewhere
@@ -297,6 +297,24 @@ zoomeye, onyphe, binaryedge) necesita `--api-creds-file`; no se ejecuta
 aquí porque pide claves reales. `--input internetdb:` no necesita clave:
 sección 16.
 
+### Etiqueta de vantage (desde dónde se ve)
+
+`--vantage <etiqueta>` marca cada finding con el punto de la red desde el
+que corre el scan. El mismo servicio OT visto desde dos vantages es la
+prueba de un conducto abierto (62443 SR 5.1):
+
+```bash
+elsereno scan --input list:targets.txt --scope scope.yaml --no-progress --plugin slmp --vantage it-office-vlan --output findings.ndjson
+```
+
+La etiqueta viaja en cada línea NDJSON (y como label `vantage:<etiqueta>`
+en STIX); el conjunto de columnas de CSV es un contrato estable, así que
+`--vantage` con `--output-format csv` se rechaza (exit 64):
+
+```json
+{"schema":"ndjson:v1","run_id":"","target_id":"","address":"127.0.0.1","port":5007,"protocol":"slmp","severity":"high","score":77,"factors":{"auth_state":95,"capability":75,"cve_exposure":45,"exposure":75,"impact_class":75,"protocol_risk":80},"created_at":"2026-10-27T15:17:26.730635Z","standards":[{"standard":"NIST SP 800-82 r4","table":"Table 16","vuln":"Use of unsecure OT protocols"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0888","vuln":"Remote System Information Discovery"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0836","vuln":"Modify Parameter"},{"standard":"ISA/IEC 62443-3-3","table":"SR 1.2","vuln":"Software process and device identification and authentication"},{"standard":"ISA/IEC 62443-3-3","table":"SR 2.1","vuln":"Authorization enforcement"},{"standard":"ISA/IEC 62443-3-3","table":"SR 5.1","vuln":"Network segmentation"}],"vantage":"it-office-vlan"}
+```
+
 ## 8. Leer los findings: triage, explain, why, scoring
 
 `triage` agrupa los findings en cuatro cubos:
@@ -383,6 +401,21 @@ modbus
 Sin `--protocol` lista todos; con `--json` da el catálogo entero. Los
 mismos datos van en el campo `standards` de cada finding.
 
+`--standard` elige un catálogo: `nist` (por defecto el conjunto),
+`attack-ics` (técnicas MITRE ATT&CK for ICS v20) o `iec62443`
+(requisitos ISA/IEC 62443-3-3):
+
+```bash
+elsereno standards --standard attack-ics --protocol tristation
+```
+
+```text
+tristation
+    MITRE ATT&CK for ICS v20 T0888: Remote System Information Discovery
+    MITRE ATT&CK for ICS v20 T0843: Program Download
+    MITRE ATT&CK for ICS v20 T0858: Change Operating Mode
+```
+
 ## 10. Descubrir puertos ICS: discover
 
 `discover` hace un TCP connect a los puertos por defecto de todos los
@@ -403,6 +436,36 @@ El 1502 no aparece porque no es puerto por defecto de ningún plugin. El
 5007 sale dos veces porque dos plugins lo declaran, y el total cuenta las
 dos líneas. Para una lista de IPs en vez de un CIDR: `--hosts fichero`.
 `--max-hosts` (256 por defecto) limita cuántas direcciones recorre.
+
+`--it-ports` añade al barrido los puertos TCP de IT del catálogo (SSH,
+RDP, VNC, SMB, MS SQL, Kerberos, LDAP): un servicio de gestión de IT en
+un segmento OT es el camino típico de IT a OT (historians, estaciones de
+ingeniería, controladores de dominio).
+
+```bash
+elsereno discover --auto 127.0.0.1/32 --it-ports --scope scope.yaml
+```
+
+El catálogo completo de puertos, con su categoría (it-cleartext,
+it-encrypted, it-management, ot) y su alternativa cifrada, sale de
+`plaintext-check`:
+
+```bash
+elsereno plaintext-check --list-ports
+```
+
+```text
+PORT       CATEGORY       PROTOCOL                          SECURE ALTERNATIVE              NOTE
+21/tcp     it-cleartext   ftp                               ftps / sftp
+22/tcp     it-management  ssh                                                               encrypted remote shell; check who can reach it from IT
+...
+3389/tcp   it-management  rdp                                                               Remote Desktop to Windows HMIs, historians and engineering workstations
+```
+
+`--list-ports --json` da el catálogo entero. Un servicio de gestión (RDP,
+MS SQL, SSH) se reporta como `it-management`, no como "cleartext": RDP y
+TDS pueden ir cifrados, y el hallazgo es su presencia en OT, no el texto
+en claro.
 
 ## 11. Sondear un solo servicio
 
@@ -544,6 +607,43 @@ DCP Frame
   Blocks: 1
     [0] Option=0xFF(All) Sub=0xFF Length=2 BlockInfo=0x0000 DataLen=0
 ```
+
+**TriStation (Triconex SIS).** Decodificar una captura UDP/1502 sin tocar
+la red. El repo trae una captura de ejemplo totalmente sintética
+(direcciones `192.0.2.0/24`, proyecto ficticio `DEMO-SIS`):
+
+```bash
+elsereno tristation --passive --file examples/captures/tristation-demo.pcap
+```
+
+```text
+UDP datagrams: 6, TriStation frames: 6, undecodable on 1502: 0
+Controller: 192.0.2.20:1502
+  CONNECT REPLY                1
+  CONNECT REQUEST              1
+  DISCONN REQUEST              1
+  Get CP status                1
+  Get CP status response       1
+  Run program                  1
+CP status from 192.0.2.20:1502: key PROGRAM, RUNNING, project "DEMO-SIS" v1.4 (downloaded 2023-11-14T22:13:20Z)
+[!] key switch in PROGRAM or REMOTE: the safety program can be changed over the network
+[!] 1 command(s) that change the safety program or run state:
+  2023-11-14T22:15:23Z  192.0.2.10:50000 -> 192.0.2.20:1502  Run program
+  ref: NIST SP 800-82 r4 Table 16 Use of unsecure OT protocols
+  ref: MITRE ATT&CK for ICS v20 T0888 Remote System Information Discovery
+  ref: MITRE ATT&CK for ICS v20 T0843 Program Download
+  ref: MITRE ATT&CK for ICS v20 T0858 Change Operating Mode
+  ref: ISA/IEC 62443-3-3 SR 1.2 Software process and device identification and authentication
+  ref: ISA/IEC 62443-3-3 SR 2.1 Authorization enforcement
+  ref: ISA/IEC 62443-3-3 SR 5.1 Network segmentation
+```
+
+Marca cada comando que cambia el programa de seguridad o el estado de
+ejecución. Lee pcap clásico y pcapng. Contra un controlador en vivo (solo
+con autorización, en ventana de mantenimiento):
+`elsereno tristation --active --target sis:1502 --status` manda un CONNECT
+y un Get CP status de solo lectura, y luego DISCONNECT. Ver
+[docs/protocols/tristation.md](protocols/tristation.md).
 
 ## 13. Cadena de auditoría
 

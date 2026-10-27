@@ -23,7 +23,10 @@ func TestProtocolForPort(t *testing.T) {
 		secure   string
 	}{
 		{502, "modbus", ""},
-		{102, "s7comm / iso-tsap", ""},
+		{102, "s7comm / iec61850-mms (iso-tsap)", ""},
+		{3389, "rdp", ""},
+		{1433, "mssql", ""},
+		{161, "snmp", "snmpv3"},
 		{80, "http", "https"},
 		{23, "telnet", "ssh"},
 		{44818, "ethernet-ip", ""},

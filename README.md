@@ -71,7 +71,7 @@ tar xzf "elsereno_${VERSION}_${OS}_${ARCH}.tar.gz"
 
 # Two binaries bundled: elsereno (read-only) + elsereno-offensive
 ./elsereno_${VERSION}_${OS}_${ARCH}/elsereno version
-./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 30
+./elsereno_${VERSION}_${OS}_${ARCH}/elsereno plugins list | wc -l   # 37
 ```
 
 **Verify the GPG-signed tag** (canonical provenance for v1.8+):
@@ -147,11 +147,17 @@ transport policy behind the `--vault-passphrase-file` flag.
 
 ## Supported protocols
 
-The default build registers **35 plugins**: 32 in the default
-`discover`/`scan` sweep plus 3 opt-in deep probes that only run when
+The default build registers **37 plugins**: 32 in the default
+`discover`/`scan` sweep plus 5 opt-in deep probes that only run when
 named with `--plugin` (`s7-exposure`, `opcua-exposure`,
-`codesys-active`). Run `elsereno plugins list` for the authoritative
-list on your binary.
+`codesys-active`, `tristation`, `profinet-cm`). Run `elsereno plugins
+list` for the authoritative list on your binary. `elsereno discover
+--it-ports` extends discovery with the IT management ports that sit one
+hop from an OT cell, `elsereno plaintext-check --list-ports` prints the port
+catalogue, and `elsereno scan --vantage <label>` tags each finding with
+its observation point. Standards traceability now covers NIST
+SP 800-82r4, MITRE ATT&CK for ICS and IEC 62443-3-3 (`elsereno standards
+--standard <key>`).
 Writes, exploits, credential harvest, dial, and the **write-gated
 proxies** (18 protocols) ship behind `-tags offensive` with the
 ADR-039 triple-confirm wrapper. Each gate scopes traffic at

@@ -85,6 +85,13 @@ const (
 	// forwarded, refused, refused_silent, discarded, suppressed for a
 	// summary. Requires migration 00020.
 	EventDNP3GateDecision EventType = "dnp3_gate_decision"
+	// EventOffCredsReuse records one credential-reuse check: whether a
+	// credential drawn from the operator's own store (a 0600 file, a
+	// Vault KV v2 secret or a JSON endpoint) was accepted by a target
+	// over HTTP Basic or SSH. The payload NEVER carries the password,
+	// only its source label and a salted fingerprint, the target, the
+	// protocol, and accepted true/false. Requires migration 00022.
+	EventOffCredsReuse EventType = "offensive_creds_reuse" // #nosec G101 -- event name
 )
 
 // AllEventTypes is the canonical sorted list used by the synchronisation
@@ -105,6 +112,7 @@ var AllEventTypes = []EventType{
 	EventCWMPFirmwareVerify,
 	EventDNP3IINAlert,
 	EventDNP3GateDecision,
+	EventOffCredsReuse,
 }
 
 // IsProtectedMetadata reports whether a row with the given event type

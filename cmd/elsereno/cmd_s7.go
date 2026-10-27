@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"local/elsereno/internal/honeypot"
 	"local/elsereno/internal/protocols/s7"
 )
 
@@ -88,6 +90,7 @@ func runS7Probe(cmd *cobra.Command, target string, timeout time.Duration, jsonOu
 	printIdentField(cmd, "  Serial number", res.SerialNumber)
 	printIdentField(cmd, "  Station name", res.StationName)
 	printIdentField(cmd, "  Plant designation", res.PlantDesignation)
+	printHoneypot(cmd, res.Honeypot)
 	cmd.Println("Protection:")
 	if !res.ProtectionRead {
 		cmd.Println("  Protection SZL:         not readable (CPU refused or does not expose it)")
@@ -194,7 +197,16 @@ func runS7ProbeIdentity(cmd *cobra.Command, target string, timeout time.Duration
 	printIdentField(cmd, "Serial number", res.SerialNumber)
 	printIdentField(cmd, "Station name", res.StationName)
 	printIdentField(cmd, "Plant designation", res.PlantDesignation)
+	printHoneypot(cmd, res.Honeypot)
 	return nil
+}
+
+// printHoneypot warns when the identity matches honeypot defaults.
+func printHoneypot(cmd *cobra.Command, v honeypot.Verdict) {
+	if v.Suspect {
+		cmd.Printf("[!] POSSIBLE HONEYPOT: identity matches %s defaults (%s); verify before acting on this host\n",
+			v.Honeypot, strings.Join(v.Matches, ", "))
+	}
 }
 
 func printIdentField(cmd *cobra.Command, label, value string) {

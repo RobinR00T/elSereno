@@ -5,7 +5,7 @@
 # that carries both the toolchain Go version AND a patched Alpine
 # userland (the 1.26 patches moved off Alpine 3.22, whose newest 1.26
 # tag is only 1.26.0).
-ARG GO_VERSION=1.26.9
+ARG GO_VERSION=1.26.10
 ARG ALPINE_VERSION=3.24
 FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
 
