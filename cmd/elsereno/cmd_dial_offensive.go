@@ -19,9 +19,15 @@ import (
 // requireDialAllowed is the ADR-041 dispatch gate: recording
 // delivery intent needs --dial-allowed, so a dry-run (preview) can
 // never silently turn into a dispatch record. Until 2026-10-17 the
-// flag did not exist (PITF-087). An unknown disposition is left to the
-// batch/wardial validator.
+// flag did not exist (PITF-087). It also allowlists the disposition
+// so an arbitrary string can never be written into the audit chain
+// (L6); an empty disposition defaults to "preview" downstream.
 func requireDialAllowed(disposition string, dialAllowed bool) error {
+	switch disposition {
+	case "", "preview", "delivery-requested":
+	default:
+		return fail(core.ExitUsage, fmt.Errorf("--disposition %q is not recognised (want preview | delivery-requested)", disposition))
+	}
 	if disposition == "delivery-requested" && !dialAllowed {
 		return fail(core.ExitNoPerm, errors.New("--disposition delivery-requested requires --dial-allowed"))
 	}

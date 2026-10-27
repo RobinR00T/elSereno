@@ -24,7 +24,9 @@ type AllowedWrite struct {
 	// Unit is the Modbus unit identifier. 0 matches any unit.
 	Unit uint8
 	// FC is the function code the operator accepts. Only
-	// CategoryWrite FCs make sense here (5/6/15/16/22/23).
+	// CategoryWrite FCs make sense here (5/6/15/16/22/23). A zero FC
+	// is NOT a wildcard: Matches rejects it so a zero-value entry can
+	// never authorise every write (L5).
 	FC mbwire.FunctionCode
 	// StartAddr / EndAddr are the inclusive address range. Both
 	// zero matches any address.
@@ -33,10 +35,18 @@ type AllowedWrite struct {
 
 // Matches reports whether a parsed frame falls inside this entry.
 func (a AllowedWrite) Matches(f mbwire.Frame) bool {
+	// Fail-closed: a zero FC is never a real Modbus write function
+	// code, so a zero-value / unspecified entry authorises nothing.
+	// Without this guard AllowedWrite{} would match every write frame
+	// (StartAddr==0 && EndAddr==0 means any address), turning a blank
+	// or malformed allowlist row into a wildcard (L5).
+	if a.FC == 0 {
+		return false
+	}
 	if a.Unit != 0 && a.Unit != f.MBAP.Unit {
 		return false
 	}
-	if a.FC != 0 && a.FC != f.FunctionCode() {
+	if a.FC != f.FunctionCode() {
 		return false
 	}
 	if a.StartAddr == 0 && a.EndAddr == 0 {

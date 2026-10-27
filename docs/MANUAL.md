@@ -2214,6 +2214,8 @@ El proxy:
 - Para writes (FC 5/6/15/16/22/23): aplica el allowlist por
   `(unit, FC, rango-de-direcciones)`. Match → forward. Miss →
   excepción IllegalFunction (0x01) + audit entry; upstream no lo ve.
+  Una entrada con `fc` 0 (fila en blanco o `fc: 0`) se rechaza al
+  cargar: `fc` 0 no es un write FC y nunca actúa como comodín.
 - Para FC 8 (Diagnostics) gatea por sub-función: lecturas/contadores
   pasan; las mutantes (Force Listen Only 0x04 = DoS, Clear Counters
   0x0A, Restart 0x01, ...) se deniegan por defecto. Para autorizar una
@@ -2231,8 +2233,10 @@ SMS: `dial validate` valida un número, y `dial batch` y `dial wardial`
 validan, clasifican y auditan listas; la entrega por hardware es vNext.
 Registrar intención de entrega (`--disposition delivery-requested`) exige
 `--dial-allowed`: un dry-run no se convierte en registro de envío por
-descuido. Números ≤3 dígitos están **bloqueados duro** (evita marcar
-911, emergency, asistencia operador, etc.).
+descuido. `--disposition` sólo acepta `preview` (por defecto) o
+`delivery-requested`; cualquier otro valor se rechaza antes de tocar la
+cadena de auditoría. Números ≤3 dígitos están **bloqueados duro** (evita
+marcar 911, emergency, asistencia operador, etc.).
 
 ### Audit obligatorio
 

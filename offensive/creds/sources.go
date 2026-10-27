@@ -66,14 +66,17 @@ func LoadCredsFile(path string) ([]Credential, error) {
 		return parseJSONCreds([]byte(trimmed), label)
 	}
 	var out []Credential
-	for _, line := range strings.Split(content, "\n") {
+	for i, line := range strings.Split(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		u, p, ok := strings.Cut(line, ":")
 		if !ok {
-			return nil, fmt.Errorf("creds: %s: line %q is not user:pass", path, line)
+			// Report the line NUMBER, never the content: a malformed
+			// line is still a credential and must not reach an error
+			// string that lands in logs or stderr (L1).
+			return nil, fmt.Errorf("creds: %s: line %d is not user:pass", path, i+1)
 		}
 		out = append(out, Credential{User: u, Pass: p, Source: label})
 	}

@@ -731,5 +731,26 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `internal/audit/writer.go` `VerifyFileKeyedStrict` + `verifyEntryKeyedOnly`; `audit verify-file --strict`; comentarios de `computeHash` corregidos al límite real.
 **Ver**: `internal/audit/canonical.go`, `internal/audit/writer.go`, `cmd/elsereno/cmd_audit_verify.go`; ADR-013/015; 27-10-2026.
 
+## PITF-109: la línea de credencial malformada acababa en el mensaje de error
+**Síntoma**: `LoadCredsFile` devolvía `line %q is not user:pass` con la línea entera. Esa línea es una credencial (o algo que el operador trató como tal) y el error puede acabar en logs, en stderr de CI o en una captura de pantalla.
+**Causa**: usar el contenido como contexto de depuración. El número de línea identifica el problema igual de bien sin exponer el secreto.
+**Regla**: un mensaje de error sobre datos sensibles identifica la posición (nº de línea, offset, índice), nunca el contenido. Vale para parsers de credenciales, tokens, claves y cualquier entrada que el llamante trate como secreta.
+**Implementación correcta**: `offensive/creds/sources.go` reporta `line %d`; test `sources_l1_test.go`.
+**Ver**: `offensive/creds/sources.go`; 27-10-2026.
+
+## PITF-110: la doc del paquete afirmaba un control de seguridad que no estaba cableado
+**Síntoma**: `internal/web/doc.go` y `handlers/doc.go` describían auth dual (cookie + CSRF para HTML) y rutas `/login` `/logout`; la ayuda de `serve` citaba la clave CSRF como si protegiera peticiones. Ninguna de esas rutas existe y ningún handler consume la clave: la auth real es Bearer-only y nada está protegido contra CSRF.
+**Causa**: la doc se escribió sobre el diseño (ADR-014/017) y no se degradó cuando el middleware quedó pendiente (PITF-087). Un lector u operador cree que los endpoints HTML están protegidos cuando no lo están.
+**Regla**: la doc de un control de seguridad describe lo que está cableado hoy, no lo diseñado. Un control pre-provisionado pero no montado se marca explícito ("diseñado, no cableado, ver PITF-xxx"). Un campo derivado y guardado para uso futuro lleva un lector (un test que fija el invariante) para que no sea código muerto silencioso.
+**Implementación correcta**: `internal/web/doc.go`, `handlers/doc.go`, `cmd_serve.go` degradados a "Bearer-only, cookie/CSRF diseñado no cableado"; `csrfKey` documentado + test `csrf_nonce_test.go` que lo lee.
+**Ver**: `internal/web/server.go`; PITF-087; 27-10-2026.
+
+## PITF-111: una entrada de allowlist a cero valía como comodín fail-open
+**Síntoma**: `AllowedWrite{}` (todo a cero) hacía `Matches(f) == true` para cualquier write Modbus: `Unit==0` = cualquier unit, `FC==0` se saltaba la comprobación, `StartAddr==0 && EndAddr==0` = cualquier dirección. Una fila en blanco o `fc: 0` en el allowfile (o `--function 0`) autorizaba todas las escrituras.
+**Causa**: tratar el valor cero de cada campo como "comodín" sin exigir un discriminante concreto. Para dirección el comodín es intencionado; para FC no: `fc` 0 no es un write FC real, así que un cero es error del operador, no "cualquier FC".
+**Regla**: una entrada de allowlist a cero no autoriza nada (fail-closed). Exige al menos un discriminante concreto (aquí, un write FC válido) tanto en el punto de decisión (`Matches`) como al cargar (rechazo ruidoso), para que una fila malformada no se cuele como comodín.
+**Implementación correcta**: `offensive/write/modbus/gatedproxy.go` `Matches` rechaza `FC==0`; `buildModbusAllowlist` rechaza `fc=0`; tests `gatedproxy_l5_test.go`, `dial_modbus_low_offensive_test.go`.
+**Ver**: `offensive/write/modbus/gatedproxy.go`, `cmd/elsereno/cmd_proxy_offensive.go`; 27-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

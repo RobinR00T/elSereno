@@ -37,6 +37,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it through the TLS handshake in `plaintext-check`; the stdlib fix lands
   in go1.26.10. `go.mod` `toolchain` and the Dockerfile builder image
   move together; the `go` directive (minimum 1.26.0) is unchanged.
+- **Hardening sweep of the audit's low-severity findings
+  (PITF-109/110/111).** A malformed line in a `creds-check` secret file
+  no longer appears verbatim in the error (line number only, PITF-109).
+  The CSP nonce fails the request closed on a `crypto/rand` error instead
+  of serving a predictable zero nonce. The Modbus write proxy rejects a
+  zero-FC allowlist entry (a blank or `fc: 0` row) instead of treating it
+  as a write-everything wildcard, at both the match gate and the loader
+  (PITF-111). `dial batch`/`dial wardial` reject an unrecognised
+  `--disposition` before it can reach the audit chain. `telemetry.SafeField`
+  now escapes backslashes so a literal `\n` cannot be confused with an
+  escaped newline. The SSE writer strips CR/LF from the event kind and
+  frames every payload line as its own `data:` field, so a stray newline
+  cannot inject fields or events. The package docs for `internal/web`
+  stopped claiming a cookie/CSRF/login auth layer that is designed but
+  not wired (PITF-110); auth today is Bearer-token only.
 
 ### Added
 

@@ -1319,6 +1319,14 @@ func buildModbusAllowlist(opts proxyListenOpts) ([]modwrite.AllowedWrite, error)
 			EndAddr:   w.End,
 		})
 	}
+	// Reject a zero FC loudly here rather than let it reach the proxy
+	// as a silent wildcard (L5): an fc: 0 row (blank/malformed YAML or
+	// --function 0) authorises nothing, so it is an operator error.
+	for _, a := range allowed {
+		if a.FC == 0 {
+			return nil, fmt.Errorf("modbus allowlist: an entry has fc=0, which is not a write function code; specify a write FC (5/6/15/16/22/23)")
+		}
+	}
 	return allowed, nil
 }
 

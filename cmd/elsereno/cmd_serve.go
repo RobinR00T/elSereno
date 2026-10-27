@@ -35,9 +35,11 @@ func newServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Start the HTTP dashboard + /api/v1",
 		Long: "serve binds the HTTP server. It requires an initialised " +
-			"vault (ADR-017) because the CSRF key is derived from the " +
-			"master key via HKDF. Non-loopback binds additionally require " +
-			"--tls-cert, --tls-key, and --i-know-what-im-doing.",
+			"vault (ADR-017) because the CSRF key is pre-derived from the " +
+			"master key via HKDF for the not-yet-wired cookie/CSRF " +
+			"middleware (PITF-087); auth today is Bearer-token only. " +
+			"Non-loopback binds additionally require --tls-cert, " +
+			"--tls-key, and --i-know-what-im-doing.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runServe(cmd, opts)
 		},

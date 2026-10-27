@@ -183,7 +183,10 @@ func tsUnits(opts []byte, bo binary.ByteOrder) uint64 {
 		if code == 0 || 4+n > len(opts) {
 			break
 		}
-		if code == 9 && n >= 1 {
+		if code == 9 && n >= 1 && len(opts) >= 5 {
+			// len(opts) >= 5 is already implied by (4+n <= len(opts)
+			// && n >= 1), but assert it so a future refactor of the
+			// loop guard cannot turn opts[4] into an OOB read (L9).
 			v := opts[4]
 			switch {
 			case v&0x80 == 0 && v <= 9:
