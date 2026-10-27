@@ -119,3 +119,67 @@ func TestKeyed_MixedChainVerifies(t *testing.T) {
 		t.Fatalf("mixed keyed+unkeyed chain should verify with the key: %v", err)
 	}
 }
+
+// TestStrict_RejectsUnkeyedTail: an attacker who cannot forge the HMAC
+// can still append (or rewrite) an UNKEYED tail that the lenient
+// VerifyFileKeyed accepts by SHA-256; strict verification rejects it,
+// closing the downgrade (PITF-108).
+func TestStrict_RejectsUnkeyedTail(t *testing.T) {
+	path := tmpAuditPath(t)
+
+	kw, err := audit.OpenFileWriterKeyed(path, testMACKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendN(t, kw, audit.EventGenesis, audit.EventVaultInit)
+	_ = kw.Close()
+
+	// The attacker's position: no vault key, so they resume the chain
+	// and append an unkeyed entry whose prev_hash links correctly.
+	uw, err := audit.OpenFileWriter(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendN(t, uw, audit.EventVaultUnlock)
+	_ = uw.Close()
+
+	// Lenient mode accepts the downgraded tail.
+	if err := audit.VerifyFileKeyed(path, testMACKey); err != nil {
+		t.Fatalf("lenient verify should pass on a mixed chain: %v", err)
+	}
+	// Strict mode catches it.
+	if err := audit.VerifyFileKeyedStrict(path, testMACKey); !errors.Is(err, audit.ErrChainBroken) {
+		t.Fatalf("strict verify must reject the unkeyed tail, got %v", err)
+	}
+}
+
+// TestStrict_FullyKeyedPasses: a chain whose every entry is keyed
+// verifies under strict mode.
+func TestStrict_FullyKeyedPasses(t *testing.T) {
+	path := tmpAuditPath(t)
+	w, err := audit.OpenFileWriterKeyed(path, testMACKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendN(t, w, audit.EventGenesis, audit.EventVaultInit, audit.EventVaultUnlock)
+	_ = w.Close()
+
+	if err := audit.VerifyFileKeyedStrict(path, testMACKey); err != nil {
+		t.Fatalf("strict verify of a fully keyed chain should pass: %v", err)
+	}
+}
+
+// TestStrict_RequiresKey: strict verification needs the vault key.
+func TestStrict_RequiresKey(t *testing.T) {
+	path := tmpAuditPath(t)
+	w, err := audit.OpenFileWriterKeyed(path, testMACKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendN(t, w, audit.EventGenesis)
+	_ = w.Close()
+
+	if err := audit.VerifyFileKeyedStrict(path, nil); err == nil {
+		t.Fatal("strict verify without a key must error")
+	}
+}

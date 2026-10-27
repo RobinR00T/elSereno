@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/awnumar/memguard"
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
@@ -119,6 +120,11 @@ func entrypoint(args []string) int {
 	go func() {
 		<-sigs
 		second := <-sigs
+		// Hard exit skips deferred cleanup (e.g. vault.Lock in serve),
+		// so zeroize every memguard-backed secret (the vault master key
+		// above all) before the process dies. Honours the declared
+		// "zeroized on SIGINT/SIGTERM" invariant on the force-quit path.
+		memguard.Purge()
 		os.Exit(exitCodeForSignal(second))
 	}()
 

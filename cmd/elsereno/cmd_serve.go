@@ -127,6 +127,12 @@ func runServe(cmd *cobra.Command, opts serveOpts) error {
 	if err != nil {
 		return err
 	}
+	// Zeroize the vault master key when serve returns, including the
+	// graceful-shutdown path: the first SIGINT/SIGTERM cancels the
+	// command context (main.go NotifyContext), ExecuteContext unwinds,
+	// and this defer runs. The second-signal hard-exit path skips
+	// defers, so main.go purges all memguard buffers there instead.
+	defer v.Lock()
 
 	if opts.addr == "" {
 		opts.addr = "127.0.0.1:8787"

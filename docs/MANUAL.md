@@ -715,7 +715,7 @@ la chain y `verify` lo detecta.
 
 | Sub-comando     | Uso                                                                   |
 |-----------------|-----------------------------------------------------------------------|
-| `verify-file`   | Recorre la cadena del fichero (`--path`, por defecto `~/.elsereno/audit.jsonl`); `--vault-passphrase-file` para las entradas con HMAC. |
+| `verify-file`   | Recorre la cadena del fichero (`--path`, por defecto `~/.elsereno/audit.jsonl`); `--vault-passphrase-file` para las entradas con HMAC; `--strict` exige que toda entrada sea keyed (rechaza una cola unkeyed degradada, PITF-108). |
 | `export`        | Saca eventos para un SIEM: `--format ndjson\|cef\|syslog`, `--since 24h`, `--event-type`, `--path`. |
 | `serve`         | Daemon UDS centralizado (v1.26+, para múltiples processes); `--output` (ruta absoluta del JSONL, obligatoria). |
 | `verify`        | Sin implementar: valida flags y sale con 69.                          |
@@ -733,6 +733,8 @@ funciona hoy es la del fichero, `audit verify-file`.
 # Verificar full chain del archivo:
 elsereno audit verify-file
 
+# Verificación estricta tamper-proof (toda entrada keyed; PITF-108):
+elsereno audit verify-file --strict --vault-passphrase-file ~/.elsereno/pass.600
 
 # Levantar daemon UDS:
 elsereno audit serve --socket /var/run/elsereno-audit.sock
@@ -1336,8 +1338,11 @@ elsereno fingerprint probe --plugin opcua-exposure --target plc:4840 --json
 elsereno-offensive creds-check http --target https://hmi.internal --confirm-authorized
 # Reutilización de credenciales IT en OT (build offensive, USO AUTORIZADO):
 # credenciales de tu almacén (fichero 0600, Vault o endpoint JSON), solo
-# verifica auth, cada intento auditado:
-elsereno-offensive creds-check reuse --protocol ssh --target plc:22 --creds-file ./svc.600 --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
+# verifica auth, cada intento auditado. Enviar credenciales exige canal
+# autenticado: --tls-pin <sha256> (http-basic, fija el cert del leaf) o
+# --insecure-tls (ack de canal sin verificar; obligatorio en ssh):
+elsereno-offensive creds-check reuse --protocol ssh --target plc:22 --creds-file ./svc.600 --insecure-tls --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
+elsereno-offensive creds-check reuse --protocol http-basic --target https://hmi.internal --creds-file ./svc.600 --tls-pin 9f2c...<64 hex> --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
 # Catálogo de trazabilidad al estándar:
 elsereno standards --protocol opcua-exposure --json
 ```

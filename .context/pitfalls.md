@@ -717,5 +717,19 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `Makefile` target `fmt-check`, `ci: fmt-check lint ...`.
 **Ver**: `Makefile`, `.github/workflows/ci.yml` job `lint`; PITF-031; 27-10-2026.
 
+## PITF-107: un gate de TLS que comprueba presencia, no verificación
+**Síntoma**: con `database.tls_required=always` (o `auto` no-loopback) y un DSN `sslmode=require`, el arranque reportaba "TLS required: ok" aunque la conexión no autenticaba el certificado del servidor: cifrada pero MITM-able. El mismo patrón en `creds-check reuse`, que enviaba las credenciales reales del operador a una UI de dispositivo con `InsecureSkipVerify` ciego.
+**Causa**: `applyTLSPolicy` solo miraba `cc.TLSConfig != nil`. pgx deja `TLSConfig` no-nil con `InsecureSkipVerify=true` para `sslmode=require` (cifra, no valida). Presencia de TLS no es verificación de TLS. En `deviceClient` el skip-verify era el mismo para el fingerprint sin credenciales que para el verbo que sí las transmite.
+**Regla**: cuando una política exige TLS, exige que el peer se autentique, no solo que el enlace se cifre. Rechazar `InsecureSkipVerify` sin callback de verificación (`require` pelado); aceptar `verify-ca` (callback) y `verify-full`. Un canal que transmite credenciales necesita peer autenticado (pin del certificado) o una aceptación explícita del riesgo, nunca skip-verify por defecto.
+**Implementación correcta**: `internal/db/pool.go` `tlsVerifiesPeer` + `ErrTLSUnverified`; `creds-check reuse` `--tls-pin <sha256>` (VerifyConnection sobre el leaf) y `--insecure-tls` (ack obligatorio), el verbo se niega a correr sin uno de los dos.
+**Ver**: `internal/db/pool.go`, `cmd/elsereno/cmd_creds_reuse_offensive.go`; ADR-021; 27-10-2026.
+
+## PITF-108: cola unkeyed degradable en la cadena de auditoría
+**Síntoma**: `VerifyFileKeyed` daba "cadena íntegra" sobre un log cuya cola había sido reescrita por un atacante sin la clave del vault. El comentario de `computeHash` afirmaba "tamper-proof" y "cannot recompute the chain forward", más fuerte que la garantía real.
+**Causa**: la cadena mezcla entradas keyed (HMAC, con vault) y unkeyed (SHA-256, harvest sin vault), por diseño y en ambos sentidos. Una entrada unkeyed la puede forjar cualquiera con escritura al fichero, así que la cola posterior a la última entrada keyed (o una cadena entera unkeyed) es tamper-EVIDENTE, no tamper-proof: `verifyEntry` acepta SHA bajo verificación keyed y no hay marcador por entrada que distinga una degradación de una entrada unkeyed legítima.
+**Regla**: no afirmar tamper-proof donde solo hay tamper-evidente. Para una garantía tamper-proof sobre toda la cadena, el vault debe estar disponible en cada append y la verificación debe rechazar cualquier entrada unkeyed. La verificación laxa sigue existiendo para cadenas mixtas legítimas, con su límite documentado.
+**Implementación correcta**: `internal/audit/writer.go` `VerifyFileKeyedStrict` + `verifyEntryKeyedOnly`; `audit verify-file --strict`; comentarios de `computeHash` corregidos al límite real.
+**Ver**: `internal/audit/canonical.go`, `internal/audit/writer.go`, `cmd/elsereno/cmd_audit_verify.go`; ADR-013/015; 27-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.

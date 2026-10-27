@@ -274,12 +274,17 @@ ni ejecutar nada, y cada sondeo HTTP es un GET), exige
 `--confirm-authorized` y `--vault-passphrase-file`, y escribe cada intento
 en el log de auditoría. La contraseña nunca se imprime ni se audita: solo
 su origen y una huella con sal por ejecución. El almacén de credenciales
-se contacta con verificación TLS activada; la UI del dispositivo, sin
-verificar (suelen tener certificados autofirmados).
+se contacta con verificación TLS activada. Enviar tus credenciales al
+dispositivo exige un canal autenticado: en http-basic, `--tls-pin <sha256>`
+fija el certificado del dispositivo (vale con autofirmados y bloquea un
+MITM); `--insecure-tls` acepta de forma explícita un canal sin verificar
+(obligatorio en ssh, cuya host key no se verifica). Sin una de las dos, el
+comando se niega a correr, para no filtrar a un atacante en ruta las mismas
+credenciales que está probando.
 
 ```bash
 elsereno creds-check reuse --protocol ssh --target plc.internal:22 \
-  --creds-file ./ad-service-accounts.600 \
+  --creds-file ./ad-service-accounts.600 --insecure-tls \
   --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
 ```
 

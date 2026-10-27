@@ -292,7 +292,32 @@ func VerifyFile(path string) error {
 // entry otherwise. macKey (when non-empty) lets keyed entries verify;
 // unkeyed entries in the same chain still verify by SHA-256, and the
 // prev_hash linkage means a keyed entry anchors every entry before it.
+//
+// This is the lenient mode: because unkeyed (SHA-256) entries are
+// forgeable by anyone with write access to the file, a local attacker
+// can rewrite the entries AFTER the last keyed entry (or an entirely
+// unkeyed chain) without detection. Where the vault is always available
+// and every append is keyed, use VerifyFileKeyedStrict for a tamper-
+// proof guarantee over the whole chain (PITF-108).
 func VerifyFileKeyed(path string, macKey []byte) error {
+	return verifyFile(path, macKey, false)
+}
+
+// VerifyFileKeyedStrict is like VerifyFileKeyed but rejects any entry
+// that is not keyed (HMAC) with macKey: an unkeyed SHA-256 entry fails
+// with ErrChainBroken. This closes the downgrade in which an attacker
+// rewrites a keyed tail as unkeyed entries it can recompute (PITF-108).
+// It requires a non-empty macKey and a chain whose every entry was
+// written keyed; a chain that legitimately interleaves unkeyed harvest
+// entries will fail, which is why it is opt-in.
+func VerifyFileKeyedStrict(path string, macKey []byte) error {
+	if len(macKey) == 0 {
+		return fmt.Errorf("audit: strict verification requires the vault key")
+	}
+	return verifyFile(path, macKey, true)
+}
+
+func verifyFile(path string, macKey []byte, strict bool) error {
 	// #nosec G304 -- operator-supplied path
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -323,7 +348,11 @@ func VerifyFileKeyed(path string, macKey []byte) error {
 		if !bytesEqual(e.PrevHash, prev) {
 			return fmt.Errorf("%w: id=%d prev_hash mismatch", ErrChainBroken, e.ID)
 		}
-		if err := verifyEntry(macKey, e); err != nil {
+		verify := verifyEntry
+		if strict {
+			verify = verifyEntryKeyedOnly
+		}
+		if err := verify(macKey, e); err != nil {
 			return fmt.Errorf("%w: id=%d entry_hash mismatch", ErrChainBroken, e.ID)
 		}
 		prev = e.EntryHash

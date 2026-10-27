@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Audit-chain downgrade closed with strict verification (PITF-108).**
+  A local attacker with write access to `~/.elsereno/audit.jsonl` but
+  without the vault key could rewrite the unkeyed tail of the chain and
+  pass `audit verify-file`. New `audit verify-file --strict` (and
+  `audit.VerifyFileKeyedStrict`) rejects any non-keyed entry, giving a
+  tamper-proof guarantee over a fully-keyed chain. The misleading
+  "tamper-proof" docstring is corrected to state the real tamper-evident
+  limit of the unkeyed tail.
+- **Postgres TLS gate now requires a verified peer, not just encryption
+  (PITF-107).** With `database.tls_required=always`/`auto`, a DSN of
+  `sslmode=require` (encrypt, no certificate check) was accepted and
+  left the connection MITM-able. The gate now rejects an unverified
+  `*tls.Config` (`ErrTLSUnverified`); use `sslmode=verify-full`.
+- **`creds-check reuse` no longer ships credentials over unverified TLS
+  by default (PITF-107).** The http-basic verb sends the operator's real
+  credentials; it now requires `--tls-pin <sha256>` (pins the device
+  leaf certificate, works with self-signed) or an explicit
+  `--insecure-tls` acknowledgement, and ssh likewise requires the
+  acknowledgement.
+- **`serve` zeroizes the vault master key on exit.** A `defer vault.Lock`
+  covers the graceful-shutdown (first-signal) path, and `memguard.Purge`
+  on the second-signal hard-exit path honours the declared "zeroized on
+  SIGINT/SIGTERM" invariant.
 - **Go toolchain bumped to 1.26.10 for GO-2026-6809** (crypto/x509
   distrusts compromised intermediate certificates). govulncheck reached
   it through the TLS handshake in `plaintext-check`; the stdlib fix lands

@@ -4,11 +4,14 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,32 +22,29 @@ import (
 )
 
 type reuseOpts struct {
-	target     string
-	protocol   string
-	scopePath  string
-	ppFile     string
-	timeout    time.Duration
-	jsonOut    bool
-	confirmed  bool
-	credsFile  string
-	vaultAddr  string
-	vaultMount string
-	vaultPath  string
-	vaultToken string
-	endpoint   string
-	endpointTk string
+	target      string
+	protocol    string
+	scopePath   string
+	ppFile      string
+	timeout     time.Duration
+	jsonOut     bool
+	confirmed   bool
+	credsFile   string
+	vaultAddr   string
+	vaultMount  string
+	vaultPath   string
+	vaultToken  string
+	endpoint    string
+	endpointTk  string
+	tlsPin      string
+	insecureTLS bool
 }
 
 // newCredsCheckReuseCmd is the credential-reuse check: it tries
 // credentials the operator already holds (from a 0600 file, Vault KV v2,
 // or a JSON endpoint) against one OT target over HTTP Basic or SSH,
 // auth-only. It evidences the IT->OT credential-reuse path.
-func newCredsCheckReuseCmd() *cobra.Command {
-	var o reuseOpts
-	cmd := &cobra.Command{
-		Use:   "reuse",
-		Short: "Check whether credentials from your own store are reused on an OT target (offensive, AUTHORIZED USE ONLY)",
-		Long: `Verifies whether credentials that already exist in your estate also
+const reuseLongHelp = `Verifies whether credentials that already exist in your estate also
 open an OT device: the IT->OT credential-reuse path that turns a foothold
 in the office network into control of the plant.
 
@@ -57,10 +57,19 @@ Credentials come from YOUR store, never a wordlist, through one source:
   --endpoint-url URL         a JSON endpoint returning the same shapes;
     --endpoint-token-file    optional 0600 bearer-token file
 
-The credential store is contacted with TLS verification ON. The target
-device UI is contacted with TLS verification off (device UIs commonly
-present self-signed certificates); the check classifies auth acceptance,
-it never trusts the device's certificate.
+The credential store is contacted with TLS verification ON. Sending the
+operator's real credentials to the device needs an authenticated channel,
+so the target device UI (http-basic) must be either pinned or explicitly
+accepted as unverified:
+
+  --tls-pin HEX     pin the device's TLS leaf-certificate SHA-256 (works
+                    with self-signed certs; blocks an on-path MITM)
+  --insecure-tls    acknowledge sending credentials over TLS with NO
+                    certificate verification (also required for ssh,
+                    whose host key is not verified)
+
+Without one of these the check refuses to run, because an on-path
+attacker could otherwise harvest the very credentials being tested.
 
 Protocols:
 
@@ -80,13 +89,21 @@ Requires --confirm-authorized and --vault-passphrase-file (for audit keying).
 Examples:
 
   elsereno creds-check reuse --protocol ssh --target plc.internal:22 \
-    --creds-file ./ad-service-accounts.600 \
+    --creds-file ./ad-service-accounts.600 --insecure-tls \
     --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
 
   elsereno creds-check reuse --protocol http-basic --target https://hmi.internal \
+    --tls-pin 9f2c...<64 hex> \
     --vault-addr https://vault.internal:8200 --vault-mount secret \
     --vault-path ot/shared-admin --vault-token-file ~/.vault-token.600 \
-    --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized`,
+    --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized`
+
+func newCredsCheckReuseCmd() *cobra.Command {
+	var o reuseOpts
+	cmd := &cobra.Command{
+		Use:   "reuse",
+		Short: "Check whether credentials from your own store are reused on an OT target (offensive, AUTHORIZED USE ONLY)",
+		Long:  reuseLongHelp,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCredsCheckReuse(cmd, o)
 		},
@@ -110,6 +127,8 @@ func addReuseFlags(cmd *cobra.Command, o *reuseOpts) {
 	f.StringVar(&o.vaultToken, "vault-token-file", "", "0600 file holding the Vault token")
 	f.StringVar(&o.endpoint, "endpoint-url", "", "JSON credential endpoint URL")
 	f.StringVar(&o.endpointTk, "endpoint-token-file", "", "0600 file holding the endpoint bearer token")
+	f.StringVar(&o.tlsPin, "tls-pin", "", "hex SHA-256 of the device's TLS leaf certificate to pin (http-basic)")
+	f.BoolVar(&o.insecureTLS, "insecure-tls", false, "acknowledge sending credentials over an unverified TLS/SSH channel")
 	addPassphraseFileFlag(cmd, &o.ppFile)
 	addScopeFlag(cmd, &o.scopePath)
 }
@@ -124,6 +143,9 @@ func runCredsCheckReuse(cmd *cobra.Command, o reuseOpts) error {
 	}
 	if o.protocol != creds.ProtoHTTPBasic && o.protocol != creds.ProtoSSH {
 		return fail(core.ExitUsage, fmt.Errorf("--protocol must be %q or %q", creds.ProtoHTTPBasic, creds.ProtoSSH))
+	}
+	if err := checkReuseTLSPosture(o); err != nil {
+		return fail(core.ExitUsage, err)
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), o.timeout)
@@ -174,6 +196,40 @@ func runCredsCheckReuse(cmd *cobra.Command, o reuseOpts) error {
 	return reportReuse(cmd, rep, rt.AuditPath(), o.jsonOut)
 }
 
+// checkReuseTLSPosture enforces that credentials are only sent over a
+// channel whose peer is authenticated. http-basic may pin the device
+// leaf certificate (--tls-pin) or explicitly accept an unverified link
+// (--insecure-tls); ssh has no pin, so it requires the acknowledgement.
+// Without one, a reuse check would ship the operator's real credentials
+// to a target an on-path attacker could impersonate.
+func checkReuseTLSPosture(o reuseOpts) error {
+	if o.tlsPin != "" {
+		if o.protocol != creds.ProtoHTTPBasic {
+			return fmt.Errorf("--tls-pin only applies to --protocol %q", creds.ProtoHTTPBasic)
+		}
+		if _, err := normaliseTLSPin(o.tlsPin); err != nil {
+			return err
+		}
+		return nil // pinned: authenticated channel, no ack needed
+	}
+	if !o.insecureTLS {
+		return fmt.Errorf(
+			"sending credentials needs an authenticated channel: pass --tls-pin <sha256> (http-basic) " +
+				"or acknowledge an unverified channel with --insecure-tls")
+	}
+	return nil
+}
+
+// normaliseTLSPin lower-cases and validates a 64-hex-char SHA-256 pin.
+func normaliseTLSPin(pin string) (string, error) {
+	p := strings.ToLower(strings.TrimSpace(pin))
+	b, err := hex.DecodeString(p)
+	if err != nil || len(b) != sha256.Size {
+		return "", fmt.Errorf("--tls-pin must be a %d-character hex SHA-256 of the leaf certificate", 2*sha256.Size)
+	}
+	return p, nil
+}
+
 // dispatchReuse runs the configured protocol's reuse check.
 func dispatchReuse(ctx context.Context, checker *creds.ReuseChecker, o reuseOpts, dialAddr string, credList []creds.Credential) (creds.ReuseReport, error) {
 	if o.protocol == creds.ProtoSSH {
@@ -183,7 +239,7 @@ func dispatchReuse(ctx context.Context, checker *creds.ReuseChecker, o reuseOpts
 		}
 		return checker.CheckSSH(ctx, sshAddr, credList)
 	}
-	checker.HTTPClient = deviceClient(o.timeout, dialAddr)
+	checker.HTTPClient = deviceClient(o.timeout, dialAddr, o.tlsPin)
 	return checker.CheckHTTPBasic(ctx, o.target, credList)
 }
 
@@ -204,11 +260,29 @@ func loadReuseCreds(ctx context.Context, o reuseOpts, store *http.Client) ([]cre
 	}
 }
 
-// deviceClient builds the HTTP client for the device UI: TLS verification
-// off (device UIs are self-signed), redirects not followed, and the
-// connection pinned to dialAddr when a scope gave one.
-func deviceClient(timeout time.Duration, dialAddr string) *http.Client {
-	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // #nosec G402 -- authorized audit of the operator's own device UI
+// deviceClient builds the HTTP client for the device UI. When pin is a
+// valid SHA-256 the leaf certificate is authenticated against it (chain
+// and hostname still skipped, so self-signed device certs work); this
+// stops an on-path attacker from harvesting the credentials under test.
+// With an empty pin the caller has passed --insecure-tls, so the link is
+// encrypted but unverified. Redirects are not followed, and the
+// connection is pinned to dialAddr when a scope gave one.
+func deviceClient(timeout time.Duration, dialAddr, pin string) *http.Client {
+	tc := &tls.Config{InsecureSkipVerify: true} // #nosec G402 -- device UIs are self-signed; leaf authenticated by --tls-pin when set, else --insecure-tls acknowledged
+	if pin != "" {
+		want, _ := normaliseTLSPin(pin) // already validated in checkReuseTLSPosture
+		tc.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return fmt.Errorf("creds: device presented no certificate")
+			}
+			sum := sha256.Sum256(cs.PeerCertificates[0].Raw)
+			if got := hex.EncodeToString(sum[:]); got != want {
+				return fmt.Errorf("creds: device certificate %s does not match --tls-pin", got)
+			}
+			return nil
+		}
+	}
+	tr := &http.Transport{TLSClientConfig: tc}
 	if dialAddr != "" {
 		tr.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
 			var d net.Dialer

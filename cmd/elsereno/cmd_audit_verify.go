@@ -27,6 +27,7 @@ const auditMACKeyInfo = "elsereno/audit/hmac/v1"
 // first mismatch.
 func newAuditVerifyFileCmd() *cobra.Command {
 	var path, ppFile string
+	var strict bool
 	cmd := &cobra.Command{
 		Use:   "verify-file",
 		Short: "Walk the file-backed audit chain (~/.elsereno/audit.jsonl)",
@@ -60,11 +61,23 @@ func newAuditVerifyFileCmd() *cobra.Command {
 				if err := v.Derive(auditMACKeyInfo, macKey); err != nil {
 					return fail(core.ExitSoftware, fmt.Errorf("audit verify-file: derive key: %w", err))
 				}
-				if err := audit.VerifyFileKeyed(path, macKey); err != nil {
+				verify := audit.VerifyFileKeyed
+				label := "keyed"
+				if strict {
+					// Strict mode rejects any unkeyed (SHA-256) entry,
+					// closing the downgrade attack on the tail (PITF-108).
+					// Only sound when every append was keyed.
+					verify = audit.VerifyFileKeyedStrict
+					label = "keyed, strict"
+				}
+				if err := verify(path, macKey); err != nil {
 					return fail(core.ExitError, fmt.Errorf("audit verify-file: %w", err))
 				}
-				cmd.Printf("audit chain OK (keyed): %s (%d bytes)\n", path, info.Size())
+				cmd.Printf("audit chain OK (%s): %s (%d bytes)\n", label, path, info.Size())
 				return nil
+			}
+			if strict {
+				return fail(core.ExitUsage, fmt.Errorf("audit verify-file: --strict requires --vault-passphrase-file (strict mode verifies every entry by HMAC)"))
 			}
 			if err := audit.VerifyFile(path); err != nil {
 				return fail(core.ExitError, fmt.Errorf("audit verify-file: %w (if the log has keyed entries, pass --vault-passphrase-file)", err))
@@ -74,6 +87,7 @@ func newAuditVerifyFileCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "audit log path (default ~/.elsereno/audit.jsonl)")
+	cmd.Flags().BoolVar(&strict, "strict", false, "require every entry to be keyed (HMAC); rejects a downgraded unkeyed tail (PITF-108)")
 	addPassphraseFileFlag(cmd, &ppFile)
 	return cmd
 }
