@@ -1,6 +1,6 @@
 .PHONY: all build build-offensive build-mini install install-man \
         test test-race test-cover test-fuzz test-integration test-integration-db test-e2e test-all \
-        bench sec lint fmt tidy clean run docker \
+        bench sec lint fmt fmt-check tidy clean run docker \
         db-up db-down db-migrate db-reset \
         gen-manpages context-check ci release-gate
 
@@ -117,6 +117,20 @@ fmt:
 	gofmt -w .
 	goimports -w .
 
+# fmt-check mirrors the CI `lint` job's pre-golangci steps so `make ci`
+# stays a superset of CI (PITF-031/106): a file that is unformatted or a
+# stale go.mod must fail locally, not only on the runner.
+fmt-check:
+	@diff=$$(gofmt -l . | grep -v '^vendor/' || true); \
+	if [ -n "$$diff" ]; then echo "gofmt differences:"; echo "$$diff"; exit 1; fi
+	@diff=$$(goimports -l . | grep -v '^vendor/' || true); \
+	if [ -n "$$diff" ]; then echo "goimports differences:"; echo "$$diff"; exit 1; fi
+	@cp go.mod go.mod.cibak && cp go.sum go.sum.cibak; \
+	go mod tidy >/dev/null 2>&1; \
+	rc=0; if ! diff -q go.mod go.mod.cibak >/dev/null || ! diff -q go.sum go.sum.cibak >/dev/null; then \
+		echo "go mod tidy produced a diff: commit the tidied go.mod/go.sum"; rc=1; fi; \
+	mv go.mod.cibak go.mod && mv go.sum.cibak go.sum; exit $$rc
+
 tidy:
 	go mod tidy
 
@@ -154,7 +168,7 @@ context-check:
 # before push (PITF-031). Covers the default + offensive build variants,
 # test-race, test-cover, test-fuzz (30s per target), sec (including go-licenses),
 # and context-check.
-ci: lint build build-offensive build-mini test-race test-cover test-fuzz sec context-check
+ci: fmt-check lint build build-offensive build-mini test-race test-cover test-fuzz sec context-check
 
 # release-gate runs the 1.0 preconditions (scripts/release-gate.sh):
 # tests + lint × 2 build variants, sec-suite, context-check, docs

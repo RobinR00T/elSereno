@@ -33,13 +33,13 @@ func connectReply() []byte {
 // "DEMO-SIS", version 1.4, with a fictional download time. All values
 // are invented for the example; no real plant data.
 func demoStatus() []byte {
-	data := make([]byte, 76) // datagram offsets minus the 14-byte header
-	data[7] = 1              // offKeyState 21: PROGRAM
-	data[8] = 0              // offRunState 22: RUNNING
-	binary.LittleEndian.PutUint16(data[58:], 4)  // offMinor 72
-	binary.LittleEndian.PutUint16(data[60:], 1)  // offMajor 74
+	data := make([]byte, 76)                             // datagram offsets minus the 14-byte header
+	data[7] = 1                                          // offKeyState 21: PROGRAM
+	data[8] = 0                                          // offRunState 22: RUNNING
+	binary.LittleEndian.PutUint16(data[58:], 4)          // offMinor 72
+	binary.LittleEndian.PutUint16(data[60:], 1)          // offMajor 74
 	binary.LittleEndian.PutUint32(data[62:], 1700000000) // offTimestamp 76
-	copy(data[66:], "DEMO-SIS")                  // offProject 80
+	copy(data[66:], "DEMO-SIS")                          // offProject 80
 	b, err := wire.BuildCommand(wire.CmdCPStatusResponse, 0, data)
 	if err != nil {
 		panic(err)

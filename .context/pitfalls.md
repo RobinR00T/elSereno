@@ -710,5 +710,12 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `internal/exposure/ports.go`: filas separadas 161/udp, 1502/udp, 34964/udp, 47808/udp con `Transport` propio.
 **Ver**: `internal/exposure/ports.go`, `internal/exposure/ports_test.go`; 27-10-2026.
 
+## PITF-106: `make ci` no corría los chequeos de formato que sí corre la CI
+**Síntoma**: `make ci` y `golangci-lint run` locales en verde, pero el job `lint` de la CI falla con "gofmt differences". Un fichero sin formatear (`examples/captures/gen/main.go`, fuera de `internal/ offensive/ cmd/`) pasó el commit y rompió main.
+**Causa**: el target `lint` de `make ci` solo ejecutaba `golangci-lint run`. El job `lint` de `.github/workflows/ci.yml` ejecuta además `gofmt -l .`, `goimports -l .` y un diff de `go mod tidy` antes de golangci-lint. golangci-lint tiene `goimports` pero no `gofmt`, y un `gofmt -w` acotado a tres carpetas no cubre `examples/`. Es el fallo que PITF-031 nombra: `make ci` dejó de ser superconjunto de la CI.
+**Regla**: todo chequeo del job `lint` de la CI vive también en `make ci`. Target `fmt-check` (gofmt -l, goimports -l, go mod tidy diff, todos sobre `.`) añadido como primera dependencia de `ci`. `gofmt -w .` (toda la raíz), nunca por carpetas.
+**Implementación correcta**: `Makefile` target `fmt-check`, `ci: fmt-check lint ...`.
+**Ver**: `Makefile`, `.github/workflows/ci.yml` job `lint`; PITF-031; 27-10-2026.
+
 ## Template para nueva entrada
 Ver `.context/templates/pitfall.md`.
