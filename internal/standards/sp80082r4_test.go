@@ -6,7 +6,7 @@ import (
 )
 
 func TestForProtocol(t *testing.T) {
-	refs := ForProtocol("s7-exposure")
+	refs := ForProtocolIn(KeyNIST, "s7-exposure")
 	if len(refs) != 2 {
 		t.Fatalf("s7-exposure: got %d refs, want 2", len(refs))
 	}
@@ -46,7 +46,7 @@ func TestSummarise(t *testing.T) {
 	if got := Summarise(nil); got != "" {
 		t.Errorf("Summarise(nil) = %q, want empty", got)
 	}
-	refs := ForProtocol("s7-exposure") // {refNoAuth, refSecurityOffByDefault}
+	refs := ForProtocolIn(KeyNIST, "s7-exposure") // {refNoAuth, refSecurityOffByDefault}
 	got := Summarise(refs)
 	if got == "" {
 		t.Fatal("Summarise(s7-exposure) is empty")
@@ -68,6 +68,54 @@ func TestProtocols(t *testing.T) {
 	for _, p := range ps {
 		if ForProtocol(p) == nil {
 			t.Errorf("Protocols() lists %q but ForProtocol returns nil", p)
+		}
+	}
+}
+
+func TestForProtocol_AllThreeStandardsInOrder(t *testing.T) {
+	refs := ForProtocol("modbus")
+	want := []string{sp80082r4, attackICS, attackICS, iec62443, iec62443, iec62443}
+	if len(refs) != len(want) {
+		t.Fatalf("modbus refs = %+v", refs)
+	}
+	for i, r := range refs {
+		if r.Standard != want[i] {
+			t.Errorf("ref %d standard %q, want %q", i, r.Standard, want[i])
+		}
+	}
+	if ForProtocolIn("nope", "modbus") != nil {
+		t.Error("unknown key must return nil")
+	}
+}
+
+// TestAttackTechniqueIDs pins the technique IDs to the v20 names checked
+// against the ics-attack STIX bundle, and keeps revoked IDs out.
+func TestAttackTechniqueIDs(t *testing.T) {
+	want := map[string]string{
+		"T0888": "Remote System Information Discovery", "T0836": "Modify Parameter",
+		"T0843": "Program Download", "T0858": "Change Operating Mode",
+		"T0861": "Point & Tag Identification", "T0801": "Monitor Process State",
+		"T0822": "External Remote Services", "T0886": "Remote Services",
+	}
+	revoked := map[string]bool{"T0812": true, "T0855": true, "T0856": true, "T0891": true}
+	for proto, refs := range attackRefs {
+		for _, r := range refs {
+			if revoked[r.Table] {
+				t.Errorf("%s uses revoked technique %s", proto, r.Table)
+			}
+			if want[r.Table] != r.Vuln {
+				t.Errorf("%s: %s = %q, want %q", proto, r.Table, r.Vuln, want[r.Table])
+			}
+		}
+	}
+}
+
+func TestIEC62443RequirementNumbers(t *testing.T) {
+	for proto, refs := range iec62443Refs {
+		for _, r := range refs {
+			if r.Standard != iec62443 || !strings.HasPrefix(r.Table, "SR ") || r.Vuln == "" {
+				t.Errorf("%s: malformed 62443 ref %+v", proto, r)
+			}
 		}
 	}
 }

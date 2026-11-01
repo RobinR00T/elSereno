@@ -45,7 +45,7 @@ No future-phase work without owner approval.
 - Cookie Secure=true with TLS; false on HTTP loopback with comment rationale (design: `serve` sets no cookies today, PITF-087).
 - Token rotation bumps persisted `web_state.token_generation` with advisory lock; middleware caches generation TTL 5s (design; not built yet, PITF-087).
 - CSRF key HKDF from vault master key (derived, nothing uses it yet); `serve` requires vault unlocked (use `vault init` + `vault unlock`).
-- Vault master key in memguard (mlocked) inside the process that opened it; destroyed by `Vault.Lock` or process exit. No signal handler zeroizes it, and in the one-shot CLI `vault lock` is a no-op.
+- Vault master key in memguard (mlocked) inside the process that opened it; destroyed by `Vault.Lock` or process exit. `serve` runs `Vault.Lock` on its graceful shutdown (first SIGINT/SIGTERM); a second signal runs `memguard.Purge` before the hard exit (`cmd/elsereno/main.go`). In the one-shot CLI `vault lock` is a no-op.
 - Exit codes: 128+signum (SIGINT=130, SIGTERM=143), for the first signal on a clean completion and for the second-signal hard exit.
 - Errors live in the emitting package (ErrChainBroken in `internal/audit/`, ErrUnknownConfigField in `internal/config/`, domain errors in `internal/core/`).
 - Timestamps RFC3339 with up to 6 fractional digits (microseconds; Postgres TIMESTAMPTZ).

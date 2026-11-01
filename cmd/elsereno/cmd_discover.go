@@ -40,16 +40,7 @@ const discoverDefaultDialTimeout = 1 * time.Second
 const discoverDefaultParallel = 64
 
 func newDiscoverCmd() *cobra.Command {
-	var (
-		auto         string
-		hostsFile    string
-		maxHosts     int
-		dialTimeout  time.Duration
-		parallel     int
-		outputFormat string
-		scopePath    string
-		pf           pacingFlags
-	)
+	var o discoverOpts
 	cmd := &cobra.Command{
 		Use:   "discover",
 		Short: "Sweep a CIDR or host list for ports of every registered plugin",
@@ -85,42 +76,66 @@ spread over 64 hosts instead of landing on the ports of one. Before
 
 With --scope, only the hosts in its ranges are swept, and only the
 ports its ports lists allow for the plugins its protocols lists allow.
---max-hosts counts before that filter.`,
+--max-hosts counts before that filter.
+
+--it-ports also sweeps the TCP IT ports of the port catalogue
+(` + "`elsereno plaintext-check --list-ports`" + `): SSH, RDP, VNC, SMB,
+MS SQL, Kerberos, LDAP, HTTP(S), WinRM and the rest. On an OT segment
+those are the paths from IT into the plant. Their hits carry the
+catalogue protocol as hint (rdp, smb, mssql, ...) and a "category"
+field; with --scope, the protocols lists filter them by that name.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDiscover(cmd, auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat, scopePath, pf)
+			return runDiscover(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
-	cmd.Flags().StringVar(&hostsFile, "hosts", "",
+	cmd.Flags().StringVar(&o.auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
+	cmd.Flags().StringVar(&o.hostsFile, "hosts", "",
 		"v1.39+: file with one IP per line (# for comments). Mutex with --auto.")
-	cmd.Flags().IntVar(&maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on hosts walked (CIDR or file)")
-	cmd.Flags().DurationVar(&dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
-	cmd.Flags().IntVar(&parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
-	cmd.Flags().StringVar(&outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
-	addScopeFlag(cmd, &scopePath)
-	addPacingFlags(cmd, &pf)
+	cmd.Flags().IntVar(&o.maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on hosts walked (CIDR or file)")
+	cmd.Flags().DurationVar(&o.dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
+	cmd.Flags().IntVar(&o.parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
+	cmd.Flags().StringVar(&o.outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
+	cmd.Flags().BoolVar(&o.itPorts, "it-ports", false, "also sweep the TCP IT ports of the port catalogue (SSH, RDP, SMB, MS SQL, ...)")
+	addScopeFlag(cmd, &o.scopePath)
+	addPacingFlags(cmd, &o.pf)
 	return cmd
+}
+
+// discoverOpts carries the discover flags into runDiscover.
+type discoverOpts struct {
+	auto, hostsFile string
+	maxHosts        int
+	parallel        int
+	dialTimeout     time.Duration
+	outputFormat    string
+	scopePath       string
+	itPorts         bool
+	pf              pacingFlags
 }
 
 // runDiscover dispatches the actual discover work. Extracted
 // from newDiscoverCmd's RunE so the parent stays under funlen
 // as new flags land.
-func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel int, dialTimeout time.Duration, outputFormat, scopePath string, pf pacingFlags) error {
+func runDiscover(cmd *cobra.Command, o discoverOpts) error {
+	auto, hostsFile, maxHosts := o.auto, o.hostsFile, o.maxHosts
 	if (auto == "") == (hostsFile == "") {
 		return fail(core.ExitUsage,
 			errors.New("exactly one of --auto <CIDR> or --hosts <file> is required"))
 	}
-	pace, parallel, err := discoverPacing(cmd, pf, parallel)
+	pace, parallel, err := discoverPacing(cmd, o.pf, o.parallel)
 	if err != nil {
 		return err
 	}
-	gate, err := loadScopeGate(scopePath)
+	gate, err := loadScopeGate(o.scopePath)
 	if err != nil {
 		return err
 	}
 	ports := registeredPluginPorts()
 	if len(ports) == 0 {
 		return fail(core.ExitSoftware, errors.New("no plugins registered, link with the protocol packages"))
+	}
+	if o.itPorts {
+		ports = append(ports, catalogueITPorts()...)
 	}
 	var hosts []netip.Addr
 	if auto != "" {
@@ -139,12 +154,12 @@ func runDiscover(cmd *cobra.Command, auto, hostsFile string, maxHosts, parallel 
 		}
 	}
 	printDiscoverPace(cmd.ErrOrStderr(), pace, parallel, len(uniquePorts(ports)))
-	results := sweepPaced(cmd.Context(), hosts, ports, dialTimeout, sweepPace{
+	results := sweepPaced(cmd.Context(), hosts, ports, o.dialTimeout, sweepPace{
 		parallel:   parallel,
 		pacer:      scanner.NewHostPacer(pace.maxPerHost, pace.interval),
 		ratePerSec: pace.ratePerSec,
 	})
-	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, outputFormat)
+	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, o.outputFormat)
 }
 
 // discoverPacing resolves discover's pace. discover has no retries
@@ -257,7 +272,10 @@ type discoverHit struct {
 	Address       string   `json:"address"`
 	Port          int      `json:"port"`
 	ProtocolHints []string `json:"protocol_hints"`
-	LatencyMS     int64    `json:"latency_ms"`
+	// Category is set for an --it-ports hit: the port catalogue's
+	// category (it-cleartext, it-encrypted, it-management).
+	Category  string `json:"category,omitempty"`
+	LatencyMS int64  `json:"latency_ms"`
 }
 
 // pluginPort is one entry in the auto-discover port-list.
@@ -266,6 +284,9 @@ type discoverHit struct {
 type pluginPort struct {
 	Port     int
 	PluginID string
+	// Category is the port catalogue category of an --it-ports entry;
+	// empty for a plugin port.
+	Category string
 }
 
 // registeredPluginPorts returns the unique well-known ports
@@ -369,6 +390,7 @@ func sweepPaced(ctx context.Context, hosts []netip.Addr, ports []pluginPort, dia
 						Address:       j.addr.String(),
 						Port:          j.port,
 						ProtocolHints: pluginsForPort(ports, j.port),
+						Category:      categoryForPort(ports, j.port),
 						LatencyMS:     latency,
 					}
 				}
@@ -377,12 +399,12 @@ func sweepPaced(ctx context.Context, hosts []netip.Addr, ports []pluginPort, dia
 	}
 	go func() {
 		defer close(jobs)
-		for _, port := range uniquePorts(ports) {
+		for _, p := range uniquePorts(ports) {
 			for _, h := range hosts {
 				select {
 				case <-ctx.Done():
 					return
-				case jobs <- job{addr: h, port: port}:
+				case jobs <- job{addr: h, port: p.Port}:
 				}
 			}
 		}
@@ -420,24 +442,6 @@ func pacedDial(ctx context.Context, dialer *net.Dialer, pacer *scanner.HostPacer
 	}
 	_ = conn.Close()
 	return time.Since(start).Milliseconds(), true
-}
-
-// uniquePorts returns each port of ports once, in ascending order. A
-// port several plugins claim (5007: slmp and melsoft; 102: s7 and mms)
-// is dialled once and its hit carries every plugin as a hint; until
-// 2026-10-21 it was dialled once per plugin and reported once per
-// plugin, each line with the same hints.
-func uniquePorts(ports []pluginPort) []int {
-	seen := make(map[int]bool, len(ports))
-	out := make([]int, 0, len(ports))
-	for _, p := range ports {
-		if !seen[p.Port] {
-			seen[p.Port] = true
-			out = append(out, p.Port)
-		}
-	}
-	sort.Ints(out)
-	return out
 }
 
 // pluginsForPort returns the plugin names that claim the

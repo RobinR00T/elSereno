@@ -2,6 +2,11 @@
 // that back elSereno's mapping to NIST SP 800-82 Rev. 4 (see
 // docs/standards/nist-sp800-82r4.md).
 //
+// The port catalogue (ports.go, Ports) names every well-known IT and OT
+// port elSereno knows, its transport and what its presence means: an IT
+// protocol in plaintext, an IT protocol over TLS, an IT management service
+// (SSH, RDP, VNC, SMB, MS SQL, Kerberos) or an OT protocol.
+//
 // The cleartext transport check evidences SP 800-82 r4 Table 16,
 // "Standard, well-documented communication protocols are used in
 // plaintext" and "Use of unsecure OT protocols": it actively determines
@@ -63,48 +68,28 @@ type TransportResult struct {
 	// (e.g. https for http); empty for OT protocols with no in-protocol
 	// TLS, whose mitigation is network segmentation, not a protocol swap.
 	SecureAlternative string `json:"secure_alternative,omitempty"`
+	// Category classifies the port (see Category); empty when the port is
+	// not in the catalogue.
+	Category Category `json:"category,omitempty"`
+	// Transport is the catalogue transport ("tcp" or "udp") for a known
+	// port. A UDP-only service is not dialled: this check is TCP.
+	Transport string `json:"transport,omitempty"`
+	// ITManagement is the headline for a reachable remote-administration,
+	// database or directory service (SSH, RDP, VNC, SMB, MS SQL, Kerberos,
+	// ...). Its presence on an OT segment is the finding; such services
+	// are never reported as cleartext, because their encryption is not a
+	// TLS handshake on connect.
+	ITManagement bool `json:"it_management,omitempty"`
+	// Note is the catalogue's operator hint for the port.
+	Note string `json:"note,omitempty"`
 }
 
-// portInfo is a well-known plaintext service and its secure counterpart.
-type portInfo struct {
-	protocol  string
-	secureAlt string // "" when the mitigation is segmentation, not a swap
-}
-
-// cleartextPorts maps well-known TCP ports that carry plaintext transport
-// to their protocol name and secure alternative. IT protocols have a
-// drop-in encrypted counterpart; OT protocols (Modbus, S7, ...) generally
-// do not, so their secureAlt is empty and the mitigation is segmentation.
-var cleartextPorts = map[int]portInfo{
-	// IT plaintext protocols with an encrypted counterpart.
-	21:  {"ftp", "ftps"},
-	23:  {"telnet", "ssh"},
-	25:  {"smtp", "smtps"},
-	80:  {"http", "https"},
-	110: {"pop3", "pop3s"},
-	143: {"imap", "imaps"},
-	161: {"snmp", "snmpv3"},
-	389: {"ldap", "ldaps"},
-	513: {"rlogin", "ssh"},
-	// OT protocols: cleartext by design, mitigation is segmentation.
-	102:   {"s7comm / iso-tsap", ""},
-	502:   {"modbus", ""},
-	1911:  {"niagara-fox", ""},
-	2404:  {"iec-104", ""},
-	4840:  {"opc-ua-tcp", ""},
-	9600:  {"omron-fins", ""},
-	18245: {"ge-srtp", ""},
-	20000: {"dnp3", ""},
-	44818: {"ethernet-ip", ""},
-	47808: {"bacnet", ""},
-}
-
-// ProtocolForPort returns the well-known plaintext protocol name and its
-// secure alternative for a TCP port, or ("", "") when the port is not in
-// the cleartext table.
+// ProtocolForPort returns the well-known protocol name and its secure
+// alternative for a port, or ("", "") when the port is not in the
+// catalogue (see Ports).
 func ProtocolForPort(port int) (protocol, secureAlt string) {
-	if pi, ok := cleartextPorts[port]; ok {
-		return pi.protocol, pi.secureAlt
+	if e, ok := Lookup(port); ok {
+		return e.Protocol, e.SecureAlternative
 	}
 	return "", ""
 }
@@ -164,9 +149,13 @@ func acceptsTLSVersion(ctx context.Context, target string, timeout time.Duration
 // dial/timeout failure is not an error: Reachable stays false.
 func ProbeCleartext(ctx context.Context, target string, timeout time.Duration) (TransportResult, error) {
 	var res TransportResult
-	if _, portStr, err := net.SplitHostPort(target); err == nil {
-		if port, err := strconv.Atoi(portStr); err == nil {
-			res.Protocol, res.SecureAlternative = ProtocolForPort(port)
+	entry, known := catalogueEntry(target)
+	if known {
+		res.Protocol, res.SecureAlternative = entry.Protocol, entry.SecureAlternative
+		res.Category, res.Transport, res.Note = entry.Category, entry.Transport, entry.Note
+		if entry.Transport == TransportUDP {
+			// A TCP dial says nothing about a UDP service.
+			return res, nil
 		}
 	}
 
@@ -176,6 +165,12 @@ func ProbeCleartext(ctx context.Context, target string, timeout time.Duration) (
 		return res, nil //nolint:nilerr // a dial failure means "unreachable" (Reachable stays false), not a probe error
 	}
 	res.Reachable = true
+	if known && !entry.TLSCheck {
+		// SSH, RDP, TDS, SMB, VNC: a failed ClientHello is not plaintext.
+		_ = conn.Close()
+		res.ITManagement = entry.Category == CategoryITManagement
+		return res, nil
+	}
 
 	// Offer a broad ClientHello (TLS 1.0+) so a service on any TLS version
 	// is detected. InsecureSkipVerify: this only classifies transport, it
@@ -210,4 +205,17 @@ func ProbeCleartext(ctx context.Context, target string, timeout time.Duration) (
 	// transport is cleartext.
 	res.Cleartext = true
 	return res, nil
+}
+
+// catalogueEntry looks up target's port (host:port) in the catalogue.
+func catalogueEntry(target string) (PortEntry, bool) {
+	_, portStr, err := net.SplitHostPort(target)
+	if err != nil {
+		return PortEntry{}, false
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return PortEntry{}, false
+	}
+	return Lookup(port)
 }

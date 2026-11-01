@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/awnumar/memguard"
 	"github.com/spf13/cobra"
 
 	"local/elsereno/internal/core"
@@ -136,6 +137,11 @@ func entrypoint(args []string) int {
 	go func() {
 		first <- <-sigs
 		second := <-sigs
+		// Hard exit skips deferred cleanup (e.g. vault.Lock in serve),
+		// so zeroize every memguard-backed secret (the vault master key
+		// above all) before the process dies. Honours the declared
+		// "zeroized on SIGINT/SIGTERM" invariant on the force-quit path.
+		memguard.Purge()
 		os.Exit(exitCodeForSignal(second))
 	}()
 
@@ -196,6 +202,19 @@ func fail(code core.ExitCode, err error) error { return cliError{code: code, err
 
 var errUsage = errors.New("usage error")
 
+// registerProtocolVerbs adds the protocol decoders and read-only recon
+// verbs (offline codecs plus the per-protocol probes) to the root.
+func registerProtocolVerbs(root *cobra.Command) {
+	root.AddCommand(newProfinetCmd())
+	root.AddCommand(newGooseCmd())
+	root.AddCommand(newModbusCmd())
+	root.AddCommand(newOPCUACmd())
+	root.AddCommand(newS7Cmd())
+	root.AddCommand(newPlaintextCheckCmd())
+	root.AddCommand(newTriStationCmd())
+	root.AddCommand(newStandardsCmd())
+}
+
 func newRootCmd() *cobra.Command {
 	root := installBanner(&cobra.Command{
 		Use:   "elsereno",
@@ -236,13 +255,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTUICmd())
 	root.AddCommand(newFingerprintCmd())
 	root.AddCommand(newScheduleCmd())
-	root.AddCommand(newProfinetCmd())
-	root.AddCommand(newGooseCmd())
-	root.AddCommand(newModbusCmd())
-	root.AddCommand(newOPCUACmd())
-	root.AddCommand(newS7Cmd())
-	root.AddCommand(newPlaintextCheckCmd())
-	root.AddCommand(newStandardsCmd())
+	registerProtocolVerbs(root)
 
 	for _, c := range newStubCmds() {
 		root.AddCommand(c)

@@ -13,6 +13,11 @@ func SafeField(name, value string) string {
 	b.Grow(len(value))
 	for _, r := range value {
 		switch r {
+		case '\\':
+			// Escape the escape first so a literal backslash in the
+			// input cannot be confused with one we add, e.g. input
+			// `\n` must render as `\\n`, not as an escaped newline (L7).
+			b.WriteString(`\\`)
 		case '\n':
 			b.WriteString(`\n`)
 		case '\r':

@@ -38,6 +38,9 @@ var elserenoNamespace = uuid.MustParse("0a8b1d4e-3f6c-5a7d-9e2f-7c1b3d4e5f60")
 type Writer struct {
 	w       io.Writer
 	objects []any
+	// Vantage, when set, adds a "vantage:<label>" label to every
+	// observed-data object (scan --vantage).
+	Vantage string
 }
 
 // NewWriter constructs a Writer that emits to w on Close.
@@ -147,6 +150,9 @@ func (x *Writer) buildObservedDataSDO(f core.Finding, netRef string) map[string]
 	id := "observed-data--" + uuid.NewSHA1(elserenoNamespace, []byte("obs:"+f.Protocol+":"+string(f.ID))).String()
 	created := f.CreatedAt.UTC().Format(time.RFC3339)
 	labels := []string{string(f.Severity), f.Protocol}
+	if x.Vantage != "" {
+		labels = append(labels, "vantage:"+x.Vantage)
+	}
 	sdo := map[string]any{
 		"type":            "observed-data",
 		"spec_version":    SpecVersion,

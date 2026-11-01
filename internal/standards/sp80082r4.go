@@ -4,17 +4,51 @@
 // protocol name (core.Finding.Protocol), which is why it needs no change
 // to core.Finding or to the per-plugin finding builders.
 //
-// The current mapping covers NIST SP 800-82 Rev. 4 (Initial Public Draft,
-// September 2026); see docs/standards/nist-sp800-82r4.md.
+// The mapping covers three references, each in its own file:
+//   - NIST SP 800-82 Rev. 4 (Initial Public Draft, September 2026); see
+//     docs/standards/nist-sp800-82r4.md.
+//   - MITRE ATT&CK for ICS v20 techniques; see
+//     docs/standards/mitre-attack-ics.md.
+//   - ISA/IEC 62443-3-3 system requirements; see
+//     docs/standards/iec62443-3-3.md.
+//
+// ForProtocol returns all three, in that order; ForProtocolIn one.
 package standards
 
 import "strings"
 
-// Ref is a single traceable reference into an external standard.
+// Ref is a single traceable reference into an external standard. The JSON
+// field names are the stable output contract; their meaning per standard:
+// SP 800-82 r4 (Table = table, Vuln = vulnerability), ATT&CK for ICS
+// (Table = technique ID, Vuln = technique name), ISA/IEC 62443-3-3
+// (Table = SR number, Vuln = requirement title).
 type Ref struct {
 	Standard string `json:"standard"` // e.g. "NIST SP 800-82 r4"
-	Table    string `json:"table"`    // e.g. "Table 16"
-	Vuln     string `json:"vuln"`     // the vulnerability the finding evidences
+	Table    string `json:"table"`    // e.g. "Table 16", "T0888", "SR 1.2"
+	Vuln     string `json:"vuln"`     // the vulnerability, technique or requirement
+}
+
+// Standard keys accepted by ForProtocolIn.
+const (
+	KeyNIST     = "nist"
+	KeyAttack   = "attack-ics"
+	KeyIEC62443 = "iec62443"
+)
+
+// Keys lists the standard keys in output order.
+func Keys() []string { return []string{KeyNIST, KeyAttack, KeyIEC62443} }
+
+// byKey maps a standard key to its protocol table.
+func byKey(key string) map[string][]Ref {
+	switch key {
+	case KeyNIST:
+		return protocolRefs
+	case KeyAttack:
+		return attackRefs
+	case KeyIEC62443:
+		return iec62443Refs
+	}
+	return nil
 }
 
 const sp80082r4 = "NIST SP 800-82 r4"
@@ -25,6 +59,7 @@ var (
 	refUnsecureOT           = Ref{sp80082r4, "Table 16", "Use of unsecure OT protocols"}
 	refSecurityOffByDefault = Ref{sp80082r4, "Table 15", "Installed security capabilities are not enabled by default"}
 	refPlaintext            = Ref{sp80082r4, "Table 16", "Standard, well-documented communication protocols are used in plaintext"}
+	refUnneededPorts        = Ref{sp80082r4, "Table 13", "Poor configurations: unnecessary ports and protocols are open"}
 )
 
 // protocolRefs maps a plugin protocol name to the standard vulnerabilities
@@ -66,6 +101,9 @@ var protocolRefs = map[string][]Ref{
 	"atg":            {refUnsecureOT},
 	// MQTT brokers commonly allow anonymous connect: no authentication.
 	"mqtt": {refNoAuth},
+	// TriStation (Triconex SIS) and PROFINET CM: unauthenticated OT.
+	"tristation":  {refUnsecureOT},
+	"profinet-cm": {refUnsecureOT},
 	// Legacy/management protocols that are plaintext by nature.
 	"atmodem": {refPlaintext},
 	"cwmp":    {refPlaintext},
@@ -73,12 +111,29 @@ var protocolRefs = map[string][]Ref{
 	"iax2":    {refPlaintext},
 	"xot":     {refPlaintext},
 	"pbxhttp": {refPlaintext},
+	// IT remote-administration, database and directory services reached
+	// on an OT segment (exposure.CategoryITManagement).
+	"it-management": {refUnneededPorts},
 }
 
-// ForProtocol returns the standard vulnerabilities a finding for the given
-// protocol evidences, or nil when the protocol has no mapping.
+// ForProtocol returns every reference a finding for the given protocol
+// carries (SP 800-82 r4, then ATT&CK for ICS, then ISA/IEC 62443-3-3), or
+// nil when the protocol has no mapping in any of them.
 func ForProtocol(protocol string) []Ref {
-	refs := protocolRefs[protocol]
+	var out []Ref
+	for _, k := range Keys() {
+		out = append(out, byKey(k)[protocol]...)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ForProtocolIn returns the references of one standard (see Keys) for the
+// protocol, or nil. An unknown key returns nil.
+func ForProtocolIn(key, protocol string) []Ref {
+	refs := byKey(key)[protocol]
 	if len(refs) == 0 {
 		return nil
 	}
@@ -105,9 +160,15 @@ func Summarise(refs []Ref) string {
 // Protocols returns the protocol names that have a standards mapping, so a
 // catalog view can enumerate them.
 func Protocols() []string {
-	out := make([]string, 0, len(protocolRefs))
-	for p := range protocolRefs {
-		out = append(out, p)
+	seen := map[string]bool{}
+	var out []string
+	for _, k := range Keys() {
+		for p := range byKey(k) {
+			if !seen[p] {
+				seen[p] = true
+				out = append(out, p)
+			}
+		}
 	}
 	return out
 }

@@ -57,7 +57,7 @@ token-budget: 2500
 - `crypto/rand` only.
 - Web tokens 32B crypto/rand base64url, and `token_generation` persisted in `web_state` (bumped with advisory lock on rotate, cached 5s): the design; not built, nothing issues a web token or bumps the generation (PITF-087).
 - CSRF key HKDF from vault; `serve` requires vault unlocked.
-- Vault master key in memguard inside the process that opened it; destroyed by `Vault.Lock` or exit (no signal handler zeroizes it; one-shot `vault lock` is a no-op).
+- Vault master key in memguard inside the process that opened it; destroyed by `Vault.Lock` or exit (`serve` locks it on graceful shutdown; a second signal runs `memguard.Purge` before the hard exit; one-shot `vault lock` is a no-op).
 - `http.Server` with full timeouts (5s/30s/30s/120s/16KiB).
 - `config show` redacts secrets; `--unsafe` shows.
 - Cookie Secure=true with TLS; false on HTTP loopback with rationale comment.

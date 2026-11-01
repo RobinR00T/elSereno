@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"local/elsereno/internal/web/stream"
@@ -105,16 +107,21 @@ func Stream(b *stream.Broadcaster) http.Handler {
 	})
 }
 
-// writeSSEEvent encodes one event as three SSE lines followed by a
-// blank line (the SSE framing separator). Payload is assumed to be
-// a single JSON object already; callers must not embed raw
-// newlines our publishers always JSON-encode first.
+// writeSSEEvent encodes one event as SSE lines followed by a blank
+// line (the SSE framing separator). Our publishers JSON-encode the
+// payload, so it is normally newline-free, but this function does not
+// trust that: a raw newline in the kind or payload would otherwise
+// terminate a line early and let an attacker inject extra SSE fields
+// or whole events. The kind is stripped of CR/LF and a multi-line
+// payload is emitted as one `data:` line per line, which is exactly
+// how the SSE spec reassembles it (L8).
 func writeSSEEvent(w http.ResponseWriter, ev stream.Event) error {
 	// The kind → `event:` mapping lets EventSource clients filter
 	// per-topic with `es.addEventListener("finding", …)` while
 	// clients that just want everything use the default `message`
 	// listener.
-	if _, err := fmt.Fprintf(w, "event: %s\n", ev.Kind); err != nil {
+	kind := strings.NewReplacer("\r", "", "\n", "").Replace(string(ev.Kind))
+	if _, err := fmt.Fprintf(w, "event: %s\n", kind); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "id: %s\n", strconv.FormatInt(ev.ID, 10)); err != nil {
@@ -127,7 +134,16 @@ func writeSSEEvent(w http.ResponseWriter, ev stream.Event) error {
 	if len(payload) == 0 {
 		payload = []byte("{}")
 	}
-	if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+	// Split on \n so an embedded newline cannot break framing; each
+	// physical line becomes its own `data:` field (trailing \r
+	// trimmed) and the client concatenates them with \n.
+	for _, line := range bytes.Split(payload, []byte("\n")) {
+		line = bytes.TrimSuffix(line, []byte("\r"))
+		if _, err := fmt.Fprintf(w, "data: %s\n", line); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprint(w, "\n"); err != nil {
 		return err
 	}
 	return nil

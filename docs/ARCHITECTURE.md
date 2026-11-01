@@ -30,7 +30,7 @@ flowchart TD
     CFG["internal/config<br/>koanf load, unknown fields rejected"]
     SCOPE["internal/scope<br/>scope.yaml, only with --scope<br/>cmd/elsereno/scope_gate.go"]
     IN["internal/inputs/*<br/>list, nmapxml, stdin,<br/>shodan, censys, fofa, zoomeye, onyphe"]
-    REG["internal/core registry<br/>core.Register in init()<br/>cmd/elsereno/plugins.go: 35 plugins"]
+    REG["internal/core registry<br/>core.Register in init()<br/>cmd/elsereno/plugins.go: 37 plugins"]
     SCN["internal/scanner<br/>resolve, dedupe, per-host cap, retries"]
     PROTO["internal/protocols/&lt;name&gt;<br/>parsers in &lt;name&gt;/wire/"]
     OUT["internal/outputs/{ndjson,csv,stix}<br/>stdout"]

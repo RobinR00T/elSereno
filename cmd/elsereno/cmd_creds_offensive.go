@@ -28,6 +28,7 @@ func newCredsCheckCmd() *cobra.Command {
 		Short: "Verify published default credentials (offensive, AUTHORIZED USE ONLY)",
 	}
 	cmd.AddCommand(newCredsCheckHTTPCmd())
+	cmd.AddCommand(newCredsCheckReuseCmd())
 	return cmd
 }
 

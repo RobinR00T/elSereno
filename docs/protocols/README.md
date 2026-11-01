@@ -1,9 +1,9 @@
 # Protocol support
 
-ElSereno registers **35 plugins** in the default build: 31 protocol
-plugins, the `banner` catch-all, and three opt-in, read-only probes
-(`s7-exposure`, `opcua-exposure`, `codesys-active`) that run only when
-named. `elsereno plugins list` prints the set on your binary. Every
+ElSereno registers **37 plugins** in the default build: 31 protocol
+plugins, the `banner` catch-all, and five opt-in, read-only probes
+(`s7-exposure`, `opcua-exposure`, `codesys-active`, `tristation`,
+`profinet-cm`) that run only when named. `elsereno plugins list` prints the set on your binary. Every
 default-build proxy handler is read-only (write-ban, deny-all or fail-closed)
 except XOT's, which copies bytes both ways (an open decision in
 TODO-vNext); writes need `-tags offensive` and the ADR-039 triple-confirm wrapper,
@@ -51,6 +51,8 @@ sent.
 | [TwinCAT ADS](twincat.md) | 48898 | AMS ReadDeviceInfo, NetID 0.0.0.0.0.0 | fail-closed |
 | [**CoDeSys V3**](codesys.md) | 1217 | 4-byte Block Driver magic; banner match | fail-closed |
 | [CoDeSys V3 active](codesys.md) | none (opt-in; use 1217) | channel-open PDU (Tenable PoC) | fail-closed |
+| [TriStation](tristation.md) | none (opt-in; UDP 1502) | TCM CONNECT, then DISCONNECT (no command) | fail-closed (UDP, SIS) |
+| [PROFINET-CM](profinet-cm.md) | none (opt-in; UDP 34964) | DCE/RPC EPM lookup (spec-grounded) | fail-closed (UDP) |
 | [**Red Lion CR3**](redlion.md) | 789 | manufacturer + model register reads (cr3-fingerprint.nse) | fail-closed |
 | [MQTT](mqtt.md) | 1883 (8883 TLS) | anonymous CONNECT, wildcard SUBSCRIBE | deny-all |
 | [Banner](banner.md) | any | reads what the port sends | none |

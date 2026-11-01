@@ -31,12 +31,18 @@ type Record struct {
 	// Standards traces the finding to the external-standard vulnerabilities
 	// it evidences (derived from Protocol); omitted when none map.
 	Standards []standards.Ref `json:"standards,omitempty"`
+	// Vantage is the operator's label for where the scan ran from
+	// (scan --vantage), e.g. "it-office-vlan"; omitted when not set. The
+	// same finding seen from two vantages is evidence of a conduit.
+	Vantage string `json:"vantage,omitempty"`
 }
 
 // Writer streams findings to an io.Writer as newline-delimited JSON.
 type Writer struct {
 	w   io.Writer
 	enc *json.Encoder
+	// Vantage, when set, is copied into every record.
+	Vantage string
 }
 
 // NewWriter constructs a Writer that emits to w.
@@ -66,6 +72,7 @@ func (x *Writer) WriteFinding(f core.Finding, addr string, port int) error {
 		Factors:   f.Factors,
 		CreatedAt: f.CreatedAt.UTC().Format(time.RFC3339Nano),
 		Standards: standards.ForProtocol(f.Protocol),
+		Vantage:   x.Vantage,
 	}
 	return x.enc.Encode(r)
 }

@@ -72,10 +72,10 @@ Nada de esto tiene aprobación del mantenedor (disciplina de fases).
 - **Perfiles de ritmo: lo que falta (P1).** Hecho el 21-10-2026 en `scan`
   y `discover`: `--profile` aggressive / normal / safe / fragile,
   `--inter-probe-delay` y `--max-conns-per-host` (`scanner.HostPacer`,
-  tests con reloj simulado; PITF-104). Falta: (a) `fingerprint` y los
+  tests con reloj simulado; PITF-112). Falta: (a) `fingerprint` y los
   escaneos del dashboard, la API y la TUI no toman perfil; (b) `fragile`
   asignable por rango en el scope; (c) `--probe-timeout` existe en
-  `scan` desde el 21-10 (PITF-105 lo hizo posible), no en `discover` (que
+  `scan` desde el 21-10 (PITF-113 lo hizo posible), no en `discover` (que
   tiene `--dial-timeout`) ni en los perfiles; (d) validar las cifras de `safe` y `fragile` contra equipos delicados
   reales: hoy son puntos de partida.
 - **Mapeo a MITRE ATT&CK for ICS e IEC 62443 (P2).** `internal/standards`

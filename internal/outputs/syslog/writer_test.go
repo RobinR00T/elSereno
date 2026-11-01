@@ -113,7 +113,7 @@ func TestWriter_StandardsTraceability(t *testing.T) {
 	w := syslog.NewWriter(&buf, "h", "a", "v")
 	// modbus maps to a Table 16 unsecure-OT vulnerability: it rides in the SD.
 	_ = w.WriteFinding(sampleFinding(), "x")
-	if !strings.Contains(buf.String(), `standard="NIST SP 800-82 r4 Table 16: Use of unsecure OT protocols"`) {
+	if !strings.Contains(buf.String(), `standard="NIST SP 800-82 r4 Table 16: Use of unsecure OT protocols; MITRE ATT&CK for ICS v20 T0888: Remote System Information Discovery`) {
 		t.Fatalf("standards SD param missing: %q", buf.String())
 	}
 	// A protocol with no mapping must not grow a standard SD param.

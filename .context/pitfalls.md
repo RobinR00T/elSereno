@@ -696,21 +696,77 @@ Verificación: barrido NVD REST API por familia (keywordSearch + descripción), 
 **Implementación correcta**: `.goreleaser.yml` `dockers_v2[0]`: `ids: [elsereno-default]`, `dockerfile: Dockerfile.goreleaser`.
 **Ver**: `Dockerfile.goreleaser`, `.goreleaser.yml`; run 39285268165; 19-10-2026.
 
-## PITF-104: discover abría ~30 conexiones a la vez contra un mismo PLC
+## PITF-104: IDs de ATT&CK for ICS revocados o deprecados en el mapeo
+**Síntoma**: un mapeo a MITRE ATT&CK for ICS cita un ID (p. ej. T0812 Default Credentials, T0855, T0856, T0891, o el deprecado T0807) que una versión de la matriz ya retiró; el operador acaba apuntado a un comportamiento que la matriz ya no describe.
+**Causa**: ATT&CK revoca y depreca IDs entre versiones (los revocados se pliegan en Enterprise ATT&CK). Un ID copiado de memoria o de un mapeo viejo no se nota roto: sigue pareciendo un ID válido.
+**Regla**: el mapeo se fija a una versión concreta de la matriz (hoy v20) y solo usa IDs vigentes en esa versión. Antes de escribir un ID se comprueba su estado en la matriz de esa versión; un revocado/deprecado se sustituye por el vigente (Default/Hardcoded Credentials -> T0859 Valid Accounts). `internal/standards/attackics.go` es la única fuente de los IDs; la tabla de higiene vive en `docs/standards/mitre-attack-ics.md`.
+**Implementación correcta**: IDs vigentes usados: T0888, T0843, T0858, T0886, T0859, T0836, T0801, T0861, T0822. Evitados: T0812, T0855, T0856, T0891 (revocados), T0807 (deprecado).
+**Ver**: `internal/standards/attackics.go`, `docs/standards/mitre-attack-ics.md`; 27-10-2026.
+
+## PITF-105: puertos UDP metidos en una tabla que asumía TCP
+**Síntoma**: un plugin UDP (TriStation 1502/udp, PROFINET-CM 34964/udp, SNMP 161/udp) resuelto por número de puerto en una tabla que solo guardaba el transporte implícito TCP se clasifica como el servicio TCP homónimo o no se encuentra.
+**Causa**: el catálogo de puertos original indexaba solo por número y daba por supuesto TCP. El mismo número vive en TCP y en UDP con servicios distintos; sin el transporte en la clave, el lookup es ambiguo.
+**Regla**: `PortEntry` lleva `Transport` explícito y `Lookup(port)` prefiere TCP pero conserva ambas entradas; cualquier consumidor que pregunte por un servicio UDP pasa el transporte. Un puerto nuevo UDP se añade con su `Transport: TransportUDP`, nunca reutilizando la fila TCP.
+**Implementación correcta**: `internal/exposure/ports.go`: filas separadas 161/udp, 1502/udp, 34964/udp, 47808/udp con `Transport` propio.
+**Ver**: `internal/exposure/ports.go`, `internal/exposure/ports_test.go`; 27-10-2026.
+
+## PITF-106: `make ci` no corría los chequeos de formato que sí corre la CI
+**Síntoma**: `make ci` y `golangci-lint run` locales en verde, pero el job `lint` de la CI falla con "gofmt differences". Un fichero sin formatear (`examples/captures/gen/main.go`, fuera de `internal/ offensive/ cmd/`) pasó el commit y rompió main.
+**Causa**: el target `lint` de `make ci` solo ejecutaba `golangci-lint run`. El job `lint` de `.github/workflows/ci.yml` ejecuta además `gofmt -l .`, `goimports -l .` y un diff de `go mod tidy` antes de golangci-lint. golangci-lint tiene `goimports` pero no `gofmt`, y un `gofmt -w` acotado a tres carpetas no cubre `examples/`. Es el fallo que PITF-031 nombra: `make ci` dejó de ser superconjunto de la CI.
+**Regla**: todo chequeo del job `lint` de la CI vive también en `make ci`. Target `fmt-check` (gofmt -l, goimports -l, go mod tidy diff, todos sobre `.`) añadido como primera dependencia de `ci`. `gofmt -w .` (toda la raíz), nunca por carpetas.
+**Implementación correcta**: `Makefile` target `fmt-check`, `ci: fmt-check lint ...`.
+**Ver**: `Makefile`, `.github/workflows/ci.yml` job `lint`; PITF-031; 27-10-2026.
+
+## PITF-107: un gate de TLS que comprueba presencia, no verificación
+**Síntoma**: con `database.tls_required=always` (o `auto` no-loopback) y un DSN `sslmode=require`, el arranque reportaba "TLS required: ok" aunque la conexión no autenticaba el certificado del servidor: cifrada pero MITM-able. El mismo patrón en `creds-check reuse`, que enviaba las credenciales reales del operador a una UI de dispositivo con `InsecureSkipVerify` ciego.
+**Causa**: `applyTLSPolicy` solo miraba `cc.TLSConfig != nil`. pgx deja `TLSConfig` no-nil con `InsecureSkipVerify=true` para `sslmode=require` (cifra, no valida). Presencia de TLS no es verificación de TLS. En `deviceClient` el skip-verify era el mismo para el fingerprint sin credenciales que para el verbo que sí las transmite.
+**Regla**: cuando una política exige TLS, exige que el peer se autentique, no solo que el enlace se cifre. Rechazar `InsecureSkipVerify` sin callback de verificación (`require` pelado); aceptar `verify-ca` (callback) y `verify-full`. Un canal que transmite credenciales necesita peer autenticado (pin del certificado) o una aceptación explícita del riesgo, nunca skip-verify por defecto.
+**Implementación correcta**: `internal/db/pool.go` `tlsVerifiesPeer` + `ErrTLSUnverified`; `creds-check reuse` `--tls-pin <sha256>` (VerifyConnection sobre el leaf) y `--insecure-tls` (ack obligatorio), el verbo se niega a correr sin uno de los dos.
+**Ver**: `internal/db/pool.go`, `cmd/elsereno/cmd_creds_reuse_offensive.go`; ADR-021; 27-10-2026.
+
+## PITF-108: cola unkeyed degradable en la cadena de auditoría
+**Síntoma**: `VerifyFileKeyed` daba "cadena íntegra" sobre un log cuya cola había sido reescrita por un atacante sin la clave del vault. El comentario de `computeHash` afirmaba "tamper-proof" y "cannot recompute the chain forward", más fuerte que la garantía real.
+**Causa**: la cadena mezcla entradas keyed (HMAC, con vault) y unkeyed (SHA-256, harvest sin vault), por diseño y en ambos sentidos. Una entrada unkeyed la puede forjar cualquiera con escritura al fichero, así que la cola posterior a la última entrada keyed (o una cadena entera unkeyed) es tamper-EVIDENTE, no tamper-proof: `verifyEntry` acepta SHA bajo verificación keyed y no hay marcador por entrada que distinga una degradación de una entrada unkeyed legítima.
+**Regla**: no afirmar tamper-proof donde solo hay tamper-evidente. Para una garantía tamper-proof sobre toda la cadena, el vault debe estar disponible en cada append y la verificación debe rechazar cualquier entrada unkeyed. La verificación laxa sigue existiendo para cadenas mixtas legítimas, con su límite documentado.
+**Implementación correcta**: `internal/audit/writer.go` `VerifyFileKeyedStrict` + `verifyEntryKeyedOnly`; `audit verify-file --strict`; comentarios de `computeHash` corregidos al límite real.
+**Ver**: `internal/audit/canonical.go`, `internal/audit/writer.go`, `cmd/elsereno/cmd_audit_verify.go`; ADR-013/015; 27-10-2026.
+
+## PITF-109: la línea de credencial malformada acababa en el mensaje de error
+**Síntoma**: `LoadCredsFile` devolvía `line %q is not user:pass` con la línea entera. Esa línea es una credencial (o algo que el operador trató como tal) y el error puede acabar en logs, en stderr de CI o en una captura de pantalla.
+**Causa**: usar el contenido como contexto de depuración. El número de línea identifica el problema igual de bien sin exponer el secreto.
+**Regla**: un mensaje de error sobre datos sensibles identifica la posición (nº de línea, offset, índice), nunca el contenido. Vale para parsers de credenciales, tokens, claves y cualquier entrada que el llamante trate como secreta.
+**Implementación correcta**: `offensive/creds/sources.go` reporta `line %d`; test `sources_l1_test.go`.
+**Ver**: `offensive/creds/sources.go`; 27-10-2026.
+
+## PITF-110: la doc del paquete afirmaba un control de seguridad que no estaba cableado
+**Síntoma**: `internal/web/doc.go` y `handlers/doc.go` describían auth dual (cookie + CSRF para HTML) y rutas `/login` `/logout`; la ayuda de `serve` citaba la clave CSRF como si protegiera peticiones. Ninguna de esas rutas existe y ningún handler consume la clave: la auth real es Bearer-only y nada está protegido contra CSRF.
+**Causa**: la doc se escribió sobre el diseño (ADR-014/017) y no se degradó cuando el middleware quedó pendiente (PITF-087). Un lector u operador cree que los endpoints HTML están protegidos cuando no lo están.
+**Regla**: la doc de un control de seguridad describe lo que está cableado hoy, no lo diseñado. Un control pre-provisionado pero no montado se marca explícito ("diseñado, no cableado, ver PITF-xxx"). Un campo derivado y guardado para uso futuro lleva un lector (un test que fija el invariante) para que no sea código muerto silencioso.
+**Implementación correcta**: `internal/web/doc.go`, `handlers/doc.go`, `cmd_serve.go` degradados a "Bearer-only, cookie/CSRF diseñado no cableado"; `csrfKey` documentado + test `csrf_nonce_test.go` que lo lee.
+**Ver**: `internal/web/server.go`; PITF-087; 27-10-2026.
+
+## PITF-111: una entrada de allowlist a cero valía como comodín fail-open
+**Síntoma**: `AllowedWrite{}` (todo a cero) hacía `Matches(f) == true` para cualquier write Modbus: `Unit==0` = cualquier unit, `FC==0` se saltaba la comprobación, `StartAddr==0 && EndAddr==0` = cualquier dirección. Una fila en blanco o `fc: 0` en el allowfile (o `--function 0`) autorizaba todas las escrituras.
+**Causa**: tratar el valor cero de cada campo como "comodín" sin exigir un discriminante concreto. Para dirección el comodín es intencionado; para FC no: `fc` 0 no es un write FC real, así que un cero es error del operador, no "cualquier FC".
+**Regla**: una entrada de allowlist a cero no autoriza nada (fail-closed). Exige al menos un discriminante concreto (aquí, un write FC válido) tanto en el punto de decisión (`Matches`) como al cargar (rechazo ruidoso), para que una fila malformada no se cuele como comodín.
+**Implementación correcta**: `offensive/write/modbus/gatedproxy.go` `Matches` rechaza `FC==0`; `buildModbusAllowlist` rechaza `fc=0`; tests `gatedproxy_l5_test.go`, `dial_modbus_low_offensive_test.go`.
+**Ver**: `offensive/write/modbus/gatedproxy.go`, `cmd/elsereno/cmd_proxy_offensive.go`; 27-10-2026.
+
+## PITF-112: discover abría ~30 conexiones a la vez contra un mismo PLC
 **Síntoma**: `discover --auto` sobre un rango repartía los trabajos host a host (todos los puertos del host 1, luego los del host 2) entre 64 workers, así que los primeros ~30 connects iban contra el mismo host a la vez. El 5007 (melsoft y slmp) se conectaba una vez por plugin y salía dos veces en la salida.
 **Causa**: el barrido se escribió pensando en el rendimiento de un laboratorio y nunca tuvo un tope por host; `scan` sí lo tenía (`max_concurrent_per_host`) y nadie lo trasladó. La lista de puertos salía de los plugins sin deduplicar.
 **Regla**: todo barrido que toque varios puertos de un host pasa por `scanner.HostPacer` (tope por host y pausa entre inicios) y reparte los trabajos puerto a puerto, para que los hosts se turnen. Un puerto se conecta una vez aunque lo declaren varios plugins. Un cambio de orden se prueba con un test que mida el tiempo total con pausa por host (el orden host a host lo dobla).
 **Implementación correcta**: `cmd/elsereno/cmd_discover.go` `sweepPaced` + `uniquePorts`; tests `TestSweepPacedSpreadsAcrossHosts`, `TestSweepDialsSharedPortOnce`.
 **Ver**: `internal/scanner/pacer.go`, `cmd/elsereno/pacing.go`; 21-10-2026.
 
-## PITF-105: un scan cancelado esperaba al deadline de IO de cada sonda
+## PITF-113: un scan cancelado esperaba al deadline de IO de cada sonda
 **Síntoma**: Ctrl-C, la cancelación de un job del dashboard o el `--timeout` de un verbo no paraban las sondas en vuelo: cada una seguía hasta su deadline de IO (2 a 5 s según el plugin). Con un servicio que acepta y calla, el test guardia medía 3 a 5 s tras el cancel.
 **Causa**: los plugins marcan el dial con el contexto (`DialContext`) pero después fijan `conn.SetDeadline(time.Now().Add(IOTimeout))`, que no sabe nada del contexto. Un `Read` bloqueado no se despierta con el cancel.
 **Regla**: toda conexión de una sonda se ata a su contexto: `defer netutil.CloseOnDone(ctx, conn)()` en lugar de un `Close` a secas. Cerrar despierta cualquier `Read`/`Write` bloqueado. Y lo que una sonda devuelve después del cancel no es una observación del objetivo: el scanner lo descarta.
 **Implementación correcta**: `internal/netutil/conn.go`; `internal/scanner/scanner.go` `withRetries`; guardia `cmd/elsereno/cancel_guard_test.go` (todos los plugins, servidor mudo, cancel a 150 ms, máximo 1 s; mutante sin el AfterFunc: 9 plugins fallan).
 **Ver**: 21-10-2026.
 
-## PITF-106: la doc de seguridad afirmaba controles que el código no hace
+## PITF-114: la doc de seguridad afirmaba controles que el código no hace
 **Síntoma**: SECURITY.md decía TLS 1.3 only, HSTS solo fuera de loopback con `max-age=31536000`, master key borrada con SIGINT/SIGTERM y `vault lock`, `audit verify` con offset, purge/compact funcionando, aviso por `ELSERENO_VAULT_PASSPHRASE` y `SafeCommand.Run()` con `Execve`; CLAUDE.md y conventions repetían parte; `_quickref` decía que la redacción no estaba cableada (lo está desde PITF-099) y conventions que `doctor` comprueba mlock. Y un Ctrl-C salía con 143, no con 130.
 **Causa**: la doc se escribió con el diseño y no se volvió a comprobar cuando el código tomó otro camino; el 143 venía de un `return 143` fijo para "cualquier señal".
 **Regla**: una frase de seguridad en la doc lleva el sitio del código que la cumple, o dice "diseño, no construido". Cada pasada de auditoría coteja SECURITY.md, CLAUDE.md, `_quickref` y conventions contra el código, no contra la doc anterior.

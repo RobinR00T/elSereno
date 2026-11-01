@@ -33,6 +33,8 @@ token-budget: 800
 | DLMS/COSEM | 4059/tcp | v1.21 | implemented | [dlms.md](dlms.md) |
 | CoDeSys V3 | 1217/tcp | v1.22 | implemented | [codesys.md](codesys.md) |
 | Red Lion / RLN | 789/tcp | v1.22 | implemented | [redlion.md](redlion.md) |
+| TriStation (SIS) | 1502/udp (opt-in) | unreleased | implemented | [tristation.md](tristation.md) |
+| PROFINET-CM | 34964/udp (opt-in) | unreleased | implemented | [profinet-cm.md](profinet-cm.md) |
 | banner/dictionary | many | F1 + F4 | implemented | [banner.md](banner.md) |
 
 ## Summary

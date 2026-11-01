@@ -11,7 +11,7 @@ preguntas rápidas con un párrafo de respuesta, ver el
 ### ¿Qué binario instalo: default, offensive o mini?
 
 - **default** (`elsereno`): el 90% de los casos. Scan
-  read-only, dashboard, TUI, 35 plugins. Lo que querés si
+  read-only, dashboard, TUI, 37 plugins. Lo que querés si
   no sabes cuál elegir.
 - **offensive** (`elsereno-offensive`): SÓLO si haces
   pen-test autorizado con escrituras a ICS. Activa los
@@ -262,6 +262,41 @@ triple-confirm y queda auditada. No puede dispararse por
 accidente. Con `--scope`, `write modbus send`, `exploit run` y
 `proxy listen` rechazan un target fuera del scope (77) y exigen
 una IP, no un nombre.
+
+### ¿ElSereno comprueba reutilización de credenciales IT en OT?
+
+Sí, en el build offensive: `creds-check reuse` prueba credenciales que ya
+tienes en tu almacén (un fichero 0600, un secreto de HashiCorp Vault KV v2
+o un endpoint JSON) contra un objetivo OT por HTTP Basic o SSH. **No es un
+diccionario ni fuerza bruta**: solo usa las credenciales que le das, solo
+verifica autenticación (un login SSH correcto se cierra sin abrir sesión
+ni ejecutar nada, y cada sondeo HTTP es un GET), exige
+`--confirm-authorized` y `--vault-passphrase-file`, y escribe cada intento
+en el log de auditoría. La contraseña nunca se imprime ni se audita: solo
+su origen y una huella con sal por ejecución. El almacén de credenciales
+se contacta con verificación TLS activada. Enviar tus credenciales al
+dispositivo exige un canal autenticado: en http-basic, `--tls-pin <sha256>`
+fija el certificado del dispositivo (vale con autofirmados y bloquea un
+MITM); `--insecure-tls` acepta de forma explícita un canal sin verificar
+(obligatorio en ssh, cuya host key no se verifica). Sin una de las dos, el
+comando se niega a correr, para no filtrar a un atacante en ruta las mismas
+credenciales que está probando.
+
+```bash
+elsereno creds-check reuse --protocol ssh --target plc.internal:22 \
+  --creds-file ./ad-service-accounts.600 --insecure-tls \
+  --vault-passphrase-file ~/.elsereno/pass.600 --confirm-authorized
+```
+
+### ¿Detecta un Active Directory compartido entre IT y OT?
+
+Parcialmente, y nunca las relaciones de confianza (trusts): un escáner de
+red no las ve. Lo que sí hace: `discover --it-ports` y
+`plaintext-check --list-ports` señalan Kerberos (88), LDAP (389/636) y el
+global catalog (3268/3269) en un segmento OT como `it-management`, es
+decir "hay un controlador de dominio alcanzable desde aquí". Mantener los
+bosques de IT y OT separados y sin trusts es una decisión de arquitectura
+que la herramienta no puede verificar; solo marca el controlador expuesto.
 
 ---
 

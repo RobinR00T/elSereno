@@ -9,16 +9,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- **Toolchain go1.26.10 for GO-2026-6809.** `crypto/x509` in go1.26.9
-  kept trusting a set of compromised intermediate certificates;
-  govulncheck reaches it through the TLS handshake of
-  `plaintext-check` (`internal/exposure/cleartext.go`). `go.mod` pins
-  `toolchain go1.26.10` and the Dockerfile builds on
-  `golang:1.26.10-alpine3.24`. The remaining govulncheck module note
-  (GO-2026-5932, `x/crypto/openpgp`, no fix) is not called.
+- **Audit-chain downgrade closed with strict verification (PITF-108).**
+  A local attacker with write access to `~/.elsereno/audit.jsonl` but
+  without the vault key could rewrite the unkeyed tail of the chain and
+  pass `audit verify-file`. New `audit verify-file --strict` (and
+  `audit.VerifyFileKeyedStrict`) rejects any non-keyed entry, giving a
+  tamper-proof guarantee over a fully-keyed chain. The misleading
+  "tamper-proof" docstring is corrected to state the real tamper-evident
+  limit of the unkeyed tail.
+- **Postgres TLS gate now requires a verified peer, not just encryption
+  (PITF-107).** With `database.tls_required=always`/`auto`, a DSN of
+  `sslmode=require` (encrypt, no certificate check) was accepted and
+  left the connection MITM-able. The gate now rejects an unverified
+  `*tls.Config` (`ErrTLSUnverified`); use `sslmode=verify-full`.
+- **`creds-check reuse` no longer ships credentials over unverified TLS
+  by default (PITF-107).** The http-basic verb sends the operator's real
+  credentials; it now requires `--tls-pin <sha256>` (pins the device
+  leaf certificate, works with self-signed) or an explicit
+  `--insecure-tls` acknowledgement, and ssh likewise requires the
+  acknowledgement.
+- **`serve` zeroizes the vault master key on exit.** A `defer vault.Lock`
+  covers the graceful-shutdown (first-signal) path, and `memguard.Purge`
+  on the second-signal hard-exit path honours the declared "zeroized on
+  SIGINT/SIGTERM" invariant.
+- **Go toolchain bumped to 1.26.10 for GO-2026-6809** (crypto/x509
+  distrusts compromised intermediate certificates). govulncheck reached
+  it through the TLS handshake in `plaintext-check`; the stdlib fix lands
+  in go1.26.10. `go.mod` `toolchain` and the Dockerfile builder image
+  move together; the `go` directive (minimum 1.26.0) is unchanged.
+- **Hardening sweep of the audit's low-severity findings
+  (PITF-109/110/111).** A malformed line in a `creds-check` secret file
+  no longer appears verbatim in the error (line number only, PITF-109).
+  The CSP nonce fails the request closed on a `crypto/rand` error instead
+  of serving a predictable zero nonce. The Modbus write proxy rejects a
+  zero-FC allowlist entry (a blank or `fc: 0` row) instead of treating it
+  as a write-everything wildcard, at both the match gate and the loader
+  (PITF-111). `dial batch`/`dial wardial` reject an unrecognised
+  `--disposition` before it can reach the audit chain. `telemetry.SafeField`
+  now escapes backslashes so a literal `\n` cannot be confused with an
+  escaped newline. The SSE writer strips CR/LF from the event kind and
+  frames every payload line as its own `data:` field, so a stray newline
+  cannot inject fields or events. The package docs for `internal/web`
+  stopped claiming a cookie/CSRF/login auth layer that is designed but
+  not wired (PITF-110); auth today is Bearer-token only.
 
 ### Added
 
+- **Port catalogue and IT-port sweep.** `internal/exposure/ports.go`
+  catalogues each port with its transport, category
+  (it-cleartext/it-encrypted/it-management/ot), secure alternative and
+  TLS-check hint. `elsereno discover --it-ports` extends discovery with
+  the IT management ports that commonly sit one hop from an OT cell
+  (RDP 3389, MSSQL 1433, SSH 22, ...); `elsereno plaintext-check --list-ports`
+  prints the catalogue. UDP entries (SNMP 161, TriStation 1502,
+  PROFINET-CM 34964, BACnet 47808) carry their own transport, so a UDP
+  service is no longer mistaken for the TCP port of the same number
+  (PITF-105).
+- **TriStation (Triconex SIS) probe**, opt-in UDP 1502, in two modes
+  selected by exactly one of `--active`/`--passive`. Active sends TCM
+  CONNECT, classifies, then DISCONNECT (no command); `--status` reads
+  the CP status (key switch, run state, firmware, project name).
+  Passive reads a pcap/pcapng with `--file` and classifies TriStation
+  datagrams without touching the network. A hit on a safety
+  instrumented system scores critical. Wire format and CRC-16/ARC
+  validated against a synthetic capture (`examples/captures/`); the
+  plugin registers as `tristation` and stays out of the default sweep.
+- **PROFINET-CM probe**, opt-in UDP 34964: a DCE/RPC endpoint-mapper
+  lookup that matches `profinet-cm-lookup.nse` byte for byte and
+  classifies the reply (device type, order ID, HW/SW revision).
+  Spec-grounded, not yet capture-validated; registers as `profinet-cm`.
+- **Conpot honeypot detection in the S7 probe.** `s7 probe-identity`
+  and `probe-posture` now carry a honeypot verdict built from the
+  Conpot default signatures (serial numbers, plant identifiers); a
+  strong match flags the target as a likely decoy so findings are not
+  read as a real PLC.
+- **`scan --vantage <label>`** records the observation point on every
+  finding and in the NDJSON and STIX output (STIX adds a
+  `vantage:<label>` label), so scans from different network segments
+  stay distinguishable. CSV keeps its frozen `csv:v1` contract and
+  refuses the flag.
+- **Standards traceability for ATT&CK for ICS and IEC 62443-3-3.**
+  `elsereno standards --standard <key>` filters the catalogue to one
+  framework; `internal/standards` now maps protocols to MITRE ATT&CK
+  for ICS (matrix v20, current IDs only, PITF-104) and
+  IEC 62443-3-3 system requirements alongside the existing
+  NIST SP 800-82r4 mapping.
+- **`creds-check reuse`** (offensive build): checks whether credentials
+  from your own store (a 0600 file, Vault KV v2 or a JSON endpoint) are
+  reused on an OT device's HTTP-Basic or SSH service. It only verifies
+  authentication (SSH opens no session and runs no command), gates on a
+  baseline unauthenticated probe, needs `--confirm-authorized`, and
+  audits every attempt as `offensive_creds_reuse` with a salted
+  fingerprint of the password, never the password itself.
 - **Pacing profiles for `scan` and `discover`.** `--profile`
   aggressive | normal | safe | fragile sets probes in flight, probes
   per host, a pause between probe starts on one host, an overall rate
@@ -37,7 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`discover` is gentler on each host (PITF-104).** It dials one port
+- **`discover` is gentler on each host (PITF-112).** It dials one port
   of a host at a time (or `--max-conns-per-host`), in port-major order
   so hosts are visited in turn. Before, its 64 workers took jobs
   host-major and could open about 30 connections to one PLC at once.
@@ -46,13 +128,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A cancelled scan stopped only when each probe's IO deadline passed
-  (PITF-105).** Plugins set a fixed deadline (2 to 5 s) after dialling
+  (PITF-113).** Plugins set a fixed deadline (2 to 5 s) after dialling
   and ignored the context, so Ctrl-C, a dashboard job cancel or a
   verb's `--timeout` waited for it on every probe in flight. Every
   plugin now closes its connection when the context is done
   (`netutil.CloseOnDone`), and the scanner drops what a probe returns
   after the cancel instead of recording it as a finding.
-- **Ctrl-C exited 143, as if it were SIGTERM (PITF-106).** A clean
+- **Ctrl-C exited 143, as if it were SIGTERM (PITF-114).** A clean
   completion after the first signal always returned 143; it now
   returns 130 for SIGINT and 143 for SIGTERM.
 - `discover` dialled a port declared by several plugins (5007: melsoft
@@ -64,16 +146,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- Security docs said things the code does not do (PITF-106):
+- Security docs said things the code does not do (PITF-114):
   `serve` is not TLS 1.3 only (Go's TLS 1.2 minimum) and sends HSTS
-  with `max-age=63072000` on every TLS response; no signal handler
-  zeroes the vault key and the one-shot `vault lock` is a no-op;
+  with `max-age=63072000` on every TLS response; the one-shot
+  `vault lock` is a no-op (vault key zeroization on a signal: see
+  `serve` under Security);
   `audit verify`, `purge` and `compact` are stubs that exit 69; nothing
   reads `ELSERENO_VAULT_PASSPHRASE`; `database.tls_required` applies to
   the `db` commands, the only ones that open Postgres; `SafeCommand`
   returns an `*exec.Cmd`. Also: `doctor` does not check mlock, the
   redaction hook is wired since 17-10, the outbox worker is not wired,
-  the default build has 35 plugins (not 28), and the FAQ's
+  the default build has 37 plugins (not 28), and the FAQ's
   plugin-writing steps pointed at `internal/plugins/`.
 - Install docs point at v2.63.2: cosign and SLSA verification commands and the public signed image `ghcr.io/robinr00t/elsereno`; the RELEASING snapshot command sets `GITHUB_REPOSITORY`.
 

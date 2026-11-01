@@ -64,7 +64,10 @@ Garantías de boundary:
 - **Vault unlock-once**: dentro de un proceso que abre el
   vault (`serve`, el runtime offensive), la master key vive
   en memguard (mlocked) y se destruye con `Vault.Lock` o al
-  salir el proceso; ningún manejador de señal la borra antes.
+  salir el proceso. `serve` llama a `Vault.Lock` al apagarse
+  con la primera señal (SIGINT/SIGTERM), y una segunda señal
+  ejecuta `memguard.Purge` antes de la salida forzada
+  (`cmd/elsereno/main.go`).
   Cada invocación del binario necesita su propio unlock: en
   la CLI de un solo uso, `vault unlock` solo comprueba la
   passphrase y `vault lock` no tiene nada que borrar.
@@ -150,7 +153,11 @@ entry N (una línea JSON; ejemplo real, build offensive):
   offensive, con el vault abierto); las de `harvest`, `dial batch`, `dial wardial` y
   `audit serve` llevan SHA-256 sin clave, y quien puede escribir
   el fichero puede reescribir la chain desde ese punto
-  recalculando los hashes.
+  recalculando los hashes. Esa cola sin clave es tamper-EVIDENTE,
+  no tamper-proof (PITF-108). Donde el vault esté abierto en cada
+  append y toda la chain vaya con clave, `verify-file --strict`
+  rechaza cualquier entry sin clave y da garantía tamper-proof
+  sobre la chain entera.
 - **Detección de borrado**: la chain se rompe → `verify-file`
   lo detecta (`ErrChainBroken`). `audit verify`, contra la
   base de datos, es un stub que sale con 69.

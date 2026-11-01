@@ -103,6 +103,13 @@ type Server struct {
 	server    *http.Server
 	startedAt time.Time
 
+	// csrfKey is pre-derived from the vault (ADR-017) and held for the
+	// cookie + CSRF middleware that is DESIGNED but not yet wired
+	// (PITF-087). It is not consumed by any live handler today: every
+	// endpoint authenticates with a Bearer token, so no request is
+	// CSRF-protected yet. Deriving it here keeps `serve`'s vault-unlock
+	// requirement honest and pins the 32-byte invariant (see the
+	// NewServer test) until the middleware lands.
 	csrfKey []byte
 
 	// broadcaster is the process-local SSE fan-out. Every publisher
@@ -275,8 +282,15 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 // inline <script nonce=...> without weakening the policy.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonce, err := randNonce()
+		if err != nil {
+			// A CSP nonce we cannot generate from crypto/rand must
+			// never be replaced by a predictable value: fail the
+			// request closed rather than serve a weakened policy (L2).
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		h := w.Header()
-		nonce := randNonce()
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'nonce-"+nonce+"'; style-src 'self' 'nonce-"+nonce+"'; base-uri 'none'; frame-ancestors 'none'; connect-src 'self'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -291,10 +305,14 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // randNonce returns a short base64 value suitable for a CSP nonce.
-func randNonce() string {
+// It surfaces a crypto/rand failure instead of silently returning a
+// zero nonce, so the caller can fail the request closed (L2).
+func randNonce() (string, error) {
 	var b [12]byte
-	_, _ = rand.Read(b[:])
-	return base64.RawURLEncoding.EncodeToString(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
 }
 
 func nonzero[T comparable](a, def T) T {

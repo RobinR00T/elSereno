@@ -64,21 +64,27 @@ func Canonicalise(e Entry) ([]byte, error) {
 }
 
 // computeHash returns the entry's chain hash over the JCS canonical
-// bytes. With a non-empty macKey it is HMAC-SHA256(macKey, JCS(e)),
-// which is tamper-proof: an attacker with write access to the log but
-// without the vault-derived key cannot forge it, so they cannot
-// recompute the chain forward after editing an entry. With an empty
-// key it is plain SHA-256(JCS(e)), tamper-evident only; used where the
-// vault is not unlocked (e.g. read-only harvest).
+// bytes. With a non-empty macKey it is HMAC-SHA256(macKey, JCS(e)): an
+// attacker with write access to the log but without the vault-derived
+// key cannot forge a keyed entry's hash. With an empty key it is plain
+// SHA-256(JCS(e)), which anyone can recompute; used where the vault is
+// not unlocked (e.g. read-only harvest).
 //
 // A single audit log may interleave keyed and unkeyed entries (harvest
 // runs without the vault, offensive-write runs with it). The prev_hash
-// linkage still protects the unkeyed ones: every keyed entry's HMAC
-// covers its prev_hash, i.e. the previous entry's entry_hash, so
-// tampering with ANY earlier entry (keyed or not) changes its hash,
-// which breaks the next keyed entry's prev_hash, which the attacker
-// cannot recompute. The chain is thus tamper-proof up to the last
-// keyed entry.
+// linkage protects every entry up to AND INCLUDING the last keyed
+// entry: each keyed entry's HMAC covers its prev_hash (the previous
+// entry's entry_hash), so tampering with any earlier entry breaks the
+// next keyed entry's prev_hash, which the attacker cannot recompute.
+//
+// What this does NOT protect: unkeyed entries are forgeable by anyone
+// with write access, so an attacker can rewrite the entries AFTER the
+// last keyed entry, or an entirely unkeyed chain, and relink prev_hash
+// forward undetected under VerifyFileKeyed. That tail is tamper-EVIDENT
+// only, not tamper-proof. For a tamper-proof guarantee over the whole
+// chain the vault must be available for every append and the chain
+// verified with VerifyFileKeyedStrict, which rejects any unkeyed entry
+// (PITF-108).
 func computeHash(macKey []byte, e Entry) ([]byte, error) {
 	c, err := Canonicalise(e)
 	if err != nil {
@@ -132,4 +138,22 @@ func verifyEntry(macKey []byte, e Entry) error {
 		return nil
 	}
 	return fmt.Errorf("%w: entry %d", ErrChainBroken, e.ID)
+}
+
+// verifyEntryKeyedOnly accepts an entry only when it matches the HMAC
+// under macKey; an unkeyed SHA-256 entry is rejected. Used by strict
+// verification to detect a downgraded tail (PITF-108). Comparison is
+// constant-time.
+func verifyEntryKeyedOnly(macKey []byte, e Entry) error {
+	if len(macKey) == 0 {
+		return fmt.Errorf("%w: entry %d (strict verify needs a key)", ErrChainBroken, e.ID)
+	}
+	want, err := computeHash(macKey, e)
+	if err != nil {
+		return err
+	}
+	if hmac.Equal(e.EntryHash, want) {
+		return nil
+	}
+	return fmt.Errorf("%w: entry %d (not keyed)", ErrChainBroken, e.ID)
 }
