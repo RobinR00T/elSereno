@@ -37,7 +37,11 @@ Read by the binary:
 \f[B]scanner.max_concurrent_targets\f[R] (default \f[B]100\f[R])
 \f[B]scanner.max_concurrent_per_host\f[R] (default \f[B]1\f[R]) :
 Concurrency caps of \f[B]scan\f[R] and of the dashboard scans of
-\f[B]serve\f[R].
+\f[B]serve\f[R]; \f[B]max_concurrent_per_host\f[R] also caps
+\f[B]discover\f[R].
+A \f[B]\-\-profile\f[R] other than \f[B]normal\f[R], and the
+\f[B]\-\-max\-concurrent\f[R] and \f[B]\-\-max\-conns\-per\-host\f[R]
+flags, override them for that run.
 .PP
 \f[B]database.max_conns\f[R] (default \f[B]10\f[R])
 \f[B]database.tls_required\f[R] in {\f[B]auto\f[R], \f[B]always\f[R],

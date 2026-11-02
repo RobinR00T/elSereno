@@ -10,6 +10,7 @@ import (
 
 	"local/elsereno/internal/core"
 	"local/elsereno/internal/cve"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/scoring"
 )
 
@@ -59,7 +60,7 @@ func (p *ExposurePlugin) Probe(ctx context.Context, target core.Target) (*core.F
 	if err != nil {
 		return nil, fmt.Errorf("s7-exposure: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	res, err := ProbePosture(ctx, conn)

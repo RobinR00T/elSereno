@@ -87,11 +87,23 @@ if [ -n "${GITHUB_ACTIONS:-}" ]; then
 elif git fetch origin --quiet 2>&1 | tail -1 | grep -q error; then
     skip "Sync check (fetch failed, maybe offline)"
 else
-    if [ -z "$(git log --oneline origin/main..HEAD 2>/dev/null)" ] && \
-       [ -z "$(git log --oneline HEAD..origin/main 2>/dev/null)" ]; then
+    branch=$(git symbolic-ref --short -q HEAD 2>/dev/null || echo "")
+    ahead=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)
+    behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+    if [ "$branch" != "main" ]; then
+        # A work branch (or a worktree) is meant to be ahead of
+        # origin/main; only being behind it is worth stopping for. The
+        # check used to compare HEAD as if it were main and failed on
+        # every branch with a commit.
+        if [ "$behind" = "0" ]; then
+            ok "Branch ${branch:-HEAD} is on top of origin/main (${ahead} ahead)"
+        else
+            fail "Branch ${branch:-HEAD} is ${behind} behind origin/main (rebase?)"
+        fi
+    elif [ "$ahead" = "0" ] && [ "$behind" = "0" ]; then
         ok "Local main = origin/main"
     else
-        fail "Local main diverged from origin/main (pull/push?)"
+        fail "Local main diverged from origin/main (${ahead} ahead, ${behind} behind: pull/push?)"
     fi
 fi
 

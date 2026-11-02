@@ -69,6 +69,10 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 type Session struct {
 	conn net.Conn
 	io   time.Duration
+	// done closes conn and stops watching the context Open was given:
+	// a cancel closes conn at once, so a blocked read returns
+	// (netutil.CloseOnDone, PITF-113).
+	done func()
 }
 
 // Open dials addr over UDP and performs the CONNECT handshake.
@@ -78,24 +82,24 @@ func (p *Plugin) Open(ctx context.Context, addr string) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tristation: dial %s: %w", addr, err)
 	}
-	s := &Session{conn: conn, io: p.IOTimeout}
+	s := &Session{conn: conn, io: p.IOTimeout, done: netutil.CloseOnDone(ctx, conn)}
 	req := wire.BuildConnect()
 	reply, err := s.roundTrip(req)
 	if err != nil {
-		_ = conn.Close()
+		s.done()
 		return nil, err
 	}
 	if netutil.IsEcho(req, reply) {
-		_ = conn.Close()
+		s.done()
 		return nil, fmt.Errorf("reply echoes the CONNECT probe (not TriStation)")
 	}
 	f, err := wire.Parse(reply)
 	if err != nil {
-		_ = conn.Close()
+		s.done()
 		return nil, fmt.Errorf("non-TriStation reply: %w", err)
 	}
 	if f.Opcode != wire.OpConnectReply {
-		_ = conn.Close()
+		s.done()
 		return nil, fmt.Errorf("%w: %s", ErrRefused, wire.OpcodeName(f.Opcode))
 	}
 	return s, nil
@@ -114,7 +118,7 @@ func (s *Session) Status() (wire.CPStatus, error) {
 func (s *Session) Close() {
 	_ = s.conn.SetDeadline(time.Now().Add(s.io))
 	_, _ = s.conn.Write(wire.BuildDisconnect())
-	_ = s.conn.Close()
+	s.done()
 }
 
 func (s *Session) roundTrip(req []byte) ([]byte, error) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/sip/wire"
 	"local/elsereno/internal/render"
 	"local/elsereno/internal/scoring"
@@ -92,7 +93,7 @@ func (p *Plugin) sendAndRead(ctx context.Context, transport, addr string, req []
 	if err != nil {
 		return wire.Response{}, err
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	if _, err := conn.Write(req); err != nil {
 		return wire.Response{}, fmt.Errorf("write: %w", err)

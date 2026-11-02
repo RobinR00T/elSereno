@@ -13,7 +13,8 @@
 // which handle every spec-conformant variant.
 //
 // It also holds IsEcho, the probe-reflection check the protocol plugins
-// share so a reflecting service is not reported as a device (PITF-071).
+// share so a reflecting service is not reported as a device (PITF-071),
+// and CloseOnDone, which ties a probe connection to its context.
 package netutil
 
 import (

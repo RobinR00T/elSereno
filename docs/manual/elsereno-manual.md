@@ -580,9 +580,9 @@ El feed live tambén recibe:
 
 ## 3. Fingerprint por protocolo
 
-**35 plugins en el build por defecto**: 32 en el barrido normal más
-3 sondas opt-in que solo corren con `--plugin` (`s7-exposure`,
-`opcua-exposure`, `codesys-active`). La lista autoritativa es
+**37 plugins en el build por defecto**: 32 en el barrido normal más
+5 sondas opt-in que solo corren con `--plugin` (`s7-exposure`,
+`opcua-exposure`, `codesys-active`, `tristation`, `profinet-cm`). La lista autoritativa es
 `elsereno plugins list`. Cada uno tiene una descripción + puerto
 well-known:
 

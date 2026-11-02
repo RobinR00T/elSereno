@@ -119,7 +119,10 @@ The default-build subcommand list is below. Run
     **--it-ports** adds the IT management ports that commonly sit one
     hop from an OT cell (RDP, MSSQL, SSH, ...).
     Pipe-friendly: `--format list` emits `host:port` lines for
-    `scan --input list:-` (`list:-` reads stdin).
+    `scan --input list:-` (`list:-` reads stdin). The sweep goes port
+    by port across the hosts, and one host gets at most
+    **scanner.max_concurrent_per_host** connects at a time; `--profile`,
+    `--inter-probe-delay` and `--max-conns-per-host` work as in **scan**.
 
 **profinet**
 :   PROFINET DCP codec, offline: **decode** a frame, **encode-identify**
@@ -146,6 +149,15 @@ The default-build subcommand list is below. Run
     named, and then probe every listed target, having no default
     port); `--plugin <name>[,<name>]` restricts the set. Each
     finding carries the target's address and port.
+    `--profile` **aggressive**, **normal** (default), **safe** or
+    **fragile** sets the pace; `--inter-probe-delay <dur>` (minimum gap
+    between two probes to one host, across plugins),
+    `--max-conns-per-host <n>`, `--rate`, `--max-concurrent` and
+    `--retries` override it. The profile numbers are conservative
+    starting points, not vendor-validated values.
+    `--probe-timeout <dur>` bounds each probe attempt, connect and
+    reads together (default 0: each plugin's own deadlines); an
+    attempt cut short leaves no finding and counts as a timeout.
     `--output-format` accepts `ndjson`, `csv` and `stix` (STIX 2.1
     bundle for MISP / OpenCTI / ThreatBus, v1.15+); `--output
     <file>` writes to a file instead of stdout. To probe one

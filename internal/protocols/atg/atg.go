@@ -60,7 +60,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("atg: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	// \x01I20100\n, the classic Veeder-Root "system status" query.
 	req := []byte{0x01, 'I', '2', '0', '1', '0', '0', '\r', '\n'}

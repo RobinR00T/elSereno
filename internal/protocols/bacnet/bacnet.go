@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/bacnet/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -50,7 +51,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("bacnet: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 	if _, err := conn.Write(wire.BuildWhoIs()); err != nil {
 		return nil, fmt.Errorf("bacnet: write: %w", err)

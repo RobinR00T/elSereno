@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/opcua/wire"
 	"local/elsereno/internal/render"
 	"local/elsereno/internal/scoring"
@@ -55,7 +56,7 @@ func (p *Plugin) Probe(ctx context.Context, target core.Target) (*core.Finding, 
 	if err != nil {
 		return nil, fmt.Errorf("opcua: dial %s: %w", addr, err)
 	}
-	defer func() { _ = conn.Close() }()
+	defer netutil.CloseOnDone(ctx, conn)()
 	_ = conn.SetDeadline(time.Now().Add(p.IOTimeout))
 
 	if err := sendHello(conn, addr); err != nil {

@@ -30,8 +30,10 @@ func categoryForPort(ports []pluginPort, port int) string {
 	return ""
 }
 
-// uniquePorts returns each port once, ascending, so a port claimed by a
-// plugin and by the catalogue (80, 443, 1883) is dialled once per host.
+// uniquePorts returns each port once, ascending, so a port claimed by
+// several plugins (5007: slmp and melsoft; 102: s7 and mms) or by a
+// plugin and the catalogue (80, 443, 1883) is dialled once per host and
+// its hit carries every claimant as a hint (PITF-112).
 func uniquePorts(ports []pluginPort) []pluginPort {
 	seen := map[int]bool{}
 	out := make([]pluginPort, 0, len(ports))

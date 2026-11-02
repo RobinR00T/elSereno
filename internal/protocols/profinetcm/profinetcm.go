@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/netutil"
 	"local/elsereno/internal/protocols/profinetcm/wire"
 	"local/elsereno/internal/scoring"
 )
@@ -62,7 +63,7 @@ func (p *Plugin) Lookup(ctx context.Context, target core.Target) (wire.Reply, er
 	if err != nil {
 		return wire.Reply{}, fmt.Errorf("profinet-cm: listen: %w", err)
 	}
-	defer func() { _ = pc.Close() }()
+	defer netutil.CloseOnDone(ctx, pc)()
 	deadline := time.Now().Add(p.IOTimeout)
 	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
 		deadline = d

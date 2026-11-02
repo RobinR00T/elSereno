@@ -36,7 +36,10 @@ Read by the binary:
 
 **scanner.max_concurrent_targets** (default **100**)
 **scanner.max_concurrent_per_host** (default **1**)
-:   Concurrency caps of **scan** and of the dashboard scans of **serve**.
+:   Concurrency caps of **scan** and of the dashboard scans of **serve**;
+    **max_concurrent_per_host** also caps **discover**. A **--profile**
+    other than **normal**, and the **--max-concurrent** and
+    **--max-conns-per-host** flags, override them for that run.
 
 **database.max_conns** (default **10**)
 **database.tls_required** in {**auto**, **always**, **disable**} (default **auto**)

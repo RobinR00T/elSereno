@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/time/rate"
 
 	"local/elsereno/internal/core"
+	"local/elsereno/internal/scanner"
 )
 
 // discoverDefaultMaxHosts caps the number of CIDR addresses
@@ -38,16 +40,7 @@ const discoverDefaultDialTimeout = 1 * time.Second
 const discoverDefaultParallel = 64
 
 func newDiscoverCmd() *cobra.Command {
-	var (
-		auto         string
-		hostsFile    string
-		maxHosts     int
-		dialTimeout  time.Duration
-		parallel     int
-		outputFormat string
-		scopePath    string
-		itPorts      bool
-	)
+	var o discoverOpts
 	cmd := &cobra.Command{
 		Use:   "discover",
 		Short: "Sweep a CIDR or host list for ports of every registered plugin",
@@ -73,6 +66,14 @@ The walk is bounded by --max-hosts (default 256, i.e. /24
 sized) and --parallel (default 64 concurrent connects). Use
 --dial-timeout to tune for slow links.
 
+One host gets at most scanner.max_concurrent_per_host connects at a
+time (1 by default; --max-conns-per-host or the profile change it),
+and the sweep walks port by port across the hosts, so 64 connects
+spread over 64 hosts instead of landing on the ports of one. Before
+2026-10-21 every port of a host was dialled at once.
+
+` + profilesHelp() + `
+
 With --scope, only the hosts in its ranges are swept, and only the
 ports its ports lists allow for the plugins its protocols lists allow.
 --max-hosts counts before that filter.
@@ -84,18 +85,19 @@ those are the paths from IT into the plant. Their hits carry the
 catalogue protocol as hint (rdp, smb, mssql, ...) and a "category"
 field; with --scope, the protocols lists filter them by that name.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDiscover(cmd, discoverOpts{auto, hostsFile, maxHosts, parallel, dialTimeout, outputFormat, scopePath, itPorts})
+			return runDiscover(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
-	cmd.Flags().StringVar(&hostsFile, "hosts", "",
+	cmd.Flags().StringVar(&o.auto, "auto", "", "CIDR to sweep (e.g. 192.168.1.0/24)")
+	cmd.Flags().StringVar(&o.hostsFile, "hosts", "",
 		"v1.39+: file with one IP per line (# for comments). Mutex with --auto.")
-	cmd.Flags().IntVar(&maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on hosts walked (CIDR or file)")
-	cmd.Flags().DurationVar(&dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
-	cmd.Flags().IntVar(&parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
-	cmd.Flags().StringVar(&outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
-	cmd.Flags().BoolVar(&itPorts, "it-ports", false, "also sweep the TCP IT ports of the port catalogue (SSH, RDP, SMB, MS SQL, ...)")
-	addScopeFlag(cmd, &scopePath)
+	cmd.Flags().IntVar(&o.maxHosts, "max-hosts", discoverDefaultMaxHosts, "cap on hosts walked (CIDR or file)")
+	cmd.Flags().DurationVar(&o.dialTimeout, "dial-timeout", discoverDefaultDialTimeout, "per-(host, port) TCP-connect timeout")
+	cmd.Flags().IntVar(&o.parallel, "parallel", discoverDefaultParallel, "max concurrent TCP-connects")
+	cmd.Flags().StringVar(&o.outputFormat, "format", "ndjson", "output format: ndjson | list (host:port one per line)")
+	cmd.Flags().BoolVar(&o.itPorts, "it-ports", false, "also sweep the TCP IT ports of the port catalogue (SSH, RDP, SMB, MS SQL, ...)")
+	addScopeFlag(cmd, &o.scopePath)
+	addPacingFlags(cmd, &o.pf)
 	return cmd
 }
 
@@ -108,6 +110,7 @@ type discoverOpts struct {
 	outputFormat    string
 	scopePath       string
 	itPorts         bool
+	pf              pacingFlags
 }
 
 // runDiscover dispatches the actual discover work. Extracted
@@ -118,6 +121,10 @@ func runDiscover(cmd *cobra.Command, o discoverOpts) error {
 	if (auto == "") == (hostsFile == "") {
 		return fail(core.ExitUsage,
 			errors.New("exactly one of --auto <CIDR> or --hosts <file> is required"))
+	}
+	pace, parallel, err := discoverPacing(cmd, o.pf, o.parallel)
+	if err != nil {
+		return err
 	}
 	gate, err := loadScopeGate(o.scopePath)
 	if err != nil {
@@ -146,9 +153,47 @@ func runDiscover(cmd *cobra.Command, o discoverOpts) error {
 			return fail(core.ExitNoInput, fmt.Errorf("no hosts or ports left after scope filter (%d hosts, %d ports)", len(hosts), len(ports)))
 		}
 	}
-	ctx := cmd.Context()
-	results := sweep(ctx, hosts, ports, o.parallel, o.dialTimeout)
+	printDiscoverPace(cmd.ErrOrStderr(), pace, parallel, len(uniquePorts(ports)))
+	results := sweepPaced(cmd.Context(), hosts, ports, o.dialTimeout, sweepPace{
+		parallel:   parallel,
+		pacer:      scanner.NewHostPacer(pace.maxPerHost, pace.interval),
+		ratePerSec: pace.ratePerSec,
+	})
 	return emitDiscoverResults(cmd.OutOrStdout(), cmd.ErrOrStderr(), results, o.outputFormat)
+}
+
+// discoverPacing resolves discover's pace. discover has no retries
+// and its global cap is --parallel, not the config's
+// max_concurrent_targets: the profile's in-flight cap applies only when
+// it is lower than --parallel and --parallel was not given.
+func discoverPacing(cmd *cobra.Command, pf pacingFlags, parallel int) (pacing, int, error) {
+	cfg, _, err := loadConfig()
+	if err != nil {
+		return pacing{}, 0, fail(core.ExitConfig, err)
+	}
+	pace, err := resolvePacing(cmd, pf, cfg.Scanner, pacingOverrides{})
+	if err != nil {
+		return pacing{}, 0, err
+	}
+	if !cmd.Flags().Changed("parallel") && pace.maxConcurrent > 0 && pace.maxConcurrent < parallel && pace.profile != scanner.DefaultProfile {
+		parallel = pace.maxConcurrent
+	}
+	if parallel < 1 {
+		return pacing{}, 0, fail(core.ExitUsage, errors.New("--parallel must be at least 1"))
+	}
+	return pace, parallel, nil
+}
+
+// printDiscoverPace tells the operator the pace the sweep runs with.
+// With a pause, one host's ports alone set a floor on the run time;
+// it says so, so a fragile sweep is not taken for a hang.
+func printDiscoverPace(w io.Writer, pace pacing, parallel, portsPerHost int) {
+	_, _ = fmt.Fprintf(w, "elsereno discover: %d parallel, %d per host, %s\n",
+		parallel, pace.maxPerHost, describeGapRate(pace))
+	if pace.interval > 0 && portsPerHost > 1 {
+		minimum := time.Duration(portsPerHost-1) * pace.interval
+		_, _ = fmt.Fprintf(w, "elsereno discover: %d ports per host, so at least %s\n", portsPerHost, minimum)
+	}
 }
 
 // scopeDiscover keeps the hosts in the scope's ranges and the
@@ -300,10 +345,30 @@ func expandCIDR(cidr string, maxHosts int) ([]netip.Addr, error) {
 	return out, nil
 }
 
-// sweep does a parallel TCP-connect probe of every (host, port)
-// combination, bounded by parallel concurrency. Returns the
-// responsive subset.
+// sweepPace bounds a sweep: parallel connects overall, the pacer per
+// host, and an optional overall connect rate.
+type sweepPace struct {
+	parallel   int
+	pacer      *scanner.HostPacer
+	ratePerSec int
+}
+
+// sweep is sweepPaced with no per-host bound beyond parallel and no
+// rate (the pace before 2026-10-21, kept for tests of the dial logic).
 func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel int, dialTimeout time.Duration) []discoverHit {
+	return sweepPaced(ctx, hosts, ports, dialTimeout, sweepPace{parallel: parallel, pacer: scanner.NewHostPacer(parallel, 0)})
+}
+
+// sweepPaced does a parallel TCP-connect probe of every (host, port)
+// combination and returns the responsive subset. Jobs go out port by
+// port across the hosts, so the workers spread over hosts; each
+// connect first takes the host's pacer slot and, with a rate, a token.
+func sweepPaced(ctx context.Context, hosts []netip.Addr, ports []pluginPort, dialTimeout time.Duration, pace sweepPace) []discoverHit {
+	parallel := pace.parallel
+	var limiter *rate.Limiter
+	if pace.ratePerSec > 0 {
+		limiter = rate.NewLimiter(rate.Limit(pace.ratePerSec), pace.ratePerSec)
+	}
 	type job struct {
 		addr netip.Addr
 		port int
@@ -317,29 +382,25 @@ func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel
 			defer wg.Done()
 			dialer := &net.Dialer{Timeout: dialTimeout}
 			for j := range jobs {
-				start := time.Now()
-				// #nosec G115, j.port comes from registeredPluginPorts which validates against core.Port (uint16 range).
-				addrPort := netip.AddrPortFrom(j.addr, uint16(j.port))
-				conn, err := dialer.DialContext(ctx, "tcp", addrPort.String())
-				if err != nil {
+				if limiter != nil && limiter.Wait(ctx) != nil {
 					continue
 				}
-				_ = conn.Close()
-				latency := time.Since(start).Milliseconds()
-				hits <- discoverHit{
-					Address:       j.addr.String(),
-					Port:          j.port,
-					ProtocolHints: pluginsForPort(ports, j.port),
-					Category:      categoryForPort(ports, j.port),
-					LatencyMS:     latency,
+				if latency, ok := pacedDial(ctx, dialer, pace.pacer, j.addr, j.port); ok {
+					hits <- discoverHit{
+						Address:       j.addr.String(),
+						Port:          j.port,
+						ProtocolHints: pluginsForPort(ports, j.port),
+						Category:      categoryForPort(ports, j.port),
+						LatencyMS:     latency,
+					}
 				}
 			}
 		}()
 	}
 	go func() {
 		defer close(jobs)
-		for _, h := range hosts {
-			for _, p := range uniquePorts(ports) {
+		for _, p := range uniquePorts(ports) {
+			for _, h := range hosts {
 				select {
 				case <-ctx.Done():
 					return
@@ -363,6 +424,24 @@ func sweep(ctx context.Context, hosts []netip.Addr, ports []pluginPort, parallel
 		return out[i].Port < out[j].Port
 	})
 	return out
+}
+
+// pacedDial takes the host's pacer slot, connects and closes. It
+// reports whether the port answered and how long the connect took.
+func pacedDial(ctx context.Context, dialer *net.Dialer, pacer *scanner.HostPacer, addr netip.Addr, port int) (int64, bool) {
+	release, err := pacer.Acquire(ctx, addr.String())
+	if err != nil {
+		return 0, false
+	}
+	start := time.Now()
+	// #nosec G115, port comes from registeredPluginPorts which validates against core.Port (uint16 range).
+	conn, err := dialer.DialContext(ctx, "tcp", netip.AddrPortFrom(addr, uint16(port)).String())
+	release()
+	if err != nil {
+		return 0, false
+	}
+	_ = conn.Close()
+	return time.Since(start).Milliseconds(), true
 }
 
 // pluginsForPort returns the plugin names that claim the
@@ -410,3 +489,16 @@ func emitDiscoverResults(stdout, stderr io.Writer, hits []discoverHit, format st
 
 // guard against an unused-os import on minimal builds.
 var _ = os.Stdout
+
+// describeGapRate renders the per-host pause and the overall rate of a
+// pace for the start-of-run line.
+func describeGapRate(p pacing) string {
+	gap := "no pause between connects to a host"
+	if p.interval > 0 {
+		gap = p.interval.String() + " between connects to a host"
+	}
+	if p.ratePerSec > 0 {
+		return fmt.Sprintf("%s, %d connects/s overall", gap, p.ratePerSec)
+	}
+	return gap
+}
