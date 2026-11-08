@@ -1,7 +1,7 @@
 ---
-phase: v2.63.2 released by CI 2026-10-19 (cosign keyless, SLSA v1, public signed GHCR image; v2.63.1 tag without release, PITF-103; v2.63.0 2026-10-18, no cosign); vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
-status: last tag v2.63.2 (2026-10-19), GitHub Release with 45 assets published by the release workflow; signature and attestation verified; CI green on main
-last-updated: 2026-11-07
+phase: v2.64.0 cycle closed 2026-11-08 (snapshot .context/snapshots/v2.64.0-ot-exposure-standards-pacing.md); tag pending the maintainer's GPG signature; v2.63.2 released by CI 2026-10-19 (cosign keyless, SLSA v1, public signed GHCR image)
+status: last tag v2.63.2 (2026-10-19); CHANGELOG [2.64.0] dated 2026-11-08, release built by the tag-push workflow once v2.64.0 is pushed; CI green on main (4480c8d)
+last-updated: 2026-11-08
 token-budget: 320
 ---
 
