@@ -4,15 +4,19 @@
 // protocol name (core.Finding.Protocol), which is why it needs no change
 // to core.Finding or to the per-plugin finding builders.
 //
-// The mapping covers three references, each in its own file:
+// The mapping covers five references, each in its own file:
 //   - NIST SP 800-82 Rev. 4 (Initial Public Draft, September 2026); see
 //     docs/standards/nist-sp800-82r4.md.
 //   - MITRE ATT&CK for ICS v20 techniques; see
 //     docs/standards/mitre-attack-ics.md.
 //   - ISA/IEC 62443-3-3 system requirements; see
 //     docs/standards/iec62443-3-3.md.
+//   - NIST CSF 2.0 subcategories, the structure SP 800-82 r4 IPD is
+//     built on; see docs/standards/nist-csf-2.0.md.
+//   - DOE/INL Cyber-Informed Engineering principles; see
+//     docs/standards/doe-cie.md.
 //
-// ForProtocol returns all three, in that order; ForProtocolIn one.
+// ForProtocol returns all five, in that order; ForProtocolIn one.
 package standards
 
 import "strings"
@@ -21,10 +25,12 @@ import "strings"
 // field names are the stable output contract; their meaning per standard:
 // SP 800-82 r4 (Table = table, Vuln = vulnerability), ATT&CK for ICS
 // (Table = technique ID, Vuln = technique name), ISA/IEC 62443-3-3
-// (Table = SR number, Vuln = requirement title).
+// (Table = SR number, Vuln = requirement title), CSF 2.0 (Table =
+// subcategory ID, Vuln = outcome), CIE (Table = "Principle N", Vuln =
+// principle name).
 type Ref struct {
 	Standard string `json:"standard"` // e.g. "NIST SP 800-82 r4"
-	Table    string `json:"table"`    // e.g. "Table 16", "T0888", "SR 1.2"
+	Table    string `json:"table"`    // e.g. "Table 16", "T0888", "SR 1.2", "PR.AA-03", "Principle 3"
 	Vuln     string `json:"vuln"`     // the vulnerability, technique or requirement
 }
 
@@ -33,10 +39,12 @@ const (
 	KeyNIST     = "nist"
 	KeyAttack   = "attack-ics"
 	KeyIEC62443 = "iec62443"
+	KeyCSF2     = "csf2"
+	KeyCIE      = "cie"
 )
 
 // Keys lists the standard keys in output order.
-func Keys() []string { return []string{KeyNIST, KeyAttack, KeyIEC62443} }
+func Keys() []string { return []string{KeyNIST, KeyAttack, KeyIEC62443, KeyCSF2, KeyCIE} }
 
 // byKey maps a standard key to its protocol table.
 func byKey(key string) map[string][]Ref {
@@ -47,6 +55,10 @@ func byKey(key string) map[string][]Ref {
 		return attackRefs
 	case KeyIEC62443:
 		return iec62443Refs
+	case KeyCSF2:
+		return csf2Refs
+	case KeyCIE:
+		return cieRefs
 	}
 	return nil
 }
@@ -117,7 +129,7 @@ var protocolRefs = map[string][]Ref{
 }
 
 // ForProtocol returns every reference a finding for the given protocol
-// carries (SP 800-82 r4, then ATT&CK for ICS, then ISA/IEC 62443-3-3), or
+// carries (SP 800-82 r4, ATT&CK for ICS, ISA/IEC 62443-3-3, CSF 2.0, CIE), or
 // nil when the protocol has no mapping in any of them.
 func ForProtocol(protocol string) []Ref {
 	var out []Ref

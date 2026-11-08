@@ -24,16 +24,19 @@ func newStandardsCmd() *cobra.Command {
 		Use:   "standards",
 		Short: "Show which standard vulnerabilities each protocol's findings evidence",
 		Long: `Prints the mapping from elSereno protocol plugins to the external
-security references their findings evidence, from three sources:
+security references their findings evidence, from five sources:
 
   nist        NIST SP 800-82 Rev. 4 (docs/standards/nist-sp800-82r4.md)
   attack-ics  MITRE ATT&CK for ICS v20 techniques (docs/standards/mitre-attack-ics.md)
   iec62443    ISA/IEC 62443-3-3 system requirements (docs/standards/iec62443-3-3.md)
+  csf2        NIST CSF 2.0 subcategories, the structure of SP 800-82 r4
+              (docs/standards/nist-csf-2.0.md)
+  cie         DOE/INL Cyber-Informed Engineering principles (docs/standards/doe-cie.md)
 
 Findings in every output (ndjson, HTML, CEF, syslog, STIX, tickets) carry
 the same references under "standards", so a run is auditable against each
-of them. The mapping is elSereno's reading; MITRE, NIST, ISA and IEC have
-not reviewed it. "it-management" is not a plugin: it is the exposure
+of them. The mapping is elSereno's reading; MITRE, NIST, ISA, IEC, DOE and
+INL have not reviewed it. "it-management" is not a plugin: it is the exposure
 category plaintext-check and discover --it-ports report for SSH, RDP, SMB,
 MS SQL and the other IT management services.
 
@@ -41,6 +44,7 @@ Examples:
 
   elsereno standards
   elsereno standards --standard attack-ics
+  elsereno standards --standard cie --protocol tristation
   elsereno standards --protocol s7-exposure --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runStandards(cmd, protocol, standard, jsonOut)

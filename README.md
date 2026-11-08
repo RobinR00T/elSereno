@@ -156,7 +156,8 @@ list` for the authoritative list on your binary. `elsereno discover
 hop from an OT cell, `elsereno plaintext-check --list-ports` prints the port
 catalogue, and `elsereno scan --vantage <label>` tags each finding with
 its observation point. Standards traceability now covers NIST
-SP 800-82r4, MITRE ATT&CK for ICS and IEC 62443-3-3 (`elsereno standards
+SP 800-82r4, MITRE ATT&CK for ICS, IEC 62443-3-3, NIST CSF 2.0 and the
+DOE/INL Cyber-Informed Engineering principles (`elsereno standards
 --standard <key>`).
 Writes, exploits, credential harvest, dial, and the **write-gated
 proxies** (18 protocols) ship behind `-tags offensive` with the

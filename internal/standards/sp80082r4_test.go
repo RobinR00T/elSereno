@@ -72,9 +72,9 @@ func TestProtocols(t *testing.T) {
 	}
 }
 
-func TestForProtocol_AllThreeStandardsInOrder(t *testing.T) {
+func TestForProtocol_AllStandardsInOrder(t *testing.T) {
 	refs := ForProtocol("modbus")
-	want := []string{sp80082r4, attackICS, attackICS, iec62443, iec62443, iec62443}
+	want := []string{sp80082r4, attackICS, attackICS, iec62443, iec62443, iec62443, csf2, csf2, cie, cie}
 	if len(refs) != len(want) {
 		t.Fatalf("modbus refs = %+v", refs)
 	}
@@ -117,5 +117,49 @@ func TestIEC62443RequirementNumbers(t *testing.T) {
 				t.Errorf("%s: malformed 62443 ref %+v", proto, r)
 			}
 		}
+	}
+}
+
+// TestCSF2Subcategories pins every CSF 2.0 ref to the subcategory text in
+// NIST CSWP 29, so a typo or an invented ID fails here.
+func TestCSF2Subcategories(t *testing.T) {
+	want := map[string]string{
+		"PR.AA-03": "Users, services, and hardware are authenticated",
+		"PR.AA-05": "Access permissions, entitlements, and authorizations are defined in a policy, managed, enforced, and reviewed",
+		"PR.DS-02": "The confidentiality, integrity, and availability of data-in-transit are protected",
+		"PR.PS-01": "Configuration management practices are established and applied",
+		"PR.IR-01": "Networks and environments are protected from unauthorized logical access and usage",
+	}
+	for proto, refs := range csf2Refs {
+		for _, r := range refs {
+			if r.Standard != csf2 || want[r.Table] != r.Vuln {
+				t.Errorf("%s: CSF ref %+v does not match CSWP 29", proto, r)
+			}
+		}
+	}
+}
+
+// TestCIEPrinciples pins every CIE ref to the principle numbering of the
+// INL CIE Implementation Guide v1.0.
+func TestCIEPrinciples(t *testing.T) {
+	want := map[string]string{
+		"Principle 1": "Consequence-Focused Design", "Principle 2": "Engineered Controls",
+		"Principle 3": "Secure Information Architecture", "Principle 4": "Design Simplification",
+		"Principle 5": "Layered Defenses", "Principle 6": "Active Defense",
+		"Principle 7": "Interdependency Evaluation", "Principle 8": "Digital Asset Awareness",
+		"Principle 9": "Cyber-Secure Supply Chain Controls", "Principle 10": "Planned Resilience",
+		"Principle 11": "Engineering Information Control", "Principle 12": "Organizational Culture",
+	}
+	for proto, refs := range cieRefs {
+		for _, r := range refs {
+			if r.Standard != cie || want[r.Table] != r.Vuln {
+				t.Errorf("%s: CIE ref %+v does not match the CIE guide", proto, r)
+			}
+		}
+	}
+	// The SIS protocol is the consequence CIE designs out first.
+	got := ForProtocolIn(KeyCIE, "tristation")
+	if len(got) == 0 || got[0] != cieConsequence {
+		t.Errorf("tristation CIE refs = %+v, want Consequence-Focused Design first", got)
 	}
 }

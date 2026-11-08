@@ -117,6 +117,12 @@ linters:
       - path: internal/standards/attackics\.go
         linters:
           - misspell
+      # NIST CSF 2.0 subcategory text ("unauthorized") and the CIE
+      # principle names ("Layered Defenses", "Organizational Culture")
+      # are quoted verbatim in US spelling; the test pins them.
+      - path: internal/standards/(csf2\.go|cie\.go|sp80082r4_test\.go)
+        linters:
+          - misspell
       # Linux-only sandbox plumbing: BPF/seccomp + syscall maps.
       # Field names mirror the kernel header (Pivot_root, Kexec_load,
       # …); G115 conversions are BPF imm-field bit shuffling; G103

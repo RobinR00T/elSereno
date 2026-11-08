@@ -94,6 +94,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for ICS (matrix v20, current IDs only, PITF-104) and
   IEC 62443-3-3 system requirements alongside the existing
   NIST SP 800-82r4 mapping.
+- **Standards traceability for NIST CSF 2.0 and Cyber-Informed
+  Engineering.** Two more catalogues in `internal/standards`, selectable
+  with `elsereno standards --standard csf2|cie` and carried in every
+  output: NIST CSF 2.0 subcategories (PR.AA-03, PR.AA-05, PR.DS-02,
+  PR.PS-01, PR.IR-01), the structure SP 800-82r4 IPD is rebuilt on, and
+  the DOE/INL Cyber-Informed Engineering principles (1, 2, 3, 4, 5, 7;
+  TriStation carries Consequence-Focused Design first). IDs and names are
+  pinned by tests against NIST CSWP 29 and INL/RPT-23-74072 v1.0.
+  Findings now carry up to 13 references (TriStation), so the CEF `cs3`
+  and syslog `standard` fields are longer.
 - **`creds-check reuse`** (offensive build): checks whether credentials
   from your own store (a 0600 file, Vault KV v2 or a JSON endpoint) are
   reused on an OT device's HTTP-Basic or SSH service. It only verifies

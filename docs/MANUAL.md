@@ -1153,8 +1153,10 @@ targets:
 
 ### 7.21 `standards`
 
-Vuelca la trazabilidad de cada plugin de protocolo a tres estándares:
-NIST SP 800-82 r4, MITRE ATT&CK for ICS v20 e ISA/IEC 62443-3-3. La
+Vuelca la trazabilidad de cada plugin de protocolo a cinco referencias:
+NIST SP 800-82 r4, MITRE ATT&CK for ICS v20, ISA/IEC 62443-3-3, NIST CSF
+2.0 (la estructura sobre la que se reorganiza la SP 800-82 r4) y los
+principios de Cyber-Informed Engineering (CIE) de DOE/INL. La
 salida no es una tabla alineada: es un bloque por protocolo, con cada
 referencia indentada debajo. Con `--protocol` se filtra a uno solo; con
 `--standard` se elige un único catálogo.
@@ -1164,12 +1166,12 @@ referencia indentada debajo. Con `--protocol` se filtra a uno solo; con
 | Flag         | Para qué                                                  |
 |--------------|-----------------------------------------------------------|
 | `--protocol` | Filtra a un único plugin (p. ej. `s7-exposure`).          |
-| `--standard` | `nist` (por defecto el conjunto), `attack-ics` o `iec62443`; un valor inválido sale con 64. |
+| `--standard` | `nist` (por defecto el conjunto), `attack-ics`, `iec62443`, `csf2` o `cie`; un valor inválido sale con 64. |
 
 **Ejemplos:**
 
 ```bash
-# Catálogo completo (34 plugins con mapeo):
+# Catálogo completo (37 protocolos con mapeo):
 elsereno standards
 
 # Un solo protocolo, en JSON:

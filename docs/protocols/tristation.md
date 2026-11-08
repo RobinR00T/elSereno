@@ -54,6 +54,12 @@ CP status from 192.0.2.20:1502: key PROGRAM, RUNNING, project "DEMO-SIS" v1.4 (d
   ref: ISA/IEC 62443-3-3 SR 1.2 Software process and device identification and authentication
   ref: ISA/IEC 62443-3-3 SR 2.1 Authorization enforcement
   ref: ISA/IEC 62443-3-3 SR 5.1 Network segmentation
+  ref: NIST CSF 2.0 PR.AA-03 Users, services, and hardware are authenticated
+  ref: NIST CSF 2.0 PR.IR-01 Networks and environments are protected from unauthorized logical access and usage
+  ref: DOE CIE Principle 1 Consequence-Focused Design
+  ref: DOE CIE Principle 2 Engineered Controls
+  ref: DOE CIE Principle 3 Secure Information Architecture
+  ref: DOE CIE Principle 5 Layered Defenses
 ```
 
 Both classic pcap and pcapng are read; `--json` emits the full report.

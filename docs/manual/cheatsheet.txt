@@ -143,9 +143,11 @@ elsereno-offensive creds-check http --target https://hmi.internal --confirm-auth
 ----------- Standards traceability (NIST SP 800-82 r4) --------
 elsereno standards                                # protocol → vuln catalog
 elsereno standards --protocol opcua-exposure --json
+elsereno standards --standard cie --protocol tristation
+# --standard: nist | attack-ics | iec62443 | csf2 | cie
 # Findings carry the mapping in: ndjson, HTML report, GitHub/Jira
 # tickets, CEF (cs3), syslog SD, STIX external_references, webhook.
-# Map: internal/standards ; doc: docs/standards/nist-sp800-82r4.md
+# Map: internal/standards ; docs: docs/standards/*.md
 
 
 --------------------- Scoring + triage ------------------------

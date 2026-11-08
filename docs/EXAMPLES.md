@@ -340,7 +340,7 @@ en STIX); el conjunto de columnas de CSV es un contrato estable, así que
 `--vantage` con `--output-format csv` se rechaza (exit 64):
 
 ```json
-{"schema":"ndjson:v1","run_id":"","target_id":"","address":"127.0.0.1","port":5007,"protocol":"slmp","severity":"high","score":77,"factors":{"auth_state":95,"capability":75,"cve_exposure":45,"exposure":75,"impact_class":75,"protocol_risk":80},"created_at":"2026-10-27T15:17:26.730635Z","standards":[{"standard":"NIST SP 800-82 r4","table":"Table 16","vuln":"Use of unsecure OT protocols"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0888","vuln":"Remote System Information Discovery"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0836","vuln":"Modify Parameter"},{"standard":"ISA/IEC 62443-3-3","table":"SR 1.2","vuln":"Software process and device identification and authentication"},{"standard":"ISA/IEC 62443-3-3","table":"SR 2.1","vuln":"Authorization enforcement"},{"standard":"ISA/IEC 62443-3-3","table":"SR 5.1","vuln":"Network segmentation"}],"vantage":"it-office-vlan"}
+{"schema":"ndjson:v1","run_id":"","target_id":"","address":"127.0.0.1","port":5007,"protocol":"slmp","severity":"high","score":77,"factors":{"auth_state":95,"capability":75,"cve_exposure":45,"exposure":75,"impact_class":75,"protocol_risk":80},"created_at":"2026-10-27T15:17:26.730635Z","standards":[{"standard":"NIST SP 800-82 r4","table":"Table 16","vuln":"Use of unsecure OT protocols"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0888","vuln":"Remote System Information Discovery"},{"standard":"MITRE ATT&CK for ICS v20","table":"T0836","vuln":"Modify Parameter"},{"standard":"ISA/IEC 62443-3-3","table":"SR 1.2","vuln":"Software process and device identification and authentication"},{"standard":"ISA/IEC 62443-3-3","table":"SR 2.1","vuln":"Authorization enforcement"},{"standard":"ISA/IEC 62443-3-3","table":"SR 5.1","vuln":"Network segmentation"},{"standard":"NIST CSF 2.0","table":"PR.AA-03","vuln":"Users, services, and hardware are authenticated"},{"standard":"NIST CSF 2.0","table":"PR.IR-01","vuln":"Networks and environments are protected from unauthorized logical access and usage"},{"standard":"DOE CIE","table":"Principle 3","vuln":"Secure Information Architecture"},{"standard":"DOE CIE","table":"Principle 5","vuln":"Layered Defenses"}],"vantage":"it-office-vlan"}
 ```
 
 ## 8. Leer los findings: triage, explain, why, scoring
@@ -430,8 +430,10 @@ Sin `--protocol` lista todos; con `--json` da el catálogo entero. Los
 mismos datos van en el campo `standards` de cada finding.
 
 `--standard` elige un catálogo: `nist` (por defecto el conjunto),
-`attack-ics` (técnicas MITRE ATT&CK for ICS v20) o `iec62443`
-(requisitos ISA/IEC 62443-3-3):
+`attack-ics` (técnicas MITRE ATT&CK for ICS v20), `iec62443`
+(requisitos ISA/IEC 62443-3-3), `csf2` (subcategorías NIST CSF 2.0, la
+estructura de la SP 800-82 r4) o `cie` (principios de Cyber-Informed
+Engineering de DOE/INL):
 
 ```bash
 elsereno standards --standard attack-ics --protocol tristation
@@ -442,6 +444,22 @@ tristation
     MITRE ATT&CK for ICS v20 T0888: Remote System Information Discovery
     MITRE ATT&CK for ICS v20 T0843: Program Download
     MITRE ATT&CK for ICS v20 T0858: Change Operating Mode
+```
+
+Con `cie`, el SIS sale con el principio 1 (*Consequence-Focused Design*)
+delante: un controlador de seguridad alcanzable por red es la
+consecuencia que CIE manda eliminar primero en el diseño:
+
+```bash
+elsereno standards --standard cie --protocol tristation
+```
+
+```text
+tristation
+    DOE CIE Principle 1: Consequence-Focused Design
+    DOE CIE Principle 2: Engineered Controls
+    DOE CIE Principle 3: Secure Information Architecture
+    DOE CIE Principle 5: Layered Defenses
 ```
 
 ## 10. Descubrir puertos ICS: discover
@@ -666,6 +684,12 @@ CP status from 192.0.2.20:1502: key PROGRAM, RUNNING, project "DEMO-SIS" v1.4 (d
   ref: ISA/IEC 62443-3-3 SR 1.2 Software process and device identification and authentication
   ref: ISA/IEC 62443-3-3 SR 2.1 Authorization enforcement
   ref: ISA/IEC 62443-3-3 SR 5.1 Network segmentation
+  ref: NIST CSF 2.0 PR.AA-03 Users, services, and hardware are authenticated
+  ref: NIST CSF 2.0 PR.IR-01 Networks and environments are protected from unauthorized logical access and usage
+  ref: DOE CIE Principle 1 Consequence-Focused Design
+  ref: DOE CIE Principle 2 Engineered Controls
+  ref: DOE CIE Principle 3 Secure Information Architecture
+  ref: DOE CIE Principle 5 Layered Defenses
 ```
 
 Marca cada comando que cambia el programa de seguridad o el estado de

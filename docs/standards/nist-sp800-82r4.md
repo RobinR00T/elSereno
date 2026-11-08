@@ -2,8 +2,10 @@
 
 This maps elSereno's read-only network detections to the OT vulnerabilities
 in **NIST SP 800-82 Rev. 4, *Guide to Operational Technology (OT)
-Security*** (Initial Public Draft, September 2026; public comment period
-open through 30 November 2026).
+Security*** (Initial Public Draft, 21 September 2026; public comment period
+open through 30 November 2026). The draft is restructured around the NIST
+Cybersecurity Framework 2.0 and applies zero trust principles to OT; the
+CSF 2.0 side of the mapping is in [nist-csf-2.0.md](nist-csf-2.0.md).
 
 elSereno is a network-side, read-only exposure auditor. It cannot observe
 physical, policy, or host-internal conditions, so it maps only onto the
@@ -98,7 +100,9 @@ numbering and wording against the final publication.
 
 ## Related mappings
 
-The same findings also carry MITRE ATT&CK for ICS and ISA/IEC 62443-3-3
-references; see [mitre-attack-ics.md](mitre-attack-ics.md) and
-[iec62443-3-3.md](iec62443-3-3.md). Select one catalogue with
-`elsereno standards --standard nist|attack-ics|iec62443`.
+The same findings also carry MITRE ATT&CK for ICS, ISA/IEC 62443-3-3,
+NIST CSF 2.0 and DOE/INL Cyber-Informed Engineering references; see
+[mitre-attack-ics.md](mitre-attack-ics.md),
+[iec62443-3-3.md](iec62443-3-3.md), [nist-csf-2.0.md](nist-csf-2.0.md) and
+[doe-cie.md](doe-cie.md). Select one catalogue with
+`elsereno standards --standard nist|attack-ics|iec62443|csf2|cie`.

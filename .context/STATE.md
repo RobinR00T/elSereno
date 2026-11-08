@@ -1,11 +1,13 @@
 ---
 phase: v2.63.2 released by CI 2026-10-19 (cosign keyless, SLSA v1, public signed GHCR image; v2.63.1 tag without release, PITF-103; v2.63.0 2026-10-18, no cosign); vNext items (OPC UA HTTPS write, GOOSE/SV, CI) 2026-09-23
 status: last tag v2.63.2 (2026-10-19), GitHub Release with 45 assets published by the release workflow; signature and attestation verified; CI green on main
-last-updated: 2026-11-01
+last-updated: 2026-11-07
 token-budget: 320
 ---
 
 # Current state
+
+**2026-11-07 (main, unreleased):** `internal/standards` carries 5 catalogues (nist, attack-ics, iec62443, csf2, cie). CSF 2.0: 5 subcategories pinned vs CSWP 29 (r4 IPD is built on CSF 2.0; zero trust folded into PR.AA-03/PR.IR-01). CIE: principles 1-5, 7 of INL/RPT-23-74072 v1.0, tristation gets P1 first; telephony/X.25 no CIE.
 
 **2026-10-27 OT-exposure probes, IT ports, standards and creds-reuse (on main, unreleased).** 37 plugins now (32 default sweep + 5 opt-in). Transport-keyed port catalogue `internal/exposure/ports.go` (categories it-cleartext/it-encrypted/it-management/ot, PITF-105 for UDP-in-a-TCP-table); `discover --it-ports` adds IT mgmt ports one hop from OT, `plaintext-check --list-ports` prints it. New opt-in probes (OptIn+DefaultPort 0): **tristation** (UDP 1502, `tristation --active|--passive`, CONNECT/classify/DISCONNECT + `--status`, passive reads pcap/pcapng via new `internal/pcapfile`; TCM/TS wire + CRC-16/ARC validated vs synthetic capture in `examples/captures/`, critical on a SIS hit) and **profinet-cm** (UDP 34964, DCE/RPC EPM lookup = nmap byte for byte, spec-grounded). S7 probe carries a Conpot honeypot verdict (`internal/honeypot`). `scan --vantage` on NDJSON+STIX (CSV refuses it). `internal/standards` gains ATT&CK-ICS (v20, current IDs, PITF-104) + IEC 62443-3-3; `standards --standard <key>` filters. Offensive `creds-check reuse` (`offensive/creds/`): creds from a 0600 file / Vault KV v2 / JSON endpoint, HTTP-Basic or SSH auth-only (SSH opens no session), baseline-gated, `--confirm-authorized`, each attempt audited `offensive_creds_reuse` (migration 00022) with a salted fingerprint, never the password.
 
@@ -207,8 +209,7 @@ for 4 legacy-ICS protocols + recording (v1.35), dashboard
 validate/capture verbs (v1.37 + v1.38), discover --hosts
 (v1.39), plugins ports reverse-index (v1.40).
 
-**v1.28 → v1.31** (closed; snapshots): ProConOS fingerprint, TUI verb +
-mini build, record-replay across 9 gates + proxy listen/replay, TUI --input.
+**v1.28 → v1.31** (closed): ProConOS, TUI verb + mini, record-replay (9 gates, proxy listen/replay), TUI --input.
 
 **v1.0 → v1.88 published** on github.com/RobinR00T/elSereno/releases
 (`v1.88.0`, 2026-05-11, 35 assets via goreleaser).
@@ -233,5 +234,4 @@ binaryedge, internetdb.
 (finsudp, slmp, gesrtp have NVD-verified CVEs since 3/4-10; mms ships);
 PROFINET-RT live L2 capture; DNP3 SAv5 gating (GOOSE/SV live done 28-9).
 
-**Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16)
-127.0.0.1:5433 via `scripts/dev-db.sh`.
+**Live services**: dashboard 127.0.0.1:8787; dev-db (pg 16) 127.0.0.1:5433 via `scripts/dev-db.sh`.

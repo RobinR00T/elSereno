@@ -1,13 +1,14 @@
 ---
 phase: any
 status: living
-last-updated: 2026-10-21
+last-updated: 2026-11-07
 ---
 
 # Context changelog
 
 One-liner per significant change to `.context/` or the codebase.
 
+- 2026-11-07: **NIST CSF 2.0 + DOE/INL CIE en `internal/standards`** (a raíz del post de DOE CESER del 6-11-2026 sobre la SP 800-82r4 IPD): `csf2.go` (PR.AA-03/05, PR.DS-02, PR.PS-01, PR.IR-01, texto verificado contra CSWP 29) y `cie.go` (principios 1, 2, 3, 4, 5, 7 del CIE Implementation Guide v1.0; TriStation con Consequence-Focused Design primero); `standards --standard csf2|cie`; tests que fijan IDs y nombres; docs `docs/standards/nist-csf-2.0.md` y `doe-cie.md`, EXAMPLES/MANUAL/README/cheatsheet/tristation con salida real. Nota en `.context/research/nist-ceser-cie-linkedin-2026-11-07.md`. INSTALL.md sin cambios.
 - 2026-11-01: merged main into PR #41: the branch's PITF-104/105/106 renumbered to PITF-112/113/114 (main had taken 104 to 111); discover keeps --it-ports + Category and main's uniquePorts with the paced port-major sweep; tristation and profinet-cm (new on main) bound to their context with netutil.CloseOnDone (the PITF-113 guard caught them); plugin count 37 in EXAMPLES/ARCHITECTURE/FAQ/MANUAL/manual; vault zeroization docs follow main's serve Lock + Purge.
 - 2026-10-27 (5): **Barrido de hallazgos LOW de la auditoría (PITF-109/110/111)**. L1 el error de `LoadCredsFile` cita el nº de línea, no el contenido (PITF-109). L2 el nonce CSP falla cerrado si `crypto/rand` falla. L3/L4 `internal/web` deja de afirmar auth cookie/CSRF/`/login` no cableada (Bearer-only, PITF-110); `csrfKey` documentado + test que lo lee. L5 el allowlist Modbus rechaza `fc=0` en `Matches` y en `buildModbusAllowlist`, fin del comodín fail-open (PITF-111). L6 `dial` rechaza `--disposition` desconocida antes de la cadena de auditoría. L7 `SafeField` escapa backslash. L8 el writer SSE limpia CR/LF del kind y enmarca cada línea del payload como `data:`. L9 guard defensivo en `pcapfile.tsUnits`. Tests nuevos por hallazgo; `make ci` verde; INSTALL.md sin cambios.
 - 2026-10-27 (4): **Auditoría de código: 4 arreglos MEDIA (PITF-107, PITF-108)**. M1 downgrade de la cola unkeyed de auditoría -> `audit verify-file --strict` + `VerifyFileKeyedStrict` + `verifyEntryKeyedOnly`, docstring de `computeHash` corregido (PITF-108). M2 `serve` zeroiza la master key: `defer vault.Lock` (shutdown) + `memguard.Purge` en el hard-exit de segunda señal. M3 gate TLS de Postgres exige peer verificado, no solo cifrado: `tlsVerifiesPeer` + `ErrTLSUnverified` (PITF-107). M4 `creds-check reuse` no envía credenciales sobre TLS sin verificar por defecto: `--tls-pin` (pin del leaf) o `--insecure-tls` (ack) (PITF-107). Tests nuevos en audit/db/cmd. INSTALL.md sin cambios.
