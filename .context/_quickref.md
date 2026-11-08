@@ -41,7 +41,7 @@ token-budget: 950
 **First command when in doubt**: `elsereno doctor`.
 
 **Current phase**: see `.context/STATE.md` (authoritative). As of
-2026-10-19 the last tag is `v2.63.2`, released by CI with cosign keyless,
+2026-11-08 the last tag is `v2.64.0`, released by CI with cosign keyless,
 SLSA v1 provenance and a public signed GHCR image (PITF-102, PITF-103).
 
 **Counts** (authoritative: `elsereno plugins list`): **35

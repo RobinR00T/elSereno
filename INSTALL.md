@@ -45,24 +45,24 @@ You can install **default + offensive together** on the same host (binaries have
 ### deb / rpm / apk packages (recommended for Linux servers)
 
 Three packages per format, for `amd64` and `arm64`. The newest GitHub
-Release with binaries is **v2.63.2** (2026-10-19, signed; v2.63.0 shipped unsigned and v2.63.1 has no release; before them, v2.37.0, as
+Release with binaries is **v2.64.0** (2026-11-08, signed; v2.63.2 of 2026-10-19 also signed; v2.63.0 shipped unsigned and v2.63.1 has no release; before them, v2.37.0, as
 tags v2.38 to v2.62 carry no release assets), so the examples use it; check the
 [releases page](https://github.com/RobinR00T/elSereno/releases) for a
 newer one. File names follow `<package>_<version>_linux_<arch>.<ext>`:
 
 ```sh
 # Debian / Ubuntu
-sudo apt install ./elsereno_2.63.2_linux_amd64.deb
+sudo apt install ./elsereno_2.64.0_linux_amd64.deb
 # or:
-sudo dpkg -i elsereno_2.63.2_linux_amd64.deb && sudo apt-get install -f
+sudo dpkg -i elsereno_2.64.0_linux_amd64.deb && sudo apt-get install -f
 
 # RHEL / CentOS / Fedora / Rocky / Alma
-sudo dnf install ./elsereno_2.63.2_linux_amd64.rpm
+sudo dnf install ./elsereno_2.64.0_linux_amd64.rpm
 # or with rpm directly:
-sudo rpm -i elsereno_2.63.2_linux_amd64.rpm
+sudo rpm -i elsereno_2.64.0_linux_amd64.rpm
 
 # Alpine
-sudo apk add --allow-untrusted ./elsereno_2.63.2_linux_amd64.apk
+sudo apk add --allow-untrusted ./elsereno_2.64.0_linux_amd64.apk
 ```
 
 **Available package names**: `elsereno` (default), `elsereno-offensive`, `elsereno-mini`. They can coexist.
@@ -101,17 +101,17 @@ Hardening baked in: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `P
 ### Tarball install (any Linux, no root)
 
 ```sh
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_linux_amd64.tar.gz
-tar -xzf elsereno_2.63.2_linux_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.64.0/elsereno_2.64.0_linux_amd64.tar.gz
+tar -xzf elsereno_2.64.0_linux_amd64.tar.gz
 sudo mv elsereno /usr/local/bin/
 elsereno doctor
 ```
 
-For air-gapped / paranoid. v2.63.2 ships `checksums.txt` signed with
+For air-gapped / paranoid. v2.64.0 (like v2.63.2) ships `checksums.txt` signed with
 cosign keyless (`checksums.txt.bundle`), a CycloneDX SBOM per archive and
-SLSA v1 provenance (checked 2026-10-19). Earlier v2.x releases, v2.63.0
+SLSA v1 provenance (v2.64.0 checked 2026-11-08: `cosign verify-blob`, `gh attestation verify` and the image signature all pass). Earlier v2.x releases, v2.63.0
 included, carry no signature (only v1.0.0 and v1.0.1 do). The tag is
-also GPG-signed (`git tag -v v2.63.2`).
+also GPG-signed (`git tag -v v2.64.0`).
 
 ```sh
 # Verify checksum
@@ -123,9 +123,9 @@ cosign verify-blob \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   checksums.txt
 # Verify SLSA build provenance (v2.63.2+)
-gh attestation verify elsereno_2.63.2_linux_amd64.tar.gz --repo RobinR00T/elSereno
+gh attestation verify elsereno_2.64.0_linux_amd64.tar.gz --repo RobinR00T/elSereno
 # Verify SBOM (CycloneDX)
-syft scan elsereno -o cyclonedx-json | diff - elsereno_2.63.2_linux_amd64.tar.gz.cyclonedx.json
+syft scan elsereno -o cyclonedx-json | diff - elsereno_2.64.0_linux_amd64.tar.gz.cyclonedx.json
 ```
 
 ### OCI image
@@ -136,11 +136,11 @@ are the version without `v` and `latest` (checked 2026-10-19 with an
 anonymous pull; no older version has an image):
 
 ```sh
-docker pull ghcr.io/robinr00t/elsereno:2.63.2
-cosign verify ghcr.io/robinr00t/elsereno:2.63.2 \
+docker pull ghcr.io/robinr00t/elsereno:2.64.0
+cosign verify ghcr.io/robinr00t/elsereno:2.64.0 \
   --certificate-identity-regexp 'https://github.com/RobinR00T/elSereno/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
-docker run --rm ghcr.io/robinr00t/elsereno:2.63.2 version
+docker run --rm ghcr.io/robinr00t/elsereno:2.64.0 version
 ```
 
 Or build it from the checkout:
@@ -207,14 +207,14 @@ reach it with an SSH tunnel (`ssh -L 8787:127.0.0.1:8787 host`).
 
 ```sh
 # Apple Silicon
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_darwin_arm64.tar.gz
-tar -xzf elsereno_2.63.2_darwin_arm64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.64.0/elsereno_2.64.0_darwin_arm64.tar.gz
+tar -xzf elsereno_2.64.0_darwin_arm64.tar.gz
 sudo mv elsereno /usr/local/bin/
 xattr -d com.apple.quarantine /usr/local/bin/elsereno  # if downloaded via browser
 elsereno doctor
 
 # Intel
-curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.63.2/elsereno_2.63.2_darwin_amd64.tar.gz
+curl -LO https://github.com/RobinR00T/elSereno/releases/download/v2.64.0/elsereno_2.64.0_darwin_amd64.tar.gz
 …
 ```
 

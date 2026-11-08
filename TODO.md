@@ -11,7 +11,7 @@ ideas list (PBX, Shodan paginación, IPv6, …) see
 
 ## Operator-pending (no coding involved)
 
-Status as of 2026-10-19 (latest tag `v2.63.2`, 2026-10-19; `git describe --tags` gives the commits since).
+Status as of 2026-11-08 (latest tag `v2.64.0`, 2026-11-08; `git describe --tags` gives the commits since).
 
 - [ ] **Revoke the bootstrap PAT**: 
   `https://github.com/settings/personal-access-tokens` +
@@ -81,8 +81,8 @@ identify, native Windows sandboxing, MITM routing, and the product
 decisions listed in `TODO-vNext.md` (Modbus constant score, notes that
 reach no output, the three orphan write-gates, and others).
 
-Releases are cut by the operator. The last tag is `v2.63.2`
-(2026-10-19), published by the CI release workflow: 45 assets,
+Releases are cut by the operator. The last tag is `v2.64.0`
+(2026-11-08), published by the CI release workflow: 45 assets,
 `checksums.txt` signed with cosign keyless, SLSA v1 provenance and a
 signed GHCR image. v2.63.0 (2026-10-18) was built locally without a
 signature (PITF-102) and v2.63.1 has no release (PITF-103). Before it the last

@@ -101,7 +101,7 @@ operadores), tarball (laptops / kiosks), contenedor OCI (CI /
 K8s). El binario **es estático sin dependencias**: no instala
 nada en `/usr/lib`.
 
-La última release de GitHub es **v2.63.2** (19-10-2026), publicada por
+La última release de GitHub es **v2.64.0** (08-11-2026), publicada por
 el workflow de CI: `checksums.txt` firmado con cosign keyless, SBOM
 CycloneDX, procedencia SLSA v1 e imagen en GHCR; el tag va firmado con
 GPG. v2.63.0 salió sin firma y v2.63.1 no tiene release. `releases/latest`
@@ -196,7 +196,7 @@ elsereno version
 ### 2.3 Docker / Kubernetes
 
 Desde v2.63.2 hay imagen pública y firmada (amd64 y arm64):
-`docker pull ghcr.io/robinr00t/elsereno:2.63.2` (las tags son la versión
+`docker pull ghcr.io/robinr00t/elsereno:2.64.0` (las tags son la versión
 sin `v` y `latest`; comprobado el 19-10-2026 con un pull anónimo, y se
 verifica con `cosign verify`, ver `INSTALL.md`). Versiones anteriores no
 tienen imagen. También se construye desde el repo; es distroless, corre como `nonroot` (uid 65532) y su comando por

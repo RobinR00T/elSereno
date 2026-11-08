@@ -1,6 +1,6 @@
 ---
-phase: v2.64.0 cycle closed 2026-11-08 (snapshot .context/snapshots/v2.64.0-ot-exposure-standards-pacing.md); tag pending the maintainer's GPG signature; v2.63.2 released by CI 2026-10-19 (cosign keyless, SLSA v1, public signed GHCR image)
-status: last tag v2.63.2 (2026-10-19); CHANGELOG [2.64.0] dated 2026-11-08, release built by the tag-push workflow once v2.64.0 is pushed; CI green on main (4480c8d)
+phase: v2.64.0 released by CI 2026-11-08 (cosign keyless, SLSA v1, public signed GHCR image; snapshot .context/snapshots/v2.64.0-ot-exposure-standards-pacing.md)
+status: last tag v2.64.0 (2026-11-08, GPG-signed, commit ec37f53), GitHub Release with 45 assets; cosign verify-blob, gh attestation verify, cosign verify of ghcr.io/robinr00t/elsereno:2.64.0 and anonymous pull all pass; install docs point at it
 last-updated: 2026-11-08
 token-budget: 320
 ---
